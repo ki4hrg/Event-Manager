@@ -13,7 +13,8 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build
+# Build with dummy DATABASE_URL (not used at build time, just needed for Prisma to initialize)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npm run build
 
 ENV NODE_ENV=production
