@@ -7,18 +7,22 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import { getEvent, updateEvent, deleteEvent } from "../actions";
 import { EventForm } from "../EventForm";
+import { getFunctions, duplicateFunction, deleteFunction } from "../functions/actions";
+import { FunctionList } from "../functions/FunctionList";
 
 export const dynamic = "force-dynamic";
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const event = await getEvent(id);
+  const [event, venues, functions] = await Promise.all([
+    getEvent(id),
+    prisma.venue.findMany({ orderBy: { name: "asc" } }),
+    getFunctions(id),
+  ]);
 
   if (!event) {
     notFound();
   }
-
-  const venues = await prisma.venue.findMany({ orderBy: { name: "asc" } });
 
   const updateEventWithId = async (formData: FormData) => {
     "use server";
@@ -28,6 +32,16 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const deleteEventAction = async () => {
     "use server";
     await deleteEvent(id);
+  };
+
+  const duplicateFunctionAction = async (functionId: string) => {
+    "use server";
+    await duplicateFunction(functionId, id);
+  };
+
+  const deleteFunctionAction = async (functionId: string) => {
+    "use server";
+    await deleteFunction(functionId, id);
   };
 
   return (
@@ -49,11 +63,27 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         </div>
         <DeleteButton
           action={deleteEventAction}
-          confirmMessage="Are you sure you want to delete this event?"
+          confirmMessage="Are you sure you want to delete this event? All functions will also be deleted."
         />
       </div>
 
-      <EventForm venues={venues} event={event} action={updateEventWithId} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Event Details
+          </h2>
+          <EventForm venues={venues} event={event} action={updateEventWithId} />
+        </div>
+
+        <div className="lg:col-span-2">
+          <FunctionList
+            functions={functions}
+            eventId={id}
+            duplicateFunction={duplicateFunctionAction}
+            deleteFunction={deleteFunctionAction}
+          />
+        </div>
+      </div>
     </PageWrapper>
   );
 }
