@@ -26,7 +26,7 @@ Not attendee-facing; for internal staff use only.
 - **Venue** - Physical location containing one or more rooms
 - **Room** - Individual bookable space within a venue
 - **Function** - Fundamental scheduling unit; represents a room setup/configuration for a time period
-- **Speaker** - Name, email, on-site phone number
+- **Contact** - Flexible contact model with roles (Speaker, Venue Contact, Vendor, Staff, Other)
 
 ### Function Subtypes
 - **Meal/BEO** - Catering function with banquet event order details
@@ -38,7 +38,8 @@ Not attendee-facing; for internal staff use only.
 - Function belongs to one or more Rooms (combined rooms supported)
 - Function has a fixed setup; if location moves, create new Function
 - Function can span multiple time slots (e.g., daily staff hospitality room)
-- Speakers are assigned to Functions (many-to-many)
+- Contacts are assigned to Functions (many-to-many) with role
+- Contacts can be linked to Venues (e.g., venue sales contact)
 - Meals, Breakouts, and Plenaries extend Function
 
 ### Future Entities (not MVP)

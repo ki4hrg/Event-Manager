@@ -25,10 +25,10 @@ export async function Header() {
               Venues
             </Link>
             <Link
-              href="/speakers"
+              href="/contacts"
               className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
-              Speakers
+              Contacts
             </Link>
           </nav>
         </div>

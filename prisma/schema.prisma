@@ -33,7 +33,7 @@ model Event {
 }
 
 model Venue {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   name      String
   address   String?
   city      String?
@@ -43,8 +43,9 @@ model Venue {
   notes     String?
   rooms     Room[]
   events    Event[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  contacts  VenueContact[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 }
 
 model Room {
@@ -59,15 +60,39 @@ model Room {
   updatedAt DateTime       @updatedAt
 }
 
-model Speaker {
-  id          String            @id @default(cuid())
-  name        String
-  email       String?
-  phone       String?
-  notes       String?
-  functions   FunctionSpeaker[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+// Flexible contact model with roles
+model Contact {
+  id             String            @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  organization   String?
+  notes          String?
+  roles          ContactRole[]     @default([])
+  functions      FunctionContact[]
+  venues         VenueContact[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+enum ContactRole {
+  SPEAKER
+  VENUE_CONTACT
+  VENDOR
+  STAFF
+  OTHER
+}
+
+// Junction table for Venue <-> Contact
+model VenueContact {
+  id        String  @id @default(cuid())
+  venueId   String
+  contactId String
+  role      String? // e.g., "Sales Manager", "Event Coordinator"
+  venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, contactId])
 }
 
 // Function is the core scheduling unit
@@ -83,7 +108,7 @@ model Function {
   eventId     String
   event       Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
   rooms       FunctionRoom[]
-  speakers    FunctionSpeaker[]
+  contacts    FunctionContact[]
   avNeeds     AVNeeds?
   beoDetails  BEODetails?
   createdAt   DateTime          @default(now())
@@ -111,16 +136,16 @@ model FunctionRoom {
   @@unique([functionId, roomId])
 }
 
-// Junction table for Function <-> Speaker (many-to-many)
-model FunctionSpeaker {
+// Junction table for Function <-> Contact (many-to-many)
+model FunctionContact {
   id         String   @id @default(cuid())
   functionId String
-  speakerId  String
+  contactId  String
   role       String?  // e.g., "Presenter", "Moderator", "Panelist"
   function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
-  speaker    Speaker  @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
-  @@unique([functionId, speakerId])
+  @@unique([functionId, contactId])
 }
 
 // AV Requirements for a function
@@ -140,13 +165,13 @@ model AVNeeds {
 
 // BEO (Banquet Event Order) details for meal functions
 model BEODetails {
-  id            String   @id @default(cuid())
-  functionId    String   @unique
-  function      Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  functionId     String   @unique
+  function       Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
   guaranteeCount Int?
-  tableSetup    String?
-  menuNotes     String?
-  dietaryNotes  String?
-  beverageNotes String?
-  notes         String?
+  tableSetup     String?
+  menuNotes      String?
+  dietaryNotes   String?
+  beverageNotes  String?
+  notes          String?
 }

@@ -20,9 +20,9 @@ export default function DashboardPage() {
           href="/venues"
         />
         <DashboardCard
-          title="Speakers"
-          description="Manage speaker profiles"
-          href="/speakers"
+          title="Contacts"
+          description="Manage speakers, vendors, and other contacts"
+          href="/contacts"
         />
         <DashboardCard
           title="Schedule"
