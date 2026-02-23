@@ -40,7 +40,7 @@ export async function createVenue(formData: FormData) {
   });
 
   revalidatePath("/venues");
-  redirect(`/venues/${venue.id}`);
+  redirect("/venues");
 }
 
 export async function updateVenue(id: string, formData: FormData) {

@@ -39,7 +39,7 @@ export async function createContact(formData: FormData) {
   });
 
   revalidatePath("/contacts");
-  redirect(`/contacts/${contact.id}`);
+  redirect("/contacts");
 }
 
 export async function updateContact(id: string, formData: FormData) {

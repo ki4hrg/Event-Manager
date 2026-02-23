@@ -82,3 +82,5 @@ docker compose up # Run full stack in containers
 - Colocate component-specific logic
 - Prefer server components; use 'use client' only when needed
 - API routes in /app/api following REST conventions
+- After creating a new record, redirect to list view (not detail view)
+- After updating a record, stay on detail view with success toast

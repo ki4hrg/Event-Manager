@@ -38,7 +38,7 @@ export async function createEvent(formData: FormData) {
   });
 
   revalidatePath("/events");
-  redirect(`/events/${event.id}`);
+  redirect("/events");
 }
 
 export async function updateEvent(id: string, formData: FormData) {
