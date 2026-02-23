@@ -9,15 +9,17 @@ import { getEvent, updateEvent, deleteEvent } from "../actions";
 import { EventForm } from "../EventForm";
 import { getFunctions, duplicateFunction, deleteFunction } from "../functions/actions";
 import { FunctionList } from "../functions/FunctionList";
+import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, venues, functions] = await Promise.all([
+  const [event, venues, functions, functionTypes] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
     getFunctions(id),
+    getOptions("function_type"),
   ]);
 
   if (!event) {
@@ -79,6 +81,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           <FunctionList
             functions={functions}
             eventId={id}
+            functionTypes={functionTypes}
             duplicateFunction={duplicateFunctionAction}
             deleteFunction={deleteFunctionAction}
           />

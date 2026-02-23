@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { Function, Room, AVNeeds, BEODetails, FunctionRoom, FunctionType } from "@prisma/client";
+import type { Function, Room, AVNeeds, BEODetails, FunctionRoom, CustomOption } from "@prisma/client";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
@@ -14,6 +14,8 @@ type FunctionFormProps = {
   fn?: FunctionWithRelations;
   rooms: Room[];
   eventId: string;
+  functionTypes: CustomOption[];
+  avEquipment: CustomOption[];
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -31,16 +33,14 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-const functionTypes = [
-  { value: "GENERAL", label: "General" },
-  { value: "MEAL", label: "Meal / BEO" },
-  { value: "BREAKOUT", label: "Breakout Session" },
-  { value: "PLENARY", label: "Plenary Session" },
-];
-
-export function FunctionForm({ fn, rooms, eventId, action }: FunctionFormProps) {
+export function FunctionForm({ fn, rooms, eventId, functionTypes, avEquipment, action }: FunctionFormProps) {
   const isEdit = !!fn;
-  const [selectedType, setSelectedType] = useState<FunctionType>(fn?.type || "GENERAL");
+  const [selectedType, setSelectedType] = useState(fn?.type || functionTypes[0]?.value || "");
+
+  // Find the type that shows BEO details (check for "meal" in label or value)
+  const mealTypeValues = functionTypes
+    .filter((t) => t.label.toLowerCase().includes("meal") || t.value.toLowerCase().includes("meal"))
+    .map((t) => t.value);
 
   const formatDateForInput = (date: Date) => {
     return new Date(date).toISOString().split("T")[0];
@@ -54,6 +54,7 @@ export function FunctionForm({ fn, rooms, eventId, action }: FunctionFormProps) 
   };
 
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
+  const selectedEquipment = fn?.avNeeds?.equipment || [];
 
   return (
     <form action={action} className="space-y-6 max-w-2xl">
@@ -86,22 +87,31 @@ export function FunctionForm({ fn, rooms, eventId, action }: FunctionFormProps) 
               htmlFor="type"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Type *
+              Type
             </label>
-            <select
-              id="type"
-              name="type"
-              required
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value as FunctionType)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {functionTypes.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+            {functionTypes.length === 0 ? (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                No function types defined.{" "}
+                <a href="/settings" className="text-blue-600 hover:underline">
+                  Add types in Settings
+                </a>
+              </p>
+            ) : (
+              <select
+                id="type"
+                name="type"
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select type...</option>
+                {functionTypes.map((t) => (
+                  <option key={t.id} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
@@ -237,27 +247,29 @@ export function FunctionForm({ fn, rooms, eventId, action }: FunctionFormProps) 
           AV Requirements
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          {[
-            { name: "projector", label: "Projector" },
-            { name: "screen", label: "Screen" },
-            { name: "microphone", label: "Microphone" },
-            { name: "podium", label: "Podium" },
-            { name: "webcast", label: "Webcast" },
-            { name: "recording", label: "Recording" },
-            { name: "videoPlayback", label: "Video Playback" },
-          ].map((item) => (
-            <label key={item.name} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                name={`av_${item.name}`}
-                defaultChecked={fn?.avNeeds?.[item.name as keyof AVNeeds] === true}
-                className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-gray-900 dark:text-white">{item.label}</span>
-            </label>
-          ))}
-        </div>
+        {avEquipment.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            No AV equipment options defined.{" "}
+            <a href="/settings" className="text-blue-600 hover:underline">
+              Add equipment in Settings
+            </a>
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            {avEquipment.map((item) => (
+              <label key={item.id} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  name="equipment"
+                  value={item.value}
+                  defaultChecked={selectedEquipment.includes(item.value)}
+                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-gray-900 dark:text-white">{item.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
 
         <div>
           <label
@@ -277,8 +289,8 @@ export function FunctionForm({ fn, rooms, eventId, action }: FunctionFormProps) 
         </div>
       </div>
 
-      {/* BEO Details (only for MEAL type) */}
-      {selectedType === "MEAL" && (
+      {/* BEO Details (only for meal-type functions) */}
+      {mealTypeValues.includes(selectedType) && (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
             Banquet Event Order (BEO) Details

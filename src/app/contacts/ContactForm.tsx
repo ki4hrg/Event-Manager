@@ -1,20 +1,13 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import type { Contact, ContactRole } from "@prisma/client";
+import type { Contact, CustomOption } from "@prisma/client";
 
 type ContactFormProps = {
   contact?: Contact;
+  contactRoles: CustomOption[];
   action: (formData: FormData) => Promise<void>;
 };
-
-const roleOptions: { value: ContactRole; label: string }[] = [
-  { value: "SPEAKER", label: "Speaker" },
-  { value: "VENUE_CONTACT", label: "Venue Contact" },
-  { value: "VENDOR", label: "Vendor" },
-  { value: "STAFF", label: "Staff" },
-  { value: "OTHER", label: "Other" },
-];
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
@@ -30,7 +23,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function ContactForm({ contact, action }: ContactFormProps) {
+export function ContactForm({ contact, contactRoles, action }: ContactFormProps) {
   const isEdit = !!contact;
 
   return (
@@ -125,22 +118,31 @@ export function ContactForm({ contact, action }: ContactFormProps) {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Roles
         </label>
-        <div className="flex flex-wrap gap-4">
-          {roleOptions.map((option) => (
-            <label key={option.value} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="roles"
-                value={option.value}
-                defaultChecked={contact?.roles.includes(option.value)}
-                className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                {option.label}
-              </span>
-            </label>
-          ))}
-        </div>
+        {contactRoles.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            No roles defined.{" "}
+            <a href="/settings" className="text-blue-600 hover:underline">
+              Add roles in Settings
+            </a>
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-4">
+            {contactRoles.map((option) => (
+              <label key={option.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="roles"
+                  value={option.value}
+                  defaultChecked={contact?.roles.includes(option.value)}
+                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {option.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>

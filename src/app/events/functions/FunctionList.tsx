@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { Function, FunctionRoom, Room } from "@prisma/client";
+import type { Function, FunctionRoom, Room, CustomOption } from "@prisma/client";
 
 type FunctionWithRooms = Function & {
   rooms: (FunctionRoom & { room: Room })[];
@@ -10,22 +10,20 @@ type FunctionWithRooms = Function & {
 type FunctionListProps = {
   functions: FunctionWithRooms[];
   eventId: string;
+  functionTypes: CustomOption[];
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
 };
 
-const typeLabels: Record<string, string> = {
-  GENERAL: "General",
-  MEAL: "Meal",
-  BREAKOUT: "Breakout",
-  PLENARY: "Plenary",
-};
-
-const typeColors: Record<string, string> = {
-  GENERAL: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
-  MEAL: "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300",
-  BREAKOUT: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300",
-  PLENARY: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300",
+const colorClasses: Record<string, string> = {
+  gray: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
+  red: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300",
+  orange: "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300",
+  yellow: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300",
+  green: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300",
+  blue: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300",
+  purple: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300",
+  pink: "bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300",
 };
 
 function formatTime(date: Date): string {
@@ -60,8 +58,12 @@ function groupByDate(functions: FunctionWithRooms[]): Map<string, FunctionWithRo
   return groups;
 }
 
-export function FunctionList({ functions, eventId, duplicateFunction, deleteFunction }: FunctionListProps) {
+export function FunctionList({ functions, eventId, functionTypes, duplicateFunction, deleteFunction }: FunctionListProps) {
   const groupedFunctions = groupByDate(functions);
+
+  // Create lookup maps for type labels and colors
+  const typeLabels = new Map(functionTypes.map((t) => [t.value, t.label]));
+  const typeColors = new Map(functionTypes.map((t) => [t.value, t.color || "gray"]));
 
   return (
     <div>
@@ -110,11 +112,15 @@ export function FunctionList({ functions, eventId, duplicateFunction, deleteFunc
                             >
                               {fn.name}
                             </Link>
-                            <span
-                              className={`px-2 py-0.5 text-xs rounded ${typeColors[fn.type]}`}
-                            >
-                              {typeLabels[fn.type]}
-                            </span>
+                            {fn.type && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded ${
+                                  colorClasses[typeColors.get(fn.type) || "gray"] || colorClasses.gray
+                                }`}
+                              >
+                                {typeLabels.get(fn.type) || fn.type}
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-gray-600 dark:text-gray-400">
                             {formatTime(fn.startTime)} - {formatTime(fn.endTime)}

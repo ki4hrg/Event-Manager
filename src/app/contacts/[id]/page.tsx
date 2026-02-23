@@ -6,12 +6,16 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import { getContact, updateContact, deleteContact } from "../actions";
 import { ContactForm } from "../ContactForm";
+import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const contact = await getContact(id);
+  const [contact, contactRoles] = await Promise.all([
+    getContact(id),
+    getOptions("contact_role"),
+  ]);
 
   if (!contact) {
     notFound();
@@ -50,7 +54,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         />
       </div>
 
-      <ContactForm contact={contact} action={updateContactWithId} />
+      <ContactForm contact={contact} contactRoles={contactRoles} action={updateContactWithId} />
     </PageWrapper>
   );
 }

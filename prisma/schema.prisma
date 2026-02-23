@@ -17,6 +17,21 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+// Customizable options for dropdowns
+model CustomOption {
+  id        String   @id @default(cuid())
+  category  String   // "function_type", "contact_role", "av_equipment"
+  value     String   // The stored value (e.g., "MEAL", "SPEAKER")
+  label     String   // The display label (e.g., "Meal / BEO", "Speaker")
+  color     String?  // Optional color for badges (e.g., "orange", "blue")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, value])
+  @@index([category])
+}
+
 // Core entities
 model Event {
   id          String     @id @default(cuid())
@@ -62,26 +77,18 @@ model Room {
 
 // Flexible contact model with roles
 model Contact {
-  id             String            @id @default(cuid())
-  firstName      String
-  lastName       String
-  email          String?
-  phone          String?
-  organization   String?
-  notes          String?
-  roles          ContactRole[]     @default([])
-  functions      FunctionContact[]
-  venues         VenueContact[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-}
-
-enum ContactRole {
-  SPEAKER
-  VENUE_CONTACT
-  VENDOR
-  STAFF
-  OTHER
+  id           String            @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String?
+  organization String?
+  notes        String?
+  roles        String[]          @default([])
+  functions    FunctionContact[]
+  venues       VenueContact[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 }
 
 // Junction table for Venue <-> Contact
@@ -101,7 +108,7 @@ model Function {
   id          String            @id @default(cuid())
   name        String
   description String?
-  type        FunctionType      @default(GENERAL)
+  type        String            @default("")
   date        DateTime          @db.Date
   startTime   DateTime          @db.Time()
   endTime     DateTime          @db.Time()
@@ -117,13 +124,6 @@ model Function {
 
   @@index([eventId])
   @@index([date])
-}
-
-enum FunctionType {
-  GENERAL
-  MEAL
-  BREAKOUT
-  PLENARY
 }
 
 // Junction table for Function <-> Room (many-to-many)
@@ -142,7 +142,7 @@ model FunctionContact {
   id         String   @id @default(cuid())
   functionId String
   contactId  String
-  role       String?  // e.g., "Presenter", "Moderator", "Panelist"
+  role       String? // e.g., "Presenter", "Moderator", "Panelist"
   function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
   contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -151,17 +151,11 @@ model FunctionContact {
 
 // AV Requirements for a function
 model AVNeeds {
-  id            String   @id @default(cuid())
-  functionId    String   @unique
-  function      Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
-  projector     Boolean  @default(false)
-  screen        Boolean  @default(false)
-  microphone    Boolean  @default(false)
-  podium        Boolean  @default(false)
-  webcast       Boolean  @default(false)
-  recording     Boolean  @default(false)
-  videoPlayback Boolean  @default(false)
-  notes         String?
+  id         String   @id @default(cuid())
+  functionId String   @unique
+  function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  equipment  String[] @default([])
+  notes      String?
 }
 
 // BEO (Banquet Event Order) details for meal functions

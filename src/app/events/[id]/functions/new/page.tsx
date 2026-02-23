@@ -5,6 +5,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { createFunction } from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
+import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,11 @@ export default async function NewFunctionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const event = await getEvent(eventId);
+  const [event, functionTypes, avEquipment] = await Promise.all([
+    getEvent(eventId),
+    getOptions("function_type"),
+    getOptions("av_equipment"),
+  ]);
 
   if (!event) {
     notFound();
@@ -60,6 +65,8 @@ export default async function NewFunctionPage({
       <FunctionForm
         rooms={rooms}
         eventId={eventId}
+        functionTypes={functionTypes}
+        avEquipment={avEquipment}
         action={createFunctionWithEventId}
       />
     </PageWrapper>

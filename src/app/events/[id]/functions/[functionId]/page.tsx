@@ -8,6 +8,7 @@ import { Toast } from "@/components/Toast";
 import { getEvent } from "../../../actions";
 import { getFunction, updateFunction, deleteFunction, duplicateFunction } from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
+import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +18,11 @@ export default async function FunctionPage({
   params: Promise<{ id: string; functionId: string }>;
 }) {
   const { id: eventId, functionId } = await params;
-  const [event, fn] = await Promise.all([
+  const [event, fn, functionTypes, avEquipment] = await Promise.all([
     getEvent(eventId),
     getFunction(functionId),
+    getOptions("function_type"),
+    getOptions("av_equipment"),
   ]);
 
   if (!event || !fn) {
@@ -86,6 +89,8 @@ export default async function FunctionPage({
         fn={fn}
         rooms={rooms}
         eventId={eventId}
+        functionTypes={functionTypes}
+        avEquipment={avEquipment}
         action={updateFunctionAction}
       />
     </PageWrapper>

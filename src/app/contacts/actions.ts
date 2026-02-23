@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { ContactRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -24,7 +23,7 @@ export async function createContact(formData: FormData) {
   const phone = formData.get("phone") as string;
   const organization = formData.get("organization") as string;
   const notes = formData.get("notes") as string;
-  const roles = formData.getAll("roles") as ContactRole[];
+  const roles = formData.getAll("roles") as string[];
 
   const contact = await prisma.contact.create({
     data: {
@@ -49,7 +48,7 @@ export async function updateContact(id: string, formData: FormData) {
   const phone = formData.get("phone") as string;
   const organization = formData.get("organization") as string;
   const notes = formData.get("notes") as string;
-  const roles = formData.getAll("roles") as ContactRole[];
+  const roles = formData.getAll("roles") as string[];
 
   await prisma.contact.update({
     where: { id },

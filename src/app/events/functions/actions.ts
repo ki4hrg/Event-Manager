@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { FunctionType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -29,7 +28,7 @@ export async function getFunction(id: string) {
 export async function createFunction(eventId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
-  const type = formData.get("type") as FunctionType;
+  const type = formData.get("type") as string;
   const date = formData.get("date") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -41,7 +40,7 @@ export async function createFunction(eventId: string, formData: FormData) {
     data: {
       name,
       description: description || null,
-      type,
+      type: type || "",
       date: new Date(date),
       startTime: new Date(`1970-01-01T${startTime}`),
       endTime: new Date(`1970-01-01T${endTime}`),
@@ -54,28 +53,22 @@ export async function createFunction(eventId: string, formData: FormData) {
   });
 
   // Handle AV needs
-  const avFields = ["projector", "screen", "microphone", "podium", "webcast", "recording", "videoPlayback"];
-  const hasAv = avFields.some((field) => formData.get(`av_${field}`) === "on");
+  const equipment = formData.getAll("equipment") as string[];
   const avNotes = formData.get("av_notes") as string;
 
-  if (hasAv || avNotes) {
+  if (equipment.length > 0 || avNotes) {
     await prisma.aVNeeds.create({
       data: {
         functionId: fn.id,
-        projector: formData.get("av_projector") === "on",
-        screen: formData.get("av_screen") === "on",
-        microphone: formData.get("av_microphone") === "on",
-        podium: formData.get("av_podium") === "on",
-        webcast: formData.get("av_webcast") === "on",
-        recording: formData.get("av_recording") === "on",
-        videoPlayback: formData.get("av_videoPlayback") === "on",
+        equipment,
         notes: avNotes || null,
       },
     });
   }
 
-  // Handle BEO details for meal type
-  if (type === "MEAL") {
+  // Handle BEO details (check if type contains "meal")
+  const isMealType = type.toLowerCase().includes("meal");
+  if (isMealType) {
     const guaranteeCount = formData.get("beo_guaranteeCount") as string;
     const tableSetup = formData.get("beo_tableSetup") as string;
     const menuNotes = formData.get("beo_menuNotes") as string;
@@ -105,7 +98,7 @@ export async function createFunction(eventId: string, formData: FormData) {
 export async function updateFunction(id: string, eventId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
-  const type = formData.get("type") as FunctionType;
+  const type = formData.get("type") as string;
   const date = formData.get("date") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -118,7 +111,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
     data: {
       name,
       description: description || null,
-      type,
+      type: type || "",
       date: new Date(date),
       startTime: new Date(`1970-01-01T${startTime}`),
       endTime: new Date(`1970-01-01T${endTime}`),
@@ -135,30 +128,24 @@ export async function updateFunction(id: string, eventId: string, formData: Form
   }
 
   // Handle AV needs
-  const avFields = ["projector", "screen", "microphone", "podium", "webcast", "recording", "videoPlayback"];
-  const hasAv = avFields.some((field) => formData.get(`av_${field}`) === "on");
+  const equipment = formData.getAll("equipment") as string[];
   const avNotes = formData.get("av_notes") as string;
 
   await prisma.aVNeeds.deleteMany({ where: { functionId: id } });
-  if (hasAv || avNotes) {
+  if (equipment.length > 0 || avNotes) {
     await prisma.aVNeeds.create({
       data: {
         functionId: id,
-        projector: formData.get("av_projector") === "on",
-        screen: formData.get("av_screen") === "on",
-        microphone: formData.get("av_microphone") === "on",
-        podium: formData.get("av_podium") === "on",
-        webcast: formData.get("av_webcast") === "on",
-        recording: formData.get("av_recording") === "on",
-        videoPlayback: formData.get("av_videoPlayback") === "on",
+        equipment,
         notes: avNotes || null,
       },
     });
   }
 
-  // Handle BEO details for meal type
+  // Handle BEO details
+  const isMealType = type.toLowerCase().includes("meal");
   await prisma.bEODetails.deleteMany({ where: { functionId: id } });
-  if (type === "MEAL") {
+  if (isMealType) {
     const guaranteeCount = formData.get("beo_guaranteeCount") as string;
     const tableSetup = formData.get("beo_tableSetup") as string;
     const menuNotes = formData.get("beo_menuNotes") as string;
@@ -228,13 +215,7 @@ export async function duplicateFunction(id: string, eventId: string) {
     await prisma.aVNeeds.create({
       data: {
         functionId: duplicate.id,
-        projector: original.avNeeds.projector,
-        screen: original.avNeeds.screen,
-        microphone: original.avNeeds.microphone,
-        podium: original.avNeeds.podium,
-        webcast: original.avNeeds.webcast,
-        recording: original.avNeeds.recording,
-        videoPlayback: original.avNeeds.videoPlayback,
+        equipment: original.avNeeds.equipment,
         notes: original.avNeeds.notes,
       },
     });

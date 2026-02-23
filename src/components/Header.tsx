@@ -30,6 +30,12 @@ export async function Header() {
             >
               Contacts
             </Link>
+            <Link
+              href="/settings"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+              Settings
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">
