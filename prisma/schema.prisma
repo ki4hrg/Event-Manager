@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Authentication
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Core entities
+model Event {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  timezone    String     @default("America/New_York")
+  venueId     String?
+  venue       Venue?     @relation(fields: [venueId], references: [id])
+  functions   Function[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Venue {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String?
+  notes     String?
+  rooms     Room[]
+  events    Event[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Room {
+  id        String         @id @default(cuid())
+  name      String
+  capacity  Int?
+  notes     String?
+  venueId   String
+  venue     Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  functions FunctionRoom[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model Speaker {
+  id          String            @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  notes       String?
+  functions   FunctionSpeaker[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+// Function is the core scheduling unit
+model Function {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  type        FunctionType      @default(GENERAL)
+  date        DateTime          @db.Date
+  startTime   DateTime          @db.Time()
+  endTime     DateTime          @db.Time()
+  setupNotes  String?
+  eventId     String
+  event       Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rooms       FunctionRoom[]
+  speakers    FunctionSpeaker[]
+  avNeeds     AVNeeds?
+  beoDetails  BEODetails?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([eventId])
+  @@index([date])
+}
+
+enum FunctionType {
+  GENERAL
+  MEAL
+  BREAKOUT
+  PLENARY
+}
+
+// Junction table for Function <-> Room (many-to-many)
+model FunctionRoom {
+  id         String   @id @default(cuid())
+  functionId String
+  roomId     String
+  function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([functionId, roomId])
+}
+
+// Junction table for Function <-> Speaker (many-to-many)
+model FunctionSpeaker {
+  id         String   @id @default(cuid())
+  functionId String
+  speakerId  String
+  role       String?  // e.g., "Presenter", "Moderator", "Panelist"
+  function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  speaker    Speaker  @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+
+  @@unique([functionId, speakerId])
+}
+
+// AV Requirements for a function
+model AVNeeds {
+  id            String   @id @default(cuid())
+  functionId    String   @unique
+  function      Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  projector     Boolean  @default(false)
+  screen        Boolean  @default(false)
+  microphone    Boolean  @default(false)
+  podium        Boolean  @default(false)
+  webcast       Boolean  @default(false)
+  recording     Boolean  @default(false)
+  videoPlayback Boolean  @default(false)
+  notes         String?
+}
+
+// BEO (Banquet Event Order) details for meal functions
+model BEODetails {
+  id            String   @id @default(cuid())
+  functionId    String   @unique
+  function      Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  guaranteeCount Int?
+  tableSetup    String?
+  menuNotes     String?
+  dietaryNotes  String?
+  beverageNotes String?
+  notes         String?
+}
