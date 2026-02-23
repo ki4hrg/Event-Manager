@@ -25,6 +25,8 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/event_manager?schema=public
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-this-to-a-secure-random-string}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
+      NEXTAUTH_TRUST_HOST: "true"
       PORT: ${PORT:-3000}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
