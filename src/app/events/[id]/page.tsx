@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
+import { DeleteButton } from "@/components/DeleteButton";
 import { getEvent, updateEvent, deleteEvent } from "../actions";
 import { EventForm } from "../EventForm";
 
@@ -41,19 +42,10 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             {event.name}
           </h1>
         </div>
-        <form action={deleteEventAction}>
-          <button
-            type="submit"
-            className="px-4 py-2 text-red-600 border border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
-            onClick={(e) => {
-              if (!confirm("Are you sure you want to delete this event?")) {
-                e.preventDefault();
-              }
-            }}
-          >
-            Delete
-          </button>
-        </form>
+        <DeleteButton
+          action={deleteEventAction}
+          confirmMessage="Are you sure you want to delete this event?"
+        />
       </div>
 
       <EventForm venues={venues} event={event} action={updateEventWithId} />
