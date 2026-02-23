@@ -66,15 +66,24 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
         />
       </div>
 
-      <VenueForm venue={venue} action={updateVenueWithId} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Venue Details
+          </h2>
+          <VenueForm venue={venue} action={updateVenueWithId} />
+        </div>
 
-      <RoomList
-        rooms={venue.rooms}
-        venueId={id}
-        createRoom={createRoomAction}
-        updateRoom={updateRoomAction}
-        deleteRoom={deleteRoomAction}
-      />
+        <div>
+          <RoomList
+            rooms={venue.rooms}
+            venueId={id}
+            createRoom={createRoomAction}
+            updateRoom={updateRoomAction}
+            deleteRoom={deleteRoomAction}
+          />
+        </div>
+      </div>
     </PageWrapper>
   );
 }

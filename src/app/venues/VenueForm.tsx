@@ -26,7 +26,7 @@ export function VenueForm({ venue, action }: VenueFormProps) {
   const isEdit = !!venue;
 
   return (
-    <form action={action} className="space-y-6 max-w-2xl">
+    <form action={action} className="space-y-6">
       <div>
         <label
           htmlFor="name"

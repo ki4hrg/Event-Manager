@@ -30,9 +30,9 @@ export function RoomList({ rooms, venueId, createRoom, updateRoom, deleteRoom }:
   const [showAddForm, setShowAddForm] = useState(false);
 
   return (
-    <div className="mt-8">
+    <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Rooms</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Rooms</h2>
         <button
           onClick={() => setShowAddForm(true)}
           className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
