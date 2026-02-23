@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { DeleteButton } from "@/components/DeleteButton";
+import { Toast } from "@/components/Toast";
 import { getEvent, updateEvent, deleteEvent } from "../actions";
 import { EventForm } from "../EventForm";
 
@@ -30,6 +32,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
   return (
     <PageWrapper>
+      <Suspense fallback={null}>
+        <Toast />
+      </Suspense>
       <div className="flex justify-between items-center mb-6">
         <div>
           <Link

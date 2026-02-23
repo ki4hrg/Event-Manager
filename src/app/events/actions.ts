@@ -63,7 +63,7 @@ export async function updateEvent(id: string, formData: FormData) {
 
   revalidatePath("/events");
   revalidatePath(`/events/${id}`);
-  redirect(`/events/${id}`);
+  redirect(`/events/${id}?success=Event updated`);
 }
 
 export async function deleteEvent(id: string) {
