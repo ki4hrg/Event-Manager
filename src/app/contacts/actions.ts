@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 
 export async function getContacts() {
   return prisma.contact.findMany({
-    orderBy: { name: "asc" },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 }
 
@@ -18,7 +18,8 @@ export async function getContact(id: string) {
 }
 
 export async function createContact(formData: FormData) {
-  const name = formData.get("name") as string;
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
   const phone = formData.get("phone") as string;
   const organization = formData.get("organization") as string;
@@ -27,7 +28,8 @@ export async function createContact(formData: FormData) {
 
   const contact = await prisma.contact.create({
     data: {
-      name,
+      firstName,
+      lastName,
       email: email || null,
       phone: phone || null,
       organization: organization || null,
@@ -41,7 +43,8 @@ export async function createContact(formData: FormData) {
 }
 
 export async function updateContact(id: string, formData: FormData) {
-  const name = formData.get("name") as string;
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
   const phone = formData.get("phone") as string;
   const organization = formData.get("organization") as string;
@@ -51,7 +54,8 @@ export async function updateContact(id: string, formData: FormData) {
   await prisma.contact.update({
     where: { id },
     data: {
-      name,
+      firstName,
+      lastName,
       email: email || null,
       phone: phone || null,
       organization: organization || null,

@@ -41,7 +41,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
             ← Back to Contacts
           </Link>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {contact.name}
+            {contact.firstName} {contact.lastName}
           </h1>
         </div>
         <DeleteButton

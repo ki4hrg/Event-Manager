@@ -63,7 +63,8 @@ model Room {
 // Flexible contact model with roles
 model Contact {
   id             String            @id @default(cuid())
-  name           String
+  firstName      String
+  lastName       String
   email          String?
   phone          String?
   organization   String?

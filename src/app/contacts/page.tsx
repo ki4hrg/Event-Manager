@@ -63,7 +63,7 @@ export default async function ContactsPage() {
                       href={`/contacts/${contact.id}`}
                       className="text-blue-600 hover:underline font-medium"
                     >
-                      {contact.name}
+                      {contact.lastName}, {contact.firstName}
                     </Link>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
