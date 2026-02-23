@@ -24,7 +24,7 @@ model Event {
   description String?
   startDate   DateTime
   endDate     DateTime
-  timezone    String     @default("America/New_York")
+  timezone    String     @default("America/Chicago")
   venueId     String?
   venue       Venue?     @relation(fields: [venueId], references: [id])
   functions   Function[]

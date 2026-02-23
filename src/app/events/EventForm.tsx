@@ -111,7 +111,7 @@ export function EventForm({ event, venues, action }: EventFormProps) {
         <select
           id="timezone"
           name="timezone"
-          defaultValue={event?.timezone || "America/New_York"}
+          defaultValue={event?.timezone || "America/Chicago"}
           className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="America/New_York">Eastern Time</option>

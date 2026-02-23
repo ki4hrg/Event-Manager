@@ -32,7 +32,7 @@ export async function createEvent(formData: FormData) {
       description: description || null,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
-      timezone: timezone || "America/New_York",
+      timezone: timezone || "America/Chicago",
       venueId: venueId || null,
     },
   });
@@ -56,7 +56,7 @@ export async function updateEvent(id: string, formData: FormData) {
       description: description || null,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
-      timezone: timezone || "America/New_York",
+      timezone: timezone || "America/Chicago",
       venueId: venueId || null,
     },
   });
