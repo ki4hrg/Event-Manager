@@ -24,4 +24,4 @@ ENV HOSTNAME="0.0.0.0"
 EXPOSE ${PORT}
 
 # Run migrations, seed, then start
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node prisma/seed.mjs && npm run start"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node prisma/seed.mjs && npm run start"]
