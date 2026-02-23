@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
     Credentials({
       name: "credentials",
@@ -48,6 +49,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user;
+      const isOnLoginPage = nextUrl.pathname === "/login";
+      const isAuthRoute = nextUrl.pathname.startsWith("/api/auth");
+
+      if (isAuthRoute) return true;
+      if (isOnLoginPage) return true;
+
+      return isLoggedIn;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
