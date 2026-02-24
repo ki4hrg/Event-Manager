@@ -4,6 +4,54 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+/**
+ * Parse a datetime-local input value (YYYY-MM-DDTHH:MM) as if it's in the given timezone
+ * and return a UTC Date object.
+ */
+function parseDateTimeInTimezone(dateTimeLocal: string, timezone: string): Date {
+  // Parse the input components
+  const [datePart, timePart] = dateTimeLocal.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+
+  // Start with a guess - treat the input as UTC
+  let guess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+
+  // Formatter to check what our guess looks like in the target timezone
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  // Iterate to converge (handles DST edge cases)
+  for (let i = 0; i < 3; i++) {
+    const formatted = formatter.format(guess);
+    // formatted is like "2024-03-15, 03:00" - parse it
+    const parts = formatted.replace(/, /, "T").split(/[-T:]/);
+    const guessYear = parseInt(parts[0]);
+    const guessMonth = parseInt(parts[1]);
+    const guessDay = parseInt(parts[2]);
+    const guessHour = parseInt(parts[3]);
+    const guessMinute = parseInt(parts[4]);
+
+    // Calculate difference between what we want and what we got
+    const targetMs = Date.UTC(year, month - 1, day, hour, minute);
+    const guessLocalMs = Date.UTC(guessYear, guessMonth - 1, guessDay, guessHour, guessMinute);
+    const diffMs = targetMs - guessLocalMs;
+
+    if (diffMs === 0) break;
+
+    guess = new Date(guess.getTime() + diffMs);
+  }
+
+  return guess;
+}
+
 export async function getFunctions(eventId: string) {
   return prisma.function.findMany({
     where: { eventId },
@@ -249,6 +297,13 @@ export async function createSchedule(functionId: string, eventId: string, formDa
   const endTime = formData.get("endTime") as string;
   const notes = formData.get("notes") as string;
 
+  // Get event timezone
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { timezone: true },
+  });
+  const timezone = event?.timezone || "America/Chicago";
+
   // Get max sortOrder
   const maxOrder = await prisma.functionSchedule.findFirst({
     where: { functionId },
@@ -260,8 +315,8 @@ export async function createSchedule(functionId: string, eventId: string, formDa
     data: {
       functionId,
       type,
-      startTime: new Date(startTime),
-      endTime: new Date(endTime),
+      startTime: parseDateTimeInTimezone(startTime, timezone),
+      endTime: parseDateTimeInTimezone(endTime, timezone),
       notes: notes || null,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
@@ -276,12 +331,19 @@ export async function updateSchedule(scheduleId: string, functionId: string, eve
   const endTime = formData.get("endTime") as string;
   const notes = formData.get("notes") as string;
 
+  // Get event timezone
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { timezone: true },
+  });
+  const timezone = event?.timezone || "America/Chicago";
+
   await prisma.functionSchedule.update({
     where: { id: scheduleId },
     data: {
       type,
-      startTime: new Date(startTime),
-      endTime: new Date(endTime),
+      startTime: parseDateTimeInTimezone(startTime, timezone),
+      endTime: parseDateTimeInTimezone(endTime, timezone),
       notes: notes || null,
     },
   });
