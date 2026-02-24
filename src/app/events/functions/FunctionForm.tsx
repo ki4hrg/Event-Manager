@@ -42,17 +42,6 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, avEquipment, a
     .filter((t) => t.label.toLowerCase().includes("meal") || t.value.toLowerCase().includes("meal"))
     .map((t) => t.value);
 
-  const formatDateForInput = (date: Date) => {
-    return new Date(date).toISOString().split("T")[0];
-  };
-
-  const formatTimeForInput = (date: Date) => {
-    const d = new Date(date);
-    const hours = d.getUTCHours().toString().padStart(2, "0");
-    const minutes = d.getUTCMinutes().toString().padStart(2, "0");
-    return `${hours}:${minutes}`;
-  };
-
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
   const selectedEquipment = fn?.avNeeds?.equipment || [];
 
@@ -126,66 +115,6 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, avEquipment, a
               name="description"
               rows={2}
               defaultValue={fn?.description || ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Schedule */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Schedule
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label
-              htmlFor="date"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Date *
-            </label>
-            <input
-              type="date"
-              id="date"
-              name="date"
-              required
-              defaultValue={fn ? formatDateForInput(fn.date) : ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="startTime"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Start Time *
-            </label>
-            <input
-              type="time"
-              id="startTime"
-              name="startTime"
-              required
-              defaultValue={fn ? formatTimeForInput(fn.startTime) : ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="endTime"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              End Time *
-            </label>
-            <input
-              type="time"
-              id="endTime"
-              name="endTime"
-              required
-              defaultValue={fn ? formatTimeForInput(fn.endTime) : ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

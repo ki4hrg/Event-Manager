@@ -22,6 +22,11 @@ export default async function SettingsPage() {
     await createOption("av_equipment", formData);
   };
 
+  const createScheduleType = async (formData: FormData) => {
+    "use server";
+    await createOption("schedule_type", formData);
+  };
+
   const updateOptionAction = async (id: string, formData: FormData) => {
     "use server";
     await updateOption(id, formData);
@@ -73,6 +78,17 @@ export default async function SettingsPage() {
           options={options.av_equipment}
           showColor={false}
           createOption={createAvEquipment}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+        />
+
+        <OptionList
+          title="Schedule Types"
+          description="Types of schedule items for functions (e.g., Setup, Rehearsal, Main Event)"
+          category="schedule_type"
+          options={options.schedule_type}
+          showColor={true}
+          createOption={createScheduleType}
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
         />

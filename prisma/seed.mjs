@@ -28,6 +28,13 @@ const defaultAVEquipment = [
   { value: "VIDEO_PLAYBACK", label: "Video Playback", sortOrder: 6 },
 ];
 
+const defaultScheduleTypes = [
+  { value: "SETUP", label: "Setup", color: "yellow", sortOrder: 0 },
+  { value: "REHEARSAL", label: "Rehearsal", color: "blue", sortOrder: 1 },
+  { value: "MAIN", label: "Main Event", color: "green", sortOrder: 2 },
+  { value: "BREAKDOWN", label: "Breakdown", color: "orange", sortOrder: 3 },
+];
+
 async function seedUsers() {
   const userCount = await prisma.user.count();
 
@@ -82,6 +89,14 @@ async function seedOptions() {
     });
   }
   console.log(`Created ${defaultAVEquipment.length} AV equipment options`);
+
+  // Seed schedule types
+  for (const option of defaultScheduleTypes) {
+    await prisma.customOption.create({
+      data: { category: "schedule_type", ...option },
+    });
+  }
+  console.log(`Created ${defaultScheduleTypes.length} schedule types`);
 }
 
 async function main() {

@@ -6,8 +6,17 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "../../../actions";
-import { getFunction, updateFunction, deleteFunction, duplicateFunction } from "../../../functions/actions";
+import {
+  getFunction,
+  updateFunction,
+  deleteFunction,
+  duplicateFunction,
+  createSchedule,
+  updateSchedule,
+  deleteSchedule,
+} from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
+import { ScheduleList } from "../../../functions/ScheduleList";
 import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +27,12 @@ export default async function FunctionPage({
   params: Promise<{ id: string; functionId: string }>;
 }) {
   const { id: eventId, functionId } = await params;
-  const [event, fn, functionTypes, avEquipment] = await Promise.all([
+  const [event, fn, functionTypes, avEquipment, scheduleTypes] = await Promise.all([
     getEvent(eventId),
     getFunction(functionId),
     getOptions("function_type"),
     getOptions("av_equipment"),
+    getOptions("schedule_type"),
   ]);
 
   if (!event || !fn) {
@@ -50,6 +60,21 @@ export default async function FunctionPage({
   const duplicateFunctionAction = async () => {
     "use server";
     await duplicateFunction(functionId, eventId);
+  };
+
+  const createScheduleAction = async (formData: FormData) => {
+    "use server";
+    await createSchedule(functionId, eventId, formData);
+  };
+
+  const updateScheduleAction = async (scheduleId: string, formData: FormData) => {
+    "use server";
+    await updateSchedule(scheduleId, functionId, eventId, formData);
+  };
+
+  const deleteScheduleAction = async (scheduleId: string) => {
+    "use server";
+    await deleteSchedule(scheduleId, functionId, eventId);
   };
 
   return (
@@ -85,14 +110,29 @@ export default async function FunctionPage({
         </div>
       </div>
 
-      <FunctionForm
-        fn={fn}
-        rooms={rooms}
-        eventId={eventId}
-        functionTypes={functionTypes}
-        avEquipment={avEquipment}
-        action={updateFunctionAction}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div>
+          <FunctionForm
+            fn={fn}
+            rooms={rooms}
+            eventId={eventId}
+            functionTypes={functionTypes}
+            avEquipment={avEquipment}
+            action={updateFunctionAction}
+          />
+        </div>
+
+        <div>
+          <ScheduleList
+            schedules={fn.schedules}
+            scheduleTypes={scheduleTypes}
+            functionId={functionId}
+            createSchedule={createScheduleAction}
+            updateSchedule={updateScheduleAction}
+            deleteSchedule={deleteScheduleAction}
+          />
+        </div>
+      </div>
     </PageWrapper>
   );
 }

@@ -105,25 +105,38 @@ model VenueContact {
 
 // Function is the core scheduling unit
 model Function {
-  id          String            @id @default(cuid())
+  id          String             @id @default(cuid())
   name        String
   description String?
-  type        String            @default("")
-  date        DateTime          @db.Date
-  startTime   DateTime          @db.Time()
-  endTime     DateTime          @db.Time()
+  type        String             @default("")
   setupNotes  String?
   eventId     String
-  event       Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   rooms       FunctionRoom[]
   contacts    FunctionContact[]
+  schedules   FunctionSchedule[]
   avNeeds     AVNeeds?
   beoDetails  BEODetails?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
   @@index([eventId])
-  @@index([date])
+}
+
+// Schedule items for a function (setup, rehearsal, main event, etc.)
+model FunctionSchedule {
+  id         String   @id @default(cuid())
+  functionId String
+  function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  type       String   // From CustomOption category "schedule_type"
+  startTime  DateTime
+  endTime    DateTime
+  notes      String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([functionId])
 }
 
 // Junction table for Function <-> Room (many-to-many)

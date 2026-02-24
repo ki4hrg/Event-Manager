@@ -9,8 +9,9 @@ export async function getFunctions(eventId: string) {
     where: { eventId },
     include: {
       rooms: { include: { room: true } },
+      schedules: { orderBy: { startTime: "asc" } },
     },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    orderBy: { name: "asc" },
   });
 }
 
@@ -19,6 +20,7 @@ export async function getFunction(id: string) {
     where: { id },
     include: {
       rooms: { include: { room: true } },
+      schedules: { orderBy: { sortOrder: "asc" } },
       avNeeds: true,
       beoDetails: true,
     },
@@ -29,9 +31,6 @@ export async function createFunction(eventId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
-  const date = formData.get("date") as string;
-  const startTime = formData.get("startTime") as string;
-  const endTime = formData.get("endTime") as string;
   const setupNotes = formData.get("setupNotes") as string;
   const roomIds = formData.getAll("roomIds") as string[];
 
@@ -41,9 +40,6 @@ export async function createFunction(eventId: string, formData: FormData) {
       name,
       description: description || null,
       type: type || "",
-      date: new Date(date),
-      startTime: new Date(`1970-01-01T${startTime}`),
-      endTime: new Date(`1970-01-01T${endTime}`),
       setupNotes: setupNotes || null,
       eventId,
       rooms: {
@@ -92,16 +88,13 @@ export async function createFunction(eventId: string, formData: FormData) {
   }
 
   revalidatePath(`/events/${eventId}`);
-  redirect(`/events/${eventId}`);
+  redirect(`/events/${eventId}/functions/${fn.id}`);
 }
 
 export async function updateFunction(id: string, eventId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
-  const date = formData.get("date") as string;
-  const startTime = formData.get("startTime") as string;
-  const endTime = formData.get("endTime") as string;
   const setupNotes = formData.get("setupNotes") as string;
   const roomIds = formData.getAll("roomIds") as string[];
 
@@ -112,9 +105,6 @@ export async function updateFunction(id: string, eventId: string, formData: Form
       name,
       description: description || null,
       type: type || "",
-      date: new Date(date),
-      startTime: new Date(`1970-01-01T${startTime}`),
-      endTime: new Date(`1970-01-01T${endTime}`),
       setupNotes: setupNotes || null,
     },
   });
@@ -184,6 +174,7 @@ export async function duplicateFunction(id: string, eventId: string) {
     where: { id },
     include: {
       rooms: true,
+      schedules: true,
       avNeeds: true,
       beoDetails: true,
     },
@@ -199,9 +190,6 @@ export async function duplicateFunction(id: string, eventId: string) {
       name: `${original.name} (Copy)`,
       description: original.description,
       type: original.type,
-      date: original.date,
-      startTime: original.startTime,
-      endTime: original.endTime,
       setupNotes: original.setupNotes,
       eventId: original.eventId,
       rooms: {
@@ -209,6 +197,20 @@ export async function duplicateFunction(id: string, eventId: string) {
       },
     },
   });
+
+  // Copy schedules
+  if (original.schedules.length > 0) {
+    await prisma.functionSchedule.createMany({
+      data: original.schedules.map((s) => ({
+        functionId: duplicate.id,
+        type: s.type,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        notes: s.notes,
+        sortOrder: s.sortOrder,
+      })),
+    });
+  }
 
   // Copy AV needs
   if (original.avNeeds) {
@@ -238,4 +240,56 @@ export async function duplicateFunction(id: string, eventId: string) {
 
   revalidatePath(`/events/${eventId}`);
   redirect(`/events/${eventId}/functions/${duplicate.id}`);
+}
+
+// Schedule item actions
+export async function createSchedule(functionId: string, eventId: string, formData: FormData) {
+  const type = formData.get("type") as string;
+  const startTime = formData.get("startTime") as string;
+  const endTime = formData.get("endTime") as string;
+  const notes = formData.get("notes") as string;
+
+  // Get max sortOrder
+  const maxOrder = await prisma.functionSchedule.findFirst({
+    where: { functionId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+
+  await prisma.functionSchedule.create({
+    data: {
+      functionId,
+      type,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      notes: notes || null,
+      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+    },
+  });
+
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
+export async function updateSchedule(scheduleId: string, functionId: string, eventId: string, formData: FormData) {
+  const type = formData.get("type") as string;
+  const startTime = formData.get("startTime") as string;
+  const endTime = formData.get("endTime") as string;
+  const notes = formData.get("notes") as string;
+
+  await prisma.functionSchedule.update({
+    where: { id: scheduleId },
+    data: {
+      type,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      notes: notes || null,
+    },
+  });
+
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
+export async function deleteSchedule(scheduleId: string, functionId: string, eventId: string) {
+  await prisma.functionSchedule.delete({ where: { id: scheduleId } });
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
