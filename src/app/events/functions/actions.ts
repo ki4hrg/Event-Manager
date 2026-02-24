@@ -70,8 +70,8 @@ export async function getFunction(id: string) {
       rooms: { include: { room: true } },
       schedules: { orderBy: { sortOrder: "asc" } },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
-      avNeeds: true,
-      beoDetails: true,
+      avOrder: true,
+      beo: true,
     },
   });
 }
@@ -96,45 +96,6 @@ export async function createFunction(eventId: string, formData: FormData) {
       },
     },
   });
-
-  // Handle AV needs
-  const equipment = formData.getAll("equipment") as string[];
-  const avNotes = formData.get("av_notes") as string;
-
-  if (equipment.length > 0 || avNotes) {
-    await prisma.aVNeeds.create({
-      data: {
-        functionId: fn.id,
-        equipment,
-        notes: avNotes || null,
-      },
-    });
-  }
-
-  // Handle BEO details (check if type contains "meal")
-  const isMealType = type.toLowerCase().includes("meal");
-  if (isMealType) {
-    const guaranteeCount = formData.get("beo_guaranteeCount") as string;
-    const tableSetup = formData.get("beo_tableSetup") as string;
-    const menuNotes = formData.get("beo_menuNotes") as string;
-    const dietaryNotes = formData.get("beo_dietaryNotes") as string;
-    const beverageNotes = formData.get("beo_beverageNotes") as string;
-    const beoNotes = formData.get("beo_notes") as string;
-
-    if (guaranteeCount || tableSetup || menuNotes || dietaryNotes || beverageNotes || beoNotes) {
-      await prisma.bEODetails.create({
-        data: {
-          functionId: fn.id,
-          guaranteeCount: guaranteeCount ? parseInt(guaranteeCount) : null,
-          tableSetup: tableSetup || null,
-          menuNotes: menuNotes || null,
-          dietaryNotes: dietaryNotes || null,
-          beverageNotes: beverageNotes || null,
-          notes: beoNotes || null,
-        },
-      });
-    }
-  }
 
   revalidatePath(`/events/${eventId}`);
   redirect(`/events/${eventId}/functions/${fn.id}`);
@@ -166,47 +127,6 @@ export async function updateFunction(id: string, eventId: string, formData: Form
     });
   }
 
-  // Handle AV needs
-  const equipment = formData.getAll("equipment") as string[];
-  const avNotes = formData.get("av_notes") as string;
-
-  await prisma.aVNeeds.deleteMany({ where: { functionId: id } });
-  if (equipment.length > 0 || avNotes) {
-    await prisma.aVNeeds.create({
-      data: {
-        functionId: id,
-        equipment,
-        notes: avNotes || null,
-      },
-    });
-  }
-
-  // Handle BEO details
-  const isMealType = type.toLowerCase().includes("meal");
-  await prisma.bEODetails.deleteMany({ where: { functionId: id } });
-  if (isMealType) {
-    const guaranteeCount = formData.get("beo_guaranteeCount") as string;
-    const tableSetup = formData.get("beo_tableSetup") as string;
-    const menuNotes = formData.get("beo_menuNotes") as string;
-    const dietaryNotes = formData.get("beo_dietaryNotes") as string;
-    const beverageNotes = formData.get("beo_beverageNotes") as string;
-    const beoNotes = formData.get("beo_notes") as string;
-
-    if (guaranteeCount || tableSetup || menuNotes || dietaryNotes || beverageNotes || beoNotes) {
-      await prisma.bEODetails.create({
-        data: {
-          functionId: id,
-          guaranteeCount: guaranteeCount ? parseInt(guaranteeCount) : null,
-          tableSetup: tableSetup || null,
-          menuNotes: menuNotes || null,
-          dietaryNotes: dietaryNotes || null,
-          beverageNotes: beverageNotes || null,
-          notes: beoNotes || null,
-        },
-      });
-    }
-  }
-
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/functions/${id}`);
   redirect(`/events/${eventId}/functions/${id}?success=Function updated`);
@@ -224,8 +144,6 @@ export async function duplicateFunction(id: string, eventId: string) {
     include: {
       rooms: true,
       schedules: true,
-      avNeeds: true,
-      beoDetails: true,
     },
   });
 
@@ -258,32 +176,6 @@ export async function duplicateFunction(id: string, eventId: string) {
         notes: s.notes,
         sortOrder: s.sortOrder,
       })),
-    });
-  }
-
-  // Copy AV needs
-  if (original.avNeeds) {
-    await prisma.aVNeeds.create({
-      data: {
-        functionId: duplicate.id,
-        equipment: original.avNeeds.equipment,
-        notes: original.avNeeds.notes,
-      },
-    });
-  }
-
-  // Copy BEO details
-  if (original.beoDetails) {
-    await prisma.bEODetails.create({
-      data: {
-        functionId: duplicate.id,
-        guaranteeCount: original.beoDetails.guaranteeCount,
-        tableSetup: original.beoDetails.tableSetup,
-        menuNotes: original.beoDetails.menuNotes,
-        dietaryNotes: original.beoDetails.dietaryNotes,
-        beverageNotes: original.beoDetails.beverageNotes,
-        notes: original.beoDetails.notes,
-      },
     });
   }
 

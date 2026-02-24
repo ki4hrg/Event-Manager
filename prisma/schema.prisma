@@ -45,6 +45,8 @@ model Event {
   functions          Function[]
   presentations      Presentation[]
   presentationTracks PresentationTrack[]
+  avOrders           AVOrder[]
+  beos               BEO[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -118,8 +120,8 @@ model Function {
   rooms        FunctionRoom[]
   contacts     FunctionContact[]
   schedules    FunctionSchedule[]
-  avNeeds      AVNeeds?
-  beoDetails   BEODetails?
+  avOrder      AVOrder?
+  beo          BEO?
   presentation Presentation?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -166,26 +168,40 @@ model FunctionContact {
   @@unique([functionId, contactId])
 }
 
-// AV Requirements for a function
-model AVNeeds {
-  id         String   @id @default(cuid())
-  functionId String   @unique
-  function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
-  equipment  String[] @default([])
-  notes      String?
+model AVOrder {
+  id             String        @id @default(cuid())
+  name           String
+  eventId        String
+  event          Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId     String?       @unique
+  function       Function?     @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  presentationId String?       @unique
+  presentation   Presentation? @relation(fields: [presentationId], references: [id], onDelete: SetNull)
+  equipment      String[]      @default([])
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([eventId])
 }
 
-// BEO (Banquet Event Order) details for meal functions
-model BEODetails {
-  id             String   @id @default(cuid())
-  functionId     String   @unique
-  function       Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+model BEO {
+  id             String    @id @default(cuid())
+  name           String
+  eventId        String
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId     String?   @unique
+  function       Function? @relation(fields: [functionId], references: [id], onDelete: SetNull)
   guaranteeCount Int?
   tableSetup     String?
   menuNotes      String?
   dietaryNotes   String?
   beverageNotes  String?
   notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([eventId])
 }
 
 // Presentation tracks (scoped per event)
@@ -217,7 +233,7 @@ model Presentation {
   eventId     String
   event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
   speakers    PresentationContact[]
-  avNeeds     PresentationAVNeeds?
+  avOrder     AVOrder?
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
 
@@ -239,10 +255,3 @@ model PresentationContact {
   @@index([presentationId])
 }
 
-model PresentationAVNeeds {
-  id             String       @id @default(cuid())
-  presentationId String       @unique
-  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
-  equipment      String[]     @default([])
-  notes          String?
-}

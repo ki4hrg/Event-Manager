@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type {
   Presentation,
-  PresentationAVNeeds,
   PresentationTrack,
   PresentationContact,
   Contact,
@@ -14,7 +13,6 @@ import type {
 type SpeakerWithContact = PresentationContact & { contact: Contact };
 
 type PresentationWithRelations = Presentation & {
-  avNeeds: PresentationAVNeeds | null;
   track: PresentationTrack | null;
   speakers: SpeakerWithContact[];
 };
@@ -29,7 +27,6 @@ type PresentationFormProps = {
   presentation?: PresentationWithRelations;
   eventId: string;
   tracks: PresentationTrack[];
-  avEquipment: CustomOption[];
   presenterRoles: CustomOption[];
   action: (formData: FormData) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
@@ -53,13 +50,11 @@ export function PresentationForm({
   presentation,
   eventId,
   tracks,
-  avEquipment,
   presenterRoles,
   action,
   searchContacts,
 }: PresentationFormProps) {
   const isEdit = !!presentation;
-  const selectedEquipment = presentation?.avNeeds?.equipment || [];
 
   // Speaker state (only used for create flow)
   const [speakers, setSpeakers] = useState<SelectedSpeaker[]>([]);
@@ -367,54 +362,6 @@ export function PresentationForm({
             )}
           </>
         )}
-      </div>
-
-      {/* AV Requirements */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          AV Requirements
-        </h2>
-
-        {avEquipment.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            No AV equipment options defined.{" "}
-            <a href="/settings" className="text-blue-600 hover:underline">
-              Add equipment in Settings
-            </a>
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            {avEquipment.map((item) => (
-              <label key={item.id} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  name="equipment"
-                  value={item.value}
-                  defaultChecked={selectedEquipment.includes(item.value)}
-                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-900 dark:text-white">{item.label}</span>
-              </label>
-            ))}
-          </div>
-        )}
-
-        <div>
-          <label
-            htmlFor="av_notes"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            AV Notes
-          </label>
-          <textarea
-            id="av_notes"
-            name="av_notes"
-            rows={2}
-            placeholder="Additional AV requirements or notes..."
-            defaultValue={presentation?.avNeeds?.notes || ""}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
       </div>
 
       {/* Form Actions */}

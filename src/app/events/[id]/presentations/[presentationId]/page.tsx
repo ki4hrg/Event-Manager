@@ -23,9 +23,15 @@ import {
   removeSpeaker,
   searchContacts,
 } from "../../../presentations/actions";
+import {
+  getAvailableAVOrdersForPresentation,
+  linkAVOrderToPresentationFromPresentation,
+  unlinkAVOrderFromPresentationPage,
+} from "../../../av-orders/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
 import { SchedulePanel } from "../../../presentations/SchedulePanel";
 import { SpeakerList } from "../../../presentations/SpeakerList";
+import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
@@ -36,11 +42,10 @@ export default async function PresentationPage({
   params: Promise<{ id: string; presentationId: string }>;
 }) {
   const { id: eventId, presentationId } = await params;
-  const [event, presentation, tracks, avEquipment, presenterRoles] = await Promise.all([
+  const [event, presentation, tracks, presenterRoles] = await Promise.all([
     getEvent(eventId),
     getPresentation(presentationId),
     getTracks(eventId),
-    getOptions("av_equipment"),
     getOptions("presenter_role"),
   ]);
 
@@ -55,6 +60,10 @@ export default async function PresentationPage({
         orderBy: { name: "asc" },
       })
     : [];
+
+  const availableAVOrders = presentation.avOrder
+    ? []
+    : await getAvailableAVOrdersForPresentation(eventId);
 
   const updatePresentationAction = async (formData: FormData) => {
     "use server";
@@ -121,6 +130,16 @@ export default async function PresentationPage({
     return searchContacts(query);
   };
 
+  const linkAVOrderAction = async (avOrderId: string) => {
+    "use server";
+    await linkAVOrderToPresentationFromPresentation(avOrderId, presentationId, eventId);
+  };
+
+  const unlinkAVOrderAction = async () => {
+    "use server";
+    await unlinkAVOrderFromPresentationPage(presentationId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -160,7 +179,6 @@ export default async function PresentationPage({
             presentation={presentation}
             eventId={eventId}
             tracks={tracks}
-            avEquipment={avEquipment}
             presenterRoles={presenterRoles}
             action={updatePresentationAction}
             searchContacts={searchContactsAction}
@@ -190,6 +208,17 @@ export default async function PresentationPage({
             deleteSchedule={deleteScheduleAction}
             updateRooms={updateRoomsAction}
             unlinkFunction={unlinkFunctionAction}
+          />
+
+          <AVOrderPanel
+            title="AV Order"
+            avOrder={presentation.avOrder}
+            eventId={eventId}
+            availableAVOrders={availableAVOrders}
+            newAVOrderPath={`/events/${eventId}/av-orders/new?presentationId=${presentationId}`}
+            linkAVOrder={linkAVOrderAction}
+            unlinkAVOrder={unlinkAVOrderAction}
+            avOrderDetailPath={(avOrderId) => `/events/${eventId}/av-orders/${avOrderId}`}
           />
         </div>
       </div>

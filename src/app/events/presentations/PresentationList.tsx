@@ -4,7 +4,6 @@ import Link from "next/link";
 import type {
   Presentation,
   PresentationContact,
-  PresentationAVNeeds,
   PresentationTrack,
   Function,
   FunctionRoom,
@@ -22,7 +21,6 @@ type PresentationWithRelations = Presentation & {
   track: PresentationTrack | null;
   speakers: (PresentationContact & { contact: Contact })[];
   function: FunctionWithDetails | null;
-  avNeeds: PresentationAVNeeds | null;
 };
 
 type PresentationListProps = {

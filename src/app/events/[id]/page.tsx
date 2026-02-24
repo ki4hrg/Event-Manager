@@ -10,17 +10,21 @@ import { EventForm } from "../EventForm";
 import { getFunctions, duplicateFunction, deleteFunction } from "../functions/actions";
 import { FunctionList } from "../functions/FunctionList";
 import { getPresentations } from "../presentations/actions";
+import { getAVOrders } from "../av-orders/actions";
+import { getBEOs } from "../beos/actions";
 import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, venues, functions, presentations, functionTypes] = await Promise.all([
+  const [event, venues, functions, presentations, avOrders, beos, functionTypes] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
     getFunctions(id),
     getPresentations(id),
+    getAVOrders(id),
+    getBEOs(id),
     getOptions("function_type"),
   ]);
 
@@ -96,6 +100,46 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Manage Presentations
+              </Link>
+            </div>
+          </div>
+
+          {/* AV Orders Link */}
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                  AV Orders
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {avOrders.length} AV order{avOrders.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <Link
+                href={`/events/${id}/av-orders`}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Manage AV Orders
+              </Link>
+            </div>
+          </div>
+
+          {/* BEOs Link */}
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                  BEOs
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {beos.length} BEO{beos.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <Link
+                href={`/events/${id}/beos`}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Manage BEOs
               </Link>
             </div>
           </div>

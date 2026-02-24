@@ -118,7 +118,6 @@ export async function getPresentations(eventId: string) {
           schedules: { orderBy: { startTime: "asc" } },
         },
       },
-      avNeeds: true,
     },
     orderBy: [{ title: "asc" }],
   });
@@ -139,7 +138,7 @@ export async function getPresentation(id: string) {
           schedules: { orderBy: { startTime: "asc" } },
         },
       },
-      avNeeds: true,
+      avOrder: true,
       event: true,
     },
   });
@@ -165,20 +164,6 @@ export async function createPresentation(eventId: string, formData: FormData) {
       eventId,
     },
   });
-
-  // Handle AV needs
-  const equipment = formData.getAll("equipment") as string[];
-  const avNotes = formData.get("av_notes") as string;
-
-  if (equipment.length > 0 || avNotes) {
-    await prisma.presentationAVNeeds.create({
-      data: {
-        presentationId: presentation.id,
-        equipment,
-        notes: avNotes || null,
-      },
-    });
-  }
 
   // Create speakers
   if (speakerContactIds.length > 0) {
@@ -213,21 +198,6 @@ export async function updatePresentation(id: string, eventId: string, formData: 
     },
   });
 
-  // Handle AV needs
-  const equipment = formData.getAll("equipment") as string[];
-  const avNotes = formData.get("av_notes") as string;
-
-  await prisma.presentationAVNeeds.deleteMany({ where: { presentationId: id } });
-  if (equipment.length > 0 || avNotes) {
-    await prisma.presentationAVNeeds.create({
-      data: {
-        presentationId: id,
-        equipment,
-        notes: avNotes || null,
-      },
-    });
-  }
-
   revalidatePath(`/events/${eventId}/presentations`);
   revalidatePath(`/events/${eventId}/presentations/${id}`);
   redirect(`/events/${eventId}/presentations/${id}?success=Presentation updated`);
@@ -244,7 +214,6 @@ export async function duplicatePresentation(id: string, eventId: string) {
     where: { id },
     include: {
       speakers: true,
-      avNeeds: true,
     },
   });
 
@@ -275,17 +244,6 @@ export async function duplicatePresentation(id: string, eventId: string) {
     });
   }
 
-  // Copy AV needs
-  if (original.avNeeds) {
-    await prisma.presentationAVNeeds.create({
-      data: {
-        presentationId: duplicate.id,
-        equipment: original.avNeeds.equipment,
-        notes: original.avNeeds.notes,
-      },
-    });
-  }
-
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations/${duplicate.id}`);
 }
@@ -304,7 +262,7 @@ export async function createFunctionForPresentation(
 ) {
   const presentation = await prisma.presentation.findUnique({
     where: { id: presentationId },
-    select: { title: true, functionId: true, avNeeds: true },
+    select: { title: true, functionId: true },
   });
 
   if (!presentation) {
@@ -323,17 +281,6 @@ export async function createFunctionForPresentation(
       eventId,
     },
   });
-
-  // Copy AV needs from presentation to function if they exist
-  if (presentation.avNeeds) {
-    await prisma.aVNeeds.create({
-      data: {
-        functionId: fn.id,
-        equipment: presentation.avNeeds.equipment,
-        notes: presentation.avNeeds.notes,
-      },
-    });
-  }
 
   // Link the presentation to the function
   await prisma.presentation.update({

@@ -14,10 +14,9 @@ export default async function NewPresentationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const [event, tracks, avEquipment, presenterRoles] = await Promise.all([
+  const [event, tracks, presenterRoles] = await Promise.all([
     getEvent(eventId),
     getTracks(eventId),
-    getOptions("av_equipment"),
     getOptions("presenter_role"),
   ]);
 
@@ -52,7 +51,6 @@ export default async function NewPresentationPage({
       <PresentationForm
         eventId={eventId}
         tracks={tracks}
-        avEquipment={avEquipment}
         presenterRoles={presenterRoles}
         action={createPresentationAction}
         searchContacts={searchContactsAction}

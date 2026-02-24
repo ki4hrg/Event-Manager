@@ -15,10 +15,9 @@ export default async function NewFunctionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const [event, functionTypes, avEquipment] = await Promise.all([
+  const [event, functionTypes] = await Promise.all([
     getEvent(eventId),
     getOptions("function_type"),
-    getOptions("av_equipment"),
   ]);
 
   if (!event) {
@@ -66,7 +65,6 @@ export default async function NewFunctionPage({
         rooms={rooms}
         eventId={eventId}
         functionTypes={functionTypes}
-        avEquipment={avEquipment}
         action={createFunctionWithEventId}
       />
     </PageWrapper>

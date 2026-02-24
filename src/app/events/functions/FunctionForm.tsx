@@ -1,13 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { Function, Room, AVNeeds, BEODetails, FunctionRoom, CustomOption } from "@prisma/client";
+import type { Function, Room, FunctionRoom, CustomOption } from "@prisma/client";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
-  avNeeds: AVNeeds | null;
-  beoDetails: BEODetails | null;
 };
 
 type FunctionFormProps = {
@@ -15,7 +12,6 @@ type FunctionFormProps = {
   rooms: Room[];
   eventId: string;
   functionTypes: CustomOption[];
-  avEquipment: CustomOption[];
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -33,17 +29,9 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function FunctionForm({ fn, rooms, eventId, functionTypes, avEquipment, action }: FunctionFormProps) {
+export function FunctionForm({ fn, rooms, eventId, functionTypes, action }: FunctionFormProps) {
   const isEdit = !!fn;
-  const [selectedType, setSelectedType] = useState(fn?.type || functionTypes[0]?.value || "");
-
-  // Find the type that shows BEO details (check for "meal" in label or value)
-  const mealTypeValues = functionTypes
-    .filter((t) => t.label.toLowerCase().includes("meal") || t.value.toLowerCase().includes("meal"))
-    .map((t) => t.value);
-
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
-  const selectedEquipment = fn?.avNeeds?.equipment || [];
 
   return (
     <form action={action} className="space-y-6 max-w-2xl">
@@ -89,8 +77,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, avEquipment, a
               <select
                 id="type"
                 name="type"
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
+                defaultValue={fn?.type || ""}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select type...</option>
@@ -169,165 +156,6 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, avEquipment, a
           className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
-
-      {/* AV Requirements */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          AV Requirements
-        </h2>
-
-        {avEquipment.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            No AV equipment options defined.{" "}
-            <a href="/settings" className="text-blue-600 hover:underline">
-              Add equipment in Settings
-            </a>
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            {avEquipment.map((item) => (
-              <label key={item.id} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  name="equipment"
-                  value={item.value}
-                  defaultChecked={selectedEquipment.includes(item.value)}
-                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-900 dark:text-white">{item.label}</span>
-              </label>
-            ))}
-          </div>
-        )}
-
-        <div>
-          <label
-            htmlFor="av_notes"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            AV Notes
-          </label>
-          <textarea
-            id="av_notes"
-            name="av_notes"
-            rows={2}
-            placeholder="Additional AV requirements or notes..."
-            defaultValue={fn?.avNeeds?.notes || ""}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-
-      {/* BEO Details (only for meal-type functions) */}
-      {mealTypeValues.includes(selectedType) && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            Banquet Event Order (BEO) Details
-          </h2>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="beo_guaranteeCount"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Guarantee Count
-                </label>
-                <input
-                  type="number"
-                  id="beo_guaranteeCount"
-                  name="beo_guaranteeCount"
-                  defaultValue={fn?.beoDetails?.guaranteeCount || ""}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="beo_tableSetup"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Table Setup
-                </label>
-                <input
-                  type="text"
-                  id="beo_tableSetup"
-                  name="beo_tableSetup"
-                  placeholder="e.g., Rounds of 10, Classroom style"
-                  defaultValue={fn?.beoDetails?.tableSetup || ""}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="beo_menuNotes"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Menu Notes
-              </label>
-              <textarea
-                id="beo_menuNotes"
-                name="beo_menuNotes"
-                rows={2}
-                defaultValue={fn?.beoDetails?.menuNotes || ""}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="beo_dietaryNotes"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Dietary Requirements
-              </label>
-              <textarea
-                id="beo_dietaryNotes"
-                name="beo_dietaryNotes"
-                rows={2}
-                placeholder="Vegetarian, vegan, gluten-free, allergies..."
-                defaultValue={fn?.beoDetails?.dietaryNotes || ""}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="beo_beverageNotes"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Beverage Notes
-              </label>
-              <textarea
-                id="beo_beverageNotes"
-                name="beo_beverageNotes"
-                rows={2}
-                defaultValue={fn?.beoDetails?.beverageNotes || ""}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="beo_notes"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Additional BEO Notes
-              </label>
-              <textarea
-                id="beo_notes"
-                name="beo_notes"
-                rows={2}
-                defaultValue={fn?.beoDetails?.notes || ""}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Form Actions */}
       <div className="flex gap-4">
