@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../actions";
 import { getBEOs, deleteBEO } from "../../beos/actions";
+import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -28,17 +29,19 @@ export default async function BEOsPage({
 
   return (
     <PageWrapper>
-      <div className="mb-6">
+      <div className="mb-4">
         <Link
-          href={`/events/${eventId}`}
+          href="/events"
           className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
         >
-          &larr; Back to {event.name}
+          ← Back to Events
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-          BEOs (Banquet Event Orders)
+          {event.name}
         </h1>
       </div>
+
+      <EventTabs eventId={eventId} />
 
       <div className="flex justify-between items-center mb-6">
         <p className="text-sm text-gray-500 dark:text-gray-400">

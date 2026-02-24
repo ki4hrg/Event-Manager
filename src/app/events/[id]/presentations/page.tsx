@@ -9,6 +9,7 @@ import {
 } from "../../presentations/actions";
 import { PresentationList } from "../../presentations/PresentationList";
 import { PageWrapper } from "@/components/PageWrapper";
+import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -40,17 +41,19 @@ export default async function PresentationsPage({
 
   return (
     <PageWrapper>
-      <div className="mb-6">
+      <div className="mb-4">
         <Link
-          href={`/events/${eventId}`}
+          href="/events"
           className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
         >
-          &larr; Back to {event.name}
+          ← Back to Events
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-          Presentations
+          {event.name}
         </h1>
       </div>
+
+      <EventTabs eventId={eventId} />
 
       <PresentationList
         presentations={presentations}
