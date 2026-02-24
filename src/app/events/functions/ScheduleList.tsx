@@ -8,6 +8,7 @@ type ScheduleListProps = {
   schedules: FunctionSchedule[];
   scheduleTypes: CustomOption[];
   functionId: string;
+  timezone: string;
   createSchedule: (formData: FormData) => Promise<void>;
   updateSchedule: (scheduleId: string, formData: FormData) => Promise<void>;
   deleteSchedule: (scheduleId: string) => Promise<void>;
@@ -37,8 +38,9 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-function formatDateTime(date: Date): string {
+function formatDateTimeInTimezone(date: Date, timezone: string): string {
   return new Date(date).toLocaleString("en-US", {
+    timeZone: timezone,
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -47,20 +49,30 @@ function formatDateTime(date: Date): string {
   });
 }
 
-function formatDateTimeForInput(date: Date): string {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+function formatDateTimeForInput(date: Date, timezone: string): string {
+  // Convert UTC date to the event's timezone for the input
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(new Date(date));
+  const values: Record<string, string> = {};
+  parts.forEach((part) => {
+    values[part.type] = part.value;
+  });
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
 }
 
 export function ScheduleList({
   schedules,
   scheduleTypes,
   functionId,
+  timezone,
   createSchedule,
   updateSchedule,
   deleteSchedule,
@@ -72,12 +84,23 @@ export function ScheduleList({
   const typeLabels = new Map(scheduleTypes.map((t) => [t.value, t.label]));
   const typeColors = new Map(scheduleTypes.map((t) => [t.value, t.color || "gray"]));
 
+  // Get timezone abbreviation for display
+  const tzAbbrev = new Date().toLocaleString("en-US", {
+    timeZone: timezone,
+    timeZoneName: "short",
+  }).split(" ").pop();
+
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-          Schedule
-        </h2>
+        <div>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+            Schedule
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Times shown in {tzAbbrev}
+          </p>
+        </div>
         <button
           onClick={() => setShowAddForm(true)}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
@@ -103,58 +126,63 @@ export function ScheduleList({
           }}
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"
         >
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Type *
-              </label>
-              <select
-                name="type"
-                required
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              >
-                <option value="">Select type...</option>
-                {scheduleTypes.map((t) => (
-                  <option key={t.id} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Type *
+                </label>
+                <select
+                  name="type"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="">Select type...</option>
+                  {scheduleTypes.map((t) => (
+                    <option key={t.id} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Notes
+                </label>
+                <input
+                  type="text"
+                  name="notes"
+                  placeholder="Optional notes..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Start *
-              </label>
-              <input
-                type="datetime-local"
-                name="startTime"
-                required
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                End *
-              </label>
-              <input
-                type="datetime-local"
-                name="endTime"
-                required
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Notes
-              </label>
-              <input
-                type="text"
-                name="notes"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Start ({tzAbbrev}) *
+                </label>
+                <input
+                  type="datetime-local"
+                  name="startTime"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  End ({tzAbbrev}) *
+                </label>
+                <input
+                  type="datetime-local"
+                  name="endTime"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="mt-4 flex gap-2">
             <SubmitButton label="Add" />
             <button
               type="button"
@@ -184,42 +212,64 @@ export function ScheduleList({
                     await updateSchedule(schedule.id, formData);
                     setEditingId(null);
                   }}
-                  className="space-y-3"
+                  className="space-y-4"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <select
-                      name="type"
-                      required
-                      defaultValue={schedule.type}
-                      className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    >
-                      {scheduleTypes.map((t) => (
-                        <option key={t.id} value={t.value}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="datetime-local"
-                      name="startTime"
-                      required
-                      defaultValue={formatDateTimeForInput(schedule.startTime)}
-                      className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    />
-                    <input
-                      type="datetime-local"
-                      name="endTime"
-                      required
-                      defaultValue={formatDateTimeForInput(schedule.endTime)}
-                      className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    />
-                    <input
-                      type="text"
-                      name="notes"
-                      defaultValue={schedule.notes || ""}
-                      placeholder="Notes"
-                      className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Type
+                      </label>
+                      <select
+                        name="type"
+                        required
+                        defaultValue={schedule.type}
+                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                      >
+                        {scheduleTypes.map((t) => (
+                          <option key={t.id} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Notes
+                      </label>
+                      <input
+                        type="text"
+                        name="notes"
+                        defaultValue={schedule.notes || ""}
+                        placeholder="Notes"
+                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Start ({tzAbbrev})
+                      </label>
+                      <input
+                        type="datetime-local"
+                        name="startTime"
+                        required
+                        defaultValue={formatDateTimeForInput(schedule.startTime, timezone)}
+                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        End ({tzAbbrev})
+                      </label>
+                      <input
+                        type="datetime-local"
+                        name="endTime"
+                        required
+                        defaultValue={formatDateTimeForInput(schedule.endTime, timezone)}
+                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
@@ -234,7 +284,7 @@ export function ScheduleList({
                 </form>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <span
                       className={`px-2 py-0.5 text-xs rounded ${
                         colorClasses[typeColors.get(schedule.type) || "gray"] || colorClasses.gray
@@ -243,7 +293,7 @@ export function ScheduleList({
                       {typeLabels.get(schedule.type) || schedule.type}
                     </span>
                     <span className="text-sm text-gray-900 dark:text-white">
-                      {formatDateTime(schedule.startTime)} – {formatDateTime(schedule.endTime)}
+                      {formatDateTimeInTimezone(schedule.startTime, timezone)} – {formatDateTimeInTimezone(schedule.endTime, timezone)}
                     </span>
                     {schedule.notes && (
                       <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -251,7 +301,7 @@ export function ScheduleList({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 ml-2">
                     <button
                       onClick={() => setEditingId(schedule.id)}
                       className="text-blue-600 hover:underline text-sm"

@@ -17,15 +17,14 @@ type OptionListProps = {
 };
 
 const colorOptions = [
-  { value: "", label: "None" },
-  { value: "gray", label: "Gray" },
-  { value: "red", label: "Red" },
-  { value: "orange", label: "Orange" },
-  { value: "yellow", label: "Yellow" },
-  { value: "green", label: "Green" },
-  { value: "blue", label: "Blue" },
-  { value: "purple", label: "Purple" },
-  { value: "pink", label: "Pink" },
+  { value: "gray", bg: "bg-gray-500" },
+  { value: "red", bg: "bg-red-500" },
+  { value: "orange", bg: "bg-orange-500" },
+  { value: "yellow", bg: "bg-yellow-500" },
+  { value: "green", bg: "bg-green-500" },
+  { value: "blue", bg: "bg-blue-500" },
+  { value: "purple", bg: "bg-purple-500" },
+  { value: "pink", bg: "bg-pink-500" },
 ];
 
 function SubmitButton({ label }: { label: string }) {
@@ -40,6 +39,58 @@ function SubmitButton({ label }: { label: string }) {
     </button>
   );
 }
+
+function ColorPicker({
+  name,
+  defaultValue,
+}: {
+  name: string;
+  defaultValue?: string;
+}) {
+  const [selected, setSelected] = useState(defaultValue || "");
+
+  return (
+    <div className="flex items-center gap-1">
+      <input type="hidden" name={name} value={selected} />
+      <button
+        type="button"
+        onClick={() => setSelected("")}
+        className={`w-6 h-6 rounded border-2 ${
+          selected === ""
+            ? "border-blue-500"
+            : "border-gray-300 dark:border-gray-600"
+        } bg-white dark:bg-gray-800 flex items-center justify-center text-gray-400 text-xs`}
+        title="No color"
+      >
+        ×
+      </button>
+      {colorOptions.map((c) => (
+        <button
+          key={c.value}
+          type="button"
+          onClick={() => setSelected(c.value)}
+          className={`w-6 h-6 rounded ${c.bg} border-2 ${
+            selected === c.value
+              ? "border-blue-500 ring-2 ring-blue-300"
+              : "border-transparent"
+          }`}
+          title={c.value}
+        />
+      ))}
+    </div>
+  );
+}
+
+const colorBgClasses: Record<string, string> = {
+  gray: "bg-gray-500",
+  red: "bg-red-500",
+  orange: "bg-orange-500",
+  yellow: "bg-yellow-500",
+  green: "bg-green-500",
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
+  pink: "bg-pink-500",
+};
 
 export function OptionList({
   title,
@@ -81,34 +132,32 @@ export function OptionList({
           }}
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input
-              type="text"
-              name="label"
-              placeholder="Label *"
-              required
-              className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-            <input
-              type="text"
-              name="value"
-              placeholder="Value (auto-generated if empty)"
-              className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-            {showColor && (
-              <select
-                name="color"
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                name="label"
+                placeholder="Label *"
+                required
                 className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              >
-                {colorOptions.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+              />
+              <input
+                type="text"
+                name="value"
+                placeholder="Value (auto-generated if empty)"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              />
+            </div>
+            {showColor && (
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Color
+                </label>
+                <ColorPicker name="color" />
+              </div>
             )}
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-4 flex gap-2">
             <SubmitButton label="Add" />
             <button
               type="button"
@@ -130,7 +179,7 @@ export function OptionList({
           {options.map((option) => (
             <div
               key={option.id}
-              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
+              className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
             >
               {editingId === option.id ? (
                 <form
@@ -138,53 +187,55 @@ export function OptionList({
                     await updateOption(option.id, formData);
                     setEditingId(null);
                   }}
-                  className="flex-1 flex items-center gap-3"
+                  className="space-y-3"
                 >
-                  <input
-                    type="text"
-                    name="label"
-                    defaultValue={option.label}
-                    required
-                    className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                  />
-                  <input
-                    type="text"
-                    name="value"
-                    defaultValue={option.value}
-                    required
-                    className="w-32 px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono"
-                  />
-                  {showColor && (
-                    <select
-                      name="color"
-                      defaultValue={option.color || ""}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      name="label"
+                      defaultValue={option.label}
+                      required
+                      placeholder="Label"
                       className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    >
-                      {colorOptions.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
+                    <input
+                      type="text"
+                      name="value"
+                      defaultValue={option.value}
+                      required
+                      placeholder="Value"
+                      className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono"
+                    />
+                  </div>
+                  {showColor && (
+                    <div>
+                      <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        Color
+                      </label>
+                      <ColorPicker name="color" defaultValue={option.color || ""} />
+                    </div>
                   )}
-                  <SubmitButton label="Save" />
-                  <button
-                    type="button"
-                    onClick={() => setEditingId(null)}
-                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
-                  >
-                    Cancel
-                  </button>
+                  <div className="flex gap-2">
+                    <SubmitButton label="Save" />
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </form>
               ) : (
-                <>
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {showColor && option.color && (
+                    {showColor && (
                       <span
-                        className={`w-3 h-3 rounded-full bg-${option.color}-500`}
-                        style={{
-                          backgroundColor: `var(--color-${option.color}-500, ${option.color})`,
-                        }}
+                        className={`w-4 h-4 rounded ${
+                          option.color
+                            ? colorBgClasses[option.color] || "bg-gray-500"
+                            : "bg-gray-200 dark:bg-gray-700"
+                        }`}
                       />
                     )}
                     <span className="font-medium text-gray-900 dark:text-white">
@@ -212,7 +263,7 @@ export function OptionList({
                       Delete
                     </button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           ))}

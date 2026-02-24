@@ -127,6 +127,7 @@ export default async function FunctionPage({
             schedules={fn.schedules}
             scheduleTypes={scheduleTypes}
             functionId={functionId}
+            timezone={event.timezone}
             createSchedule={createScheduleAction}
             updateSchedule={updateScheduleAction}
             deleteSchedule={deleteScheduleAction}
