@@ -4,27 +4,31 @@ import Link from "next/link";
 import type {
   Presentation,
   PresentationContact,
-  PresentationSession,
-  PresentationSessionRoom,
   PresentationAVNeeds,
+  PresentationTrack,
+  Function,
+  FunctionRoom,
+  FunctionSchedule,
   Contact,
   Room,
-  CustomOption,
 } from "@prisma/client";
 
+type FunctionWithDetails = Function & {
+  rooms: (FunctionRoom & { room: Room })[];
+  schedules: FunctionSchedule[];
+};
+
 type PresentationWithRelations = Presentation & {
+  track: PresentationTrack | null;
   speakers: (PresentationContact & { contact: Contact })[];
-  sessions: (PresentationSession & {
-    rooms: (PresentationSessionRoom & { room: Room })[];
-  })[];
+  function: FunctionWithDetails | null;
   avNeeds: PresentationAVNeeds | null;
 };
 
 type PresentationListProps = {
   presentations: PresentationWithRelations[];
   eventId: string;
-  tracks: CustomOption[];
-  levels: CustomOption[];
+  tracks: PresentationTrack[];
   duplicatePresentation: (id: string) => Promise<void>;
   deletePresentation: (id: string) => Promise<void>;
 };
@@ -44,33 +48,30 @@ export function PresentationList({
   presentations,
   eventId,
   tracks,
-  levels,
   duplicatePresentation,
   deletePresentation,
 }: PresentationListProps) {
-  // Create lookup maps
-  const trackLabels = new Map(tracks.map((t) => [t.value, t.label]));
-  const trackColors = new Map(tracks.map((t) => [t.value, t.color || "gray"]));
-  const levelLabels = new Map(levels.map((l) => [l.value, l.label]));
-  const levelColors = new Map(levels.map((l) => [l.value, l.color || "gray"]));
-
   // Group presentations by track
-  const grouped = presentations.reduce((acc, p) => {
-    const track = p.track || "_unassigned";
-    if (!acc[track]) {
-      acc[track] = [];
-    }
-    acc[track].push(p);
-    return acc;
-  }, {} as Record<string, PresentationWithRelations[]>);
+  const grouped = presentations.reduce(
+    (acc, p) => {
+      const trackId = p.trackId || "_unassigned";
+      if (!acc[trackId]) {
+        acc[trackId] = [];
+      }
+      acc[trackId].push(p);
+      return acc;
+    },
+    {} as Record<string, PresentationWithRelations[]>
+  );
 
-  // Sort tracks: defined tracks first (by order), then unassigned
-  const sortedTracks = Object.keys(grouped).sort((a, b) => {
+  // Sort tracks: defined tracks first (by sortOrder), then unassigned
+  const trackMap = new Map(tracks.map((t) => [t.id, t]));
+  const sortedTrackIds = Object.keys(grouped).sort((a, b) => {
     if (a === "_unassigned") return 1;
     if (b === "_unassigned") return -1;
-    const aIndex = tracks.findIndex((t) => t.value === a);
-    const bIndex = tracks.findIndex((t) => t.value === b);
-    return aIndex - bIndex;
+    const aTrack = trackMap.get(a);
+    const bTrack = trackMap.get(b);
+    return (aTrack?.sortOrder ?? 0) - (bTrack?.sortOrder ?? 0);
   });
 
   const getPrimarySpeaker = (speakers: (PresentationContact & { contact: Contact })[]) => {
@@ -106,113 +107,107 @@ export function PresentationList({
         </div>
       ) : (
         <div className="space-y-8">
-          {sortedTracks.map((trackValue) => (
-            <div key={trackValue}>
-              <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                {trackValue === "_unassigned" ? (
-                  <span className="text-gray-500">Unassigned Track</span>
-                ) : (
-                  <>
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded ${
-                        colorClasses[trackColors.get(trackValue) || "gray"] || colorClasses.gray
-                      }`}
-                    >
-                      {trackLabels.get(trackValue) || trackValue}
-                    </span>
-                    <span className="text-gray-400 dark:text-gray-500 text-sm">
-                      ({grouped[trackValue].length})
-                    </span>
-                  </>
-                )}
-              </h3>
+          {sortedTrackIds.map((trackId) => {
+            const track = trackMap.get(trackId);
+            return (
+              <div key={trackId}>
+                <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                  {trackId === "_unassigned" ? (
+                    <span className="text-gray-500">No Track Assigned</span>
+                  ) : (
+                    <>
+                      <span
+                        className={`px-2 py-0.5 text-xs rounded ${
+                          colorClasses[track?.color || "gray"] || colorClasses.gray
+                        }`}
+                      >
+                        {track?.name || trackId}
+                      </span>
+                      <span className="text-gray-400 dark:text-gray-500 text-sm">
+                        ({grouped[trackId].length})
+                      </span>
+                    </>
+                  )}
+                </h3>
 
-              <div className="space-y-2">
-                {grouped[trackValue].map((presentation) => {
-                  const primarySpeaker = getPrimarySpeaker(presentation.speakers);
-                  const sessionCount = presentation.sessions.length;
+                <div className="space-y-2">
+                  {grouped[trackId].map((presentation) => {
+                    const primarySpeaker = getPrimarySpeaker(presentation.speakers);
+                    const scheduleCount = presentation.function?.schedules.length ?? 0;
+                    const isScheduled = presentation.function !== null;
 
-                  return (
-                    <div
-                      key={presentation.id}
-                      className="bg-white dark:bg-gray-800 shadow rounded-lg p-4"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <Link
-                            href={`/events/${eventId}/presentations/${presentation.id}`}
-                            className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
-                          >
-                            {presentation.title}
-                          </Link>
+                    return (
+                      <div
+                        key={presentation.id}
+                        className="bg-white dark:bg-gray-800 shadow rounded-lg p-4"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <Link
+                              href={`/events/${eventId}/presentations/${presentation.id}`}
+                              className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
+                            >
+                              {presentation.title}
+                            </Link>
 
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-                            {presentation.level && (
-                              <span
-                                className={`px-2 py-0.5 text-xs rounded ${
-                                  colorClasses[levelColors.get(presentation.level) || "gray"] ||
-                                  colorClasses.gray
-                                }`}
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                              {primarySpeaker && (
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  {primarySpeaker}
+                                  {presentation.speakers.length > 1 && (
+                                    <span className="text-gray-400 dark:text-gray-500">
+                                      {" "}
+                                      +{presentation.speakers.length - 1} more
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                              {isScheduled && scheduleCount > 0 && (
+                                <span className="text-green-600 dark:text-green-400">
+                                  {scheduleCount} time slot{scheduleCount !== 1 ? "s" : ""} scheduled
+                                </span>
+                              )}
+                              {isScheduled && scheduleCount === 0 && (
+                                <span className="text-yellow-600 dark:text-yellow-400">
+                                  Linked (no times set)
+                                </span>
+                              )}
+                              {!isScheduled && (
+                                <span className="text-orange-600 dark:text-orange-400">
+                                  Not scheduled
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 ml-4">
+                            <form action={() => duplicatePresentation(presentation.id)}>
+                              <button
+                                type="submit"
+                                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
                               >
-                                {levelLabels.get(presentation.level) || presentation.level}
-                              </span>
-                            )}
-                            {presentation.duration && (
-                              <span className="text-gray-500 dark:text-gray-400">
-                                {presentation.duration} min
-                              </span>
-                            )}
-                            {primarySpeaker && (
-                              <span className="text-gray-600 dark:text-gray-400">
-                                {primarySpeaker}
-                                {presentation.speakers.length > 1 && (
-                                  <span className="text-gray-400 dark:text-gray-500">
-                                    {" "}
-                                    +{presentation.speakers.length - 1} more
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                            {sessionCount > 0 && (
-                              <span className="text-green-600 dark:text-green-400">
-                                {sessionCount} session{sessionCount !== 1 ? "s" : ""} scheduled
-                              </span>
-                            )}
-                            {sessionCount === 0 && (
-                              <span className="text-orange-600 dark:text-orange-400">
-                                Not scheduled
-                              </span>
-                            )}
+                                Duplicate
+                              </button>
+                            </form>
+                            <button
+                              onClick={async () => {
+                                if (confirm("Delete this presentation?")) {
+                                  await deletePresentation(presentation.id);
+                                }
+                              }}
+                              className="text-red-600 hover:underline text-sm"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2 ml-4">
-                          <form action={() => duplicatePresentation(presentation.id)}>
-                            <button
-                              type="submit"
-                              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
-                            >
-                              Duplicate
-                            </button>
-                          </form>
-                          <button
-                            onClick={async () => {
-                              if (confirm("Delete this presentation?")) {
-                                await deletePresentation(presentation.id);
-                              }
-                            }}
-                            className="text-red-600 hover:underline text-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

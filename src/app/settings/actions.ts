@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export type OptionCategory = "function_type" | "contact_role" | "av_equipment" | "schedule_type" | "presentation_track" | "presentation_level" | "presenter_role";
+export type OptionCategory = "function_type" | "contact_role" | "av_equipment" | "schedule_type" | "presenter_role";
 
 export async function getOptions(category: OptionCategory) {
   return prisma.customOption.findMany({
@@ -22,8 +22,6 @@ export async function getAllOptions() {
     contact_role: options.filter((o) => o.category === "contact_role"),
     av_equipment: options.filter((o) => o.category === "av_equipment"),
     schedule_type: options.filter((o) => o.category === "schedule_type"),
-    presentation_track: options.filter((o) => o.category === "presentation_track"),
-    presentation_level: options.filter((o) => o.category === "presentation_level"),
     presenter_role: options.filter((o) => o.category === "presenter_role"),
   };
 }

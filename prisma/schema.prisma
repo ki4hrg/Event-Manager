@@ -34,18 +34,19 @@ model CustomOption {
 
 // Core entities
 model Event {
-  id            String         @id @default(cuid())
-  name          String
-  description   String?
-  startDate     DateTime
-  endDate       DateTime
-  timezone      String         @default("America/Chicago")
-  venueId       String?
-  venue         Venue?         @relation(fields: [venueId], references: [id])
-  functions     Function[]
-  presentations Presentation[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                 String              @id @default(cuid())
+  name               String
+  description        String?
+  startDate          DateTime
+  endDate            DateTime
+  timezone           String              @default("America/Chicago")
+  venueId            String?
+  venue              Venue?              @relation(fields: [venueId], references: [id])
+  functions          Function[]
+  presentations      Presentation[]
+  presentationTracks PresentationTrack[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model Venue {
@@ -65,16 +66,15 @@ model Venue {
 }
 
 model Room {
-  id                   String                    @id @default(cuid())
-  name                 String
-  capacity             Int?
-  notes                String?
-  venueId              String
-  venue                Venue                     @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  functions            FunctionRoom[]
-  presentationSessions PresentationSessionRoom[]
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
+  id        String         @id @default(cuid())
+  name      String
+  capacity  Int?
+  notes     String?
+  venueId   String
+  venue     Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  functions FunctionRoom[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 }
 
 // Flexible contact model with roles
@@ -108,20 +108,21 @@ model VenueContact {
 
 // Function is the core scheduling unit
 model Function {
-  id          String             @id @default(cuid())
-  name        String
-  description String?
-  type        String             @default("")
-  setupNotes  String?
-  eventId     String
-  event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  rooms       FunctionRoom[]
-  contacts    FunctionContact[]
-  schedules   FunctionSchedule[]
-  avNeeds     AVNeeds?
-  beoDetails  BEODetails?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id           String             @id @default(cuid())
+  name         String
+  description  String?
+  type         String             @default("")
+  setupNotes   String?
+  eventId      String
+  event        Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rooms        FunctionRoom[]
+  contacts     FunctionContact[]
+  schedules    FunctionSchedule[]
+  avNeeds      AVNeeds?
+  beoDetails   BEODetails?
+  presentation Presentation?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@index([eventId])
 }
@@ -187,24 +188,41 @@ model BEODetails {
   notes          String?
 }
 
+// Presentation tracks (scoped per event)
+model PresentationTrack {
+  id            String         @id @default(cuid())
+  name          String
+  color         String?
+  sortOrder     Int            @default(0)
+  eventId       String
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  presentations Presentation[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([eventId, name])
+  @@index([eventId])
+}
+
 // Presentation models for breakout sessions
 model Presentation {
-  id        String                @id @default(cuid())
-  title     String
-  abstract  String?
-  duration  Int?                  // minutes
-  track     String?               // from CustomOption "presentation_track"
-  level     String?               // from CustomOption "presentation_level"
-  notes     String?
-  eventId   String
-  event     Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  speakers  PresentationContact[]
-  avNeeds   PresentationAVNeeds?
-  sessions  PresentationSession[]
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
+  id          String                @id @default(cuid())
+  title       String
+  description String?
+  notes       String?
+  trackId     String?
+  track       PresentationTrack?    @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  functionId  String?               @unique
+  function    Function?             @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  eventId     String
+  event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  speakers    PresentationContact[]
+  avNeeds     PresentationAVNeeds?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
   @@index([eventId])
+  @@index([trackId])
 }
 
 model PresentationContact {
@@ -219,31 +237,6 @@ model PresentationContact {
 
   @@unique([presentationId, contactId])
   @@index([presentationId])
-}
-
-model PresentationSession {
-  id             String                    @id @default(cuid())
-  presentationId String
-  presentation   Presentation              @relation(fields: [presentationId], references: [id], onDelete: Cascade)
-  startTime      DateTime
-  endTime        DateTime
-  notes          String?
-  rooms          PresentationSessionRoom[]
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
-
-  @@index([presentationId])
-  @@index([startTime])
-}
-
-model PresentationSessionRoom {
-  id        String              @id @default(cuid())
-  sessionId String
-  roomId    String
-  session   PresentationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  room      Room                @relation(fields: [roomId], references: [id], onDelete: Cascade)
-
-  @@unique([sessionId, roomId])
 }
 
 model PresentationAVNeeds {

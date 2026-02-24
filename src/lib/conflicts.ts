@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export type RoomConflict = {
   roomId: string;
   roomName: string;
-  conflictType: "function" | "presentation";
+  conflictType: "function";
   conflictName: string;
   conflictId: string;
   startTime: Date;
@@ -11,14 +11,13 @@ export type RoomConflict = {
 };
 
 /**
- * Check for room conflicts against both FunctionSchedules and PresentationSessions.
+ * Check for room conflicts against FunctionSchedules.
  * Returns any overlapping bookings for the given rooms and time range.
  */
 export async function checkRoomConflicts(
   roomIds: string[],
   startTime: Date,
   endTime: Date,
-  excludePresentationSessionId?: string,
   excludeFunctionId?: string
 ): Promise<RoomConflict[]> {
   if (roomIds.length === 0) {
@@ -62,40 +61,6 @@ export async function checkRoomConflicts(
         conflictId: fr.functionId,
         startTime: schedule.startTime,
         endTime: schedule.endTime,
-      });
-    }
-  }
-
-  // Check PresentationSession conflicts
-  const sessionRooms = await prisma.presentationSessionRoom.findMany({
-    where: { roomId: { in: roomIds } },
-    include: {
-      room: true,
-      session: {
-        include: {
-          presentation: true,
-        },
-      },
-    },
-  });
-
-  for (const sr of sessionRooms) {
-    // Skip if we're excluding this session
-    if (excludePresentationSessionId && sr.sessionId === excludePresentationSessionId) {
-      continue;
-    }
-
-    const session = sr.session;
-    // Check for time overlap
-    if (session.startTime < endTime && session.endTime > startTime) {
-      conflicts.push({
-        roomId: sr.roomId,
-        roomName: sr.room.name,
-        conflictType: "presentation",
-        conflictName: session.presentation.title,
-        conflictId: session.presentationId,
-        startTime: session.startTime,
-        endTime: session.endTime,
       });
     }
   }

@@ -3,7 +3,6 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 
 /**
  * Parse a datetime-local input value (YYYY-MM-DDTHH:MM) as if it's in the given timezone
@@ -48,6 +47,59 @@ function parseDateTimeInTimezone(dateTimeLocal: string, timezone: string): Date 
 }
 
 // ============================================================================
+// Track CRUD (event-scoped)
+// ============================================================================
+
+export async function getTracks(eventId: string) {
+  return prisma.presentationTrack.findMany({
+    where: { eventId },
+    orderBy: { sortOrder: "asc" },
+  });
+}
+
+export async function createTrack(eventId: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  const color = formData.get("color") as string;
+
+  const maxOrder = await prisma.presentationTrack.findFirst({
+    where: { eventId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+
+  await prisma.presentationTrack.create({
+    data: {
+      name,
+      color: color || null,
+      eventId,
+      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+    },
+  });
+
+  revalidatePath(`/events/${eventId}/presentations`);
+}
+
+export async function updateTrack(trackId: string, eventId: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  const color = formData.get("color") as string;
+
+  await prisma.presentationTrack.update({
+    where: { id: trackId },
+    data: {
+      name,
+      color: color || null,
+    },
+  });
+
+  revalidatePath(`/events/${eventId}/presentations`);
+}
+
+export async function deleteTrack(trackId: string, eventId: string) {
+  await prisma.presentationTrack.delete({ where: { id: trackId } });
+  revalidatePath(`/events/${eventId}/presentations`);
+}
+
+// ============================================================================
 // Presentation CRUD
 // ============================================================================
 
@@ -55,17 +107,20 @@ export async function getPresentations(eventId: string) {
   return prisma.presentation.findMany({
     where: { eventId },
     include: {
+      track: true,
       speakers: {
         include: { contact: true },
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
       },
-      sessions: {
-        include: { rooms: { include: { room: true } } },
-        orderBy: { startTime: "asc" },
+      function: {
+        include: {
+          rooms: { include: { room: true } },
+          schedules: { orderBy: { startTime: "asc" } },
+        },
       },
       avNeeds: true,
     },
-    orderBy: [{ track: "asc" }, { title: "asc" }],
+    orderBy: [{ title: "asc" }],
   });
 }
 
@@ -73,13 +128,16 @@ export async function getPresentation(id: string) {
   return prisma.presentation.findUnique({
     where: { id },
     include: {
+      track: true,
       speakers: {
         include: { contact: true },
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
       },
-      sessions: {
-        include: { rooms: { include: { room: true } } },
-        orderBy: { startTime: "asc" },
+      function: {
+        include: {
+          rooms: { include: { room: true } },
+          schedules: { orderBy: { startTime: "asc" } },
+        },
       },
       avNeeds: true,
       event: true,
@@ -89,19 +147,20 @@ export async function getPresentation(id: string) {
 
 export async function createPresentation(eventId: string, formData: FormData) {
   const title = formData.get("title") as string;
-  const abstract = formData.get("abstract") as string;
-  const duration = formData.get("duration") as string;
-  const track = formData.get("track") as string;
-  const level = formData.get("level") as string;
+  const description = formData.get("description") as string;
+  const trackId = formData.get("trackId") as string;
   const notes = formData.get("notes") as string;
+
+  // Get speaker data from form
+  const speakerContactIds = formData.getAll("speakerContactIds") as string[];
+  const speakerRoles = formData.getAll("speakerRoles") as string[];
+  const primarySpeakerId = formData.get("primarySpeakerId") as string;
 
   const presentation = await prisma.presentation.create({
     data: {
       title,
-      abstract: abstract || null,
-      duration: duration ? parseInt(duration) : null,
-      track: track || null,
-      level: level || null,
+      description: description || null,
+      trackId: trackId || null,
       notes: notes || null,
       eventId,
     },
@@ -121,26 +180,35 @@ export async function createPresentation(eventId: string, formData: FormData) {
     });
   }
 
+  // Create speakers
+  if (speakerContactIds.length > 0) {
+    await prisma.presentationContact.createMany({
+      data: speakerContactIds.map((contactId, index) => ({
+        presentationId: presentation.id,
+        contactId,
+        role: speakerRoles[index] || null,
+        isPrimary: contactId === primarySpeakerId,
+        sortOrder: index,
+      })),
+    });
+  }
+
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations/${presentation.id}`);
 }
 
 export async function updatePresentation(id: string, eventId: string, formData: FormData) {
   const title = formData.get("title") as string;
-  const abstract = formData.get("abstract") as string;
-  const duration = formData.get("duration") as string;
-  const track = formData.get("track") as string;
-  const level = formData.get("level") as string;
+  const description = formData.get("description") as string;
+  const trackId = formData.get("trackId") as string;
   const notes = formData.get("notes") as string;
 
   await prisma.presentation.update({
     where: { id },
     data: {
       title,
-      abstract: abstract || null,
-      duration: duration ? parseInt(duration) : null,
-      track: track || null,
-      level: level || null,
+      description: description || null,
+      trackId: trackId || null,
       notes: notes || null,
     },
   });
@@ -187,10 +255,8 @@ export async function duplicatePresentation(id: string, eventId: string) {
   const duplicate = await prisma.presentation.create({
     data: {
       title: `${original.title} (Copy)`,
-      abstract: original.abstract,
-      duration: original.duration,
-      track: original.track,
-      level: original.level,
+      description: original.description,
+      trackId: original.trackId,
       notes: original.notes,
       eventId: original.eventId,
     },
@@ -220,115 +286,275 @@ export async function duplicatePresentation(id: string, eventId: string) {
     });
   }
 
-  // Note: We don't copy sessions since they are scheduled instances
-
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations/${duplicate.id}`);
 }
 
 // ============================================================================
-// Session CRUD
+// Function Linking
 // ============================================================================
 
-export async function createSession(
+/**
+ * Create a Function for a presentation and link it.
+ * The Function is created with type=BREAKOUT and the presentation's title as name.
+ */
+export async function createFunctionForPresentation(
   presentationId: string,
-  eventId: string,
-  formData: FormData
-): Promise<{ conflicts: RoomConflict[] } | void> {
-  const startTime = formData.get("startTime") as string;
-  const endTime = formData.get("endTime") as string;
-  const notes = formData.get("notes") as string;
-  const roomIds = formData.getAll("roomIds") as string[];
-
-  // Get event timezone
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: { timezone: true },
-  });
-  const timezone = event?.timezone || "America/Chicago";
-
-  const parsedStartTime = parseDateTimeInTimezone(startTime, timezone);
-  const parsedEndTime = parseDateTimeInTimezone(endTime, timezone);
-
-  // Check for conflicts
-  const conflicts = await checkRoomConflicts(roomIds, parsedStartTime, parsedEndTime);
-
-  // If there are conflicts, we still create but return the conflicts for warning display
-  const session = await prisma.presentationSession.create({
-    data: {
-      presentationId,
-      startTime: parsedStartTime,
-      endTime: parsedEndTime,
-      notes: notes || null,
-      rooms: {
-        create: roomIds.map((roomId) => ({ roomId })),
-      },
-    },
+  eventId: string
+) {
+  const presentation = await prisma.presentation.findUnique({
+    where: { id: presentationId },
+    select: { title: true, functionId: true, avNeeds: true },
   });
 
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-
-  if (conflicts.length > 0) {
-    return { conflicts };
+  if (!presentation) {
+    throw new Error("Presentation not found");
   }
-}
 
-export async function updateSession(
-  sessionId: string,
-  presentationId: string,
-  eventId: string,
-  formData: FormData
-): Promise<{ conflicts: RoomConflict[] } | void> {
-  const startTime = formData.get("startTime") as string;
-  const endTime = formData.get("endTime") as string;
-  const notes = formData.get("notes") as string;
-  const roomIds = formData.getAll("roomIds") as string[];
+  if (presentation.functionId) {
+    throw new Error("Presentation already has a linked function");
+  }
 
-  // Get event timezone
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: { timezone: true },
-  });
-  const timezone = event?.timezone || "America/Chicago";
-
-  const parsedStartTime = parseDateTimeInTimezone(startTime, timezone);
-  const parsedEndTime = parseDateTimeInTimezone(endTime, timezone);
-
-  // Check for conflicts (excluding current session)
-  const conflicts = await checkRoomConflicts(
-    roomIds,
-    parsedStartTime,
-    parsedEndTime,
-    sessionId
-  );
-
-  // Update session
-  await prisma.presentationSession.update({
-    where: { id: sessionId },
+  // Create the function with BREAKOUT type
+  const fn = await prisma.function.create({
     data: {
-      startTime: parsedStartTime,
-      endTime: parsedEndTime,
-      notes: notes || null,
+      name: presentation.title,
+      type: "BREAKOUT",
+      eventId,
     },
   });
 
-  // Update room assignments
-  await prisma.presentationSessionRoom.deleteMany({ where: { sessionId } });
-  if (roomIds.length > 0) {
-    await prisma.presentationSessionRoom.createMany({
-      data: roomIds.map((roomId) => ({ sessionId, roomId })),
+  // Copy AV needs from presentation to function if they exist
+  if (presentation.avNeeds) {
+    await prisma.aVNeeds.create({
+      data: {
+        functionId: fn.id,
+        equipment: presentation.avNeeds.equipment,
+        notes: presentation.avNeeds.notes,
+      },
     });
   }
 
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  // Link the presentation to the function
+  await prisma.presentation.update({
+    where: { id: presentationId },
+    data: { functionId: fn.id },
+  });
 
-  if (conflicts.length > 0) {
-    return { conflicts };
-  }
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  return fn;
 }
 
-export async function deleteSession(sessionId: string, presentationId: string, eventId: string) {
-  await prisma.presentationSession.delete({ where: { id: sessionId } });
+/**
+ * Link a presentation to an existing function.
+ */
+export async function linkToFunction(
+  presentationId: string,
+  functionId: string,
+  eventId: string
+) {
+  // Verify the function exists and belongs to the same event
+  const fn = await prisma.function.findUnique({
+    where: { id: functionId },
+    select: { eventId: true, presentation: true },
+  });
+
+  if (!fn) {
+    throw new Error("Function not found");
+  }
+
+  if (fn.eventId !== eventId) {
+    throw new Error("Function belongs to a different event");
+  }
+
+  if (fn.presentation) {
+    throw new Error("Function is already linked to another presentation");
+  }
+
+  await prisma.presentation.update({
+    where: { id: presentationId },
+    data: { functionId },
+  });
+
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+/**
+ * Unlink a presentation from its function.
+ * Optionally delete the function if it was created specifically for this presentation.
+ */
+export async function unlinkFunction(
+  presentationId: string,
+  eventId: string,
+  deleteFunction: boolean = false
+) {
+  const presentation = await prisma.presentation.findUnique({
+    where: { id: presentationId },
+    select: { functionId: true },
+  });
+
+  if (!presentation?.functionId) {
+    return;
+  }
+
+  const functionId = presentation.functionId;
+
+  // Unlink first
+  await prisma.presentation.update({
+    where: { id: presentationId },
+    data: { functionId: null },
+  });
+
+  // Optionally delete the function
+  if (deleteFunction) {
+    await prisma.function.delete({ where: { id: functionId } });
+  }
+
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+// ============================================================================
+// Schedule Management (via linked Function)
+// ============================================================================
+
+export async function addScheduleToPresentation(
+  presentationId: string,
+  eventId: string,
+  formData: FormData
+) {
+  const presentation = await prisma.presentation.findUnique({
+    where: { id: presentationId },
+    select: { functionId: true },
+  });
+
+  if (!presentation?.functionId) {
+    throw new Error("Presentation is not linked to a function");
+  }
+
+  const type = formData.get("type") as string || "SESSION";
+  const startTime = formData.get("startTime") as string;
+  const endTime = formData.get("endTime") as string;
+  const notes = formData.get("notes") as string;
+  const roomIds = formData.getAll("roomIds") as string[];
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { timezone: true },
+  });
+  const timezone = event?.timezone || "America/Chicago";
+
+  const parsedStartTime = parseDateTimeInTimezone(startTime, timezone);
+  const parsedEndTime = parseDateTimeInTimezone(endTime, timezone);
+
+  // Get max sortOrder
+  const maxOrder = await prisma.functionSchedule.findFirst({
+    where: { functionId: presentation.functionId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+
+  await prisma.functionSchedule.create({
+    data: {
+      functionId: presentation.functionId,
+      type,
+      startTime: parsedStartTime,
+      endTime: parsedEndTime,
+      notes: notes || null,
+      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+    },
+  });
+
+  // Update room assignments on the function
+  if (roomIds.length > 0) {
+    // Get existing room IDs
+    const existingRooms = await prisma.functionRoom.findMany({
+      where: { functionId: presentation.functionId },
+      select: { roomId: true },
+    });
+    const existingRoomIds = new Set(existingRooms.map((r) => r.roomId));
+
+    // Add any new rooms
+    const newRoomIds = roomIds.filter((id) => !existingRoomIds.has(id));
+    if (newRoomIds.length > 0) {
+      await prisma.functionRoom.createMany({
+        data: newRoomIds.map((roomId) => ({
+          functionId: presentation.functionId!,
+          roomId,
+        })),
+      });
+    }
+  }
+
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function updatePresentationSchedule(
+  scheduleId: string,
+  presentationId: string,
+  eventId: string,
+  formData: FormData
+) {
+  const type = formData.get("type") as string || "SESSION";
+  const startTime = formData.get("startTime") as string;
+  const endTime = formData.get("endTime") as string;
+  const notes = formData.get("notes") as string;
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { timezone: true },
+  });
+  const timezone = event?.timezone || "America/Chicago";
+
+  await prisma.functionSchedule.update({
+    where: { id: scheduleId },
+    data: {
+      type,
+      startTime: parseDateTimeInTimezone(startTime, timezone),
+      endTime: parseDateTimeInTimezone(endTime, timezone),
+      notes: notes || null,
+    },
+  });
+
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function deletePresentationSchedule(
+  scheduleId: string,
+  presentationId: string,
+  eventId: string
+) {
+  await prisma.functionSchedule.delete({ where: { id: scheduleId } });
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function updatePresentationRooms(
+  presentationId: string,
+  eventId: string,
+  roomIds: string[]
+) {
+  const presentation = await prisma.presentation.findUnique({
+    where: { id: presentationId },
+    select: { functionId: true },
+  });
+
+  if (!presentation?.functionId) {
+    throw new Error("Presentation is not linked to a function");
+  }
+
+  // Replace all room assignments
+  await prisma.functionRoom.deleteMany({
+    where: { functionId: presentation.functionId },
+  });
+
+  if (roomIds.length > 0) {
+    await prisma.functionRoom.createMany({
+      data: roomIds.map((roomId) => ({
+        functionId: presentation.functionId!,
+        roomId,
+      })),
+    });
+  }
+
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -345,14 +571,12 @@ export async function addSpeaker(
   const role = formData.get("role") as string;
   const isPrimary = formData.get("isPrimary") === "true";
 
-  // Get max sortOrder
   const maxOrder = await prisma.presentationContact.findFirst({
     where: { presentationId },
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
   });
 
-  // If setting as primary, unset other primaries
   if (isPrimary) {
     await prisma.presentationContact.updateMany({
       where: { presentationId },
@@ -382,7 +606,6 @@ export async function updateSpeaker(
   const role = formData.get("role") as string;
   const isPrimary = formData.get("isPrimary") === "true";
 
-  // If setting as primary, unset other primaries
   if (isPrimary) {
     await prisma.presentationContact.updateMany({
       where: { presentationId, id: { not: speakerId } },
@@ -447,18 +670,19 @@ export async function searchContacts(query: string) {
 }
 
 // ============================================================================
-// Check for Conflicts (for UI validation)
+// Get Available Functions (for linking UI)
 // ============================================================================
 
-export async function checkConflicts(
-  roomIds: string[],
-  startTime: string,
-  endTime: string,
-  timezone: string,
-  excludeSessionId?: string
-): Promise<RoomConflict[]> {
-  const parsedStartTime = parseDateTimeInTimezone(startTime, timezone);
-  const parsedEndTime = parseDateTimeInTimezone(endTime, timezone);
-
-  return checkRoomConflicts(roomIds, parsedStartTime, parsedEndTime, excludeSessionId);
+export async function getAvailableFunctions(eventId: string) {
+  return prisma.function.findMany({
+    where: {
+      eventId,
+      presentation: null, // Only functions not linked to a presentation
+    },
+    include: {
+      rooms: { include: { room: true } },
+      schedules: { orderBy: { startTime: "asc" } },
+    },
+    orderBy: { name: "asc" },
+  });
 }

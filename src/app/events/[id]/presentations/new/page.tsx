@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getEvent } from "../../../actions";
-import { createPresentation } from "../../../presentations/actions";
+import { createPresentation, getTracks, searchContacts } from "../../../presentations/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
 import { getOptions } from "@/app/settings/actions";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -14,11 +14,11 @@ export default async function NewPresentationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const [event, tracks, levels, avEquipment] = await Promise.all([
+  const [event, tracks, avEquipment, presenterRoles] = await Promise.all([
     getEvent(eventId),
-    getOptions("presentation_track"),
-    getOptions("presentation_level"),
+    getTracks(eventId),
     getOptions("av_equipment"),
+    getOptions("presenter_role"),
   ]);
 
   if (!event) {
@@ -28,6 +28,11 @@ export default async function NewPresentationPage({
   const createPresentationAction = async (formData: FormData) => {
     "use server";
     await createPresentation(eventId, formData);
+  };
+
+  const searchContactsAction = async (query: string) => {
+    "use server";
+    return searchContacts(query);
   };
 
   return (
@@ -47,9 +52,10 @@ export default async function NewPresentationPage({
       <PresentationForm
         eventId={eventId}
         tracks={tracks}
-        levels={levels}
         avEquipment={avEquipment}
+        presenterRoles={presenterRoles}
         action={createPresentationAction}
+        searchContacts={searchContactsAction}
       />
     </PageWrapper>
   );

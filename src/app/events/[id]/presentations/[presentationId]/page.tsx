@@ -8,19 +8,23 @@ import { Toast } from "@/components/Toast";
 import { getEvent } from "../../../actions";
 import {
   getPresentation,
+  getTracks,
   updatePresentation,
   deletePresentation,
   duplicatePresentation,
-  createSession,
-  updateSession,
-  deleteSession,
+  createFunctionForPresentation,
+  addScheduleToPresentation,
+  updatePresentationSchedule,
+  deletePresentationSchedule,
+  updatePresentationRooms,
+  unlinkFunction,
   addSpeaker,
   updateSpeaker,
   removeSpeaker,
   searchContacts,
 } from "../../../presentations/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
-import { SessionList } from "../../../presentations/SessionList";
+import { SchedulePanel } from "../../../presentations/SchedulePanel";
 import { SpeakerList } from "../../../presentations/SpeakerList";
 import { getOptions } from "@/app/settings/actions";
 
@@ -32,11 +36,10 @@ export default async function PresentationPage({
   params: Promise<{ id: string; presentationId: string }>;
 }) {
   const { id: eventId, presentationId } = await params;
-  const [event, presentation, tracks, levels, avEquipment, presenterRoles] = await Promise.all([
+  const [event, presentation, tracks, avEquipment, presenterRoles] = await Promise.all([
     getEvent(eventId),
     getPresentation(presentationId),
-    getOptions("presentation_track"),
-    getOptions("presentation_level"),
+    getTracks(eventId),
     getOptions("av_equipment"),
     getOptions("presenter_role"),
   ]);
@@ -68,19 +71,34 @@ export default async function PresentationPage({
     await duplicatePresentation(presentationId, eventId);
   };
 
-  const createSessionAction = async (formData: FormData) => {
+  const createFunctionAction = async () => {
     "use server";
-    return createSession(presentationId, eventId, formData);
+    await createFunctionForPresentation(presentationId, eventId);
   };
 
-  const updateSessionAction = async (sessionId: string, formData: FormData) => {
+  const addScheduleAction = async (formData: FormData) => {
     "use server";
-    return updateSession(sessionId, presentationId, eventId, formData);
+    await addScheduleToPresentation(presentationId, eventId, formData);
   };
 
-  const deleteSessionAction = async (sessionId: string) => {
+  const updateScheduleAction = async (scheduleId: string, formData: FormData) => {
     "use server";
-    await deleteSession(sessionId, presentationId, eventId);
+    await updatePresentationSchedule(scheduleId, presentationId, eventId, formData);
+  };
+
+  const deleteScheduleAction = async (scheduleId: string) => {
+    "use server";
+    await deletePresentationSchedule(scheduleId, presentationId, eventId);
+  };
+
+  const updateRoomsAction = async (roomIds: string[]) => {
+    "use server";
+    await updatePresentationRooms(presentationId, eventId, roomIds);
+  };
+
+  const unlinkFunctionAction = async (deleteFunc: boolean) => {
+    "use server";
+    await unlinkFunction(presentationId, eventId, deleteFunc);
   };
 
   const addSpeakerAction = async (formData: FormData) => {
@@ -131,7 +149,7 @@ export default async function PresentationPage({
           </form>
           <DeleteButton
             action={deletePresentationAction}
-            confirmMessage="Are you sure you want to delete this presentation? All sessions will also be deleted."
+            confirmMessage="Are you sure you want to delete this presentation? The linked function (if any) will be unlinked but not deleted."
           />
         </div>
       </div>
@@ -142,9 +160,10 @@ export default async function PresentationPage({
             presentation={presentation}
             eventId={eventId}
             tracks={tracks}
-            levels={levels}
             avEquipment={avEquipment}
+            presenterRoles={presenterRoles}
             action={updatePresentationAction}
+            searchContacts={searchContactsAction}
           />
         </div>
 
@@ -159,14 +178,18 @@ export default async function PresentationPage({
             searchContacts={searchContactsAction}
           />
 
-          <SessionList
-            sessions={presentation.sessions}
+          <SchedulePanel
+            function={presentation.function}
             rooms={rooms}
             presentationId={presentationId}
+            eventId={eventId}
             timezone={event.timezone}
-            createSession={createSessionAction}
-            updateSession={updateSessionAction}
-            deleteSession={deleteSessionAction}
+            createFunction={createFunctionAction}
+            addSchedule={addScheduleAction}
+            updateSchedule={updateScheduleAction}
+            deleteSchedule={deleteScheduleAction}
+            updateRooms={updateRoomsAction}
+            unlinkFunction={unlinkFunctionAction}
           />
         </div>
       </div>

@@ -3,11 +3,11 @@ import Link from "next/link";
 import { getEvent } from "../../actions";
 import {
   getPresentations,
+  getTracks,
   duplicatePresentation,
   deletePresentation,
 } from "../../presentations/actions";
 import { PresentationList } from "../../presentations/PresentationList";
-import { getOptions } from "@/app/settings/actions";
 import { PageWrapper } from "@/components/PageWrapper";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +18,10 @@ export default async function PresentationsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const [event, presentations, tracks, levels] = await Promise.all([
+  const [event, presentations, tracks] = await Promise.all([
     getEvent(eventId),
     getPresentations(eventId),
-    getOptions("presentation_track"),
-    getOptions("presentation_level"),
+    getTracks(eventId),
   ]);
 
   if (!event) {
@@ -57,7 +56,6 @@ export default async function PresentationsPage({
         presentations={presentations}
         eventId={eventId}
         tracks={tracks}
-        levels={levels}
         duplicatePresentation={duplicatePresentationAction}
         deletePresentation={deletePresentationAction}
       />

@@ -35,19 +35,6 @@ const defaultScheduleTypes = [
   { value: "BREAKDOWN", label: "Breakdown", color: "orange", sortOrder: 3 },
 ];
 
-const defaultPresentationTracks = [
-  { value: "TECHNOLOGY", label: "Technology", color: "blue", sortOrder: 0 },
-  { value: "LEADERSHIP", label: "Leadership", color: "purple", sortOrder: 1 },
-  { value: "OPERATIONS", label: "Operations", color: "green", sortOrder: 2 },
-  { value: "INNOVATION", label: "Innovation", color: "orange", sortOrder: 3 },
-];
-
-const defaultPresentationLevels = [
-  { value: "BEGINNER", label: "Beginner", color: "green", sortOrder: 0 },
-  { value: "INTERMEDIATE", label: "Intermediate", color: "yellow", sortOrder: 1 },
-  { value: "ADVANCED", label: "Advanced", color: "red", sortOrder: 2 },
-];
-
 const defaultPresenterRoles = [
   { value: "PRESENTER", label: "Presenter", sortOrder: 0 },
   { value: "CO_PRESENTER", label: "Co-Presenter", sortOrder: 1 },
@@ -100,8 +87,6 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("contact_role", defaultContactRoles);
   totalCreated += await seedOptionsForCategory("av_equipment", defaultAVEquipment);
   totalCreated += await seedOptionsForCategory("schedule_type", defaultScheduleTypes);
-  totalCreated += await seedOptionsForCategory("presentation_track", defaultPresentationTracks);
-  totalCreated += await seedOptionsForCategory("presentation_level", defaultPresentationLevels);
   totalCreated += await seedOptionsForCategory("presenter_role", defaultPresenterRoles);
 
   console.log(`Seeded ${totalCreated} total options`);
