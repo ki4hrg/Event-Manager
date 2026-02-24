@@ -14,9 +14,14 @@ import {
   createSchedule,
   updateSchedule,
   deleteSchedule,
+  searchContacts,
+  addFunctionContact,
+  updateFunctionContact,
+  removeFunctionContact,
 } from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
 import { ScheduleList } from "../../../functions/ScheduleList";
+import { ContactList } from "../../../functions/ContactList";
 import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +82,26 @@ export default async function FunctionPage({
     await deleteSchedule(scheduleId, functionId, eventId);
   };
 
+  const searchContactsAction = async (query: string) => {
+    "use server";
+    return searchContacts(query);
+  };
+
+  const addContactAction = async (formData: FormData) => {
+    "use server";
+    await addFunctionContact(functionId, eventId, formData);
+  };
+
+  const updateContactAction = async (contactId: string, formData: FormData) => {
+    "use server";
+    await updateFunctionContact(contactId, functionId, eventId, formData);
+  };
+
+  const removeContactAction = async (contactId: string) => {
+    "use server";
+    await removeFunctionContact(contactId, functionId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -122,7 +147,7 @@ export default async function FunctionPage({
           />
         </div>
 
-        <div>
+        <div className="space-y-8">
           <ScheduleList
             schedules={fn.schedules}
             scheduleTypes={scheduleTypes}
@@ -131,6 +156,14 @@ export default async function FunctionPage({
             createSchedule={createScheduleAction}
             updateSchedule={updateScheduleAction}
             deleteSchedule={deleteScheduleAction}
+          />
+          <ContactList
+            contacts={fn.contacts}
+            functionId={functionId}
+            addContact={addContactAction}
+            updateContact={updateContactAction}
+            removeContact={removeContactAction}
+            searchContacts={searchContactsAction}
           />
         </div>
       </div>

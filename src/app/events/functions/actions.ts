@@ -69,6 +69,7 @@ export async function getFunction(id: string) {
     include: {
       rooms: { include: { room: true } },
       schedules: { orderBy: { sortOrder: "asc" } },
+      contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       avNeeds: true,
       beoDetails: true,
     },
@@ -353,5 +354,64 @@ export async function updateSchedule(scheduleId: string, functionId: string, eve
 
 export async function deleteSchedule(scheduleId: string, functionId: string, eventId: string) {
   await prisma.functionSchedule.delete({ where: { id: scheduleId } });
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
+// ============================================================================
+// Contact Assignment
+// ============================================================================
+
+export async function searchContacts(query: string) {
+  if (!query || query.length < 2) {
+    return [];
+  }
+
+  return prisma.contact.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { email: { contains: query, mode: "insensitive" } },
+        { organization: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    take: 10,
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
+}
+
+export async function addFunctionContact(functionId: string, eventId: string, formData: FormData) {
+  const contactId = formData.get("contactId") as string;
+  const role = formData.get("role") as string;
+
+  await prisma.functionContact.create({
+    data: {
+      functionId,
+      contactId,
+      role: role || null,
+    },
+  });
+
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
+export async function updateFunctionContact(
+  contactId: string,
+  functionId: string,
+  eventId: string,
+  formData: FormData
+) {
+  const role = formData.get("role") as string;
+
+  await prisma.functionContact.update({
+    where: { id: contactId },
+    data: { role: role || null },
+  });
+
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
+export async function removeFunctionContact(contactId: string, functionId: string, eventId: string) {
+  await prisma.functionContact.delete({ where: { id: contactId } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }

@@ -11,6 +11,7 @@ type FunctionWithRelations = Function & {
 type FunctionListProps = {
   functions: FunctionWithRelations[];
   eventId: string;
+  timezone: string;
   functionTypes: CustomOption[];
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
@@ -36,12 +37,25 @@ function formatDateTime(date: Date): string {
   });
 }
 
-function formatDateShort(date: Date): string {
-  return new Date(date).toLocaleDateString("en-US", {
+function formatDateHeading(dateKey: string, timezone: string): string {
+  // dateKey is YYYY-MM-DD in the event's timezone.
+  // Use noon UTC so the date is unambiguous in any timezone when displayed.
+  const d = new Date(`${dateKey}T12:00:00Z`);
+  return d.toLocaleDateString("en-US", {
+    timeZone: timezone,
     weekday: "short",
     month: "short",
     day: "numeric",
   });
+}
+
+function getDateKeyInTimezone(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 // Get the earliest schedule date for a function
@@ -53,8 +67,8 @@ function getEarliestDate(fn: FunctionWithRelations): Date | null {
   }, new Date(fn.schedules[0].startTime));
 }
 
-// Group functions by date of earliest schedule
-function groupByDate(functions: FunctionWithRelations[]): {
+// Group functions by date of earliest schedule (in the event's timezone)
+function groupByDate(functions: FunctionWithRelations[], timezone: string): {
   dated: Map<string, FunctionWithRelations[]>;
   unscheduled: FunctionWithRelations[];
 } {
@@ -66,7 +80,7 @@ function groupByDate(functions: FunctionWithRelations[]): {
     if (!earliest) {
       unscheduled.push(fn);
     } else {
-      const dateKey = earliest.toISOString().split("T")[0];
+      const dateKey = getDateKeyInTimezone(earliest, timezone);
       if (!dated.has(dateKey)) {
         dated.set(dateKey, []);
       }
@@ -86,8 +100,8 @@ function groupByDate(functions: FunctionWithRelations[]): {
   return { dated, unscheduled };
 }
 
-export function FunctionList({ functions, eventId, functionTypes, duplicateFunction, deleteFunction }: FunctionListProps) {
-  const { dated, unscheduled } = groupByDate(functions);
+export function FunctionList({ functions, eventId, timezone, functionTypes, duplicateFunction, deleteFunction }: FunctionListProps) {
+  const { dated, unscheduled } = groupByDate(functions, timezone);
 
   // Create lookup maps for type labels and colors
   const typeLabels = new Map(functionTypes.map((t) => [t.value, t.label]));
@@ -204,7 +218,7 @@ export function FunctionList({ functions, eventId, functionTypes, duplicateFunct
           {sortedDates.map((dateKey) => (
             <div key={dateKey}>
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                {formatDateShort(new Date(dateKey))}
+                {formatDateHeading(dateKey, timezone)}
               </h3>
               <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">

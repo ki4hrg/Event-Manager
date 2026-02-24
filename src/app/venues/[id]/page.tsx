@@ -4,9 +4,21 @@ import { Suspense } from "react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
-import { getVenue, updateVenue, deleteVenue, createRoom, updateRoom, deleteRoom } from "../actions";
+import {
+  getVenue,
+  updateVenue,
+  deleteVenue,
+  createRoom,
+  updateRoom,
+  deleteRoom,
+  searchContacts,
+  addVenueContact,
+  updateVenueContact,
+  removeVenueContact,
+} from "../actions";
 import { VenueForm } from "../VenueForm";
 import { RoomList } from "../RoomList";
+import { ContactList } from "../ContactList";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +55,26 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
     await deleteRoom(roomId, id);
   };
 
+  const searchContactsAction = async (query: string) => {
+    "use server";
+    return searchContacts(query);
+  };
+
+  const addContactAction = async (formData: FormData) => {
+    "use server";
+    await addVenueContact(id, formData);
+  };
+
+  const updateContactAction = async (contactId: string, formData: FormData) => {
+    "use server";
+    await updateVenueContact(contactId, id, formData);
+  };
+
+  const removeContactAction = async (contactId: string) => {
+    "use server";
+    await removeVenueContact(contactId, id);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -74,13 +106,21 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
           <VenueForm venue={venue} action={updateVenueWithId} />
         </div>
 
-        <div>
+        <div className="space-y-8">
           <RoomList
             rooms={venue.rooms}
             venueId={id}
             createRoom={createRoomAction}
             updateRoom={updateRoomAction}
             deleteRoom={deleteRoomAction}
+          />
+          <ContactList
+            contacts={venue.contacts}
+            venueId={id}
+            addContact={addContactAction}
+            updateContact={updateContactAction}
+            removeContact={removeContactAction}
+            searchContacts={searchContactsAction}
           />
         </div>
       </div>

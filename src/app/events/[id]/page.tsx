@@ -103,6 +103,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           <FunctionList
             functions={functions}
             eventId={id}
+            timezone={event.timezone || "America/Chicago"}
             functionTypes={functionTypes}
             duplicateFunction={duplicateFunctionAction}
             deleteFunction={deleteFunctionAction}

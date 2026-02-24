@@ -14,7 +14,10 @@ export async function getVenues() {
 export async function getVenue(id: string) {
   return prisma.venue.findUnique({
     where: { id },
-    include: { rooms: { orderBy: { name: "asc" } } },
+    include: {
+      rooms: { orderBy: { name: "asc" } },
+      contacts: { include: { contact: true }, orderBy: { id: "asc" } },
+    },
   });
 }
 
@@ -113,5 +116,59 @@ export async function updateRoom(roomId: string, venueId: string, formData: Form
 
 export async function deleteRoom(roomId: string, venueId: string) {
   await prisma.room.delete({ where: { id: roomId } });
+  revalidatePath(`/venues/${venueId}`);
+}
+
+// ============================================================================
+// Contact Assignment
+// ============================================================================
+
+export async function searchContacts(query: string) {
+  if (!query || query.length < 2) {
+    return [];
+  }
+
+  return prisma.contact.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { email: { contains: query, mode: "insensitive" } },
+        { organization: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    take: 10,
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
+}
+
+export async function addVenueContact(venueId: string, formData: FormData) {
+  const contactId = formData.get("contactId") as string;
+  const role = formData.get("role") as string;
+
+  await prisma.venueContact.create({
+    data: {
+      venueId,
+      contactId,
+      role: role || null,
+    },
+  });
+
+  revalidatePath(`/venues/${venueId}`);
+}
+
+export async function updateVenueContact(contactId: string, venueId: string, formData: FormData) {
+  const role = formData.get("role") as string;
+
+  await prisma.venueContact.update({
+    where: { id: contactId },
+    data: { role: role || null },
+  });
+
+  revalidatePath(`/venues/${venueId}`);
+}
+
+export async function removeVenueContact(contactId: string, venueId: string) {
+  await prisma.venueContact.delete({ where: { id: contactId } });
   revalidatePath(`/venues/${venueId}`);
 }
