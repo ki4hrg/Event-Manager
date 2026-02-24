@@ -34,17 +34,18 @@ model CustomOption {
 
 // Core entities
 model Event {
-  id          String     @id @default(cuid())
-  name        String
-  description String?
-  startDate   DateTime
-  endDate     DateTime
-  timezone    String     @default("America/Chicago")
-  venueId     String?
-  venue       Venue?     @relation(fields: [venueId], references: [id])
-  functions   Function[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id            String         @id @default(cuid())
+  name          String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  timezone      String         @default("America/Chicago")
+  venueId       String?
+  venue         Venue?         @relation(fields: [venueId], references: [id])
+  functions     Function[]
+  presentations Presentation[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Venue {
@@ -64,31 +65,33 @@ model Venue {
 }
 
 model Room {
-  id        String         @id @default(cuid())
-  name      String
-  capacity  Int?
-  notes     String?
-  venueId   String
-  venue     Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  functions FunctionRoom[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id                   String                    @id @default(cuid())
+  name                 String
+  capacity             Int?
+  notes                String?
+  venueId              String
+  venue                Venue                     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  functions            FunctionRoom[]
+  presentationSessions PresentationSessionRoom[]
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
 }
 
 // Flexible contact model with roles
 model Contact {
-  id           String            @id @default(cuid())
-  firstName    String
-  lastName     String
-  email        String?
-  phone        String?
-  organization String?
-  notes        String?
-  roles        String[]          @default([])
-  functions    FunctionContact[]
-  venues       VenueContact[]
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id            String                @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  organization  String?
+  notes         String?
+  roles         String[]              @default([])
+  functions     FunctionContact[]
+  venues        VenueContact[]
+  presentations PresentationContact[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 }
 
 // Junction table for Venue <-> Contact
@@ -181,5 +184,72 @@ model BEODetails {
   menuNotes      String?
   dietaryNotes   String?
   beverageNotes  String?
+  notes          String?
+}
+
+// Presentation models for breakout sessions
+model Presentation {
+  id        String                @id @default(cuid())
+  title     String
+  abstract  String?
+  duration  Int?                  // minutes
+  track     String?               // from CustomOption "presentation_track"
+  level     String?               // from CustomOption "presentation_level"
+  notes     String?
+  eventId   String
+  event     Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  speakers  PresentationContact[]
+  avNeeds   PresentationAVNeeds?
+  sessions  PresentationSession[]
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@index([eventId])
+}
+
+model PresentationContact {
+  id             String       @id @default(cuid())
+  presentationId String
+  contactId      String
+  role           String?      // "Presenter", "Co-Presenter", "Moderator", "Panelist"
+  isPrimary      Boolean      @default(false)
+  sortOrder      Int          @default(0)
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([presentationId, contactId])
+  @@index([presentationId])
+}
+
+model PresentationSession {
+  id             String                    @id @default(cuid())
+  presentationId String
+  presentation   Presentation              @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  startTime      DateTime
+  endTime        DateTime
+  notes          String?
+  rooms          PresentationSessionRoom[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([presentationId])
+  @@index([startTime])
+}
+
+model PresentationSessionRoom {
+  id        String              @id @default(cuid())
+  sessionId String
+  roomId    String
+  session   PresentationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  room      Room                @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, roomId])
+}
+
+model PresentationAVNeeds {
+  id             String       @id @default(cuid())
+  presentationId String       @unique
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  equipment      String[]     @default([])
   notes          String?
 }

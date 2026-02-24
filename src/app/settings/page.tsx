@@ -27,6 +27,21 @@ export default async function SettingsPage() {
     await createOption("schedule_type", formData);
   };
 
+  const createPresentationTrack = async (formData: FormData) => {
+    "use server";
+    await createOption("presentation_track", formData);
+  };
+
+  const createPresentationLevel = async (formData: FormData) => {
+    "use server";
+    await createOption("presentation_level", formData);
+  };
+
+  const createPresenterRole = async (formData: FormData) => {
+    "use server";
+    await createOption("presenter_role", formData);
+  };
+
   const updateOptionAction = async (id: string, formData: FormData) => {
     "use server";
     await updateOption(id, formData);
@@ -89,6 +104,39 @@ export default async function SettingsPage() {
           options={options.schedule_type}
           showColor={true}
           createOption={createScheduleType}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+        />
+
+        <OptionList
+          title="Presentation Tracks"
+          description="Categories for breakout presentations (e.g., Technology, Leadership, Operations)"
+          category="presentation_track"
+          options={options.presentation_track}
+          showColor={true}
+          createOption={createPresentationTrack}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+        />
+
+        <OptionList
+          title="Presentation Levels"
+          description="Difficulty levels for presentations (e.g., Beginner, Intermediate, Advanced)"
+          category="presentation_level"
+          options={options.presentation_level}
+          showColor={true}
+          createOption={createPresentationLevel}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+        />
+
+        <OptionList
+          title="Presenter Roles"
+          description="Roles for speakers in presentations (e.g., Presenter, Co-Presenter, Moderator)"
+          category="presenter_role"
+          options={options.presenter_role}
+          showColor={false}
+          createOption={createPresenterRole}
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
         />

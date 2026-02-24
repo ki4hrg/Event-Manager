@@ -35,6 +35,26 @@ const defaultScheduleTypes = [
   { value: "BREAKDOWN", label: "Breakdown", color: "orange", sortOrder: 3 },
 ];
 
+const defaultPresentationTracks = [
+  { value: "TECHNOLOGY", label: "Technology", color: "blue", sortOrder: 0 },
+  { value: "LEADERSHIP", label: "Leadership", color: "purple", sortOrder: 1 },
+  { value: "OPERATIONS", label: "Operations", color: "green", sortOrder: 2 },
+  { value: "INNOVATION", label: "Innovation", color: "orange", sortOrder: 3 },
+];
+
+const defaultPresentationLevels = [
+  { value: "BEGINNER", label: "Beginner", color: "green", sortOrder: 0 },
+  { value: "INTERMEDIATE", label: "Intermediate", color: "yellow", sortOrder: 1 },
+  { value: "ADVANCED", label: "Advanced", color: "red", sortOrder: 2 },
+];
+
+const defaultPresenterRoles = [
+  { value: "PRESENTER", label: "Presenter", sortOrder: 0 },
+  { value: "CO_PRESENTER", label: "Co-Presenter", sortOrder: 1 },
+  { value: "MODERATOR", label: "Moderator", sortOrder: 2 },
+  { value: "PANELIST", label: "Panelist", sortOrder: 3 },
+];
+
 async function seedUsers() {
   const userCount = await prisma.user.count();
 
@@ -58,45 +78,33 @@ async function seedUsers() {
   console.log("\n⚠️  Change this password after first login!");
 }
 
+async function seedOptionsForCategory(category, options) {
+  const existingCount = await prisma.customOption.count({ where: { category } });
+  if (existingCount > 0) {
+    console.log(`${category} options already exist, skipping.`);
+    return 0;
+  }
+
+  for (const option of options) {
+    await prisma.customOption.create({
+      data: { category, ...option },
+    });
+  }
+  return options.length;
+}
+
 async function seedOptions() {
-  const optionCount = await prisma.customOption.count();
+  let totalCreated = 0;
 
-  if (optionCount > 0) {
-    console.log("Options already exist, skipping options seed.");
-    return;
-  }
+  totalCreated += await seedOptionsForCategory("function_type", defaultFunctionTypes);
+  totalCreated += await seedOptionsForCategory("contact_role", defaultContactRoles);
+  totalCreated += await seedOptionsForCategory("av_equipment", defaultAVEquipment);
+  totalCreated += await seedOptionsForCategory("schedule_type", defaultScheduleTypes);
+  totalCreated += await seedOptionsForCategory("presentation_track", defaultPresentationTracks);
+  totalCreated += await seedOptionsForCategory("presentation_level", defaultPresentationLevels);
+  totalCreated += await seedOptionsForCategory("presenter_role", defaultPresenterRoles);
 
-  // Seed function types
-  for (const option of defaultFunctionTypes) {
-    await prisma.customOption.create({
-      data: { category: "function_type", ...option },
-    });
-  }
-  console.log(`Created ${defaultFunctionTypes.length} function types`);
-
-  // Seed contact roles
-  for (const option of defaultContactRoles) {
-    await prisma.customOption.create({
-      data: { category: "contact_role", ...option },
-    });
-  }
-  console.log(`Created ${defaultContactRoles.length} contact roles`);
-
-  // Seed AV equipment
-  for (const option of defaultAVEquipment) {
-    await prisma.customOption.create({
-      data: { category: "av_equipment", ...option },
-    });
-  }
-  console.log(`Created ${defaultAVEquipment.length} AV equipment options`);
-
-  // Seed schedule types
-  for (const option of defaultScheduleTypes) {
-    await prisma.customOption.create({
-      data: { category: "schedule_type", ...option },
-    });
-  }
-  console.log(`Created ${defaultScheduleTypes.length} schedule types`);
+  console.log(`Seeded ${totalCreated} total options`);
 }
 
 async function main() {

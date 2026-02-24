@@ -1,0 +1,220 @@
+"use client";
+
+import Link from "next/link";
+import type {
+  Presentation,
+  PresentationContact,
+  PresentationSession,
+  PresentationSessionRoom,
+  PresentationAVNeeds,
+  Contact,
+  Room,
+  CustomOption,
+} from "@prisma/client";
+
+type PresentationWithRelations = Presentation & {
+  speakers: (PresentationContact & { contact: Contact })[];
+  sessions: (PresentationSession & {
+    rooms: (PresentationSessionRoom & { room: Room })[];
+  })[];
+  avNeeds: PresentationAVNeeds | null;
+};
+
+type PresentationListProps = {
+  presentations: PresentationWithRelations[];
+  eventId: string;
+  tracks: CustomOption[];
+  levels: CustomOption[];
+  duplicatePresentation: (id: string) => Promise<void>;
+  deletePresentation: (id: string) => Promise<void>;
+};
+
+const colorClasses: Record<string, string> = {
+  gray: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
+  red: "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300",
+  orange: "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300",
+  yellow: "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300",
+  green: "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300",
+  blue: "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300",
+  purple: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300",
+  pink: "bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300",
+};
+
+export function PresentationList({
+  presentations,
+  eventId,
+  tracks,
+  levels,
+  duplicatePresentation,
+  deletePresentation,
+}: PresentationListProps) {
+  // Create lookup maps
+  const trackLabels = new Map(tracks.map((t) => [t.value, t.label]));
+  const trackColors = new Map(tracks.map((t) => [t.value, t.color || "gray"]));
+  const levelLabels = new Map(levels.map((l) => [l.value, l.label]));
+  const levelColors = new Map(levels.map((l) => [l.value, l.color || "gray"]));
+
+  // Group presentations by track
+  const grouped = presentations.reduce((acc, p) => {
+    const track = p.track || "_unassigned";
+    if (!acc[track]) {
+      acc[track] = [];
+    }
+    acc[track].push(p);
+    return acc;
+  }, {} as Record<string, PresentationWithRelations[]>);
+
+  // Sort tracks: defined tracks first (by order), then unassigned
+  const sortedTracks = Object.keys(grouped).sort((a, b) => {
+    if (a === "_unassigned") return 1;
+    if (b === "_unassigned") return -1;
+    const aIndex = tracks.findIndex((t) => t.value === a);
+    const bIndex = tracks.findIndex((t) => t.value === b);
+    return aIndex - bIndex;
+  });
+
+  const getPrimarySpeaker = (speakers: (PresentationContact & { contact: Contact })[]) => {
+    const primary = speakers.find((s) => s.isPrimary);
+    if (primary) {
+      return `${primary.contact.firstName} ${primary.contact.lastName}`;
+    }
+    if (speakers.length > 0) {
+      return `${speakers[0].contact.firstName} ${speakers[0].contact.lastName}`;
+    }
+    return null;
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+          Presentations ({presentations.length})
+        </h2>
+        <Link
+          href={`/events/${eventId}/presentations/new`}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Add Presentation
+        </Link>
+      </div>
+
+      {presentations.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
+          <p className="text-gray-500 dark:text-gray-400">
+            No presentations yet. Add your first presentation to get started.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {sortedTracks.map((trackValue) => (
+            <div key={trackValue}>
+              <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                {trackValue === "_unassigned" ? (
+                  <span className="text-gray-500">Unassigned Track</span>
+                ) : (
+                  <>
+                    <span
+                      className={`px-2 py-0.5 text-xs rounded ${
+                        colorClasses[trackColors.get(trackValue) || "gray"] || colorClasses.gray
+                      }`}
+                    >
+                      {trackLabels.get(trackValue) || trackValue}
+                    </span>
+                    <span className="text-gray-400 dark:text-gray-500 text-sm">
+                      ({grouped[trackValue].length})
+                    </span>
+                  </>
+                )}
+              </h3>
+
+              <div className="space-y-2">
+                {grouped[trackValue].map((presentation) => {
+                  const primarySpeaker = getPrimarySpeaker(presentation.speakers);
+                  const sessionCount = presentation.sessions.length;
+
+                  return (
+                    <div
+                      key={presentation.id}
+                      className="bg-white dark:bg-gray-800 shadow rounded-lg p-4"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={`/events/${eventId}/presentations/${presentation.id}`}
+                            className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
+                          >
+                            {presentation.title}
+                          </Link>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                            {presentation.level && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded ${
+                                  colorClasses[levelColors.get(presentation.level) || "gray"] ||
+                                  colorClasses.gray
+                                }`}
+                              >
+                                {levelLabels.get(presentation.level) || presentation.level}
+                              </span>
+                            )}
+                            {presentation.duration && (
+                              <span className="text-gray-500 dark:text-gray-400">
+                                {presentation.duration} min
+                              </span>
+                            )}
+                            {primarySpeaker && (
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {primarySpeaker}
+                                {presentation.speakers.length > 1 && (
+                                  <span className="text-gray-400 dark:text-gray-500">
+                                    {" "}
+                                    +{presentation.speakers.length - 1} more
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {sessionCount > 0 && (
+                              <span className="text-green-600 dark:text-green-400">
+                                {sessionCount} session{sessionCount !== 1 ? "s" : ""} scheduled
+                              </span>
+                            )}
+                            {sessionCount === 0 && (
+                              <span className="text-orange-600 dark:text-orange-400">
+                                Not scheduled
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 ml-4">
+                          <form action={() => duplicatePresentation(presentation.id)}>
+                            <button
+                              type="submit"
+                              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+                            >
+                              Duplicate
+                            </button>
+                          </form>
+                          <button
+                            onClick={async () => {
+                              if (confirm("Delete this presentation?")) {
+                                await deletePresentation(presentation.id);
+                              }
+                            }}
+                            className="text-red-600 hover:underline text-sm"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
