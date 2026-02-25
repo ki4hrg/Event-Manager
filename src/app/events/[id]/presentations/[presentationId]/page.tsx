@@ -12,12 +12,6 @@ import {
   updatePresentation,
   deletePresentation,
   duplicatePresentation,
-  createFunctionForPresentation,
-  addScheduleToPresentation,
-  updatePresentationSchedule,
-  deletePresentationSchedule,
-  updatePresentationRooms,
-  unlinkFunction,
   addSpeaker,
   updateSpeaker,
   removeSpeaker,
@@ -28,8 +22,13 @@ import {
   linkAVOrderToPresentationFromPresentation,
   unlinkAVOrderFromPresentationPage,
 } from "../../../av-orders/actions";
+import {
+  getAvailableBlocksForPresentation,
+  assignPresentationToBlock,
+  removePresentationFromBlock,
+} from "../../../breakout-schedule/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
-import { SchedulePanel } from "../../../presentations/SchedulePanel";
+import { BreakoutSlotPanel } from "../../../presentations/BreakoutSlotPanel";
 import { SpeakerList } from "../../../presentations/SpeakerList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { getOptions } from "@/app/settings/actions";
@@ -61,9 +60,12 @@ export default async function PresentationPage({
       })
     : [];
 
-  const availableAVOrders = presentation.avOrder
-    ? []
-    : await getAvailableAVOrdersForPresentation(eventId);
+  const [availableAVOrders, availableBlocks] = await Promise.all([
+    presentation.avOrder
+      ? []
+      : getAvailableAVOrdersForPresentation(eventId),
+    getAvailableBlocksForPresentation(presentationId, eventId),
+  ]);
 
   const updatePresentationAction = async (formData: FormData) => {
     "use server";
@@ -78,36 +80,6 @@ export default async function PresentationPage({
   const duplicatePresentationAction = async () => {
     "use server";
     await duplicatePresentation(presentationId, eventId);
-  };
-
-  const createFunctionAction = async () => {
-    "use server";
-    await createFunctionForPresentation(presentationId, eventId);
-  };
-
-  const addScheduleAction = async (formData: FormData) => {
-    "use server";
-    await addScheduleToPresentation(presentationId, eventId, formData);
-  };
-
-  const updateScheduleAction = async (scheduleId: string, formData: FormData) => {
-    "use server";
-    await updatePresentationSchedule(scheduleId, presentationId, eventId, formData);
-  };
-
-  const deleteScheduleAction = async (scheduleId: string) => {
-    "use server";
-    await deletePresentationSchedule(scheduleId, presentationId, eventId);
-  };
-
-  const updateRoomsAction = async (roomIds: string[]) => {
-    "use server";
-    await updatePresentationRooms(presentationId, eventId, roomIds);
-  };
-
-  const unlinkFunctionAction = async (deleteFunc: boolean) => {
-    "use server";
-    await unlinkFunction(presentationId, eventId, deleteFunc);
   };
 
   const addSpeakerAction = async (formData: FormData) => {
@@ -140,6 +112,16 @@ export default async function PresentationPage({
     await unlinkAVOrderFromPresentationPage(presentationId, eventId);
   };
 
+  const addSlotAction = async (functionId: string, roomId: string | null) => {
+    "use server";
+    await assignPresentationToBlock(presentationId, functionId, roomId, eventId);
+  };
+
+  const removeSlotAction = async (slotId: string) => {
+    "use server";
+    await removePresentationFromBlock(slotId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -168,7 +150,7 @@ export default async function PresentationPage({
           </form>
           <DeleteButton
             action={deletePresentationAction}
-            confirmMessage="Are you sure you want to delete this presentation? The linked function (if any) will be unlinked but not deleted."
+            confirmMessage="Are you sure you want to delete this presentation?"
           />
         </div>
       </div>
@@ -196,18 +178,14 @@ export default async function PresentationPage({
             searchContacts={searchContactsAction}
           />
 
-          <SchedulePanel
-            function={presentation.function}
+          <BreakoutSlotPanel
+            slots={presentation.slots}
+            availableBlocks={availableBlocks}
             rooms={rooms}
-            presentationId={presentationId}
             eventId={eventId}
             timezone={event.timezone}
-            createFunction={createFunctionAction}
-            addSchedule={addScheduleAction}
-            updateSchedule={updateScheduleAction}
-            deleteSchedule={deleteScheduleAction}
-            updateRooms={updateRoomsAction}
-            unlinkFunction={unlinkFunctionAction}
+            addSlot={addSlotAction}
+            removeSlot={removeSlotAction}
           />
 
           <AVOrderPanel

@@ -5,22 +5,18 @@ import type {
   Presentation,
   PresentationContact,
   PresentationTrack,
-  Function,
-  FunctionRoom,
-  FunctionSchedule,
+  PresentationSlot,
   Contact,
-  Room,
 } from "@prisma/client";
 
-type FunctionWithDetails = Function & {
-  rooms: (FunctionRoom & { room: Room })[];
-  schedules: FunctionSchedule[];
+type SlotWithFunction = PresentationSlot & {
+  function: { id: string; name: string };
 };
 
 type PresentationWithRelations = Presentation & {
   track: PresentationTrack | null;
   speakers: (PresentationContact & { contact: Contact })[];
-  function: FunctionWithDetails | null;
+  slots: SlotWithFunction[];
 };
 
 type PresentationListProps = {
@@ -131,8 +127,7 @@ export function PresentationList({
                 <div className="space-y-2">
                   {grouped[trackId].map((presentation) => {
                     const primarySpeaker = getPrimarySpeaker(presentation.speakers);
-                    const scheduleCount = presentation.function?.schedules.length ?? 0;
-                    const isScheduled = presentation.function !== null;
+                    const slotCount = presentation.slots.length;
 
                     return (
                       <div
@@ -160,17 +155,11 @@ export function PresentationList({
                                   )}
                                 </span>
                               )}
-                              {isScheduled && scheduleCount > 0 && (
+                              {slotCount > 0 ? (
                                 <span className="text-green-600 dark:text-green-400">
-                                  {scheduleCount} time slot{scheduleCount !== 1 ? "s" : ""} scheduled
+                                  Scheduled in {slotCount} block{slotCount !== 1 ? "s" : ""}
                                 </span>
-                              )}
-                              {isScheduled && scheduleCount === 0 && (
-                                <span className="text-yellow-600 dark:text-yellow-400">
-                                  Linked (no times set)
-                                </span>
-                              )}
-                              {!isScheduled && (
+                              ) : (
                                 <span className="text-orange-600 dark:text-orange-400">
                                   Not scheduled
                                 </span>

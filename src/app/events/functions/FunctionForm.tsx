@@ -13,6 +13,8 @@ type FunctionFormProps = {
   eventId: string;
   functionTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
+  defaultType?: string;
+  breakoutGroupId?: string;
 };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -29,12 +31,15 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function FunctionForm({ fn, rooms, eventId, functionTypes, action }: FunctionFormProps) {
+export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId }: FunctionFormProps) {
   const isEdit = !!fn;
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
 
   return (
     <form action={action} className="space-y-6 max-w-2xl">
+      {breakoutGroupId && (
+        <input type="hidden" name="breakoutGroupId" value={breakoutGroupId} />
+      )}
       {/* Basic Info */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
@@ -77,7 +82,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action }: Func
               <select
                 id="type"
                 name="type"
-                defaultValue={fn?.type || ""}
+                defaultValue={fn?.type || defaultType || ""}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select type...</option>

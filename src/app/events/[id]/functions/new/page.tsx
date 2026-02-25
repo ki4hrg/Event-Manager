@@ -11,10 +11,13 @@ export const dynamic = "force-dynamic";
 
 export default async function NewFunctionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ type?: string; groupId?: string }>;
 }) {
   const { id: eventId } = await params;
+  const { type: defaultType, groupId: breakoutGroupId } = await searchParams;
   const [event, functionTypes] = await Promise.all([
     getEvent(eventId),
     getOptions("function_type"),
@@ -66,6 +69,8 @@ export default async function NewFunctionPage({
         eventId={eventId}
         functionTypes={functionTypes}
         action={createFunctionWithEventId}
+        defaultType={defaultType}
+        breakoutGroupId={breakoutGroupId}
       />
     </PageWrapper>
   );

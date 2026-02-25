@@ -72,6 +72,7 @@ export async function getFunction(id: string) {
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       avOrder: true,
       beo: true,
+      breakoutGroup: true,
     },
   });
 }
@@ -82,6 +83,7 @@ export async function createFunction(eventId: string, formData: FormData) {
   const type = formData.get("type") as string;
   const setupNotes = formData.get("setupNotes") as string;
   const roomIds = formData.getAll("roomIds") as string[];
+  const breakoutGroupId = formData.get("breakoutGroupId") as string;
 
   // Create the function
   const fn = await prisma.function.create({
@@ -91,6 +93,7 @@ export async function createFunction(eventId: string, formData: FormData) {
       type: type || "",
       setupNotes: setupNotes || null,
       eventId,
+      breakoutGroupId: breakoutGroupId || null,
       rooms: {
         create: roomIds.map((roomId) => ({ roomId })),
       },
@@ -107,6 +110,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
   const type = formData.get("type") as string;
   const setupNotes = formData.get("setupNotes") as string;
   const roomIds = formData.getAll("roomIds") as string[];
+  const breakoutGroupId = formData.get("breakoutGroupId") as string;
 
   // Update the function
   await prisma.function.update({
@@ -116,6 +120,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
       description: description || null,
       type: type || "",
       setupNotes: setupNotes || null,
+      breakoutGroupId: breakoutGroupId || null,
     },
   });
 
