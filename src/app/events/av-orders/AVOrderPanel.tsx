@@ -12,7 +12,6 @@ type AVOrderPanelProps = {
   newAVOrderPath: string;
   linkAVOrder: (avOrderId: string) => Promise<void>;
   unlinkAVOrder: () => Promise<void>;
-  avOrderDetailPath: (avOrderId: string) => string;
 };
 
 export function AVOrderPanel({
@@ -23,7 +22,6 @@ export function AVOrderPanel({
   newAVOrderPath,
   linkAVOrder,
   unlinkAVOrder,
-  avOrderDetailPath,
 }: AVOrderPanelProps) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
@@ -61,7 +59,7 @@ export function AVOrderPanel({
           <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
             <div>
               <Link
-                href={avOrderDetailPath(avOrder.id)}
+                href={`/events/${eventId}/av-orders/${avOrder.id}`}
                 className="text-blue-600 hover:underline font-medium text-sm"
               >
                 {avOrder.name}

@@ -196,7 +196,6 @@ export default async function PresentationPage({
             newAVOrderPath={`/events/${eventId}/av-orders/new?presentationId=${presentationId}`}
             linkAVOrder={linkAVOrderAction}
             unlinkAVOrder={unlinkAVOrderAction}
-            avOrderDetailPath={(avOrderId) => `/events/${eventId}/av-orders/${avOrderId}`}
           />
         </div>
       </div>

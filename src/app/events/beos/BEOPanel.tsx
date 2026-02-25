@@ -11,17 +11,15 @@ type BEOPanelProps = {
   newBEOPath: string;
   linkBEO: (beoId: string) => Promise<void>;
   unlinkBEO: () => Promise<void>;
-  beoDetailPath: (beoId: string) => string;
 };
 
 export function BEOPanel({
   beo,
-  eventId: _eventId,
+  eventId,
   availableBEOs,
   newBEOPath,
   linkBEO,
   unlinkBEO,
-  beoDetailPath,
 }: BEOPanelProps) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
@@ -60,7 +58,7 @@ export function BEOPanel({
         <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div>
             <Link
-              href={beoDetailPath(beo.id)}
+              href={`/events/${eventId}/beos/${beo.id}`}
               className="text-blue-600 hover:underline font-medium text-sm"
             >
               {beo.name}

@@ -208,7 +208,6 @@ export default async function FunctionPage({
             newAVOrderPath={`/events/${eventId}/av-orders/new?functionId=${functionId}`}
             linkAVOrder={linkAVOrderAction}
             unlinkAVOrder={unlinkAVOrderAction}
-            avOrderDetailPath={(avOrderId) => `/events/${eventId}/av-orders/${avOrderId}`}
           />
           <BEOPanel
             beo={fn.beo}
@@ -217,7 +216,6 @@ export default async function FunctionPage({
             newBEOPath={`/events/${eventId}/beos/new?functionId=${functionId}`}
             linkBEO={linkBEOAction}
             unlinkBEO={unlinkBEOAction}
-            beoDetailPath={(beoId) => `/events/${eventId}/beos/${beoId}`}
           />
         </div>
       </div>
