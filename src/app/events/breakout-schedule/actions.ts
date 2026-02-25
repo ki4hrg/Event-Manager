@@ -11,6 +11,7 @@ export async function getBreakoutGroups(eventId: string) {
         where: { type: "BREAKOUT_BLOCK" },
         include: {
           schedules: { orderBy: { startTime: "asc" } },
+          rooms: { include: { room: true }, orderBy: { id: "asc" } },
           presentationSlots: {
             include: {
               presentation: true,
@@ -44,6 +45,7 @@ export async function getUngroupedBlocks(eventId: string) {
     },
     include: {
       schedules: { orderBy: { startTime: "asc" } },
+      rooms: { include: { room: true }, orderBy: { id: "asc" } },
       presentationSlots: {
         include: {
           presentation: true,

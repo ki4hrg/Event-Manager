@@ -35,7 +35,8 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
 export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId, timezone }: FunctionFormProps) {
   const isEdit = !!fn;
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
-  const isBreakoutBlock = defaultType === "BREAKOUT_BLOCK" && !isEdit;
+  const isBreakoutType = defaultType === "BREAKOUT_BLOCK" || fn?.type === "BREAKOUT_BLOCK";
+  const isBreakoutBlock = isBreakoutType && !isEdit; // creation only — shows time fields
 
   const tzAbbrev = timezone
     ? new Date()
@@ -62,7 +63,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
               htmlFor="name"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              {isBreakoutBlock ? "Block Name *" : "Function Name *"}
+              {isBreakoutType ? "Block Name *" : "Function Name *"}
             </label>
             <input
               type="text"
@@ -74,8 +75,8 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
             />
           </div>
 
-          {defaultType && !fn ? (
-            <input type="hidden" name="type" value={defaultType} />
+          {isBreakoutType ? (
+            <input type="hidden" name="type" value="BREAKOUT_BLOCK" />
           ) : (
             <div>
               <label
@@ -109,7 +110,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
             </div>
           )}
 
-          {!isBreakoutBlock && (
+          {!isBreakoutType && (
             <div>
               <label
                 htmlFor="description"
@@ -195,8 +196,8 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
         )}
       </div>
 
-      {/* Setup Notes (not shown for breakout block creation) */}
-      {!isBreakoutBlock && (
+      {/* Setup Notes (not shown for breakout blocks) */}
+      {!isBreakoutType && (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
             Setup Notes
@@ -217,7 +218,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       <div className="flex gap-4">
         <SubmitButton isEdit={isEdit} />
         <a
-          href={isBreakoutBlock ? `/events/${eventId}/breakout-schedule` : `/events/${eventId}`}
+          href={isBreakoutType ? `/events/${eventId}/breakout-schedule` : `/events/${eventId}`}
           className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           Cancel

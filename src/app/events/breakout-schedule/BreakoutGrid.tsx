@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import type {
   Function as PrismaFunction,
+  FunctionRoom,
   FunctionSchedule,
   PresentationSlot,
   Presentation,
@@ -18,6 +19,7 @@ type SlotData = PresentationSlot & {
 
 type BlockFunction = PrismaFunction & {
   schedules: FunctionSchedule[];
+  rooms: (FunctionRoom & { room: Room })[];
   presentationSlots: SlotData[];
 };
 
@@ -30,7 +32,6 @@ type BreakoutGridProps = {
   groups: GroupData[];
   ungroupedBlocks: BlockFunction[];
   presentations: Presentation[];
-  rooms: Room[];
   timezone: string;
   createGroup: (formData: FormData) => Promise<void>;
   updateGroup: (groupId: string, formData: FormData) => Promise<void>;
@@ -82,7 +83,6 @@ function assignedPresentationIds(block: BlockFunction): Set<string> {
 
 function BlockGrid({
   block,
-  rooms,
   presentations,
   eventId,
   timezone,
@@ -90,7 +90,6 @@ function BlockGrid({
   removeSlot,
 }: {
   block: BlockFunction;
-  rooms: Room[];
   presentations: Presentation[];
   eventId: string;
   timezone: string;
@@ -104,7 +103,7 @@ function BlockGrid({
   const [openCell, setOpenCell] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const columns = [...rooms, null]; // null = Unassigned
+  const columns: (Room | null)[] = [...block.rooms.map((fr) => fr.room), null]; // null = Unassigned
   const assigned = assignedPresentationIds(block);
   const availablePresentations = presentations.filter(
     (p) => !assigned.has(p.id)
@@ -230,7 +229,6 @@ function BlockGrid({
 
 function GroupSection({
   group,
-  rooms,
   presentations,
   eventId,
   timezone,
@@ -240,7 +238,6 @@ function GroupSection({
   removeSlot,
 }: {
   group: GroupData;
-  rooms: Room[];
   presentations: Presentation[];
   eventId: string;
   timezone: string;
@@ -333,7 +330,6 @@ function GroupSection({
             <BlockGrid
               key={block.id}
               block={block}
-              rooms={rooms}
               presentations={presentations}
               eventId={eventId}
               timezone={timezone}
@@ -359,7 +355,6 @@ export function BreakoutGrid({
   groups,
   ungroupedBlocks,
   presentations,
-  rooms,
   timezone,
   createGroup,
   updateGroup,
@@ -395,7 +390,6 @@ export function BreakoutGrid({
         <GroupSection
           key={group.id}
           group={group}
-          rooms={rooms}
           presentations={presentations}
           eventId={eventId}
           timezone={timezone}
@@ -416,7 +410,6 @@ export function BreakoutGrid({
               <BlockGrid
                 key={block.id}
                 block={block}
-                rooms={rooms}
                 presentations={presentations}
                 eventId={eventId}
                 timezone={timezone}

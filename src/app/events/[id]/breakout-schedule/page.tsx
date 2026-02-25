@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { EventTabs } from "../EventTabs";
 import { getEvent } from "../../actions";
@@ -34,13 +33,6 @@ export default async function BreakoutSchedulePage({
   if (!event) {
     notFound();
   }
-
-  const rooms = event.venueId
-    ? await prisma.room.findMany({
-        where: { venueId: event.venueId },
-        orderBy: { name: "asc" },
-      })
-    : [];
 
   const createGroupAction = async (formData: FormData) => {
     "use server";
@@ -86,7 +78,6 @@ export default async function BreakoutSchedulePage({
         groups={groups}
         ungroupedBlocks={ungroupedBlocks}
         presentations={presentations}
-        rooms={rooms}
         timezone={event.timezone}
         createGroup={createGroupAction}
         updateGroup={updateGroupAction}
