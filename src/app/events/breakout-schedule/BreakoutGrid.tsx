@@ -102,7 +102,6 @@ function BlockGrid({
   removeSlot: (slotId: string) => Promise<void>;
 }) {
   const [openCell, setOpenCell] = useState<string | null>(null);
-  const [selectedPresentationId, setSelectedPresentationId] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const columns = [...rooms, null]; // null = Unassigned
@@ -114,15 +113,12 @@ function BlockGrid({
   const cellKey = (roomId: string | null) =>
     `${block.id}:${roomId ?? "null"}`;
 
-  const handleAssign = (roomId: string | null) => {
-    if (!selectedPresentationId) return;
-    const key = cellKey(roomId);
+  const handleSelect = (presentationId: string, roomId: string | null) => {
+    if (!presentationId) return;
     startTransition(async () => {
-      await assignPresentation(selectedPresentationId, block.id, roomId);
+      await assignPresentation(presentationId, block.id, roomId);
       setOpenCell(null);
-      setSelectedPresentationId("");
     });
-    void key;
   };
 
   const handleRemove = (slotId: string) => {
@@ -190,12 +186,11 @@ function BlockGrid({
                     ) : isOpen ? (
                       <div className="space-y-1">
                         <select
-                          value={selectedPresentationId}
-                          onChange={(e) =>
-                            setSelectedPresentationId(e.target.value)
-                          }
+                          defaultValue=""
+                          onChange={(e) => handleSelect(e.target.value, roomId)}
+                          disabled={isPending}
                           autoFocus
-                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
                         >
                           <option value="">Select...</option>
                           {availablePresentations.map((p) => (
@@ -204,31 +199,16 @@ function BlockGrid({
                             </option>
                           ))}
                         </select>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleAssign(roomId)}
-                            disabled={!selectedPresentationId || isPending}
-                            className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            Assign
-                          </button>
-                          <button
-                            onClick={() => {
-                              setOpenCell(null);
-                              setSelectedPresentationId("");
-                            }}
-                            className="px-2 py-0.5 text-gray-500 text-xs hover:text-gray-700"
-                          >
-                            Cancel
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => setOpenCell(null)}
+                          className="text-gray-400 hover:text-gray-600 text-xs"
+                        >
+                          Cancel
+                        </button>
                       </div>
                     ) : (
                       <button
-                        onClick={() => {
-                          setOpenCell(key);
-                          setSelectedPresentationId("");
-                        }}
+                        onClick={() => setOpenCell(key)}
                         disabled={availablePresentations.length === 0 || isPending}
                         className="text-blue-600 hover:underline text-xs disabled:opacity-40 disabled:no-underline"
                       >
