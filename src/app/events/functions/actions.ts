@@ -84,6 +84,8 @@ export async function createFunction(eventId: string, formData: FormData) {
   const setupNotes = formData.get("setupNotes") as string;
   const roomIds = formData.getAll("roomIds") as string[];
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
+  const startTimeRaw = formData.get("startTime") as string;
+  const endTimeRaw = formData.get("endTime") as string;
 
   // Create the function
   const fn = await prisma.function.create({
@@ -100,7 +102,30 @@ export async function createFunction(eventId: string, formData: FormData) {
     },
   });
 
+  // If start/end times provided (e.g. from breakout block creation), create a schedule
+  if (startTimeRaw && endTimeRaw) {
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { timezone: true },
+    });
+    const timezone = event?.timezone || "America/Chicago";
+    await prisma.functionSchedule.create({
+      data: {
+        functionId: fn.id,
+        type: "SESSION",
+        startTime: parseDateTimeInTimezone(startTimeRaw, timezone),
+        endTime: parseDateTimeInTimezone(endTimeRaw, timezone),
+        sortOrder: 0,
+      },
+    });
+  }
+
   revalidatePath(`/events/${eventId}`);
+  revalidatePath(`/events/${eventId}/breakout-schedule`);
+
+  if (type === "BREAKOUT_BLOCK") {
+    redirect(`/events/${eventId}/breakout-schedule`);
+  }
   redirect(`/events/${eventId}/functions/${fn.id}`);
 }
 

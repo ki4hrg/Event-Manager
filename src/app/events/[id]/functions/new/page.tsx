@@ -71,6 +71,7 @@ export default async function NewFunctionPage({
         action={createFunctionWithEventId}
         defaultType={defaultType}
         breakoutGroupId={breakoutGroupId}
+        timezone={event.timezone}
       />
     </PageWrapper>
   );

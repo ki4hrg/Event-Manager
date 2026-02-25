@@ -15,6 +15,7 @@ type FunctionFormProps = {
   action: (formData: FormData) => Promise<void>;
   defaultType?: string;
   breakoutGroupId?: string;
+  timezone?: string;
 };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -31,15 +32,24 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId }: FunctionFormProps) {
+export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId, timezone }: FunctionFormProps) {
   const isEdit = !!fn;
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
+  const isBreakoutBlock = defaultType === "BREAKOUT_BLOCK" && !isEdit;
+
+  const tzAbbrev = timezone
+    ? new Date()
+        .toLocaleString("en-US", { timeZone: timezone, timeZoneName: "short" })
+        .split(" ")
+        .pop()
+    : "local";
 
   return (
     <form action={action} className="space-y-6 max-w-2xl">
       {breakoutGroupId && (
         <input type="hidden" name="breakoutGroupId" value={breakoutGroupId} />
       )}
+
       {/* Basic Info */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
@@ -52,7 +62,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
               htmlFor="name"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Function Name *
+              {isBreakoutBlock ? "Block Name *" : "Function Name *"}
             </label>
             <input
               type="text"
@@ -64,54 +74,93 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="type"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Type
-            </label>
-            {functionTypes.length === 0 ? (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                No function types defined.{" "}
-                <a href="/settings" className="text-blue-600 hover:underline">
-                  Add types in Settings
-                </a>
-              </p>
-            ) : (
-              <select
-                id="type"
-                name="type"
-                defaultValue={fn?.type || defaultType || ""}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          {defaultType && !fn ? (
+            <input type="hidden" name="type" value={defaultType} />
+          ) : (
+            <div>
+              <label
+                htmlFor="type"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                <option value="">Select type...</option>
-                {functionTypes.map((t) => (
-                  <option key={t.id} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+                Type
+              </label>
+              {functionTypes.length === 0 ? (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  No function types defined.{" "}
+                  <a href="/settings" className="text-blue-600 hover:underline">
+                    Add types in Settings
+                  </a>
+                </p>
+              ) : (
+                <select
+                  id="type"
+                  name="type"
+                  defaultValue={fn?.type || ""}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select type...</option>
+                  {functionTypes.map((t) => (
+                    <option key={t.id} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={2}
-              defaultValue={fn?.description || ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {!isBreakoutBlock && (
+            <div>
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                rows={2}
+                defaultValue={fn?.description || ""}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Time (breakout block creation only) */}
+      {isBreakoutBlock && (
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Time
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Start ({tzAbbrev}) *
+              </label>
+              <input
+                type="datetime-local"
+                name="startTime"
+                required
+                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                End ({tzAbbrev}) *
+              </label>
+              <input
+                type="datetime-local"
+                name="endTime"
+                required
+                className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Room Assignment */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -146,27 +195,29 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
         )}
       </div>
 
-      {/* Setup Notes */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Setup Notes
-        </h2>
+      {/* Setup Notes (not shown for breakout block creation) */}
+      {!isBreakoutBlock && (
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Setup Notes
+          </h2>
 
-        <textarea
-          id="setupNotes"
-          name="setupNotes"
-          rows={3}
-          placeholder="Table setup, seating arrangement, special requirements..."
-          defaultValue={fn?.setupNotes || ""}
-          className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
+          <textarea
+            id="setupNotes"
+            name="setupNotes"
+            rows={3}
+            placeholder="Table setup, seating arrangement, special requirements..."
+            defaultValue={fn?.setupNotes || ""}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      )}
 
       {/* Form Actions */}
       <div className="flex gap-4">
         <SubmitButton isEdit={isEdit} />
         <a
-          href={`/events/${eventId}`}
+          href={isBreakoutBlock ? `/events/${eventId}/breakout-schedule` : `/events/${eventId}`}
           className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           Cancel
