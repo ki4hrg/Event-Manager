@@ -9,6 +9,7 @@ type EventTabsProps = {
 
 const tabs = [
   { label: "Schedule", segment: null },
+  { label: "Agenda", segment: "agenda" },
   { label: "Presentations", segment: "presentations" },
   { label: "Breakout", segment: "breakout-schedule" },
   { label: "AV Orders", segment: "av-orders" },

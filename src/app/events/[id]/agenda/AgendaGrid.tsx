@@ -1,0 +1,273 @@
+import Link from "next/link";
+import {
+  type AgendaData,
+  type AgendaEntry,
+  computeRowspan,
+  formatDateHeading,
+  formatTime,
+} from "@/lib/agendaUtils";
+import { DateTabs } from "./DateTabs";
+
+type AgendaGridProps = {
+  eventId: string;
+  agendaData: AgendaData;
+  timezone: string;
+  activeDate: string | null;
+};
+
+function EntryCard({
+  entry,
+  eventId,
+  timezone,
+}: {
+  entry: AgendaEntry;
+  eventId: string;
+  timezone: string;
+}) {
+  return (
+    <div className="rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-2 text-xs mb-1 last:mb-0">
+      <Link
+        href={`/events/${eventId}/functions/${entry.functionId}`}
+        className="font-medium text-blue-700 dark:text-blue-300 hover:underline block truncate"
+      >
+        {entry.functionName}
+      </Link>
+      <div className="text-gray-500 dark:text-gray-400 mt-0.5">
+        {formatTime(entry.startTime, timezone)} –{" "}
+        {formatTime(entry.endTime, timezone)}
+      </div>
+      {entry.scheduleType && (
+        <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs">
+          {entry.scheduleType}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function DayGrid({
+  day,
+  rooms,
+  eventId,
+  timezone,
+}: {
+  day: AgendaData["days"][number];
+  rooms: AgendaData["rooms"];
+  eventId: string;
+  timezone: string;
+}) {
+  if (day.timeSlots.length === 0 || rooms.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        No scheduled functions for this day.
+      </p>
+    );
+  }
+
+  // skipMap tracks how many more rows each room column should skip
+  // due to a rowspan from a previous row
+  const skipMap = new Map<string, number>();
+  for (const room of rooms) {
+    skipMap.set(room.id, 0);
+  }
+
+  // We need to render imperatively due to rowspan logic, so build row data first
+  type CellRender =
+    | { type: "skip" }
+    | { type: "empty"; rowspan: number }
+    | { type: "entries"; entries: AgendaEntry[]; rowspan: number };
+
+  const rowData: Array<{ slotTime: Date; cells: CellRender[] }> = [];
+
+  for (const slot of day.timeSlots) {
+    const slotKey = slot.toISOString();
+    const cells: CellRender[] = [];
+
+    for (const room of rooms) {
+      const remaining = skipMap.get(room.id) ?? 0;
+      if (remaining > 0) {
+        skipMap.set(room.id, remaining - 1);
+        cells.push({ type: "skip" });
+        continue;
+      }
+
+      const entries = day.cells.get(room.id)?.get(slotKey) ?? [];
+
+      if (entries.length === 0) {
+        // Find how many consecutive empty slots follow in this column
+        let emptySpan = 1;
+        for (let i = day.timeSlots.indexOf(slot) + 1; i < day.timeSlots.length; i++) {
+          const nextKey = day.timeSlots[i].toISOString();
+          const nextEntries = day.cells.get(room.id)?.get(nextKey) ?? [];
+          if (nextEntries.length === 0) {
+            emptySpan++;
+          } else {
+            break;
+          }
+        }
+        // Don't span empty cells — just render a plain empty td
+        cells.push({ type: "empty", rowspan: 1 });
+      } else {
+        // Rowspan = max span among entries in this cell
+        const maxSpan = Math.max(
+          ...entries.map((e) => computeRowspan(e, day.timeSlots))
+        );
+        if (maxSpan > 1) {
+          skipMap.set(room.id, maxSpan - 1);
+        }
+        cells.push({ type: "entries", entries, rowspan: maxSpan });
+      }
+    }
+
+    rowData.push({ slotTime: slot, cells });
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-gray-50 dark:bg-gray-800">
+            <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap w-24">
+              Time
+            </th>
+            {rooms.map((room) => (
+              <th
+                key={room.id}
+                className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-900 dark:text-white whitespace-nowrap"
+              >
+                {room.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rowData.map(({ slotTime, cells }) => (
+            <tr key={slotTime.toISOString()}>
+              <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap align-top font-medium">
+                {formatTime(slotTime, timezone)}
+              </td>
+              {cells.map((cell, i) => {
+                if (cell.type === "skip") return null;
+                const room = rooms[i];
+                if (cell.type === "empty") {
+                  return (
+                    <td
+                      key={room.id}
+                      className="border border-gray-200 dark:border-gray-700 px-2 py-2 bg-white dark:bg-gray-900"
+                    />
+                  );
+                }
+                return (
+                  <td
+                    key={room.id}
+                    rowSpan={cell.rowspan}
+                    className="border border-gray-200 dark:border-gray-700 px-2 py-2 align-top bg-white dark:bg-gray-900"
+                  >
+                    {cell.entries.map((entry) => (
+                      <EntryCard
+                        key={entry.scheduleId}
+                        entry={entry}
+                        eventId={eventId}
+                        timezone={timezone}
+                      />
+                    ))}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function AgendaGrid({
+  eventId,
+  agendaData,
+  timezone,
+  activeDate,
+}: AgendaGridProps) {
+  const { days, rooms, unscheduled } = agendaData;
+
+  const resolvedDate =
+    activeDate ?? days[0]?.dateKey ?? null;
+
+  const activeDay = days.find((d) => d.dateKey === resolvedDate) ?? days[0];
+
+  return (
+    <div>
+      {rooms.length === 0 && (
+        <p className="mb-4 text-sm text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded px-3 py-2">
+          No venue or rooms assigned to this event. Assign a venue to see the
+          room-based agenda.
+        </p>
+      )}
+
+      {days.length === 0 && rooms.length > 0 && (
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+          No functions with both a room and schedule assigned yet.
+        </p>
+      )}
+
+      {days.length > 1 && (
+        <DateTabs
+          eventId={eventId}
+          days={days.map((d) => d.dateKey)}
+          activeDate={resolvedDate!}
+          timezone={timezone}
+        />
+      )}
+
+      {days.length === 1 && (
+        <h2 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-4">
+          {formatDateHeading(days[0].dateKey, timezone)}
+        </h2>
+      )}
+
+      {activeDay && (
+        <DayGrid
+          day={activeDay}
+          rooms={rooms}
+          eventId={eventId}
+          timezone={timezone}
+        />
+      )}
+
+      {unscheduled.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">
+            Unscheduled Items ({unscheduled.length})
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            These functions are missing a room assignment, a schedule, or both.
+          </p>
+          <div className="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            {unscheduled.map((fn) => (
+              <div
+                key={fn.id}
+                className="px-4 py-3 bg-white dark:bg-gray-900 flex items-center justify-between gap-4"
+              >
+                <div>
+                  <Link
+                    href={`/events/${eventId}/functions/${fn.id}`}
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    {fn.name}
+                  </Link>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {fn.rooms.length === 0 && fn.schedules.length === 0
+                      ? "No room, no schedule"
+                      : fn.rooms.length === 0
+                      ? "No room assigned"
+                      : "No schedule"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
