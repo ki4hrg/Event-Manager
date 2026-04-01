@@ -32,22 +32,22 @@ function EntryCard({
   timezone: string;
 }) {
   return (
-    <div className="rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-2 text-xs mb-1 last:mb-0">
+    <div className="rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-1.5 text-xs mb-1 last:mb-0">
       <Link
         href={`/events/${eventId}/functions/${entry.functionId}`}
-        className="font-medium text-blue-700 dark:text-blue-300 hover:underline block truncate"
+        className="font-medium text-blue-700 dark:text-blue-300 hover:underline block truncate leading-tight"
       >
         {entry.functionName}
       </Link>
-      <div className="text-gray-500 dark:text-gray-400 mt-0.5">
+      <div className="text-gray-500 dark:text-gray-400 leading-tight mt-0.5 truncate">
         {formatTime(entry.startTime, timezone)} –{" "}
         {formatTime(entry.endTime, timezone)}
+        {entry.scheduleType && (
+          <span className="ml-1 text-blue-600 dark:text-blue-400">
+            · {entry.scheduleType}
+          </span>
+        )}
       </div>
-      {entry.scheduleType && (
-        <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs">
-          {entry.scheduleType}
-        </span>
-      )}
     </div>
   );
 }
@@ -144,7 +144,7 @@ function DayGrid({
         </thead>
         <tbody>
           {rowData.map(({ slotTime, cells }) => (
-            <tr key={slotTime.toISOString()}>
+            <tr key={slotTime.toISOString()} className="h-14">
               <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap align-top font-medium">
                 {formatTime(slotTime, timezone)}
               </td>
