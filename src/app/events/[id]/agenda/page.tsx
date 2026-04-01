@@ -4,7 +4,8 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { EventTabs } from "../EventTabs";
 import { getFunctions } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
-import { AgendaGrid } from "./AgendaGrid";
+import dynamicImport from "next/dynamic";
+const AgendaGrid = dynamicImport(() => import("./AgendaGrid").then((m) => m.AgendaGrid), { ssr: false });
 
 export const dynamic = "force-dynamic";
 
