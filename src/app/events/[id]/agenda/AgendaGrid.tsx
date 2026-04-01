@@ -1,7 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import {
   type SerializedAgendaData,
   type AgendaData,
@@ -11,7 +23,9 @@ import {
   formatDateHeading,
   formatTime,
   getUsedRoomIds,
+  getDateKeyInTimezone,
 } from "@/lib/agendaUtils";
+import { updateFunctionRoom, rescheduleEntry } from "@/app/events/functions/actions";
 import { DateTabs } from "./DateTabs";
 import { HideEmptyToggle } from "./HideEmptyToggle";
 
@@ -22,6 +36,20 @@ type AgendaGridProps = {
   activeDate: string | null;
   hideEmpty: boolean;
 };
+
+// ── Drag data types ────────────────────────────────────────────────────────────
+
+type DragData = {
+  entry: AgendaEntry;
+  sourceRoomId: string;
+};
+
+type DropData = {
+  roomId: string;
+  slotTime: Date;
+};
+
+// ── Entry content ──────────────────────────────────────────────────────────────
 
 function EntryContent({
   entry,
@@ -37,6 +65,7 @@ function EntryContent({
       <Link
         href={`/events/${eventId}/functions/${entry.functionId}`}
         className="font-medium text-blue-700 dark:text-blue-300 hover:underline block truncate leading-tight"
+        onClick={(e) => e.stopPropagation()}
       >
         {entry.functionName}
       </Link>
@@ -50,6 +79,76 @@ function EntryContent({
     </div>
   );
 }
+
+// ── Draggable card ─────────────────────────────────────────────────────────────
+
+function DraggableCard({
+  entry,
+  sourceRoomId,
+  eventId,
+  timezone,
+}: {
+  entry: AgendaEntry;
+  sourceRoomId: string;
+  eventId: string;
+  timezone: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `${entry.scheduleId}:${sourceRoomId}`,
+    data: { entry, sourceRoomId } satisfies DragData,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform) }}
+      className={isDragging ? "opacity-40" : ""}
+      {...listeners}
+      {...attributes}
+    >
+      <EntryContent entry={entry} eventId={eventId} timezone={timezone} />
+    </div>
+  );
+}
+
+// ── Droppable cell ─────────────────────────────────────────────────────────────
+
+function DroppableCell({
+  roomId,
+  slotTime,
+  rowSpan,
+  children,
+  isEmpty,
+}: {
+  roomId: string;
+  slotTime: Date;
+  rowSpan?: number;
+  children?: React.ReactNode;
+  isEmpty: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `${roomId}:${slotTime.toISOString()}`,
+    data: { roomId, slotTime } satisfies DropData,
+  });
+
+  const base =
+    "border border-gray-200 dark:border-gray-700 py-1 align-top divide-y divide-blue-200 dark:divide-blue-800";
+  const bg = isEmpty
+    ? isOver
+      ? "bg-blue-50 dark:bg-blue-950"
+      : "bg-white dark:bg-gray-900"
+    : isOver
+    ? "bg-blue-100 dark:bg-blue-900"
+    : "bg-blue-50 dark:bg-blue-950";
+
+  return (
+    <td ref={setNodeRef} rowSpan={rowSpan} className={`${base} ${bg}`}>
+      {children}
+    </td>
+  );
+}
+
+// ── Day grid ───────────────────────────────────────────────────────────────────
 
 function DayGrid({
   day,
@@ -80,8 +179,8 @@ function DayGrid({
 
   type CellRender =
     | { type: "skip" }
-    | { type: "empty" }
-    | { type: "entries"; entries: AgendaEntry[]; rowspan: number };
+    | { type: "empty"; slotTime: Date }
+    | { type: "entries"; entries: AgendaEntry[]; rowspan: number; slotTime: Date };
 
   const rowData: Array<{ slotTime: Date; cells: CellRender[] }> = [];
 
@@ -100,7 +199,7 @@ function DayGrid({
       const entries = day.cells.get(room.id)?.get(slotKey) ?? [];
 
       if (entries.length === 0) {
-        cells.push({ type: "empty" });
+        cells.push({ type: "empty", slotTime: slot });
       } else {
         const maxSpan = Math.max(
           ...entries.map((e) => computeRowspan(e, day.timeSlots))
@@ -108,7 +207,7 @@ function DayGrid({
         if (maxSpan > 1) {
           skipMap.set(room.id, maxSpan - 1);
         }
-        cells.push({ type: "entries", entries, rowspan: maxSpan });
+        cells.push({ type: "entries", entries, rowspan: maxSpan, slotTime: slot });
       }
     }
 
@@ -144,27 +243,32 @@ function DayGrid({
                 const room = visibleRooms[i];
                 if (cell.type === "empty") {
                   return (
-                    <td
+                    <DroppableCell
                       key={room.id}
-                      className="border border-gray-200 dark:border-gray-700 px-2 py-2 bg-white dark:bg-gray-900"
+                      roomId={room.id}
+                      slotTime={cell.slotTime}
+                      isEmpty={true}
                     />
                   );
                 }
                 return (
-                  <td
+                  <DroppableCell
                     key={room.id}
+                    roomId={room.id}
+                    slotTime={cell.slotTime}
                     rowSpan={cell.rowspan}
-                    className="border border-gray-200 dark:border-gray-700 py-1 align-top bg-blue-50 dark:bg-blue-950 divide-y divide-blue-200 dark:divide-blue-800"
+                    isEmpty={false}
                   >
                     {cell.entries.map((entry) => (
-                      <EntryContent
+                      <DraggableCard
                         key={entry.scheduleId}
                         entry={entry}
+                        sourceRoomId={room.id}
                         eventId={eventId}
                         timezone={timezone}
                       />
                     ))}
-                  </td>
+                  </DroppableCell>
                 );
               })}
             </tr>
@@ -175,6 +279,26 @@ function DayGrid({
   );
 }
 
+// ── Overlay card (shown while dragging) ───────────────────────────────────────
+
+function OverlayCard({
+  entry,
+  eventId,
+  timezone,
+}: {
+  entry: AgendaEntry;
+  eventId: string;
+  timezone: string;
+}) {
+  return (
+    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-300 dark:border-blue-700 rounded shadow-lg opacity-90 w-48">
+      <EntryContent entry={entry} eventId={eventId} timezone={timezone} />
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
 export function AgendaGrid({
   eventId,
   agendaData: serializedData,
@@ -182,91 +306,245 @@ export function AgendaGrid({
   activeDate,
   hideEmpty,
 }: AgendaGridProps) {
-  const agendaData = useMemo(() => deserializeAgendaData(serializedData), [serializedData]);
+  const router = useRouter();
+  const [agendaData, setAgendaData] = useState<AgendaData>(() => deserializeAgendaData(serializedData));
+  const [activeDrag, setActiveDrag] = useState<DragData | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const { days, rooms, unscheduled } = agendaData;
 
   const resolvedDate = activeDate ?? days[0]?.dateKey ?? null;
   const activeDay = days.find((d) => d.dateKey === resolvedDate) ?? days[0];
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDrag(event.active.data.current as DragData);
+    setErrorMsg(null);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      setActiveDrag(null);
+      const drag = event.active.data.current as DragData;
+      const drop = event.over?.data.current as DropData | undefined;
+
+      if (!drop) return;
+
+      const { entry, sourceRoomId } = drag;
+      const { roomId: targetRoomId, slotTime: targetSlot } = drop;
+
+      const roomChanged = targetRoomId !== sourceRoomId;
+      const deltaMs = targetSlot.getTime() - entry.startTime.getTime();
+      const timeChanged = deltaMs !== 0;
+
+      if (!roomChanged && !timeChanged) return;
+
+      // Guard: target room already assigned (for room moves)
+      if (roomChanged && entry.roomIds.includes(targetRoomId)) {
+        setErrorMsg("That room is already assigned to this function.");
+        return;
+      }
+
+      const newStart = timeChanged ? new Date(entry.startTime.getTime() + deltaMs) : entry.startTime;
+      const newEnd = timeChanged ? new Date(entry.endTime.getTime() + deltaMs) : entry.endTime;
+
+      // Guard: reschedule would cross midnight
+      if (timeChanged && getDateKeyInTimezone(newStart, timezone) !== getDateKeyInTimezone(newEnd, timezone)) {
+        setErrorMsg("Cannot reschedule past midnight.");
+        return;
+      }
+
+      // Capture pre-drag state for revert on error
+      let snapshot: AgendaData | undefined;
+      setAgendaData((prev) => {
+        snapshot = prev;
+        return applyDragToState(prev, drag, drop, deltaMs, timezone);
+      });
+
+      // Persist
+      const ops: Promise<{ success: boolean; error?: string }>[] = [];
+      if (roomChanged) {
+        ops.push(updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId));
+      }
+      if (timeChanged) {
+        ops.push(
+          rescheduleEntry(
+            entry.scheduleId,
+            entry.functionId,
+            newStart.toISOString(),
+            newEnd.toISOString(),
+            eventId
+          )
+        );
+      }
+
+      const results = await Promise.all(ops);
+      const failed = results.find((r) => !r.success);
+      if (failed) {
+        if (snapshot) setAgendaData(snapshot);
+        setErrorMsg(failed.error ?? "Failed to save change.");
+      } else {
+        router.refresh();
+      }
+    },
+    [eventId, timezone, router]
+  );
+
   return (
-    <div>
-      {rooms.length === 0 && (
-        <p className="mb-4 text-sm text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded px-3 py-2">
-          No venue or rooms assigned to this event. Assign a venue to see the
-          room-based agenda.
-        </p>
-      )}
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div>
+        {errorMsg && (
+          <div className="mb-4 text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded px-3 py-2">
+            {errorMsg}
+          </div>
+        )}
 
-      {days.length === 0 && rooms.length > 0 && (
-        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          No functions with both a room and schedule assigned yet.
-        </p>
-      )}
-
-      {days.length > 1 && (
-        <DateTabs
-          eventId={eventId}
-          days={days.map((d) => d.dateKey)}
-          activeDate={resolvedDate!}
-          timezone={timezone}
-        />
-      )}
-
-      {days.length > 0 && (
-        <div className="flex items-center justify-between mb-4 gap-4">
-          <h2 className="text-base font-medium text-gray-700 dark:text-gray-300">
-            {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
-          </h2>
-          {rooms.length > 0 && (
-            <HideEmptyToggle eventId={eventId} hideEmpty={hideEmpty} />
-          )}
-        </div>
-      )}
-
-      {activeDay && (
-        <DayGrid
-          day={activeDay}
-          rooms={rooms}
-          eventId={eventId}
-          timezone={timezone}
-          hideEmpty={hideEmpty}
-        />
-      )}
-
-      {unscheduled.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Unscheduled Items ({unscheduled.length})
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            These functions are missing a room assignment, a schedule, or both.
+        {rooms.length === 0 && (
+          <p className="mb-4 text-sm text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded px-3 py-2">
+            No venue or rooms assigned to this event. Assign a venue to see the
+            room-based agenda.
           </p>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            {unscheduled.map((fn) => (
-              <div
-                key={fn.id}
-                className="px-4 py-3 bg-white dark:bg-gray-900 flex items-center justify-between gap-4"
-              >
-                <div>
-                  <Link
-                    href={`/events/${eventId}/functions/${fn.id}`}
-                    className="text-sm font-medium text-blue-600 hover:underline"
-                  >
-                    {fn.name}
-                  </Link>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {fn.rooms.length === 0 && fn.schedules.length === 0
-                      ? "No room, no schedule"
-                      : fn.rooms.length === 0
-                      ? "No room assigned"
-                      : "No schedule"}
+        )}
+
+        {days.length === 0 && rooms.length > 0 && (
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+            No functions with both a room and schedule assigned yet.
+          </p>
+        )}
+
+        {days.length > 1 && (
+          <DateTabs
+            eventId={eventId}
+            days={days.map((d) => d.dateKey)}
+            activeDate={resolvedDate!}
+            timezone={timezone}
+          />
+        )}
+
+        {days.length > 0 && (
+          <div className="flex items-center justify-between mb-4 gap-4">
+            <h2 className="text-base font-medium text-gray-700 dark:text-gray-300">
+              {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
+            </h2>
+            {rooms.length > 0 && (
+              <HideEmptyToggle eventId={eventId} hideEmpty={hideEmpty} />
+            )}
+          </div>
+        )}
+
+        {activeDay && (
+          <DayGrid
+            day={activeDay}
+            rooms={rooms}
+            eventId={eventId}
+            timezone={timezone}
+            hideEmpty={hideEmpty}
+          />
+        )}
+
+        {unscheduled.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Unscheduled Items ({unscheduled.length})
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              These functions are missing a room assignment, a schedule, or both.
+            </p>
+            <div className="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              {unscheduled.map((fn) => (
+                <div
+                  key={fn.id}
+                  className="px-4 py-3 bg-white dark:bg-gray-900 flex items-center justify-between gap-4"
+                >
+                  <div>
+                    <Link
+                      href={`/events/${eventId}/functions/${fn.id}`}
+                      className="text-sm font-medium text-blue-600 hover:underline"
+                    >
+                      {fn.name}
+                    </Link>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {fn.rooms.length === 0 && fn.schedules.length === 0
+                        ? "No room, no schedule"
+                        : fn.rooms.length === 0
+                        ? "No room assigned"
+                        : "No schedule"}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <DragOverlay>
+        {activeDrag && (
+          <OverlayCard
+            entry={activeDrag.entry}
+            eventId={eventId}
+            timezone={timezone}
+          />
+        )}
+      </DragOverlay>
+    </DndContext>
   );
+}
+
+// ── Optimistic state update ────────────────────────────────────────────────────
+
+function applyDragToState(
+  prev: AgendaData,
+  drag: DragData,
+  drop: DropData,
+  deltaMs: number,
+  timezone: string
+): AgendaData {
+  const { entry, sourceRoomId } = drag;
+  const { roomId: targetRoomId, slotTime: targetSlot } = drop;
+
+  const newStart = deltaMs !== 0 ? new Date(entry.startTime.getTime() + deltaMs) : entry.startTime;
+  const newEnd = deltaMs !== 0 ? new Date(entry.endTime.getTime() + deltaMs) : entry.endTime;
+  const newRoomIds = entry.roomIds.map((id) => (id === sourceRoomId ? targetRoomId : id));
+
+  const updatedEntry: AgendaEntry = {
+    ...entry,
+    startTime: newStart,
+    endTime: newEnd,
+    roomIds: newRoomIds,
+  };
+
+  const days = prev.days.map((day) => {
+    const oldDateKey = getDateKeyInTimezone(entry.startTime, timezone);
+    if (day.dateKey !== oldDateKey) return day;
+
+    const cells = new Map(Array.from(day.cells.entries()).map(([rid, slotMap]) => [rid, new Map(slotMap)]));
+
+    // Remove from old slot/room
+    const oldSlotKey = entry.startTime.toISOString();
+    const oldCol = cells.get(sourceRoomId);
+    if (oldCol) {
+      const existing = oldCol.get(oldSlotKey) ?? [];
+      const filtered = existing.filter((e) => e.scheduleId !== entry.scheduleId);
+      if (filtered.length === 0) {
+        oldCol.delete(oldSlotKey);
+      } else {
+        oldCol.set(oldSlotKey, filtered);
+      }
+    }
+
+    // Add to new slot/room
+    const newSlotKey = (deltaMs !== 0 ? targetSlot : entry.startTime).toISOString();
+    if (!cells.has(targetRoomId)) cells.set(targetRoomId, new Map());
+    const newCol = cells.get(targetRoomId)!;
+    const existing = newCol.get(newSlotKey) ?? [];
+    newCol.set(newSlotKey, [...existing, updatedEntry]);
+
+    return { ...day, cells };
+  });
+
+  return { ...prev, days };
 }

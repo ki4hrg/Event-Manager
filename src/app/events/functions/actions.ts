@@ -337,3 +337,56 @@ export async function removeFunctionContact(contactId: string, functionId: strin
   await prisma.functionContact.delete({ where: { id: contactId } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
+
+// ============================================================================
+// Agenda DnD Actions
+// ============================================================================
+
+export async function updateFunctionRoom(
+  functionId: string,
+  oldRoomId: string,
+  newRoomId: string,
+  eventId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (oldRoomId === newRoomId) return { success: true };
+
+  const existing = await prisma.functionRoom.findUnique({
+    where: { functionId_roomId: { functionId, roomId: newRoomId } },
+  });
+  if (existing) return { success: false, error: "Room already assigned to this function" };
+
+  await prisma.$transaction([
+    prisma.functionRoom.delete({
+      where: { functionId_roomId: { functionId, roomId: oldRoomId } },
+    }),
+    prisma.functionRoom.create({
+      data: { functionId, roomId: newRoomId },
+    }),
+  ]);
+
+  revalidatePath(`/events/${eventId}/agenda`);
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return { success: true };
+}
+
+export async function rescheduleEntry(
+  scheduleId: string,
+  functionId: string,
+  newStartTime: string,
+  newEndTime: string,
+  eventId: string
+): Promise<{ success: boolean; error?: string }> {
+  const startTime = new Date(newStartTime);
+  const endTime = new Date(newEndTime);
+
+  if (endTime <= startTime) return { success: false, error: "End time must be after start time" };
+
+  await prisma.functionSchedule.update({
+    where: { id: scheduleId },
+    data: { startTime, endTime },
+  });
+
+  revalidatePath(`/events/${eventId}/agenda`);
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return { success: true };
+}
