@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { EventTabs } from "../EventTabs";
 import { getFunctions } from "../../functions/actions";
-import { buildAgendaData } from "@/lib/agendaUtils";
+import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
 import { AgendaGrid } from "./AgendaGrid";
 
 export const dynamic = "force-dynamic";
@@ -13,10 +13,10 @@ export default async function AgendaPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; hideEmpty?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { date } = await searchParams;
+  const { date, hideEmpty: hideEmptyParam } = await searchParams;
 
   const [event, functions] = await Promise.all([
     prisma.event.findUnique({
@@ -42,6 +42,8 @@ export default async function AgendaPage({
       ? date
       : agendaData.days[0]?.dateKey ?? null;
 
+  const hideEmpty = hideEmptyParam === "1";
+
   return (
     <PageWrapper>
       <div className="flex justify-between items-center mb-4">
@@ -54,9 +56,10 @@ export default async function AgendaPage({
 
       <AgendaGrid
         eventId={eventId}
-        agendaData={agendaData}
+        agendaData={serializeAgendaData(agendaData)}
         timezone={timezone}
         activeDate={activeDate}
+        hideEmpty={hideEmpty}
       />
     </PageWrapper>
   );

@@ -5,6 +5,8 @@ export type FunctionWithRelations = Function & {
   schedules: FunctionSchedule[];
 };
 
+// ── Core types ────────────────────────────────────────────────────────────────
+
 export type AgendaEntry = {
   functionId: string;
   functionName: string;
@@ -19,7 +21,7 @@ export type AgendaEntry = {
 
 export type DayAgenda = {
   dateKey: string; // "YYYY-MM-DD" in event timezone
-  timeSlots: Date[]; // ordered unique startTimes for that day
+  timeSlots: Date[];
   // roomId → slotKey (ISO string) → AgendaEntry[]
   cells: Map<string, Map<string, AgendaEntry[]>>;
 };
@@ -29,6 +31,88 @@ export type AgendaData = {
   rooms: Room[];
   unscheduled: FunctionWithRelations[]; // missing a room OR a schedule
 };
+
+// ── Serialized types (for server → client prop passing) ───────────────────────
+// Maps and Dates are not JSON-serializable; these plain-object equivalents are
+// used as the prop type for AgendaGrid (a "use client" component).
+
+export type SerializedAgendaEntry = Omit<AgendaEntry, "startTime" | "endTime"> & {
+  startTime: string; // ISO string
+  endTime: string;   // ISO string
+};
+
+export type SerializedDayAgenda = {
+  dateKey: string;
+  timeSlots: string[]; // ISO strings
+  cells: Record<string, Record<string, SerializedAgendaEntry[]>>;
+};
+
+export type SerializedAgendaData = {
+  days: SerializedDayAgenda[];
+  // Room and FunctionWithRelations have Date fields (createdAt, updatedAt) that
+  // become strings over the wire — they are not used in client rendering, so
+  // we keep the types loose here rather than creating full serialized variants.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rooms: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  unscheduled: any[];
+};
+
+export function serializeAgendaData(data: AgendaData): SerializedAgendaData {
+  const days: SerializedDayAgenda[] = data.days.map((day) => {
+    const cells: Record<string, Record<string, SerializedAgendaEntry[]>> = {};
+    Array.from(day.cells.entries()).forEach(([roomId, slotMap]) => {
+      cells[roomId] = {};
+      Array.from(slotMap.entries()).forEach(([slotKey, entries]) => {
+        cells[roomId][slotKey] = entries.map((e) => ({
+          ...e,
+          startTime: e.startTime.toISOString(),
+          endTime: e.endTime.toISOString(),
+        }));
+      });
+    });
+    return {
+      dateKey: day.dateKey,
+      timeSlots: day.timeSlots.map((d) => d.toISOString()),
+      cells,
+    };
+  });
+
+  return { days, rooms: data.rooms, unscheduled: data.unscheduled };
+}
+
+export function deserializeAgendaData(data: SerializedAgendaData): AgendaData {
+  const days: DayAgenda[] = data.days.map((day) => {
+    const cells = new Map<string, Map<string, AgendaEntry[]>>();
+    for (const roomId of Object.keys(day.cells)) {
+      const slotMap = new Map<string, AgendaEntry[]>();
+      for (const slotKey of Object.keys(day.cells[roomId])) {
+        slotMap.set(
+          slotKey,
+          day.cells[roomId][slotKey].map((e: SerializedAgendaEntry) => ({
+            ...e,
+            startTime: new Date(e.startTime),
+            endTime: new Date(e.endTime),
+          }))
+        );
+      }
+      cells.set(roomId, slotMap);
+    }
+    return {
+      dateKey: day.dateKey,
+      timeSlots: day.timeSlots.map((s: string) => new Date(s)),
+      cells,
+    };
+  });
+
+  return {
+    days,
+    rooms: data.rooms as Room[],
+    unscheduled: data.unscheduled as FunctionWithRelations[],
+  };
+}
+
+// ── Formatting helpers ─────────────────────────────────────────────────────────
 
 export function getDateKeyInTimezone(date: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -58,14 +142,51 @@ export function formatTime(date: Date, timezone: string): string {
   }).format(date);
 }
 
+// ── Grid helpers ───────────────────────────────────────────────────────────────
+
 /**
- * Given the index of an entry's startTime in timeSlots, count how many
- * consecutive slots the entry spans (until the first slot >= endTime).
+ * Returns the set of roomIds that have at least one entry for a given day.
+ * Used to implement "hide unused rooms" filtering.
  */
-export function computeRowspan(
-  entry: AgendaEntry,
-  timeSlots: Date[]
-): number {
+export function getUsedRoomIds(day: DayAgenda): Set<string> {
+  const used = new Set<string>();
+  Array.from(day.cells.entries()).forEach(([roomId, slotMap]) => {
+    const hasEntries = Array.from(slotMap.values()).some((e) => e.length > 0);
+    if (hasEntries) used.add(roomId);
+  });
+  return used;
+}
+
+/**
+ * Generates a continuous array of time slots from (floor(earliest) - buffer)
+ * to (ceil(latest) + buffer) at the given interval. The buffer adds one
+ * interval of empty space before the first event and after the last.
+ */
+export function buildContinuousSlots(
+  dayEntries: AgendaEntry[],
+  intervalMs: number
+): Date[] {
+  if (dayEntries.length === 0) return [];
+
+  const minMs = Math.min(...dayEntries.map((e) => e.startTime.getTime()));
+  const maxMs = Math.max(...dayEntries.map((e) => e.endTime.getTime()));
+
+  // Snap to interval boundaries, then add one buffer slot on each side
+  const startMs = Math.floor(minMs / intervalMs) * intervalMs - intervalMs;
+  const endMs = Math.ceil(maxMs / intervalMs) * intervalMs + intervalMs;
+
+  const slots: Date[] = [];
+  for (let t = startMs; t < endMs; t += intervalMs) {
+    slots.push(new Date(t));
+  }
+  return slots;
+}
+
+/**
+ * Counts how many consecutive time slots an entry spans.
+ * A slot is "spanned" if slot.startTime < entry.endTime.
+ */
+export function computeRowspan(entry: AgendaEntry, timeSlots: Date[]): number {
   const startIdx = timeSlots.findIndex(
     (s) => s.getTime() === entry.startTime.getTime()
   );
@@ -81,6 +202,10 @@ export function computeRowspan(
   }
   return span;
 }
+
+// ── Main data builder ──────────────────────────────────────────────────────────
+
+const SLOT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 export function buildAgendaData(
   functions: FunctionWithRelations[],
@@ -140,11 +265,8 @@ export function buildAgendaData(
   const days: DayAgenda[] = sortedDates.map((dateKey) => {
     const dayEntries = byDate.get(dateKey)!;
 
-    // Unique, sorted start times for this day
-    const uniqueMs = Array.from(
-      new Set(dayEntries.map((e) => e.startTime.getTime()))
-    ).sort((a, b) => a - b);
-    const timeSlots = uniqueMs.map((ms) => new Date(ms));
+    // Continuous 30-min grid with a 30-min buffer before/after
+    const timeSlots = buildContinuousSlots(dayEntries, SLOT_INTERVAL_MS);
 
     // Initialize cells: one column per venue room
     const cells = new Map<string, Map<string, AgendaEntry[]>>();
@@ -152,7 +274,10 @@ export function buildAgendaData(
       cells.set(room.id, new Map());
     }
 
-    // Place entries into cells
+    // Place entries into cells keyed by their exact startTime ISO string.
+    // Because entries start on 30-min boundaries (or not — original data is
+    // preserved), we key on the entry's actual startTime. computeRowspan will
+    // find the matching slot by exact ms comparison.
     for (const entry of dayEntries) {
       const slotKey = entry.startTime.toISOString();
       for (const roomId of entry.roomIds) {

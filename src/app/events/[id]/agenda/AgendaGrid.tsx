@@ -1,18 +1,25 @@
+"use client";
+
 import Link from "next/link";
 import {
+  type SerializedAgendaData,
   type AgendaData,
   type AgendaEntry,
+  deserializeAgendaData,
   computeRowspan,
   formatDateHeading,
   formatTime,
+  getUsedRoomIds,
 } from "@/lib/agendaUtils";
 import { DateTabs } from "./DateTabs";
+import { HideEmptyToggle } from "./HideEmptyToggle";
 
 type AgendaGridProps = {
   eventId: string;
-  agendaData: AgendaData;
+  agendaData: SerializedAgendaData;
   timezone: string;
   activeDate: string | null;
+  hideEmpty: boolean;
 };
 
 function EntryCard({
@@ -50,31 +57,39 @@ function DayGrid({
   rooms,
   eventId,
   timezone,
+  hideEmpty,
 }: {
   day: AgendaData["days"][number];
   rooms: AgendaData["rooms"];
   eventId: string;
   timezone: string;
+  hideEmpty: boolean;
 }) {
-  if (day.timeSlots.length === 0 || rooms.length === 0) {
+  // Filter rooms based on hideEmpty
+  const usedRoomIds = getUsedRoomIds(day);
+  const visibleRooms = hideEmpty
+    ? rooms.filter((r) => usedRoomIds.has(r.id))
+    : rooms;
+
+  if (day.timeSlots.length === 0 || visibleRooms.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        No scheduled functions for this day.
+        {hideEmpty && usedRoomIds.size === 0
+          ? "No scheduled functions for this day."
+          : "No scheduled functions for this day."}
       </p>
     );
   }
 
   // skipMap tracks how many more rows each room column should skip
-  // due to a rowspan from a previous row
   const skipMap = new Map<string, number>();
-  for (const room of rooms) {
+  for (const room of visibleRooms) {
     skipMap.set(room.id, 0);
   }
 
-  // We need to render imperatively due to rowspan logic, so build row data first
   type CellRender =
     | { type: "skip" }
-    | { type: "empty"; rowspan: number }
+    | { type: "empty" }
     | { type: "entries"; entries: AgendaEntry[]; rowspan: number };
 
   const rowData: Array<{ slotTime: Date; cells: CellRender[] }> = [];
@@ -83,7 +98,7 @@ function DayGrid({
     const slotKey = slot.toISOString();
     const cells: CellRender[] = [];
 
-    for (const room of rooms) {
+    for (const room of visibleRooms) {
       const remaining = skipMap.get(room.id) ?? 0;
       if (remaining > 0) {
         skipMap.set(room.id, remaining - 1);
@@ -94,21 +109,8 @@ function DayGrid({
       const entries = day.cells.get(room.id)?.get(slotKey) ?? [];
 
       if (entries.length === 0) {
-        // Find how many consecutive empty slots follow in this column
-        let emptySpan = 1;
-        for (let i = day.timeSlots.indexOf(slot) + 1; i < day.timeSlots.length; i++) {
-          const nextKey = day.timeSlots[i].toISOString();
-          const nextEntries = day.cells.get(room.id)?.get(nextKey) ?? [];
-          if (nextEntries.length === 0) {
-            emptySpan++;
-          } else {
-            break;
-          }
-        }
-        // Don't span empty cells — just render a plain empty td
-        cells.push({ type: "empty", rowspan: 1 });
+        cells.push({ type: "empty" });
       } else {
-        // Rowspan = max span among entries in this cell
         const maxSpan = Math.max(
           ...entries.map((e) => computeRowspan(e, day.timeSlots))
         );
@@ -130,7 +132,7 @@ function DayGrid({
             <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap w-24">
               Time
             </th>
-            {rooms.map((room) => (
+            {visibleRooms.map((room) => (
               <th
                 key={room.id}
                 className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-900 dark:text-white whitespace-nowrap"
@@ -148,7 +150,7 @@ function DayGrid({
               </td>
               {cells.map((cell, i) => {
                 if (cell.type === "skip") return null;
-                const room = rooms[i];
+                const room = visibleRooms[i];
                 if (cell.type === "empty") {
                   return (
                     <td
@@ -184,15 +186,15 @@ function DayGrid({
 
 export function AgendaGrid({
   eventId,
-  agendaData,
+  agendaData: serializedData,
   timezone,
   activeDate,
+  hideEmpty,
 }: AgendaGridProps) {
+  const agendaData = deserializeAgendaData(serializedData);
   const { days, rooms, unscheduled } = agendaData;
 
-  const resolvedDate =
-    activeDate ?? days[0]?.dateKey ?? null;
-
+  const resolvedDate = activeDate ?? days[0]?.dateKey ?? null;
   const activeDay = days.find((d) => d.dateKey === resolvedDate) ?? days[0];
 
   return (
@@ -219,10 +221,15 @@ export function AgendaGrid({
         />
       )}
 
-      {days.length === 1 && (
-        <h2 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-4">
-          {formatDateHeading(days[0].dateKey, timezone)}
-        </h2>
+      {days.length > 0 && (
+        <div className="flex items-center justify-between mb-4 gap-4">
+          <h2 className="text-base font-medium text-gray-700 dark:text-gray-300">
+            {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
+          </h2>
+          {rooms.length > 0 && (
+            <HideEmptyToggle eventId={eventId} hideEmpty={hideEmpty} />
+          )}
+        </div>
       )}
 
       {activeDay && (
@@ -231,6 +238,7 @@ export function AgendaGrid({
           rooms={rooms}
           eventId={eventId}
           timezone={timezone}
+          hideEmpty={hideEmpty}
         />
       )}
 
