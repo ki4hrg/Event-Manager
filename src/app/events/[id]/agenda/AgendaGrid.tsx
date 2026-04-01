@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import {
   type SerializedAgendaData,
   type AgendaData,
@@ -65,27 +66,19 @@ function DayGrid({
   timezone: string;
   hideEmpty: boolean;
 }) {
-  // Filter rooms based on hideEmpty
-  const usedRoomIds = getUsedRoomIds(day);
   const visibleRooms = hideEmpty
-    ? rooms.filter((r) => usedRoomIds.has(r.id))
+    ? rooms.filter((r) => getUsedRoomIds(day).has(r.id))
     : rooms;
 
   if (day.timeSlots.length === 0 || visibleRooms.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        {hideEmpty && usedRoomIds.size === 0
-          ? "No scheduled functions for this day."
-          : "No scheduled functions for this day."}
+        No scheduled functions for this day.
       </p>
     );
   }
 
-  // skipMap tracks how many more rows each room column should skip
   const skipMap = new Map<string, number>();
-  for (const room of visibleRooms) {
-    skipMap.set(room.id, 0);
-  }
 
   type CellRender =
     | { type: "skip" }
@@ -191,7 +184,7 @@ export function AgendaGrid({
   activeDate,
   hideEmpty,
 }: AgendaGridProps) {
-  const agendaData = deserializeAgendaData(serializedData);
+  const agendaData = useMemo(() => deserializeAgendaData(serializedData), [serializedData]);
   const { days, rooms, unscheduled } = agendaData;
 
   const resolvedDate = activeDate ?? days[0]?.dateKey ?? null;

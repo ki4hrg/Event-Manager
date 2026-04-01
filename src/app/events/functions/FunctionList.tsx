@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Function, FunctionRoom, Room, FunctionSchedule, CustomOption } from "@prisma/client";
+import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
@@ -37,26 +38,6 @@ function formatDateTime(date: Date): string {
   });
 }
 
-function formatDateHeading(dateKey: string, timezone: string): string {
-  // dateKey is YYYY-MM-DD in the event's timezone.
-  // Use noon UTC so the date is unambiguous in any timezone when displayed.
-  const d = new Date(`${dateKey}T12:00:00Z`);
-  return d.toLocaleDateString("en-US", {
-    timeZone: timezone,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function getDateKeyInTimezone(date: Date, timezone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
 
 // Get the earliest schedule date for a function
 function getEarliestDate(fn: FunctionWithRelations): Date | null {

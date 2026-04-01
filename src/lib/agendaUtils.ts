@@ -144,10 +144,7 @@ export function formatTime(date: Date, timezone: string): string {
 
 // ── Grid helpers ───────────────────────────────────────────────────────────────
 
-/**
- * Returns the set of roomIds that have at least one entry for a given day.
- * Used to implement "hide unused rooms" filtering.
- */
+/** Returns the set of roomIds that have at least one entry for a given day. */
 export function getUsedRoomIds(day: DayAgenda): Set<string> {
   const used = new Set<string>();
   Array.from(day.cells.entries()).forEach(([roomId, slotMap]) => {
@@ -168,8 +165,14 @@ export function buildContinuousSlots(
 ): Date[] {
   if (dayEntries.length === 0) return [];
 
-  const minMs = Math.min(...dayEntries.map((e) => e.startTime.getTime()));
-  const maxMs = Math.max(...dayEntries.map((e) => e.endTime.getTime()));
+  let minMs = Infinity;
+  let maxMs = -Infinity;
+  for (const e of dayEntries) {
+    const start = e.startTime.getTime();
+    const end = e.endTime.getTime();
+    if (start < minMs) minMs = start;
+    if (end > maxMs) maxMs = end;
+  }
 
   // Snap to interval boundaries, then add one buffer slot on each side
   const startMs = Math.floor(minMs / intervalMs) * intervalMs - intervalMs;

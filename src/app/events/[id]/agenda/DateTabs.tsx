@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { formatDateHeading } from "@/lib/agendaUtils";
 
 type DateTabsProps = {
@@ -11,9 +12,15 @@ type DateTabsProps = {
 };
 
 export function DateTabs({ eventId, days, activeDate, timezone }: DateTabsProps) {
-  const router = useRouter();
+  const searchParams = useSearchParams();
 
   if (days.length <= 1) return null;
+
+  function buildHref(dateKey: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("date", dateKey);
+    return `/events/${eventId}/agenda?${params.toString()}`;
+  }
 
   return (
     <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
@@ -21,11 +28,9 @@ export function DateTabs({ eventId, days, activeDate, timezone }: DateTabsProps)
         {days.map((dateKey) => {
           const isActive = dateKey === activeDate;
           return (
-            <button
+            <Link
               key={dateKey}
-              onClick={() =>
-                router.push(`/events/${eventId}/agenda?date=${dateKey}`)
-              }
+              href={buildHref(dateKey)}
               className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 isActive
                   ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
@@ -33,7 +38,7 @@ export function DateTabs({ eventId, days, activeDate, timezone }: DateTabsProps)
               }`}
             >
               {formatDateHeading(dateKey, timezone)}
-            </button>
+            </Link>
           );
         })}
       </nav>
