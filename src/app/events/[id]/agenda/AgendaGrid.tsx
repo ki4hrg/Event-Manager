@@ -465,6 +465,17 @@ export function AgendaGrid({
         return;
       }
 
+      // Warn if room change affects multiple schedule entries for the same function
+      if (roomChanged) {
+        const scheduleCount = countFunctionSchedules(agendaDataRef.current, entry.functionId);
+        if (scheduleCount > 1) {
+          const confirmed = window.confirm(
+            `"${entry.functionName}" has ${scheduleCount} scheduled time slots. Moving to a new room will affect all of them. Continue?`
+          );
+          if (!confirmed) return;
+        }
+      }
+
       const newStart = timeChanged ? new Date(entry.startTime.getTime() + deltaMs) : entry.startTime;
       const newEnd = timeChanged ? new Date(entry.endTime.getTime() + deltaMs) : entry.endTime;
 
@@ -598,6 +609,20 @@ export function AgendaGrid({
       </DragOverlay>
     </DndContext>
   );
+}
+
+function countFunctionSchedules(data: AgendaData, functionId: string): number {
+  const seen = new Set<string>();
+  for (const day of data.days) {
+    Array.from(day.cells.values()).forEach((slotMap) => {
+      Array.from(slotMap.values()).forEach((entries) => {
+        for (const e of entries) {
+          if (e.functionId === functionId) seen.add(e.scheduleId);
+        }
+      });
+    });
+  }
+  return seen.size;
 }
 
 function calcResizeTimes(
