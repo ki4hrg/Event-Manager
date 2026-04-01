@@ -120,12 +120,17 @@ export async function createPresentation(eventId: string, formData: FormData) {
   const speakerRoles = formData.getAll("speakerRoles") as string[];
   const primarySpeakerId = formData.get("primarySpeakerId") as string;
 
+  const breakoutGroupId = formData.get("breakoutGroupId") as string;
+  const instanceCountRaw = formData.get("instanceCount") as string;
+
   const presentation = await prisma.presentation.create({
     data: {
       title,
       description: description || null,
       trackId: trackId || null,
       notes: notes || null,
+      breakoutGroupId: breakoutGroupId || null,
+      instanceCount: instanceCountRaw ? parseInt(instanceCountRaw) || 1 : 1,
       eventId,
     },
   });
@@ -153,6 +158,9 @@ export async function updatePresentation(id: string, eventId: string, formData: 
   const trackId = formData.get("trackId") as string;
   const notes = formData.get("notes") as string;
 
+  const breakoutGroupId = formData.get("breakoutGroupId") as string;
+  const instanceCountRaw = formData.get("instanceCount") as string;
+
   await prisma.presentation.update({
     where: { id },
     data: {
@@ -160,6 +168,8 @@ export async function updatePresentation(id: string, eventId: string, formData: 
       description: description || null,
       trackId: trackId || null,
       notes: notes || null,
+      breakoutGroupId: breakoutGroupId || null,
+      ...(instanceCountRaw ? { instanceCount: parseInt(instanceCountRaw) || 1 } : {}),
     },
   });
 

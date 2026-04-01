@@ -1,16 +1,24 @@
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { EventTabs } from "../EventTabs";
-import { getEvent } from "../../actions";
-import { getPresentations } from "../../presentations/actions";
 import {
   getBreakoutGroups,
   getUngroupedBlocks,
   createBreakoutGroup,
   updateBreakoutGroup,
   deleteBreakoutGroup,
-  assignPresentationToBlock,
-  removePresentationFromBlock,
+  addRoomToGroup,
+  removeRoomFromGroup,
+  setSessionRoomOverride,
+  removeSessionRoomOverride,
+  createSessionInGroup,
+  updateSession,
+  deleteSession,
+  assignPresentationToSession,
+  movePresentationSlot,
+  removePresentationFromSession,
+  createGroupPresentation,
 } from "../../breakout-schedule/actions";
 import { BreakoutGrid } from "../../breakout-schedule/BreakoutGrid";
 
@@ -23,45 +31,22 @@ export default async function BreakoutSchedulePage({
 }) {
   const { id: eventId } = await params;
 
-  const [event, groups, ungroupedBlocks, presentations] = await Promise.all([
-    getEvent(eventId),
+  const [event, groups, ungroupedBlocks] = await Promise.all([
+    prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        venue: { include: { rooms: { orderBy: { name: "asc" } } } },
+      },
+    }),
     getBreakoutGroups(eventId),
     getUngroupedBlocks(eventId),
-    getPresentations(eventId),
   ]);
 
   if (!event) {
     notFound();
   }
 
-  const createGroupAction = async (formData: FormData) => {
-    "use server";
-    await createBreakoutGroup(eventId, formData);
-  };
-
-  const updateGroupAction = async (groupId: string, formData: FormData) => {
-    "use server";
-    await updateBreakoutGroup(groupId, eventId, formData);
-  };
-
-  const deleteGroupAction = async (groupId: string) => {
-    "use server";
-    await deleteBreakoutGroup(groupId, eventId);
-  };
-
-  const assignPresentationAction = async (
-    presentationId: string,
-    functionId: string,
-    roomId: string | null
-  ) => {
-    "use server";
-    await assignPresentationToBlock(presentationId, functionId, roomId, eventId);
-  };
-
-  const removeSlotAction = async (slotId: string) => {
-    "use server";
-    await removePresentationFromBlock(slotId, eventId);
-  };
+  const rooms = event.venue?.rooms ?? [];
 
   return (
     <PageWrapper>
@@ -77,13 +62,64 @@ export default async function BreakoutSchedulePage({
         eventId={eventId}
         groups={groups}
         ungroupedBlocks={ungroupedBlocks}
-        presentations={presentations}
+        venueRooms={rooms}
         timezone={event.timezone}
-        createGroup={createGroupAction}
-        updateGroup={updateGroupAction}
-        deleteGroup={deleteGroupAction}
-        assignPresentation={assignPresentationAction}
-        removeSlot={removeSlotAction}
+        createGroup={async (formData: FormData) => {
+          "use server";
+          await createBreakoutGroup(eventId, formData);
+        }}
+        updateGroup={async (groupId: string, formData: FormData) => {
+          "use server";
+          await updateBreakoutGroup(groupId, eventId, formData);
+        }}
+        deleteGroup={async (groupId: string) => {
+          "use server";
+          await deleteBreakoutGroup(groupId, eventId);
+        }}
+        addRoomToGroup={async (groupId: string, roomId: string) => {
+          "use server";
+          await addRoomToGroup(groupId, roomId, eventId);
+        }}
+        removeRoomFromGroup={async (groupId: string, roomId: string) => {
+          "use server";
+          await removeRoomFromGroup(groupId, roomId, eventId);
+        }}
+        setSessionRoomOverride={async (functionId: string, roomId: string, type: "exclude" | "include") => {
+          "use server";
+          await setSessionRoomOverride(functionId, roomId, type, eventId);
+        }}
+        removeSessionRoomOverride={async (functionId: string, roomId: string) => {
+          "use server";
+          await removeSessionRoomOverride(functionId, roomId, eventId);
+        }}
+        createSession={async (groupId: string, formData: FormData) => {
+          "use server";
+          await createSessionInGroup(groupId, eventId, formData);
+        }}
+        updateSession={async (functionId: string, formData: FormData) => {
+          "use server";
+          await updateSession(functionId, eventId, formData);
+        }}
+        deleteSession={async (functionId: string) => {
+          "use server";
+          await deleteSession(functionId, eventId);
+        }}
+        assignPresentation={async (presentationId: string, functionId: string, roomId: string | null) => {
+          "use server";
+          return assignPresentationToSession(presentationId, functionId, roomId, eventId);
+        }}
+        moveSlot={async (slotId: string, newFunctionId: string, newRoomId: string | null) => {
+          "use server";
+          return movePresentationSlot(slotId, newFunctionId, newRoomId, eventId);
+        }}
+        removeSlot={async (slotId: string) => {
+          "use server";
+          await removePresentationFromSession(slotId, eventId);
+        }}
+        createGroupPresentation={async (groupId: string, formData: FormData) => {
+          "use server";
+          await createGroupPresentation(groupId, eventId, formData);
+        }}
       />
     </PageWrapper>
   );

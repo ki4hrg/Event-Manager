@@ -69,16 +69,18 @@ model Venue {
 }
 
 model Room {
-  id                String             @id @default(cuid())
-  name              String
-  capacity          Int?
-  notes             String?
-  venueId           String
-  venue             Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  functions         FunctionRoom[]
-  presentationSlots PresentationSlot[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                   String                       @id @default(cuid())
+  name                 String
+  capacity             Int?
+  notes                String?
+  venueId              String
+  venue                Venue                        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  functions            FunctionRoom[]
+  presentationSlots    PresentationSlot[]
+  breakoutGroupRooms   BreakoutGroupRoom[]
+  sessionRoomOverrides BreakoutSessionRoomOverride[]
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
 }
 
 // Flexible contact model with roles
@@ -121,14 +123,15 @@ model Function {
   breakoutGroupId   String?
   event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   breakoutGroup     BreakoutGroup?     @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
-  rooms             FunctionRoom[]
-  contacts          FunctionContact[]
-  schedules         FunctionSchedule[]
-  presentationSlots PresentationSlot[]
-  avOrder           AVOrder?
-  beo               BEO?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  rooms                FunctionRoom[]
+  contacts             FunctionContact[]
+  schedules            FunctionSchedule[]
+  presentationSlots    PresentationSlot[]
+  sessionRoomOverrides BreakoutSessionRoomOverride[]
+  avOrder              AVOrder?
+  beo                  BEO?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@index([eventId])
   @@index([breakoutGroupId])
@@ -227,16 +230,41 @@ model PresentationTrack {
 
 // Breakout session groups (scoped per event)
 model BreakoutGroup {
-  id        String     @id @default(cuid())
-  name      String
-  sortOrder Int        @default(0)
-  eventId   String
-  event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  functions Function[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String              @id @default(cuid())
+  name          String
+  sortOrder     Int                 @default(0)
+  eventId       String
+  event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functions     Function[]
+  rooms         BreakoutGroupRoom[]
+  presentations Presentation[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
   @@index([eventId])
+}
+
+// Junction: BreakoutGroup <-> Room (group-level room assignment)
+model BreakoutGroupRoom {
+  id              String        @id @default(cuid())
+  breakoutGroupId String
+  roomId          String
+  breakoutGroup   BreakoutGroup @relation(fields: [breakoutGroupId], references: [id], onDelete: Cascade)
+  room            Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([breakoutGroupId, roomId])
+}
+
+// Per-session room overrides (exclude a group room or include a non-group room)
+model BreakoutSessionRoomOverride {
+  id         String   @id @default(cuid())
+  functionId String
+  roomId     String
+  type       String   // "exclude" or "include"
+  function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([functionId, roomId])
 }
 
 // Junction: BREAKOUT_BLOCK function <-> Presentation, with optional room assignment
@@ -256,22 +284,26 @@ model PresentationSlot {
 
 // Presentation models for breakout sessions
 model Presentation {
-  id          String                @id @default(cuid())
-  title       String
-  description String?
-  notes       String?
-  trackId     String?
-  track       PresentationTrack?    @relation(fields: [trackId], references: [id], onDelete: SetNull)
-  eventId     String
-  event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  speakers    PresentationContact[]
-  slots       PresentationSlot[]
-  avOrder     AVOrder?
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  id              String                @id @default(cuid())
+  title           String
+  description     String?
+  notes           String?
+  instanceCount   Int                   @default(1)
+  trackId         String?
+  track           PresentationTrack?    @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  breakoutGroupId String?
+  breakoutGroup   BreakoutGroup?        @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
+  eventId         String
+  event           Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  speakers        PresentationContact[]
+  slots           PresentationSlot[]
+  avOrder         AVOrder?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
   @@index([eventId])
   @@index([trackId])
+  @@index([breakoutGroupId])
 }
 
 model PresentationContact {
