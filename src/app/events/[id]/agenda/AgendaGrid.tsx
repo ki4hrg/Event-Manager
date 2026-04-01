@@ -80,14 +80,10 @@ function EntryContent({
   timezone: string;
 }) {
   return (
-    <div className="px-1.5 py-1 text-xs">
-      <Link
-        href={`/events/${eventId}/functions/${entry.functionId}`}
-        className="font-medium text-blue-700 dark:text-blue-300 hover:underline block truncate leading-tight"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="px-1.5 py-1 text-xs h-full">
+      <div className="font-medium text-blue-700 dark:text-blue-300 truncate leading-tight">
         {entry.functionName}
-      </Link>
+      </div>
       <div className="text-blue-500 dark:text-blue-400 leading-tight mt-0.5 truncate">
         {formatTime(entry.startTime, timezone)} –{" "}
         {formatTime(entry.endTime, timezone)}
@@ -108,14 +104,14 @@ function ResizeHandle({
 }) {
   return (
     <div
-      className={`absolute ${position === "top" ? "top-0" : "bottom-0"} left-0 right-0 h-2.5 flex items-center justify-center cursor-ns-resize z-10 group/handle`}
+      className={`absolute ${position === "top" ? "top-0" : "bottom-0"} left-0 right-0 h-3 flex items-center justify-center cursor-ns-resize z-10 group/handle`}
       onPointerDown={(e) => {
         e.stopPropagation();
         e.preventDefault();
         onPointerDown(e);
       }}
     >
-      <div className="w-6 h-0.5 rounded-full bg-blue-400 dark:bg-blue-500 opacity-0 group-hover/handle:opacity-100 transition-opacity" />
+      <div className="w-8 h-1 rounded-full bg-blue-300 dark:bg-blue-600 group-hover/handle:bg-blue-500 dark:group-hover/handle:bg-blue-400 transition-colors" />
     </div>
   );
 }
@@ -133,16 +129,29 @@ function DraggableCard({
   timezone: string;
   onResizeStart: OnResizeStart;
 }) {
+  const router = useRouter();
+  const draggedRef = useRef(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `${entry.scheduleId}:${sourceRoomId}`,
     data: { entry, sourceRoomId } satisfies DragData,
   });
 
+  useEffect(() => {
+    if (isDragging) draggedRef.current = true;
+  }, [isDragging]);
+
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
-      className={`h-full relative${isDragging ? " opacity-40" : ""}`}
+      className={`h-full relative cursor-grab active:cursor-grabbing${isDragging ? " opacity-40" : ""}`}
+      onClick={() => {
+        if (draggedRef.current) {
+          draggedRef.current = false;
+          return;
+        }
+        router.push(`/events/${eventId}/functions/${entry.functionId}`);
+      }}
       {...listeners}
       {...attributes}
     >
@@ -177,7 +186,7 @@ function DroppableCell({
     data: { roomId, slotTime } satisfies DropData,
   });
 
-  const base = "border border-gray-200 dark:border-gray-700 align-top";
+  const base = "border border-gray-200 dark:border-gray-700 align-top p-0";
   const bg = isEmpty
     ? isOver
       ? "bg-blue-50 dark:bg-blue-950"
@@ -187,7 +196,7 @@ function DroppableCell({
     : "bg-blue-50 dark:bg-blue-950";
 
   return (
-    <td ref={setNodeRef} rowSpan={rowSpan} className={`${base} ${bg}`}>
+    <td ref={setNodeRef} rowSpan={rowSpan} className={`${base} ${bg}`} style={{ height: "1px" }}>
       {children}
     </td>
   );
