@@ -208,7 +208,7 @@ export function computeRowspan(entry: AgendaEntry, timeSlots: Date[]): number {
 
 // ── Main data builder ──────────────────────────────────────────────────────────
 
-const SLOT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+export const SLOT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 export function buildAgendaData(
   functions: FunctionWithRelations[],
