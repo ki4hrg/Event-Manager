@@ -29,6 +29,8 @@ type BreakoutSlotPanelProps = {
   rooms: Room[];
   eventId: string;
   timezone: string;
+  groupName: string | null;
+  instanceCount: number;
   addSlot: (functionId: string, roomId: string | null) => Promise<void>;
   removeSlot: (slotId: string) => Promise<void>;
 };
@@ -55,6 +57,8 @@ export function BreakoutSlotPanel({
   rooms,
   eventId,
   timezone,
+  groupName,
+  instanceCount,
   addSlot,
   removeSlot,
 }: BreakoutSlotPanelProps) {
@@ -82,9 +86,29 @@ export function BreakoutSlotPanel({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-        Breakout Schedule
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+          Breakout Schedule
+        </h2>
+        <div className="flex items-center gap-2">
+          {groupName && (
+            <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
+              {groupName}
+            </span>
+          )}
+          <span
+            className={`text-xs px-2 py-0.5 rounded ${
+              slots.length >= instanceCount
+                ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                : slots.length > 0
+                ? "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            {slots.length}/{instanceCount} placed
+          </span>
+        </div>
+      </div>
 
       {slots.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">

@@ -1,7 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import Link from "next/link";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import type {
   Function as PrismaFunction,
   FunctionRoom,
@@ -435,24 +447,240 @@ function PresentationManager({
   );
 }
 
-// ── Assignment Grid (sessions x rooms) ─────────────────────────────────────────
+// ── DnD Types ─────────────────────────────────────────────────────────────────
+
+type SidebarDragData = {
+  type: "sidebar";
+  presentationId: string;
+  title: string;
+  trackColor: string | null;
+};
+
+type CellDragData = {
+  type: "cell";
+  slotId: string;
+  presentationId: string;
+  title: string;
+  trackColor: string | null;
+  sessionId: string;
+  roomId: string;
+};
+
+type DragItemData = SidebarDragData | CellDragData;
+
+type DropCellData = {
+  sessionId: string;
+  roomId: string;
+};
+
+// ── DnD Components ────────────────────────────────────────────────────────────
+
+function DraggableSidebarCard({
+  presentation,
+  instanceLabel,
+  instanceIndex,
+}: {
+  presentation: GroupPresentation;
+  instanceLabel: string;
+  instanceIndex: number;
+}) {
+  const dragId = `sidebar:${presentation.id}:${instanceIndex}`;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: dragId,
+    data: {
+      type: "sidebar",
+      presentationId: presentation.id,
+      title: presentation.title,
+      trackColor: presentation.track?.color ?? null,
+    } satisfies SidebarDragData,
+  });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`px-3 py-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded text-xs cursor-grab active:cursor-grabbing select-none ${
+        isDragging ? "opacity-40" : ""
+      }`}
+      {...listeners}
+      {...attributes}
+    >
+      <div className="flex items-center gap-1.5">
+        {presentation.track?.color && (
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ backgroundColor: presentation.track.color }}
+          />
+        )}
+        <span className="font-medium text-amber-800 dark:text-amber-200 truncate max-w-[180px]">
+          {presentation.title}
+        </span>
+      </div>
+      <div className="text-amber-600 dark:text-amber-400 mt-0.5">
+        {instanceLabel}
+      </div>
+    </div>
+  );
+}
+
+function DraggableCellCard({
+  slot,
+  eventId,
+  sessionId,
+  onRemove,
+}: {
+  slot: SlotData;
+  eventId: string;
+  sessionId: string;
+  onRemove: (slotId: string) => void;
+}) {
+  const dragId = `cell:${slot.id}`;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: dragId,
+    data: {
+      type: "cell",
+      slotId: slot.id,
+      presentationId: slot.presentationId,
+      title: slot.presentation.title,
+      trackColor: null,
+      sessionId,
+      roomId: slot.roomId ?? "",
+    } satisfies CellDragData,
+  });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-start justify-between gap-1 cursor-grab active:cursor-grabbing ${
+        isDragging ? "opacity-40" : ""
+      }`}
+      {...listeners}
+      {...attributes}
+    >
+      <Link
+        href={`/events/${eventId}/presentations/${slot.presentationId}`}
+        className="text-blue-700 dark:text-blue-300 text-xs font-medium hover:underline truncate"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {slot.presentation.title}
+      </Link>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(slot.id);
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="text-red-400 hover:text-red-600 text-xs shrink-0"
+      >
+        &times;
+      </button>
+    </div>
+  );
+}
+
+function DroppableGridCell({
+  sessionId,
+  roomId,
+  isAvailable,
+  children,
+}: {
+  sessionId: string;
+  roomId: string;
+  isAvailable: boolean;
+  children?: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `drop:${sessionId}:${roomId}`,
+    data: { sessionId, roomId } satisfies DropCellData,
+    disabled: !isAvailable,
+  });
+
+  if (!isAvailable) {
+    return (
+      <td
+        ref={setNodeRef}
+        className="border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
+      />
+    );
+  }
+
+  const hasContent = !!children;
+  const bg = hasContent
+    ? isOver
+      ? "bg-blue-100 dark:bg-blue-900"
+      : "bg-blue-50 dark:bg-blue-950"
+    : isOver
+    ? "bg-blue-50 dark:bg-blue-950"
+    : "bg-white dark:bg-gray-900";
+
+  return (
+    <td
+      ref={setNodeRef}
+      className={`border border-gray-200 dark:border-gray-700 px-2 py-1.5 align-top min-w-[160px] ${bg} transition-colors`}
+    >
+      {children}
+    </td>
+  );
+}
+
+function DragOverlayCard({ data }: { data: DragItemData }) {
+  return (
+    <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950 border border-blue-300 dark:border-blue-700 rounded shadow-lg opacity-90 text-xs max-w-[200px]">
+      <div className="flex items-center gap-1.5">
+        {data.trackColor && (
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ backgroundColor: data.trackColor }}
+          />
+        )}
+        <span className="font-medium text-blue-800 dark:text-blue-200 truncate">
+          {data.title}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Assignment Grid (sessions x rooms) with DnD ──────────────────────────────
 
 function AssignmentGrid({
   group,
   eventId,
   timezone,
   assignPresentation,
+  moveSlot,
   removeSlot,
 }: {
   group: GroupData;
   eventId: string;
   timezone: string;
   assignPresentation: (presentationId: string, functionId: string, roomId: string | null) => Promise<{ success: boolean; error?: string }>;
+  moveSlot: (slotId: string, newFunctionId: string, newRoomId: string | null) => Promise<{ success: boolean; error?: string }>;
   removeSlot: (slotId: string) => Promise<void>;
 }) {
-  const [openCell, setOpenCell] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [activeDrag, setActiveDrag] = useState<DragItemData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [optimisticGroup, setOptimisticGroup] = useState(group);
+  const snapshotRef = useRef(group);
+
+  // Keep optimistic state in sync with server data when not dragging
+  if (!activeDrag && group !== optimisticGroup && group !== snapshotRef.current) {
+    setOptimisticGroup(group);
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   if (group.functions.length === 0 || group.rooms.length === 0) {
     return (
@@ -464,12 +692,12 @@ function AssignmentGrid({
     );
   }
 
-  // All rooms used across all sessions (union of effective rooms)
+  // Compute effective rooms per session
   const allRooms = new Map<string, Room>();
   const sessionEffectiveRooms = new Map<string, Set<string>>();
 
-  for (const session of group.functions) {
-    const effective = getEffectiveRooms(session, group.rooms);
+  for (const session of optimisticGroup.functions) {
+    const effective = getEffectiveRooms(session, optimisticGroup.rooms);
     sessionEffectiveRooms.set(session.id, new Set(effective.map((r) => r.id)));
     for (const room of effective) {
       allRooms.set(room.id, room);
@@ -479,209 +707,283 @@ function AssignmentGrid({
   const roomList = Array.from(allRooms.values()).sort((a, b) => a.name.localeCompare(b.name));
 
   // Unassigned presentations: one entry per remaining instance
-  const unassignedCards: { presentation: GroupPresentation; instanceLabel: string }[] = [];
-  for (const p of group.presentations) {
+  const unassignedCards: { presentation: GroupPresentation; instanceLabel: string; instanceIndex: number }[] = [];
+  for (const p of optimisticGroup.presentations) {
     const remaining = p.instanceCount - p.slots.length;
     for (let i = 0; i < remaining; i++) {
       unassignedCards.push({
         presentation: p,
         instanceLabel: `${p.slots.length + i + 1} of ${p.instanceCount}`,
+        instanceIndex: i,
       });
     }
   }
 
   const getSlotForCell = (sessionId: string, roomId: string): SlotData | undefined => {
-    const session = group.functions.find((f) => f.id === sessionId);
+    const session = optimisticGroup.functions.find((f) => f.id === sessionId);
     return session?.presentationSlots.find((s) => s.roomId === roomId);
   };
 
-  const cellKey = (sessionId: string, roomId: string) => `${sessionId}:${roomId}`;
-
-  // Get presentations already assigned to a session
-  const getAssignedIds = (sessionId: string): Set<string> => {
-    const session = group.functions.find((f) => f.id === sessionId);
-    return new Set(session?.presentationSlots.map((s) => s.presentationId) ?? []);
+  // Optimistic state helpers
+  const applyOptimisticAssign = (
+    presentationId: string,
+    sessionId: string,
+    roomId: string
+  ): GroupData => {
+    const g = { ...optimisticGroup };
+    g.functions = g.functions.map((fn) => {
+      if (fn.id !== sessionId) return fn;
+      const presentation = g.presentations.find((p) => p.id === presentationId);
+      if (!presentation) return fn;
+      const newSlot: SlotData = {
+        id: `optimistic-${Date.now()}`,
+        functionId: sessionId,
+        presentationId,
+        roomId,
+        createdAt: new Date(),
+        presentation: { ...presentation, speakers: presentation.speakers },
+        room: roomList.find((r) => r.id === roomId) ?? null,
+      };
+      return { ...fn, presentationSlots: [...fn.presentationSlots, newSlot] };
+    });
+    g.presentations = g.presentations.map((p) => {
+      if (p.id !== presentationId) return p;
+      return {
+        ...p,
+        slots: [...p.slots, { id: `optimistic-${Date.now()}`, functionId: sessionId, presentationId, roomId, createdAt: new Date() }],
+      };
+    });
+    return g;
   };
 
-  const handleAssign = (presentationId: string, sessionId: string, roomId: string) => {
-    if (!presentationId) return;
-    startTransition(async () => {
-      const result = await assignPresentation(presentationId, sessionId, roomId);
+  const applyOptimisticMove = (
+    slotId: string,
+    fromSessionId: string,
+    toSessionId: string,
+    toRoomId: string
+  ): GroupData => {
+    const g = { ...optimisticGroup };
+    // Find the slot being moved
+    const fromSession = g.functions.find((f) => f.id === fromSessionId);
+    const existingSlot = fromSession?.presentationSlots.find((s) => s.id === slotId);
+    if (!existingSlot) return g;
+
+    g.functions = g.functions.map((fn) => {
+      if (fn.id === fromSessionId && fn.id === toSessionId) {
+        // Same session, just update room
+        return {
+          ...fn,
+          presentationSlots: fn.presentationSlots.map((s) =>
+            s.id === slotId
+              ? { ...s, roomId: toRoomId, room: roomList.find((r) => r.id === toRoomId) ?? null }
+              : s
+          ),
+        };
+      }
+      if (fn.id === fromSessionId) {
+        return { ...fn, presentationSlots: fn.presentationSlots.filter((s) => s.id !== slotId) };
+      }
+      if (fn.id === toSessionId) {
+        const movedSlot: SlotData = {
+          ...existingSlot,
+          id: `optimistic-move-${Date.now()}`,
+          functionId: toSessionId,
+          roomId: toRoomId,
+          room: roomList.find((r) => r.id === toRoomId) ?? null,
+        };
+        return { ...fn, presentationSlots: [...fn.presentationSlots, movedSlot] };
+      }
+      return fn;
+    });
+
+    return g;
+  };
+
+  const applyOptimisticRemove = (slotId: string): GroupData => {
+    const g = { ...optimisticGroup };
+    let removedPresentationId: string | null = null;
+    g.functions = g.functions.map((fn) => {
+      const slot = fn.presentationSlots.find((s) => s.id === slotId);
+      if (slot) removedPresentationId = slot.presentationId;
+      return { ...fn, presentationSlots: fn.presentationSlots.filter((s) => s.id !== slotId) };
+    });
+    if (removedPresentationId) {
+      g.presentations = g.presentations.map((p) => {
+        if (p.id !== removedPresentationId) return p;
+        return { ...p, slots: p.slots.filter((s) => s.id !== slotId) };
+      });
+    }
+    return g;
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const data = event.active.data.current as DragItemData;
+    setActiveDrag(data);
+    setError(null);
+    snapshotRef.current = optimisticGroup;
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const dragData = event.active.data.current as DragItemData;
+    const dropData = event.over?.data.current as DropCellData | undefined;
+    setActiveDrag(null);
+
+    if (!dropData) return;
+
+    const { sessionId: targetSessionId, roomId: targetRoomId } = dropData;
+
+    if (dragData.type === "sidebar") {
+      // Assign from sidebar
+      const snapshot = optimisticGroup;
+      setOptimisticGroup(applyOptimisticAssign(dragData.presentationId, targetSessionId, targetRoomId));
+
+      const result = await assignPresentation(dragData.presentationId, targetSessionId, targetRoomId);
       if (!result.success) {
+        setOptimisticGroup(snapshot);
         setError(result.error ?? "Failed to assign");
       }
-      setOpenCell(null);
-    });
+    } else {
+      // Move from existing cell
+      const { slotId, sessionId: sourceSessionId, roomId: sourceRoomId } = dragData;
+      if (sourceSessionId === targetSessionId && sourceRoomId === targetRoomId) return;
+
+      const snapshot = optimisticGroup;
+      setOptimisticGroup(applyOptimisticMove(slotId, sourceSessionId, targetSessionId, targetRoomId));
+
+      const result = await moveSlot(slotId, targetSessionId, targetRoomId);
+      if (!result.success) {
+        setOptimisticGroup(snapshot);
+        setError(result.error ?? "Failed to move");
+      }
+    }
   };
 
-  const handleRemove = (slotId: string) => {
-    startTransition(async () => {
+  const handleRemove = async (slotId: string) => {
+    const snapshot = optimisticGroup;
+    setOptimisticGroup(applyOptimisticRemove(slotId));
+    try {
       await removeSlot(slotId);
-    });
+    } catch {
+      setOptimisticGroup(snapshot);
+      setError("Failed to remove assignment");
+    }
   };
 
   return (
-    <div>
-      {error && (
-        <div className="mb-3 text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded px-3 py-2">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700">&times;</button>
-        </div>
-      )}
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-gray-50 dark:bg-gray-800">
-              <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-32">
-                Room
-              </th>
-              {group.functions.map((session) => (
-                <th
-                  key={session.id}
-                  className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-900 dark:text-white whitespace-nowrap"
-                >
-                  <div>{session.name}</div>
-                  <div className="font-normal text-gray-500 dark:text-gray-400">
-                    {formatSessionTime(session.schedules, timezone)}
-                  </div>
+    <DndContext
+      id={`breakout-dnd-${group.id}`}
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div>
+        {error && (
+          <div className="mb-3 text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded px-3 py-2">
+            {error}
+            <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700">&times;</button>
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-800">
+                <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-32">
+                  Room
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {roomList.map((room) => (
-              <tr key={room.id} className="h-16">
-                <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap align-top">
-                  {room.name}
-                </td>
-                {group.functions.map((session) => {
-                  const effectiveIds = sessionEffectiveRooms.get(session.id);
-                  const isAvailable = effectiveIds?.has(room.id) ?? false;
-
-                  if (!isAvailable) {
-                    return (
-                      <td
-                        key={session.id}
-                        className="border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
-                      />
-                    );
-                  }
-
-                  const slot = getSlotForCell(session.id, room.id);
-                  const key = cellKey(session.id, room.id);
-                  const isOpen = openCell === key;
-                  const assignedIds = getAssignedIds(session.id);
-                  const availablePresentations = group.presentations.filter(
-                    (p) => !assignedIds.has(p.id) && p.slots.length < p.instanceCount
-                  );
-
-                  return (
-                    <td
-                      key={session.id}
-                      className={`border border-gray-200 dark:border-gray-700 px-2 py-1.5 align-top min-w-[160px] ${
-                        slot ? "bg-blue-50 dark:bg-blue-950" : "bg-white dark:bg-gray-900"
-                      }`}
-                    >
-                      {slot ? (
-                        <div className="flex items-start justify-between gap-1">
-                          <Link
-                            href={`/events/${eventId}/presentations/${slot.presentationId}`}
-                            className="text-blue-700 dark:text-blue-300 text-xs font-medium hover:underline truncate"
-                          >
-                            {slot.presentation.title}
-                          </Link>
-                          <button
-                            onClick={() => handleRemove(slot.id)}
-                            disabled={isPending}
-                            className="text-red-400 hover:text-red-600 text-xs shrink-0 disabled:opacity-50"
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      ) : isOpen ? (
-                        <div className="space-y-1">
-                          <select
-                            defaultValue=""
-                            onChange={(e) => handleAssign(e.target.value, session.id, room.id)}
-                            disabled={isPending}
-                            autoFocus
-                            className="w-full px-1 py-1 border border-gray-300 dark:border-gray-700 rounded text-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
-                          >
-                            <option value="">Select...</option>
-                            {availablePresentations.map((p) => (
-                              <option key={p.id} value={p.id}>{p.title}</option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => setOpenCell(null)}
-                            className="text-gray-400 hover:text-gray-600 text-xs"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => { setOpenCell(key); setError(null); }}
-                          disabled={availablePresentations.length === 0 || isPending}
-                          className="text-blue-500 hover:text-blue-700 text-xs disabled:opacity-30"
-                        >
-                          + Assign
-                        </button>
-                      )}
-                    </td>
-                  );
-                })}
+                {optimisticGroup.functions.map((session) => (
+                  <th
+                    key={session.id}
+                    className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-900 dark:text-white whitespace-nowrap"
+                  >
+                    <div>{session.name}</div>
+                    <div className="font-normal text-gray-500 dark:text-gray-400">
+                      {formatSessionTime(session.schedules, timezone)}
+                    </div>
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {roomList.map((room) => (
+                <tr key={room.id} className="h-16">
+                  <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap align-top">
+                    {room.name}
+                  </td>
+                  {optimisticGroup.functions.map((session) => {
+                    const effectiveIds = sessionEffectiveRooms.get(session.id);
+                    const isAvailable = effectiveIds?.has(room.id) ?? false;
+                    const slot = isAvailable ? getSlotForCell(session.id, room.id) : undefined;
+
+                    return (
+                      <DroppableGridCell
+                        key={session.id}
+                        sessionId={session.id}
+                        roomId={room.id}
+                        isAvailable={isAvailable}
+                      >
+                        {slot && (
+                          <DraggableCellCard
+                            slot={slot}
+                            eventId={eventId}
+                            sessionId={session.id}
+                            onRemove={handleRemove}
+                          />
+                        )}
+                      </DroppableGridCell>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Unassigned sidebar */}
+        {unassignedCards.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+              Unassigned ({unassignedCards.length} remaining)
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {unassignedCards.map((card) => (
+                <DraggableSidebarCard
+                  key={`${card.presentation.id}-${card.instanceIndex}`}
+                  presentation={card.presentation}
+                  instanceLabel={card.instanceLabel}
+                  instanceIndex={card.instanceIndex}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Fully scheduled section */}
+        {optimisticGroup.presentations.some((p) => p.slots.length >= p.instanceCount) && (
+          <div className="mt-3">
+            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+              Fully Scheduled
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {optimisticGroup.presentations
+                .filter((p) => p.slots.length >= p.instanceCount)
+                .map((p) => (
+                  <span
+                    key={p.id}
+                    className="px-2 py-1 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300"
+                  >
+                    {p.title} ({p.slots.length}/{p.instanceCount})
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Unassigned sidebar */}
-      {unassignedCards.length > 0 && (
-        <div className="mt-4">
-          <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-            Unassigned ({unassignedCards.length} remaining)
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {unassignedCards.map((card, i) => (
-              <div
-                key={`${card.presentation.id}-${i}`}
-                className="px-3 py-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded text-xs"
-              >
-                <div className="font-medium text-amber-800 dark:text-amber-200 truncate max-w-[200px]">
-                  {card.presentation.title}
-                </div>
-                <div className="text-amber-600 dark:text-amber-400">
-                  {card.instanceLabel}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Fully scheduled section */}
-      {group.presentations.some((p) => p.slots.length >= p.instanceCount) && (
-        <div className="mt-3">
-          <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-            Fully Scheduled
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {group.presentations
-              .filter((p) => p.slots.length >= p.instanceCount)
-              .map((p) => (
-                <span
-                  key={p.id}
-                  className="px-2 py-1 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300"
-                >
-                  {p.title} ({p.slots.length}/{p.instanceCount})
-                </span>
-              ))}
-          </div>
-        </div>
-      )}
-    </div>
+      <DragOverlay>
+        {activeDrag && <DragOverlayCard data={activeDrag} />}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
@@ -699,6 +1001,7 @@ function GroupPanel({
   createSession,
   deleteSession,
   assignPresentation,
+  moveSlot,
   removeSlot,
   createGroupPresentation,
 }: {
@@ -713,6 +1016,7 @@ function GroupPanel({
   createSession: (groupId: string, formData: FormData) => Promise<void>;
   deleteSession: (functionId: string) => Promise<void>;
   assignPresentation: (presentationId: string, functionId: string, roomId: string | null) => Promise<{ success: boolean; error?: string }>;
+  moveSlot: (slotId: string, newFunctionId: string, newRoomId: string | null) => Promise<{ success: boolean; error?: string }>;
   removeSlot: (slotId: string) => Promise<void>;
   createGroupPresentation: (groupId: string, formData: FormData) => Promise<void>;
 }) {
@@ -796,6 +1100,7 @@ function GroupPanel({
           eventId={eventId}
           timezone={timezone}
           assignPresentation={assignPresentation}
+          moveSlot={moveSlot}
           removeSlot={removeSlot}
         />
       </div>
@@ -851,6 +1156,7 @@ export function BreakoutGrid({
           createSession={createSession}
           deleteSession={deleteSession}
           assignPresentation={assignPresentation}
+          moveSlot={moveSlot}
           removeSlot={removeSlot}
           createGroupPresentation={createGroupPresentation}
         />

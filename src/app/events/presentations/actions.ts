@@ -88,6 +88,7 @@ export async function getPresentation(id: string) {
     where: { id },
     include: {
       track: true,
+      breakoutGroup: true,
       speakers: {
         include: { contact: true },
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],

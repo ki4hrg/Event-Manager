@@ -184,6 +184,8 @@ export default async function PresentationPage({
             rooms={rooms}
             eventId={eventId}
             timezone={event.timezone}
+            groupName={presentation.breakoutGroup?.name ?? null}
+            instanceCount={presentation.instanceCount}
             addSlot={addSlotAction}
             removeSlot={removeSlotAction}
           />
