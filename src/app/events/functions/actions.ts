@@ -58,6 +58,7 @@ export async function getFunctions(eventId: string) {
     include: {
       rooms: { include: { room: true } },
       schedules: { orderBy: { startTime: "asc" } },
+      breakoutGroup: true,
     },
     orderBy: { name: "asc" },
   });

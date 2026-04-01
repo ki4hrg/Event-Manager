@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import type { Function, FunctionRoom, Room, FunctionSchedule, CustomOption } from "@prisma/client";
+import type { Function, FunctionRoom, Room, FunctionSchedule, CustomOption, BreakoutGroup } from "@prisma/client";
 import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
   schedules: FunctionSchedule[];
+  breakoutGroup: BreakoutGroup | null;
 };
 
 type FunctionListProps = {
@@ -17,6 +18,13 @@ type FunctionListProps = {
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
 };
+
+function formatTypeLabel(raw: string): string {
+  return raw
+    .split("_")
+    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .join(" ");
+}
 
 const colorClasses: Record<string, string> = {
   gray: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
@@ -111,7 +119,12 @@ export function FunctionList({ functions, eventId, timezone, functionTypes, dupl
                   colorClasses[typeColors.get(fn.type) || "gray"] || colorClasses.gray
                 }`}
               >
-                {typeLabels.get(fn.type) || fn.type}
+                {typeLabels.get(fn.type) || formatTypeLabel(fn.type)}
+              </span>
+            )}
+            {fn.breakoutGroup && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {fn.breakoutGroup.name}
               </span>
             )}
           </div>

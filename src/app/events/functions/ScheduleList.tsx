@@ -135,9 +135,9 @@ export function ScheduleList({
                 <select
                   name="type"
                   required
+                  defaultValue={scheduleTypes[0]?.value ?? ""}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 >
-                  <option value="">Select type...</option>
                   {scheduleTypes.map((t) => (
                     <option key={t.id} value={t.value}>
                       {t.label}
