@@ -23,7 +23,7 @@ type AgendaGridProps = {
   hideEmpty: boolean;
 };
 
-function EntryCard({
+function EntryContent({
   entry,
   eventId,
   timezone,
@@ -33,20 +33,18 @@ function EntryCard({
   timezone: string;
 }) {
   return (
-    <div className="rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-1.5 text-xs mb-1 last:mb-0">
+    <div className="px-1.5 py-1 text-xs">
       <Link
         href={`/events/${eventId}/functions/${entry.functionId}`}
         className="font-medium text-blue-700 dark:text-blue-300 hover:underline block truncate leading-tight"
       >
         {entry.functionName}
       </Link>
-      <div className="text-gray-500 dark:text-gray-400 leading-tight mt-0.5 truncate">
+      <div className="text-blue-500 dark:text-blue-400 leading-tight mt-0.5 truncate">
         {formatTime(entry.startTime, timezone)} –{" "}
         {formatTime(entry.endTime, timezone)}
         {entry.scheduleType && (
-          <span className="ml-1 text-blue-600 dark:text-blue-400">
-            · {entry.scheduleType}
-          </span>
+          <span className="ml-1 opacity-75">· {entry.scheduleType}</span>
         )}
       </div>
     </div>
@@ -156,10 +154,10 @@ function DayGrid({
                   <td
                     key={room.id}
                     rowSpan={cell.rowspan}
-                    className="border border-gray-200 dark:border-gray-700 px-2 py-2 align-top bg-white dark:bg-gray-900"
+                    className="border border-gray-200 dark:border-gray-700 py-1 align-top bg-blue-50 dark:bg-blue-950 divide-y divide-blue-200 dark:divide-blue-800"
                   >
                     {cell.entries.map((entry) => (
-                      <EntryCard
+                      <EntryContent
                         key={entry.scheduleId}
                         entry={entry}
                         eventId={eventId}
