@@ -14,9 +14,9 @@ export function HideEmptyToggle({ eventId, hideEmpty }: HideEmptyToggleProps) {
   function toggle() {
     const params = new URLSearchParams(searchParams.toString());
     if (hideEmpty) {
-      params.delete("hideEmpty");
+      params.set("showAll", "1");
     } else {
-      params.set("hideEmpty", "1");
+      params.delete("showAll");
     }
     router.push(`/events/${eventId}/agenda?${params.toString()}`);
   }
@@ -30,7 +30,7 @@ export function HideEmptyToggle({ eventId, hideEmpty }: HideEmptyToggleProps) {
           : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500"
       }`}
     >
-      {hideEmpty ? "Showing used rooms only" : "Show used rooms only"}
+      {hideEmpty ? "Showing used rooms only" : "Showing all rooms"}
     </button>
   );
 }

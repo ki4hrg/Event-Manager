@@ -14,10 +14,10 @@ export default async function AgendaPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ date?: string; hideEmpty?: string }>;
+  searchParams: Promise<{ date?: string; showAll?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { date, hideEmpty: hideEmptyParam } = await searchParams;
+  const { date, showAll: showAllParam } = await searchParams;
 
   const [event, functions] = await Promise.all([
     prisma.event.findUnique({
@@ -43,7 +43,7 @@ export default async function AgendaPage({
       ? date
       : agendaData.days[0]?.dateKey ?? null;
 
-  const hideEmpty = hideEmptyParam === "1";
+  const hideEmpty = showAllParam !== "1";
 
   return (
     <PageWrapper>
