@@ -80,7 +80,7 @@ function EntryContent({
   timezone: string;
 }) {
   return (
-    <div className="px-1.5 py-1 text-xs h-full">
+    <div className="px-1.5 pt-3 pb-1 text-xs h-full">
       <div className="font-medium text-blue-700 dark:text-blue-300 truncate leading-tight">
         {entry.functionName}
       </div>
