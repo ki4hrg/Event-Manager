@@ -149,13 +149,13 @@ export function UserForm({ user, saveAction, deleteAction, currentUserId }: User
             id="role"
             name="role"
             defaultValue={user?.role || "user"}
-            disabled={!isCreate && isSelf}
+            disabled={isSelf}
             className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
           >
             <option value="user">User</option>
             <option value="admin">Admin</option>
           </select>
-          {!isCreate && isSelf && (
+          {isSelf && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               You cannot change your own role
             </p>

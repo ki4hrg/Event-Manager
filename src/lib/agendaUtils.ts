@@ -120,24 +120,6 @@ export function deserializeAgendaData(data: SerializedAgendaData): AgendaData {
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 
-// Binary search for the UTC ms corresponding to local midnight (start of dateKey
-// in timezone). Resolves to 30-min precision in ~6 iterations.
-function getDayStartMs(dateKey: string, timezone: string, intervalMs: number): number {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  const approxMs = Date.UTC(y, m - 1, d); // UTC midnight of same calendar day
-  let lo = approxMs - 14 * 3_600_000;
-  let hi = approxMs + 14 * 3_600_000;
-  while (hi - lo > intervalMs) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (getDateKeyInTimezone(new Date(mid), timezone) < dateKey) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
-  }
-  return hi;
-}
-
 export function getDateKeyInTimezone(date: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
@@ -300,11 +282,8 @@ export function buildAgendaData(
   const days: DayAgenda[] = sortedDates.map((dateKey) => {
     const dayEntries = byDate.get(dateKey)!;
 
-    // Fixed 48-slot grid covering the full local day (midnight to 11:30 PM)
-    const dayStartMs = getDayStartMs(dateKey, timezone, SLOT_INTERVAL_MS);
-    const timeSlots = Array.from({ length: 48 }, (_, i) =>
-      new Date(dayStartMs + i * SLOT_INTERVAL_MS)
-    );
+    // Continuous 30-min grid with a 30-min buffer before/after
+    const timeSlots = buildContinuousSlots(dayEntries, SLOT_INTERVAL_MS);
 
     // Initialize cells: one column per venue room
     const cells = new Map<string, Map<string, AgendaEntry[]>>();
