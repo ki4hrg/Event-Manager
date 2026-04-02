@@ -1,8 +1,9 @@
-import type { Function, FunctionRoom, FunctionSchedule, Room } from "@prisma/client";
+import type { Function, FunctionRoom, FunctionSchedule, Room, PresentationSlot, Presentation } from "@prisma/client";
 
 export type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
   schedules: FunctionSchedule[];
+  presentationSlots?: (PresentationSlot & { presentation: Presentation })[];
 };
 
 // ── Core types ────────────────────────────────────────────────────────────────
@@ -14,10 +15,14 @@ export type AgendaEntry = {
   functionDescription: string | null;
   scheduleId: string;
   scheduleType: string;
+  scheduleTypeLabel: string | null;
   scheduleNotes: string | null;
+  isPublic: boolean;
   startTime: Date;
   endTime: Date;
   roomIds: string[];
+  /** Presentation titles assigned to this function (for breakout blocks) */
+  presentationTitles: string[];
 };
 
 export type DayAgenda = {
@@ -214,7 +219,8 @@ export const SLOT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 export function buildAgendaData(
   functions: FunctionWithRelations[],
   rooms: Room[],
-  timezone: string
+  timezone: string,
+  scheduleTypeLabels?: Map<string, string>
 ): AgendaData {
   const roomIdSet = new Set(rooms.map((r) => r.id));
 
@@ -241,6 +247,9 @@ export function buildAgendaData(
       unscheduled.push(fn);
       continue;
     }
+    const presentationTitles = (fn.presentationSlots ?? []).map(
+      (ps) => ps.presentation.title
+    );
     for (const schedule of fn.schedules) {
       entries.push({
         functionId: fn.id,
@@ -249,10 +258,13 @@ export function buildAgendaData(
         functionDescription: fn.description,
         scheduleId: schedule.id,
         scheduleType: schedule.type,
+        scheduleTypeLabel: scheduleTypeLabels?.get(schedule.type) ?? null,
         scheduleNotes: schedule.notes,
+        isPublic: schedule.isPublic,
         startTime: schedule.startTime,
         endTime: schedule.endTime,
         roomIds,
+        presentationTitles,
       });
     }
   }

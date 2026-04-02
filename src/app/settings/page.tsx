@@ -1,5 +1,5 @@
 import { PageWrapper } from "@/components/PageWrapper";
-import { getAllOptions, createOption, updateOption, deleteOption } from "./actions";
+import { getAllOptions, createOption, updateOption, deleteOption, reorderOptions } from "./actions";
 import { OptionList } from "./OptionList";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +42,27 @@ export default async function SettingsPage() {
     await deleteOption(id);
   };
 
+  const reorderFunctionTypes = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("function_type", ids);
+  };
+  const reorderContactRoles = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("contact_role", ids);
+  };
+  const reorderAvEquipment = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("av_equipment", ids);
+  };
+  const reorderScheduleTypes = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("schedule_type", ids);
+  };
+  const reorderPresenterRoles = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("presenter_role", ids);
+  };
+
   return (
     <PageWrapper>
       <div className="mb-6">
@@ -63,6 +84,7 @@ export default async function SettingsPage() {
           createOption={createFunctionType}
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
+          reorderOptions={reorderFunctionTypes}
         />
 
         <OptionList
@@ -74,6 +96,7 @@ export default async function SettingsPage() {
           createOption={createContactRole}
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
+          reorderOptions={reorderContactRoles}
         />
 
         <OptionList
@@ -85,6 +108,7 @@ export default async function SettingsPage() {
           createOption={createAvEquipment}
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
+          reorderOptions={reorderAvEquipment}
         />
 
         <OptionList
@@ -96,6 +120,7 @@ export default async function SettingsPage() {
           createOption={createScheduleType}
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
+          reorderOptions={reorderScheduleTypes}
         />
 
         <OptionList
@@ -107,6 +132,7 @@ export default async function SettingsPage() {
           createOption={createPresenterRole}
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
+          reorderOptions={reorderPresenterRoles}
         />
       </div>
     </PageWrapper>

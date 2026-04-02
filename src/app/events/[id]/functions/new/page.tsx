@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
 import { createFunction } from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
@@ -43,12 +43,11 @@ export default async function NewFunctionPage({
   return (
     <PageWrapper>
       <div className="mb-6">
-        <Link
-          href={`/events/${eventId}`}
-          className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-        >
-          ← Back to {event.name}
-        </Link>
+        <Breadcrumbs items={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "New Function" },
+        ]} />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           New Function
         </h1>

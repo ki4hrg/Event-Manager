@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { EventTabs } from "../EventTabs";
-import { getFunctions } from "../../functions/actions";
+import { getFunctionsWithPresentations } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
+import { getOptions } from "@/app/settings/actions";
 import dynamicImport from "next/dynamic";
 const AgendaGrid = dynamicImport(() => import("./AgendaGrid").then((m) => m.AgendaGrid), { ssr: false });
 
@@ -19,14 +20,15 @@ export default async function AgendaPage({
   const { id: eventId } = await params;
   const { date, showAll: showAllParam } = await searchParams;
 
-  const [event, functions] = await Promise.all([
+  const [event, functions, scheduleTypes] = await Promise.all([
     prisma.event.findUnique({
       where: { id: eventId },
       include: {
         venue: { include: { rooms: { orderBy: { name: "asc" } } } },
       },
     }),
-    getFunctions(eventId),
+    getFunctionsWithPresentations(eventId),
+    getOptions("schedule_type"),
   ]);
 
   if (!event) {
@@ -36,7 +38,8 @@ export default async function AgendaPage({
   const timezone = event.timezone || "America/Chicago";
   const rooms = event.venue?.rooms ?? [];
 
-  const agendaData = buildAgendaData(functions, rooms, timezone);
+  const scheduleTypeLabels = new Map(scheduleTypes.map((t) => [t.value, t.label]));
+  const agendaData = buildAgendaData(functions, rooms, timezone, scheduleTypeLabels);
 
   const activeDate =
     date && agendaData.days.some((d) => d.dateKey === date)

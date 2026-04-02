@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
 import { getAVOrders, deleteAVOrder } from "../../av-orders/actions";
 import { EventTabs } from "../EventTabs";
@@ -30,12 +31,7 @@ export default async function AVOrdersPage({
   return (
     <PageWrapper>
       <div className="mb-4">
-        <Link
-          href="/events"
-          className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-        >
-          ← Back to Events
-        </Link>
+        <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "AV Orders" }]} />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           {event.name}
         </h1>

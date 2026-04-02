@@ -64,6 +64,19 @@ export async function getFunctions(eventId: string) {
   });
 }
 
+export async function getFunctionsWithPresentations(eventId: string) {
+  return prisma.function.findMany({
+    where: { eventId },
+    include: {
+      rooms: { include: { room: true } },
+      schedules: { orderBy: { startTime: "asc" } },
+      breakoutGroup: true,
+      presentationSlots: { include: { presentation: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
 export async function getFunction(id: string) {
   return prisma.function.findUnique({
     where: { id },
@@ -205,6 +218,7 @@ export async function duplicateFunction(id: string, eventId: string) {
         startTime: s.startTime,
         endTime: s.endTime,
         notes: s.notes,
+        isPublic: s.isPublic,
         sortOrder: s.sortOrder,
       })),
     });
@@ -220,6 +234,7 @@ export async function createSchedule(functionId: string, eventId: string, formDa
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
   const notes = formData.get("notes") as string;
+  const isPublic = formData.get("isPublic") === "true";
 
   // Get event timezone
   const event = await prisma.event.findUnique({
@@ -242,6 +257,7 @@ export async function createSchedule(functionId: string, eventId: string, formDa
       startTime: parseDateTimeInTimezone(startTime, timezone),
       endTime: parseDateTimeInTimezone(endTime, timezone),
       notes: notes || null,
+      isPublic,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
@@ -254,6 +270,7 @@ export async function updateSchedule(scheduleId: string, functionId: string, eve
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
   const notes = formData.get("notes") as string;
+  const isPublic = formData.get("isPublic") === "true";
 
   // Get event timezone
   const event = await prisma.event.findUnique({
@@ -269,6 +286,7 @@ export async function updateSchedule(scheduleId: string, functionId: string, eve
       startTime: parseDateTimeInTimezone(startTime, timezone),
       endTime: parseDateTimeInTimezone(endTime, timezone),
       notes: notes || null,
+      isPublic,
     },
   });
 
@@ -364,6 +382,41 @@ export async function updateFunctionRoom(
       data: { functionId, roomId: newRoomId },
     }),
   ]);
+
+  revalidatePath(`/events/${eventId}/agenda`);
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return { success: true };
+}
+
+export async function scheduleUnscheduledFunction(
+  functionId: string,
+  roomId: string,
+  startTime: string,
+  endTime: string,
+  eventId: string
+): Promise<{ success: boolean; error?: string }> {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  if (end <= start) return { success: false, error: "End time must be after start time" };
+
+  // Assign room if not already assigned
+  const existingRoom = await prisma.functionRoom.findUnique({
+    where: { functionId_roomId: { functionId, roomId } },
+  });
+  if (!existingRoom) {
+    await prisma.functionRoom.create({ data: { functionId, roomId } });
+  }
+
+  // Create schedule entry
+  await prisma.functionSchedule.create({
+    data: {
+      functionId,
+      type: "MAIN",
+      startTime: start,
+      endTime: end,
+      sortOrder: 0,
+    },
+  });
 
   revalidatePath(`/events/${eventId}/agenda`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);

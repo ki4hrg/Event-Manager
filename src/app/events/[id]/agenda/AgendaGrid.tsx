@@ -28,7 +28,7 @@ import {
   getDateKeyInTimezone,
   SLOT_INTERVAL_MS,
 } from "@/lib/agendaUtils";
-import { updateFunctionRoom, rescheduleEntry } from "@/app/events/functions/actions";
+import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from "@/app/events/functions/actions";
 import { DateTabs } from "./DateTabs";
 import { HideEmptyToggle } from "./HideEmptyToggle";
 
@@ -40,10 +40,18 @@ type AgendaGridProps = {
   hideEmpty: boolean;
 };
 
-type DragData = {
+type ScheduledDragData = {
   entry: AgendaEntry;
   sourceRoomId: string;
 };
+
+type UnscheduledDragData = {
+  unscheduled: true;
+  functionId: string;
+  functionName: string;
+};
+
+type DragData = ScheduledDragData | UnscheduledDragData;
 
 type DropData = {
   roomId: string;
@@ -79,6 +87,7 @@ function EntryContent({
   eventId: string;
   timezone: string;
 }) {
+  const typeDisplay = entry.scheduleTypeLabel || entry.scheduleType;
   return (
     <div className="px-1.5 pt-3 pb-1 text-xs h-full">
       <div className="font-medium text-blue-700 dark:text-blue-300 truncate leading-tight">
@@ -88,10 +97,20 @@ function EntryContent({
         {formatTime(entry.startTime, timezone)} –{" "}
         {formatTime(entry.endTime, timezone)}
         {entry.scheduleType && entry.scheduleType !== "MAIN" && (
-          <span className="ml-1 opacity-75">· {entry.scheduleType}</span>
+          <span className="ml-1 opacity-75">· {typeDisplay}</span>
         )}
       </div>
-      {entry.functionDescription && (
+      {entry.scheduleNotes && (
+        <div className="text-blue-500 dark:text-blue-400 leading-tight mt-0.5 line-clamp-1 italic">
+          {entry.scheduleNotes}
+        </div>
+      )}
+      {entry.presentationTitles.length > 0 && (
+        <div className="text-blue-400 dark:text-blue-500 leading-tight mt-0.5 line-clamp-2">
+          {entry.presentationTitles.join(", ")}
+        </div>
+      )}
+      {entry.functionDescription && entry.presentationTitles.length === 0 && (
         <div className="text-blue-400 dark:text-blue-500 leading-tight mt-0.5 line-clamp-2">
           {entry.functionDescription}
         </div>
@@ -355,6 +374,48 @@ function OverlayCard({
   );
 }
 
+function DraggableUnscheduledCard({
+  fn,
+  eventId,
+}: {
+  fn: { id: string; name: string; rooms: { roomId: string; room: { name: string } }[]; schedules: { id: string }[] };
+  eventId: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `unscheduled:${fn.id}`,
+    data: { unscheduled: true, functionId: fn.id, functionName: fn.name } satisfies DragData,
+  });
+
+  const missingInfo = fn.rooms.length === 0 && fn.schedules.length === 0
+    ? "No room, no schedule"
+    : fn.rooms.length === 0
+    ? "No room assigned"
+    : "No schedule";
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform) }}
+      className={`px-4 py-3 bg-white dark:bg-gray-900 flex items-center justify-between gap-4 cursor-grab active:cursor-grabbing${isDragging ? " opacity-40" : ""}`}
+      {...listeners}
+      {...attributes}
+    >
+      <div>
+        <Link
+          href={`/events/${eventId}/functions/${fn.id}`}
+          className="text-sm font-medium text-blue-600 hover:underline"
+          onClick={(e) => { if (isDragging) e.preventDefault(); }}
+        >
+          {fn.name}
+        </Link>
+        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          {missingInfo}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AgendaGrid({
   eventId,
   agendaData: serializedData,
@@ -443,8 +504,8 @@ export function AgendaGrid({
     };
   }, [resizing, timezone, eventId, router]);
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveDrag(event.active.data.current as DragData);
+  const handleDragStart = useCallback((ev: DragStartEvent) => {
+    setActiveDrag(ev.active.data.current as DragData);
     setErrorMsg(null);
   }, []);
 
@@ -456,6 +517,29 @@ export function AgendaGrid({
 
       if (!drop) return;
 
+      // Handle unscheduled item drops
+      if ("unscheduled" in drag && drag.unscheduled) {
+        const { functionId } = drag;
+        const { roomId, slotTime } = drop;
+        const endTime = new Date(slotTime.getTime() + SLOT_INTERVAL_MS * 2); // Default 1 hour
+
+        const result = await scheduleUnscheduledFunction(
+          functionId,
+          roomId,
+          slotTime.toISOString(),
+          endTime.toISOString(),
+          eventId
+        );
+        if (!result.success) {
+          setErrorMsg(result.error ?? "Failed to schedule.");
+        } else {
+          router.refresh();
+        }
+        return;
+      }
+
+      // Narrow to scheduled entry drag
+      if (!("entry" in drag)) return;
       const { entry, sourceRoomId } = drag;
       const { roomId: targetRoomId, slotTime: targetSlot } = drop;
 
@@ -573,30 +657,11 @@ export function AgendaGrid({
               Unscheduled Items ({unscheduled.length})
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              These functions are missing a room assignment, a schedule, or both.
+              Drag items to the grid to quickly schedule them.
             </p>
             <div className="divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               {unscheduled.map((fn) => (
-                <div
-                  key={fn.id}
-                  className="px-4 py-3 bg-white dark:bg-gray-900 flex items-center justify-between gap-4"
-                >
-                  <div>
-                    <Link
-                      href={`/events/${eventId}/functions/${fn.id}`}
-                      className="text-sm font-medium text-blue-600 hover:underline"
-                    >
-                      {fn.name}
-                    </Link>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {fn.rooms.length === 0 && fn.schedules.length === 0
-                        ? "No room, no schedule"
-                        : fn.rooms.length === 0
-                        ? "No room assigned"
-                        : "No schedule"}
-                    </div>
-                  </div>
-                </div>
+                <DraggableUnscheduledCard key={fn.id} fn={fn} eventId={eventId} />
               ))}
             </div>
           </div>
@@ -604,12 +669,19 @@ export function AgendaGrid({
       </div>
 
       <DragOverlay>
-        {activeDrag && (
+        {activeDrag && "entry" in activeDrag && (
           <OverlayCard
             entry={activeDrag.entry}
             eventId={eventId}
             timezone={timezone}
           />
+        )}
+        {activeDrag && "unscheduled" in activeDrag && (
+          <div className="bg-white dark:bg-gray-900 border border-blue-300 dark:border-blue-700 rounded shadow-lg opacity-90 px-3 py-2 w-48">
+            <div className="text-sm font-medium text-blue-700 dark:text-blue-300 truncate">
+              {activeDrag.functionName}
+            </div>
+          </div>
         )}
       </DragOverlay>
     </DndContext>
@@ -683,7 +755,7 @@ function applyResizeToState(
 
 function applyDragToState(
   prev: AgendaData,
-  drag: DragData,
+  drag: ScheduledDragData,
   drop: DropData,
   deltaMs: number,
   timezone: string

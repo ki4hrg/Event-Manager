@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import { getEvent, updateEvent, deleteEvent } from "../actions";
@@ -54,12 +54,10 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       </Suspense>
       <div className="flex justify-between items-center mb-4">
         <div>
-          <Link
-            href="/events"
-            className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-          >
-            ← Back to Events
-          </Link>
+          <Breadcrumbs items={[
+            { label: "Events", href: "/events" },
+            { label: event.name },
+          ]} />
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
             {event.name}
           </h1>
