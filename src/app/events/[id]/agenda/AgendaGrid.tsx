@@ -241,11 +241,29 @@ function DayGrid({
   hideEmpty: boolean;
   onResizeStart: OnResizeStart;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const visibleRooms = hideEmpty
     ? rooms.filter((r) => getUsedRoomIds(day).has(r.id))
     : rooms;
 
-  if (day.timeSlots.length === 0 || visibleRooms.length === 0) {
+  // Scroll to 30 min before the first event when the day changes
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    let earliestMs = Infinity;
+    Array.from(day.cells.values()).forEach((col) => {
+      Array.from(col.keys()).forEach((key) => {
+        const ms = new Date(key).getTime();
+        if (ms < earliestMs) earliestMs = ms;
+      });
+    });
+    if (!isFinite(earliestMs)) return;
+    const slotIndex = day.timeSlots.findIndex((s) => s.getTime() >= earliestMs - SLOT_INTERVAL_MS);
+    if (slotIndex >= 0) {
+      scrollRef.current.scrollTop = slotIndex * ROW_HEIGHT_PX;
+    }
+  }, [day]);
+
+  if (visibleRooms.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
         No scheduled functions for this day.
@@ -294,8 +312,9 @@ function DayGrid({
 
   return (
     <div className="overflow-x-auto">
+      <div ref={scrollRef} className="h-[550px] overflow-y-auto">
       <table className="w-full border-collapse text-sm">
-        <thead>
+        <thead className="sticky top-0 z-10">
           <tr className="bg-gray-50 dark:bg-gray-800">
             <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap w-24">
               Time
@@ -354,6 +373,7 @@ function DayGrid({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
