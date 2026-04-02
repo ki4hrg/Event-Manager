@@ -31,7 +31,6 @@ services:
       PORT: ${PORT:-3000}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
-      - 55555:55555
     depends_on:
       db:
         condition: service_healthy
