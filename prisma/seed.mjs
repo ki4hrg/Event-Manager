@@ -46,6 +46,14 @@ async function seedUsers() {
   const userCount = await prisma.user.count();
 
   if (userCount > 0) {
+    // Ensure admin@example.com has admin role
+    const updated = await prisma.user.updateMany({
+      where: { email: "admin@example.com", role: { not: "admin" } },
+      data: { role: "admin" },
+    });
+    if (updated.count > 0) {
+      console.log("Promoted admin@example.com to admin role.");
+    }
     console.log("Users already exist, skipping user seed.");
     return;
   }
@@ -57,6 +65,7 @@ async function seedUsers() {
       email: "admin@example.com",
       name: "Admin",
       password: hashedPassword,
+      role: "admin",
     },
   });
 

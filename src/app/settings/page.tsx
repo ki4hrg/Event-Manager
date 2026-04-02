@@ -1,10 +1,12 @@
 import { PageWrapper } from "@/components/PageWrapper";
 import { getAllOptions, createOption, updateOption, deleteOption, reorderOptions } from "./actions";
 import { OptionList } from "./OptionList";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  await requireAdmin();
   const options = await getAllOptions();
 
   const createFunctionType = async (formData: FormData) => {

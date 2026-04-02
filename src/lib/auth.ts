@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { redirect } from "next/navigation";
 
 const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith("https://");
 
@@ -51,6 +52,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
         };
       },
     }),
@@ -76,14 +78,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.role = token.role as string;
       }
       return session;
     },
   },
 });
+
+export async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "admin") {
+    redirect("/");
+  }
+  return session;
+}

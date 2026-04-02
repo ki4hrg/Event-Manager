@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export type OptionCategory = "function_type" | "contact_role" | "av_equipment" | "schedule_type" | "presenter_role";
@@ -27,6 +28,7 @@ export async function getAllOptions() {
 }
 
 export async function createOption(category: OptionCategory, formData: FormData) {
+  await requireAdmin();
   const label = formData.get("label") as string;
   const value = formData.get("value") as string;
   const color = formData.get("color") as string;
@@ -52,6 +54,7 @@ export async function createOption(category: OptionCategory, formData: FormData)
 }
 
 export async function updateOption(id: string, formData: FormData) {
+  await requireAdmin();
   const label = formData.get("label") as string;
   const value = formData.get("value") as string;
   const color = formData.get("color") as string;
@@ -69,11 +72,13 @@ export async function updateOption(id: string, formData: FormData) {
 }
 
 export async function deleteOption(id: string) {
+  await requireAdmin();
   await prisma.customOption.delete({ where: { id } });
   revalidatePath("/settings");
 }
 
 export async function reorderOptions(category: OptionCategory, orderedIds: string[]) {
+  await requireAdmin();
   // Update sortOrder for each option
   await Promise.all(
     orderedIds.map((id, index) =>
