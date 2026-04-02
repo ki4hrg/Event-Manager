@@ -44,11 +44,15 @@ export default async function FunctionPage({
   params: Promise<{ id: string; functionId: string }>;
 }) {
   const { id: eventId, functionId } = await params;
-  const [event, fn, functionTypes, scheduleTypes] = await Promise.all([
+  const [event, fn, functionTypes, scheduleTypes, breakoutGroups] = await Promise.all([
     getEvent(eventId),
     getFunction(functionId),
     getOptions("function_type"),
     getOptions("schedule_type"),
+    prisma.breakoutGroup.findMany({
+      where: { eventId },
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
 
   if (!event || !fn) {
@@ -179,6 +183,7 @@ export default async function FunctionPage({
             eventId={eventId}
             functionTypes={functionTypes}
             action={updateFunctionAction}
+            breakoutGroups={fn.type === "BREAKOUT_BLOCK" ? breakoutGroups : undefined}
           />
         </div>
 

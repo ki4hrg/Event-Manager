@@ -888,53 +888,55 @@ function AssignmentGrid({
           <table className="min-w-full border-collapse text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800">
-                <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-32">
-                  Room
+                <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-40">
+                  Session
                 </th>
-                {optimisticGroup.functions.map((session) => (
+                {roomList.map((room) => (
                   <th
-                    key={session.id}
+                    key={room.id}
                     className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-900 dark:text-white whitespace-nowrap"
                   >
-                    <div>{session.name}</div>
-                    <div className="font-normal text-gray-500 dark:text-gray-400">
-                      {formatSessionTime(session.schedules, timezone)}
-                    </div>
+                    {room.name}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {roomList.map((room) => (
-                <tr key={room.id} className="h-16">
-                  <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap align-top">
-                    {room.name}
-                  </td>
-                  {optimisticGroup.functions.map((session) => {
-                    const effectiveIds = sessionEffectiveRooms.get(session.id);
-                    const isAvailable = effectiveIds?.has(room.id) ?? false;
-                    const slot = isAvailable ? getSlotForCell(session.id, room.id) : undefined;
+              {optimisticGroup.functions.map((session) => {
+                const effectiveIds = sessionEffectiveRooms.get(session.id);
+                return (
+                  <tr key={session.id} className="h-16">
+                    <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap align-top">
+                      <div className="text-gray-900 dark:text-white">{session.name}</div>
+                      <div className="text-gray-500 dark:text-gray-400 font-normal">
+                        {formatSessionTime(session.schedules, timezone)}
+                      </div>
+                    </td>
+                    {roomList.map((room) => {
+                      const isAvailable = effectiveIds?.has(room.id) ?? false;
+                      const slot = isAvailable ? getSlotForCell(session.id, room.id) : undefined;
 
-                    return (
-                      <DroppableGridCell
-                        key={session.id}
-                        sessionId={session.id}
-                        roomId={room.id}
-                        isAvailable={isAvailable}
-                      >
-                        {slot && (
-                          <DraggableCellCard
-                            slot={slot}
-                            eventId={eventId}
-                            sessionId={session.id}
-                            onRemove={handleRemove}
-                          />
-                        )}
-                      </DroppableGridCell>
-                    );
-                  })}
-                </tr>
-              ))}
+                      return (
+                        <DroppableGridCell
+                          key={room.id}
+                          sessionId={session.id}
+                          roomId={room.id}
+                          isAvailable={isAvailable}
+                        >
+                          {slot && (
+                            <DraggableCellCard
+                              slot={slot}
+                              eventId={eventId}
+                              sessionId={session.id}
+                              onRemove={handleRemove}
+                            />
+                          )}
+                        </DroppableGridCell>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

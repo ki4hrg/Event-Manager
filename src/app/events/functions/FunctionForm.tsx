@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import type { Function, Room, FunctionRoom, CustomOption } from "@prisma/client";
+import type { Function, Room, FunctionRoom, CustomOption, BreakoutGroup } from "@prisma/client";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
@@ -15,6 +15,7 @@ type FunctionFormProps = {
   action: (formData: FormData) => Promise<void>;
   defaultType?: string;
   breakoutGroupId?: string;
+  breakoutGroups?: BreakoutGroup[];
   timezone?: string;
 };
 
@@ -32,7 +33,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId, timezone }: FunctionFormProps) {
+export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId, breakoutGroups, timezone }: FunctionFormProps) {
   const isEdit = !!fn;
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
   const isBreakoutType = defaultType === "BREAKOUT_BLOCK" || fn?.type === "BREAKOUT_BLOCK";
@@ -47,7 +48,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
 
   return (
     <form action={action} className="space-y-6 max-w-2xl">
-      {breakoutGroupId && (
+      {breakoutGroupId && !breakoutGroups && (
         <input type="hidden" name="breakoutGroupId" value={breakoutGroupId} />
       )}
 
@@ -74,6 +75,30 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          {isBreakoutType && breakoutGroups && (
+            <div>
+              <label
+                htmlFor="breakoutGroupId"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Breakout Group
+              </label>
+              <select
+                id="breakoutGroupId"
+                name="breakoutGroupId"
+                defaultValue={fn?.breakoutGroupId || ""}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">No group</option>
+                {breakoutGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {isBreakoutType ? (
             <input type="hidden" name="type" value="BREAKOUT_BLOCK" />
