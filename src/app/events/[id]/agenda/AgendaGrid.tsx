@@ -87,10 +87,15 @@ function EntryContent({
       <div className="text-blue-500 dark:text-blue-400 leading-tight mt-0.5 truncate">
         {formatTime(entry.startTime, timezone)} –{" "}
         {formatTime(entry.endTime, timezone)}
-        {entry.scheduleType && (
+        {entry.scheduleType && entry.scheduleType !== "MAIN" && (
           <span className="ml-1 opacity-75">· {entry.scheduleType}</span>
         )}
       </div>
+      {entry.functionDescription && (
+        <div className="text-blue-400 dark:text-blue-500 leading-tight mt-0.5 line-clamp-2">
+          {entry.functionDescription}
+        </div>
+      )}
     </div>
   );
 }

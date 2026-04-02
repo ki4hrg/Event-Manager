@@ -11,6 +11,7 @@ export type AgendaEntry = {
   functionId: string;
   functionName: string;
   functionType: string;
+  functionDescription: string | null;
   scheduleId: string;
   scheduleType: string;
   scheduleNotes: string | null;
@@ -245,6 +246,7 @@ export function buildAgendaData(
         functionId: fn.id,
         functionName: fn.name,
         functionType: fn.type,
+        functionDescription: fn.description,
         scheduleId: schedule.id,
         scheduleType: schedule.type,
         scheduleNotes: schedule.notes,
