@@ -282,8 +282,17 @@ export function buildAgendaData(
   const days: DayAgenda[] = sortedDates.map((dateKey) => {
     const dayEntries = byDate.get(dateKey)!;
 
+    // Clamp multi-day entries so the grid only covers this day's time range
+    const clampedEntries = dayEntries.map((e) => {
+      const endKey = getDateKeyInTimezone(e.endTime, timezone);
+      if (endKey !== dateKey) {
+        return { ...e, endTime: new Date(e.startTime.getTime() + SLOT_INTERVAL_MS) };
+      }
+      return e;
+    });
+
     // Continuous 30-min grid with a 30-min buffer before/after
-    const timeSlots = buildContinuousSlots(dayEntries, SLOT_INTERVAL_MS);
+    const timeSlots = buildContinuousSlots(clampedEntries, SLOT_INTERVAL_MS);
 
     // Initialize cells: one column per venue room
     const cells = new Map<string, Map<string, AgendaEntry[]>>();
