@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Function, Room, FunctionRoom, CustomOption, BreakoutGroup } from "@prisma/client";
 
@@ -33,8 +34,82 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
+function ReadOnlyField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div>
+      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
+      <dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{value || "—"}</dd>
+    </div>
+  );
+}
+
+function RoomSelector({ rooms, selectedRoomIds }: { rooms: Room[]; selectedRoomIds: string[] }) {
+  const [roomFilter, setRoomFilter] = useState("");
+  const SHOW_FILTER_THRESHOLD = 8;
+  const showFilter = rooms.length > SHOW_FILTER_THRESHOLD;
+
+  const filteredRooms = showFilter && roomFilter
+    ? rooms.filter((r) =>
+        r.name.toLowerCase().includes(roomFilter.toLowerCase())
+      )
+    : rooms;
+
+  if (rooms.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          Room Assignment
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400">
+          No rooms available. Add rooms to the event&apos;s venue first.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+        Room Assignment
+      </h2>
+      {showFilter && (
+        <input
+          type="text"
+          placeholder="Filter rooms..."
+          value={roomFilter}
+          onChange={(e) => setRoomFilter(e.target.value)}
+          className="mb-3 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      )}
+      <div className={`space-y-2 ${rooms.length > SHOW_FILTER_THRESHOLD ? "max-h-64 overflow-y-auto" : ""}`}>
+        {filteredRooms.map((room) => (
+          <label key={room.id} className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              name="roomIds"
+              value={room.id}
+              defaultChecked={selectedRoomIds.includes(room.id)}
+              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-gray-900 dark:text-white">{room.name}</span>
+            {room.capacity && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                (capacity: {room.capacity})
+              </span>
+            )}
+          </label>
+        ))}
+        {showFilter && roomFilter && filteredRooms.length === 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">No rooms match &quot;{roomFilter}&quot;</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId, breakoutGroups, timezone }: FunctionFormProps) {
   const isEdit = !!fn;
+  const [editing, setEditing] = useState(!isEdit);
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
   const isBreakoutType = defaultType === "BREAKOUT_BLOCK" || fn?.type === "BREAKOUT_BLOCK";
   const isBreakoutBlock = isBreakoutType && !isEdit; // creation only — shows time fields
@@ -46,8 +121,69 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
         .pop()
     : "local";
 
+  // Read-only view for existing functions
+  if (isEdit && !editing) {
+    const typeLabel = fn.type
+      ? functionTypes.find((t) => t.value === fn.type)?.label || fn.type
+      : "—";
+    const roomNames = fn.rooms.length > 0
+      ? fn.rooms.map((r) => r.room.name).join(", ")
+      : "—";
+    const groupName = isBreakoutType && breakoutGroups
+      ? breakoutGroups.find((g) => g.id === fn.breakoutGroupId)?.name || "No group"
+      : null;
+
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+              Basic Information
+            </h2>
+            <button
+              onClick={() => setEditing(true)}
+              className="px-3 py-1.5 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-950"
+            >
+              Edit
+            </button>
+          </div>
+          <dl className="space-y-4">
+            <ReadOnlyField label={isBreakoutType ? "Block Name" : "Function Name"} value={fn.name} />
+            {groupName !== null && <ReadOnlyField label="Breakout Group" value={groupName} />}
+            {!isBreakoutType && <ReadOnlyField label="Type" value={typeLabel} />}
+            {!isBreakoutType && <ReadOnlyField label="Description" value={fn.description} />}
+          </dl>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Room Assignment
+          </h2>
+          <p className="text-sm text-gray-900 dark:text-white">{roomNames}</p>
+        </div>
+
+        {!isBreakoutType && (
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              Setup Notes
+            </h2>
+            <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
+              {fn.setupNotes || "—"}
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <form action={action} className="space-y-6 max-w-2xl">
+    <form
+      action={async (formData) => {
+        await action(formData);
+        if (isEdit) setEditing(false);
+      }}
+      className="space-y-6 max-w-2xl"
+    >
       {breakoutGroupId && !breakoutGroups && (
         <input type="hidden" name="breakoutGroupId" value={breakoutGroupId} />
       )}
@@ -189,37 +325,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       )}
 
       {/* Room Assignment */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Room Assignment
-        </h2>
-
-        {rooms.length === 0 ? (
-          <p className="text-gray-600 dark:text-gray-400">
-            No rooms available. Add rooms to the event&apos;s venue first.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {rooms.map((room) => (
-              <label key={room.id} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  name="roomIds"
-                  value={room.id}
-                  defaultChecked={selectedRoomIds.includes(room.id)}
-                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-900 dark:text-white">{room.name}</span>
-                {room.capacity && (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    (capacity: {room.capacity})
-                  </span>
-                )}
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+      <RoomSelector rooms={rooms} selectedRoomIds={selectedRoomIds} />
 
       {/* Setup Notes (not shown for breakout blocks) */}
       {!isBreakoutType && (
@@ -242,12 +348,22 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       {/* Form Actions */}
       <div className="flex gap-4">
         <SubmitButton isEdit={isEdit} />
-        <a
-          href={isBreakoutType ? `/events/${eventId}/breakout-schedule` : `/events/${eventId}`}
-          className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-        >
-          Cancel
-        </a>
+        {isEdit ? (
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </button>
+        ) : (
+          <a
+            href={isBreakoutType ? `/events/${eventId}/breakout-schedule` : `/events/${eventId}`}
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </a>
+        )}
       </div>
     </form>
   );

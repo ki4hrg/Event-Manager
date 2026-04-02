@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
 import {
   getPresentations,
@@ -42,12 +42,7 @@ export default async function PresentationsPage({
   return (
     <PageWrapper>
       <div className="mb-4">
-        <Link
-          href="/events"
-          className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-        >
-          ← Back to Events
-        </Link>
+        <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "Presentations" }]} />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           {event.name}
         </h1>

@@ -146,6 +146,7 @@ model FunctionSchedule {
   startTime  DateTime
   endTime    DateTime
   notes      String?
+  isPublic   Boolean  @default(false)
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

@@ -84,6 +84,13 @@ export function ScheduleList({
   const typeLabels = new Map(scheduleTypes.map((t) => [t.value, t.label]));
   const typeColors = new Map(scheduleTypes.map((t) => [t.value, t.color || "gray"]));
 
+  // Sort schedules by start time, then end time
+  const sortedSchedules = [...schedules].sort((a, b) => {
+    const startDiff = new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+    if (startDiff !== 0) return startDiff;
+    return new Date(a.endTime).getTime() - new Date(b.endTime).getTime();
+  });
+
   // Get timezone abbreviation for display
   const tzAbbrev = new Date().toLocaleString("en-US", {
     timeZone: timezone,
@@ -181,6 +188,15 @@ export function ScheduleList({
                 />
               </div>
             </div>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                name="isPublic"
+                value="true"
+                className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Public</span>
+            </label>
           </div>
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Add" />
@@ -201,7 +217,7 @@ export function ScheduleList({
         </p>
       ) : (
         <div className="space-y-2">
-          {schedules.map((schedule) => (
+          {sortedSchedules.map((schedule) => (
             <div
               key={schedule.id}
               className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
@@ -271,6 +287,16 @@ export function ScheduleList({
                       />
                     </div>
                   </div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      name="isPublic"
+                      value="true"
+                      defaultChecked={schedule.isPublic}
+                      className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Public</span>
+                  </label>
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
@@ -298,6 +324,11 @@ export function ScheduleList({
                     {schedule.notes && (
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         ({schedule.notes})
+                      </span>
+                    )}
+                    {schedule.isPublic && (
+                      <span className="px-1.5 py-0.5 text-xs rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                        Public
                       </span>
                     )}
                   </div>

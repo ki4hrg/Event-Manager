@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getEvents } from "./actions";
+import { EventListClient } from "./EventListClient";
 
 export const dynamic = "force-dynamic";
 
@@ -29,44 +30,7 @@ export default async function EventsPage() {
           </Link>
         </p>
       ) : (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Dates
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Venue
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {events.map((event) => (
-                <tr key={event.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4">
-                    <Link
-                      href={`/events/${event.id}`}
-                      className="text-blue-600 hover:underline font-medium"
-                    >
-                      {event.name}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                    {new Date(event.startDate).toLocaleDateString()} -{" "}
-                    {new Date(event.endDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                    {event.venue?.name || "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <EventListClient events={JSON.parse(JSON.stringify(events))} />
       )}
     </PageWrapper>
   );

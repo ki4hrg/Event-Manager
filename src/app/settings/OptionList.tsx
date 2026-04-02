@@ -14,6 +14,7 @@ type OptionListProps = {
   createOption: (formData: FormData) => Promise<void>;
   updateOption: (id: string, formData: FormData) => Promise<void>;
   deleteOption: (id: string) => Promise<void>;
+  reorderOptions: (orderedIds: string[]) => Promise<void>;
 };
 
 const colorOptions = [
@@ -101,9 +102,30 @@ export function OptionList({
   createOption,
   updateOption,
   deleteOption,
+  reorderOptions,
 }: OptionListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [reordering, setReordering] = useState(false);
+
+  const handleMoveUp = async (index: number) => {
+    if (index === 0) return;
+    const ids = options.map((o) => o.id);
+    [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
+    await reorderOptions(ids);
+  };
+
+  const handleMoveDown = async (index: number) => {
+    if (index >= options.length - 1) return;
+    const ids = options.map((o) => o.id);
+    [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
+    await reorderOptions(ids);
+  };
+
+  const handleSortAlpha = async () => {
+    const sorted = [...options].sort((a, b) => a.label.localeCompare(b.label));
+    await reorderOptions(sorted.map((o) => o.id));
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -116,12 +138,36 @@ export function OptionList({
             {description}
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add
-        </button>
+        <div className="flex items-center gap-2">
+          {options.length > 1 && (
+            <>
+              <button
+                onClick={() => setReordering(!reordering)}
+                className={`px-3 py-1.5 text-sm rounded border ${
+                  reordering
+                    ? "border-blue-600 text-blue-600 bg-blue-50 dark:bg-blue-950"
+                    : "border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                }`}
+              >
+                {reordering ? "Done" : "Reorder"}
+              </button>
+              {reordering && (
+                <button
+                  onClick={handleSortAlpha}
+                  className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Sort A–Z
+                </button>
+              )}
+            </>
+          )}
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add
+          </button>
+        </div>
       </div>
 
       {showAddForm && (
@@ -176,7 +222,7 @@ export function OptionList({
         </p>
       ) : (
         <div className="space-y-2">
-          {options.map((option) => (
+          {options.map((option, index) => (
             <div
               key={option.id}
               className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
@@ -229,6 +275,26 @@ export function OptionList({
               ) : (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
+                    {reordering && (
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={() => handleMoveUp(index)}
+                          disabled={index === 0}
+                          className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-xs leading-none"
+                          title="Move up"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          onClick={() => handleMoveDown(index)}
+                          disabled={index === options.length - 1}
+                          className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-xs leading-none"
+                          title="Move down"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    )}
                     {showColor && (
                       <span
                         className={`w-4 h-4 rounded ${
@@ -245,24 +311,26 @@ export function OptionList({
                       {option.value}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setEditingId(option.id)}
-                      className="text-blue-600 hover:underline text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (confirm(`Delete "${option.label}"?`)) {
-                          await deleteOption(option.id);
-                        }
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {!reordering && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditingId(option.id)}
+                        className="text-blue-600 hover:underline text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm(`Delete "${option.label}"?`)) {
+                            await deleteOption(option.id);
+                          }
+                        }}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

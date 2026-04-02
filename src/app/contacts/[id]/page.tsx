@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Suspense } from "react";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import { getContact, updateContact, deleteContact } from "../actions";
@@ -38,12 +38,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       </Suspense>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <Link
-            href="/contacts"
-            className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-          >
-            ← Back to Contacts
-          </Link>
+          <Breadcrumbs items={[{ label: "Contacts", href: "/contacts" }, { label: `${contact.firstName} ${contact.lastName}` }]} />
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
             {contact.firstName} {contact.lastName}
           </h1>
