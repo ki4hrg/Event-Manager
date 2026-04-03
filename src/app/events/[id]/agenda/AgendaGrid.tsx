@@ -113,13 +113,18 @@ function EntryContent({
   const colors = getEntryColors(entry);
   return (
     <div className="px-1.5 pt-3 pb-1 text-xs h-full">
+      {entry.isBreakout && entry.breakoutGroupName && (
+        <div className={`${colors.text} opacity-75 leading-tight text-[10px] uppercase tracking-wide`}>
+          {entry.breakoutGroupName}
+        </div>
+      )}
       <div className={`font-medium ${colors.title} leading-tight break-words`}>
         {entry.functionName}
       </div>
       <div className={`${colors.text} leading-tight mt-0.5 truncate`}>
         {formatTime(entry.startTime, timezone)} –{" "}
         {formatTime(entry.endTime, timezone)}
-        {entry.scheduleType && entry.scheduleType !== "MAIN" && (
+        {!entry.isBreakout && entry.scheduleType && entry.scheduleType !== "MAIN" && (
           <span className="ml-1 opacity-75">· {typeDisplay}</span>
         )}
       </div>
@@ -128,12 +133,12 @@ function EntryContent({
           {entry.scheduleNotes}
         </div>
       )}
-      {entry.presentationTitles.length > 0 && (
+      {!entry.isBreakout && entry.presentationTitles.length > 0 && (
         <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
           {entry.presentationTitles.join(", ")}
         </div>
       )}
-      {entry.functionDescription && entry.presentationTitles.length === 0 && (
+      {entry.functionDescription && entry.presentationTitles.length === 0 && !entry.isBreakout && (
         <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
           {entry.functionDescription}
         </div>
@@ -185,18 +190,19 @@ function DraggableCard({
   const router = useRouter();
   const draggedRef = useRef(false);
   const isSegment = !!entry.originalStartTime;
+  const isDragDisabled = isSegment || entry.isBreakout;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `${entry.scheduleId}:${sourceRoomId}`,
     data: { entry, sourceRoomId } satisfies DragData,
-    disabled: isSegment,
+    disabled: isDragDisabled,
   });
 
   useEffect(() => {
     if (isDragging) draggedRef.current = true;
   }, [isDragging]);
 
-  const showTopHandle = !isSegment || entry.segmentPosition === "first";
-  const showBottomHandle = !isSegment || entry.segmentPosition === "last";
+  const showTopHandle = !entry.isBreakout && (!isSegment || entry.segmentPosition === "first");
+  const showBottomHandle = !entry.isBreakout && (!isSegment || entry.segmentPosition === "last");
 
   // Sub-slot precision: offset top/bottom when entry doesn't align to slot boundaries
   const slotMs = slotTime.getTime();
@@ -217,15 +223,19 @@ function DraggableCard({
         left: 0,
         right: 0,
       }}
-      className={`relative group/card ${getEntryColors(entry).bg}${isSegment ? " cursor-pointer" : " cursor-grab active:cursor-grabbing"}${isDragging ? " opacity-40" : ""}`}
+      className={`relative group/card ${getEntryColors(entry).bg}${isDragDisabled ? " cursor-pointer" : " cursor-grab active:cursor-grabbing"}${isDragging ? " opacity-40" : ""}`}
       onClick={() => {
         if (draggedRef.current) {
           draggedRef.current = false;
           return;
         }
-        router.push(`/events/${eventId}/functions/${entry.functionId}`);
+        if (entry.isBreakout) {
+          router.push(`/events/${eventId}/breakout-schedule`);
+        } else {
+          router.push(`/events/${eventId}/functions/${entry.functionId}`);
+        }
       }}
-      {...(isSegment ? {} : { ...listeners, ...attributes })}
+      {...(isDragDisabled ? {} : { ...listeners, ...attributes })}
     >
       {showTopHandle && (
         <ResizeHandle

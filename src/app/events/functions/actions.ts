@@ -70,8 +70,9 @@ export async function getFunctionsWithPresentations(eventId: string) {
     include: {
       rooms: { include: { room: true } },
       schedules: { orderBy: { startTime: "asc" } },
-      breakoutGroup: true,
+      breakoutGroup: { include: { rooms: { include: { room: true } } } },
       presentationSlots: { include: { presentation: true } },
+      sessionRoomOverrides: true,
     },
     orderBy: { name: "asc" },
   });

@@ -1,9 +1,11 @@
-import type { Function, FunctionRoom, FunctionSchedule, Room, PresentationSlot, Presentation } from "@prisma/client";
+import type { Function, FunctionRoom, FunctionSchedule, Room, PresentationSlot, Presentation, BreakoutGroup, BreakoutGroupRoom, BreakoutSessionRoomOverride } from "@prisma/client";
 
 export type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
   schedules: FunctionSchedule[];
   presentationSlots?: (PresentationSlot & { presentation: Presentation })[];
+  breakoutGroup?: (BreakoutGroup & { rooms: (BreakoutGroupRoom & { room: Room })[] }) | null;
+  sessionRoomOverrides?: BreakoutSessionRoomOverride[];
 };
 
 // ── Core types ────────────────────────────────────────────────────────────────
@@ -24,6 +26,9 @@ export type AgendaEntry = {
   roomIds: string[];
   /** Presentation titles assigned to this function (for breakout blocks) */
   presentationTitles: string[];
+  /** Breakout-specific fields */
+  isBreakout: boolean;
+  breakoutGroupName: string | null;
   /** Set only on segments of multi-day entries — the full original time range */
   originalStartTime?: Date;
   originalEndTime?: Date;
@@ -316,12 +321,16 @@ export function buildAgendaData(
 ): AgendaData {
   const roomIdSet = new Set(rooms.map((r) => r.id));
 
-  // Split: grid-eligible = has ≥1 room AND ≥1 schedule
+  // Split functions into regular eligible, breakout blocks, and unscheduled
   const eligible: FunctionWithRelations[] = [];
+  const breakoutBlocks: FunctionWithRelations[] = [];
   const unscheduled: FunctionWithRelations[] = [];
 
   for (const fn of functions) {
-    if (fn.rooms.length > 0 && fn.schedules.length > 0) {
+    if (fn.type === "BREAKOUT_BLOCK") {
+      // Breakout blocks are handled separately — never appear in unscheduled
+      breakoutBlocks.push(fn);
+    } else if (fn.rooms.length > 0 && fn.schedules.length > 0) {
       eligible.push(fn);
     } else {
       unscheduled.push(fn);
@@ -358,7 +367,57 @@ export function buildAgendaData(
         endTime: schedule.endTime,
         roomIds,
         presentationTitles,
+        isBreakout: false,
+        breakoutGroupName: null,
       });
+    }
+  }
+
+  // Expand breakout blocks: one entry per session × effective room
+  for (const fn of breakoutBlocks) {
+    if (fn.schedules.length === 0) continue;
+    // Compute effective rooms: group rooms − excludes + includes
+    const groupRoomIds = new Set(
+      (fn.breakoutGroup?.rooms ?? [])
+        .map((gr) => gr.roomId)
+        .filter((id) => roomIdSet.has(id))
+    );
+    const overrides = fn.sessionRoomOverrides ?? [];
+    for (const ovr of overrides) {
+      if (ovr.type === "exclude") groupRoomIds.delete(ovr.roomId);
+      else if (ovr.type === "include" && roomIdSet.has(ovr.roomId)) groupRoomIds.add(ovr.roomId);
+    }
+    if (groupRoomIds.size === 0) continue;
+
+    const groupName = fn.breakoutGroup?.name ?? null;
+    const slots = fn.presentationSlots ?? [];
+    const effectiveRoomIds = Array.from(groupRoomIds);
+
+    for (const schedule of fn.schedules) {
+      for (const roomId of effectiveRoomIds) {
+        // Find presentation assigned to this specific room in this session
+        const slotForRoom = slots.find((ps) => ps.roomId === roomId);
+        const presentationTitles = slotForRoom ? [slotForRoom.presentation.title] : [];
+
+        entries.push({
+          functionId: fn.id,
+          functionName: slotForRoom ? slotForRoom.presentation.title : fn.name,
+          functionType: fn.type,
+          functionDescription: fn.description,
+          scheduleId: schedule.id,
+          scheduleType: schedule.type,
+          scheduleTypeLabel: scheduleTypeAttrs?.get(schedule.type)?.label ?? null,
+          scheduleTypeColor: scheduleTypeAttrs?.get(schedule.type)?.color ?? null,
+          scheduleNotes: schedule.notes,
+          isPublic: schedule.isPublic,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          roomIds: [roomId],
+          presentationTitles,
+          isBreakout: true,
+          breakoutGroupName: groupName,
+        });
+      }
     }
   }
 
