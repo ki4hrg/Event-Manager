@@ -1,9 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import type { OptionCategory } from "./actions";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type OptionListProps = {
   title: string;
@@ -93,6 +108,144 @@ const colorBgClasses: Record<string, string> = {
   pink: "bg-pink-500",
 };
 
+function SortableOptionRow({
+  option,
+  reordering,
+  editingId,
+  showColor,
+  setEditingId,
+  updateOption,
+  deleteOption,
+}: {
+  option: CustomOption;
+  reordering: boolean;
+  editingId: string | null;
+  showColor: boolean;
+  setEditingId: (id: string | null) => void;
+  updateOption: (id: string, formData: FormData) => Promise<void>;
+  deleteOption: (id: string) => Promise<void>;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: option.id, disabled: !reordering });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
+    >
+      {editingId === option.id ? (
+        <form
+          action={async (formData) => {
+            await updateOption(option.id, formData);
+            setEditingId(null);
+          }}
+          className="space-y-3"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input
+              type="text"
+              name="label"
+              defaultValue={option.label}
+              required
+              placeholder="Label"
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            />
+            <input
+              type="text"
+              name="value"
+              defaultValue={option.value}
+              required
+              placeholder="Value"
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono"
+            />
+          </div>
+          {showColor && (
+            <div>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Color
+              </label>
+              <ColorPicker name="color" defaultValue={option.color || ""} />
+            </div>
+          )}
+          <div className="flex gap-2">
+            <SubmitButton label="Save" />
+            <button
+              type="button"
+              onClick={() => setEditingId(null)}
+              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {reordering && (
+              <button
+                {...attributes}
+                {...listeners}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing touch-none"
+                title="Drag to reorder"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+                </svg>
+              </button>
+            )}
+            {showColor && (
+              <span
+                className={`w-4 h-4 rounded ${
+                  option.color
+                    ? colorBgClasses[option.color] || "bg-gray-500"
+                    : "bg-gray-200 dark:bg-gray-700"
+                }`}
+              />
+            )}
+            <span className="font-medium text-gray-900 dark:text-white">
+              {option.label}
+            </span>
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+              {option.value}
+            </span>
+          </div>
+          {!reordering && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditingId(option.id)}
+                className="text-blue-600 hover:underline text-sm"
+              >
+                Edit
+              </button>
+              <button
+                onClick={async () => {
+                  if (confirm(`Delete "${option.label}"?`)) {
+                    await deleteOption(option.id);
+                  }
+                }}
+                className="text-red-600 hover:underline text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function OptionList({
   title,
   description,
@@ -107,24 +260,26 @@ export function OptionList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [localOptions, setLocalOptions] = useState(options);
 
-  const handleMoveUp = async (index: number) => {
-    if (index === 0) return;
-    const ids = options.map((o) => o.id);
-    [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
-    await reorderOptions(ids);
-  };
+  useEffect(() => setLocalOptions(options), [options]);
 
-  const handleMoveDown = async (index: number) => {
-    if (index >= options.length - 1) return;
-    const ids = options.map((o) => o.id);
-    [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
-    await reorderOptions(ids);
-  };
+  const sensors = useSensors(useSensor(PointerSensor));
 
   const handleSortAlpha = async () => {
-    const sorted = [...options].sort((a, b) => a.label.localeCompare(b.label));
+    const sorted = [...localOptions].sort((a, b) => a.label.localeCompare(b.label));
+    setLocalOptions(sorted);
     await reorderOptions(sorted.map((o) => o.id));
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = localOptions.findIndex((o) => o.id === active.id);
+    const newIndex = localOptions.findIndex((o) => o.id === over.id);
+    const newOrder = arrayMove(localOptions, oldIndex, newIndex);
+    setLocalOptions(newOrder);
+    await reorderOptions(newOrder.map((o) => o.id));
   };
 
   return (
@@ -139,7 +294,7 @@ export function OptionList({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {options.length > 1 && (
+          {localOptions.length > 1 && (
             <>
               <button
                 onClick={() => setReordering(!reordering)}
@@ -216,126 +371,36 @@ export function OptionList({
         </form>
       )}
 
-      {options.length === 0 ? (
+      {localOptions.length === 0 ? (
         <p className="text-gray-500 dark:text-gray-400 text-sm">
           No options defined yet. Click &quot;Add&quot; to create one.
         </p>
       ) : (
-        <div className="space-y-2">
-          {options.map((option, index) => (
-            <div
-              key={option.id}
-              className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
-            >
-              {editingId === option.id ? (
-                <form
-                  action={async (formData) => {
-                    await updateOption(option.id, formData);
-                    setEditingId(null);
-                  }}
-                  className="space-y-3"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      name="label"
-                      defaultValue={option.label}
-                      required
-                      placeholder="Label"
-                      className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    />
-                    <input
-                      type="text"
-                      name="value"
-                      defaultValue={option.value}
-                      required
-                      placeholder="Value"
-                      className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono"
-                    />
-                  </div>
-                  {showColor && (
-                    <div>
-                      <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                        Color
-                      </label>
-                      <ColorPicker name="color" defaultValue={option.color || ""} />
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <SubmitButton label="Save" />
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(null)}
-                      className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {reordering && (
-                      <div className="flex flex-col gap-0.5">
-                        <button
-                          onClick={() => handleMoveUp(index)}
-                          disabled={index === 0}
-                          className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-xs leading-none"
-                          title="Move up"
-                        >
-                          ▲
-                        </button>
-                        <button
-                          onClick={() => handleMoveDown(index)}
-                          disabled={index === options.length - 1}
-                          className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-xs leading-none"
-                          title="Move down"
-                        >
-                          ▼
-                        </button>
-                      </div>
-                    )}
-                    {showColor && (
-                      <span
-                        className={`w-4 h-4 rounded ${
-                          option.color
-                            ? colorBgClasses[option.color] || "bg-gray-500"
-                            : "bg-gray-200 dark:bg-gray-700"
-                        }`}
-                      />
-                    )}
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {option.label}
-                    </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                      {option.value}
-                    </span>
-                  </div>
-                  {!reordering && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setEditingId(option.id)}
-                        className="text-blue-600 hover:underline text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm(`Delete "${option.label}"?`)) {
-                            await deleteOption(option.id);
-                          }
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={localOptions.map((o) => o.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-2">
+              {localOptions.map((option) => (
+                <SortableOptionRow
+                  key={option.id}
+                  option={option}
+                  reordering={reordering}
+                  editingId={editingId}
+                  showColor={showColor}
+                  setEditingId={setEditingId}
+                  updateOption={updateOption}
+                  deleteOption={deleteOption}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );

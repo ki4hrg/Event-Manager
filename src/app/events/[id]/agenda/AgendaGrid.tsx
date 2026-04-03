@@ -101,7 +101,7 @@ function EntryContent({
         )}
       </div>
       {entry.scheduleNotes && (
-        <div className="text-blue-500 dark:text-blue-400 leading-tight mt-0.5 line-clamp-1 italic">
+        <div className="text-blue-500 dark:text-blue-400 leading-tight mt-0.5 italic">
           {entry.scheduleNotes}
         </div>
       )}
