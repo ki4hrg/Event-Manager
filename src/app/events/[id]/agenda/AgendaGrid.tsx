@@ -348,21 +348,6 @@ function DayGrid({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasScrolled = useRef(false);
-  const [roomColWidth, setRoomColWidth] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!scrollRef.current) return;
-    const measure = () => {
-      const containerWidth = scrollRef.current!.clientWidth;
-      const available = containerWidth - TIME_COL_PX;
-      const rounded = Math.round(Math.max(MIN_ROOM_COL_PX, available / visibleRooms.length));
-      setRoomColWidth((prev) => (prev === rounded ? prev : rounded));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(scrollRef.current);
-    return () => observer.disconnect();
-  }, [visibleRooms.length]);
 
   useEffect(() => {
     if (!scrollRef.current || hasScrolled.current) return;
@@ -379,18 +364,13 @@ function DayGrid({
     hasScrolled.current = false;
   }, [day.dateKey]);
 
-  const tableWidth = roomColWidth
-    ? TIME_COL_PX + roomColWidth * visibleRooms.length
-    : undefined;
+  const tableMinWidth = TIME_COL_PX + MIN_ROOM_COL_PX * visibleRooms.length;
 
   return (
     <div ref={scrollRef} className="overflow-auto max-h-[80vh]">
-      <table className="border-collapse text-sm" style={tableWidth ? { width: tableWidth } : { width: "100%" }}>
+      <table className="w-full border-collapse text-sm table-fixed" style={{ minWidth: tableMinWidth }}>
         <colgroup>
           <col style={{ width: TIME_COL_PX }} />
-          {visibleRooms.map((room) => (
-            <col key={room.id} style={roomColWidth ? { width: roomColWidth } : undefined} />
-          ))}
         </colgroup>
         <thead className="sticky top-0 z-20">
           <tr className="bg-gray-50 dark:bg-gray-800">
