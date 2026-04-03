@@ -155,20 +155,25 @@ function DraggableCard({
 }) {
   const router = useRouter();
   const draggedRef = useRef(false);
+  const isSegment = !!entry.originalStartTime;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `${entry.scheduleId}:${sourceRoomId}`,
     data: { entry, sourceRoomId } satisfies DragData,
+    disabled: isSegment,
   });
 
   useEffect(() => {
     if (isDragging) draggedRef.current = true;
   }, [isDragging]);
 
+  const showTopHandle = !isSegment || entry.segmentPosition === "first";
+  const showBottomHandle = !isSegment || entry.segmentPosition === "last";
+
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
-      className={`h-full relative cursor-grab active:cursor-grabbing${isDragging ? " opacity-40" : ""}`}
+      className={`h-full relative${isSegment ? " cursor-pointer" : " cursor-grab active:cursor-grabbing"}${isDragging ? " opacity-40" : ""}`}
       onClick={() => {
         if (draggedRef.current) {
           draggedRef.current = false;
@@ -176,18 +181,21 @@ function DraggableCard({
         }
         router.push(`/events/${eventId}/functions/${entry.functionId}`);
       }}
-      {...listeners}
-      {...attributes}
+      {...(isSegment ? {} : { ...listeners, ...attributes })}
     >
-      <ResizeHandle
-        position="top"
-        onPointerDown={(e) => onResizeStart(e, entry, sourceRoomId, "start")}
-      />
+      {showTopHandle && (
+        <ResizeHandle
+          position="top"
+          onPointerDown={(e) => onResizeStart(e, entry, sourceRoomId, "start")}
+        />
+      )}
       <EntryContent entry={entry} eventId={eventId} timezone={timezone} />
-      <ResizeHandle
-        position="bottom"
-        onPointerDown={(e) => onResizeStart(e, entry, sourceRoomId, "end")}
-      />
+      {showBottomHandle && (
+        <ResizeHandle
+          position="bottom"
+          onPointerDown={(e) => onResizeStart(e, entry, sourceRoomId, "end")}
+        />
+      )}
     </div>
   );
 }
@@ -481,11 +489,21 @@ export function AgendaGrid({
 
       if (newStart.getTime() === originalStart.getTime() && newEnd.getTime() === originalEnd.getTime()) return;
 
+      // For multi-day segments, send the full schedule range with only the
+      // resized end adjusted — the other end comes from the original entry.
+      let commitStart = newStart;
+      let commitEnd = newEnd;
+      if (entry.segmentPosition === "first" && entry.originalEndTime) {
+        commitEnd = entry.originalEndTime;
+      } else if (entry.segmentPosition === "last" && entry.originalStartTime) {
+        commitStart = entry.originalStartTime;
+      }
+
       const result = await rescheduleEntry(
         entry.scheduleId,
         entry.functionId,
-        newStart.toISOString(),
-        newEnd.toISOString(),
+        commitStart.toISOString(),
+        commitEnd.toISOString(),
         eventId
       );
       if (!result.success) {

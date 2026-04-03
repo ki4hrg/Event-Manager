@@ -23,6 +23,10 @@ export type AgendaEntry = {
   roomIds: string[];
   /** Presentation titles assigned to this function (for breakout blocks) */
   presentationTitles: string[];
+  /** Set only on segments of multi-day entries — the full original time range */
+  originalStartTime?: Date;
+  originalEndTime?: Date;
+  segmentPosition?: "first" | "middle" | "last";
 };
 
 export type DayAgenda = {
@@ -42,9 +46,11 @@ export type AgendaData = {
 // Maps and Dates are not JSON-serializable; these plain-object equivalents are
 // used as the prop type for AgendaGrid (a "use client" component).
 
-export type SerializedAgendaEntry = Omit<AgendaEntry, "startTime" | "endTime"> & {
+export type SerializedAgendaEntry = Omit<AgendaEntry, "startTime" | "endTime" | "originalStartTime" | "originalEndTime"> & {
   startTime: string; // ISO string
   endTime: string;   // ISO string
+  originalStartTime?: string;
+  originalEndTime?: string;
 };
 
 export type SerializedDayAgenda = {
@@ -74,6 +80,8 @@ export function serializeAgendaData(data: AgendaData): SerializedAgendaData {
           ...e,
           startTime: e.startTime.toISOString(),
           endTime: e.endTime.toISOString(),
+          originalStartTime: e.originalStartTime?.toISOString(),
+          originalEndTime: e.originalEndTime?.toISOString(),
         }));
       });
     });
@@ -99,6 +107,8 @@ export function deserializeAgendaData(data: SerializedAgendaData): AgendaData {
             ...e,
             startTime: new Date(e.startTime),
             endTime: new Date(e.endTime),
+            originalStartTime: e.originalStartTime ? new Date(e.originalStartTime) : undefined,
+            originalEndTime: e.originalEndTime ? new Date(e.originalEndTime) : undefined,
           }))
         );
       }
@@ -212,6 +222,78 @@ export function computeRowspan(entry: AgendaEntry, timeSlots: Date[]): number {
   return span;
 }
 
+// ── Multi-day splitting ───────────────────────────────────────────────────────
+
+/** Returns the UTC instant of midnight for a YYYY-MM-DD in the given timezone. */
+function getStartOfDayInTimezone(dateKey: string, timezone: string): Date {
+  const noon = new Date(`${dateKey}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  }).formatToParts(noon);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  const s = Number(parts.find((p) => p.type === "second")?.value ?? 0);
+  // noon UTC displays as h:m:s in local tz → midnight local = noon UTC - local offset
+  return new Date(noon.getTime() - h * 3600000 - m * 60000 - s * 1000);
+}
+
+function getNextDateKey(dateKey: string): string {
+  const d = new Date(`${dateKey}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Splits a multi-day entry into per-day segments clipped to day boundaries.
+ * Single-day entries pass through unchanged.
+ */
+function splitEntryIntoDaySegments(
+  entry: AgendaEntry,
+  timezone: string
+): AgendaEntry[] {
+  const startDateKey = getDateKeyInTimezone(entry.startTime, timezone);
+  const endDateKey = getDateKeyInTimezone(entry.endTime, timezone);
+
+  if (startDateKey === endDateKey) return [entry];
+
+  // If endTime is exactly midnight of endDateKey, it doesn't occupy that day
+  const endDayMidnight = getStartOfDayInTimezone(endDateKey, timezone);
+  if (entry.endTime.getTime() === endDayMidnight.getTime()) return [entry];
+
+  const segments: AgendaEntry[] = [];
+  let currentDateKey = startDateKey;
+  let dayStart = getStartOfDayInTimezone(currentDateKey, timezone);
+
+  while (currentDateKey <= endDateKey) {
+    const nextDateKey = getNextDateKey(currentDateKey);
+    const dayEnd = getStartOfDayInTimezone(nextDateKey, timezone);
+
+    const segStart = currentDateKey === startDateKey ? entry.startTime : dayStart;
+    const segEnd = currentDateKey === endDateKey ? entry.endTime : dayEnd;
+
+    const isFirst = currentDateKey === startDateKey;
+    const isLast = currentDateKey === endDateKey;
+
+    segments.push({
+      ...entry,
+      startTime: segStart,
+      endTime: segEnd,
+      originalStartTime: entry.startTime,
+      originalEndTime: entry.endTime,
+      segmentPosition: isFirst ? "first" : isLast ? "last" : "middle",
+    });
+
+    currentDateKey = nextDateKey;
+    dayStart = dayEnd;
+  }
+
+  return segments;
+}
+
 // ── Main data builder ──────────────────────────────────────────────────────────
 
 export const SLOT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
@@ -269,9 +351,12 @@ export function buildAgendaData(
     }
   }
 
+  // Split multi-day entries into per-day segments
+  const segmented = entries.flatMap((e) => splitEntryIntoDaySegments(e, timezone));
+
   // Group entries by date of startTime in event timezone
   const byDate = new Map<string, AgendaEntry[]>();
-  for (const entry of entries) {
+  for (const entry of segmented) {
     const dateKey = getDateKeyInTimezone(entry.startTime, timezone);
     if (!byDate.has(dateKey)) byDate.set(dateKey, []);
     byDate.get(dateKey)!.push(entry);
