@@ -65,6 +65,8 @@ type ResizeState = {
   startY: number;
   originalStart: Date;
   originalEnd: Date;
+  dayStart: Date;
+  dayEnd: Date;
   snapshot: AgendaData;
 };
 
@@ -308,7 +310,7 @@ function DayGrid({
     const rows = scrollRef.current.querySelectorAll("tbody tr");
     const targetRow = rows[day.scrollToSlotIndex];
     if (targetRow) {
-      targetRow.scrollIntoView({ block: "start" });
+      scrollRef.current.scrollTop = (targetRow as HTMLElement).offsetTop;
     }
     hasScrolled.current = true;
   }, [day.scrollToSlotIndex]);
@@ -470,6 +472,13 @@ export function AgendaGrid({
   const handleResizeStart = useCallback<OnResizeStart>(
     (e, entry, roomId, type) => {
       setErrorMsg(null);
+      const data = agendaDataRef.current;
+      const day = data.days.find((d) => d.dateKey === resolvedDate) ?? data.days[0];
+      const slots = day?.timeSlots;
+      const dayStart = slots?.[0] ?? entry.startTime;
+      const dayEnd = slots?.length
+        ? new Date(slots[slots.length - 1].getTime() + SLOT_INTERVAL_MS)
+        : entry.endTime;
       setResizing({
         entry,
         roomId,
@@ -477,10 +486,12 @@ export function AgendaGrid({
         startY: e.clientY,
         originalStart: entry.startTime,
         originalEnd: entry.endTime,
-        snapshot: agendaDataRef.current,
+        dayStart,
+        dayEnd,
+        snapshot: data,
       });
     },
-    []
+    [resolvedDate]
   );
 
   useEffect(() => {
@@ -746,11 +757,13 @@ function calcResizeTimes(
   if (state.type === "end") {
     const rawEnd = new Date(state.originalEnd.getTime() + slotDelta * SLOT_INTERVAL_MS);
     const minEnd = new Date(state.originalStart.getTime() + SLOT_INTERVAL_MS);
-    return { newStart: state.originalStart, newEnd: rawEnd > minEnd ? rawEnd : minEnd };
+    const clamped = rawEnd > state.dayEnd ? state.dayEnd : rawEnd < minEnd ? minEnd : rawEnd;
+    return { newStart: state.originalStart, newEnd: clamped };
   } else {
     const rawStart = new Date(state.originalStart.getTime() + slotDelta * SLOT_INTERVAL_MS);
     const maxStart = new Date(state.originalEnd.getTime() - SLOT_INTERVAL_MS);
-    return { newStart: rawStart < maxStart ? rawStart : maxStart, newEnd: state.originalEnd };
+    const clamped = rawStart < state.dayStart ? state.dayStart : rawStart > maxStart ? maxStart : rawStart;
+    return { newStart: clamped, newEnd: state.originalEnd };
   }
 }
 
