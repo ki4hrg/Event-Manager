@@ -305,8 +305,11 @@ function DayGrid({
 
   useEffect(() => {
     if (!scrollRef.current || hasScrolled.current) return;
-    const rowHeight = 56; // h-14 = 3.5rem = 56px
-    scrollRef.current.scrollTop = day.scrollToSlotIndex * rowHeight;
+    const rows = scrollRef.current.querySelectorAll("tbody tr");
+    const targetRow = rows[day.scrollToSlotIndex];
+    if (targetRow) {
+      targetRow.scrollIntoView({ block: "start" });
+    }
     hasScrolled.current = true;
   }, [day.scrollToSlotIndex]);
 
@@ -316,71 +319,67 @@ function DayGrid({
   }, [day.dateKey]);
 
   return (
-    <div className="overflow-x-auto">
+    <div ref={scrollRef} className="overflow-auto max-h-[80vh]">
       <table className="w-full border-collapse text-sm">
-        <thead>
+        <thead className="sticky top-0 z-20">
           <tr className="bg-gray-50 dark:bg-gray-800">
-            <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap w-24">
+            <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap w-24 bg-gray-50 dark:bg-gray-800">
               Time
             </th>
             {visibleRooms.map((room) => (
               <th
                 key={room.id}
-                className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-900 dark:text-white whitespace-nowrap"
+                className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-900 dark:text-white whitespace-nowrap bg-gray-50 dark:bg-gray-800"
               >
                 {room.name}
               </th>
             ))}
           </tr>
         </thead>
-      </table>
-      <div ref={scrollRef} className="overflow-y-auto overflow-x-auto max-h-[80vh]">
-        <table className="w-full border-collapse text-sm">
-          <tbody>
-            {rowData.map(({ slotTime, cells }) => (
-              <tr key={slotTime.toISOString()} className="h-14">
-                <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap align-top font-medium w-24">
-                  {formatTime(slotTime, timezone)}
-                </td>
-                {cells.map((cell, i) => {
-                  if (cell.type === "skip") return null;
-                  const room = visibleRooms[i];
-                  if (cell.type === "empty") {
-                    return (
-                      <DroppableCell
-                        key={room.id}
-                        roomId={room.id}
-                        slotTime={cell.slotTime}
-                        isEmpty={true}
-                      />
-                    );
-                  }
+        <tbody>
+          {rowData.map(({ slotTime, cells }) => (
+            <tr key={slotTime.toISOString()} className="h-14">
+              <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap align-top font-medium w-24">
+                {formatTime(slotTime, timezone)}
+              </td>
+              {cells.map((cell, i) => {
+                if (cell.type === "skip") return null;
+                const room = visibleRooms[i];
+                if (cell.type === "empty") {
                   return (
                     <DroppableCell
                       key={room.id}
                       roomId={room.id}
                       slotTime={cell.slotTime}
-                      rowSpan={cell.rowspan}
-                      isEmpty={false}
-                    >
-                      {cell.entries.map((entry) => (
-                        <DraggableCard
-                          key={entry.scheduleId}
-                          entry={entry}
-                          sourceRoomId={room.id}
-                          eventId={eventId}
-                          timezone={timezone}
-                          onResizeStart={onResizeStart}
-                        />
-                      ))}
-                    </DroppableCell>
+                      isEmpty={true}
+                    />
                   );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                }
+                return (
+                  <DroppableCell
+                    key={room.id}
+                    roomId={room.id}
+                    slotTime={cell.slotTime}
+                    rowSpan={cell.rowspan}
+                    isEmpty={false}
+                  >
+                    {cell.entries.map((entry) => (
+                      <DraggableCard
+                        key={entry.scheduleId}
+                        entry={entry}
+                        sourceRoomId={room.id}
+                        eventId={eventId}
+                        timezone={timezone}
+                        onResizeStart={onResizeStart}
+                      />
+                    ))}
+                  </DroppableCell>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
