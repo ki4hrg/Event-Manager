@@ -32,6 +32,7 @@ export type AgendaEntry = {
 export type DayAgenda = {
   dateKey: string; // "YYYY-MM-DD" in event timezone
   timeSlots: Date[];
+  scrollToSlotIndex: number; // index into timeSlots for initial scroll position
   // roomId → slotKey (ISO string) → AgendaEntry[]
   cells: Map<string, Map<string, AgendaEntry[]>>;
 };
@@ -56,6 +57,7 @@ export type SerializedAgendaEntry = Omit<AgendaEntry, "startTime" | "endTime" | 
 export type SerializedDayAgenda = {
   dateKey: string;
   timeSlots: string[]; // ISO strings
+  scrollToSlotIndex: number;
   cells: Record<string, Record<string, SerializedAgendaEntry[]>>;
 };
 
@@ -88,6 +90,7 @@ export function serializeAgendaData(data: AgendaData): SerializedAgendaData {
     return {
       dateKey: day.dateKey,
       timeSlots: day.timeSlots.map((d) => d.toISOString()),
+      scrollToSlotIndex: day.scrollToSlotIndex,
       cells,
     };
   });
@@ -117,6 +120,7 @@ export function deserializeAgendaData(data: SerializedAgendaData): AgendaData {
     return {
       dateKey: day.dateKey,
       timeSlots: day.timeSlots.map((s: string) => new Date(s)),
+      scrollToSlotIndex: day.scrollToSlotIndex,
       cells,
     };
   });
@@ -170,36 +174,6 @@ export function getUsedRoomIds(day: DayAgenda): Set<string> {
   return used;
 }
 
-/**
- * Generates a continuous array of time slots from (floor(earliest) - buffer)
- * to (ceil(latest) + buffer) at the given interval. The buffer adds one
- * interval of empty space before the first event and after the last.
- */
-export function buildContinuousSlots(
-  dayEntries: AgendaEntry[],
-  intervalMs: number
-): Date[] {
-  if (dayEntries.length === 0) return [];
-
-  let minMs = Infinity;
-  let maxMs = -Infinity;
-  for (const e of dayEntries) {
-    const start = e.startTime.getTime();
-    const end = e.endTime.getTime();
-    if (start < minMs) minMs = start;
-    if (end > maxMs) maxMs = end;
-  }
-
-  // Snap to interval boundaries, then add one buffer slot on each side
-  const startMs = Math.floor(minMs / intervalMs) * intervalMs - intervalMs;
-  const endMs = Math.ceil(maxMs / intervalMs) * intervalMs + intervalMs;
-
-  const slots: Date[] = [];
-  for (let t = startMs; t < endMs; t += intervalMs) {
-    slots.push(new Date(t));
-  }
-  return slots;
-}
 
 /**
  * Counts how many consecutive time slots an entry spans.
@@ -367,8 +341,13 @@ export function buildAgendaData(
   const days: DayAgenda[] = sortedDates.map((dateKey) => {
     const dayEntries = byDate.get(dateKey)!;
 
-    // Continuous 30-min grid with a 30-min buffer before/after
-    const timeSlots = buildContinuousSlots(dayEntries, SLOT_INTERVAL_MS);
+    // Full-day grid: midnight to midnight in event timezone
+    const dayMidnight = getStartOfDayInTimezone(dateKey, timezone);
+    const nextMidnight = getStartOfDayInTimezone(getNextDateKey(dateKey), timezone);
+    const timeSlots: Date[] = [];
+    for (let t = dayMidnight.getTime(); t < nextMidnight.getTime(); t += SLOT_INTERVAL_MS) {
+      timeSlots.push(new Date(t));
+    }
 
     // Initialize cells: one column per venue room
     const cells = new Map<string, Map<string, AgendaEntry[]>>();
@@ -390,7 +369,23 @@ export function buildAgendaData(
       }
     }
 
-    return { dateKey, timeSlots, cells };
+    // Scroll target: 1 slot before the earliest non-full-day entry
+    const dayMidnightMs = dayMidnight.getTime();
+    const nextMidnightMs = nextMidnight.getTime();
+    let earliestNonFullDay = Infinity;
+    for (const e of dayEntries) {
+      const isFullDay = e.startTime.getTime() <= dayMidnightMs && e.endTime.getTime() >= nextMidnightMs;
+      if (!isFullDay && e.startTime.getTime() < earliestNonFullDay) {
+        earliestNonFullDay = e.startTime.getTime();
+      }
+    }
+    let scrollToSlotIndex = 0;
+    if (earliestNonFullDay < Infinity) {
+      const targetMs = earliestNonFullDay - SLOT_INTERVAL_MS;
+      scrollToSlotIndex = Math.max(0, timeSlots.findIndex((s) => s.getTime() >= targetMs));
+    }
+
+    return { dateKey, timeSlots, scrollToSlotIndex, cells };
   });
 
   return { days, rooms, unscheduled };
