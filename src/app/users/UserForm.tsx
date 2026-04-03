@@ -41,7 +41,7 @@ export function UserForm({ user, saveAction, deleteAction, currentUserId }: User
   const isCreate = !user;
   const [editing, setEditing] = useState(isCreate);
   const [error, setError] = useState<string | null>(null);
-  const isSelf = user?.id === currentUserId;
+  const isSelf = !!user && !!currentUserId && user.id === currentUserId;
 
   async function handleSubmit(formData: FormData) {
     setError(null);

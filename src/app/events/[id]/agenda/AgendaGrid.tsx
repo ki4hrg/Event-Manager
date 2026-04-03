@@ -26,6 +26,7 @@ import {
   formatTime,
   getUsedRoomIds,
   getDateKeyInTimezone,
+  findSlotKeyForEntry,
   SLOT_INTERVAL_MS,
 } from "@/lib/agendaUtils";
 import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from "@/app/events/functions/actions";
@@ -80,6 +81,23 @@ type OnResizeStart = (
 // h-14 rows = 56px = one 30-minute slot
 const ROW_HEIGHT_PX = 56;
 
+// TODO: Extract shared color class maps to src/lib/colorUtils.ts — duplicated in
+// ScheduleList.tsx, FunctionList.tsx, PresentationList.tsx, and OptionList.tsx
+const entryColorClasses: Record<string, { bg: string; title: string; text: string; handle: string; handleHover: string }> = {
+  blue:   { bg: "bg-blue-50 dark:bg-blue-950",     title: "text-blue-700 dark:text-blue-300",     text: "text-blue-500 dark:text-blue-400",     handle: "bg-blue-300 dark:bg-blue-600", handleHover: "group-hover/handle:bg-blue-500 dark:group-hover/handle:bg-blue-400" },
+  red:    { bg: "bg-red-50 dark:bg-red-950",        title: "text-red-700 dark:text-red-300",       text: "text-red-500 dark:text-red-400",       handle: "bg-red-300 dark:bg-red-600",   handleHover: "group-hover/handle:bg-red-500 dark:group-hover/handle:bg-red-400" },
+  orange: { bg: "bg-orange-50 dark:bg-orange-950",  title: "text-orange-700 dark:text-orange-300", text: "text-orange-500 dark:text-orange-400", handle: "bg-orange-300 dark:bg-orange-600", handleHover: "group-hover/handle:bg-orange-500 dark:group-hover/handle:bg-orange-400" },
+  yellow: { bg: "bg-yellow-50 dark:bg-yellow-950",  title: "text-yellow-700 dark:text-yellow-300", text: "text-yellow-600 dark:text-yellow-400", handle: "bg-yellow-300 dark:bg-yellow-600", handleHover: "group-hover/handle:bg-yellow-500 dark:group-hover/handle:bg-yellow-400" },
+  green:  { bg: "bg-green-50 dark:bg-green-950",    title: "text-green-700 dark:text-green-300",   text: "text-green-500 dark:text-green-400",   handle: "bg-green-300 dark:bg-green-600", handleHover: "group-hover/handle:bg-green-500 dark:group-hover/handle:bg-green-400" },
+  purple: { bg: "bg-purple-50 dark:bg-purple-950",  title: "text-purple-700 dark:text-purple-300", text: "text-purple-500 dark:text-purple-400", handle: "bg-purple-300 dark:bg-purple-600", handleHover: "group-hover/handle:bg-purple-500 dark:group-hover/handle:bg-purple-400" },
+  pink:   { bg: "bg-pink-50 dark:bg-pink-950",      title: "text-pink-700 dark:text-pink-300",     text: "text-pink-500 dark:text-pink-400",     handle: "bg-pink-300 dark:bg-pink-600", handleHover: "group-hover/handle:bg-pink-500 dark:group-hover/handle:bg-pink-400" },
+  gray:   { bg: "bg-gray-50 dark:bg-gray-800",      title: "text-gray-700 dark:text-gray-300",     text: "text-gray-500 dark:text-gray-400",     handle: "bg-gray-300 dark:bg-gray-600", handleHover: "group-hover/handle:bg-gray-500 dark:group-hover/handle:bg-gray-400" },
+};
+
+function getEntryColors(entry: AgendaEntry) {
+  return entryColorClasses[entry.scheduleTypeColor ?? "blue"] ?? entryColorClasses.blue;
+}
+
 function EntryContent({
   entry,
   eventId,
@@ -90,12 +108,13 @@ function EntryContent({
   timezone: string;
 }) {
   const typeDisplay = entry.scheduleTypeLabel || entry.scheduleType;
+  const colors = getEntryColors(entry);
   return (
     <div className="px-1.5 pt-3 pb-1 text-xs h-full">
-      <div className="font-medium text-blue-700 dark:text-blue-300 truncate leading-tight">
+      <div className={`font-medium ${colors.title} truncate leading-tight`}>
         {entry.functionName}
       </div>
-      <div className="text-blue-500 dark:text-blue-400 leading-tight mt-0.5 truncate">
+      <div className={`${colors.text} leading-tight mt-0.5 truncate`}>
         {formatTime(entry.startTime, timezone)} –{" "}
         {formatTime(entry.endTime, timezone)}
         {entry.scheduleType && entry.scheduleType !== "MAIN" && (
@@ -103,17 +122,17 @@ function EntryContent({
         )}
       </div>
       {entry.scheduleNotes && (
-        <div className="text-blue-500 dark:text-blue-400 leading-tight mt-0.5 italic">
+        <div className={`${colors.text} leading-tight mt-0.5 italic`}>
           {entry.scheduleNotes}
         </div>
       )}
       {entry.presentationTitles.length > 0 && (
-        <div className="text-blue-400 dark:text-blue-500 leading-tight mt-0.5 line-clamp-2">
+        <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
           {entry.presentationTitles.join(", ")}
         </div>
       )}
       {entry.functionDescription && entry.presentationTitles.length === 0 && (
-        <div className="text-blue-400 dark:text-blue-500 leading-tight mt-0.5 line-clamp-2">
+        <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
           {entry.functionDescription}
         </div>
       )}
@@ -124,9 +143,11 @@ function EntryContent({
 function ResizeHandle({
   position,
   onPointerDown,
+  colors,
 }: {
   position: "top" | "bottom";
   onPointerDown: (e: React.PointerEvent) => void;
+  colors: (typeof entryColorClasses)[string];
 }) {
   return (
     <div
@@ -137,7 +158,7 @@ function ResizeHandle({
         onPointerDown(e);
       }}
     >
-      <div className="w-8 h-1 rounded-full bg-blue-300 dark:bg-blue-600 opacity-0 group-hover/card:opacity-100 group-hover/handle:bg-blue-500 dark:group-hover/handle:bg-blue-400 transition-all" />
+      <div className={`w-8 h-1 rounded-full ${colors.handle} opacity-0 group-hover/card:opacity-100 ${colors.handleHover} transition-all`} />
     </div>
   );
 }
@@ -148,12 +169,16 @@ function DraggableCard({
   eventId,
   timezone,
   onResizeStart,
+  slotTime,
+  rowspan,
 }: {
   entry: AgendaEntry;
   sourceRoomId: string;
   eventId: string;
   timezone: string;
   onResizeStart: OnResizeStart;
+  slotTime: Date;
+  rowspan: number;
 }) {
   const router = useRouter();
   const draggedRef = useRef(false);
@@ -171,11 +196,26 @@ function DraggableCard({
   const showTopHandle = !isSegment || entry.segmentPosition === "first";
   const showBottomHandle = !isSegment || entry.segmentPosition === "last";
 
+  // Sub-slot precision: offset top/bottom when entry doesn't align to slot boundaries
+  const slotMs = slotTime.getTime();
+  const totalMs = rowspan * SLOT_INTERVAL_MS;
+  const topOffset = Math.max(0, entry.startTime.getTime() - slotMs);
+  const bottomOffset = Math.max(0, (slotMs + totalMs) - entry.endTime.getTime());
+  const topPct = (topOffset / totalMs) * 100;
+  const bottomPct = (bottomOffset / totalMs) * 100;
+
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
-      className={`h-full relative group/card${isSegment ? " cursor-pointer" : " cursor-grab active:cursor-grabbing"}${isDragging ? " opacity-40" : ""}`}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        position: "absolute",
+        top: `${topPct}%`,
+        bottom: `${bottomPct}%`,
+        left: 0,
+        right: 0,
+      }}
+      className={`relative group/card ${getEntryColors(entry).bg}${isSegment ? " cursor-pointer" : " cursor-grab active:cursor-grabbing"}${isDragging ? " opacity-40" : ""}`}
       onClick={() => {
         if (draggedRef.current) {
           draggedRef.current = false;
@@ -189,6 +229,7 @@ function DraggableCard({
         <ResizeHandle
           position="top"
           onPointerDown={(e) => onResizeStart(e, entry, sourceRoomId, "start")}
+          colors={getEntryColors(entry)}
         />
       )}
       <EntryContent entry={entry} eventId={eventId} timezone={timezone} />
@@ -196,6 +237,7 @@ function DraggableCard({
         <ResizeHandle
           position="bottom"
           onPointerDown={(e) => onResizeStart(e, entry, sourceRoomId, "end")}
+          colors={getEntryColors(entry)}
         />
       )}
     </div>
@@ -221,16 +263,12 @@ function DroppableCell({
   });
 
   const base = "border border-gray-200 dark:border-gray-700 align-top p-0";
-  const bg = isEmpty
-    ? isOver
-      ? "bg-blue-50 dark:bg-blue-950"
-      : "bg-white dark:bg-gray-900"
-    : isOver
-    ? "bg-blue-100 dark:bg-blue-900"
-    : "bg-blue-50 dark:bg-blue-950";
+  const bg = isOver
+    ? "bg-blue-50 dark:bg-blue-950"
+    : "bg-white dark:bg-gray-900";
 
   return (
-    <td ref={setNodeRef} rowSpan={rowSpan} className={`${base} ${bg}`} style={{ height: "1px" }}>
+    <td ref={setNodeRef} rowSpan={rowSpan} className={`${base} ${bg} relative`} style={{ height: "1px" }}>
       {children}
     </td>
   );
@@ -373,6 +411,8 @@ function DayGrid({
                         eventId={eventId}
                         timezone={timezone}
                         onResizeStart={onResizeStart}
+                        slotTime={cell.slotTime}
+                        rowspan={cell.rowspan}
                       />
                     ))}
                   </DroppableCell>
@@ -395,8 +435,9 @@ function OverlayCard({
   eventId: string;
   timezone: string;
 }) {
+  const colors = getEntryColors(entry);
   return (
-    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-300 dark:border-blue-700 rounded shadow-lg opacity-90 w-48">
+    <div className={`${colors.bg} border border-gray-300 dark:border-gray-600 rounded shadow-lg opacity-90 w-48`}>
       <EntryContent entry={entry} eventId={eventId} timezone={timezone} />
     </div>
   );
@@ -788,10 +829,12 @@ function applyResizeToState(
     const col = cells.get(roomId);
     if (!col) return day;
 
-    const oldKey = entry.startTime.toISOString();
-    const filtered = (col.get(oldKey) ?? []).filter((e) => e.scheduleId !== entry.scheduleId);
-    if (filtered.length === 0) col.delete(oldKey);
-    else col.set(oldKey, filtered);
+    const oldKey = findSlotKeyForEntry(col, entry.scheduleId);
+    if (oldKey) {
+      const filtered = col.get(oldKey)!.filter((e) => e.scheduleId !== entry.scheduleId);
+      if (filtered.length === 0) col.delete(oldKey);
+      else col.set(oldKey, filtered);
+    }
 
     const newKey = newStart.toISOString();
     col.set(newKey, [...(col.get(newKey) ?? []), updatedEntry]);
@@ -823,13 +866,14 @@ function applyDragToState(
 
     const cells = new Map(Array.from(day.cells.entries()).map(([rid, slotMap]) => [rid, new Map(slotMap)]));
 
-    const oldSlotKey = entry.startTime.toISOString();
     const oldCol = cells.get(sourceRoomId);
     if (oldCol) {
-      const existing = oldCol.get(oldSlotKey) ?? [];
-      const filtered = existing.filter((e) => e.scheduleId !== entry.scheduleId);
-      if (filtered.length === 0) oldCol.delete(oldSlotKey);
-      else oldCol.set(oldSlotKey, filtered);
+      const oldSlotKey = findSlotKeyForEntry(oldCol, entry.scheduleId);
+      if (oldSlotKey) {
+        const filtered = oldCol.get(oldSlotKey)!.filter((e) => e.scheduleId !== entry.scheduleId);
+        if (filtered.length === 0) oldCol.delete(oldSlotKey);
+        else oldCol.set(oldSlotKey, filtered);
+      }
     }
 
     const newSlotKey = (deltaMs !== 0 ? targetSlot : entry.startTime).toISOString();

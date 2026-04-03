@@ -38,8 +38,8 @@ export default async function AgendaPage({
   const timezone = event.timezone || "America/Chicago";
   const rooms = event.venue?.rooms ?? [];
 
-  const scheduleTypeLabels = new Map(scheduleTypes.map((t) => [t.value, t.label]));
-  const agendaData = buildAgendaData(functions, rooms, timezone, scheduleTypeLabels);
+  const scheduleTypeAttrs = new Map(scheduleTypes.map((t) => [t.value, { label: t.label, color: t.color }]));
+  const agendaData = buildAgendaData(functions, rooms, timezone, scheduleTypeAttrs);
 
   const activeDate =
     date && agendaData.days.some((d) => d.dateKey === date)

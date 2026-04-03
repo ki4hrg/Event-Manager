@@ -16,6 +16,7 @@ export type AgendaEntry = {
   scheduleId: string;
   scheduleType: string;
   scheduleTypeLabel: string | null;
+  scheduleTypeColor: string | null;
   scheduleNotes: string | null;
   isPublic: boolean;
   startTime: Date;
@@ -164,6 +165,18 @@ export function formatTime(date: Date, timezone: string): string {
 
 // ── Grid helpers ───────────────────────────────────────────────────────────────
 
+/** Finds the slot key under which a given schedule entry lives in a column. */
+export function findSlotKeyForEntry(
+  col: Map<string, AgendaEntry[]>,
+  scheduleId: string
+): string | null {
+  const pairs = Array.from(col.entries());
+  for (let i = 0; i < pairs.length; i++) {
+    if (pairs[i][1].some((e) => e.scheduleId === scheduleId)) return pairs[i][0];
+  }
+  return null;
+}
+
 /** Returns the set of roomIds that have at least one entry for a given day. */
 export function getUsedRoomIds(day: DayAgenda): Set<string> {
   const used = new Set<string>();
@@ -180,9 +193,8 @@ export function getUsedRoomIds(day: DayAgenda): Set<string> {
  * A slot is "spanned" if slot.startTime < entry.endTime.
  */
 export function computeRowspan(entry: AgendaEntry, timeSlots: Date[]): number {
-  const startIdx = timeSlots.findIndex(
-    (s) => s.getTime() === entry.startTime.getTime()
-  );
+  const entryMs = entry.startTime.getTime();
+  const startIdx = timeSlots.findLastIndex((s) => s.getTime() <= entryMs);
   if (startIdx === -1) return 1;
 
   let span = 1;
@@ -276,7 +288,7 @@ export function buildAgendaData(
   functions: FunctionWithRelations[],
   rooms: Room[],
   timezone: string,
-  scheduleTypeLabels?: Map<string, string>
+  scheduleTypeAttrs?: Map<string, { label: string; color: string | null }>
 ): AgendaData {
   const roomIdSet = new Set(rooms.map((r) => r.id));
 
@@ -314,7 +326,8 @@ export function buildAgendaData(
         functionDescription: fn.description,
         scheduleId: schedule.id,
         scheduleType: schedule.type,
-        scheduleTypeLabel: scheduleTypeLabels?.get(schedule.type) ?? null,
+        scheduleTypeLabel: scheduleTypeAttrs?.get(schedule.type)?.label ?? null,
+        scheduleTypeColor: scheduleTypeAttrs?.get(schedule.type)?.color ?? null,
         scheduleNotes: schedule.notes,
         isPublic: schedule.isPublic,
         startTime: schedule.startTime,
@@ -355,12 +368,15 @@ export function buildAgendaData(
       cells.set(room.id, new Map());
     }
 
-    // Place entries into cells keyed by their exact startTime ISO string.
-    // Because entries start on 30-min boundaries (or not — original data is
-    // preserved), we key on the entry's actual startTime. computeRowspan will
-    // find the matching slot by exact ms comparison.
+    // Place entries into cells keyed by the containing slot's ISO string.
+    // Entries may not start exactly on a 30-min boundary, so we floor to the
+    // nearest slot so the grid lookup always finds them.
     for (const entry of dayEntries) {
-      const slotKey = entry.startTime.toISOString();
+      const entryMs = entry.startTime.getTime();
+      const slotIdx = timeSlots.findLastIndex((s) => s.getTime() <= entryMs);
+      const slotKey = slotIdx >= 0
+        ? timeSlots[slotIdx].toISOString()
+        : entry.startTime.toISOString();
       for (const roomId of entry.roomIds) {
         const col = cells.get(roomId);
         if (!col) continue;
