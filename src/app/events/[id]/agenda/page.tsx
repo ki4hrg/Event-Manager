@@ -15,10 +15,10 @@ export default async function AgendaPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ date?: string; showAll?: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { date, showAll: showAllParam } = await searchParams;
+  const { date } = await searchParams;
 
   const [event, functions, scheduleTypes] = await Promise.all([
     prisma.event.findUnique({
@@ -46,8 +46,6 @@ export default async function AgendaPage({
       ? date
       : agendaData.days[0]?.dateKey ?? null;
 
-  const hideEmpty = showAllParam !== "1";
-
   return (
     <PageWrapper>
       <div className="flex justify-between items-center mb-4">
@@ -63,7 +61,6 @@ export default async function AgendaPage({
         agendaData={serializeAgendaData(agendaData)}
         timezone={timezone}
         activeDate={activeDate}
-        hideEmpty={hideEmpty}
       />
     </PageWrapper>
   );

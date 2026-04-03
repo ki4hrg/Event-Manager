@@ -177,6 +177,30 @@ export function findSlotKeyForEntry(
   return null;
 }
 
+/** Returns room IDs where every entry spans the full day (midnight-to-midnight). */
+export function getFullDayRoomIds(day: DayAgenda): Set<string> {
+  const fullDay = new Set<string>();
+  const dayStart = day.timeSlots[0]?.getTime();
+  const dayEnd = day.timeSlots.length > 0
+    ? day.timeSlots[day.timeSlots.length - 1].getTime() + SLOT_INTERVAL_MS
+    : undefined;
+  if (dayStart === undefined || dayEnd === undefined) return fullDay;
+
+  Array.from(day.cells.entries()).forEach(([roomId, slotMap]) => {
+    // Deduplicate entries that appear in multiple slots
+    const seen = new Map<string, AgendaEntry>();
+    Array.from(slotMap.values()).flat().forEach((e) => {
+      if (!seen.has(e.scheduleId)) seen.set(e.scheduleId, e);
+    });
+    if (seen.size === 0) return;
+    const allFullDay = Array.from(seen.values()).every(
+      (e) => e.startTime.getTime() <= dayStart && e.endTime.getTime() >= dayEnd
+    );
+    if (allFullDay) fullDay.add(roomId);
+  });
+  return fullDay;
+}
+
 /** Returns the set of roomIds that have at least one entry for a given day. */
 export function getUsedRoomIds(day: DayAgenda): Set<string> {
   const used = new Set<string>();

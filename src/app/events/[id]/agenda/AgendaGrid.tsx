@@ -25,20 +25,20 @@ import {
   formatDateHeading,
   formatTime,
   getUsedRoomIds,
+  getFullDayRoomIds,
   getDateKeyInTimezone,
   findSlotKeyForEntry,
   SLOT_INTERVAL_MS,
 } from "@/lib/agendaUtils";
 import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from "@/app/events/functions/actions";
 import { DateTabs } from "./DateTabs";
-import { HideEmptyToggle } from "./HideEmptyToggle";
+import { AgendaViewOptions, loadAgendaViewSettings, type AgendaViewSettings } from "./AgendaViewOptions";
 
 type AgendaGridProps = {
   eventId: string;
   agendaData: SerializedAgendaData;
   timezone: string;
   activeDate: string | null;
-  hideEmpty: boolean;
 };
 
 type ScheduledDragData = {
@@ -80,6 +80,8 @@ type OnResizeStart = (
 
 // h-14 rows = 56px = one 30-minute slot
 const ROW_HEIGHT_PX = 56;
+const MIN_ROOM_COL_PX = 200;
+const TIME_COL_PX = 96; // w-24
 
 // TODO: Extract shared color class maps to src/lib/colorUtils.ts — duplicated in
 // ScheduleList.tsx, FunctionList.tsx, PresentationList.tsx, and OptionList.tsx
@@ -111,7 +113,7 @@ function EntryContent({
   const colors = getEntryColors(entry);
   return (
     <div className="px-1.5 pt-3 pb-1 text-xs h-full">
-      <div className={`font-medium ${colors.title} truncate leading-tight`}>
+      <div className={`font-medium ${colors.title} leading-tight break-words`}>
         {entry.functionName}
       </div>
       <div className={`${colors.text} leading-tight mt-0.5 truncate`}>
@@ -279,19 +281,23 @@ function DayGrid({
   rooms,
   eventId,
   timezone,
-  hideEmpty,
+  viewSettings,
   onResizeStart,
 }: {
   day: AgendaData["days"][number];
   rooms: AgendaData["rooms"];
   eventId: string;
   timezone: string;
-  hideEmpty: boolean;
+  viewSettings: AgendaViewSettings;
   onResizeStart: OnResizeStart;
 }) {
-  const visibleRooms = hideEmpty
-    ? rooms.filter((r) => getUsedRoomIds(day).has(r.id))
-    : rooms;
+  const usedIds = getUsedRoomIds(day);
+  const fullDayIds = getFullDayRoomIds(day);
+  const visibleRooms = rooms.filter((r) => {
+    if (!viewSettings.showUnusedRooms && !usedIds.has(r.id)) return false;
+    if (!viewSettings.showFullDayRooms && fullDayIds.has(r.id)) return false;
+    return true;
+  });
 
   if (day.timeSlots.length === 0 || visibleRooms.length === 0) {
     return (
@@ -342,6 +348,21 @@ function DayGrid({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasScrolled = useRef(false);
+  const [roomColWidth, setRoomColWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const measure = () => {
+      const containerWidth = scrollRef.current!.clientWidth;
+      const available = containerWidth - TIME_COL_PX;
+      const rounded = Math.round(Math.max(MIN_ROOM_COL_PX, available / visibleRooms.length));
+      setRoomColWidth((prev) => (prev === rounded ? prev : rounded));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scrollRef.current);
+    return () => observer.disconnect();
+  }, [visibleRooms.length]);
 
   useEffect(() => {
     if (!scrollRef.current || hasScrolled.current) return;
@@ -358,12 +379,22 @@ function DayGrid({
     hasScrolled.current = false;
   }, [day.dateKey]);
 
+  const tableWidth = roomColWidth
+    ? TIME_COL_PX + roomColWidth * visibleRooms.length
+    : undefined;
+
   return (
     <div ref={scrollRef} className="overflow-auto max-h-[80vh]">
-      <table className="w-full border-collapse text-sm">
+      <table className="border-collapse text-sm" style={tableWidth ? { width: tableWidth } : { width: "100%" }}>
+        <colgroup>
+          <col style={{ width: TIME_COL_PX }} />
+          {visibleRooms.map((room) => (
+            <col key={room.id} style={roomColWidth ? { width: roomColWidth } : undefined} />
+          ))}
+        </colgroup>
         <thead className="sticky top-0 z-20">
           <tr className="bg-gray-50 dark:bg-gray-800">
-            <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap w-24 bg-gray-50 dark:bg-gray-800">
+            <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap bg-gray-50 dark:bg-gray-800">
               Time
             </th>
             {visibleRooms.map((room) => (
@@ -379,7 +410,7 @@ function DayGrid({
         <tbody>
           {rowData.map(({ slotTime, cells }) => (
             <tr key={slotTime.toISOString()} className="h-14">
-              <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap align-top font-medium w-24">
+              <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap align-top font-medium">
                 {formatTime(slotTime, timezone)}
               </td>
               {cells.map((cell, i) => {
@@ -490,13 +521,13 @@ export function AgendaGrid({
   agendaData: serializedData,
   timezone,
   activeDate,
-  hideEmpty,
 }: AgendaGridProps) {
   const router = useRouter();
   const [agendaData, setAgendaData] = useState<AgendaData>(() => deserializeAgendaData(serializedData));
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null);
   const [resizing, setResizing] = useState<ResizeState | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [viewSettings, setViewSettings] = useState<AgendaViewSettings>(loadAgendaViewSettings);
 
   // Always-current ref so callbacks can snapshot state without stale closures
   const agendaDataRef = useRef(agendaData);
@@ -723,7 +754,7 @@ export function AgendaGrid({
               {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
             </h2>
             {rooms.length > 0 && (
-              <HideEmptyToggle eventId={eventId} hideEmpty={hideEmpty} />
+              <AgendaViewOptions settings={viewSettings} onChange={setViewSettings} />
             )}
           </div>
         )}
@@ -734,7 +765,7 @@ export function AgendaGrid({
             rooms={rooms}
             eventId={eventId}
             timezone={timezone}
-            hideEmpty={hideEmpty}
+            viewSettings={viewSettings}
             onResizeStart={handleResizeStart}
           />
         )}
