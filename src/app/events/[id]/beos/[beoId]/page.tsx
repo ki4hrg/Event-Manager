@@ -95,12 +95,12 @@ export default async function BEOPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
 
-  const [event, beo, serviceStyleOptions, cateringProviderOptions, allAvailableFunctions] =
+  const [event, beo, serviceStyleOptions, responsiblePartyOptions, allAvailableFunctions] =
     await Promise.all([
       getEvent(eventId),
       getBEO(beoId),
       getOptions("service_style"),
-      getOptions("catering_provider"),
+      getOptions("responsible_party"),
       prisma.function.findMany({ where: { eventId, beo: null }, orderBy: { name: "asc" } }),
     ]);
 
@@ -267,7 +267,7 @@ export default async function BEOPage({
             />
             <MenuSectionTable
               sections={beo.menuSections}
-              cateringProviderOptions={cateringProviderOptions}
+              responsiblePartyOptions={responsiblePartyOptions}
               createSection={createMenuSectionAction}
               updateSection={updateMenuSectionAction}
               deleteSection={deleteMenuSectionAction}
@@ -288,7 +288,7 @@ export default async function BEOPage({
             />
             <EquipmentTable
               items={beo.equipmentItems}
-              cateringProviderOptions={cateringProviderOptions}
+              responsiblePartyOptions={responsiblePartyOptions}
               createItem={createEquipmentAction}
               updateItem={updateEquipmentAction}
               deleteItem={deleteEquipmentAction}

@@ -85,16 +85,6 @@ export default async function SettingsPage() {
     await reorderOptions("service_style", ids);
   };
 
-  const createCateringProvider = async (formData: FormData) => {
-    "use server";
-    await createOption("catering_provider", formData);
-  };
-
-  const reorderCateringProviders = async (ids: string[]) => {
-    "use server";
-    await reorderOptions("catering_provider", ids);
-  };
-
   const createResponsibleParty = async (formData: FormData) => {
     "use server";
     await createOption("responsible_party", formData);
@@ -199,18 +189,6 @@ export default async function SettingsPage() {
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
           reorderOptions={reorderServiceStyles}
-        />
-
-        <OptionList
-          title="Catering Providers"
-          description="Parties responsible for menu sections in BEOs (e.g., Venue, Caterer, Event Team)"
-          category="catering_provider"
-          options={options.catering_provider}
-          showColor={false}
-          createOption={createCateringProvider}
-          updateOption={updateOptionAction}
-          deleteOption={deleteOptionAction}
-          reorderOptions={reorderCateringProviders}
         />
 
         <OptionList

@@ -9,7 +9,7 @@ import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type MenuSectionTableProps = {
   sections: BEOMenuSection[];
-  cateringProviderOptions: CustomOption[];
+  responsiblePartyOptions: CustomOption[];
   createSection: (formData: FormData) => Promise<void>;
   updateSection: (id: string, formData: FormData) => Promise<void>;
   deleteSection: (id: string) => Promise<void>;
@@ -30,7 +30,7 @@ function SubmitButton({ label }: { label: string }) {
 
 export function MenuSectionTable({
   sections,
-  cateringProviderOptions,
+  responsiblePartyOptions,
   createSection,
   updateSection,
   deleteSection,
@@ -64,7 +64,7 @@ export function MenuSectionTable({
         <form action={handleCreate} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party *</label>
-            <ResponsiblePartyField options={cateringProviderOptions} />
+            <ResponsiblePartyField options={responsiblePartyOptions} />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
@@ -101,7 +101,7 @@ export function MenuSectionTable({
                 <form action={(fd) => handleUpdate(section.id, fd)} className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party *</label>
-                    <ResponsiblePartyField options={cateringProviderOptions} defaultValue={section.responsibleParty} />
+                    <ResponsiblePartyField options={responsiblePartyOptions} defaultValue={section.responsibleParty} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
