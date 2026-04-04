@@ -28,6 +28,12 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
+function isMenuContentEmpty(form: HTMLFormElement): boolean {
+  const input = form.querySelector('input[name="menuContent"]') as HTMLInputElement | null;
+  const text = input?.value.replace(/<[^>]*>/g, "").trim() ?? "";
+  return text === "";
+}
+
 export function MenuSectionTable({
   sections,
   responsiblePartyOptions,
@@ -37,10 +43,12 @@ export function MenuSectionTable({
 }: MenuSectionTableProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [menuError, setMenuError] = useState(false);
 
   const handleCreate = async (formData: FormData) => {
     await createSection(formData);
     setShowAddForm(false);
+    setMenuError(false);
   };
 
   const handleUpdate = async (id: string, formData: FormData) => {
@@ -61,7 +69,18 @@ export function MenuSectionTable({
       </div>
 
       {showAddForm && (
-        <form action={handleCreate} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+        <form
+          action={handleCreate}
+          onSubmit={(e) => {
+            if (isMenuContentEmpty(e.currentTarget)) {
+              e.preventDefault();
+              setMenuError(true);
+            } else {
+              setMenuError(false);
+            }
+          }}
+          className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3"
+        >
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party *</label>
             <ResponsiblePartyField options={responsiblePartyOptions} />
@@ -69,6 +88,7 @@ export function MenuSectionTable({
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
             <RichTextEditor name="menuContent" placeholder="Describe the menu or provisions for this party..." />
+            {menuError && <p className="text-xs text-red-600 mt-1">Menu is required.</p>}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
@@ -98,7 +118,18 @@ export function MenuSectionTable({
           {sections.map((section) => (
             <div key={section.id} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === section.id ? (
-                <form action={(fd) => handleUpdate(section.id, fd)} className="space-y-3">
+                <form
+                  action={(fd) => handleUpdate(section.id, fd)}
+                  onSubmit={(e) => {
+                    if (isMenuContentEmpty(e.currentTarget)) {
+                      e.preventDefault();
+                      setMenuError(true);
+                    } else {
+                      setMenuError(false);
+                    }
+                  }}
+                  className="space-y-3"
+                >
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party *</label>
                     <ResponsiblePartyField options={responsiblePartyOptions} defaultValue={section.responsibleParty} />
@@ -106,6 +137,7 @@ export function MenuSectionTable({
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
                     <RichTextEditor name="menuContent" defaultValue={section.menuContent} />
+                    {menuError && <p className="text-xs text-red-600 mt-1">Menu is required.</p>}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
