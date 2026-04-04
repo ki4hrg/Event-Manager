@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { createBEO } from "../../../beos/actions";
+import { getOptions } from "../../../../settings/actions";
 import { BEOForm } from "../../../beos/BEOForm";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,10 @@ export default async function NewBEOPage({
   const { id: eventId } = await params;
   const { functionId } = await searchParams;
 
-  const event = await getEvent(eventId);
+  const [event, serviceStyleOptions] = await Promise.all([
+    getEvent(eventId),
+    getOptions("service_style"),
+  ]);
 
   if (!event) {
     notFound();
@@ -43,7 +47,7 @@ export default async function NewBEOPage({
         </h1>
       </div>
 
-      <BEOForm eventId={eventId} action={createBEOAction} />
+      <BEOForm eventId={eventId} action={createBEOAction} serviceStyleOptions={serviceStyleOptions} />
     </PageWrapper>
   );
 }

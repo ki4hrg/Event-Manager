@@ -97,6 +97,7 @@ model Contact {
   functions     FunctionContact[]
   venues        VenueContact[]
   presentations PresentationContact[]
+  beos          BEOContact[]
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }
@@ -131,6 +132,7 @@ model Function {
   sessionRoomOverrides BreakoutSessionRoomOverride[]
   avOrder              AVOrder?
   beo                  BEO?
+  timelineItems        TimelineItem[]
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
@@ -189,6 +191,7 @@ model AVOrder {
   presentation   Presentation? @relation(fields: [presentationId], references: [id], onDelete: SetNull)
   equipment      String[]      @default([])
   notes          String?
+  equipmentItems EquipmentItem[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -196,22 +199,111 @@ model AVOrder {
 }
 
 model BEO {
-  id             String    @id @default(cuid())
-  name           String
-  eventId        String
-  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  functionId     String?   @unique
-  function       Function? @relation(fields: [functionId], references: [id], onDelete: SetNull)
-  guaranteeCount Int?
-  tableSetup     String?
-  menuNotes      String?
-  dietaryNotes   String?
-  beverageNotes  String?
-  notes          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                 String           @id @default(cuid())
+  name               String
+  eventId            String
+  event              Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId         String?          @unique
+  function           Function?        @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  serviceStyle       String?
+  expectedCount      Int?
+  confirmedCount     Int?
+  guaranteeCount     Int?
+  staffingNotes      String?
+  rentalMinimum      Decimal?
+  fbMinimum          Decimal?
+  depositDeadline    DateTime?
+  guaranteeDeadline  DateTime?
+  paymentDeadline    DateTime?
+  cancellationTerms  String?
+  dietaryNotes       String?
+  notes              String?
+  timelineItems      TimelineItem[]
+  equipmentItems     EquipmentItem[]
+  lineItems          BEOLineItem[]
+  menuSections       BEOMenuSection[]
+  contacts           BEOContact[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@index([eventId])
+}
+
+model TimelineItem {
+  id         String    @id @default(cuid())
+  beoId      String?
+  functionId String?
+  beo        BEO?      @relation(fields: [beoId], references: [id], onDelete: Cascade)
+  function   Function? @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  label      String
+  startTime  DateTime
+  endTime    DateTime?
+  notes      String?
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([beoId])
+  @@index([functionId])
+}
+
+model EquipmentItem {
+  id               String   @id @default(cuid())
+  beoId            String?
+  avOrderId        String?
+  beo              BEO?     @relation(fields: [beoId], references: [id], onDelete: Cascade)
+  avOrder          AVOrder? @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  item             String
+  quantity         Int?
+  responsibleParty String?
+  notes            String?
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([beoId])
+  @@index([avOrderId])
+}
+
+model BEOLineItem {
+  id          String   @id @default(cuid())
+  beoId       String
+  beo         BEO      @relation(fields: [beoId], references: [id], onDelete: Cascade)
+  description String
+  unitType    String?
+  unitPrice   Decimal?
+  quantity    Int?
+  notes       String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([beoId])
+}
+
+model BEOMenuSection {
+  id               String   @id @default(cuid())
+  beoId            String
+  beo              BEO      @relation(fields: [beoId], references: [id], onDelete: Cascade)
+  responsibleParty String
+  menuContent      String
+  notes            String?
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([beoId])
+}
+
+model BEOContact {
+  id        String  @id @default(cuid())
+  beoId     String
+  contactId String
+  role      String?
+  beo       BEO     @relation(fields: [beoId], references: [id], onDelete: Cascade)
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([beoId, contactId])
 }
 
 // Presentation tracks (scoped per event)

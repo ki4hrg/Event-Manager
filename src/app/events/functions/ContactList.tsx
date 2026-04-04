@@ -2,16 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
-import type { FunctionContact, Contact } from "@prisma/client";
+import type { Contact } from "@prisma/client";
 
-type FunctionContactWithContact = FunctionContact & { contact: Contact };
+type ContactItem = {
+  id: string;
+  contactId: string;
+  role: string | null;
+  contact: Contact;
+};
 
 type ContactListProps = {
-  contacts: FunctionContactWithContact[];
-  functionId: string;
+  contacts: ContactItem[];
   addContact: (formData: FormData) => Promise<void>;
-  updateContact: (contactId: string, formData: FormData) => Promise<void>;
-  removeContact: (contactId: string) => Promise<void>;
+  updateContact: (id: string, formData: FormData) => Promise<void>;
+  removeContact: (id: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
 };
 
@@ -30,7 +34,6 @@ function SubmitButton({ label }: { label: string }) {
 
 export function ContactList({
   contacts,
-  functionId,
   addContact,
   updateContact,
   removeContact,

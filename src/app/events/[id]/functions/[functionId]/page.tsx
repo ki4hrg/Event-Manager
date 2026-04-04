@@ -198,7 +198,6 @@ export default async function FunctionPage({
           />
           <ContactList
             contacts={fn.contacts}
-            functionId={functionId}
             addContact={addContactAction}
             updateContact={updateContactAction}
             removeContact={removeContactAction}

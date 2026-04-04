@@ -75,6 +75,26 @@ export default async function SettingsPage() {
     await reorderOptions("presentation_type", ids);
   };
 
+  const createServiceStyle = async (formData: FormData) => {
+    "use server";
+    await createOption("service_style", formData);
+  };
+
+  const reorderServiceStyles = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("service_style", ids);
+  };
+
+  const createCateringProvider = async (formData: FormData) => {
+    "use server";
+    await createOption("catering_provider", formData);
+  };
+
+  const reorderCateringProviders = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("catering_provider", ids);
+  };
+
   return (
     <PageWrapper>
       <div className="mb-6">
@@ -157,6 +177,30 @@ export default async function SettingsPage() {
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
           reorderOptions={reorderPresentationTypes}
+        />
+
+        <OptionList
+          title="Service Styles"
+          description="Catering service styles for BEOs (e.g., Plated, Buffet, Stations)"
+          category="service_style"
+          options={options.service_style}
+          showColor={false}
+          createOption={createServiceStyle}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+          reorderOptions={reorderServiceStyles}
+        />
+
+        <OptionList
+          title="Catering Providers"
+          description="Parties responsible for menu sections in BEOs (e.g., Venue, Caterer, Event Team)"
+          category="catering_provider"
+          options={options.catering_provider}
+          showColor={false}
+          createOption={createCateringProvider}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+          reorderOptions={reorderCateringProviders}
         />
       </div>
     </PageWrapper>

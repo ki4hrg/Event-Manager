@@ -75,7 +75,7 @@ export default async function BEOsPage({
                   {beo.guaranteeCount != null && (
                     <span>Guarantee: {beo.guaranteeCount}</span>
                   )}
-                  {beo.tableSetup && <span>{beo.tableSetup}</span>}
+                  {beo.serviceStyle && <span>{beo.serviceStyle}</span>}
                   {beo.function ? (
                     <span className="text-green-600 dark:text-green-400">
                       Linked to function: {beo.function.name}
