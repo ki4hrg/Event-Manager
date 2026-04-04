@@ -286,7 +286,7 @@ model EquipmentItem {
 
 model SetupOrder {
   id             String          @id @default(cuid())
-  name           String
+  name           String?
   setupType      String?
   eventId        String
   event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -306,7 +306,7 @@ model SetupTable {
   setupOrderId String
   setupOrder   SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   quantity     Int
-  tableType    String
+  tableType    String?
   chairCount   Int?
   chairType    String?
   notes        String?

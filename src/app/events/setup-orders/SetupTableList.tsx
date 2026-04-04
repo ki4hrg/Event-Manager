@@ -30,20 +30,20 @@ function EquipmentTypeSelect({
   name,
   options,
   emptyLabel,
-  required,
   defaultValue,
+  onChange,
 }: {
   name: string;
   options: Equipment[];
   emptyLabel: string;
-  required?: boolean;
   defaultValue?: string;
+  onChange?: (value: string) => void;
 }) {
   return (
     <select
       name={name}
-      required={required}
       defaultValue={defaultValue || ""}
+      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
     >
       <option value="">{emptyLabel}</option>
@@ -54,23 +54,26 @@ function EquipmentTypeSelect({
   );
 }
 
-function TableTotals({ tables }: { tables: SetupTable[] }) {
-  // Aggregate tables by type and chairs by type
+export function aggregateSetupTables(tables: SetupTable[]) {
   const tableTotals: Record<string, number> = {};
   const chairTotals: Record<string, number> = {};
-
   for (const row of tables) {
-    tableTotals[row.tableType] = (tableTotals[row.tableType] || 0) + row.quantity;
+    if (row.tableType) {
+      tableTotals[row.tableType] = (tableTotals[row.tableType] || 0) + row.quantity;
+    }
     if (row.chairCount && row.chairType) {
-      const totalChairs = row.quantity * row.chairCount;
-      chairTotals[row.chairType] = (chairTotals[row.chairType] || 0) + totalChairs;
+      chairTotals[row.chairType] = (chairTotals[row.chairType] || 0) + row.quantity * row.chairCount;
     }
   }
+  return { tableTotals, chairTotals };
+}
 
+function TableTotals({ tables }: { tables: SetupTable[] }) {
+  const { tableTotals, chairTotals } = aggregateSetupTables(tables);
   const tableEntries = Object.entries(tableTotals);
   const chairEntries = Object.entries(chairTotals);
 
-  if (tableEntries.length === 0) return null;
+  if (tableEntries.length === 0 && chairEntries.length === 0) return null;
 
   return (
     <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
@@ -86,6 +89,124 @@ function TableTotals({ tables }: { tables: SetupTable[] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function RowForm({
+  defaultQuantity = 1,
+  defaultTableType = "",
+  defaultChairCount = "",
+  defaultChairType = "",
+  defaultNotes = "",
+  tableOptions,
+  chairOptions,
+  onSubmit,
+  onCancel,
+  submitLabel,
+}: {
+  defaultQuantity?: number;
+  defaultTableType?: string;
+  defaultChairCount?: number | string;
+  defaultChairType?: string;
+  defaultNotes?: string;
+  tableOptions: Equipment[];
+  chairOptions: Equipment[];
+  onSubmit: (formData: FormData) => Promise<void>;
+  onCancel: () => void;
+  submitLabel: string;
+}) {
+  const [qty, setQty] = useState(defaultQuantity);
+  const [chairCount, setChairCount] = useState(
+    typeof defaultChairCount === "number" ? defaultChairCount : (parseInt(defaultChairCount) || 0)
+  );
+  const [tableType, setTableType] = useState(defaultTableType);
+  const [error, setError] = useState<string | null>(null);
+
+  const totalChairs = qty > 0 && chairCount > 0 ? qty * chairCount : null;
+
+  const handleSubmit = async (formData: FormData) => {
+    if (!tableType && chairCount <= 0) {
+      setError("Enter a table type or a chair count.");
+      return;
+    }
+    setError(null);
+    await onSubmit(formData);
+  };
+
+  return (
+    <form action={handleSubmit} className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty *</label>
+          <input
+            type="number"
+            name="quantity"
+            required
+            min={1}
+            value={qty}
+            onChange={(e) => setQty(parseInt(e.target.value) || 0)}
+            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          />
+        </div>
+        <div className="md:col-span-1">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Table Type</label>
+          <EquipmentTypeSelect
+            name="tableType"
+            options={tableOptions}
+            emptyLabel="Select table type..."
+            defaultValue={defaultTableType}
+            onChange={setTableType}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chairs / Table</label>
+          <input
+            type="number"
+            name="chairCount"
+            min={0}
+            value={chairCount || ""}
+            onChange={(e) => setChairCount(parseInt(e.target.value) || 0)}
+            placeholder="0"
+            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chair Type</label>
+          <EquipmentTypeSelect
+            name="chairType"
+            options={chairOptions}
+            emptyLabel="Select chair type..."
+            defaultValue={defaultChairType}
+          />
+        </div>
+      </div>
+      {totalChairs !== null && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Total chairs: <span className="font-medium text-gray-700 dark:text-gray-200">{totalChairs}</span>
+        </p>
+      )}
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+        <input
+          type="text"
+          name="notes"
+          defaultValue={defaultNotes}
+          placeholder="e.g., head table at front"
+          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+        />
+      </div>
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      <div className="flex gap-2">
+        <SubmitButton label={submitLabel} />
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -123,58 +244,15 @@ export function SetupTableList({
       </div>
 
       {showAddForm && (
-        <form action={handleCreate} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty *</label>
-              <input
-                type="number"
-                name="quantity"
-                required
-                min={1}
-                placeholder="0"
-                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
-            </div>
-            <div className="md:col-span-1">
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Table Type *</label>
-              <EquipmentTypeSelect name="tableType" options={tableOptions} emptyLabel="Select table type..." required />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chairs / Table</label>
-              <input
-                type="number"
-                name="chairCount"
-                min={0}
-                placeholder="0"
-                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chair Type</label>
-              <EquipmentTypeSelect name="chairType" options={chairOptions} emptyLabel="— No chairs —" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-            <input
-              type="text"
-              name="notes"
-              placeholder="e.g., head table at front"
-              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-            />
-          </div>
-          <div className="flex gap-2">
-            <SubmitButton label="Add" />
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <RowForm
+            tableOptions={tableOptions}
+            chairOptions={chairOptions}
+            onSubmit={handleCreate}
+            onCancel={() => setShowAddForm(false)}
+            submitLabel="Add"
+          />
+        </div>
       )}
 
       {tables.length === 0 ? (
@@ -184,72 +262,37 @@ export function SetupTableList({
           {tables.map((row) => (
             <div key={row.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === row.id ? (
-                <form action={(fd) => handleUpdate(row.id, fd)} className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty *</label>
-                      <input
-                        type="number"
-                        name="quantity"
-                        required
-                        min={1}
-                        defaultValue={row.quantity}
-                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Table Type *</label>
-                      <EquipmentTypeSelect name="tableType" options={tableOptions} emptyLabel="Select table type..." required defaultValue={row.tableType} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chairs / Table</label>
-                      <input
-                        type="number"
-                        name="chairCount"
-                        min={0}
-                        defaultValue={row.chairCount ?? ""}
-                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chair Type</label>
-                      <EquipmentTypeSelect name="chairType" options={chairOptions} emptyLabel="— No chairs —" defaultValue={row.chairType || ""} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                    <input
-                      type="text"
-                      name="notes"
-                      defaultValue={row.notes || ""}
-                      className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <SubmitButton label="Save" />
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(null)}
-                      className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
+                <RowForm
+                  defaultQuantity={row.quantity}
+                  defaultTableType={row.tableType ?? ""}
+                  defaultChairCount={row.chairCount ?? ""}
+                  defaultChairType={row.chairType ?? ""}
+                  defaultNotes={row.notes ?? ""}
+                  tableOptions={tableOptions}
+                  chairOptions={chairOptions}
+                  onSubmit={(fd) => handleUpdate(row.id, fd)}
+                  onCancel={() => setEditingId(null)}
+                  submitLabel="Save"
+                />
               ) : (
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-gray-900 dark:text-white font-medium">
-                      {row.quantity} × {row.tableType}
-                    </span>
+                    {row.tableType && (
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {row.quantity} × {row.tableType}
+                      </span>
+                    )}
                     {row.chairCount != null && row.chairCount > 0 && (
                       <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
-                        · {row.chairCount} {row.chairType || "chairs"} ea
+                        {row.tableType ? "·" : ""} {row.chairCount} {row.chairType || "chairs"}/table
                         {" "}
                         <span className="text-gray-400 dark:text-gray-500">
                           ({row.quantity * row.chairCount} total)
                         </span>
                       </span>
+                    )}
+                    {!row.tableType && (!row.chairCount || row.chairCount === 0) && (
+                      <span className="text-gray-900 dark:text-white font-medium">{row.quantity} items</span>
                     )}
                     {row.notes && (
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{row.notes}</p>

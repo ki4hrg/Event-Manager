@@ -28,10 +28,16 @@ export async function getSetupOrder(id: string) {
 }
 
 export async function createSetupOrder(eventId: string, formData: FormData) {
-  const name = formData.get("name") as string;
+  const rawName = (formData.get("name") as string).trim();
   const setupType = formData.get("setupType") as string;
   const notes = formData.get("notes") as string;
   const functionId = formData.get("functionId") as string;
+
+  let name: string | null = rawName || null;
+  if (!name && functionId) {
+    const fn = await prisma.function.findUnique({ where: { id: functionId }, select: { name: true } });
+    name = fn?.name ?? null;
+  }
 
   const setupOrder = await prisma.setupOrder.create({
     data: {
@@ -48,14 +54,14 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
 }
 
 export async function updateSetupOrder(id: string, eventId: string, formData: FormData) {
-  const name = formData.get("name") as string;
+  const rawName = (formData.get("name") as string).trim();
   const setupType = formData.get("setupType") as string;
   const notes = formData.get("notes") as string;
 
   await prisma.setupOrder.update({
     where: { id },
     data: {
-      name,
+      name: rawName || null,
       setupType: setupType || null,
       notes: notes || null,
     },
@@ -133,7 +139,7 @@ export async function createSetupTable(setupOrderId: string, eventId: string, fo
     data: {
       setupOrderId,
       quantity: parseInt(formData.get("quantity") as string),
-      tableType: formData.get("tableType") as string,
+      tableType: (formData.get("tableType") as string) || null,
       chairCount: formData.get("chairCount") ? parseInt(formData.get("chairCount") as string) : null,
       chairType: (formData.get("chairType") as string) || null,
       notes: (formData.get("notes") as string) || null,
@@ -149,7 +155,7 @@ export async function updateSetupTable(id: string, setupOrderId: string, eventId
     where: { id },
     data: {
       quantity: parseInt(formData.get("quantity") as string),
-      tableType: formData.get("tableType") as string,
+      tableType: (formData.get("tableType") as string) || null,
       chairCount: formData.get("chairCount") ? parseInt(formData.get("chairCount") as string) : null,
       chairType: (formData.get("chairType") as string) || null,
       notes: (formData.get("notes") as string) || null,

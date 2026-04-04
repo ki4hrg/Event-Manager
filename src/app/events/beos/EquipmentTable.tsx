@@ -13,6 +13,7 @@ type EquipmentTableProps = {
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
+  readOnlyItems?: { label: string; quantity: number }[];
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -83,7 +84,7 @@ function EquipmentSelect({
   );
 }
 
-export function EquipmentTable({ items, responsiblePartyOptions, equipmentOptions, equipmentCategories, createItem, updateItem, deleteItem }: EquipmentTableProps) {
+export function EquipmentTable({ items, responsiblePartyOptions, equipmentOptions, equipmentCategories, createItem, updateItem, deleteItem, readOnlyItems }: EquipmentTableProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -150,9 +151,24 @@ export function EquipmentTable({ items, responsiblePartyOptions, equipmentOption
         </form>
       )}
 
-      {items.length === 0 ? (
+      {readOnlyItems && readOnlyItems.length > 0 && (
+        <div className="mb-3 space-y-1">
+          {readOnlyItems.map((ro, i) => (
+            <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-between">
+              <div>
+                <span className="text-gray-900 dark:text-white font-medium">{ro.label}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">{ro.quantity}×</span>
+              </div>
+              <span className="text-xs text-gray-400 dark:text-gray-500 italic">From setup</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {items.length === 0 && !readOnlyItems?.length && (
         <p className="text-gray-500 dark:text-gray-400 text-sm">No equipment items yet.</p>
-      ) : (
+      )}
+      {items.length > 0 && (
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">

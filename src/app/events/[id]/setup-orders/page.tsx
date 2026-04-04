@@ -83,7 +83,7 @@ export default async function SetupOrdersPage({
                     href={`/events/${eventId}/setup-orders/${so.id}`}
                     className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
                   >
-                    {so.name}
+                    {so.name ?? so.function?.name ?? "Unnamed Setup Order"}
                   </Link>
                   <WorkflowBadge summary={workflowSummaries[so.id]} />
                 </div>

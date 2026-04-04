@@ -21,9 +21,8 @@ import {
 } from "../../../setup-orders/actions";
 import { getOptions, getEquipment } from "@/app/settings/actions";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
-import { SetupTableList } from "../../../setup-orders/SetupTableList";
+import { SetupTableList, aggregateSetupTables } from "../../../setup-orders/SetupTableList";
 import { EquipmentTable } from "../../../beos/EquipmentTable";
-import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -59,8 +58,6 @@ export default async function SetupOrderPage({
   const CHAIR_CAT = "CHAIRS";
   const tableOptions = equipmentOptions.filter((e) => e.category === TABLE_CAT);
   const chairOptions = equipmentOptions.filter((e) => e.category === CHAIR_CAT);
-  const otherEquipment = equipmentOptions.filter((e) => e.category !== TABLE_CAT && e.category !== CHAIR_CAT);
-  const otherCategories = equipmentCategories.filter((c) => c.value !== TABLE_CAT && c.value !== CHAIR_CAT);
 
   const availableFunctions = setupOrder.functionId
     ? []
@@ -68,6 +65,12 @@ export default async function SetupOrderPage({
         where: { eventId, setupOrder: null },
         orderBy: { name: "asc" },
       });
+
+  const { tableTotals, chairTotals } = aggregateSetupTables(setupOrder.tables);
+  const setupReadOnlyItems = [
+    ...Object.entries(tableTotals).map(([label, quantity]) => ({ label, quantity })),
+    ...Object.entries(chairTotals).map(([label, quantity]) => ({ label, quantity })),
+  ];
 
   const updateSetupOrderAction = async (formData: FormData) => {
     "use server";
@@ -142,6 +145,8 @@ export default async function SetupOrderPage({
     await toggleItemCompletion(instanceId, itemId, "setup_order", setupOrderId, eventId);
   };
 
+  const displayName = setupOrder.name ?? setupOrder.function?.name ?? "Unnamed Setup Order";
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -154,11 +159,11 @@ export default async function SetupOrderPage({
               { label: "Events", href: "/events" },
               { label: event.name, href: `/events/${eventId}` },
               { label: "Setup Orders", href: `/events/${eventId}/setup-orders` },
-              { label: setupOrder.name },
+              { label: displayName },
             ]}
           />
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {setupOrder.name}
+            {displayName}
           </h1>
         </div>
         <DeleteButton
@@ -174,21 +179,16 @@ export default async function SetupOrderPage({
             eventId={eventId}
             setupTypes={setupTypes}
             action={updateSetupOrderAction}
-          />
-          <AVOrderLinkPanel
-            title="Linked Function"
-            linkedId={setupOrder.functionId}
-            linkedName={setupOrder.function?.name ?? null}
-            linkedDetailPath={
-              setupOrder.function
+            functionLink={{
+              linkedFunctionId: setupOrder.functionId,
+              linkedFunctionName: setupOrder.function?.name ?? null,
+              linkedFunctionPath: setupOrder.function
                 ? `/events/${eventId}/functions/${setupOrder.function.id}`
-                : null
-            }
-            availableItems={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
-            newItemPath={`/events/${eventId}`}
-            linkItem={linkToFunctionAction}
-            unlinkItem={unlinkFromFunctionAction}
-            entityLabel="function"
+                : null,
+              availableFunctions: availableFunctions.map((f) => ({ id: f.id, label: f.name })),
+              linkFunction: linkToFunctionAction,
+              unlinkFunction: unlinkFromFunctionAction,
+            }}
           />
         </div>
 
@@ -212,11 +212,12 @@ export default async function SetupOrderPage({
           <EquipmentTable
             items={setupOrder.equipmentItems}
             responsiblePartyOptions={responsiblePartyOptions}
-            equipmentOptions={otherEquipment}
-            equipmentCategories={otherCategories}
+            equipmentOptions={equipmentOptions}
+            equipmentCategories={equipmentCategories}
             createItem={createEquipmentAction}
             updateItem={updateEquipmentAction}
             deleteItem={deleteEquipmentAction}
+            readOnlyItems={setupReadOnlyItems}
           />
         </div>
       </div>
