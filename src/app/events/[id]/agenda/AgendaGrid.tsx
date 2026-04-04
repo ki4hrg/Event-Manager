@@ -113,36 +113,38 @@ function EntryContent({
   const colors = getEntryColors(entry);
   return (
     <div className="px-1.5 pt-3 pb-1 text-xs h-full">
-      {entry.isBreakout && entry.breakoutGroupName && (
-        <div className={`${colors.text} opacity-75 leading-tight text-[10px] uppercase tracking-wide`}>
-          {entry.breakoutGroupName}
+      <div className="sticky top-10">
+        {entry.isBreakout && entry.breakoutGroupName && (
+          <div className={`${colors.text} opacity-75 leading-tight text-[10px] uppercase tracking-wide`}>
+            {entry.breakoutGroupName}
+          </div>
+        )}
+        <div className={`font-medium ${colors.title} leading-tight break-words`}>
+          {entry.functionName}
         </div>
-      )}
-      <div className={`font-medium ${colors.title} leading-tight break-words`}>
-        {entry.functionName}
-      </div>
-      <div className={`${colors.text} leading-tight mt-0.5 truncate`}>
-        {formatTime(entry.startTime, timezone)} –{" "}
-        {formatTime(entry.endTime, timezone)}
-        {!entry.isBreakout && entry.scheduleType && entry.scheduleType !== "MAIN" && (
-          <span className="ml-1 opacity-75">· {typeDisplay}</span>
+        <div className={`${colors.text} leading-tight mt-0.5 truncate`}>
+          {formatTime(entry.startTime, timezone)} –{" "}
+          {formatTime(entry.endTime, timezone)}
+          {!entry.isBreakout && entry.scheduleType && entry.scheduleType !== "MAIN" && (
+            <span className="ml-1 opacity-75">· {typeDisplay}</span>
+          )}
+        </div>
+        {entry.scheduleNotes && (
+          <div className={`${colors.text} leading-tight mt-0.5 italic`}>
+            {entry.scheduleNotes}
+          </div>
+        )}
+        {!entry.isBreakout && entry.presentationTitles.length > 0 && (
+          <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
+            {entry.presentationTitles.join(", ")}
+          </div>
+        )}
+        {entry.functionDescription && entry.presentationTitles.length === 0 && !entry.isBreakout && (
+          <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
+            {entry.functionDescription}
+          </div>
         )}
       </div>
-      {entry.scheduleNotes && (
-        <div className={`${colors.text} leading-tight mt-0.5 italic`}>
-          {entry.scheduleNotes}
-        </div>
-      )}
-      {!entry.isBreakout && entry.presentationTitles.length > 0 && (
-        <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
-          {entry.presentationTitles.join(", ")}
-        </div>
-      )}
-      {entry.functionDescription && entry.presentationTitles.length === 0 && !entry.isBreakout && (
-        <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
-          {entry.functionDescription}
-        </div>
-      )}
     </div>
   );
 }
