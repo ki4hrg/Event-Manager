@@ -414,3 +414,87 @@ model PresentationContact {
   @@unique([presentationId, contactId])
   @@index([presentationId])
 }
+
+// Workflow system — hierarchical templates with sequential steps and optional checklist sub-items
+
+model WorkflowTemplate {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  sortOrder   Int                @default(0)
+  steps       WorkflowStep[]
+  instances   WorkflowInstance[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model WorkflowStep {
+  id          String                  @id @default(cuid())
+  templateId  String
+  template    WorkflowTemplate        @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  label       String
+  sortOrder   Int                     @default(0)
+  computedKey String?                 // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
+  items       WorkflowChecklistItem[]
+  completions WorkflowStepCompletion[]
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([templateId])
+}
+
+model WorkflowChecklistItem {
+  id          String                       @id @default(cuid())
+  stepId      String
+  step        WorkflowStep                 @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  label       String
+  sortOrder   Int                          @default(0)
+  computedKey String?                      // reserved for future auto-derived checks
+  completions WorkflowChecklistCompletion[]
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+
+  @@index([stepId])
+}
+
+// Links a workflow template to a specific entity (BEO, Function, AVOrder, etc.)
+model WorkflowInstance {
+  id              String                       @id @default(cuid())
+  templateId      String
+  template        WorkflowTemplate             @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  entityType      String                       // "function", "beo", "av_order", "presentation"
+  entityId        String
+  stepCompletions WorkflowStepCompletion[]
+  itemCompletions WorkflowChecklistCompletion[]
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+
+  @@unique([templateId, entityType, entityId])
+  @@index([entityType, entityId])
+}
+
+// Completion of a step — existence of this row means the step is complete
+model WorkflowStepCompletion {
+  id          String           @id @default(cuid())
+  instanceId  String
+  instance    WorkflowInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  stepId      String
+  step        WorkflowStep     @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  completedAt DateTime         @default(now())
+  notes       String?
+
+  @@unique([instanceId, stepId])
+}
+
+// Completion of a checklist item — existence of this row means the item is complete
+model WorkflowChecklistCompletion {
+  id          String                @id @default(cuid())
+  instanceId  String
+  instance    WorkflowInstance      @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  itemId      String
+  item        WorkflowChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  completedAt DateTime              @default(now())
+  notes       String?
+
+  @@unique([instanceId, itemId])
+}

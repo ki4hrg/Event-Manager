@@ -34,7 +34,10 @@ import { ScheduleList } from "../../../functions/ScheduleList";
 import { ContactList } from "../../../functions/ContactList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { BEOPanel } from "../../../beos/BEOPanel";
+import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getOptions } from "@/app/settings/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -67,10 +70,15 @@ export default async function FunctionPage({
       })
     : [];
 
-  const [availableAVOrders, availableBEOs] = await Promise.all([
+  const [availableAVOrders, availableBEOs, workflowInstances, allTemplates] = await Promise.all([
     fn.avOrder ? [] : getAvailableAVOrdersForFunction(eventId),
     fn.beo ? [] : getAvailableBEOs(eventId),
+    getWorkflowInstances("function", functionId),
+    getWorkflowTemplateOptions(),
   ]);
+
+  const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
+  const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
 
   const updateFunctionAction = async (formData: FormData) => {
     "use server";
@@ -140,6 +148,26 @@ export default async function FunctionPage({
   const unlinkBEOAction = async () => {
     "use server";
     await unlinkBEOFromFunctionPage(functionId, eventId);
+  };
+
+  const assignWorkflowAction = async (templateId: string) => {
+    "use server";
+    await assignWorkflow(templateId, "function", functionId, eventId);
+  };
+
+  const removeWorkflowAction = async (instanceId: string) => {
+    "use server";
+    await removeWorkflow(instanceId, "function", functionId, eventId);
+  };
+
+  const toggleStepAction = async (instanceId: string, stepId: string) => {
+    "use server";
+    await toggleStepCompletion(instanceId, stepId, "function", functionId, eventId);
+  };
+
+  const toggleItemAction = async (instanceId: string, itemId: string) => {
+    "use server";
+    await toggleItemCompletion(instanceId, itemId, "function", functionId, eventId);
   };
 
   return (
@@ -219,6 +247,14 @@ export default async function FunctionPage({
             newBEOPath={`/events/${eventId}/beos/new?functionId=${functionId}`}
             linkBEO={linkBEOAction}
             unlinkBEO={unlinkBEOAction}
+          />
+          <WorkflowPanel
+            instances={workflowInstances}
+            availableTemplates={availableWorkflowTemplates}
+            assignWorkflow={assignWorkflowAction}
+            removeWorkflow={removeWorkflowAction}
+            toggleStep={toggleStepAction}
+            toggleItem={toggleItemAction}
           />
         </div>
       </div>

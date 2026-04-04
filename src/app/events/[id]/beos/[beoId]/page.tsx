@@ -32,6 +32,9 @@ import {
   searchContactsForBEO,
 } from "../../../beos/actions";
 import { getOptions } from "../../../../settings/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { BEOTabs } from "../../../beos/BEOTabs";
 import { BEOOverviewForm } from "../../../beos/BEOOverviewForm";
 import { BEOServiceForm } from "../../../beos/BEOServiceForm";
@@ -95,13 +98,15 @@ export default async function BEOPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
 
-  const [event, beo, serviceStyleOptions, responsiblePartyOptions, allAvailableFunctions] =
+  const [event, beo, serviceStyleOptions, responsiblePartyOptions, allAvailableFunctions, workflowInstances, allTemplates] =
     await Promise.all([
       getEvent(eventId),
       getBEO(beoId),
       getOptions("service_style"),
       getOptions("responsible_party"),
       prisma.function.findMany({ where: { eventId, beo: null }, orderBy: { name: "asc" } }),
+      getWorkflowInstances("beo", beoId),
+      getWorkflowTemplateOptions(),
     ]);
 
   if (!event || !beo) {
@@ -110,6 +115,9 @@ export default async function BEOPage({
 
   const availableFunctions = beo.functionId ? [] : allAvailableFunctions;
   const basePath = `/events/${eventId}/beos/${beoId}`;
+
+  const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
+  const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
 
   const deleteBEOAction = async () => {
     "use server";
@@ -210,6 +218,26 @@ export default async function BEOPage({
     return searchContactsForBEO(query);
   };
 
+  const assignWorkflowAction = async (templateId: string) => {
+    "use server";
+    await assignWorkflow(templateId, "beo", beoId, eventId);
+  };
+
+  const removeWorkflowAction = async (instanceId: string) => {
+    "use server";
+    await removeWorkflow(instanceId, "beo", beoId, eventId);
+  };
+
+  const toggleStepAction = async (instanceId: string, stepId: string) => {
+    "use server";
+    await toggleStepCompletion(instanceId, stepId, "beo", beoId, eventId);
+  };
+
+  const toggleItemAction = async (instanceId: string, itemId: string) => {
+    "use server";
+    await toggleItemCompletion(instanceId, itemId, "beo", beoId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -261,6 +289,14 @@ export default async function BEOPage({
             />
           </div>
           <div className="space-y-6">
+            <WorkflowPanel
+              instances={workflowInstances}
+              availableTemplates={availableWorkflowTemplates}
+              assignWorkflow={assignWorkflowAction}
+              removeWorkflow={removeWorkflowAction}
+              toggleStep={toggleStepAction}
+              toggleItem={toggleItemAction}
+            />
             <TimelinePreview
               items={beo.timelineItems}
               serviceTabPath={`${basePath}?tab=service`}

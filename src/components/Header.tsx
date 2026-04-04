@@ -39,6 +39,12 @@ export async function Header() {
                   Users
                 </Link>
                 <Link
+                  href="/workflows"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                >
+                  Workflows
+                </Link>
+                <Link
                   href="/settings"
                   className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                 >
