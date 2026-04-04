@@ -20,11 +20,6 @@ export default async function SettingsPage() {
     await createOption("contact_role", formData);
   };
 
-  const createAvEquipment = async (formData: FormData) => {
-    "use server";
-    await createOption("av_equipment", formData);
-  };
-
   const createScheduleType = async (formData: FormData) => {
     "use server";
     await createOption("schedule_type", formData);
@@ -52,10 +47,6 @@ export default async function SettingsPage() {
   const reorderContactRoles = async (ids: string[]) => {
     "use server";
     await reorderOptions("contact_role", ids);
-  };
-  const reorderAvEquipment = async (ids: string[]) => {
-    "use server";
-    await reorderOptions("av_equipment", ids);
   };
   const reorderScheduleTypes = async (ids: string[]) => {
     "use server";
@@ -165,18 +156,6 @@ export default async function SettingsPage() {
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
           reorderOptions={reorderContactRoles}
-        />
-
-        <OptionList
-          title="AV Equipment (Legacy)"
-          description="Legacy AV equipment checklist for AV Orders — being phased out in favor of Equipment below"
-          category="av_equipment"
-          options={options.av_equipment}
-          showColor={false}
-          createOption={createAvEquipment}
-          updateOption={updateOptionAction}
-          deleteOption={deleteOptionAction}
-          reorderOptions={reorderAvEquipment}
         />
 
         <OptionList

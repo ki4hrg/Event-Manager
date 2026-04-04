@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export type WorkflowEntityType = "function" | "beo" | "av_order" | "presentation";
+export type WorkflowEntityType = "function" | "beo" | "av_order" | "presentation" | "setup_order";
 
 function revalidateEntity(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   switch (entityType) {
@@ -18,6 +18,9 @@ function revalidateEntity(entityType: WorkflowEntityType, entityId: string, even
       break;
     case "presentation":
       revalidatePath(`/events/${eventId}/presentations/${entityId}`);
+      break;
+    case "setup_order":
+      revalidatePath(`/events/${eventId}/setup-orders/${entityId}`);
       break;
   }
 }
@@ -82,6 +85,56 @@ export async function toggleStepCompletion(
   }
 
   revalidateEntity(entityType, entityId, eventId);
+}
+
+export type WorkflowBadgeSummary = { count: number; done: number; total: number };
+
+export async function getWorkflowBadgeSummaries(
+  entityType: WorkflowEntityType,
+  entityIds: string[]
+): Promise<Record<string, WorkflowBadgeSummary>> {
+  if (entityIds.length === 0) return {};
+
+  const instances = await prisma.workflowInstance.findMany({
+    where: { entityType, entityId: { in: entityIds } },
+    include: {
+      template: {
+        include: {
+          steps: {
+            orderBy: { sortOrder: "asc" },
+            include: { items: { orderBy: { sortOrder: "asc" } } },
+          },
+        },
+      },
+      stepCompletions: true,
+      itemCompletions: true,
+    },
+  });
+
+  const result: Record<string, WorkflowBadgeSummary> = {};
+
+  for (const instance of instances) {
+    const eid = instance.entityId;
+    if (!result[eid]) result[eid] = { count: 0, done: 0, total: 0 };
+    result[eid].count += 1;
+
+    const completedStepIds = new Set(instance.stepCompletions.map((c) => c.stepId));
+    const completedItemIds = new Set(instance.itemCompletions.map((c) => c.itemId));
+
+    for (const step of instance.template.steps) {
+      if (step.items.length === 0) {
+        result[eid].total += 1;
+        if (completedStepIds.has(step.id)) result[eid].done += 1;
+      } else {
+        for (const item of step.items) {
+          result[eid].total += 1;
+          if (completedItemIds.has(item.id)) result[eid].done += 1;
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 export async function toggleItemCompletion(

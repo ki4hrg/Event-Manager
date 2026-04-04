@@ -17,7 +17,10 @@ import {
 } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
+import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getEquipment } from "@/app/settings/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +30,12 @@ export default async function AVOrderPage({
   params: Promise<{ id: string; avOrderId: string }>;
 }) {
   const { id: eventId, avOrderId } = await params;
-  const [event, avOrder, avEquipment] = await Promise.all([
+  const [event, avOrder, avEquipment, workflowInstances, allTemplates] = await Promise.all([
     getEvent(eventId),
     getAVOrder(avOrderId),
     getEquipment(),
+    getWorkflowInstances("av_order", avOrderId),
+    getWorkflowTemplateOptions(),
   ]);
 
   if (!event || !avOrder) {
@@ -83,6 +88,29 @@ export default async function AVOrderPage({
     await unlinkAVOrderFromPresentation(avOrderId, eventId);
   };
 
+  const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
+  const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
+
+  const assignWorkflowAction = async (templateId: string) => {
+    "use server";
+    await assignWorkflow(templateId, "av_order", avOrderId, eventId);
+  };
+
+  const removeWorkflowAction = async (instanceId: string) => {
+    "use server";
+    await removeWorkflow(instanceId, "av_order", avOrderId, eventId);
+  };
+
+  const toggleStepAction = async (instanceId: string, stepId: string) => {
+    "use server";
+    await toggleStepCompletion(instanceId, stepId, "av_order", avOrderId, eventId);
+  };
+
+  const toggleItemAction = async (instanceId: string, itemId: string) => {
+    "use server";
+    await toggleItemCompletion(instanceId, itemId, "av_order", avOrderId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -117,6 +145,14 @@ export default async function AVOrderPage({
         </div>
 
         <div className="space-y-6">
+          <WorkflowPanel
+            instances={workflowInstances}
+            availableTemplates={availableWorkflowTemplates}
+            assignWorkflow={assignWorkflowAction}
+            removeWorkflow={removeWorkflowAction}
+            toggleStep={toggleStepAction}
+            toggleItem={toggleItemAction}
+          />
           <AVOrderLinkPanel
             title="Linked Function"
             linkedId={avOrder.functionId}

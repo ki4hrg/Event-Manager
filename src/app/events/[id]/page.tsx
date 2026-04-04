@@ -10,6 +10,7 @@ import { EventForm } from "../EventForm";
 import { getFunctions, duplicateFunction, deleteFunction } from "../functions/actions";
 import { FunctionList } from "../functions/FunctionList";
 import { getOptions } from "@/app/settings/actions";
+import { getWorkflowBadgeSummaries } from "../workflows/actions";
 import { EventTabs } from "./EventTabs";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,10 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     getFunctions(id),
     getOptions("function_type"),
   ]);
+
+  const workflowSummaries = functions.length > 0
+    ? await getWorkflowBadgeSummaries("function", functions.map((f) => f.id))
+    : {};
 
   if (!event) {
     notFound();
@@ -84,6 +89,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             eventId={id}
             timezone={event.timezone || "America/Chicago"}
             functionTypes={functionTypes}
+            workflowSummaries={workflowSummaries}
             duplicateFunction={duplicateFunctionAction}
             deleteFunction={deleteFunctionAction}
           />

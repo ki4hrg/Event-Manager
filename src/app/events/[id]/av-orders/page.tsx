@@ -5,6 +5,8 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { getEvent } from "../../actions";
 import { getAVOrders, deleteAVOrder } from "../../av-orders/actions";
+import { getWorkflowBadgeSummaries } from "../../workflows/actions";
+import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +21,10 @@ export default async function AVOrdersPage({
     getEvent(eventId),
     getAVOrders(eventId),
   ]);
+
+  const workflowSummaries = avOrders.length > 0
+    ? await getWorkflowBadgeSummaries("av_order", avOrders.map((o) => o.id))
+    : {};
 
   if (!event) {
     notFound();
@@ -66,12 +72,15 @@ export default async function AVOrdersPage({
               className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center justify-between"
             >
               <div>
-                <Link
-                  href={`/events/${eventId}/av-orders/${avOrder.id}`}
-                  className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                  {avOrder.name}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/events/${eventId}/av-orders/${avOrder.id}`}
+                    className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
+                  >
+                    {avOrder.name}
+                  </Link>
+                  <WorkflowBadge summary={workflowSummaries[avOrder.id]} />
+                </div>
                 <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                   {avOrder.equipment.length > 0 && (
                     <span>{avOrder.equipment.length} equipment item{avOrder.equipment.length !== 1 ? "s" : ""}</span>

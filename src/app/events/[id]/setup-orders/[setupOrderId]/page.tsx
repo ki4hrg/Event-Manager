@@ -24,6 +24,9 @@ import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { EquipmentTable } from "../../../beos/EquipmentTable";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
+import { WorkflowPanel } from "@/components/WorkflowPanel";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +39,7 @@ export default async function SetupOrderPage({
 }) {
   const { id: eventId, setupOrderId } = await params;
 
-  const [event, setupOrder, setupTypes, responsiblePartyOptions, equipmentOptions, equipmentCategories] =
+  const [event, setupOrder, setupTypes, responsiblePartyOptions, equipmentOptions, equipmentCategories, workflowInstances, allTemplates] =
     await Promise.all([
       getEvent(eventId),
       getSetupOrder(setupOrderId),
@@ -44,6 +47,8 @@ export default async function SetupOrderPage({
       getOptions("responsible_party"),
       getEquipment(),
       getOptions("equipment_category"),
+      getWorkflowInstances("setup_order", setupOrderId),
+      getWorkflowTemplateOptions(),
     ]);
 
   if (!event || !setupOrder) {
@@ -114,6 +119,29 @@ export default async function SetupOrderPage({
     await deleteSetupEquipmentItem(id, setupOrderId, eventId);
   };
 
+  const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
+  const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
+
+  const assignWorkflowAction = async (templateId: string) => {
+    "use server";
+    await assignWorkflow(templateId, "setup_order", setupOrderId, eventId);
+  };
+
+  const removeWorkflowAction = async (instanceId: string) => {
+    "use server";
+    await removeWorkflow(instanceId, "setup_order", setupOrderId, eventId);
+  };
+
+  const toggleStepAction = async (instanceId: string, stepId: string) => {
+    "use server";
+    await toggleStepCompletion(instanceId, stepId, "setup_order", setupOrderId, eventId);
+  };
+
+  const toggleItemAction = async (instanceId: string, itemId: string) => {
+    "use server";
+    await toggleItemCompletion(instanceId, itemId, "setup_order", setupOrderId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -165,6 +193,14 @@ export default async function SetupOrderPage({
         </div>
 
         <div className="space-y-8">
+          <WorkflowPanel
+            instances={workflowInstances}
+            availableTemplates={availableWorkflowTemplates}
+            assignWorkflow={assignWorkflowAction}
+            removeWorkflow={removeWorkflowAction}
+            toggleStep={toggleStepAction}
+            toggleItem={toggleItemAction}
+          />
           <SetupTableList
             tables={setupOrder.tables}
             tableOptions={tableOptions}

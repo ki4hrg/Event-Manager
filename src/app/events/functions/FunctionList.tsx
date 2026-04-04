@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { Function, FunctionRoom, Room, FunctionSchedule, CustomOption, BreakoutGroup } from "@prisma/client";
 import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
 import { colorClasses } from "@/lib/colors";
+import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import { WorkflowBadge } from "@/components/WorkflowBadge";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
@@ -16,6 +18,7 @@ type FunctionListProps = {
   eventId: string;
   timezone: string;
   functionTypes: CustomOption[];
+  workflowSummaries?: Record<string, WorkflowBadgeSummary>;
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
 };
@@ -80,7 +83,7 @@ function groupByDate(functions: FunctionWithRelations[], timezone: string): {
   return { dated, unscheduled };
 }
 
-export function FunctionList({ functions, eventId, timezone, functionTypes, duplicateFunction, deleteFunction }: FunctionListProps) {
+export function FunctionList({ functions, eventId, timezone, functionTypes, workflowSummaries = {}, duplicateFunction, deleteFunction }: FunctionListProps) {
   const { dated, unscheduled } = groupByDate(functions, timezone);
 
   // Create lookup maps for type labels and colors
@@ -118,6 +121,7 @@ export function FunctionList({ functions, eventId, timezone, functionTypes, dupl
                 {fn.breakoutGroup.name}
               </span>
             )}
+            <WorkflowBadge summary={workflowSummaries[fn.id]} />
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">
             {fn.schedules.length > 0 ? (

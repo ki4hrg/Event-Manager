@@ -5,6 +5,8 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { getEvent } from "../../actions";
 import { getBEOs, deleteBEO } from "../../beos/actions";
+import { getWorkflowBadgeSummaries } from "../../workflows/actions";
+import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +21,10 @@ export default async function BEOsPage({
     getEvent(eventId),
     getBEOs(eventId),
   ]);
+
+  const workflowSummaries = beos.length > 0
+    ? await getWorkflowBadgeSummaries("beo", beos.map((b) => b.id))
+    : {};
 
   if (!event) {
     notFound();
@@ -66,12 +72,15 @@ export default async function BEOsPage({
               className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center justify-between"
             >
               <div>
-                <Link
-                  href={`/events/${eventId}/beos/${beo.id}`}
-                  className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                  {beo.name}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/events/${eventId}/beos/${beo.id}`}
+                    className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
+                  >
+                    {beo.name}
+                  </Link>
+                  <WorkflowBadge summary={workflowSummaries[beo.id]} />
+                </div>
                 <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                   {beo.guaranteeCount != null && (
                     <span>Guarantee: {beo.guaranteeCount}</span>
