@@ -7,7 +7,7 @@ import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type EquipmentTableProps = {
   items: EquipmentItem[];
-  responsiblePartyOptions: CustomOption[];
+  cateringProviderOptions: CustomOption[];
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -27,7 +27,7 @@ function SubmitButton({ label }: { label: string }) {
 }
 
 
-export function EquipmentTable({ items, responsiblePartyOptions, createItem, updateItem, deleteItem }: EquipmentTableProps) {
+export function EquipmentTable({ items, cateringProviderOptions, createItem, updateItem, deleteItem }: EquipmentTableProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -68,7 +68,7 @@ export function EquipmentTable({ items, responsiblePartyOptions, createItem, upd
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-              <ResponsiblePartyField options={responsiblePartyOptions} />
+              <ResponsiblePartyField options={cateringProviderOptions} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
@@ -121,7 +121,7 @@ export function EquipmentTable({ items, responsiblePartyOptions, createItem, upd
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-                      <ResponsiblePartyField options={responsiblePartyOptions} defaultValue={item.responsibleParty || ""} />
+                      <ResponsiblePartyField options={cateringProviderOptions} defaultValue={item.responsibleParty || ""} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>

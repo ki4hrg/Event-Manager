@@ -95,13 +95,12 @@ export default async function BEOPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
 
-  const [event, beo, serviceStyleOptions, cateringProviderOptions, responsiblePartyOptions, allAvailableFunctions] =
+  const [event, beo, serviceStyleOptions, cateringProviderOptions, allAvailableFunctions] =
     await Promise.all([
       getEvent(eventId),
       getBEO(beoId),
       getOptions("service_style"),
       getOptions("catering_provider"),
-      getOptions("responsible_party"),
       prisma.function.findMany({ where: { eventId, beo: null }, orderBy: { name: "asc" } }),
     ]);
 
@@ -278,21 +277,23 @@ export default async function BEOPage({
       )}
 
       {activeTab === "service" && (
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <BEOServiceForm beo={beo} action={updateServiceAction} />
-          <TimelineTable
-            items={beo.timelineItems}
-            createItem={createTimelineAction}
-            updateItem={updateTimelineAction}
-            deleteItem={deleteTimelineAction}
-          />
-          <EquipmentTable
-            items={beo.equipmentItems}
-            responsiblePartyOptions={responsiblePartyOptions}
-            createItem={createEquipmentAction}
-            updateItem={updateEquipmentAction}
-            deleteItem={deleteEquipmentAction}
-          />
+          <div className="space-y-6">
+            <TimelineTable
+              items={beo.timelineItems}
+              createItem={createTimelineAction}
+              updateItem={updateTimelineAction}
+              deleteItem={deleteTimelineAction}
+            />
+            <EquipmentTable
+              items={beo.equipmentItems}
+              cateringProviderOptions={cateringProviderOptions}
+              createItem={createEquipmentAction}
+              updateItem={updateEquipmentAction}
+              deleteItem={deleteEquipmentAction}
+            />
+          </div>
         </div>
       )}
 
