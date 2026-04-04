@@ -1,12 +1,12 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import type { AVOrder, CustomOption } from "@prisma/client";
+import type { AVOrder, Equipment } from "@prisma/client";
 
 type AVOrderFormProps = {
   avOrder?: AVOrder | null;
   eventId: string;
-  avEquipment: CustomOption[];
+  avEquipment: Equipment[];
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -71,11 +71,11 @@ export function AVOrderForm({ avOrder, eventId, avEquipment, action }: AVOrderFo
                     <input
                       type="checkbox"
                       name="equipment"
-                      value={item.value}
-                      defaultChecked={selectedEquipment.includes(item.value)}
+                      value={item.name}
+                      defaultChecked={selectedEquipment.includes(item.name)}
                       className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-gray-900 dark:text-white text-sm">{item.label}</span>
+                    <span className="text-gray-900 dark:text-white text-sm">{item.name}</span>
                   </label>
                 ))}
               </div>

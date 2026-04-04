@@ -31,7 +31,7 @@ import {
   removeBEOContact,
   searchContactsForBEO,
 } from "../../../beos/actions";
-import { getOptions } from "../../../../settings/actions";
+import { getOptions, getEquipment } from "../../../../settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
@@ -98,12 +98,14 @@ export default async function BEOPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
 
-  const [event, beo, serviceStyleOptions, responsiblePartyOptions, allAvailableFunctions, workflowInstances, allTemplates] =
+  const [event, beo, serviceStyleOptions, responsiblePartyOptions, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates] =
     await Promise.all([
       getEvent(eventId),
       getBEO(beoId),
       getOptions("service_style"),
       getOptions("responsible_party"),
+      getEquipment(),
+      getOptions("equipment_category"),
       prisma.function.findMany({ where: { eventId, beo: null }, orderBy: { name: "asc" } }),
       getWorkflowInstances("beo", beoId),
       getWorkflowTemplateOptions(),
@@ -325,6 +327,8 @@ export default async function BEOPage({
             <EquipmentTable
               items={beo.equipmentItems}
               responsiblePartyOptions={responsiblePartyOptions}
+              equipmentOptions={equipmentOptions}
+              equipmentCategories={equipmentCategories}
               createItem={createEquipmentAction}
               updateItem={updateEquipmentAction}
               deleteItem={deleteEquipmentAction}

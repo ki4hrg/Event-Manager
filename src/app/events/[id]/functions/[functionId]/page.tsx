@@ -29,11 +29,17 @@ import {
   linkBEOToFunctionFromFunction,
   unlinkBEOFromFunctionPage,
 } from "../../../beos/actions";
+import {
+  getAvailableSetupOrdersForFunction,
+  linkSetupOrderToFunctionFromFunction,
+  unlinkSetupOrderFromFunctionPage,
+} from "../../../setup-orders/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
 import { ScheduleList } from "../../../functions/ScheduleList";
 import { ContactList } from "../../../functions/ContactList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { BEOPanel } from "../../../beos/BEOPanel";
+import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getOptions } from "@/app/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
@@ -70,9 +76,10 @@ export default async function FunctionPage({
       })
     : [];
 
-  const [availableAVOrders, availableBEOs, workflowInstances, allTemplates] = await Promise.all([
+  const [availableAVOrders, availableBEOs, availableSetupOrders, workflowInstances, allTemplates] = await Promise.all([
     fn.avOrder ? [] : getAvailableAVOrdersForFunction(eventId),
     fn.beo ? [] : getAvailableBEOs(eventId),
+    fn.setupOrder ? [] : getAvailableSetupOrdersForFunction(eventId),
     getWorkflowInstances("function", functionId),
     getWorkflowTemplateOptions(),
   ]);
@@ -148,6 +155,16 @@ export default async function FunctionPage({
   const unlinkBEOAction = async () => {
     "use server";
     await unlinkBEOFromFunctionPage(functionId, eventId);
+  };
+
+  const linkSetupOrderAction = async (setupOrderId: string) => {
+    "use server";
+    await linkSetupOrderToFunctionFromFunction(setupOrderId, functionId, eventId);
+  };
+
+  const unlinkSetupOrderAction = async () => {
+    "use server";
+    await unlinkSetupOrderFromFunctionPage(functionId, eventId);
   };
 
   const assignWorkflowAction = async (templateId: string) => {
@@ -247,6 +264,14 @@ export default async function FunctionPage({
             newBEOPath={`/events/${eventId}/beos/new?functionId=${functionId}`}
             linkBEO={linkBEOAction}
             unlinkBEO={unlinkBEOAction}
+          />
+          <SetupOrderPanel
+            setupOrder={fn.setupOrder ?? null}
+            eventId={eventId}
+            availableSetupOrders={availableSetupOrders}
+            newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}`}
+            linkSetupOrder={linkSetupOrderAction}
+            unlinkSetupOrder={unlinkSetupOrderAction}
           />
           <WorkflowPanel
             instances={workflowInstances}

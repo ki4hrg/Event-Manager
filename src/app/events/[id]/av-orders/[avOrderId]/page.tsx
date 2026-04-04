@@ -17,7 +17,7 @@ import {
 } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
-import { getOptions } from "@/app/settings/actions";
+import { getEquipment } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function AVOrderPage({
   const [event, avOrder, avEquipment] = await Promise.all([
     getEvent(eventId),
     getAVOrder(avOrderId),
-    getOptions("av_equipment"),
+    getEquipment(),
   ]);
 
   if (!event || !avOrder) {

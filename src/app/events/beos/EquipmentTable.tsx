@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { EquipmentItem, CustomOption } from "@prisma/client";
+import type { EquipmentItem, CustomOption, Equipment } from "@prisma/client";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type EquipmentTableProps = {
   items: EquipmentItem[];
   responsiblePartyOptions: CustomOption[];
+  equipmentOptions: Equipment[];
+  equipmentCategories: CustomOption[];
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -27,7 +29,61 @@ function SubmitButton({ label }: { label: string }) {
 }
 
 
-export function EquipmentTable({ items, responsiblePartyOptions, createItem, updateItem, deleteItem }: EquipmentTableProps) {
+function EquipmentSelect({
+  equipmentOptions,
+  equipmentCategories,
+  defaultValue,
+}: {
+  equipmentOptions: Equipment[];
+  equipmentCategories: CustomOption[];
+  defaultValue?: string;
+}) {
+  const knownCategorySet = new Set(equipmentCategories.map((c) => c.value));
+  const grouped = equipmentCategories
+    .map((cat) => ({ label: cat.label, items: equipmentOptions.filter((e) => e.category === cat.value) }))
+    .filter((g) => g.items.length > 0);
+  const uncategorized = equipmentOptions.filter((e) => !knownCategorySet.has(e.category));
+
+  if (equipmentOptions.length === 0) {
+    return (
+      <input
+        type="text"
+        name="item"
+        required
+        defaultValue={defaultValue}
+        placeholder="Equipment name"
+        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+      />
+    );
+  }
+
+  return (
+    <select
+      name="item"
+      required
+      defaultValue={defaultValue || ""}
+      className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+    >
+      <option value="">Select equipment...</option>
+      {grouped.map((group) => (
+        <optgroup key={group.label} label={group.label}>
+          {group.items.map((e) => (
+            <option key={e.id} value={e.name}>{e.name}</option>
+          ))}
+        </optgroup>
+      ))}
+      {uncategorized.length > 0 && (
+        <optgroup label="Other">
+          {uncategorized.map((e) => (
+            <option key={e.id} value={e.name}>{e.name}</option>
+          ))}
+        </optgroup>
+      )}
+    </select>
+  );
+}
+
+export function EquipmentTable({ items, responsiblePartyOptions, equipmentOptions, equipmentCategories, createItem, updateItem, deleteItem }: EquipmentTableProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -58,13 +114,7 @@ export function EquipmentTable({ items, responsiblePartyOptions, createItem, upd
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
-              <input
-                type="text"
-                name="item"
-                required
-                placeholder="e.g., Linens, Silverware"
-                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
+              <EquipmentSelect equipmentOptions={equipmentOptions} equipmentCategories={equipmentCategories} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
@@ -111,13 +161,7 @@ export function EquipmentTable({ items, responsiblePartyOptions, createItem, upd
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
-                      <input
-                        type="text"
-                        name="item"
-                        required
-                        defaultValue={item.item}
-                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      />
+                      <EquipmentSelect equipmentOptions={equipmentOptions} equipmentCategories={equipmentCategories} defaultValue={item.item} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>

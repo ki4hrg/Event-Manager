@@ -47,6 +47,47 @@ const defaultPresentationTypes = [
   { value: "PLENARY", label: "Plenary", color: "purple", sortOrder: 1 },
 ];
 
+const defaultEquipmentCategories = [
+  { value: "AV", label: "AV", sortOrder: 0 },
+  { value: "TABLES", label: "Tables", isSystem: true, sortOrder: 1 },
+  { value: "CHAIRS", label: "Chairs", isSystem: true, sortOrder: 2 },
+  { value: "STAGING", label: "Staging", sortOrder: 3 },
+  { value: "SIGNAGE", label: "Signage", sortOrder: 4 },
+];
+
+const defaultSetupTypes = [
+  { value: "FIXED_IN_ROOM", label: "Fixed in Room", sortOrder: 0 },
+  { value: "THEATER", label: "Theater", sortOrder: 1 },
+  { value: "CLASSROOM", label: "Classroom", sortOrder: 2 },
+  { value: "BANQUET_ROUNDS", label: "Banquet Rounds", sortOrder: 3 },
+  { value: "U_SHAPE", label: "U-Shape", sortOrder: 4 },
+  { value: "HOLLOW_SQUARE", label: "Hollow Square", sortOrder: 5 },
+  { value: "RECEPTION_STANDING", label: "Reception / Standing", sortOrder: 6 },
+];
+
+const defaultEquipment = [
+  // AV
+  { name: "Projector", category: "AV", sortOrder: 0 },
+  { name: "Screen", category: "AV", sortOrder: 1 },
+  { name: "Microphone", category: "AV", sortOrder: 2 },
+  { name: "Podium", category: "AV", sortOrder: 3 },
+  { name: "Webcast", category: "AV", sortOrder: 4 },
+  { name: "Recording", category: "AV", sortOrder: 5 },
+  { name: "Video Playback", category: "AV", sortOrder: 6 },
+  // Tables
+  { name: "6' Rectangle", category: "TABLES", sortOrder: 0 },
+  { name: "8' Rectangle", category: "TABLES", sortOrder: 1 },
+  { name: "60\" Round", category: "TABLES", sortOrder: 2 },
+  { name: "72\" Round", category: "TABLES", sortOrder: 3 },
+  { name: "Half Round", category: "TABLES", sortOrder: 4 },
+  { name: "Cocktail / Highboy", category: "TABLES", sortOrder: 5 },
+  { name: "Head Table", category: "TABLES", sortOrder: 6 },
+  // Chairs
+  { name: "Banquet Chair", category: "CHAIRS", sortOrder: 0 },
+  { name: "Folding Chair", category: "CHAIRS", sortOrder: 1 },
+  { name: "Theater Seat (fixed)", category: "CHAIRS", sortOrder: 2 },
+];
+
 async function seedUsers() {
   const userCount = await prisma.user.count();
 
@@ -94,6 +135,20 @@ async function seedOptionsForCategory(category, options) {
   return options.length;
 }
 
+async function seedEquipment() {
+  const existingCount = await prisma.equipment.count();
+  if (existingCount > 0) {
+    console.log("Equipment already exists, skipping.");
+    return 0;
+  }
+
+  for (const item of defaultEquipment) {
+    await prisma.equipment.create({ data: item });
+  }
+  console.log(`Seeded ${defaultEquipment.length} equipment items`);
+  return defaultEquipment.length;
+}
+
 async function seedOptions() {
   let totalCreated = 0;
 
@@ -103,6 +158,8 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("schedule_type", defaultScheduleTypes);
   totalCreated += await seedOptionsForCategory("presenter_role", defaultPresenterRoles);
   totalCreated += await seedOptionsForCategory("presentation_type", defaultPresentationTypes);
+  totalCreated += await seedOptionsForCategory("equipment_category", defaultEquipmentCategories);
+  totalCreated += await seedOptionsForCategory("setup_type", defaultSetupTypes);
 
   console.log(`Seeded ${totalCreated} total options`);
 }
@@ -110,6 +167,7 @@ async function seedOptions() {
 async function main() {
   await seedUsers();
   await seedOptions();
+  await seedEquipment();
 }
 
 main()

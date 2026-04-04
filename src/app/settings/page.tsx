@@ -1,13 +1,14 @@
 import { PageWrapper } from "@/components/PageWrapper";
-import { getAllOptions, createOption, updateOption, deleteOption, reorderOptions } from "./actions";
+import { getAllOptions, createOption, updateOption, deleteOption, reorderOptions, getEquipment, createEquipment, updateEquipment, deleteEquipment } from "./actions";
 import { OptionList } from "./OptionList";
+import { EquipmentList } from "./EquipmentList";
 import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   await requireAdmin();
-  const options = await getAllOptions();
+  const [options, equipment] = await Promise.all([getAllOptions(), getEquipment()]);
 
   const createFunctionType = async (formData: FormData) => {
     "use server";
@@ -95,6 +96,41 @@ export default async function SettingsPage() {
     await reorderOptions("responsible_party", ids);
   };
 
+  const createEquipmentCategory = async (formData: FormData) => {
+    "use server";
+    await createOption("equipment_category", formData);
+  };
+
+  const reorderEquipmentCategories = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("equipment_category", ids);
+  };
+
+  const createSetupType = async (formData: FormData) => {
+    "use server";
+    await createOption("setup_type", formData);
+  };
+
+  const reorderSetupTypes = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("setup_type", ids);
+  };
+
+  const createEquipmentAction = async (formData: FormData) => {
+    "use server";
+    await createEquipment(formData);
+  };
+
+  const updateEquipmentAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateEquipment(id, formData);
+  };
+
+  const deleteEquipmentAction = async (id: string) => {
+    "use server";
+    await deleteEquipment(id);
+  };
+
   return (
     <PageWrapper>
       <div className="mb-6">
@@ -132,8 +168,8 @@ export default async function SettingsPage() {
         />
 
         <OptionList
-          title="AV Equipment"
-          description="Audio/visual equipment options for functions"
+          title="AV Equipment (Legacy)"
+          description="Legacy AV equipment checklist for AV Orders — being phased out in favor of Equipment below"
           category="av_equipment"
           options={options.av_equipment}
           showColor={false}
@@ -201,6 +237,38 @@ export default async function SettingsPage() {
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
           reorderOptions={reorderResponsibleParties}
+        />
+
+        <OptionList
+          title="Equipment Categories"
+          description="Categories for organizing equipment (e.g., AV, Tables, Chairs). Tables and Chairs are system categories and cannot be deleted."
+          category="equipment_category"
+          options={options.equipment_category}
+          showColor={false}
+          createOption={createEquipmentCategory}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+          reorderOptions={reorderEquipmentCategories}
+        />
+
+        <EquipmentList
+          equipment={equipment}
+          categories={options.equipment_category}
+          createEquipment={createEquipmentAction}
+          updateEquipment={updateEquipmentAction}
+          deleteEquipment={deleteEquipmentAction}
+        />
+
+        <OptionList
+          title="Setup Types"
+          description="Room setup configurations for Setup Orders (e.g., Theater, Classroom, Banquet Rounds)"
+          category="setup_type"
+          options={options.setup_type}
+          showColor={false}
+          createOption={createSetupType}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+          reorderOptions={reorderSetupTypes}
         />
       </div>
     </PageWrapper>

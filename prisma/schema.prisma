@@ -21,15 +21,29 @@ model User {
 // Customizable options for dropdowns
 model CustomOption {
   id        String   @id @default(cuid())
-  category  String   // "function_type", "contact_role", "av_equipment"
+  category  String   // "function_type", "contact_role", "av_equipment", "equipment_category", "setup_type"
   value     String   // The stored value (e.g., "MEAL", "SPEAKER")
   label     String   // The display label (e.g., "Meal / BEO", "Speaker")
   color     String?  // Optional color for badges (e.g., "orange", "blue")
+  isSystem  Boolean  @default(false) // System entries cannot be deleted from the UI
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([category, value])
+  @@index([category])
+}
+
+// Equipment catalog with category grouping
+model Equipment {
+  id        String   @id @default(cuid())
+  name      String
+  category  String   // references equipment_category CustomOption values
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, name])
   @@index([category])
 }
 
@@ -49,6 +63,7 @@ model Event {
   breakoutGroups     BreakoutGroup[]
   avOrders           AVOrder[]
   beos               BEO[]
+  setupOrders        SetupOrder[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -132,6 +147,7 @@ model Function {
   sessionRoomOverrides BreakoutSessionRoomOverride[]
   avOrder              AVOrder?
   beo                  BEO?
+  setupOrder           SetupOrder?
   timelineItems        TimelineItem[]
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
@@ -248,21 +264,57 @@ model TimelineItem {
 }
 
 model EquipmentItem {
-  id               String   @id @default(cuid())
+  id               String      @id @default(cuid())
   beoId            String?
   avOrderId        String?
-  beo              BEO?     @relation(fields: [beoId], references: [id], onDelete: Cascade)
-  avOrder          AVOrder? @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  setupOrderId     String?
+  beo              BEO?        @relation(fields: [beoId], references: [id], onDelete: Cascade)
+  avOrder          AVOrder?    @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  setupOrder       SetupOrder? @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   item             String
   quantity         Int?
   responsibleParty String?
   notes            String?
-  sortOrder        Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  sortOrder        Int         @default(0)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@index([beoId])
   @@index([avOrderId])
+  @@index([setupOrderId])
+}
+
+model SetupOrder {
+  id             String          @id @default(cuid())
+  name           String
+  setupType      String?
+  eventId        String
+  event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId     String?         @unique
+  function       Function?       @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  notes          String?
+  tables         SetupTable[]
+  equipmentItems EquipmentItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([eventId])
+}
+
+model SetupTable {
+  id           String     @id @default(cuid())
+  setupOrderId String
+  setupOrder   SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  quantity     Int
+  tableType    String
+  chairCount   Int?
+  chairType    String?
+  notes        String?
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([setupOrderId])
 }
 
 model BEOLineItem {

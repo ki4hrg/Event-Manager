@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export type OptionCategory = "function_type" | "contact_role" | "av_equipment" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "responsible_party";
+export type OptionCategory = "function_type" | "contact_role" | "av_equipment" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "responsible_party" | "equipment_category" | "setup_type";
 
 export async function getOptions(category: OptionCategory) {
   return prisma.customOption.findMany({
@@ -27,6 +27,8 @@ export async function getAllOptions() {
     presentation_type: options.filter((o) => o.category === "presentation_type"),
     service_style: options.filter((o) => o.category === "service_style"),
     responsible_party: options.filter((o) => o.category === "responsible_party"),
+    equipment_category: options.filter((o) => o.category === "equipment_category"),
+    setup_type: options.filter((o) => o.category === "setup_type"),
   };
 }
 
@@ -76,7 +78,52 @@ export async function updateOption(id: string, formData: FormData) {
 
 export async function deleteOption(id: string) {
   await requireAdmin();
+  const option = await prisma.customOption.findUnique({ where: { id }, select: { isSystem: true } });
+  if (option?.isSystem) throw new Error("Cannot delete a system option.");
   await prisma.customOption.delete({ where: { id } });
+  revalidatePath("/settings");
+}
+
+// Equipment catalog actions
+export async function getEquipment() {
+  return prisma.equipment.findMany({
+    orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
+  });
+}
+
+export async function createEquipment(formData: FormData) {
+  await requireAdmin();
+  const name = formData.get("name") as string;
+  const category = formData.get("category") as string;
+
+  const { _max } = await prisma.equipment.aggregate({ where: { category }, _max: { sortOrder: true } });
+
+  await prisma.equipment.create({
+    data: {
+      name,
+      category,
+      sortOrder: (_max.sortOrder ?? -1) + 1,
+    },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function updateEquipment(id: string, formData: FormData) {
+  await requireAdmin();
+  await prisma.equipment.update({
+    where: { id },
+    data: {
+      name: formData.get("name") as string,
+      category: formData.get("category") as string,
+    },
+  });
+  revalidatePath("/settings");
+}
+
+export async function deleteEquipment(id: string) {
+  await requireAdmin();
+  await prisma.equipment.delete({ where: { id } });
   revalidatePath("/settings");
 }
 

@@ -87,6 +87,7 @@ export async function getFunction(id: string) {
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       avOrder: true,
       beo: true,
+      setupOrder: true,
       breakoutGroup: true,
     },
   });

@@ -4,7 +4,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { createAVOrder } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
-import { getOptions } from "@/app/settings/actions";
+import { getEquipment } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function NewAVOrderPage({
 
   const [event, avEquipment] = await Promise.all([
     getEvent(eventId),
-    getOptions("av_equipment"),
+    getEquipment(),
   ]);
 
   if (!event) {

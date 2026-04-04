@@ -14,6 +14,7 @@ const tabs = [
   { label: "Breakout", segment: "breakout-schedule" },
   { label: "AV Orders", segment: "av-orders" },
   { label: "BEOs", segment: "beos" },
+  { label: "Setup Orders", segment: "setup-orders" },
 ];
 
 export function EventTabs({ eventId }: EventTabsProps) {
