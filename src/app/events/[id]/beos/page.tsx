@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { getEvent } from "../../actions";
 import { getBEOs, deleteBEO } from "../../beos/actions";
 import { EventTabs } from "../EventTabs";
@@ -85,18 +86,11 @@ export default async function BEOsPage({
                   )}
                 </div>
               </div>
-              <form action={deleteBEOAction}>
-                <input type="hidden" name="beoId" value={beo.id} />
-                <button
-                  type="submit"
-                  onClick={(e) => {
-                    if (!confirm("Delete this BEO?")) e.preventDefault();
-                  }}
-                  className="text-red-600 hover:underline text-sm"
-                >
-                  Delete
-                </button>
-              </form>
+              <InlineDeleteButton
+                action={deleteBEOAction}
+                hiddenInputs={{ beoId: beo.id }}
+                confirmMessage="Delete this BEO?"
+              />
             </div>
           ))}
         </div>

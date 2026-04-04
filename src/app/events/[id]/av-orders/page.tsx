@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { getEvent } from "../../actions";
 import { getAVOrders, deleteAVOrder } from "../../av-orders/actions";
 import { EventTabs } from "../EventTabs";
@@ -90,18 +91,11 @@ export default async function AVOrdersPage({
                   )}
                 </div>
               </div>
-              <form action={deleteAVOrderAction}>
-                <input type="hidden" name="avOrderId" value={avOrder.id} />
-                <button
-                  type="submit"
-                  onClick={(e) => {
-                    if (!confirm("Delete this AV Order?")) e.preventDefault();
-                  }}
-                  className="text-red-600 hover:underline text-sm"
-                >
-                  Delete
-                </button>
-              </form>
+              <InlineDeleteButton
+                action={deleteAVOrderAction}
+                hiddenInputs={{ avOrderId: avOrder.id }}
+                confirmMessage="Delete this AV Order?"
+              />
             </div>
           ))}
         </div>
