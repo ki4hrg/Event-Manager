@@ -27,6 +27,7 @@ export async function getAllOptions() {
     presentation_type: options.filter((o) => o.category === "presentation_type"),
     service_style: options.filter((o) => o.category === "service_style"),
     catering_provider: options.filter((o) => o.category === "catering_provider"),
+    responsible_party: options.filter((o) => o.category === "responsible_party"),
   };
 }
 

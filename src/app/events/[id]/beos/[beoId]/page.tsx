@@ -297,7 +297,7 @@ export default async function BEOPage({
       )}
 
       {activeTab === "contract" && (
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <BEOContractForm beo={beo} action={updateContractAction} />
           <LineItemTable
             items={beo.lineItems}

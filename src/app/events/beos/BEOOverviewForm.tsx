@@ -154,7 +154,10 @@ export function BEOOverviewForm({
           </div>
           <dl className="space-y-4">
             <ReadOnlyField label="Name" value={beo.name} />
-            <ReadOnlyField label="Service Style" value={beo.serviceStyle} />
+            <ReadOnlyField
+              label="Service Style"
+              value={serviceStyleOptions.find((o) => o.value === beo.serviceStyle)?.label ?? beo.serviceStyle}
+            />
             <FunctionLinkControl
               linkedFunctionId={linkedFunctionId}
               linkedFunctionName={linkedFunctionName}

@@ -95,6 +95,16 @@ export default async function SettingsPage() {
     await reorderOptions("catering_provider", ids);
   };
 
+  const createResponsibleParty = async (formData: FormData) => {
+    "use server";
+    await createOption("responsible_party", formData);
+  };
+
+  const reorderResponsibleParties = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("responsible_party", ids);
+  };
+
   return (
     <PageWrapper>
       <div className="mb-6">
@@ -201,6 +211,18 @@ export default async function SettingsPage() {
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
           reorderOptions={reorderCateringProviders}
+        />
+
+        <OptionList
+          title="Responsible Parties"
+          description="Parties responsible for equipment items in BEOs (e.g., Venue, Caterer, Event)"
+          category="responsible_party"
+          options={options.responsible_party}
+          showColor={false}
+          createOption={createResponsibleParty}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+          reorderOptions={reorderResponsibleParties}
         />
       </div>
     </PageWrapper>

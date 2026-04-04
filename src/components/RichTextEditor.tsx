@@ -1,8 +1,8 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect } from "react";
 
 type RichTextEditorProps = {
   name: string;
@@ -11,9 +11,14 @@ type RichTextEditorProps = {
 };
 
 export function RichTextEditor({ name, defaultValue = "", placeholder }: RichTextEditorProps) {
+  const [html, setHtml] = useState(defaultValue);
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: defaultValue,
+    onUpdate: ({ editor }) => {
+      setHtml(editor.getHTML());
+    },
     editorProps: {
       attributes: {
         class:
@@ -25,6 +30,7 @@ export function RichTextEditor({ name, defaultValue = "", placeholder }: RichTex
   useEffect(() => {
     if (editor) {
       editor.commands.setContent(defaultValue || "");
+      setHtml(defaultValue || "");
     }
   }, [defaultValue, editor]);
 
@@ -34,7 +40,7 @@ export function RichTextEditor({ name, defaultValue = "", placeholder }: RichTex
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{placeholder}</p>
       )}
       <EditorContent editor={editor} />
-      <input type="hidden" name={name} value={editor?.getHTML() ?? ""} />
+      <input type="hidden" name={name} value={html} />
     </div>
   );
 }
