@@ -61,7 +61,7 @@ export async function createBEO(eventId: string, formData: FormData) {
   redirect(`/events/${eventId}/beos/${beo.id}`);
 }
 
-export async function updateBEO(id: string, eventId: string, formData: FormData) {
+export async function updateBEOOverview(id: string, eventId: string, formData: FormData) {
   await prisma.bEO.update({
     where: { id },
     data: {
@@ -70,21 +70,40 @@ export async function updateBEO(id: string, eventId: string, formData: FormData)
       expectedCount: formData.get("expectedCount") ? parseInt(formData.get("expectedCount") as string) : null,
       confirmedCount: formData.get("confirmedCount") ? parseInt(formData.get("confirmedCount") as string) : null,
       guaranteeCount: formData.get("guaranteeCount") ? parseInt(formData.get("guaranteeCount") as string) : null,
+    },
+  });
+  revalidatePath(`/events/${eventId}/beos`);
+  revalidatePath(`/events/${eventId}/beos/${id}`);
+  redirect(`/events/${eventId}/beos/${id}?tab=overview&success=Saved`);
+}
+
+export async function updateBEOService(id: string, eventId: string, formData: FormData) {
+  await prisma.bEO.update({
+    where: { id },
+    data: {
+      dietaryNotes: (formData.get("dietaryNotes") as string) || null,
       staffingNotes: (formData.get("staffingNotes") as string) || null,
-      rentalMinimum: (formData.get("rentalMinimum") as string) ? parseFloat(formData.get("rentalMinimum") as string) : null,
-      fbMinimum: (formData.get("fbMinimum") as string) ? parseFloat(formData.get("fbMinimum") as string) : null,
+    },
+  });
+  revalidatePath(`/events/${eventId}/beos/${id}`);
+  redirect(`/events/${eventId}/beos/${id}?tab=service&success=Saved`);
+}
+
+export async function updateBEOContract(id: string, eventId: string, formData: FormData) {
+  await prisma.bEO.update({
+    where: { id },
+    data: {
       depositDeadline: parseDateField(formData.get("depositDeadline") as string),
       guaranteeDeadline: parseDateField(formData.get("guaranteeDeadline") as string),
       paymentDeadline: parseDateField(formData.get("paymentDeadline") as string),
+      rentalMinimum: (formData.get("rentalMinimum") as string) ? parseFloat(formData.get("rentalMinimum") as string) : null,
+      fbMinimum: (formData.get("fbMinimum") as string) ? parseFloat(formData.get("fbMinimum") as string) : null,
       cancellationTerms: (formData.get("cancellationTerms") as string) || null,
-      dietaryNotes: (formData.get("dietaryNotes") as string) || null,
       notes: (formData.get("notes") as string) || null,
     },
   });
-
-  revalidatePath(`/events/${eventId}/beos`);
   revalidatePath(`/events/${eventId}/beos/${id}`);
-  redirect(`/events/${eventId}/beos/${id}?success=BEO updated`);
+  redirect(`/events/${eventId}/beos/${id}?tab=contract&success=Saved`);
 }
 
 export async function deleteBEO(id: string, eventId: string) {

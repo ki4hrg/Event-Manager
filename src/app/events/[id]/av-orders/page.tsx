@@ -23,9 +23,9 @@ export default async function AVOrdersPage({
     notFound();
   }
 
-  const deleteAVOrderAction = async (avOrderId: string) => {
+  const deleteAVOrderAction = async (formData: FormData) => {
     "use server";
-    await deleteAVOrder(avOrderId, eventId);
+    await deleteAVOrder(formData.get("avOrderId") as string, eventId);
   };
 
   return (
@@ -90,7 +90,8 @@ export default async function AVOrdersPage({
                   )}
                 </div>
               </div>
-              <form action={() => deleteAVOrderAction(avOrder.id)}>
+              <form action={deleteAVOrderAction}>
+                <input type="hidden" name="avOrderId" value={avOrder.id} />
                 <button
                   type="submit"
                   onClick={(e) => {

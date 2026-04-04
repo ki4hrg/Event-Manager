@@ -23,9 +23,9 @@ export default async function BEOsPage({
     notFound();
   }
 
-  const deleteBEOAction = async (beoId: string) => {
+  const deleteBEOAction = async (formData: FormData) => {
     "use server";
-    await deleteBEO(beoId, eventId);
+    await deleteBEO(formData.get("beoId") as string, eventId);
   };
 
   return (
@@ -85,7 +85,8 @@ export default async function BEOsPage({
                   )}
                 </div>
               </div>
-              <form action={() => deleteBEOAction(beo.id)}>
+              <form action={deleteBEOAction}>
+                <input type="hidden" name="beoId" value={beo.id} />
                 <button
                   type="submit"
                   onClick={(e) => {

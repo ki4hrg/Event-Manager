@@ -8,7 +8,9 @@ import { Toast } from "@/components/Toast";
 import { getEvent } from "../../../actions";
 import {
   getBEO,
-  updateBEO,
+  updateBEOOverview,
+  updateBEOService,
+  updateBEOContract,
   deleteBEO,
   linkBEOToFunction,
   unlinkBEOFromFunction,
@@ -30,40 +32,85 @@ import {
   searchContactsForBEO,
 } from "../../../beos/actions";
 import { getOptions } from "../../../../settings/actions";
-import { BEOForm } from "../../../beos/BEOForm";
+import { BEOTabs } from "../../../beos/BEOTabs";
+import { BEOOverviewForm } from "../../../beos/BEOOverviewForm";
+import { BEOServiceForm } from "../../../beos/BEOServiceForm";
+import { BEOContractForm } from "../../../beos/BEOContractForm";
 import { TimelineTable } from "../../../beos/TimelineTable";
 import { EquipmentTable } from "../../../beos/EquipmentTable";
 import { LineItemTable } from "../../../beos/LineItemTable";
 import { MenuSectionTable } from "../../../beos/MenuSectionTable";
 import { ContactList } from "../../../functions/ContactList";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
+import type { TimelineItem } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
+function TimelinePreview({
+  items,
+  serviceTabPath,
+}: {
+  items: TimelineItem[];
+  serviceTabPath: string;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Timeline</h2>
+        <Link
+          href={serviceTabPath}
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Manage
+        </Link>
+      </div>
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <div key={item.id} className="flex gap-4 text-sm">
+            <span className="text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
+              {new Date(item.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {item.endTime &&
+                ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+            </span>
+            <span className="text-gray-900 dark:text-white">{item.label}</span>
+            {item.notes && (
+              <span className="text-gray-400 dark:text-gray-500">· {item.notes}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default async function BEOPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; beoId: string }>;
+  searchParams: Promise<{ tab?: string; success?: string }>;
 }) {
   const { id: eventId, beoId } = await params;
-  const [event, beo, serviceStyleOptions, cateringProviderOptions, allAvailableFunctions] = await Promise.all([
-    getEvent(eventId),
-    getBEO(beoId),
-    getOptions("service_style"),
-    getOptions("catering_provider"),
-    prisma.function.findMany({ where: { eventId, beo: null }, orderBy: { name: "asc" } }),
-  ]);
+  const { tab = "overview" } = await searchParams;
+  const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
+
+  const [event, beo, serviceStyleOptions, cateringProviderOptions, allAvailableFunctions] =
+    await Promise.all([
+      getEvent(eventId),
+      getBEO(beoId),
+      getOptions("service_style"),
+      getOptions("catering_provider"),
+      prisma.function.findMany({ where: { eventId, beo: null }, orderBy: { name: "asc" } }),
+    ]);
 
   if (!event || !beo) {
     notFound();
   }
 
   const availableFunctions = beo.functionId ? [] : allAvailableFunctions;
-
-  const updateBEOAction = async (formData: FormData) => {
-    "use server";
-    await updateBEO(beoId, eventId, formData);
-  };
+  const basePath = `/events/${eventId}/beos/${beoId}`;
 
   const deleteBEOAction = async () => {
     "use server";
@@ -80,7 +127,21 @@ export default async function BEOPage({
     await unlinkBEOFromFunction(beoId, eventId);
   };
 
-  // Timeline
+  const updateOverviewAction = async (formData: FormData) => {
+    "use server";
+    await updateBEOOverview(beoId, eventId, formData);
+  };
+
+  const updateServiceAction = async (formData: FormData) => {
+    "use server";
+    await updateBEOService(beoId, eventId, formData);
+  };
+
+  const updateContractAction = async (formData: FormData) => {
+    "use server";
+    await updateBEOContract(beoId, eventId, formData);
+  };
+
   const createTimelineAction = async (formData: FormData) => {
     "use server";
     await createTimelineItem(beoId, eventId, formData);
@@ -94,7 +155,6 @@ export default async function BEOPage({
     await deleteTimelineItem(id, beoId, eventId);
   };
 
-  // Equipment
   const createEquipmentAction = async (formData: FormData) => {
     "use server";
     await createEquipmentItem(beoId, eventId, formData);
@@ -108,7 +168,6 @@ export default async function BEOPage({
     await deleteEquipmentItem(id, beoId, eventId);
   };
 
-  // Line Items
   const createLineItemAction = async (formData: FormData) => {
     "use server";
     await createBEOLineItem(beoId, eventId, formData);
@@ -122,7 +181,6 @@ export default async function BEOPage({
     await deleteBEOLineItem(id, beoId, eventId);
   };
 
-  // Menu Sections
   const createMenuSectionAction = async (formData: FormData) => {
     "use server";
     await createBEOMenuSection(beoId, eventId, formData);
@@ -136,7 +194,6 @@ export default async function BEOPage({
     await deleteBEOMenuSection(id, beoId, eventId);
   };
 
-  // Contacts
   const addContactAction = async (formData: FormData) => {
     "use server";
     await addBEOContact(beoId, eventId, formData);
@@ -159,6 +216,7 @@ export default async function BEOPage({
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
+
       <div className="flex justify-between items-center mb-6">
         <div>
           <Link
@@ -177,72 +235,82 @@ export default async function BEOPage({
         />
       </div>
 
-      <div className="space-y-8">
-        {/* BEO form + Function link */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <BEOForm
-            beo={beo}
-            eventId={eventId}
-            action={updateBEOAction}
-            serviceStyleOptions={serviceStyleOptions}
-          />
-          <div className="space-y-6">
-            <AVOrderLinkPanel
-              title="Linked Function"
-              linkedId={beo.functionId}
-              linkedName={beo.function?.name ?? null}
-              linkedDetailPath={
-                beo.functionId ? `/events/${eventId}/functions/${beo.functionId}` : null
-              }
-              availableItems={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
-              newItemPath={`/events/${eventId}/beos/new`}
-              linkItem={linkToFunctionAction}
-              unlinkItem={unlinkFromFunctionAction}
-              entityLabel="function"
+      <BEOTabs basePath={basePath} activeTab={activeTab} />
+
+      {activeTab === "overview" && (
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <BEOOverviewForm
+              beo={beo}
+              action={updateOverviewAction}
+              serviceStyleOptions={serviceStyleOptions}
             />
-            <ContactList
-              contacts={beo.contacts}
-              addContact={addContactAction}
-              updateContact={updateContactAction}
-              removeContact={removeContactAction}
-              searchContacts={searchContactsAction}
-            />
+            <div className="space-y-6">
+              <AVOrderLinkPanel
+                title="Linked Function"
+                linkedId={beo.functionId}
+                linkedName={beo.function?.name ?? null}
+                linkedDetailPath={
+                  beo.functionId ? `/events/${eventId}/functions/${beo.functionId}` : null
+                }
+                availableItems={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+                newItemPath={`/events/${eventId}/beos/new`}
+                linkItem={linkToFunctionAction}
+                unlinkItem={unlinkFromFunctionAction}
+                entityLabel="function"
+              />
+              <ContactList
+                contacts={beo.contacts}
+                addContact={addContactAction}
+                updateContact={updateContactAction}
+                removeContact={removeContactAction}
+                searchContacts={searchContactsAction}
+              />
+            </div>
           </div>
+          <MenuSectionTable
+            sections={beo.menuSections}
+            cateringProviderOptions={cateringProviderOptions}
+            createSection={createMenuSectionAction}
+            updateSection={updateMenuSectionAction}
+            deleteSection={deleteMenuSectionAction}
+          />
+          <TimelinePreview
+            items={beo.timelineItems}
+            serviceTabPath={`${basePath}?tab=service`}
+          />
         </div>
+      )}
 
-        {/* Menu Sections */}
-        <MenuSectionTable
-          sections={beo.menuSections}
-          cateringProviderOptions={cateringProviderOptions}
-          createSection={createMenuSectionAction}
-          updateSection={updateMenuSectionAction}
-          deleteSection={deleteMenuSectionAction}
-        />
+      {activeTab === "service" && (
+        <div className="space-y-8">
+          <BEOServiceForm beo={beo} action={updateServiceAction} />
+          <TimelineTable
+            items={beo.timelineItems}
+            createItem={createTimelineAction}
+            updateItem={updateTimelineAction}
+            deleteItem={deleteTimelineAction}
+          />
+          <EquipmentTable
+            items={beo.equipmentItems}
+            createItem={createEquipmentAction}
+            updateItem={updateEquipmentAction}
+            deleteItem={deleteEquipmentAction}
+          />
+        </div>
+      )}
 
-        {/* Timeline */}
-        <TimelineTable
-          items={beo.timelineItems}
-          createItem={createTimelineAction}
-          updateItem={updateTimelineAction}
-          deleteItem={deleteTimelineAction}
-        />
-
-        {/* Equipment */}
-        <EquipmentTable
-          items={beo.equipmentItems}
-          createItem={createEquipmentAction}
-          updateItem={updateEquipmentAction}
-          deleteItem={deleteEquipmentAction}
-        />
-
-        {/* Pricing */}
-        <LineItemTable
-          items={beo.lineItems}
-          createItem={createLineItemAction}
-          updateItem={updateLineItemAction}
-          deleteItem={deleteLineItemAction}
-        />
-      </div>
+      {activeTab === "contract" && (
+        <div className="space-y-8">
+          <BEOContractForm beo={beo} action={updateContractAction} />
+          <LineItemTable
+            items={beo.lineItems}
+            createItem={createLineItemAction}
+            updateItem={updateLineItemAction}
+            deleteItem={deleteLineItemAction}
+          />
+        </div>
+      )}
     </PageWrapper>
   );
 }

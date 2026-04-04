@@ -15,7 +15,8 @@ export function Toast() {
       // Remove the query param from URL without refresh
       const url = new URL(window.location.href);
       url.searchParams.delete("success");
-      router.replace(url.pathname, { scroll: false });
+      const target = url.searchParams.size > 0 ? url.toString() : url.pathname;
+      router.replace(target, { scroll: false });
 
       // Auto-hide after 3 seconds
       const timer = setTimeout(() => setMessage(null), 3000);
