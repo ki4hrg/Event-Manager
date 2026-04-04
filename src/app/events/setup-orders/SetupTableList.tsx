@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { SetupTable, Equipment } from "@prisma/client";
+import { aggregateSetupTables } from "./utils";
 
 type SetupTableListProps = {
   tables: SetupTable[];
@@ -52,20 +53,6 @@ function EquipmentTypeSelect({
       ))}
     </select>
   );
-}
-
-export function aggregateSetupTables(tables: SetupTable[]) {
-  const tableTotals: Record<string, number> = {};
-  const chairTotals: Record<string, number> = {};
-  for (const row of tables) {
-    if (row.tableType) {
-      tableTotals[row.tableType] = (tableTotals[row.tableType] || 0) + row.quantity;
-    }
-    if (row.chairCount && row.chairType) {
-      chairTotals[row.chairType] = (chairTotals[row.chairType] || 0) + row.quantity * row.chairCount;
-    }
-  }
-  return { tableTotals, chairTotals };
 }
 
 function TableTotals({ tables }: { tables: SetupTable[] }) {

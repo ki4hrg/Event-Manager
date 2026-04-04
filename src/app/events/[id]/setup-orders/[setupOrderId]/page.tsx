@@ -21,7 +21,8 @@ import {
 } from "../../../setup-orders/actions";
 import { getOptions, getEquipment } from "@/app/settings/actions";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
-import { SetupTableList, aggregateSetupTables } from "../../../setup-orders/SetupTableList";
+import { SetupTableList } from "../../../setup-orders/SetupTableList";
+import { aggregateSetupTables } from "../../../setup-orders/utils";
 import { EquipmentTable } from "../../../beos/EquipmentTable";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
