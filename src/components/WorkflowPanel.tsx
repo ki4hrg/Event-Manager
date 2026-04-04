@@ -280,7 +280,7 @@ export function WorkflowPanel({
           />
         ))}
 
-        {availableTemplates.length > 0 && (
+        {availableTemplates.length > 0 ? (
           <div className="flex items-center gap-2 pt-1">
             <select
               value={selectedTemplateId}
@@ -302,17 +302,14 @@ export function WorkflowPanel({
               {assigning ? "..." : "Assign"}
             </button>
           </div>
-        )}
-
-        {instances.length === 0 && availableTemplates.length === 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            No workflows available. Create templates in the Workflows section.
-          </p>
-        )}
-
-        {instances.length === 0 && availableTemplates.length > 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 pb-1">
-            No workflows assigned yet.
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400 pt-1">
+            {instances.length === 0
+              ? "No workflows available. "
+              : "All available workflows assigned. "}
+            <a href="/workflows" className="text-blue-600 dark:text-blue-400 hover:underline">
+              Manage workflows
+            </a>
           </p>
         )}
       </div>

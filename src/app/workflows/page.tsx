@@ -1,18 +1,13 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { requireAdmin } from "@/lib/auth";
-import { getWorkflowTemplates, createWorkflowTemplate } from "./actions";
+import { getWorkflowTemplates } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkflowsPage() {
   await requireAdmin();
   const templates = await getWorkflowTemplates();
-
-  const createAction = async (formData: FormData) => {
-    "use server";
-    await createWorkflowTemplate(formData);
-  };
 
   return (
     <PageWrapper>
@@ -23,21 +18,12 @@ export default async function WorkflowsPage() {
             Define reusable workflow templates with sequential steps and checklist items
           </p>
         </div>
-        <form action={createAction}>
-          <input
-            type="text"
-            name="name"
-            placeholder="New workflow name"
-            required
-            className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm mr-2"
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Create
-          </button>
-        </form>
+        <Link
+          href="/workflows/new"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Create Workflow
+        </Link>
       </div>
 
       {templates.length === 0 ? (
