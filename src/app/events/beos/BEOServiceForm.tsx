@@ -48,7 +48,9 @@ export function BEOServiceForm({ beo, action }: BEOServiceFormProps) {
         />
       </div>
 
-      <SaveButton />
+      <div>
+        <SaveButton />
+      </div>
     </form>
   );
 }

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { EquipmentItem } from "@prisma/client";
+import type { EquipmentItem, CustomOption } from "@prisma/client";
+import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type EquipmentTableProps = {
   items: EquipmentItem[];
+  responsiblePartyOptions: CustomOption[];
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -24,7 +26,8 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-export function EquipmentTable({ items, createItem, updateItem, deleteItem }: EquipmentTableProps) {
+
+export function EquipmentTable({ items, responsiblePartyOptions, createItem, updateItem, deleteItem }: EquipmentTableProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -41,7 +44,7 @@ export function EquipmentTable({ items, createItem, updateItem, deleteItem }: Eq
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Equipment & Provisions</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Equipment</h2>
         <button
           onClick={() => setShowAddForm(true)}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
@@ -65,12 +68,7 @@ export function EquipmentTable({ items, createItem, updateItem, deleteItem }: Eq
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-              <input
-                type="text"
-                name="responsibleParty"
-                placeholder="e.g., Venue, Caterer, Event"
-                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
+              <ResponsiblePartyField options={responsiblePartyOptions} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
@@ -123,12 +121,7 @@ export function EquipmentTable({ items, createItem, updateItem, deleteItem }: Eq
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-                      <input
-                        type="text"
-                        name="responsibleParty"
-                        defaultValue={item.responsibleParty || ""}
-                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      />
+                      <ResponsiblePartyField options={responsiblePartyOptions} defaultValue={item.responsibleParty || ""} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>

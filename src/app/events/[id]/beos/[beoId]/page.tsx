@@ -41,7 +41,6 @@ import { EquipmentTable } from "../../../beos/EquipmentTable";
 import { LineItemTable } from "../../../beos/LineItemTable";
 import { MenuSectionTable } from "../../../beos/MenuSectionTable";
 import { ContactList } from "../../../functions/ContactList";
-import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
 import type { TimelineItem } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -96,12 +95,13 @@ export default async function BEOPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
 
-  const [event, beo, serviceStyleOptions, cateringProviderOptions, allAvailableFunctions] =
+  const [event, beo, serviceStyleOptions, cateringProviderOptions, responsiblePartyOptions, allAvailableFunctions] =
     await Promise.all([
       getEvent(eventId),
       getBEO(beoId),
       getOptions("service_style"),
       getOptions("catering_provider"),
+      getOptions("responsible_party"),
       prisma.function.findMany({ where: { eventId, beo: null }, orderBy: { name: "asc" } }),
     ]);
 
@@ -238,47 +238,42 @@ export default async function BEOPage({
       <BEOTabs basePath={basePath} activeTab={activeTab} />
 
       {activeTab === "overview" && (
-        <div className="space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-6">
             <BEOOverviewForm
               beo={beo}
               action={updateOverviewAction}
               serviceStyleOptions={serviceStyleOptions}
+              linkedFunctionId={beo.functionId}
+              linkedFunctionName={beo.function?.name ?? null}
+              linkedFunctionPath={
+                beo.functionId ? `/events/${eventId}/functions/${beo.functionId}` : null
+              }
+              availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+              linkFunction={linkToFunctionAction}
+              unlinkFunction={unlinkFromFunctionAction}
             />
-            <div className="space-y-6">
-              <AVOrderLinkPanel
-                title="Linked Function"
-                linkedId={beo.functionId}
-                linkedName={beo.function?.name ?? null}
-                linkedDetailPath={
-                  beo.functionId ? `/events/${eventId}/functions/${beo.functionId}` : null
-                }
-                availableItems={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
-                newItemPath={`/events/${eventId}/beos/new`}
-                linkItem={linkToFunctionAction}
-                unlinkItem={unlinkFromFunctionAction}
-                entityLabel="function"
-              />
-              <ContactList
-                contacts={beo.contacts}
-                addContact={addContactAction}
-                updateContact={updateContactAction}
-                removeContact={removeContactAction}
-                searchContacts={searchContactsAction}
-              />
-            </div>
+            <ContactList
+              contacts={beo.contacts}
+              addContact={addContactAction}
+              updateContact={updateContactAction}
+              removeContact={removeContactAction}
+              searchContacts={searchContactsAction}
+            />
           </div>
-          <MenuSectionTable
-            sections={beo.menuSections}
-            cateringProviderOptions={cateringProviderOptions}
-            createSection={createMenuSectionAction}
-            updateSection={updateMenuSectionAction}
-            deleteSection={deleteMenuSectionAction}
-          />
-          <TimelinePreview
-            items={beo.timelineItems}
-            serviceTabPath={`${basePath}?tab=service`}
-          />
+          <div className="space-y-6">
+            <TimelinePreview
+              items={beo.timelineItems}
+              serviceTabPath={`${basePath}?tab=service`}
+            />
+            <MenuSectionTable
+              sections={beo.menuSections}
+              cateringProviderOptions={cateringProviderOptions}
+              createSection={createMenuSectionAction}
+              updateSection={updateMenuSectionAction}
+              deleteSection={deleteMenuSectionAction}
+            />
+          </div>
         </div>
       )}
 
@@ -293,6 +288,7 @@ export default async function BEOPage({
           />
           <EquipmentTable
             items={beo.equipmentItems}
+            responsiblePartyOptions={responsiblePartyOptions}
             createItem={createEquipmentAction}
             updateItem={updateEquipmentAction}
             deleteItem={deleteEquipmentAction}

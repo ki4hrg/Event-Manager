@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export type OptionCategory = "function_type" | "contact_role" | "av_equipment" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "catering_provider";
+export type OptionCategory = "function_type" | "contact_role" | "av_equipment" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "catering_provider" | "responsible_party";
 
 export async function getOptions(category: OptionCategory) {
   return prisma.customOption.findMany({

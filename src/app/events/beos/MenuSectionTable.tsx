@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { BEOMenuSection } from "@prisma/client";
 import type { CustomOption } from "@prisma/client";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type MenuSectionTableProps = {
   sections: BEOMenuSection[];
@@ -62,38 +64,11 @@ export function MenuSectionTable({
         <form action={handleCreate} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party *</label>
-            {cateringProviderOptions.length > 0 ? (
-              <select
-                name="responsibleParty"
-                required
-                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              >
-                <option value="">— Select —</option>
-                {cateringProviderOptions.map((opt) => (
-                  <option key={opt.id} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                name="responsibleParty"
-                required
-                placeholder="e.g., Venue, Caterer, Event Team"
-                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
-            )}
+            <ResponsiblePartyField options={cateringProviderOptions} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu / Provisions *</label>
-            <textarea
-              name="menuContent"
-              required
-              rows={4}
-              placeholder="Describe the menu or provisions for this party..."
-              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-            />
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
+            <RichTextEditor name="menuContent" placeholder="Describe the menu or provisions for this party..." />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
@@ -126,39 +101,11 @@ export function MenuSectionTable({
                 <form action={(fd) => handleUpdate(section.id, fd)} className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party *</label>
-                    {cateringProviderOptions.length > 0 ? (
-                      <select
-                        name="responsibleParty"
-                        required
-                        defaultValue={section.responsibleParty}
-                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      >
-                        <option value="">— Select —</option>
-                        {cateringProviderOptions.map((opt) => (
-                          <option key={opt.id} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        name="responsibleParty"
-                        required
-                        defaultValue={section.responsibleParty}
-                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      />
-                    )}
+                    <ResponsiblePartyField options={cateringProviderOptions} defaultValue={section.responsibleParty} />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu / Provisions *</label>
-                    <textarea
-                      name="menuContent"
-                      required
-                      rows={4}
-                      defaultValue={section.menuContent}
-                      className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    />
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
+                    <RichTextEditor name="menuContent" defaultValue={section.menuContent} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
@@ -198,7 +145,10 @@ export function MenuSectionTable({
                       </button>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{section.menuContent}</p>
+                  <div
+                    className="text-sm text-gray-900 dark:text-white prose prose-sm dark:prose-invert max-w-none"
+                    dangerouslySetInnerHTML={{ __html: section.menuContent }}
+                  />
                   {section.notes && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{section.notes}</p>
                   )}

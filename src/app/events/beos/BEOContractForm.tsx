@@ -30,6 +30,38 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
   return (
     <form action={action} className="space-y-6">
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Minimums</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="rentalMinimum" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Rental Minimum ($)
+            </label>
+            <input
+              type="number"
+              id="rentalMinimum"
+              name="rentalMinimum"
+              step="0.01"
+              defaultValue={beo.rentalMinimum != null ? String(beo.rentalMinimum) : ""}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="fbMinimum" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              F&B Minimum ($)
+            </label>
+            <input
+              type="number"
+              id="fbMinimum"
+              name="fbMinimum"
+              step="0.01"
+              defaultValue={beo.fbMinimum != null ? String(beo.fbMinimum) : ""}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Deadlines</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -65,38 +97,6 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
               id="paymentDeadline"
               name="paymentDeadline"
               defaultValue={formatDateForInput(beo.paymentDeadline)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Minimums</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="rentalMinimum" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Rental Minimum ($)
-            </label>
-            <input
-              type="number"
-              id="rentalMinimum"
-              name="rentalMinimum"
-              step="0.01"
-              defaultValue={beo.rentalMinimum != null ? String(beo.rentalMinimum) : ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="fbMinimum" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              F&B Minimum ($)
-            </label>
-            <input
-              type="number"
-              id="fbMinimum"
-              name="fbMinimum"
-              step="0.01"
-              defaultValue={beo.fbMinimum != null ? String(beo.fbMinimum) : ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
