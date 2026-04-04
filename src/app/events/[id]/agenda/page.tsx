@@ -48,13 +48,14 @@ export default async function AgendaPage({
 
   return (
     <PageWrapper>
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          {event.name}
-        </h1>
+      <div className="sticky top-0 z-30 bg-white dark:bg-gray-950 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div className="flex justify-between items-center pt-4 mb-4">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            {event.name}
+          </h1>
+        </div>
+        <EventTabs eventId={eventId} />
       </div>
-
-      <EventTabs eventId={eventId} />
 
       <AgendaGrid
         eventId={eventId}

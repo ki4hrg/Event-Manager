@@ -14,10 +14,11 @@ export default async function NewPresentationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const [event, tracks, presenterRoles] = await Promise.all([
+  const [event, tracks, presenterRoles, presentationTypes] = await Promise.all([
     getEvent(eventId),
     getTracks(eventId),
     getOptions("presenter_role"),
+    getOptions("presentation_type"),
   ]);
 
   if (!event) {
@@ -52,6 +53,7 @@ export default async function NewPresentationPage({
         eventId={eventId}
         tracks={tracks}
         presenterRoles={presenterRoles}
+        presentationTypes={presentationTypes}
         action={createPresentationAction}
         searchContacts={searchContactsAction}
       />

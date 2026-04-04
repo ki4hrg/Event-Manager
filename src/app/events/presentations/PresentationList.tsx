@@ -7,6 +7,7 @@ import type {
   PresentationTrack,
   PresentationSlot,
   Contact,
+  CustomOption,
 } from "@prisma/client";
 
 type SlotWithFunction = PresentationSlot & {
@@ -23,6 +24,7 @@ type PresentationListProps = {
   presentations: PresentationWithRelations[];
   eventId: string;
   tracks: PresentationTrack[];
+  presentationTypes: CustomOption[];
   duplicatePresentation: (id: string) => Promise<void>;
   deletePresentation: (id: string) => Promise<void>;
 };
@@ -42,6 +44,7 @@ export function PresentationList({
   presentations,
   eventId,
   tracks,
+  presentationTypes,
   duplicatePresentation,
   deletePresentation,
 }: PresentationListProps) {
@@ -57,6 +60,8 @@ export function PresentationList({
     },
     {} as Record<string, PresentationWithRelations[]>
   );
+
+  const typeMap = new Map(presentationTypes.map((t) => [t.value, t]));
 
   // Sort tracks: defined tracks first (by sortOrder), then unassigned
   const trackMap = new Map(tracks.map((t) => [t.id, t]));
@@ -144,6 +149,11 @@ export function PresentationList({
                             </Link>
 
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                              {presentation.type && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[typeMap.get(presentation.type)?.color ?? "gray"] ?? colorClasses.gray}`}>
+                                  {typeMap.get(presentation.type)?.label ?? presentation.type}
+                                </span>
+                              )}
                               {primarySpeaker && (
                                 <span className="text-gray-600 dark:text-gray-400">
                                   {primarySpeaker}

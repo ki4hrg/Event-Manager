@@ -41,11 +41,12 @@ export default async function PresentationPage({
   params: Promise<{ id: string; presentationId: string }>;
 }) {
   const { id: eventId, presentationId } = await params;
-  const [event, presentation, tracks, presenterRoles] = await Promise.all([
+  const [event, presentation, tracks, presenterRoles, presentationTypes] = await Promise.all([
     getEvent(eventId),
     getPresentation(presentationId),
     getTracks(eventId),
     getOptions("presenter_role"),
+    getOptions("presentation_type"),
   ]);
 
   if (!event || !presentation) {
@@ -162,6 +163,7 @@ export default async function PresentationPage({
             eventId={eventId}
             tracks={tracks}
             presenterRoles={presenterRoles}
+            presentationTypes={presentationTypes}
             action={updatePresentationAction}
             searchContacts={searchContactsAction}
           />

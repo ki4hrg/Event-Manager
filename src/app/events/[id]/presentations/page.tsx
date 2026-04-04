@@ -10,6 +10,7 @@ import {
 import { PresentationList } from "../../presentations/PresentationList";
 import { PageWrapper } from "@/components/PageWrapper";
 import { EventTabs } from "../EventTabs";
+import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,11 @@ export default async function PresentationsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const [event, presentations, tracks] = await Promise.all([
+  const [event, presentations, tracks, presentationTypes] = await Promise.all([
     getEvent(eventId),
     getPresentations(eventId),
     getTracks(eventId),
+    getOptions("presentation_type"),
   ]);
 
   if (!event) {
@@ -54,6 +56,7 @@ export default async function PresentationsPage({
         presentations={presentations}
         eventId={eventId}
         tracks={tracks}
+        presentationTypes={presentationTypes}
         duplicatePresentation={duplicatePresentationAction}
         deletePresentation={deletePresentationAction}
       />

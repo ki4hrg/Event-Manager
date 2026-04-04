@@ -390,13 +390,16 @@ export function buildAgendaData(
     if (groupRoomIds.size === 0) continue;
 
     const groupName = fn.breakoutGroup?.name ?? null;
-    const slots = fn.presentationSlots ?? [];
+    const slotsByRoom = new Map(
+      (fn.presentationSlots ?? [])
+        .filter((ps) => ps.roomId)
+        .map((ps) => [ps.roomId!, ps])
+    );
     const effectiveRoomIds = Array.from(groupRoomIds);
 
     for (const schedule of fn.schedules) {
       for (const roomId of effectiveRoomIds) {
-        // Find presentation assigned to this specific room in this session
-        const slotForRoom = slots.find((ps) => ps.roomId === roomId);
+        const slotForRoom = slotsByRoom.get(roomId);
         const presentationTitles = slotForRoom ? [slotForRoom.presentation.title] : [];
 
         entries.push({

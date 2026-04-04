@@ -42,6 +42,11 @@ const defaultPresenterRoles = [
   { value: "PANELIST", label: "Panelist", sortOrder: 3 },
 ];
 
+const defaultPresentationTypes = [
+  { value: "BREAKOUT", label: "Breakout", color: "blue", sortOrder: 0 },
+  { value: "PLENARY", label: "Plenary", color: "purple", sortOrder: 1 },
+];
+
 async function seedUsers() {
   const userCount = await prisma.user.count();
 
@@ -97,6 +102,7 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("av_equipment", defaultAVEquipment);
   totalCreated += await seedOptionsForCategory("schedule_type", defaultScheduleTypes);
   totalCreated += await seedOptionsForCategory("presenter_role", defaultPresenterRoles);
+  totalCreated += await seedOptionsForCategory("presentation_type", defaultPresentationTypes);
 
   console.log(`Seeded ${totalCreated} total options`);
 }

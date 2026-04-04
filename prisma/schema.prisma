@@ -288,6 +288,7 @@ model PresentationSlot {
 model Presentation {
   id              String                @id @default(cuid())
   title           String
+  type            String                @default("")
   description     String?
   notes           String?
   instanceCount   Int                   @default(1)

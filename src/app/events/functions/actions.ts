@@ -174,12 +174,14 @@ export async function updateFunction(id: string, eventId: string, formData: Form
 
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/functions/${id}`);
+  revalidatePath(`/events/${eventId}/agenda`);
   redirect(`/events/${eventId}/functions/${id}?success=Function updated`);
 }
 
 export async function deleteFunction(id: string, eventId: string) {
   await prisma.function.delete({ where: { id } });
   revalidatePath(`/events/${eventId}`);
+  revalidatePath(`/events/${eventId}/agenda`);
   redirect(`/events/${eventId}`);
 }
 
@@ -226,6 +228,7 @@ export async function duplicateFunction(id: string, eventId: string) {
   }
 
   revalidatePath(`/events/${eventId}`);
+  revalidatePath(`/events/${eventId}/agenda`);
   redirect(`/events/${eventId}/functions/${duplicate.id}`);
 }
 

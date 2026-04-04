@@ -121,12 +121,14 @@ export async function createPresentation(eventId: string, formData: FormData) {
   const speakerRoles = formData.getAll("speakerRoles") as string[];
   const primarySpeakerId = formData.get("primarySpeakerId") as string;
 
+  const type = formData.get("type") as string;
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
   const instanceCountRaw = formData.get("instanceCount") as string;
 
   const presentation = await prisma.presentation.create({
     data: {
       title,
+      type: type || "",
       description: description || null,
       trackId: trackId || null,
       notes: notes || null,
@@ -159,6 +161,7 @@ export async function updatePresentation(id: string, eventId: string, formData: 
   const trackId = formData.get("trackId") as string;
   const notes = formData.get("notes") as string;
 
+  const type = formData.get("type") as string;
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
   const instanceCountRaw = formData.get("instanceCount") as string;
 
@@ -166,6 +169,7 @@ export async function updatePresentation(id: string, eventId: string, formData: 
     where: { id },
     data: {
       title,
+      type: type || "",
       description: description || null,
       trackId: trackId || null,
       notes: notes || null,
@@ -200,6 +204,7 @@ export async function duplicatePresentation(id: string, eventId: string) {
   const duplicate = await prisma.presentation.create({
     data: {
       title: `${original.title} (Copy)`,
+      type: original.type,
       description: original.description,
       trackId: original.trackId,
       notes: original.notes,

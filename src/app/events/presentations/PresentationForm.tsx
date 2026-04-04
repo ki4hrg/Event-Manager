@@ -28,6 +28,7 @@ type PresentationFormProps = {
   eventId: string;
   tracks: PresentationTrack[];
   presenterRoles: CustomOption[];
+  presentationTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
 };
@@ -51,6 +52,7 @@ export function PresentationForm({
   eventId,
   tracks,
   presenterRoles,
+  presentationTypes,
   action,
   searchContacts,
 }: PresentationFormProps) {
@@ -215,6 +217,30 @@ export function PresentationForm({
               </select>
             )}
           </div>
+
+          {presentationTypes.length > 0 && (
+            <div>
+              <label
+                htmlFor="type"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Type
+              </label>
+              <select
+                id="type"
+                name="type"
+                defaultValue={presentation?.type || ""}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">No type</option>
+                {presentationTypes.map((t) => (
+                  <option key={t.id} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label

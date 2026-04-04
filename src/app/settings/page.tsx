@@ -65,6 +65,16 @@ export default async function SettingsPage() {
     await reorderOptions("presenter_role", ids);
   };
 
+  const createPresentationType = async (formData: FormData) => {
+    "use server";
+    await createOption("presentation_type", formData);
+  };
+
+  const reorderPresentationTypes = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("presentation_type", ids);
+  };
+
   return (
     <PageWrapper>
       <div className="mb-6">
@@ -135,6 +145,18 @@ export default async function SettingsPage() {
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
           reorderOptions={reorderPresenterRoles}
+        />
+
+        <OptionList
+          title="Presentation Types"
+          description="Types of presentations (e.g., Breakout, Plenary)"
+          category="presentation_type"
+          options={options.presentation_type}
+          showColor={true}
+          createOption={createPresentationType}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+          reorderOptions={reorderPresentationTypes}
         />
       </div>
     </PageWrapper>
