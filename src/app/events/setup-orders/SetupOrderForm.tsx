@@ -3,7 +3,18 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import type { SetupOrder, CustomOption } from "@prisma/client";
+import type { CustomOption } from "@prisma/client";
+
+type SetupOrderData = {
+  id: string;
+  description?: string | null;
+  setupType?: string | null;
+  notes?: string | null;
+  roomId?: string | null;
+  functionId?: string | null;
+  function?: { id: string; name: string } | null;
+  room?: { id: string; name: string } | null;
+};
 
 type FunctionLinkProps = {
   linkedFunctionId: string | null;
@@ -15,11 +26,15 @@ type FunctionLinkProps = {
 };
 
 type SetupOrderFormProps = {
-  setupOrder?: SetupOrder | null;
+  setupOrder?: SetupOrderData | null;
   eventId: string;
   setupTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
   functionLink?: FunctionLinkProps;
+  rooms?: { id: string; name: string }[];
+  functions?: { id: string; name: string; roomIds: string[] }[];
+  initialRoomId?: string;
+  initialFunctionId?: string;
 };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -92,7 +107,7 @@ function FunctionLinkControl({
       ) : showLinkForm ? (
         <div className="space-y-2">
           {availableFunctions.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">No unlinked functions available.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No unlinked functions available for this room.</p>
           ) : (
             <div className="flex gap-2">
               <select
@@ -136,78 +151,144 @@ function FunctionLinkControl({
   );
 }
 
-export function SetupOrderForm({ setupOrder, eventId, setupTypes, action, functionLink }: SetupOrderFormProps) {
+export function SetupOrderForm({
+  setupOrder,
+  eventId,
+  setupTypes,
+  action,
+  functionLink,
+  rooms = [],
+  functions = [],
+  initialRoomId,
+  initialFunctionId,
+}: SetupOrderFormProps) {
   const isEdit = !!setupOrder;
+  const [selectedRoomId, setSelectedRoomId] = useState(
+    setupOrder?.roomId ?? initialRoomId ?? ""
+  );
+
+  const filteredFunctions = selectedRoomId
+    ? functions.filter((f) => f.roomIds.includes(selectedRoomId))
+    : functions;
 
   return (
     <form action={action}>
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            Setup Order Details
-          </h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          Setup Order Details
+        </h2>
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                defaultValue={setupOrder?.name ?? ""}
-                placeholder="Leave blank to use linked function name"
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="roomId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Room{!isEdit && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            {rooms.length === 0 ? (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                No rooms available. Add rooms to the event venue first.
+              </p>
+            ) : (
+              <select
+                id="roomId"
+                name="roomId"
+                required={!isEdit}
+                value={selectedRoomId}
+                onChange={(e) => setSelectedRoomId(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="setupType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Setup Type
-              </label>
-              {setupTypes.length === 0 ? (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  No setup types defined.{" "}
-                  <a href="/settings" className="text-blue-600 hover:underline">
-                    Add setup types in Settings
-                  </a>
-                </p>
-              ) : (
-                <select
-                  id="setupType"
-                  name="setupType"
-                  defaultValue={setupOrder?.setupType || ""}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">— Select setup type —</option>
-                  {setupTypes.map((t) => (
-                    <option key={t.id} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Notes
-              </label>
-              <textarea
-                id="notes"
-                name="notes"
-                rows={3}
-                defaultValue={setupOrder?.notes || ""}
-                placeholder="Additional setup notes or instructions..."
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {functionLink && (
-              <FunctionLinkControl {...functionLink} />
+              >
+                <option value="">— Select room —</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
             )}
           </div>
+
+          {!isEdit && (
+            <div>
+              <label htmlFor="functionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Function <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <select
+                id="functionId"
+                name="functionId"
+                defaultValue={initialFunctionId ?? ""}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— No function —</option>
+                {filteredFunctions.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+              {selectedRoomId && filteredFunctions.length === 0 && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  No functions assigned to this room.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="setupType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Setup Type
+            </label>
+            {setupTypes.length === 0 ? (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                No setup types defined.{" "}
+                <a href="/settings" className="text-blue-600 hover:underline">
+                  Add setup types in Settings
+                </a>
+              </p>
+            ) : (
+              <select
+                id="setupType"
+                name="setupType"
+                defaultValue={setupOrder?.setupType || ""}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Select setup type —</option>
+                {setupTypes.map((t) => (
+                  <option key={t.id} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Description
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              rows={2}
+              defaultValue={setupOrder?.description || ""}
+              placeholder="Optional clarifying note for this setup"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              rows={3}
+              defaultValue={setupOrder?.notes || ""}
+              placeholder="Additional setup notes or instructions..."
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {functionLink && (
+            <FunctionLinkControl {...functionLink} />
+          )}
         </div>
+      </div>
 
       <div className="flex gap-4 mt-6">
         <SubmitButton isEdit={isEdit} />

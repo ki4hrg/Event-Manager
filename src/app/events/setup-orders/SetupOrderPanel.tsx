@@ -2,12 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { SetupOrder } from "@prisma/client";
+import { getSetupOrderDisplayName } from "./utils";
+
+type SetupOrderSummary = {
+  id: string;
+  description?: string | null;
+  setupType?: string | null;
+  room?: { name: string } | null;
+  function?: { name: string } | null;
+};
 
 type SetupOrderPanelProps = {
-  setupOrder: SetupOrder | null;
+  setupOrder: SetupOrderSummary | null;
   eventId: string;
-  availableSetupOrders: SetupOrder[];
+  availableSetupOrders: SetupOrderSummary[];
   newSetupOrderPath: string;
   linkSetupOrder: (setupOrderId: string) => Promise<void>;
   unlinkSetupOrder: () => Promise<void>;
@@ -59,7 +67,7 @@ export function SetupOrderPanel({
               href={`/events/${eventId}/setup-orders/${setupOrder.id}`}
               className="text-blue-600 hover:underline font-medium text-sm"
             >
-              {setupOrder.name}
+              {getSetupOrderDisplayName(setupOrder)}
             </Link>
             {setupOrder.setupType && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{setupOrder.setupType}</p>
@@ -92,7 +100,9 @@ export function SetupOrderPanel({
                   >
                     <option value="">Select Setup Order...</option>
                     {availableSetupOrders.map((so) => (
-                      <option key={so.id} value={so.id}>{so.name}</option>
+                      <option key={so.id} value={so.id}>
+                        {getSetupOrderDisplayName(so)}
+                      </option>
                     ))}
                   </select>
                   <button

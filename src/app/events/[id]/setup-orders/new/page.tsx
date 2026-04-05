@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { createSetupOrder } from "../../../setup-orders/actions";
@@ -13,10 +14,10 @@ export default async function NewSetupOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ functionId?: string }>;
+  searchParams: Promise<{ functionId?: string; roomId?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { functionId } = await searchParams;
+  const { functionId, roomId } = await searchParams;
 
   const [event, setupTypes] = await Promise.all([
     getEvent(eventId),
@@ -27,9 +28,26 @@ export default async function NewSetupOrderPage({
     notFound();
   }
 
+  const [venueRooms, eventFunctions] = await Promise.all([
+    event.venueId
+      ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+    prisma.function.findMany({
+      where: { eventId, setupOrder: null },
+      include: { rooms: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  // If a functionId is provided, infer the roomId from that function's first room
+  let initialRoomId = roomId;
+  if (!initialRoomId && functionId) {
+    const fn = eventFunctions.find((f) => f.id === functionId);
+    initialRoomId = fn?.rooms[0]?.roomId;
+  }
+
   const createSetupOrderAction = async (formData: FormData) => {
     "use server";
-    if (functionId) formData.set("functionId", functionId);
     await createSetupOrder(eventId, formData);
   };
 
@@ -51,6 +69,14 @@ export default async function NewSetupOrderPage({
         eventId={eventId}
         setupTypes={setupTypes}
         action={createSetupOrderAction}
+        rooms={venueRooms}
+        functions={eventFunctions.map((f) => ({
+          id: f.id,
+          name: f.name,
+          roomIds: f.rooms.map((r) => r.roomId),
+        }))}
+        initialRoomId={initialRoomId}
+        initialFunctionId={functionId}
       />
     </PageWrapper>
   );

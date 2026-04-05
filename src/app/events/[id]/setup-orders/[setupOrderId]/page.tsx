@@ -22,7 +22,7 @@ import {
 import { getOptions, getEquipment } from "@/app/settings/actions";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { SetupTableList } from "../../../setup-orders/SetupTableList";
-import { aggregateSetupTables } from "../../../setup-orders/utils";
+import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
 import { EquipmentTable } from "../../../beos/EquipmentTable";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
@@ -60,12 +60,21 @@ export default async function SetupOrderPage({
   const tableOptions = equipmentOptions.filter((e) => e.category === TABLE_CAT);
   const chairOptions = equipmentOptions.filter((e) => e.category === CHAIR_CAT);
 
-  const availableFunctions = setupOrder.functionId
-    ? []
-    : await prisma.function.findMany({
-        where: { eventId, setupOrder: null },
-        orderBy: { name: "asc" },
-      });
+  const [venueRooms, availableFunctions] = await Promise.all([
+    event.venueId
+      ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+    setupOrder.functionId
+      ? Promise.resolve([])
+      : prisma.function.findMany({
+          where: {
+            eventId,
+            setupOrder: null,
+            ...(setupOrder.roomId ? { rooms: { some: { roomId: setupOrder.roomId } } } : {}),
+          },
+          orderBy: { name: "asc" },
+        }),
+  ]);
 
   const { tableTotals, chairTotals } = aggregateSetupTables(setupOrder.tables);
   const setupReadOnlyItems = [
@@ -146,7 +155,7 @@ export default async function SetupOrderPage({
     await toggleItemCompletion(instanceId, itemId, "setup_order", setupOrderId, eventId);
   };
 
-  const displayName = setupOrder.name ?? setupOrder.function?.name ?? "Unnamed Setup Order";
+  const displayName = getSetupOrderDisplayName(setupOrder);
 
   return (
     <PageWrapper>
@@ -180,6 +189,7 @@ export default async function SetupOrderPage({
             eventId={eventId}
             setupTypes={setupTypes}
             action={updateSetupOrderAction}
+            rooms={venueRooms}
             functionLink={{
               linkedFunctionId: setupOrder.functionId,
               linkedFunctionName: setupOrder.function?.name ?? null,

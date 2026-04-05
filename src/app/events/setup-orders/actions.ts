@@ -8,11 +8,12 @@ export async function getSetupOrders(eventId: string) {
   return prisma.setupOrder.findMany({
     where: { eventId },
     include: {
+      room: true,
       function: true,
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
     },
-    orderBy: { name: "asc" },
+    orderBy: { createdAt: "asc" },
   });
 }
 
@@ -20,6 +21,7 @@ export async function getSetupOrder(id: string) {
   return prisma.setupOrder.findUnique({
     where: { id },
     include: {
+      room: true,
       function: { include: { schedules: { orderBy: { startTime: "asc" } } } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
@@ -28,24 +30,20 @@ export async function getSetupOrder(id: string) {
 }
 
 export async function createSetupOrder(eventId: string, formData: FormData) {
-  const rawName = (formData.get("name") as string).trim();
+  const description = (formData.get("description") as string)?.trim() || null;
   const setupType = formData.get("setupType") as string;
   const notes = formData.get("notes") as string;
-  const functionId = formData.get("functionId") as string;
-
-  let name: string | null = rawName || null;
-  if (!name && functionId) {
-    const fn = await prisma.function.findUnique({ where: { id: functionId }, select: { name: true } });
-    name = fn?.name ?? null;
-  }
+  const functionId = (formData.get("functionId") as string) || null;
+  const roomId = (formData.get("roomId") as string) || null;
 
   const setupOrder = await prisma.setupOrder.create({
     data: {
-      name,
+      description,
       eventId,
       setupType: setupType || null,
       notes: notes || null,
-      functionId: functionId || null,
+      functionId,
+      roomId,
     },
   });
 
@@ -54,16 +52,18 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
 }
 
 export async function updateSetupOrder(id: string, eventId: string, formData: FormData) {
-  const rawName = (formData.get("name") as string).trim();
+  const description = (formData.get("description") as string)?.trim() || null;
   const setupType = formData.get("setupType") as string;
   const notes = formData.get("notes") as string;
+  const roomId = (formData.get("roomId") as string) || null;
 
   await prisma.setupOrder.update({
     where: { id },
     data: {
-      name: rawName || null,
+      description,
       setupType: setupType || null,
       notes: notes || null,
+      roomId,
     },
   });
 
@@ -106,7 +106,8 @@ export async function unlinkSetupOrderFromFunction(setupOrderId: string, eventId
 export async function getAvailableSetupOrdersForFunction(eventId: string) {
   return prisma.setupOrder.findMany({
     where: { eventId, functionId: null },
-    orderBy: { name: "asc" },
+    include: { room: true },
+    orderBy: { createdAt: "asc" },
   });
 }
 

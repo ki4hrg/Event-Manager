@@ -266,10 +266,10 @@ export default async function FunctionPage({
             unlinkBEO={unlinkBEOAction}
           />
           <SetupOrderPanel
-            setupOrder={fn.setupOrder ?? null}
+            setupOrder={fn.setupOrder ? { ...fn.setupOrder, function: { name: fn.name } } : null}
             eventId={eventId}
             availableSetupOrders={availableSetupOrders}
-            newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}`}
+            newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}
             linkSetupOrder={linkSetupOrderAction}
             unlinkSetupOrder={unlinkSetupOrderAction}
           />

@@ -1,5 +1,14 @@
 import type { SetupTable } from "@prisma/client";
 
+export function getSetupOrderDisplayName(setupOrder: {
+  room?: { name: string } | null;
+  function?: { name: string } | null;
+  description?: string | null;
+}): string {
+  const parts = [setupOrder.room?.name, setupOrder.function?.name, setupOrder.description].filter(Boolean);
+  return parts.join(" — ") || "Unnamed Setup Order";
+}
+
 export function aggregateSetupTables(tables: SetupTable[]) {
   const tableTotals: Record<string, number> = {};
   const chairTotals: Record<string, number> = {};

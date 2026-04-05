@@ -95,6 +95,7 @@ model Room {
   presentationSlots    PresentationSlot[]
   breakoutGroupRooms   BreakoutGroupRoom[]
   sessionRoomOverrides BreakoutSessionRoomOverride[]
+  setupOrders          SetupOrder[]
   createdAt            DateTime                     @default(now())
   updatedAt            DateTime                     @updatedAt
 }
@@ -286,10 +287,12 @@ model EquipmentItem {
 
 model SetupOrder {
   id             String          @id @default(cuid())
-  name           String?
+  description    String?
   setupType      String?
   eventId        String
   event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  roomId         String?
+  room           Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
   functionId     String?         @unique
   function       Function?       @relation(fields: [functionId], references: [id], onDelete: SetNull)
   notes          String?
@@ -299,6 +302,7 @@ model SetupOrder {
   updatedAt      DateTime        @updatedAt
 
   @@index([eventId])
+  @@index([roomId])
 }
 
 model SetupTable {

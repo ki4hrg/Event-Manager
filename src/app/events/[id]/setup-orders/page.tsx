@@ -5,6 +5,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { getEvent } from "../../actions";
 import { getSetupOrders, deleteSetupOrder } from "../../setup-orders/actions";
+import { getSetupOrderDisplayName } from "../../setup-orders/utils";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EventTabs } from "../EventTabs";
@@ -72,45 +73,41 @@ export default async function SetupOrdersPage({
         </div>
       ) : (
         <div className="space-y-2">
-          {setupOrders.map((so) => (
-            <div
-              key={so.id}
-              className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center justify-between"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/events/${eventId}/setup-orders/${so.id}`}
-                    className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
-                  >
-                    {so.name ?? so.function?.name ?? "Unnamed Setup Order"}
-                  </Link>
-                  <WorkflowBadge summary={workflowSummaries[so.id]} />
+          {setupOrders.map((so) => {
+            const displayName = getSetupOrderDisplayName(so);
+            return (
+              <div
+                key={so.id}
+                className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/events/${eventId}/setup-orders/${so.id}`}
+                      className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
+                    >
+                      {displayName}
+                    </Link>
+                    <WorkflowBadge summary={workflowSummaries[so.id]} />
+                  </div>
+                  <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                    {so.setupType && <span>{so.setupType}</span>}
+                    {so.tables.length > 0 && (
+                      <span>{so.tables.length} table row{so.tables.length !== 1 ? "s" : ""}</span>
+                    )}
+                    {so.equipmentItems.length > 0 && (
+                      <span>{so.equipmentItems.length} equipment item{so.equipmentItems.length !== 1 ? "s" : ""}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                  {so.setupType && <span>{so.setupType}</span>}
-                  {so.tables.length > 0 && (
-                    <span>{so.tables.length} table row{so.tables.length !== 1 ? "s" : ""}</span>
-                  )}
-                  {so.equipmentItems.length > 0 && (
-                    <span>{so.equipmentItems.length} equipment item{so.equipmentItems.length !== 1 ? "s" : ""}</span>
-                  )}
-                  {so.function ? (
-                    <span className="text-green-600 dark:text-green-400">
-                      Linked to function: {so.function.name}
-                    </span>
-                  ) : (
-                    <span className="text-orange-600 dark:text-orange-400">Unlinked</span>
-                  )}
-                </div>
+                <InlineDeleteButton
+                  action={deleteSetupOrderAction}
+                  hiddenInputs={{ setupOrderId: so.id }}
+                  confirmMessage="Delete this Setup Order?"
+                />
               </div>
-              <InlineDeleteButton
-                action={deleteSetupOrderAction}
-                hiddenInputs={{ setupOrderId: so.id }}
-                confirmMessage="Delete this Setup Order?"
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </PageWrapper>
