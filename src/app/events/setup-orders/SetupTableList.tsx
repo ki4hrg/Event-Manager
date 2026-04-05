@@ -109,7 +109,7 @@ function RowForm({
   const [tableType, setTableType] = useState(defaultTableType);
   const [error, setError] = useState<string | null>(null);
 
-  const totalChairs = qty > 0 && chairCount > 0 ? qty * chairCount : null;
+  const totalChairs = chairCount > 0 ? (qty > 0 ? qty * chairCount : chairCount) : null;
 
   const handleSubmit = async (formData: FormData) => {
     if (!tableType && chairCount <= 0) {
@@ -129,7 +129,7 @@ function RowForm({
             type="number"
             name="quantity"
             required
-            min={1}
+            min={0}
             value={qty}
             onChange={(e) => setQty(parseInt(e.target.value) || 0)}
             className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
@@ -246,7 +246,9 @@ export function SetupTableList({
         <p className="text-gray-500 dark:text-gray-400 text-sm">No table rows yet.</p>
       ) : (
         <div className="space-y-2">
-          {tables.map((row) => (
+          {tables.map((row) => {
+            const hasQty = row.quantity > 0;
+            return (
             <div key={row.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === row.id ? (
                 <RowForm
@@ -264,18 +266,20 @@ export function SetupTableList({
               ) : (
                 <div className="flex items-start justify-between">
                   <div>
-                    {row.tableType && (
+                    {row.tableType && hasQty && (
                       <span className="text-gray-900 dark:text-white font-medium">
                         {row.quantity} × {row.tableType}
                       </span>
                     )}
                     {row.chairCount != null && row.chairCount > 0 && (
                       <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
-                        {row.tableType ? "·" : ""} {row.chairCount} {row.chairType || "chairs"}/table
-                        {" "}
-                        <span className="text-gray-400 dark:text-gray-500">
-                          ({row.quantity * row.chairCount} total)
-                        </span>
+                        {row.tableType && hasQty ? "· " : ""}
+                        {`${row.chairCount} ${row.chairType || "chairs"}${hasQty ? "/table" : ""}`}
+                        {hasQty && (
+                          <span className="text-gray-400 dark:text-gray-500">
+                            {" "}({row.quantity * row.chairCount} total)
+                          </span>
+                        )}
                       </span>
                     )}
                     {!row.tableType && (!row.chairCount || row.chairCount === 0) && (
@@ -299,7 +303,8 @@ export function SetupTableList({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

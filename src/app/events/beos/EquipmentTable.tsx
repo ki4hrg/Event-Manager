@@ -157,7 +157,7 @@ export function EquipmentTable({ items, responsiblePartyOptions, equipmentOption
             <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-between">
               <div>
                 <span className="text-gray-900 dark:text-white font-medium">{ro.label}</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">{ro.quantity}×</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">× {ro.quantity}</span>
               </div>
               <span className="text-xs text-gray-400 dark:text-gray-500 italic">From setup</span>
             </div>
@@ -218,7 +218,7 @@ export function EquipmentTable({ items, responsiblePartyOptions, equipmentOption
                   <div>
                     <span className="text-gray-900 dark:text-white font-medium">{item.item}</span>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                      {item.quantity != null && <span>{item.quantity}x </span>}
+                      {item.quantity != null && <span>× {item.quantity} </span>}
                       {item.responsibleParty && <span>{item.responsibleParty}</span>}
                       {item.notes && <span className="ml-2">· {item.notes}</span>}
                     </div>

@@ -8,7 +8,7 @@ export function aggregateSetupTables(tables: SetupTable[]) {
       tableTotals[row.tableType] = (tableTotals[row.tableType] || 0) + row.quantity;
     }
     if (row.chairCount && row.chairType) {
-      chairTotals[row.chairType] = (chairTotals[row.chairType] || 0) + row.quantity * row.chairCount;
+      chairTotals[row.chairType] = (chairTotals[row.chairType] || 0) + (row.quantity > 0 ? row.quantity * row.chairCount : row.chairCount);
     }
   }
   return { tableTotals, chairTotals };
