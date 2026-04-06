@@ -316,15 +316,6 @@ export default async function BEOPage({
               linkFunction={linkToFunctionAction}
               unlinkFunction={unlinkFromFunctionAction}
             />
-            <ContactList
-              contacts={beo.contacts}
-              addContact={addContactAction}
-              updateContact={updateContactAction}
-              removeContact={removeContactAction}
-              searchContacts={searchContactsAction}
-            />
-          </div>
-          <div className="space-y-6">
             <VendorPanel
               assignedVendors={beoVendors}
               eventId={eventId}
@@ -334,6 +325,15 @@ export default async function BEOPage({
               removeVendor={removeVendorAction}
               vendorTypeLabels={vendorTypeLabels}
             />
+            <ContactList
+              contacts={beo.contacts}
+              addContact={addContactAction}
+              updateContact={updateContactAction}
+              removeContact={removeContactAction}
+              searchContacts={searchContactsAction}
+            />
+          </div>
+          <div className="space-y-6">
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}

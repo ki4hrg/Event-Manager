@@ -13,6 +13,7 @@ type VendorContactListProps = {
   updateContact: (contactId: string, formData: FormData) => Promise<void>;
   removeContact: (contactId: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
+  createContact?: (formData: FormData) => Promise<void>;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -28,6 +29,40 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
+function ContactTypeField({
+  contactTypes,
+  defaultValue,
+}: {
+  contactTypes: CustomOption[];
+  defaultValue?: string;
+}) {
+  if (contactTypes.length > 0) {
+    return (
+      <select
+        name="contactType"
+        defaultValue={defaultValue ?? ""}
+        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+      >
+        <option value="">— None —</option>
+        {contactTypes.map((t) => (
+          <option key={t.id} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <input
+      type="text"
+      name="contactType"
+      defaultValue={defaultValue ?? ""}
+      placeholder="e.g. Sales, Billing..."
+      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+    />
+  );
+}
+
 export function VendorContactList({
   contacts,
   contactTypes,
@@ -35,8 +70,9 @@ export function VendorContactList({
   updateContact,
   removeContact,
   searchContacts,
+  createContact,
 }: VendorContactListProps) {
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Contact[]>([]);
@@ -69,12 +105,24 @@ export function VendorContactList({
     setSearchResults([]);
   };
 
+  const closeForm = () => {
+    setFormView("hidden");
+    setSelectedContact(null);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
+
   const handleAddFormSubmit = async (formData: FormData) => {
     if (!selectedContact) return;
     formData.set("contactId", selectedContact.id);
     await addContact(formData);
-    setSelectedContact(null);
-    setShowAddForm(false);
+    closeForm();
+  };
+
+  const handleCreateFormSubmit = async (formData: FormData) => {
+    if (!createContact) return;
+    await createContact(formData);
+    closeForm();
   };
 
   const handleUpdateSubmit = async (contactId: string, formData: FormData) => {
@@ -88,9 +136,9 @@ export function VendorContactList({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Contacts</h2>
         <button
           onClick={() => {
-            setShowAddForm(true);
             setSelectedContact(null);
             setSearchQuery("");
+            setFormView("search");
           }}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
         >
@@ -98,7 +146,7 @@ export function VendorContactList({
         </button>
       </div>
 
-      {showAddForm && (
+      {formView === "search" && (
         <form action={handleAddFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-4">
             {!selectedContact ? (
@@ -143,9 +191,19 @@ export function VendorContactList({
                 {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     No contacts found.{" "}
-                    <a href="/contacts/new" className="text-blue-600 hover:underline">
-                      Create a new contact
-                    </a>
+                    {createContact ? (
+                      <button
+                        type="button"
+                        onClick={() => setFormView("create")}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Create new contact
+                      </button>
+                    ) : (
+                      <a href="/contacts/new" className="text-blue-600 hover:underline">
+                        Create a new contact
+                      </a>
+                    )}
                   </p>
                 )}
               </div>
@@ -176,40 +234,84 @@ export function VendorContactList({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Contact Type
               </label>
-              {contactTypes.length > 0 ? (
-                <select
-                  name="contactType"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                >
-                  <option value="">— None —</option>
-                  {contactTypes.map((t) => (
-                    <option key={t.id} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  name="contactType"
-                  placeholder="e.g. Sales, Billing..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                />
-              )}
+              <ContactTypeField contactTypes={contactTypes} />
             </div>
           </div>
 
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Add Contact" />
+            <button type="button" onClick={closeForm} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {formView === "create" && (
+        <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  name="firstName"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  name="lastName"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Organization
+              </label>
+              <input
+                type="text"
+                name="organization"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Contact Type
+              </label>
+              <ContactTypeField contactTypes={contactTypes} />
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <SubmitButton label="Create & Add" />
             <button
               type="button"
-              onClick={() => {
-                setShowAddForm(false);
-                setSelectedContact(null);
-                setSearchQuery("");
-              }}
+              onClick={() => setFormView("search")}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
             >
+              Back
+            </button>
+            <button type="button" onClick={closeForm} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">
               Cancel
             </button>
           </div>
@@ -231,28 +333,7 @@ export function VendorContactList({
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Contact Type
                     </label>
-                    {contactTypes.length > 0 ? (
-                      <select
-                        name="contactType"
-                        defaultValue={item.contactType || ""}
-                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      >
-                        <option value="">— None —</option>
-                        {contactTypes.map((t) => (
-                          <option key={t.id} value={t.value}>
-                            {t.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        name="contactType"
-                        defaultValue={item.contactType || ""}
-                        placeholder="e.g. Sales, Billing..."
-                        className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      />
-                    )}
+                    <ContactTypeField contactTypes={contactTypes} defaultValue={item.contactType || ""} />
                   </div>
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />

@@ -82,6 +82,29 @@ export async function searchContactsForVendor(query: string) {
   });
 }
 
+export async function createAndAddVendorContact(vendorId: string, formData: FormData) {
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
+  const email = formData.get("email") as string;
+  const organization = formData.get("organization") as string;
+  const contactType = (formData.get("contactType") as string) || null;
+
+  const contact = await prisma.contact.create({
+    data: {
+      firstName,
+      lastName,
+      email: email || null,
+      organization: organization || null,
+    },
+  });
+
+  await prisma.vendorContact.create({
+    data: { vendorId, contactId: contact.id, contactType },
+  });
+
+  revalidatePath(`/vendors/${vendorId}`);
+}
+
 export async function addVendorContact(vendorId: string, formData: FormData) {
   const contactId = formData.get("contactId") as string;
   const contactType = (formData.get("contactType") as string) || null;

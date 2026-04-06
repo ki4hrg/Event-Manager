@@ -171,12 +171,21 @@ export default async function AVOrderPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
+        <div className="space-y-6">
           <AVOrderForm
             avOrder={avOrder}
             eventId={eventId}
             avEquipment={avEquipment}
             action={updateAVOrderAction}
+          />
+          <VendorPanel
+            assignedVendors={avOrderVendors}
+            eventId={eventId}
+            searchEventVendors={searchEventVendorsAction}
+            addVendor={addVendorAction}
+            updateVendor={updateVendorAction}
+            removeVendor={removeVendorAction}
+            vendorTypeLabels={vendorTypeLabels}
           />
         </div>
 
@@ -188,15 +197,6 @@ export default async function AVOrderPage({
             removeWorkflow={removeWorkflowAction}
             toggleStep={toggleStepAction}
             toggleItem={toggleItemAction}
-          />
-          <VendorPanel
-            assignedVendors={avOrderVendors}
-            eventId={eventId}
-            searchEventVendors={searchEventVendorsAction}
-            addVendor={addVendorAction}
-            updateVendor={updateVendorAction}
-            removeVendor={removeVendorAction}
-            vendorTypeLabels={vendorTypeLabels}
           />
           <AVOrderLinkPanel
             title="Linked Function"

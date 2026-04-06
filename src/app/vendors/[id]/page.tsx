@@ -12,6 +12,7 @@ import {
   addVendorContact,
   updateVendorContact,
   removeVendorContact,
+  createAndAddVendorContact,
 } from "../actions";
 import { getOptions } from "@/app/settings/actions";
 import { VendorForm } from "../VendorForm";
@@ -59,6 +60,11 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
   const removeContactAction = async (contactId: string) => {
     "use server";
     await removeVendorContact(contactId, id);
+  };
+
+  const createContactAction = async (formData: FormData) => {
+    "use server";
+    await createAndAddVendorContact(id, formData);
   };
 
   const typeLabels = new Map(vendorTypes.map((t) => [t.value, t.label]));
@@ -112,6 +118,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
             updateContact={updateContactAction}
             removeContact={removeContactAction}
             searchContacts={searchContactsAction}
+            createContact={createContactAction}
           />
         </div>
       </div>

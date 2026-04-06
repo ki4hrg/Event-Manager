@@ -236,9 +236,6 @@ export default async function SetupOrderPage({
               unlinkFunction: unlinkFromFunctionAction,
             }}
           />
-        </div>
-
-        <div className="space-y-8">
           <VendorPanel
             assignedVendors={setupOrderVendors}
             eventId={eventId}
@@ -248,6 +245,9 @@ export default async function SetupOrderPage({
             removeVendor={removeVendorAction}
             vendorTypeLabels={vendorTypeLabels}
           />
+        </div>
+
+        <div className="space-y-8">
           <WorkflowPanel
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}
