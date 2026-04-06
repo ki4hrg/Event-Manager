@@ -1,0 +1,280 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+export async function getVendors() {
+  return prisma.vendor.findMany({
+    include: {
+      _count: { select: { contacts: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function getVendor(id: string) {
+  return prisma.vendor.findUnique({
+    where: { id },
+    include: {
+      contacts: { include: { contact: true }, orderBy: { id: "asc" } },
+    },
+  });
+}
+
+export async function searchVendors(query: string) {
+  return prisma.vendor.findMany({
+    where: {
+      name: { contains: query, mode: "insensitive" },
+    },
+    orderBy: { name: "asc" },
+    take: 20,
+  });
+}
+
+export async function createVendor(formData: FormData) {
+  const name = (formData.get("name") as string).trim();
+  const types = formData.getAll("types") as string[];
+  const notes = (formData.get("notes") as string) || null;
+
+  const vendor = await prisma.vendor.create({
+    data: { name, types, notes },
+  });
+
+  revalidatePath("/vendors");
+  redirect(`/vendors/${vendor.id}`);
+}
+
+export async function updateVendor(id: string, formData: FormData) {
+  const name = (formData.get("name") as string).trim();
+  const types = formData.getAll("types") as string[];
+  const notes = (formData.get("notes") as string) || null;
+
+  await prisma.vendor.update({
+    where: { id },
+    data: { name, types, notes },
+  });
+
+  revalidatePath(`/vendors/${id}`);
+  revalidatePath("/vendors");
+}
+
+export async function deleteVendor(id: string) {
+  await prisma.vendor.delete({ where: { id } });
+  revalidatePath("/vendors");
+  redirect("/vendors");
+}
+
+// Vendor contact management
+
+export async function searchContactsForVendor(query: string) {
+  return prisma.contact.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { email: { contains: query, mode: "insensitive" } },
+        { organization: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    take: 20,
+  });
+}
+
+export async function addVendorContact(vendorId: string, formData: FormData) {
+  const contactId = formData.get("contactId") as string;
+  const contactType = (formData.get("contactType") as string) || null;
+
+  await prisma.vendorContact.create({
+    data: { vendorId, contactId, contactType },
+  });
+
+  revalidatePath(`/vendors/${vendorId}`);
+}
+
+export async function updateVendorContact(contactId: string, vendorId: string, formData: FormData) {
+  const contactType = (formData.get("contactType") as string) || null;
+
+  await prisma.vendorContact.update({
+    where: { id: contactId },
+    data: { contactType },
+  });
+
+  revalidatePath(`/vendors/${vendorId}`);
+}
+
+export async function removeVendorContact(contactId: string, vendorId: string) {
+  await prisma.vendorContact.delete({ where: { id: contactId } });
+  revalidatePath(`/vendors/${vendorId}`);
+}
+
+// Event vendor management
+
+export async function getEventVendors(eventId: string) {
+  return prisma.eventVendor.findMany({
+    where: { eventId },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+  });
+}
+
+export async function searchVendorsForEvent(query: string, eventId: string) {
+  // Returns vendors not already assigned to this event
+  const assigned = await prisma.eventVendor.findMany({
+    where: { eventId },
+    select: { vendorId: true },
+  });
+  const assignedIds = assigned.map((a) => a.vendorId);
+
+  return prisma.vendor.findMany({
+    where: {
+      name: { contains: query, mode: "insensitive" },
+      id: { notIn: assignedIds },
+    },
+    orderBy: { name: "asc" },
+    take: 20,
+  });
+}
+
+export async function addVendorToEvent(eventId: string, vendorId: string) {
+  await prisma.eventVendor.create({
+    data: { eventId, vendorId },
+  });
+
+  revalidatePath(`/events/${eventId}/vendors`);
+}
+
+export async function removeVendorFromEvent(eventVendorId: string, eventId: string) {
+  await prisma.eventVendor.delete({ where: { id: eventVendorId } });
+  revalidatePath(`/events/${eventId}/vendors`);
+}
+
+export async function setPrimaryVendor(eventVendorId: string, vendorType: string | null, eventId: string) {
+  await prisma.eventVendor.update({
+    where: { id: eventVendorId },
+    data: { isPrimaryFor: vendorType },
+  });
+
+  revalidatePath(`/events/${eventId}/vendors`);
+}
+
+// Entity vendor management helpers
+
+export async function getEventVendorsForPicker(eventId: string) {
+  return prisma.eventVendor.findMany({
+    where: { eventId },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+  });
+}
+
+// Search among vendors assigned to the event (for entity-level vendor pickers)
+export async function searchAssignedEventVendors(query: string, eventId: string) {
+  const rows = await prisma.eventVendor.findMany({
+    where: {
+      eventId,
+      vendor: { name: { contains: query, mode: "insensitive" } },
+    },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+    take: 20,
+  });
+  return rows.map((r) => r.vendor);
+}
+
+// AV Order vendors
+
+export async function getAVOrderVendors(avOrderId: string) {
+  return prisma.aVOrderVendor.findMany({
+    where: { avOrderId },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+  });
+}
+
+export async function addVendorToAVOrder(avOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await prisma.aVOrderVendor.create({
+    data: { avOrderId, vendorId, notes: notes || null },
+  });
+
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+export async function updateAVOrderVendor(id: string, avOrderId: string, eventId: string, notes: string) {
+  await prisma.aVOrderVendor.update({
+    where: { id },
+    data: { notes: notes || null },
+  });
+
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+export async function removeVendorFromAVOrder(id: string, avOrderId: string, eventId: string) {
+  await prisma.aVOrderVendor.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+// BEO vendors
+
+export async function getBEOVendors(beoId: string) {
+  return prisma.bEOVendor.findMany({
+    where: { beoId },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+  });
+}
+
+export async function addVendorToBEO(beoId: string, vendorId: string, eventId: string, notes?: string) {
+  await prisma.bEOVendor.create({
+    data: { beoId, vendorId, notes: notes || null },
+  });
+
+  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+}
+
+export async function updateBEOVendor(id: string, beoId: string, eventId: string, notes: string) {
+  await prisma.bEOVendor.update({
+    where: { id },
+    data: { notes: notes || null },
+  });
+
+  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+}
+
+export async function removeVendorFromBEO(id: string, beoId: string, eventId: string) {
+  await prisma.bEOVendor.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+}
+
+// Setup Order vendors
+
+export async function getSetupOrderVendors(setupOrderId: string) {
+  return prisma.setupOrderVendor.findMany({
+    where: { setupOrderId },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+  });
+}
+
+export async function addVendorToSetupOrder(setupOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await prisma.setupOrderVendor.create({
+    data: { setupOrderId, vendorId, notes: notes || null },
+  });
+
+  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+}
+
+export async function updateSetupOrderVendor(id: string, setupOrderId: string, eventId: string, notes: string) {
+  await prisma.setupOrderVendor.update({
+    where: { id },
+    data: { notes: notes || null },
+  });
+
+  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+}
+
+export async function removeVendorFromSetupOrder(id: string, setupOrderId: string, eventId: string) {
+  await prisma.setupOrderVendor.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+}

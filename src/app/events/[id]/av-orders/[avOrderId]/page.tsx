@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import type { CustomOption } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
@@ -15,6 +16,15 @@ import {
   unlinkAVOrderFromFunction,
   unlinkAVOrderFromPresentation,
 } from "../../../av-orders/actions";
+import {
+  getAVOrderVendors,
+  addVendorToAVOrder,
+  updateAVOrderVendor,
+  removeVendorFromAVOrder,
+  searchAssignedEventVendors,
+} from "@/app/vendors/actions";
+import { getOptions } from "@/app/settings/actions";
+import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
@@ -37,10 +47,14 @@ export default async function AVOrderPage({
     getWorkflowInstances("av_order", avOrderId),
     getWorkflowTemplateOptions(),
   ]);
-
   if (!event || !avOrder) {
     notFound();
   }
+
+  const [avOrderVendors, vendorTypeOptions]: [Awaited<ReturnType<typeof getAVOrderVendors>>, CustomOption[]] = await Promise.all([
+    getAVOrderVendors(avOrderId),
+    getOptions("vendor_type"),
+  ]);
 
   // Get available functions and presentations for linking
   const [availableFunctions, availablePresentations] = await Promise.all([
@@ -86,6 +100,28 @@ export default async function AVOrderPage({
   const unlinkFromPresentationAction = async () => {
     "use server";
     await unlinkAVOrderFromPresentation(avOrderId, eventId);
+  };
+
+  const vendorTypeLabels = Object.fromEntries(vendorTypeOptions.map((t) => [t.value, t.label]));
+
+  const searchEventVendorsAction = async (query: string) => {
+    "use server";
+    return searchAssignedEventVendors(query, eventId);
+  };
+
+  const addVendorAction = async (vendorId: string, notes: string) => {
+    "use server";
+    await addVendorToAVOrder(avOrderId, vendorId, eventId, notes);
+  };
+
+  const updateVendorAction = async (id: string, notes: string) => {
+    "use server";
+    await updateAVOrderVendor(id, avOrderId, eventId, notes);
+  };
+
+  const removeVendorAction = async (id: string) => {
+    "use server";
+    await removeVendorFromAVOrder(id, avOrderId, eventId);
   };
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
@@ -152,6 +188,15 @@ export default async function AVOrderPage({
             removeWorkflow={removeWorkflowAction}
             toggleStep={toggleStepAction}
             toggleItem={toggleItemAction}
+          />
+          <VendorPanel
+            assignedVendors={avOrderVendors}
+            eventId={eventId}
+            searchEventVendors={searchEventVendorsAction}
+            addVendor={addVendorAction}
+            updateVendor={updateVendorAction}
+            removeVendor={removeVendorAction}
+            vendorTypeLabels={vendorTypeLabels}
           />
           <AVOrderLinkPanel
             title="Linked Function"

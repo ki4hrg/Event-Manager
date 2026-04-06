@@ -64,6 +64,7 @@ model Event {
   avOrders           AVOrder[]
   beos               BEO[]
   setupOrders        SetupOrder[]
+  vendors            EventVendor[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -109,13 +110,14 @@ model Contact {
   phone         String?
   organization  String?
   notes         String?
-  roles         String[]              @default([])
-  functions     FunctionContact[]
-  venues        VenueContact[]
-  presentations PresentationContact[]
-  beos          BEOContact[]
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  roles          String[]              @default([])
+  functions      FunctionContact[]
+  venues         VenueContact[]
+  presentations  PresentationContact[]
+  beos           BEOContact[]
+  vendorContacts VendorContact[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 }
 
 // Junction table for Venue <-> Contact
@@ -206,11 +208,12 @@ model AVOrder {
   function       Function?     @relation(fields: [functionId], references: [id], onDelete: SetNull)
   presentationId String?       @unique
   presentation   Presentation? @relation(fields: [presentationId], references: [id], onDelete: SetNull)
-  equipment      String[]      @default([])
+  equipment      String[]        @default([])
   notes          String?
   equipmentItems EquipmentItem[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  vendors        AVOrderVendor[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@index([eventId])
 }
@@ -240,6 +243,7 @@ model BEO {
   lineItems          BEOLineItem[]
   menuSections       BEOMenuSection[]
   contacts           BEOContact[]
+  vendors            BEOVendor[]
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -298,8 +302,9 @@ model SetupOrder {
   notes          String?
   tables         SetupTable[]
   equipmentItems EquipmentItem[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  vendors        SetupOrderVendor[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@index([eventId])
   @@index([roomId])
@@ -553,4 +558,84 @@ model WorkflowChecklistCompletion {
   notes       String?
 
   @@unique([instanceId, itemId])
+}
+
+// Vendor management
+
+model Vendor {
+  id           String             @id @default(cuid())
+  name         String
+  types        String[]           @default([]) // references vendor_type CustomOption values
+  notes        String?
+  contacts     VendorContact[]
+  eventVendors EventVendor[]
+  avOrderVendors AVOrderVendor[]
+  beoVendors   BEOVendor[]
+  setupOrderVendors SetupOrderVendor[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+// Junction: Vendor <-> Contact
+model VendorContact {
+  id          String  @id @default(cuid())
+  vendorId    String
+  contactId   String
+  contactType String? // from vendor_contact_type CustomOption
+  vendor      Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, contactId])
+}
+
+// Junction: Event <-> Vendor (with optional primary-per-type designation)
+model EventVendor {
+  id           String  @id @default(cuid())
+  eventId      String
+  vendorId     String
+  isPrimaryFor String? // vendor_type value; null means not set as primary for any type
+  event        Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  vendor       Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, vendorId])
+  @@index([eventId])
+}
+
+// Junction: AVOrder <-> Vendor
+model AVOrderVendor {
+  id        String  @id @default(cuid())
+  avOrderId String
+  vendorId  String
+  notes     String?
+  avOrder   AVOrder @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  vendor    Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([avOrderId, vendorId])
+  @@index([avOrderId])
+}
+
+// Junction: BEO <-> Vendor
+model BEOVendor {
+  id       String  @id @default(cuid())
+  beoId    String
+  vendorId String
+  notes    String?
+  beo      BEO     @relation(fields: [beoId], references: [id], onDelete: Cascade)
+  vendor   Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([beoId, vendorId])
+  @@index([beoId])
+}
+
+// Junction: SetupOrder <-> Vendor
+model SetupOrderVendor {
+  id           String     @id @default(cuid())
+  setupOrderId String
+  vendorId     String
+  notes        String?
+  setupOrder   SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  vendor       Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([setupOrderId, vendorId])
+  @@index([setupOrderId])
 }

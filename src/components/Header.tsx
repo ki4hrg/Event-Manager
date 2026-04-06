@@ -30,6 +30,12 @@ export async function Header() {
             >
               Contacts
             </Link>
+            <Link
+              href="/vendors"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+              Vendors
+            </Link>
             {session?.user?.role === "admin" && (
               <>
                 <Link

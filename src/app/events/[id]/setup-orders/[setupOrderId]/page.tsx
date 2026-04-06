@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import type { CustomOption } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -20,6 +21,14 @@ import {
   deleteSetupEquipmentItem,
 } from "../../../setup-orders/actions";
 import { getOptions, getEquipment } from "@/app/settings/actions";
+import {
+  getSetupOrderVendors,
+  addVendorToSetupOrder,
+  updateSetupOrderVendor,
+  removeVendorFromSetupOrder,
+  searchAssignedEventVendors,
+} from "@/app/vendors/actions";
+import { VendorPanel } from "../../../vendors/VendorPanel";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
@@ -50,10 +59,14 @@ export default async function SetupOrderPage({
       getWorkflowInstances("setup_order", setupOrderId),
       getWorkflowTemplateOptions(),
     ]);
-
   if (!event || !setupOrder) {
     notFound();
   }
+
+  const [setupOrderVendors, vendorTypeOptions]: [Awaited<ReturnType<typeof getSetupOrderVendors>>, CustomOption[]] = await Promise.all([
+    getSetupOrderVendors(setupOrderId),
+    getOptions("vendor_type"),
+  ]);
 
   const TABLE_CAT = "TABLES";
   const CHAIR_CAT = "CHAIRS";
@@ -75,6 +88,28 @@ export default async function SetupOrderPage({
           orderBy: { name: "asc" },
         }),
   ]);
+
+  const vendorTypeLabels = Object.fromEntries(vendorTypeOptions.map((t) => [t.value, t.label]));
+
+  const searchEventVendorsAction = async (query: string) => {
+    "use server";
+    return searchAssignedEventVendors(query, eventId);
+  };
+
+  const addVendorAction = async (vendorId: string, notes: string) => {
+    "use server";
+    await addVendorToSetupOrder(setupOrderId, vendorId, eventId, notes);
+  };
+
+  const updateVendorAction = async (id: string, notes: string) => {
+    "use server";
+    await updateSetupOrderVendor(id, setupOrderId, eventId, notes);
+  };
+
+  const removeVendorAction = async (id: string) => {
+    "use server";
+    await removeVendorFromSetupOrder(id, setupOrderId, eventId);
+  };
 
   const { tableTotals, chairTotals } = aggregateSetupTables(setupOrder.tables);
   const setupReadOnlyItems = [
@@ -204,6 +239,15 @@ export default async function SetupOrderPage({
         </div>
 
         <div className="space-y-8">
+          <VendorPanel
+            assignedVendors={setupOrderVendors}
+            eventId={eventId}
+            searchEventVendors={searchEventVendorsAction}
+            addVendor={addVendorAction}
+            updateVendor={updateVendorAction}
+            removeVendor={removeVendorAction}
+            vendorTypeLabels={vendorTypeLabels}
+          />
           <WorkflowPanel
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}

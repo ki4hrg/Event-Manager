@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import type { CustomOption } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { DeleteButton } from "@/components/DeleteButton";
@@ -35,6 +36,14 @@ import { getOptions, getEquipment } from "../../../../settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
+import {
+  getBEOVendors,
+  addVendorToBEO,
+  updateBEOVendor,
+  removeVendorFromBEO,
+  searchAssignedEventVendors,
+} from "@/app/vendors/actions";
+import { VendorPanel } from "../../../vendors/VendorPanel";
 import { BEOTabs } from "../../../beos/BEOTabs";
 import { BEOOverviewForm } from "../../../beos/BEOOverviewForm";
 import { BEOServiceForm } from "../../../beos/BEOServiceForm";
@@ -110,13 +119,18 @@ export default async function BEOPage({
       getWorkflowInstances("beo", beoId),
       getWorkflowTemplateOptions(),
     ]);
-
   if (!event || !beo) {
     notFound();
   }
 
+  const [beoVendors, vendorTypeOptions]: [Awaited<ReturnType<typeof getBEOVendors>>, CustomOption[]] = await Promise.all([
+    getBEOVendors(beoId),
+    getOptions("vendor_type"),
+  ]);
+
   const availableFunctions = beo.functionId ? [] : allAvailableFunctions;
   const basePath = `/events/${eventId}/beos/${beoId}`;
+  const vendorTypeLabels = Object.fromEntries(vendorTypeOptions.map((t) => [t.value, t.label]));
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
@@ -240,6 +254,26 @@ export default async function BEOPage({
     await toggleItemCompletion(instanceId, itemId, "beo", beoId, eventId);
   };
 
+  const searchEventVendorsAction = async (query: string) => {
+    "use server";
+    return searchAssignedEventVendors(query, eventId);
+  };
+
+  const addVendorAction = async (vendorId: string, notes: string) => {
+    "use server";
+    await addVendorToBEO(beoId, vendorId, eventId, notes);
+  };
+
+  const updateVendorAction = async (id: string, notes: string) => {
+    "use server";
+    await updateBEOVendor(id, beoId, eventId, notes);
+  };
+
+  const removeVendorAction = async (id: string) => {
+    "use server";
+    await removeVendorFromBEO(id, beoId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -291,6 +325,15 @@ export default async function BEOPage({
             />
           </div>
           <div className="space-y-6">
+            <VendorPanel
+              assignedVendors={beoVendors}
+              eventId={eventId}
+              searchEventVendors={searchEventVendorsAction}
+              addVendor={addVendorAction}
+              updateVendor={updateVendorAction}
+              removeVendor={removeVendorAction}
+              vendorTypeLabels={vendorTypeLabels}
+            />
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
