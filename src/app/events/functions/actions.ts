@@ -362,6 +362,35 @@ export async function removeFunctionContact(contactId: string, functionId: strin
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
+export async function createAndAddFunctionContact(
+  functionId: string,
+  eventId: string,
+  formData: FormData
+) {
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
+  const email = formData.get("email") as string;
+  const phone = formData.get("phone") as string;
+  const organization = formData.get("organization") as string;
+  const role = formData.get("role") as string;
+
+  const contact = await prisma.contact.create({
+    data: {
+      firstName,
+      lastName,
+      email: email || null,
+      phone: phone || null,
+      organization: organization || null,
+    },
+  });
+
+  await prisma.functionContact.create({
+    data: { functionId, contactId: contact.id, role: role || null },
+  });
+
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
 // ============================================================================
 // Agenda DnD Actions
 // ============================================================================
