@@ -173,13 +173,28 @@ export async function removeVendorFromEvent(eventVendorId: string, eventId: stri
   revalidatePath(`/events/${eventId}/vendors`);
 }
 
-export async function setPrimaryVendor(eventVendorId: string, vendorType: string | null, eventId: string) {
-  await prisma.eventVendor.update({
-    where: { id: eventVendorId },
-    data: { isPrimaryFor: vendorType },
-  });
+// Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
+export type ModelType = "BEO" | "AV_ORDER" | "SETUP_ORDER";
 
+// Assigns a vendor as the default for a model type on this event.
+// Transfers the designation away from any other vendor that held it.
+export async function setDefaultVendor(eventVendorId: string, modelType: ModelType, eventId: string) {
+  await prisma.$transaction([
+    prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE "eventId" = ${eventId} AND id != ${eventVendorId}`,
+    prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_append(array_remove("defaultFor", ${modelType}), ${modelType}) WHERE id = ${eventVendorId}`,
+  ]);
   revalidatePath(`/events/${eventId}/vendors`);
+}
+
+export async function removeDefaultVendor(eventVendorId: string, modelType: ModelType, eventId: string) {
+  await prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE id = ${eventVendorId}`;
+  revalidatePath(`/events/${eventId}/vendors`);
+}
+
+export async function getDefaultVendorForModel(eventId: string, modelType: ModelType) {
+  return prisma.eventVendor.findFirst({
+    where: { eventId, defaultFor: { has: modelType } },
+  });
 }
 
 // Entity vendor management helpers

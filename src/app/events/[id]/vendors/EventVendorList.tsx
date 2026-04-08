@@ -2,34 +2,40 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import type { EventVendor, Vendor, CustomOption } from "@prisma/client";
+import type { EventVendor, Vendor } from "@prisma/client";
+import type { ModelType } from "@/app/vendors/actions";
 
 type EventVendorWithVendor = EventVendor & { vendor: Vendor };
 
+// Add new entries here when wiring up a new model type in vendors/actions.ts
+const MODEL_TYPES: { value: ModelType; label: string }[] = [
+  { value: "BEO", label: "BEO" },
+  { value: "AV_ORDER", label: "AV Order" },
+  { value: "SETUP_ORDER", label: "Setup Order" },
+];
+
 type EventVendorListProps = {
   eventVendors: EventVendorWithVendor[];
-  vendorTypes: CustomOption[];
   searchVendors: (query: string) => Promise<Vendor[]>;
   addVendor: (vendorId: string) => Promise<void>;
   removeVendor: (eventVendorId: string) => Promise<void>;
-  setPrimary: (eventVendorId: string, vendorType: string | null) => Promise<void>;
+  setDefault: (eventVendorId: string, modelType: ModelType) => Promise<void>;
+  removeDefault: (eventVendorId: string, modelType: ModelType) => Promise<void>;
 };
 
 export function EventVendorList({
   eventVendors,
-  vendorTypes,
   searchVendors,
   addVendor,
   removeVendor,
-  setPrimary,
+  setDefault,
+  removeDefault,
 }: EventVendorListProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Vendor[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [editingPrimaryId, setEditingPrimaryId] = useState<string | null>(null);
-
-  const typeLabels = new Map(vendorTypes.map((t) => [t.value, t.label]));
+  const [pendingToggles, setPendingToggles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (searchQuery.length < 2) {
@@ -55,6 +61,25 @@ export function EventVendorList({
     setShowAddForm(false);
     setSearchQuery("");
     setSearchResults([]);
+  };
+
+  const handleToggleDefault = async (ev: EventVendorWithVendor, modelType: ModelType) => {
+    const key = `${ev.id}:${modelType}`;
+    if (pendingToggles.has(key)) return;
+    setPendingToggles((prev) => new Set(prev).add(key));
+    try {
+      if (ev.defaultFor.includes(modelType)) {
+        await removeDefault(ev.id, modelType);
+      } else {
+        await setDefault(ev.id, modelType);
+      }
+    } finally {
+      setPendingToggles((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
   };
 
   return (
@@ -101,7 +126,7 @@ export function EventVendorList({
                   <span className="text-gray-900 dark:text-white font-medium">{vendor.name}</span>
                   {vendor.types.length > 0 && (
                     <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
-                      {vendor.types.map((t) => typeLabels.get(t) || t).join(", ")}
+                      {vendor.types.join(", ")}
                     </span>
                   )}
                 </button>
@@ -143,7 +168,7 @@ export function EventVendorList({
                   Types
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Primary For
+                  Default For
                 </th>
                 <th className="px-6 py-3" />
               </tr>
@@ -166,49 +191,34 @@ export function EventVendorList({
                           key={type}
                           className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                         >
-                          {typeLabels.get(type) || type}
+                          {type}
                         </span>
                       ))}
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    {editingPrimaryId === ev.id ? (
-                      <div className="flex items-center gap-2">
-                        <select
-                          defaultValue={ev.isPrimaryFor || ""}
-                          onChange={async (e) => {
-                            await setPrimary(ev.id, e.target.value || null);
-                            setEditingPrimaryId(null);
-                          }}
-                          className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                        >
-                          <option value="">— None —</option>
-                          {vendorTypes.map((t) => (
-                            <option key={t.id} value={t.value}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => setEditingPrimaryId(null)}
-                          className="text-gray-500 text-sm"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setEditingPrimaryId(ev.id)}
-                        className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                      >
-                        {ev.isPrimaryFor
-                          ? typeLabels.get(ev.isPrimaryFor) || ev.isPrimaryFor
-                          : <span className="text-gray-400 dark:text-gray-500 italic">Set primary...</span>
-                        }
-                      </button>
-                    )}
+                    <div className="flex flex-wrap gap-3">
+                      {MODEL_TYPES.map(({ value, label }) => {
+                        const key = `${ev.id}:${value}`;
+                        const isChecked = ev.defaultFor.includes(value);
+                        const isPending = pendingToggles.has(key);
+                        return (
+                          <label
+                            key={value}
+                            className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isPending}
+                              onChange={() => handleToggleDefault(ev, value)}
+                              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                            />
+                            {label}
+                          </label>
+                        );
+                      })}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button

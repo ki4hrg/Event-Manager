@@ -603,14 +603,17 @@ model VendorContact {
   @@unique([vendorId, contactId])
 }
 
-// Junction: Event <-> Vendor (with optional primary-per-type designation)
+// Junction: Event <-> Vendor (with optional default-per-model-type designation)
+// Valid defaultFor values: "BEO", "AV_ORDER", "SETUP_ORDER"
+// When a new document model with vendor support is added, add its identifier here
+// and wire up auto-assignment in its create action.
 model EventVendor {
-  id           String  @id @default(cuid())
-  eventId      String
-  vendorId     String
-  isPrimaryFor String? // vendor_type value; null means not set as primary for any type
-  event        Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  vendor       Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  eventId    String
+  vendorId   String
+  defaultFor String[] @default([])
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  vendor     Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, vendorId])
   @@index([eventId])

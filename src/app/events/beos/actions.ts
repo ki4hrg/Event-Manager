@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getDefaultVendorForModel } from "@/app/vendors/actions";
 
 export async function getBEOs(eventId: string) {
   return prisma.bEO.findMany({
@@ -56,6 +57,11 @@ export async function createBEO(eventId: string, formData: FormData) {
       notes: (formData.get("notes") as string) || null,
     },
   });
+
+  const defaultVendor = await getDefaultVendorForModel(eventId, "BEO");
+  if (defaultVendor) {
+    await prisma.bEOVendor.create({ data: { beoId: beo.id, vendorId: defaultVendor.vendorId } });
+  }
 
   revalidatePath(`/events/${eventId}/beos`);
   redirect(`/events/${eventId}/beos/${beo.id}`);

@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getDefaultVendorForModel } from "@/app/vendors/actions";
 
 export async function getAVOrders(eventId: string) {
   return prisma.aVOrder.findMany({
@@ -42,6 +43,11 @@ export async function createAVOrder(eventId: string, formData: FormData) {
       presentationId: presentationId || null,
     },
   });
+
+  const defaultVendor = await getDefaultVendorForModel(eventId, "AV_ORDER");
+  if (defaultVendor) {
+    await prisma.aVOrderVendor.create({ data: { avOrderId: avOrder.id, vendorId: defaultVendor.vendorId } });
+  }
 
   revalidatePath(`/events/${eventId}/av-orders`);
   redirect(`/events/${eventId}/av-orders/${avOrder.id}`);

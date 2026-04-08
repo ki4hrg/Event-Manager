@@ -6,9 +6,10 @@ import {
   searchVendorsForEvent,
   addVendorToEvent,
   removeVendorFromEvent,
-  setPrimaryVendor,
+  setDefaultVendor,
+  removeDefaultVendor,
+  type ModelType,
 } from "@/app/vendors/actions";
-import { getOptions } from "@/app/settings/actions";
 import { EventTabs } from "../EventTabs";
 import { EventVendorList } from "./EventVendorList";
 
@@ -16,10 +17,9 @@ export const dynamic = "force-dynamic";
 
 export default async function EventVendorsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
-  const [event, eventVendors, vendorTypes] = await Promise.all([
+  const [event, eventVendors] = await Promise.all([
     getEvent(eventId),
     getEventVendors(eventId),
-    getOptions("vendor_type"),
   ]);
 
   if (!event) {
@@ -41,9 +41,14 @@ export default async function EventVendorsPage({ params }: { params: Promise<{ i
     await removeVendorFromEvent(eventVendorId, eventId);
   };
 
-  const setPrimaryAction = async (eventVendorId: string, vendorType: string | null) => {
+  const setDefaultAction = async (eventVendorId: string, modelType: ModelType) => {
     "use server";
-    await setPrimaryVendor(eventVendorId, vendorType, eventId);
+    await setDefaultVendor(eventVendorId, modelType, eventId);
+  };
+
+  const removeDefaultAction = async (eventVendorId: string, modelType: ModelType) => {
+    "use server";
+    await removeDefaultVendor(eventVendorId, modelType, eventId);
   };
 
   return (
@@ -55,11 +60,11 @@ export default async function EventVendorsPage({ params }: { params: Promise<{ i
 
       <EventVendorList
         eventVendors={eventVendors}
-        vendorTypes={vendorTypes}
         searchVendors={searchVendorsAction}
         addVendor={addVendorAction}
         removeVendor={removeVendorAction}
-        setPrimary={setPrimaryAction}
+        setDefault={setDefaultAction}
+        removeDefault={removeDefaultAction}
       />
     </PageWrapper>
   );
