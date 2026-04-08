@@ -344,7 +344,7 @@ model SetupTable {
 
 model CateringOrderLineItem {
   id              String        @id @default(cuid())
-  cateringOrderId String
+  cateringOrderId String        @map("beoId")
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   description     String
   unitType        String?
@@ -361,7 +361,7 @@ model CateringOrderLineItem {
 
 model CateringOrderMenuSection {
   id              String        @id @default(cuid())
-  cateringOrderId String
+  cateringOrderId String        @map("beoId")
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   responsibleParty String
   menuContent      String
@@ -376,7 +376,7 @@ model CateringOrderMenuSection {
 
 model CateringOrderContact {
   id              String        @id @default(cuid())
-  cateringOrderId String
+  cateringOrderId String        @map("beoId")
   contactId       String
   role            String?
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
@@ -639,7 +639,7 @@ model AVOrderVendor {
 // Junction: CateringOrder <-> Vendor
 model CateringOrderVendor {
   id              String        @id @default(cuid())
-  cateringOrderId String
+  cateringOrderId String        @map("beoId")
   vendorId        String
   notes           String?
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
