@@ -10,6 +10,7 @@ import {
   removeDefaultVendor,
   type ModelType,
 } from "@/app/vendors/actions";
+import { getOptions } from "@/app/settings/actions";
 import { EventTabs } from "../EventTabs";
 import { EventVendorList } from "./EventVendorList";
 
@@ -17,9 +18,10 @@ export const dynamic = "force-dynamic";
 
 export default async function EventVendorsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
-  const [event, eventVendors] = await Promise.all([
+  const [event, eventVendors, vendorTypes] = await Promise.all([
     getEvent(eventId),
     getEventVendors(eventId),
+    getOptions("vendor_type"),
   ]);
 
   if (!event) {
@@ -60,6 +62,7 @@ export default async function EventVendorsPage({ params }: { params: Promise<{ i
 
       <EventVendorList
         eventVendors={eventVendors}
+        vendorTypes={vendorTypes}
         searchVendors={searchVendorsAction}
         addVendor={addVendorAction}
         removeVendor={removeVendorAction}

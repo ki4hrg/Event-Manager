@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import type { EventVendor, Vendor } from "@prisma/client";
+import type { EventVendor, Vendor, CustomOption } from "@prisma/client";
 import type { ModelType } from "@/app/vendors/actions";
 
 type EventVendorWithVendor = EventVendor & { vendor: Vendor };
@@ -16,6 +16,7 @@ const MODEL_TYPES: { value: ModelType; label: string }[] = [
 
 type EventVendorListProps = {
   eventVendors: EventVendorWithVendor[];
+  vendorTypes: CustomOption[];
   searchVendors: (query: string) => Promise<Vendor[]>;
   addVendor: (vendorId: string) => Promise<void>;
   removeVendor: (eventVendorId: string) => Promise<void>;
@@ -25,12 +26,14 @@ type EventVendorListProps = {
 
 export function EventVendorList({
   eventVendors,
+  vendorTypes,
   searchVendors,
   addVendor,
   removeVendor,
   setDefault,
   removeDefault,
 }: EventVendorListProps) {
+  const typeLabels = new Map(vendorTypes.map((t) => [t.value, t.label]));
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Vendor[]>([]);
@@ -126,7 +129,7 @@ export function EventVendorList({
                   <span className="text-gray-900 dark:text-white font-medium">{vendor.name}</span>
                   {vendor.types.length > 0 && (
                     <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
-                      {vendor.types.join(", ")}
+                      {vendor.types.map((t) => typeLabels.get(t) || t).join(", ")}
                     </span>
                   )}
                 </button>
@@ -191,7 +194,7 @@ export function EventVendorList({
                           key={type}
                           className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                         >
-                          {type}
+                          {typeLabels.get(type) || type}
                         </span>
                       ))}
                     </div>
