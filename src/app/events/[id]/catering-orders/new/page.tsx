@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
-import { createBEO } from "../../../beos/actions";
+import { createCateringOrder } from "../../../catering-orders/actions";
 import { getOptions } from "../../../../settings/actions";
-import { BEOForm } from "../../../beos/BEOForm";
+import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewBEOPage({
+export default async function NewCateringOrderPage({
   params,
   searchParams,
 }: {
@@ -27,27 +27,27 @@ export default async function NewBEOPage({
     notFound();
   }
 
-  const createBEOAction = async (formData: FormData) => {
+  const createCateringOrderAction = async (formData: FormData) => {
     "use server";
     if (functionId) formData.set("functionId", functionId);
-    await createBEO(eventId, formData);
+    await createCateringOrder(eventId, formData);
   };
 
   return (
     <PageWrapper>
       <div className="mb-6">
         <Link
-          href={`/events/${eventId}/beos`}
+          href={`/events/${eventId}/catering-orders`}
           className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
         >
-          &larr; Back to BEOs
+          &larr; Back to Catering Orders
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-          New BEO
+          New Catering Order
         </h1>
       </div>
 
-      <BEOForm eventId={eventId} action={createBEOAction} serviceStyleOptions={serviceStyleOptions} />
+      <CateringOrderForm eventId={eventId} action={createCateringOrderAction} serviceStyleOptions={serviceStyleOptions} />
     </PageWrapper>
   );
 }

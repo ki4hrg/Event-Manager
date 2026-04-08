@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 
-type BEOFormProps = {
+type CateringOrderFormProps = {
   eventId: string;
   action: (formData: FormData) => Promise<void>;
   serviceStyleOptions: CustomOption[];
@@ -17,12 +17,12 @@ function SubmitButton() {
       disabled={pending}
       className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
     >
-      {pending ? "Saving..." : "Create BEO"}
+      {pending ? "Saving..." : "Create Catering Order"}
     </button>
   );
 }
 
-export function BEOForm({ eventId, action, serviceStyleOptions }: BEOFormProps) {
+export function CateringOrderForm({ eventId, action, serviceStyleOptions }: CateringOrderFormProps) {
   return (
     <form action={action} className="space-y-6 max-w-2xl">
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -37,7 +37,7 @@ export function BEOForm({ eventId, action, serviceStyleOptions }: BEOFormProps) 
               id="name"
               name="name"
               required
-              placeholder="e.g., Opening Dinner BEO, Lunch Day 1"
+              placeholder="e.g., Opening Dinner, Lunch Day 1"
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -115,7 +115,7 @@ export function BEOForm({ eventId, action, serviceStyleOptions }: BEOFormProps) 
       <div className="flex gap-4">
         <SubmitButton />
         <a
-          href={`/events/${eventId}/beos`}
+          href={`/events/${eventId}/catering-orders`}
           className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           Cancel

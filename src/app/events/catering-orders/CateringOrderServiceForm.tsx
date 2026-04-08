@@ -1,10 +1,10 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import type { BEO } from "@prisma/client";
+import type { CateringOrder } from "@prisma/client";
 
-type BEOServiceFormProps = {
-  beo: BEO;
+type CateringOrderServiceFormProps = {
+  cateringOrder: CateringOrder;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -21,7 +21,7 @@ function SaveButton() {
   );
 }
 
-export function BEOServiceForm({ beo, action }: BEOServiceFormProps) {
+export function CateringOrderServiceForm({ cateringOrder, action }: CateringOrderServiceFormProps) {
   return (
     <form action={action} className="space-y-6">
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -31,7 +31,7 @@ export function BEOServiceForm({ beo, action }: BEOServiceFormProps) {
           name="dietaryNotes"
           rows={3}
           placeholder="Vegetarian, vegan, gluten-free, allergies..."
-          defaultValue={beo.dietaryNotes || ""}
+          defaultValue={cateringOrder.dietaryNotes || ""}
           className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -43,7 +43,7 @@ export function BEOServiceForm({ beo, action }: BEOServiceFormProps) {
           name="staffingNotes"
           rows={3}
           placeholder="e.g., 2 servers, 1 manager, banquet captain..."
-          defaultValue={beo.staffingNotes || ""}
+          defaultValue={cateringOrder.staffingNotes || ""}
           className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>

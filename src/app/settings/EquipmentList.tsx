@@ -85,7 +85,7 @@ export function EquipmentList({
         <div>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Equipment</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Equipment options grouped by category, used across AV Orders, BEOs, and Setup Orders
+            Equipment options grouped by category, used across AV Orders, Catering Orders, and Setup Orders
           </p>
         </div>
         <button

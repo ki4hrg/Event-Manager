@@ -26,10 +26,10 @@ import {
   unlinkAVOrderFromFunctionPage,
 } from "../../../av-orders/actions";
 import {
-  getAvailableBEOs,
-  linkBEOToFunctionFromFunction,
-  unlinkBEOFromFunctionPage,
-} from "../../../beos/actions";
+  getAvailableCateringOrders,
+  linkCateringOrderToFunctionFromFunction,
+  unlinkCateringOrderFromFunctionPage,
+} from "../../../catering-orders/actions";
 import {
   getAvailableSetupOrdersForFunction,
   linkSetupOrderToFunctionFromFunction,
@@ -39,7 +39,7 @@ import { FunctionForm } from "../../../functions/FunctionForm";
 import { ScheduleList } from "../../../functions/ScheduleList";
 import { ContactList } from "../../../functions/ContactList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
-import { BEOPanel } from "../../../beos/BEOPanel";
+import { CateringOrderPanel } from "../../../catering-orders/CateringOrderPanel";
 import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getOptions } from "@/app/settings/actions";
@@ -77,9 +77,9 @@ export default async function FunctionPage({
       })
     : [];
 
-  const [availableAVOrders, availableBEOs, availableSetupOrders, workflowInstances, allTemplates] = await Promise.all([
+  const [availableAVOrders, availableCateringOrders, availableSetupOrders, workflowInstances, allTemplates] = await Promise.all([
     fn.avOrder ? [] : getAvailableAVOrdersForFunction(eventId),
-    fn.beo ? [] : getAvailableBEOs(eventId),
+    fn.cateringOrder ? [] : getAvailableCateringOrders(eventId),
     fn.setupOrder ? [] : getAvailableSetupOrdersForFunction(eventId),
     getWorkflowInstances("function", functionId),
     getWorkflowTemplateOptions(),
@@ -153,14 +153,14 @@ export default async function FunctionPage({
     await unlinkAVOrderFromFunctionPage(functionId, eventId);
   };
 
-  const linkBEOAction = async (beoId: string) => {
+  const linkCateringOrderAction = async (cateringOrderId: string) => {
     "use server";
-    await linkBEOToFunctionFromFunction(beoId, functionId, eventId);
+    await linkCateringOrderToFunctionFromFunction(cateringOrderId, functionId, eventId);
   };
 
-  const unlinkBEOAction = async () => {
+  const unlinkCateringOrderAction = async () => {
     "use server";
-    await unlinkBEOFromFunctionPage(functionId, eventId);
+    await unlinkCateringOrderFromFunctionPage(functionId, eventId);
   };
 
   const linkSetupOrderAction = async (setupOrderId: string) => {
@@ -264,13 +264,13 @@ export default async function FunctionPage({
             linkAVOrder={linkAVOrderAction}
             unlinkAVOrder={unlinkAVOrderAction}
           />
-          <BEOPanel
-            beo={fn.beo}
+          <CateringOrderPanel
+            cateringOrder={fn.cateringOrder}
             eventId={eventId}
-            availableBEOs={availableBEOs}
-            newBEOPath={`/events/${eventId}/beos/new?functionId=${functionId}`}
-            linkBEO={linkBEOAction}
-            unlinkBEO={unlinkBEOAction}
+            availableCateringOrders={availableCateringOrders}
+            newCateringOrderPath={`/events/${eventId}/catering-orders/new?functionId=${functionId}`}
+            linkCateringOrder={linkCateringOrderAction}
+            unlinkCateringOrder={unlinkCateringOrderAction}
           />
           <SetupOrderPanel
             setupOrder={fn.setupOrder ? { ...fn.setupOrder, function: { name: fn.name } } : null}

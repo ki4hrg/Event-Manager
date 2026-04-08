@@ -6,12 +6,12 @@ const tabs = [
   { label: "Contract & Billing", value: "contract" },
 ];
 
-type BEOTabsProps = {
+type CateringOrderTabsProps = {
   basePath: string;
   activeTab: string;
 };
 
-export function BEOTabs({ basePath, activeTab }: BEOTabsProps) {
+export function CateringOrderTabs({ basePath, activeTab }: CateringOrderTabsProps) {
   return (
     <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
       <nav className="-mb-px flex gap-6">

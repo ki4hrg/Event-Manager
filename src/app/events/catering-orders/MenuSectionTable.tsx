@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { BEOMenuSection } from "@prisma/client";
+import type { CateringOrderMenuSection } from "@prisma/client";
 import type { CustomOption } from "@prisma/client";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type MenuSectionTableProps = {
-  sections: BEOMenuSection[];
+  sections: CateringOrderMenuSection[];
   responsiblePartyOptions: CustomOption[];
   createSection: (formData: FormData) => Promise<void>;
   updateSection: (id: string, formData: FormData) => Promise<void>;

@@ -77,7 +77,7 @@ model Event {
   presentationTracks PresentationTrack[]
   breakoutGroups     BreakoutGroup[]
   avOrders           AVOrder[]
-  beos               BEO[]
+  cateringOrders     CateringOrder[]
   setupOrders        SetupOrder[]
   vendors            EventVendor[]
   createdAt          DateTime            @default(now())
@@ -129,7 +129,7 @@ model Contact {
   functions      FunctionContact[]
   venues         VenueContact[]
   presentations  PresentationContact[]
-  beos           BEOContact[]
+  cateringOrders CateringOrderContact[]
   vendorContacts VendorContact[]
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
@@ -164,7 +164,7 @@ model Function {
   presentationSlots    PresentationSlot[]
   sessionRoomOverrides BreakoutSessionRoomOverride[]
   avOrder              AVOrder?
-  beo                  BEO?
+  cateringOrder        CateringOrder?
   setupOrder           SetupOrder?
   timelineItems        TimelineItem[]
   createdAt            DateTime           @default(now())
@@ -233,13 +233,13 @@ model AVOrder {
   @@index([eventId])
 }
 
-model BEO {
-  id                 String           @id @default(cuid())
+model CateringOrder {
+  id                 String                    @id @default(cuid())
   name               String
   eventId            String
-  event              Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  functionId         String?          @unique
-  function           Function?        @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  event              Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId         String?                   @unique
+  function           Function?                 @relation(fields: [functionId], references: [id], onDelete: SetNull)
   serviceStyle       String?
   expectedCount      Int?
   confirmedCount     Int?
@@ -255,22 +255,23 @@ model BEO {
   notes              String?
   timelineItems      TimelineItem[]
   equipmentItems     EquipmentItem[]
-  lineItems          BEOLineItem[]
-  menuSections       BEOMenuSection[]
-  contacts           BEOContact[]
-  vendors            BEOVendor[]
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  lineItems          CateringOrderLineItem[]
+  menuSections       CateringOrderMenuSection[]
+  contacts           CateringOrderContact[]
+  vendors            CateringOrderVendor[]
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
 
+  @@map("BEO")
   @@index([eventId])
 }
 
 model TimelineItem {
   id         String    @id @default(cuid())
-  beoId      String?
-  functionId String?
-  beo        BEO?      @relation(fields: [beoId], references: [id], onDelete: Cascade)
-  function   Function? @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  cateringOrderId String?
+  functionId      String?
+  cateringOrder   CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  function        Function?      @relation(fields: [functionId], references: [id], onDelete: Cascade)
   label      String
   startTime  DateTime
   endTime    DateTime?
@@ -279,16 +280,16 @@ model TimelineItem {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  @@index([beoId])
+  @@index([cateringOrderId])
   @@index([functionId])
 }
 
 model EquipmentItem {
   id               String      @id @default(cuid())
-  beoId            String?
+  cateringOrderId  String?
   avOrderId        String?
   setupOrderId     String?
-  beo              BEO?        @relation(fields: [beoId], references: [id], onDelete: Cascade)
+  cateringOrder    CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   avOrder          AVOrder?    @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
   setupOrder       SetupOrder? @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   item             String
@@ -299,7 +300,7 @@ model EquipmentItem {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
-  @@index([beoId])
+  @@index([cateringOrderId])
   @@index([avOrderId])
   @@index([setupOrderId])
 }
@@ -341,45 +342,48 @@ model SetupTable {
   @@index([setupOrderId])
 }
 
-model BEOLineItem {
-  id          String   @id @default(cuid())
-  beoId       String
-  beo         BEO      @relation(fields: [beoId], references: [id], onDelete: Cascade)
-  description String
-  unitType    String?
-  unitPrice   Decimal?
-  quantity    Int?
-  notes       String?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model CateringOrderLineItem {
+  id              String        @id @default(cuid())
+  cateringOrderId String
+  cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  description     String
+  unitType        String?
+  unitPrice       Decimal?
+  quantity        Int?
+  notes           String?
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  @@index([beoId])
+  @@map("BEOLineItem")
+  @@index([cateringOrderId])
 }
 
-model BEOMenuSection {
-  id               String   @id @default(cuid())
-  beoId            String
-  beo              BEO      @relation(fields: [beoId], references: [id], onDelete: Cascade)
+model CateringOrderMenuSection {
+  id              String        @id @default(cuid())
+  cateringOrderId String
+  cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   responsibleParty String
   menuContent      String
   notes            String?
-  sortOrder        Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  sortOrder        Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  @@index([beoId])
+  @@map("BEOMenuSection")
+  @@index([cateringOrderId])
 }
 
-model BEOContact {
-  id        String  @id @default(cuid())
-  beoId     String
-  contactId String
-  role      String?
-  beo       BEO     @relation(fields: [beoId], references: [id], onDelete: Cascade)
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+model CateringOrderContact {
+  id              String        @id @default(cuid())
+  cateringOrderId String
+  contactId       String
+  role            String?
+  cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
-  @@unique([beoId, contactId])
+  @@map("BEOContact")
+  @@unique([cateringOrderId, contactId])
 }
 
 // Presentation tracks (scoped per event)
@@ -533,12 +537,12 @@ model WorkflowChecklistItem {
   @@index([stepId])
 }
 
-// Links a workflow template to a specific entity (BEO, Function, AVOrder, etc.)
+// Links a workflow template to a specific entity (CateringOrder, Function, AVOrder, etc.)
 model WorkflowInstance {
   id              String                       @id @default(cuid())
   templateId      String
   template        WorkflowTemplate             @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  entityType      String                       // "function", "beo", "av_order", "presentation"
+  entityType      String                       // "function", "catering_order", "av_order", "presentation"
   entityId        String
   stepCompletions WorkflowStepCompletion[]
   itemCompletions WorkflowChecklistCompletion[]
@@ -585,7 +589,7 @@ model Vendor {
   contacts     VendorContact[]
   eventVendors EventVendor[]
   avOrderVendors AVOrderVendor[]
-  beoVendors   BEOVendor[]
+  cateringOrderVendors CateringOrderVendor[]
   setupOrderVendors SetupOrderVendor[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -604,7 +608,7 @@ model VendorContact {
 }
 
 // Junction: Event <-> Vendor (with optional default-per-model-type designation)
-// Valid defaultFor values: "BEO", "AV_ORDER", "SETUP_ORDER"
+// Valid defaultFor values: "CATERING_ORDER", "AV_ORDER", "SETUP_ORDER"
 // When a new document model with vendor support is added, add its identifier here
 // and wire up auto-assignment in its create action.
 model EventVendor {
@@ -632,17 +636,18 @@ model AVOrderVendor {
   @@index([avOrderId])
 }
 
-// Junction: BEO <-> Vendor
-model BEOVendor {
-  id       String  @id @default(cuid())
-  beoId    String
-  vendorId String
-  notes    String?
-  beo      BEO     @relation(fields: [beoId], references: [id], onDelete: Cascade)
-  vendor   Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+// Junction: CateringOrder <-> Vendor
+model CateringOrderVendor {
+  id              String        @id @default(cuid())
+  cateringOrderId String
+  vendorId        String
+  notes           String?
+  cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  vendor          Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
-  @@unique([beoId, vendorId])
-  @@index([beoId])
+  @@map("BEOVendor")
+  @@unique([cateringOrderId, vendorId])
+  @@index([cateringOrderId])
 }
 
 // Junction: SetupOrder <-> Vendor

@@ -86,7 +86,7 @@ export async function getFunction(id: string) {
       schedules: { orderBy: { sortOrder: "asc" } },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       avOrder: true,
-      beo: true,
+      cateringOrder: true,
       setupOrder: { include: { room: true } },
       breakoutGroup: true,
     },

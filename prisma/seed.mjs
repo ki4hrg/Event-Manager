@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 const defaultFunctionTypes = [
   { value: "GENERAL", label: "General", color: "gray", sortOrder: 0 },
-  { value: "MEAL", label: "Meal / BEO", color: "orange", sortOrder: 1 },
+  { value: "MEAL", label: "Meal / Catering Order", color: "orange", sortOrder: 1 },
   { value: "BREAKOUT", label: "Breakout Session", color: "blue", sortOrder: 2 },
   { value: "PLENARY", label: "Plenary Session", color: "purple", sortOrder: 3 },
 ];

@@ -1,57 +1,56 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import type { CustomOption } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "../../../actions";
 import {
-  getBEO,
-  updateBEOOverview,
-  updateBEOService,
-  updateBEOContract,
-  deleteBEO,
-  linkBEOToFunction,
-  unlinkBEOFromFunction,
+  getCateringOrder,
+  updateCateringOrderOverview,
+  updateCateringOrderService,
+  updateCateringOrderContract,
+  deleteCateringOrder,
+  linkCateringOrderToFunction,
+  unlinkCateringOrderFromFunction,
   createTimelineItem,
   updateTimelineItem,
   deleteTimelineItem,
   createEquipmentItem,
   updateEquipmentItem,
   deleteEquipmentItem,
-  createBEOLineItem,
-  updateBEOLineItem,
-  deleteBEOLineItem,
-  createBEOMenuSection,
-  updateBEOMenuSection,
-  deleteBEOMenuSection,
-  addBEOContact,
-  updateBEOContact,
-  removeBEOContact,
-  searchContactsForBEO,
-} from "../../../beos/actions";
+  createCateringOrderLineItem,
+  updateCateringOrderLineItem,
+  deleteCateringOrderLineItem,
+  createCateringOrderMenuSection,
+  updateCateringOrderMenuSection,
+  deleteCateringOrderMenuSection,
+  addCateringOrderContact,
+  updateCateringOrderContact,
+  removeCateringOrderContact,
+  searchContactsForCateringOrder,
+} from "../../../catering-orders/actions";
 import { getOptions, getEquipment } from "../../../../settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import {
-  getBEOVendors,
-  addVendorToBEO,
-  updateBEOVendor,
-  removeVendorFromBEO,
+  getCateringOrderVendors,
+  addVendorToCateringOrder,
+  updateCateringOrderVendor,
+  removeVendorFromCateringOrder,
   searchAssignedEventVendors,
 } from "@/app/vendors/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
-import { BEOTabs } from "../../../beos/BEOTabs";
-import { BEOOverviewForm } from "../../../beos/BEOOverviewForm";
-import { BEOServiceForm } from "../../../beos/BEOServiceForm";
-import { BEOContractForm } from "../../../beos/BEOContractForm";
-import { TimelineTable } from "../../../beos/TimelineTable";
-import { EquipmentTable } from "../../../beos/EquipmentTable";
-import { LineItemTable } from "../../../beos/LineItemTable";
-import { MenuSectionTable } from "../../../beos/MenuSectionTable";
+import { CateringOrderTabs } from "../../../catering-orders/CateringOrderTabs";
+import { CateringOrderOverviewForm } from "../../../catering-orders/CateringOrderOverviewForm";
+import { CateringOrderServiceForm } from "../../../catering-orders/CateringOrderServiceForm";
+import { CateringOrderContractForm } from "../../../catering-orders/CateringOrderContractForm";
+import { TimelineTable } from "../../../catering-orders/TimelineTable";
+import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
+import { LineItemTable } from "../../../catering-orders/LineItemTable";
+import { MenuSectionTable } from "../../../catering-orders/MenuSectionTable";
 import { ContactList } from "../../../functions/ContactList";
 import type { TimelineItem } from "@prisma/client";
 
@@ -96,162 +95,159 @@ function TimelinePreview({
   );
 }
 
-export default async function BEOPage({
+export default async function CateringOrderPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string; beoId: string }>;
+  params: Promise<{ id: string; cateringOrderId: string }>;
   searchParams: Promise<{ tab?: string; success?: string }>;
 }) {
-  const { id: eventId, beoId } = await params;
+  const { id: eventId, cateringOrderId } = await params;
   const { tab = "overview" } = await searchParams;
   const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
 
-  const [event, beo, serviceStyleOptions, responsiblePartyOptions, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyOptions, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, vendorTypeOptions] =
     await Promise.all([
       getEvent(eventId),
-      getBEO(beoId),
+      getCateringOrder(cateringOrderId),
       getOptions("service_style"),
       getOptions("responsible_party"),
       getEquipment(),
       getOptions("equipment_category"),
-      prisma.function.findMany({ where: { eventId, beo: null }, orderBy: { name: "asc" } }),
-      getWorkflowInstances("beo", beoId),
+      prisma.function.findMany({ where: { eventId, cateringOrder: null }, orderBy: { name: "asc" } }),
+      getWorkflowInstances("catering_order", cateringOrderId),
       getWorkflowTemplateOptions(),
+      getCateringOrderVendors(cateringOrderId),
+      getOptions("vendor_type"),
     ]);
-  if (!event || !beo) {
+  if (!event || !cateringOrder) {
     notFound();
   }
 
-  const [beoVendors, vendorTypeOptions]: [Awaited<ReturnType<typeof getBEOVendors>>, CustomOption[]] = await Promise.all([
-    getBEOVendors(beoId),
-    getOptions("vendor_type"),
-  ]);
-
-  const availableFunctions = beo.functionId ? [] : allAvailableFunctions;
-  const basePath = `/events/${eventId}/beos/${beoId}`;
+  const availableFunctions = cateringOrder.functionId ? [] : allAvailableFunctions;
+  const basePath = `/events/${eventId}/catering-orders/${cateringOrderId}`;
   const vendorTypeLabels = Object.fromEntries(vendorTypeOptions.map((t) => [t.value, t.label]));
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
 
-  const deleteBEOAction = async () => {
+  const deleteCateringOrderAction = async () => {
     "use server";
-    await deleteBEO(beoId, eventId);
+    await deleteCateringOrder(cateringOrderId, eventId);
   };
 
   const linkToFunctionAction = async (functionId: string) => {
     "use server";
-    await linkBEOToFunction(beoId, functionId, eventId);
+    await linkCateringOrderToFunction(cateringOrderId, functionId, eventId);
   };
 
   const unlinkFromFunctionAction = async () => {
     "use server";
-    await unlinkBEOFromFunction(beoId, eventId);
+    await unlinkCateringOrderFromFunction(cateringOrderId, eventId);
   };
 
   const updateOverviewAction = async (formData: FormData) => {
     "use server";
-    await updateBEOOverview(beoId, eventId, formData);
+    await updateCateringOrderOverview(cateringOrderId, eventId, formData);
   };
 
   const updateServiceAction = async (formData: FormData) => {
     "use server";
-    await updateBEOService(beoId, eventId, formData);
+    await updateCateringOrderService(cateringOrderId, eventId, formData);
   };
 
   const updateContractAction = async (formData: FormData) => {
     "use server";
-    await updateBEOContract(beoId, eventId, formData);
+    await updateCateringOrderContract(cateringOrderId, eventId, formData);
   };
 
   const createTimelineAction = async (formData: FormData) => {
     "use server";
-    await createTimelineItem(beoId, eventId, formData);
+    await createTimelineItem(cateringOrderId, eventId, formData);
   };
   const updateTimelineAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateTimelineItem(id, beoId, eventId, formData);
+    await updateTimelineItem(id, cateringOrderId, eventId, formData);
   };
   const deleteTimelineAction = async (id: string) => {
     "use server";
-    await deleteTimelineItem(id, beoId, eventId);
+    await deleteTimelineItem(id, cateringOrderId, eventId);
   };
 
   const createEquipmentAction = async (formData: FormData) => {
     "use server";
-    await createEquipmentItem(beoId, eventId, formData);
+    await createEquipmentItem(cateringOrderId, eventId, formData);
   };
   const updateEquipmentAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateEquipmentItem(id, beoId, eventId, formData);
+    await updateEquipmentItem(id, cateringOrderId, eventId, formData);
   };
   const deleteEquipmentAction = async (id: string) => {
     "use server";
-    await deleteEquipmentItem(id, beoId, eventId);
+    await deleteEquipmentItem(id, cateringOrderId, eventId);
   };
 
   const createLineItemAction = async (formData: FormData) => {
     "use server";
-    await createBEOLineItem(beoId, eventId, formData);
+    await createCateringOrderLineItem(cateringOrderId, eventId, formData);
   };
   const updateLineItemAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateBEOLineItem(id, beoId, eventId, formData);
+    await updateCateringOrderLineItem(id, cateringOrderId, eventId, formData);
   };
   const deleteLineItemAction = async (id: string) => {
     "use server";
-    await deleteBEOLineItem(id, beoId, eventId);
+    await deleteCateringOrderLineItem(id, cateringOrderId, eventId);
   };
 
   const createMenuSectionAction = async (formData: FormData) => {
     "use server";
-    await createBEOMenuSection(beoId, eventId, formData);
+    await createCateringOrderMenuSection(cateringOrderId, eventId, formData);
   };
   const updateMenuSectionAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateBEOMenuSection(id, beoId, eventId, formData);
+    await updateCateringOrderMenuSection(id, cateringOrderId, eventId, formData);
   };
   const deleteMenuSectionAction = async (id: string) => {
     "use server";
-    await deleteBEOMenuSection(id, beoId, eventId);
+    await deleteCateringOrderMenuSection(id, cateringOrderId, eventId);
   };
 
   const addContactAction = async (formData: FormData) => {
     "use server";
-    await addBEOContact(beoId, eventId, formData);
+    await addCateringOrderContact(cateringOrderId, eventId, formData);
   };
   const updateContactAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateBEOContact(id, beoId, eventId, formData);
+    await updateCateringOrderContact(id, cateringOrderId, eventId, formData);
   };
   const removeContactAction = async (id: string) => {
     "use server";
-    await removeBEOContact(id, beoId, eventId);
+    await removeCateringOrderContact(id, cateringOrderId, eventId);
   };
   const searchContactsAction = async (query: string) => {
     "use server";
-    return searchContactsForBEO(query);
+    return searchContactsForCateringOrder(query);
   };
 
   const assignWorkflowAction = async (templateId: string) => {
     "use server";
-    await assignWorkflow(templateId, "beo", beoId, eventId);
+    await assignWorkflow(templateId, "catering_order", cateringOrderId, eventId);
   };
 
   const removeWorkflowAction = async (instanceId: string) => {
     "use server";
-    await removeWorkflow(instanceId, "beo", beoId, eventId);
+    await removeWorkflow(instanceId, "catering_order", cateringOrderId, eventId);
   };
 
   const toggleStepAction = async (instanceId: string, stepId: string) => {
     "use server";
-    await toggleStepCompletion(instanceId, stepId, "beo", beoId, eventId);
+    await toggleStepCompletion(instanceId, stepId, "catering_order", cateringOrderId, eventId);
   };
 
   const toggleItemAction = async (instanceId: string, itemId: string) => {
     "use server";
-    await toggleItemCompletion(instanceId, itemId, "beo", beoId, eventId);
+    await toggleItemCompletion(instanceId, itemId, "catering_order", cateringOrderId, eventId);
   };
 
   const searchEventVendorsAction = async (query: string) => {
@@ -261,17 +257,17 @@ export default async function BEOPage({
 
   const addVendorAction = async (vendorId: string, notes: string) => {
     "use server";
-    await addVendorToBEO(beoId, vendorId, eventId, notes);
+    await addVendorToCateringOrder(cateringOrderId, vendorId, eventId, notes);
   };
 
   const updateVendorAction = async (id: string, notes: string) => {
     "use server";
-    await updateBEOVendor(id, beoId, eventId, notes);
+    await updateCateringOrderVendor(id, cateringOrderId, eventId, notes);
   };
 
   const removeVendorAction = async (id: string) => {
     "use server";
-    await removeVendorFromBEO(id, beoId, eventId);
+    await removeVendorFromCateringOrder(id, cateringOrderId, eventId);
   };
 
   return (
@@ -283,41 +279,41 @@ export default async function BEOPage({
       <div className="flex justify-between items-center mb-6">
         <div>
           <Link
-            href={`/events/${eventId}/beos`}
+            href={`/events/${eventId}/catering-orders`}
             className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
           >
-            &larr; Back to BEOs
+            &larr; Back to Catering Orders
           </Link>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {beo.name}
+            {cateringOrder.name}
           </h1>
         </div>
         <DeleteButton
-          action={deleteBEOAction}
-          confirmMessage="Are you sure you want to delete this BEO?"
+          action={deleteCateringOrderAction}
+          confirmMessage="Are you sure you want to delete this Catering Order?"
         />
       </div>
 
-      <BEOTabs basePath={basePath} activeTab={activeTab} />
+      <CateringOrderTabs basePath={basePath} activeTab={activeTab} />
 
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <BEOOverviewForm
-              beo={beo}
+            <CateringOrderOverviewForm
+              cateringOrder={cateringOrder}
               action={updateOverviewAction}
               serviceStyleOptions={serviceStyleOptions}
-              linkedFunctionId={beo.functionId}
-              linkedFunctionName={beo.function?.name ?? null}
+              linkedFunctionId={cateringOrder.functionId}
+              linkedFunctionName={cateringOrder.function?.name ?? null}
               linkedFunctionPath={
-                beo.functionId ? `/events/${eventId}/functions/${beo.functionId}` : null
+                cateringOrder.functionId ? `/events/${eventId}/functions/${cateringOrder.functionId}` : null
               }
               availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
               linkFunction={linkToFunctionAction}
               unlinkFunction={unlinkFromFunctionAction}
             />
             <VendorPanel
-              assignedVendors={beoVendors}
+              assignedVendors={cateringOrderVendors}
               eventId={eventId}
               searchEventVendors={searchEventVendorsAction}
               addVendor={addVendorAction}
@@ -326,7 +322,7 @@ export default async function BEOPage({
               vendorTypeLabels={vendorTypeLabels}
             />
             <ContactList
-              contacts={beo.contacts}
+              contacts={cateringOrder.contacts}
               addContact={addContactAction}
               updateContact={updateContactAction}
               removeContact={removeContactAction}
@@ -343,11 +339,11 @@ export default async function BEOPage({
               toggleItem={toggleItemAction}
             />
             <TimelinePreview
-              items={beo.timelineItems}
+              items={cateringOrder.timelineItems}
               serviceTabPath={`${basePath}?tab=service`}
             />
             <MenuSectionTable
-              sections={beo.menuSections}
+              sections={cateringOrder.menuSections}
               responsiblePartyOptions={responsiblePartyOptions}
               createSection={createMenuSectionAction}
               updateSection={updateMenuSectionAction}
@@ -359,16 +355,16 @@ export default async function BEOPage({
 
       {activeTab === "service" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <BEOServiceForm beo={beo} action={updateServiceAction} />
+          <CateringOrderServiceForm cateringOrder={cateringOrder} action={updateServiceAction} />
           <div className="space-y-6">
             <TimelineTable
-              items={beo.timelineItems}
+              items={cateringOrder.timelineItems}
               createItem={createTimelineAction}
               updateItem={updateTimelineAction}
               deleteItem={deleteTimelineAction}
             />
             <EquipmentTable
-              items={beo.equipmentItems}
+              items={cateringOrder.equipmentItems}
               responsiblePartyOptions={responsiblePartyOptions}
               equipmentOptions={equipmentOptions}
               equipmentCategories={equipmentCategories}
@@ -382,9 +378,9 @@ export default async function BEOPage({
 
       {activeTab === "contract" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <BEOContractForm beo={beo} action={updateContractAction} />
+          <CateringOrderContractForm cateringOrder={cateringOrder} action={updateContractAction} />
           <LineItemTable
-            items={beo.lineItems}
+            items={cateringOrder.lineItems}
             createItem={createLineItemAction}
             updateItem={updateLineItemAction}
             deleteItem={deleteLineItemAction}

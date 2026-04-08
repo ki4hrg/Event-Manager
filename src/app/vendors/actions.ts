@@ -174,7 +174,7 @@ export async function removeVendorFromEvent(eventVendorId: string, eventId: stri
 }
 
 // Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
-export type ModelType = "BEO" | "AV_ORDER" | "SETUP_ORDER";
+export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER";
 
 // Assigns a vendor as the default for a model type on this event.
 // Transfers the designation away from any other vendor that held it.
@@ -253,36 +253,36 @@ export async function removeVendorFromAVOrder(id: string, avOrderId: string, eve
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
-// BEO vendors
+// Catering Order vendors
 
-export async function getBEOVendors(beoId: string) {
-  return prisma.bEOVendor.findMany({
-    where: { beoId },
+export async function getCateringOrderVendors(cateringOrderId: string) {
+  return prisma.cateringOrderVendor.findMany({
+    where: { cateringOrderId },
     include: { vendor: true },
     orderBy: { vendor: { name: "asc" } },
   });
 }
 
-export async function addVendorToBEO(beoId: string, vendorId: string, eventId: string, notes?: string) {
-  await prisma.bEOVendor.create({
-    data: { beoId, vendorId, notes: notes || null },
+export async function addVendorToCateringOrder(cateringOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await prisma.cateringOrderVendor.create({
+    data: { cateringOrderId, vendorId, notes: notes || null },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function updateBEOVendor(id: string, beoId: string, eventId: string, notes: string) {
-  await prisma.bEOVendor.update({
+export async function updateCateringOrderVendor(id: string, cateringOrderId: string, eventId: string, notes: string) {
+  await prisma.cateringOrderVendor.update({
     where: { id },
     data: { notes: notes || null },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function removeVendorFromBEO(id: string, beoId: string, eventId: string) {
-  await prisma.bEOVendor.delete({ where: { id } });
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+export async function removeVendorFromCateringOrder(id: string, cateringOrderId: string, eventId: string) {
+  await prisma.cateringOrderVendor.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
 // Setup Order vendors

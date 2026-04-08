@@ -13,7 +13,7 @@ const tabs = [
   { label: "Presentations", segment: "presentations" },
   { label: "Breakout", segment: "breakout-schedule" },
   { label: "AV Orders", segment: "av-orders" },
-  { label: "BEOs", segment: "beos" },
+  { label: "Catering Orders", segment: "catering-orders" },
   { label: "Setup Orders", segment: "setup-orders" },
   { label: "Vendors", segment: "vendors" },
 ];

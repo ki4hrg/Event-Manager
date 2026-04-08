@@ -2,25 +2,25 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { BEO } from "@prisma/client";
+import type { CateringOrder } from "@prisma/client";
 
-type BEOPanelProps = {
-  beo: BEO | null;
+type CateringOrderPanelProps = {
+  cateringOrder: CateringOrder | null;
   eventId: string;
-  availableBEOs: BEO[];
-  newBEOPath: string;
-  linkBEO: (beoId: string) => Promise<void>;
-  unlinkBEO: () => Promise<void>;
+  availableCateringOrders: CateringOrder[];
+  newCateringOrderPath: string;
+  linkCateringOrder: (cateringOrderId: string) => Promise<void>;
+  unlinkCateringOrder: () => Promise<void>;
 };
 
-export function BEOPanel({
-  beo,
+export function CateringOrderPanel({
+  cateringOrder,
   eventId,
-  availableBEOs,
-  newBEOPath,
-  linkBEO,
-  unlinkBEO,
-}: BEOPanelProps) {
+  availableCateringOrders,
+  newCateringOrderPath,
+  linkCateringOrder,
+  unlinkCateringOrder,
+}: CateringOrderPanelProps) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
@@ -30,7 +30,7 @@ export function BEOPanel({
     if (!selectedId) return;
     setIsLinking(true);
     try {
-      await linkBEO(selectedId);
+      await linkCateringOrder(selectedId);
       setShowLinkForm(false);
       setSelectedId("");
     } finally {
@@ -39,10 +39,10 @@ export function BEOPanel({
   };
 
   const handleUnlink = async () => {
-    if (!confirm("Unlink this BEO? The BEO will not be deleted.")) return;
+    if (!confirm("Unlink this Catering Order? The order will not be deleted.")) return;
     setIsUnlinking(true);
     try {
-      await unlinkBEO();
+      await unlinkCateringOrder();
     } finally {
       setIsUnlinking(false);
     }
@@ -51,21 +51,21 @@ export function BEOPanel({
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-        BEO (Banquet Event Order)
+        Catering Order
       </h2>
 
-      {beo ? (
+      {cateringOrder ? (
         <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div>
             <Link
-              href={`/events/${eventId}/beos/${beo.id}`}
+              href={`/events/${eventId}/catering-orders/${cateringOrder.id}`}
               className="text-blue-600 hover:underline font-medium text-sm"
             >
-              {beo.name}
+              {cateringOrder.name}
             </Link>
-            {beo.guaranteeCount != null && (
+            {cateringOrder.guaranteeCount != null && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Guarantee: {beo.guaranteeCount}
+                Guarantee: {cateringOrder.guaranteeCount}
               </p>
             )}
           </div>
@@ -80,14 +80,14 @@ export function BEOPanel({
       ) : (
         <div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            No BEO linked.
+            No Catering Order linked.
           </p>
 
           {showLinkForm ? (
             <div className="space-y-3">
-              {availableBEOs.length === 0 ? (
+              {availableCateringOrders.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  No unlinked BEOs available for this event.
+                  No unlinked Catering Orders available for this event.
                 </p>
               ) : (
                 <div className="flex gap-2">
@@ -96,10 +96,10 @@ export function BEOPanel({
                     onChange={(e) => setSelectedId(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select BEO...</option>
-                    {availableBEOs.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
+                    <option value="">Select Catering Order...</option>
+                    {availableCateringOrders.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
                       </option>
                     ))}
                   </select>
@@ -113,8 +113,8 @@ export function BEOPanel({
                 </div>
               )}
               <div className="flex items-center gap-3 text-sm">
-                <Link href={newBEOPath} className="text-blue-600 hover:underline">
-                  Create new BEO
+                <Link href={newCateringOrderPath} className="text-blue-600 hover:underline">
+                  Create new Catering Order
                 </Link>
                 <button
                   onClick={() => setShowLinkForm(false)}
@@ -133,7 +133,7 @@ export function BEOPanel({
                 Link Existing
               </button>
               <Link
-                href={newBEOPath}
+                href={newCateringOrderPath}
                 className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Create New

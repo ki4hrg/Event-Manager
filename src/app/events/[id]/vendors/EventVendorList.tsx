@@ -9,7 +9,7 @@ type EventVendorWithVendor = EventVendor & { vendor: Vendor };
 
 // Add new entries here when wiring up a new model type in vendors/actions.ts
 const MODEL_TYPES: { value: ModelType; label: string }[] = [
-  { value: "BEO", label: "BEO" },
+  { value: "CATERING_ORDER", label: "Catering Order" },
   { value: "AV_ORDER", label: "AV Order" },
   { value: "SETUP_ORDER", label: "Setup Order" },
 ];

@@ -216,7 +216,7 @@ export default async function SettingsPage() {
 
         <OptionList
           title="Service Styles"
-          description="Catering service styles for BEOs (e.g., Plated, Buffet, Stations)"
+          description="Catering service styles for Catering Orders (e.g., Plated, Buffet, Stations)"
           category="service_style"
           options={options.service_style}
           showColor={false}
@@ -228,7 +228,7 @@ export default async function SettingsPage() {
 
         <OptionList
           title="Responsible Parties"
-          description="Parties responsible for equipment items in BEOs (e.g., Venue, Caterer, Event)"
+          description="Parties responsible for equipment items in Catering Orders (e.g., Venue, Caterer, Event)"
           category="responsible_party"
           options={options.responsible_party}
           showColor={false}

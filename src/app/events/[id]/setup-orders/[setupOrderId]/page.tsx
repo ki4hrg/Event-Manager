@@ -32,7 +32,7 @@ import { VendorPanel } from "../../../vendors/VendorPanel";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
-import { EquipmentTable } from "../../../beos/EquipmentTable";
+import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";

@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { BEOLineItem } from "@prisma/client";
+import type { CateringOrderLineItem } from "@prisma/client";
 
 type LineItemTableProps = {
-  items: BEOLineItem[];
+  items: CateringOrderLineItem[];
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;

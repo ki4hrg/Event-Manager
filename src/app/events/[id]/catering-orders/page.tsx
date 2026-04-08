@@ -4,41 +4,41 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { getEvent } from "../../actions";
-import { getBEOs, deleteBEO } from "../../beos/actions";
+import { getCateringOrders, deleteCateringOrder } from "../../catering-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
 
-export default async function BEOsPage({
+export default async function CateringOrdersPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const [event, beos] = await Promise.all([
+  const [event, cateringOrders] = await Promise.all([
     getEvent(eventId),
-    getBEOs(eventId),
+    getCateringOrders(eventId),
   ]);
 
-  const workflowSummaries = beos.length > 0
-    ? await getWorkflowBadgeSummaries("beo", beos.map((b) => b.id))
+  const workflowSummaries = cateringOrders.length > 0
+    ? await getWorkflowBadgeSummaries("catering_order", cateringOrders.map((o) => o.id))
     : {};
 
   if (!event) {
     notFound();
   }
 
-  const deleteBEOAction = async (formData: FormData) => {
+  const deleteCateringOrderAction = async (formData: FormData) => {
     "use server";
-    await deleteBEO(formData.get("beoId") as string, eventId);
+    await deleteCateringOrder(formData.get("cateringOrderId") as string, eventId);
   };
 
   return (
     <PageWrapper>
       <div className="mb-4">
-        <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "BEOs" }]} />
+        <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "Catering Orders" }]} />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           {event.name}
         </h1>
@@ -48,47 +48,47 @@ export default async function BEOsPage({
 
       <div className="flex justify-between items-center mb-6">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {beos.length} BEO{beos.length !== 1 ? "s" : ""}
+          {cateringOrders.length} Catering Order{cateringOrders.length !== 1 ? "s" : ""}
         </p>
         <Link
-          href={`/events/${eventId}/beos/new`}
+          href={`/events/${eventId}/catering-orders/new`}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
-          Create BEO
+          Create Catering Order
         </Link>
       </div>
 
-      {beos.length === 0 ? (
+      {cateringOrders.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
           <p className="text-gray-500 dark:text-gray-400">
-            No BEOs yet. Create your first BEO to get started.
+            No Catering Orders yet. Create your first to get started.
           </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {beos.map((beo) => (
+          {cateringOrders.map((order) => (
             <div
-              key={beo.id}
+              key={order.id}
               className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center justify-between"
             >
               <div>
                 <div className="flex items-center gap-2">
                   <Link
-                    href={`/events/${eventId}/beos/${beo.id}`}
+                    href={`/events/${eventId}/catering-orders/${order.id}`}
                     className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
                   >
-                    {beo.name}
+                    {order.name}
                   </Link>
-                  <WorkflowBadge summary={workflowSummaries[beo.id]} />
+                  <WorkflowBadge summary={workflowSummaries[order.id]} />
                 </div>
                 <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                  {beo.guaranteeCount != null && (
-                    <span>Guarantee: {beo.guaranteeCount}</span>
+                  {order.guaranteeCount != null && (
+                    <span>Guarantee: {order.guaranteeCount}</span>
                   )}
-                  {beo.serviceStyle && <span>{beo.serviceStyle}</span>}
-                  {beo.function ? (
+                  {order.serviceStyle && <span>{order.serviceStyle}</span>}
+                  {order.function ? (
                     <span className="text-green-600 dark:text-green-400">
-                      Linked to function: {beo.function.name}
+                      Linked to function: {order.function.name}
                     </span>
                   ) : (
                     <span className="text-orange-600 dark:text-orange-400">Unlinked</span>
@@ -96,9 +96,9 @@ export default async function BEOsPage({
                 </div>
               </div>
               <InlineDeleteButton
-                action={deleteBEOAction}
-                hiddenInputs={{ beoId: beo.id }}
-                confirmMessage="Delete this BEO?"
+                action={deleteCateringOrderAction}
+                hiddenInputs={{ cateringOrderId: order.id }}
+                confirmMessage="Delete this Catering Order?"
               />
             </div>
           ))}

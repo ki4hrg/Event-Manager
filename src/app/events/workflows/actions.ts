@@ -3,15 +3,15 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export type WorkflowEntityType = "function" | "beo" | "av_order" | "presentation" | "setup_order";
+export type WorkflowEntityType = "function" | "catering_order" | "av_order" | "presentation" | "setup_order";
 
 function revalidateEntity(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   switch (entityType) {
     case "function":
       revalidatePath(`/events/${eventId}/functions/${entityId}`);
       break;
-    case "beo":
-      revalidatePath(`/events/${eventId}/beos/${entityId}`);
+    case "catering_order":
+      revalidatePath(`/events/${eventId}/catering-orders/${entityId}`);
       break;
     case "av_order":
       revalidatePath(`/events/${eventId}/av-orders/${entityId}`);

@@ -5,16 +5,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 
-export async function getBEOs(eventId: string) {
-  return prisma.bEO.findMany({
+export async function getCateringOrders(eventId: string) {
+  return prisma.cateringOrder.findMany({
     where: { eventId },
     include: { function: true },
     orderBy: { name: "asc" },
   });
 }
 
-export async function getBEO(id: string) {
-  return prisma.bEO.findUnique({
+export async function getCateringOrder(id: string) {
+  return prisma.cateringOrder.findUnique({
     where: { id },
     include: {
       function: { include: { schedules: { orderBy: { startTime: "asc" } } } },
@@ -33,11 +33,11 @@ function parseDateField(value: string | null): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-export async function createBEO(eventId: string, formData: FormData) {
+export async function createCateringOrder(eventId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const functionId = formData.get("functionId") as string;
 
-  const beo = await prisma.bEO.create({
+  const cateringOrder = await prisma.cateringOrder.create({
     data: {
       name,
       eventId,
@@ -58,17 +58,17 @@ export async function createBEO(eventId: string, formData: FormData) {
     },
   });
 
-  const defaultVendor = await getDefaultVendorForModel(eventId, "BEO");
+  const defaultVendor = await getDefaultVendorForModel(eventId, "CATERING_ORDER");
   if (defaultVendor) {
-    await prisma.bEOVendor.create({ data: { beoId: beo.id, vendorId: defaultVendor.vendorId } });
+    await prisma.cateringOrderVendor.create({ data: { cateringOrderId: cateringOrder.id, vendorId: defaultVendor.vendorId } });
   }
 
-  revalidatePath(`/events/${eventId}/beos`);
-  redirect(`/events/${eventId}/beos/${beo.id}`);
+  revalidatePath(`/events/${eventId}/catering-orders`);
+  redirect(`/events/${eventId}/catering-orders/${cateringOrder.id}`);
 }
 
-export async function updateBEOOverview(id: string, eventId: string, formData: FormData) {
-  await prisma.bEO.update({
+export async function updateCateringOrderOverview(id: string, eventId: string, formData: FormData) {
+  await prisma.cateringOrder.update({
     where: { id },
     data: {
       name: formData.get("name") as string,
@@ -78,25 +78,25 @@ export async function updateBEOOverview(id: string, eventId: string, formData: F
       guaranteeCount: formData.get("guaranteeCount") ? parseInt(formData.get("guaranteeCount") as string) : null,
     },
   });
-  revalidatePath(`/events/${eventId}/beos`);
-  revalidatePath(`/events/${eventId}/beos/${id}`);
-  redirect(`/events/${eventId}/beos/${id}?tab=overview&success=Saved`);
+  revalidatePath(`/events/${eventId}/catering-orders`);
+  revalidatePath(`/events/${eventId}/catering-orders/${id}`);
+  redirect(`/events/${eventId}/catering-orders/${id}?tab=overview&success=Saved`);
 }
 
-export async function updateBEOService(id: string, eventId: string, formData: FormData) {
-  await prisma.bEO.update({
+export async function updateCateringOrderService(id: string, eventId: string, formData: FormData) {
+  await prisma.cateringOrder.update({
     where: { id },
     data: {
       dietaryNotes: (formData.get("dietaryNotes") as string) || null,
       staffingNotes: (formData.get("staffingNotes") as string) || null,
     },
   });
-  revalidatePath(`/events/${eventId}/beos/${id}`);
-  redirect(`/events/${eventId}/beos/${id}?tab=service&success=Saved`);
+  revalidatePath(`/events/${eventId}/catering-orders/${id}`);
+  redirect(`/events/${eventId}/catering-orders/${id}?tab=service&success=Saved`);
 }
 
-export async function updateBEOContract(id: string, eventId: string, formData: FormData) {
-  await prisma.bEO.update({
+export async function updateCateringOrderContract(id: string, eventId: string, formData: FormData) {
+  await prisma.cateringOrder.update({
     where: { id },
     data: {
       depositDeadline: parseDateField(formData.get("depositDeadline") as string),
@@ -108,78 +108,78 @@ export async function updateBEOContract(id: string, eventId: string, formData: F
       notes: (formData.get("notes") as string) || null,
     },
   });
-  revalidatePath(`/events/${eventId}/beos/${id}`);
-  redirect(`/events/${eventId}/beos/${id}?tab=contract&success=Saved`);
+  revalidatePath(`/events/${eventId}/catering-orders/${id}`);
+  redirect(`/events/${eventId}/catering-orders/${id}?tab=contract&success=Saved`);
 }
 
-export async function deleteBEO(id: string, eventId: string) {
-  await prisma.bEO.delete({ where: { id } });
-  revalidatePath(`/events/${eventId}/beos`);
-  redirect(`/events/${eventId}/beos`);
+export async function deleteCateringOrder(id: string, eventId: string) {
+  await prisma.cateringOrder.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/catering-orders`);
+  redirect(`/events/${eventId}/catering-orders`);
 }
 
-export async function linkBEOToFunction(beoId: string, functionId: string, eventId: string) {
-  await prisma.bEO.update({
-    where: { id: beoId },
+export async function linkCateringOrderToFunction(cateringOrderId: string, functionId: string, eventId: string) {
+  await prisma.cateringOrder.update({
+    where: { id: cateringOrderId },
     data: { functionId },
   });
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
-export async function unlinkBEOFromFunction(beoId: string, eventId: string) {
-  const beo = await prisma.bEO.findUnique({
-    where: { id: beoId },
+export async function unlinkCateringOrderFromFunction(cateringOrderId: string, eventId: string) {
+  const cateringOrder = await prisma.cateringOrder.findUnique({
+    where: { id: cateringOrderId },
     select: { functionId: true },
   });
-  await prisma.bEO.update({
-    where: { id: beoId },
+  await prisma.cateringOrder.update({
+    where: { id: cateringOrderId },
     data: { functionId: null },
   });
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
-  if (beo?.functionId) {
-    revalidatePath(`/events/${eventId}/functions/${beo.functionId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+  if (cateringOrder?.functionId) {
+    revalidatePath(`/events/${eventId}/functions/${cateringOrder.functionId}`);
   }
 }
 
-export async function getAvailableBEOs(eventId: string) {
-  return prisma.bEO.findMany({
+export async function getAvailableCateringOrders(eventId: string) {
+  return prisma.cateringOrder.findMany({
     where: { eventId, functionId: null },
     orderBy: { name: "asc" },
   });
 }
 
-export async function linkBEOToFunctionFromFunction(
-  beoId: string,
+export async function linkCateringOrderToFunctionFromFunction(
+  cateringOrderId: string,
   functionId: string,
   eventId: string
 ) {
-  await prisma.bEO.update({
-    where: { id: beoId },
+  await prisma.cateringOrder.update({
+    where: { id: cateringOrderId },
     data: { functionId },
   });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
-export async function unlinkBEOFromFunctionPage(functionId: string, eventId: string) {
-  await prisma.bEO.updateMany({
+export async function unlinkCateringOrderFromFunctionPage(functionId: string, eventId: string) {
+  await prisma.cateringOrder.updateMany({
     where: { functionId },
     data: { functionId: null },
   });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
-export async function createTimelineItem(beoId: string, eventId: string, formData: FormData) {
+export async function createTimelineItem(cateringOrderId: string, eventId: string, formData: FormData) {
   const label = formData.get("label") as string;
   const startTime = new Date(formData.get("startTime") as string);
   const endTimeStr = formData.get("endTime") as string;
   const notes = formData.get("notes") as string;
 
-  const { _max } = await prisma.timelineItem.aggregate({ where: { beoId }, _max: { sortOrder: true } });
+  const { _max } = await prisma.timelineItem.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
 
   await prisma.timelineItem.create({
     data: {
-      beoId,
+      cateringOrderId,
       label,
       startTime,
       endTime: endTimeStr ? new Date(endTimeStr) : null,
@@ -188,10 +188,10 @@ export async function createTimelineItem(beoId: string, eventId: string, formDat
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function updateTimelineItem(id: string, beoId: string, eventId: string, formData: FormData) {
+export async function updateTimelineItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   const startTime = new Date(formData.get("startTime") as string);
   const endTimeStr = formData.get("endTime") as string;
 
@@ -205,20 +205,20 @@ export async function updateTimelineItem(id: string, beoId: string, eventId: str
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function deleteTimelineItem(id: string, beoId: string, eventId: string) {
+export async function deleteTimelineItem(id: string, cateringOrderId: string, eventId: string) {
   await prisma.timelineItem.delete({ where: { id } });
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function createEquipmentItem(beoId: string, eventId: string, formData: FormData) {
-  const { _max } = await prisma.equipmentItem.aggregate({ where: { beoId }, _max: { sortOrder: true } });
+export async function createEquipmentItem(cateringOrderId: string, eventId: string, formData: FormData) {
+  const { _max } = await prisma.equipmentItem.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
 
   await prisma.equipmentItem.create({
     data: {
-      beoId,
+      cateringOrderId,
       item: formData.get("item") as string,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       responsibleParty: (formData.get("responsibleParty") as string) || null,
@@ -227,10 +227,10 @@ export async function createEquipmentItem(beoId: string, eventId: string, formDa
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function updateEquipmentItem(id: string, beoId: string, eventId: string, formData: FormData) {
+export async function updateEquipmentItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   await prisma.equipmentItem.update({
     where: { id },
     data: {
@@ -241,20 +241,20 @@ export async function updateEquipmentItem(id: string, beoId: string, eventId: st
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function deleteEquipmentItem(id: string, beoId: string, eventId: string) {
+export async function deleteEquipmentItem(id: string, cateringOrderId: string, eventId: string) {
   await prisma.equipmentItem.delete({ where: { id } });
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function createBEOLineItem(beoId: string, eventId: string, formData: FormData) {
-  const { _max } = await prisma.bEOLineItem.aggregate({ where: { beoId }, _max: { sortOrder: true } });
+export async function createCateringOrderLineItem(cateringOrderId: string, eventId: string, formData: FormData) {
+  const { _max } = await prisma.cateringOrderLineItem.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
 
-  await prisma.bEOLineItem.create({
+  await prisma.cateringOrderLineItem.create({
     data: {
-      beoId,
+      cateringOrderId,
       description: formData.get("description") as string,
       unitType: (formData.get("unitType") as string) || null,
       unitPrice: (formData.get("unitPrice") as string) ? parseFloat(formData.get("unitPrice") as string) : null,
@@ -264,11 +264,11 @@ export async function createBEOLineItem(beoId: string, eventId: string, formData
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function updateBEOLineItem(id: string, beoId: string, eventId: string, formData: FormData) {
-  await prisma.bEOLineItem.update({
+export async function updateCateringOrderLineItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  await prisma.cateringOrderLineItem.update({
     where: { id },
     data: {
       description: formData.get("description") as string,
@@ -279,20 +279,20 @@ export async function updateBEOLineItem(id: string, beoId: string, eventId: stri
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function deleteBEOLineItem(id: string, beoId: string, eventId: string) {
-  await prisma.bEOLineItem.delete({ where: { id } });
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+export async function deleteCateringOrderLineItem(id: string, cateringOrderId: string, eventId: string) {
+  await prisma.cateringOrderLineItem.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function createBEOMenuSection(beoId: string, eventId: string, formData: FormData) {
-  const { _max } = await prisma.bEOMenuSection.aggregate({ where: { beoId }, _max: { sortOrder: true } });
+export async function createCateringOrderMenuSection(cateringOrderId: string, eventId: string, formData: FormData) {
+  const { _max } = await prisma.cateringOrderMenuSection.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
 
-  await prisma.bEOMenuSection.create({
+  await prisma.cateringOrderMenuSection.create({
     data: {
-      beoId,
+      cateringOrderId,
       responsibleParty: formData.get("responsibleParty") as string,
       menuContent: formData.get("menuContent") as string,
       notes: (formData.get("notes") as string) || null,
@@ -300,11 +300,11 @@ export async function createBEOMenuSection(beoId: string, eventId: string, formD
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function updateBEOMenuSection(id: string, beoId: string, eventId: string, formData: FormData) {
-  await prisma.bEOMenuSection.update({
+export async function updateCateringOrderMenuSection(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  await prisma.cateringOrderMenuSection.update({
     where: { id },
     data: {
       responsibleParty: formData.get("responsibleParty") as string,
@@ -313,44 +313,44 @@ export async function updateBEOMenuSection(id: string, beoId: string, eventId: s
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function deleteBEOMenuSection(id: string, beoId: string, eventId: string) {
-  await prisma.bEOMenuSection.delete({ where: { id } });
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+export async function deleteCateringOrderMenuSection(id: string, cateringOrderId: string, eventId: string) {
+  await prisma.cateringOrderMenuSection.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function addBEOContact(beoId: string, eventId: string, formData: FormData) {
+export async function addCateringOrderContact(cateringOrderId: string, eventId: string, formData: FormData) {
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
 
-  await prisma.bEOContact.create({
+  await prisma.cateringOrderContact.create({
     data: {
-      beoId,
+      cateringOrderId,
       contactId,
       role: role || null,
     },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function updateBEOContact(id: string, beoId: string, eventId: string, formData: FormData) {
-  await prisma.bEOContact.update({
+export async function updateCateringOrderContact(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  await prisma.cateringOrderContact.update({
     where: { id },
     data: { role: (formData.get("role") as string) || null },
   });
 
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function removeBEOContact(id: string, beoId: string, eventId: string) {
-  await prisma.bEOContact.delete({ where: { id } });
-  revalidatePath(`/events/${eventId}/beos/${beoId}`);
+export async function removeCateringOrderContact(id: string, cateringOrderId: string, eventId: string) {
+  await prisma.cateringOrderContact.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
-export async function searchContactsForBEO(query: string) {
+export async function searchContactsForCateringOrder(query: string) {
   return prisma.contact.findMany({
     where: {
       OR: [

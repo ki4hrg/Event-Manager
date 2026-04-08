@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import type { BEO, CustomOption } from "@prisma/client";
+import type { CateringOrder, CustomOption } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 
-type BEOOverviewFormProps = {
-  beo: BEO;
+type CateringOrderOverviewFormProps = {
+  cateringOrder: CateringOrder;
   action: (formData: FormData) => Promise<void>;
   serviceStyleOptions: CustomOption[];
   linkedFunctionId: string | null;
@@ -39,7 +39,7 @@ function FunctionLinkControl({
   availableFunctions,
   linkFunction,
   unlinkFunction,
-}: Pick<BEOOverviewFormProps, "linkedFunctionId" | "linkedFunctionName" | "linkedFunctionPath" | "availableFunctions" | "linkFunction" | "unlinkFunction">) {
+}: Pick<CateringOrderOverviewFormProps, "linkedFunctionId" | "linkedFunctionName" | "linkedFunctionPath" | "availableFunctions" | "linkFunction" | "unlinkFunction">) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
@@ -126,8 +126,8 @@ function FunctionLinkControl({
   );
 }
 
-export function BEOOverviewForm({
-  beo,
+export function CateringOrderOverviewForm({
+  cateringOrder,
   action,
   serviceStyleOptions,
   linkedFunctionId,
@@ -136,7 +136,7 @@ export function BEOOverviewForm({
   availableFunctions,
   linkFunction,
   unlinkFunction,
-}: BEOOverviewFormProps) {
+}: CateringOrderOverviewFormProps) {
   const [editing, setEditing] = useState(false);
 
   if (!editing) {
@@ -153,10 +153,10 @@ export function BEOOverviewForm({
             </button>
           </div>
           <dl className="space-y-4">
-            <ReadOnlyField label="Name" value={beo.name} />
+            <ReadOnlyField label="Name" value={cateringOrder.name} />
             <ReadOnlyField
               label="Service Style"
-              value={serviceStyleOptions.find((o) => o.value === beo.serviceStyle)?.label ?? beo.serviceStyle}
+              value={serviceStyleOptions.find((o) => o.value === cateringOrder.serviceStyle)?.label ?? cateringOrder.serviceStyle}
             />
             <FunctionLinkControl
               linkedFunctionId={linkedFunctionId}
@@ -172,9 +172,9 @@ export function BEOOverviewForm({
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Guest Counts</h2>
           <dl className="grid grid-cols-3 gap-4">
-            <ReadOnlyField label="Expected" value={beo.expectedCount != null ? String(beo.expectedCount) : null} />
-            <ReadOnlyField label="Confirmed" value={beo.confirmedCount != null ? String(beo.confirmedCount) : null} />
-            <ReadOnlyField label="Guarantee" value={beo.guaranteeCount != null ? String(beo.guaranteeCount) : null} />
+            <ReadOnlyField label="Expected" value={cateringOrder.expectedCount != null ? String(cateringOrder.expectedCount) : null} />
+            <ReadOnlyField label="Confirmed" value={cateringOrder.confirmedCount != null ? String(cateringOrder.confirmedCount) : null} />
+            <ReadOnlyField label="Guarantee" value={cateringOrder.guaranteeCount != null ? String(cateringOrder.guaranteeCount) : null} />
           </dl>
         </div>
       </div>
@@ -195,7 +195,7 @@ export function BEOOverviewForm({
               id="name"
               name="name"
               required
-              defaultValue={beo.name}
+              defaultValue={cateringOrder.name}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -206,7 +206,7 @@ export function BEOOverviewForm({
             <select
               id="serviceStyle"
               name="serviceStyle"
-              defaultValue={beo.serviceStyle || ""}
+              defaultValue={cateringOrder.serviceStyle || ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">— Select —</option>
@@ -229,7 +229,7 @@ export function BEOOverviewForm({
               type="number"
               id="expectedCount"
               name="expectedCount"
-              defaultValue={beo.expectedCount ?? ""}
+              defaultValue={cateringOrder.expectedCount ?? ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -241,7 +241,7 @@ export function BEOOverviewForm({
               type="number"
               id="confirmedCount"
               name="confirmedCount"
-              defaultValue={beo.confirmedCount ?? ""}
+              defaultValue={cateringOrder.confirmedCount ?? ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -253,7 +253,7 @@ export function BEOOverviewForm({
               type="number"
               id="guaranteeCount"
               name="guaranteeCount"
-              defaultValue={beo.guaranteeCount ?? ""}
+              defaultValue={cateringOrder.guaranteeCount ?? ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

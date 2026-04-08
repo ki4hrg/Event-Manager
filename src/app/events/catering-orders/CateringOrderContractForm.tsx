@@ -1,10 +1,10 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import type { BEO } from "@prisma/client";
+import type { CateringOrder } from "@prisma/client";
 
-type BEOContractFormProps = {
-  beo: BEO;
+type CateringOrderContractFormProps = {
+  cateringOrder: CateringOrder;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -26,7 +26,7 @@ function formatDateForInput(date: Date | null | undefined): string {
   return new Date(date).toISOString().split("T")[0];
 }
 
-export function BEOContractForm({ beo, action }: BEOContractFormProps) {
+export function CateringOrderContractForm({ cateringOrder, action }: CateringOrderContractFormProps) {
   return (
     <form action={action} className="space-y-6">
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -41,7 +41,7 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
               id="rentalMinimum"
               name="rentalMinimum"
               step="0.01"
-              defaultValue={beo.rentalMinimum != null ? String(beo.rentalMinimum) : ""}
+              defaultValue={cateringOrder.rentalMinimum != null ? String(cateringOrder.rentalMinimum) : ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -54,7 +54,7 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
               id="fbMinimum"
               name="fbMinimum"
               step="0.01"
-              defaultValue={beo.fbMinimum != null ? String(beo.fbMinimum) : ""}
+              defaultValue={cateringOrder.fbMinimum != null ? String(cateringOrder.fbMinimum) : ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -72,7 +72,7 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
               type="date"
               id="depositDeadline"
               name="depositDeadline"
-              defaultValue={formatDateForInput(beo.depositDeadline)}
+              defaultValue={formatDateForInput(cateringOrder.depositDeadline)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -84,7 +84,7 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
               type="date"
               id="guaranteeDeadline"
               name="guaranteeDeadline"
-              defaultValue={formatDateForInput(beo.guaranteeDeadline)}
+              defaultValue={formatDateForInput(cateringOrder.guaranteeDeadline)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -96,7 +96,7 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
               type="date"
               id="paymentDeadline"
               name="paymentDeadline"
-              defaultValue={formatDateForInput(beo.paymentDeadline)}
+              defaultValue={formatDateForInput(cateringOrder.paymentDeadline)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -109,7 +109,7 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
           id="cancellationTerms"
           name="cancellationTerms"
           rows={3}
-          defaultValue={beo.cancellationTerms || ""}
+          defaultValue={cateringOrder.cancellationTerms || ""}
           className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -120,7 +120,7 @@ export function BEOContractForm({ beo, action }: BEOContractFormProps) {
           id="notes"
           name="notes"
           rows={3}
-          defaultValue={beo.notes || ""}
+          defaultValue={cateringOrder.notes || ""}
           className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
