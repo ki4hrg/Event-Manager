@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import type { CustomOption } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -34,6 +33,7 @@ import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
+import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
@@ -63,9 +63,11 @@ export default async function SetupOrderPage({
     notFound();
   }
 
-  const [setupOrderVendors, vendorTypeOptions]: [Awaited<ReturnType<typeof getSetupOrderVendors>>, CustomOption[]] = await Promise.all([
+  const [setupOrderVendors, vendorTypeOptions, fileTypeOptions, setupOrderFiles] = await Promise.all([
     getSetupOrderVendors(setupOrderId),
     getOptions("vendor_type"),
+    getOptions("file_type"),
+    prisma.fileUpload.findMany({ where: { setupOrderId }, orderBy: { createdAt: "asc" } }),
   ]);
 
   const TABLE_CAT = "TABLES";
@@ -263,6 +265,13 @@ export default async function SetupOrderPage({
             createTable={createTableAction}
             updateTable={updateTableAction}
             deleteTable={deleteTableAction}
+          />
+          <FileUploadPanel
+            entityType="setupOrder"
+            entityId={setupOrderId}
+            files={setupOrderFiles}
+            fileTypeOptions={fileTypeOptions}
+            revalidateTarget={`/events/${eventId}/setup-orders/${setupOrderId}`}
           />
           <EquipmentTable
             items={setupOrder.equipmentItems}

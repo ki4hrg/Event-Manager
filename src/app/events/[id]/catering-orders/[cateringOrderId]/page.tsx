@@ -52,6 +52,7 @@ import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { LineItemTable } from "../../../catering-orders/LineItemTable";
 import { MenuSectionTable } from "../../../catering-orders/MenuSectionTable";
 import { ContactList } from "../../../functions/ContactList";
+import { FileUploadPanel } from "@/components/FileUploadPanel";
 import type { TimelineItem } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -106,7 +107,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyOptions, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, vendorTypeOptions] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyOptions, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, vendorTypeOptions, fileTypeOptions, cateringOrderFiles] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -119,6 +120,8 @@ export default async function CateringOrderPage({
       getWorkflowTemplateOptions(),
       getCateringOrderVendors(cateringOrderId),
       getOptions("vendor_type"),
+      getOptions("file_type"),
+      prisma.fileUpload.findMany({ where: { cateringOrderId }, orderBy: { createdAt: "asc" } }),
     ]);
   if (!event || !cateringOrder) {
     notFound();
@@ -379,12 +382,21 @@ export default async function CateringOrderPage({
       {activeTab === "contract" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <CateringOrderContractForm cateringOrder={cateringOrder} action={updateContractAction} />
-          <LineItemTable
-            items={cateringOrder.lineItems}
-            createItem={createLineItemAction}
-            updateItem={updateLineItemAction}
-            deleteItem={deleteLineItemAction}
-          />
+          <div className="space-y-6">
+            <LineItemTable
+              items={cateringOrder.lineItems}
+              createItem={createLineItemAction}
+              updateItem={updateLineItemAction}
+              deleteItem={deleteLineItemAction}
+            />
+            <FileUploadPanel
+              entityType="cateringOrder"
+              entityId={cateringOrderId}
+              files={cateringOrderFiles}
+              fileTypeOptions={fileTypeOptions}
+              revalidateTarget={`/events/${eventId}/catering-orders/${cateringOrderId}`}
+            />
+          </div>
         </div>
       )}
     </PageWrapper>

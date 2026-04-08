@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "responsible_party" | "equipment_category" | "setup_type" | "vendor_type" | "vendor_contact_type";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "responsible_party" | "equipment_category" | "setup_type" | "vendor_type" | "vendor_contact_type" | "file_type";
 
 export async function getOptions(category: OptionCategory) {
   return prisma.customOption.findMany({
@@ -30,6 +30,7 @@ export async function getAllOptions() {
     setup_type: options.filter((o) => o.category === "setup_type"),
     vendor_type: options.filter((o) => o.category === "vendor_type"),
     vendor_contact_type: options.filter((o) => o.category === "vendor_contact_type"),
+    file_type: options.filter((o) => o.category === "file_type"),
   };
 }
 

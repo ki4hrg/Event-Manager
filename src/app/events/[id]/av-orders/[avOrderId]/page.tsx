@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import type { CustomOption } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
@@ -28,6 +27,7 @@ import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
+import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getEquipment } from "@/app/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -51,9 +51,11 @@ export default async function AVOrderPage({
     notFound();
   }
 
-  const [avOrderVendors, vendorTypeOptions]: [Awaited<ReturnType<typeof getAVOrderVendors>>, CustomOption[]] = await Promise.all([
+  const [avOrderVendors, vendorTypeOptions, fileTypeOptions, avOrderFiles] = await Promise.all([
     getAVOrderVendors(avOrderId),
     getOptions("vendor_type"),
+    getOptions("file_type"),
+    prisma.fileUpload.findMany({ where: { avOrderId }, orderBy: { createdAt: "asc" } }),
   ]);
 
   // Get available functions and presentations for linking
@@ -212,6 +214,14 @@ export default async function AVOrderPage({
             linkItem={linkToFunctionAction}
             unlinkItem={unlinkFromFunctionAction}
             entityLabel="function"
+          />
+
+          <FileUploadPanel
+            entityType="avOrder"
+            entityId={avOrderId}
+            files={avOrderFiles}
+            fileTypeOptions={fileTypeOptions}
+            revalidateTarget={`/events/${eventId}/av-orders/${avOrderId}`}
           />
 
           <AVOrderLinkPanel

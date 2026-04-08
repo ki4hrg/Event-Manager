@@ -80,6 +80,7 @@ model Event {
   cateringOrders     CateringOrder[]
   setupOrders        SetupOrder[]
   vendors            EventVendor[]
+  files              FileUpload[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -96,6 +97,7 @@ model Venue {
   rooms     Room[]
   events    Event[]
   contacts  VenueContact[]
+  files     FileUpload[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 }
@@ -227,6 +229,7 @@ model AVOrder {
   notes          String?
   equipmentItems EquipmentItem[]
   vendors        AVOrderVendor[]
+  files          FileUpload[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -259,6 +262,7 @@ model CateringOrder {
   menuSections       CateringOrderMenuSection[]
   contacts           CateringOrderContact[]
   vendors            CateringOrderVendor[]
+  files              FileUpload[]
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
 
@@ -319,6 +323,7 @@ model SetupOrder {
   tables         SetupTable[]
   equipmentItems EquipmentItem[]
   vendors        SetupOrderVendor[]
+  files          FileUpload[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
@@ -661,4 +666,32 @@ model SetupOrderVendor {
 
   @@unique([setupOrderId, vendorId])
   @@index([setupOrderId])
+}
+
+model FileUpload {
+  id              String         @id @default(cuid())
+  fileName        String
+  storedName      String
+  mimeType        String
+  fileSize        Int
+  fileType        String?
+
+  eventId         String?
+  event           Event?         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  cateringOrderId String?
+  cateringOrder   CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  avOrderId       String?
+  avOrder         AVOrder?       @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  setupOrderId    String?
+  setupOrder      SetupOrder?    @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  venueId         String?
+  venue           Venue?         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime       @default(now())
+
+  @@index([eventId])
+  @@index([cateringOrderId])
+  @@index([avOrderId])
+  @@index([setupOrderId])
+  @@index([venueId])
 }

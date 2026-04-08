@@ -55,6 +55,17 @@ const defaultEquipmentCategories = [
   { value: "SIGNAGE", label: "Signage", sortOrder: 4 },
 ];
 
+const defaultFileTypes = [
+  { value: "PROPOSAL", label: "Proposal", sortOrder: 0 },
+  { value: "INVOICE", label: "Invoice", sortOrder: 1 },
+  { value: "CONTRACT", label: "Contract", sortOrder: 2 },
+  { value: "FLOOR_PLAN", label: "Floor Plan", sortOrder: 3 },
+  { value: "DIAGRAM", label: "Diagram", sortOrder: 4 },
+  { value: "MENU", label: "Menu", sortOrder: 5 },
+  { value: "SPEC_SHEET", label: "Spec Sheet", sortOrder: 6 },
+  { value: "OTHER", label: "Other", sortOrder: 7 },
+];
+
 const defaultSetupTypes = [
   { value: "FIXED_IN_ROOM", label: "Fixed in Room", sortOrder: 0 },
   { value: "THEATER", label: "Theater", sortOrder: 1 },
@@ -160,6 +171,7 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("presentation_type", defaultPresentationTypes);
   totalCreated += await seedOptionsForCategory("equipment_category", defaultEquipmentCategories);
   totalCreated += await seedOptionsForCategory("setup_type", defaultSetupTypes);
+  totalCreated += await seedOptionsForCategory("file_type", defaultFileTypes);
 
   console.log(`Seeded ${totalCreated} total options`);
 }

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
@@ -19,12 +20,18 @@ import {
 import { VenueForm } from "../VenueForm";
 import { RoomList } from "../RoomList";
 import { ContactList } from "../ContactList";
+import { getOptions } from "@/app/settings/actions";
+import { FileUploadPanel } from "@/components/FileUploadPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function VenuePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const venue = await getVenue(id);
+  const [venue, fileTypeOptions, venueFiles] = await Promise.all([
+    getVenue(id),
+    getOptions("file_type"),
+    prisma.fileUpload.findMany({ where: { venueId: id }, orderBy: { createdAt: "asc" } }),
+  ]);
 
   if (!venue) {
     notFound();
@@ -116,6 +123,13 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
             updateContact={updateContactAction}
             removeContact={removeContactAction}
             searchContacts={searchContactsAction}
+          />
+          <FileUploadPanel
+            entityType="venue"
+            entityId={id}
+            files={venueFiles}
+            fileTypeOptions={fileTypeOptions}
+            revalidateTarget={`/venues/${id}`}
           />
         </div>
       </div>

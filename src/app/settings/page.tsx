@@ -127,6 +127,16 @@ export default async function SettingsPage() {
     await reorderOptions("vendor_contact_type", ids);
   };
 
+  const createFileType = async (formData: FormData) => {
+    "use server";
+    await createOption("file_type", formData);
+  };
+
+  const reorderFileTypes = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("file_type", ids);
+  };
+
   const createEquipmentAction = async (formData: FormData) => {
     "use server";
     await createEquipment(formData);
@@ -292,6 +302,18 @@ export default async function SettingsPage() {
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
           reorderOptions={reorderVendorContactTypes}
+        />
+
+        <OptionList
+          title="File Types"
+          description="Categories for file attachments (e.g., Proposal, Invoice, Contract)"
+          category="file_type"
+          options={options.file_type}
+          showColor={false}
+          createOption={createFileType}
+          updateOption={updateOptionAction}
+          deleteOption={deleteOptionAction}
+          reorderOptions={reorderFileTypes}
         />
       </div>
     </PageWrapper>

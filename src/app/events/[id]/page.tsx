@@ -12,6 +12,7 @@ import { FunctionList } from "../functions/FunctionList";
 import { getOptions } from "@/app/settings/actions";
 import { getWorkflowBadgeSummaries } from "../workflows/actions";
 import { EventTabs } from "./EventTabs";
+import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 
@@ -19,11 +20,13 @@ export const dynamic = "force-dynamic";
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, venues, functions, functionTypes] = await Promise.all([
+  const [event, venues, functions, functionTypes, fileTypeOptions, eventFiles] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
     getFunctions(id),
     getOptions("function_type"),
+    getOptions("file_type"),
+    prisma.fileUpload.findMany({ where: { eventId: id }, orderBy: { createdAt: "asc" } }),
   ]);
 
   const workflowSummaries = functions.length > 0
@@ -83,11 +86,20 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <EventTabs eventId={id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            Event Details
-          </h2>
-          <EventForm venues={venues} event={event} action={updateEventWithId} />
+        <div className="lg:col-span-1 space-y-6">
+          <div>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              Event Details
+            </h2>
+            <EventForm venues={venues} event={event} action={updateEventWithId} />
+          </div>
+          <FileUploadPanel
+            entityType="event"
+            entityId={id}
+            files={eventFiles}
+            fileTypeOptions={fileTypeOptions}
+            revalidateTarget={`/events/${id}`}
+          />
         </div>
 
         <div className="lg:col-span-2">
