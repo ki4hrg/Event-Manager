@@ -92,6 +92,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 });
 
+export async function requireAuth() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+  return session;
+}
+
 export async function requireAdmin() {
   const session = await auth();
   if (!session?.user || session.user.role !== "admin") {

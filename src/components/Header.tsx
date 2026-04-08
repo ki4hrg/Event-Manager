@@ -61,9 +61,12 @@ export async function Header() {
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600 dark:text-gray-400">
+          <Link
+            href="/account"
+            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+          >
             {session?.user?.email}
-          </span>
+          </Link>
           <form
             action={async () => {
               "use server";

@@ -12,6 +12,8 @@ import { FunctionList } from "../functions/FunctionList";
 import { getOptions } from "@/app/settings/actions";
 import { getWorkflowBadgeSummaries } from "../workflows/actions";
 import { EventTabs } from "./EventTabs";
+import { auth } from "@/lib/auth";
+import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +32,11 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
   if (!event) {
     notFound();
+  }
+
+  const session = await auth();
+  if (session?.user?.id) {
+    await setUserSetting(session.user.id, SETTING_KEYS.LAST_EVENT_ID, id);
   }
 
   const updateEventWithId = async (formData: FormData) => {

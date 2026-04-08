@@ -1,7 +1,32 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
+import { getUserLandingPage, getLastEventId } from "@/lib/userSettings";
 
-export default function DashboardPage() {
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const session = await requireAuth();
+
+  const [pref, lastId] = await Promise.all([
+    getUserLandingPage(session.user.id),
+    getLastEventId(session.user.id),
+  ]);
+
+  if (pref === "events") {
+    redirect("/events");
+  }
+
+  if (pref === "last_event") {
+    if (lastId) {
+      const exists = await prisma.event.findUnique({ where: { id: lastId }, select: { id: true } });
+      if (exists) redirect(`/events/${lastId}`);
+    }
+    redirect("/events");
+  }
+
   return (
     <PageWrapper>
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">

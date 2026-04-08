@@ -9,13 +9,28 @@ datasource db {
 
 // Authentication
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String        @id @default(cuid())
+  email     String        @unique
   name      String?
   password  String
-  role      String   @default("user")
+  role      String        @default("user")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  settings  UserSetting[]
+}
+
+// Per-user key-value settings store
+model UserSetting {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+  @@index([userId])
 }
 
 // Customizable options for dropdowns
