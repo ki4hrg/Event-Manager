@@ -352,6 +352,13 @@ export default async function CateringOrderPage({
               updateSection={updateMenuSectionAction}
               deleteSection={deleteMenuSectionAction}
             />
+            <FileUploadPanel
+              entityType="cateringOrder"
+              entityId={cateringOrderId}
+              files={cateringOrderFiles}
+              fileTypeOptions={fileTypeOptions}
+              revalidateTarget={`/events/${eventId}/catering-orders/${cateringOrderId}`}
+            />
           </div>
         </div>
       )}
@@ -382,21 +389,12 @@ export default async function CateringOrderPage({
       {activeTab === "contract" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <CateringOrderContractForm cateringOrder={cateringOrder} action={updateContractAction} />
-          <div className="space-y-6">
-            <LineItemTable
-              items={cateringOrder.lineItems}
-              createItem={createLineItemAction}
-              updateItem={updateLineItemAction}
-              deleteItem={deleteLineItemAction}
-            />
-            <FileUploadPanel
-              entityType="cateringOrder"
-              entityId={cateringOrderId}
-              files={cateringOrderFiles}
-              fileTypeOptions={fileTypeOptions}
-              revalidateTarget={`/events/${eventId}/catering-orders/${cateringOrderId}`}
-            />
-          </div>
+          <LineItemTable
+            items={cateringOrder.lineItems}
+            createItem={createLineItemAction}
+            updateItem={updateLineItemAction}
+            deleteItem={deleteLineItemAction}
+          />
         </div>
       )}
     </PageWrapper>
