@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
+import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { getEvent } from "../../../actions";
 import {
   getPresentation,
@@ -18,6 +20,8 @@ import {
   searchContacts,
   createAndAddPresentationSpeaker,
 } from "../../../presentations/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import {
   getAvailableAVOrdersForPresentation,
   linkAVOrderToPresentationFromPresentation,
@@ -42,12 +46,14 @@ export default async function PresentationPage({
   params: Promise<{ id: string; presentationId: string }>;
 }) {
   const { id: eventId, presentationId } = await params;
-  const [event, presentation, tracks, presenterRoles, presentationTypes] = await Promise.all([
+  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates] = await Promise.all([
     getEvent(eventId),
     getPresentation(presentationId),
     getTracks(eventId),
     getOptions("presenter_role"),
     getOptions("presentation_type"),
+    getWorkflowInstances("presentation", presentationId),
+    getWorkflowTemplateOptions(),
   ]);
 
   if (!event || !presentation) {
@@ -129,6 +135,29 @@ export default async function PresentationPage({
     await removePresentationFromBlock(slotId, eventId);
   };
 
+  const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
+  const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
+
+  const assignWorkflowAction = async (templateId: string) => {
+    "use server";
+    await assignWorkflow(templateId, "presentation", presentationId, eventId);
+  };
+
+  const removeWorkflowAction = async (instanceId: string) => {
+    "use server";
+    await removeWorkflow(instanceId, "presentation", presentationId, eventId);
+  };
+
+  const toggleStepAction = async (instanceId: string, stepId: string) => {
+    "use server";
+    await toggleStepCompletion(instanceId, stepId, "presentation", presentationId, eventId);
+  };
+
+  const toggleItemAction = async (instanceId: string, itemId: string) => {
+    "use server";
+    await toggleItemCompletion(instanceId, itemId, "presentation", presentationId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -136,15 +165,18 @@ export default async function PresentationPage({
       </Suspense>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <Link
-            href={`/events/${eventId}/presentations`}
-            className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-          >
-            &larr; Back to Presentations
-          </Link>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {presentation.title}
-          </h1>
+          <Breadcrumbs items={[
+            { label: "Events", href: "/events" },
+            { label: event.name, href: `/events/${eventId}` },
+            { label: "Presentations", href: `/events/${eventId}/presentations` },
+            { label: presentation.title },
+          ]} />
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {presentation.title}
+            </h1>
+            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+          </div>
         </div>
         <div className="flex gap-2">
           <form action={duplicatePresentationAction}>
@@ -162,8 +194,8 @@ export default async function PresentationPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
           <PresentationForm
             presentation={presentation}
             eventId={eventId}
@@ -175,7 +207,7 @@ export default async function PresentationPage({
           />
         </div>
 
-        <div className="space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           <SpeakerList
             speakers={presentation.speakers}
             presenterRoles={presenterRoles}
@@ -199,6 +231,14 @@ export default async function PresentationPage({
             removeSlot={removeSlotAction}
           />
 
+          <WorkflowPanel
+            instances={workflowInstances}
+            availableTemplates={availableWorkflowTemplates}
+            assignWorkflow={assignWorkflowAction}
+            removeWorkflow={removeWorkflowAction}
+            toggleStep={toggleStepAction}
+            toggleItem={toggleItemAction}
+          />
           <AVOrderPanel
             title="AV Order"
             avOrder={presentation.avOrder}

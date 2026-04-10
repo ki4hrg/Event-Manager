@@ -9,6 +9,7 @@ import type {
   Contact,
   CustomOption,
 } from "@prisma/client";
+import { ReadOnlyField } from "@/components/ReadOnlyField";
 
 type SpeakerWithContact = PresentationContact & { contact: Contact };
 
@@ -47,6 +48,94 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
+type PresentationFieldsProps = {
+  presentation?: PresentationWithRelations;
+  tracks: PresentationTrack[];
+  presentationTypes: CustomOption[];
+};
+
+function PresentationFields({ presentation, tracks, presentationTypes }: PresentationFieldsProps) {
+  const inputClass = "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label htmlFor="title" className={labelClass}>Title *</label>
+        <input
+          type="text"
+          id="title"
+          name="title"
+          required
+          defaultValue={presentation?.title}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="description" className={labelClass}>Description</label>
+        <textarea
+          id="description"
+          name="description"
+          rows={4}
+          defaultValue={presentation?.description || ""}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="trackId" className={labelClass}>Track</label>
+        {tracks.length === 0 ? (
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            No tracks defined for this event yet.
+          </p>
+        ) : (
+          <select
+            id="trackId"
+            name="trackId"
+            defaultValue={presentation?.trackId || ""}
+            className={inputClass}
+          >
+            <option value="">No track</option>
+            {tracks.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {presentationTypes.length > 0 && (
+        <div>
+          <label htmlFor="type" className={labelClass}>Type</label>
+          <select
+            id="type"
+            name="type"
+            defaultValue={presentation?.type || ""}
+            className={inputClass}
+          >
+            <option value="">No type</option>
+            {presentationTypes.map((t) => (
+              <option key={t.id} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="notes" className={labelClass}>Notes</label>
+        <textarea
+          id="notes"
+          name="notes"
+          rows={2}
+          defaultValue={presentation?.notes || ""}
+          placeholder={presentation ? undefined : "Internal notes about this presentation..."}
+          className={inputClass}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function PresentationForm({
   presentation,
   eventId,
@@ -57,27 +146,13 @@ export function PresentationForm({
   searchContacts,
 }: PresentationFormProps) {
   const isEdit = !!presentation;
+  const [editing, setEditing] = useState(false);
 
-  // Speaker state (only used for create flow)
   const [speakers, setSpeakers] = useState<SelectedSpeaker[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Contact[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Initialize speakers from existing presentation (for display purposes in edit mode)
-  useEffect(() => {
-    if (presentation?.speakers) {
-      setSpeakers(
-        presentation.speakers.map((s) => ({
-          contact: s.contact,
-          role: s.role || "",
-          isPrimary: s.isPrimary,
-        }))
-      );
-    }
-  }, [presentation]);
-
-  // Debounced search
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSearchResults([]);
@@ -110,7 +185,7 @@ export function PresentationForm({
   const handleRemoveSpeaker = (contactId: string) => {
     setSpeakers((prev) => {
       const filtered = prev.filter((s) => s.contact.id !== contactId);
-      // If we removed the primary, make the first one primary
+      // Promote first remaining speaker to primary if the primary was removed
       if (filtered.length > 0 && !filtered.some((s) => s.isPrimary)) {
         filtered[0].isPrimary = true;
       }
@@ -134,265 +209,192 @@ export function PresentationForm({
   };
 
   const handleSubmit = async (formData: FormData) => {
-    // Add speaker data to form for create flow
-    if (!isEdit) {
-      speakers.forEach((s) => {
-        formData.append("speakerContactIds", s.contact.id);
-        formData.append("speakerRoles", s.role);
-      });
-      const primary = speakers.find((s) => s.isPrimary);
-      if (primary) {
-        formData.set("primarySpeakerId", primary.contact.id);
-      }
+    speakers.forEach((s) => {
+      formData.append("speakerContactIds", s.contact.id);
+      formData.append("speakerRoles", s.role);
+    });
+    const primary = speakers.find((s) => s.isPrimary);
+    if (primary) {
+      formData.set("primarySpeakerId", primary.contact.id);
     }
     await action(formData);
   };
 
-  return (
-    <form action={handleSubmit} className="space-y-6 max-w-2xl">
-      {/* Basic Info */}
+  if (isEdit && !editing) {
+    const typeLabel = presentation.type
+      ? (presentationTypes.find((t) => t.value === presentation.type)?.label ?? presentation.type)
+      : null;
+
+    return (
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Presentation Details</h2>
+          <button
+            onClick={() => setEditing(true)}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Edit
+          </button>
+        </div>
+        <dl className="space-y-4">
+          <ReadOnlyField label="Title" value={presentation.title} />
+          <ReadOnlyField label="Description" value={presentation.description} />
+          <ReadOnlyField label="Track" value={presentation.track?.name ?? null} />
+          <ReadOnlyField label="Type" value={typeLabel} />
+          <ReadOnlyField label="Notes" value={presentation.notes} />
+        </dl>
+      </div>
+    );
+  }
+
+  if (isEdit) {
+    return (
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Presentation Details
         </h2>
-
-        <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="title"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+        <form
+          action={async (formData) => {
+            await action(formData);
+            setEditing(false);
+          }}
+          className="space-y-4"
+        >
+          <PresentationFields
+            presentation={presentation}
+            tracks={tracks}
+            presentationTypes={presentationTypes}
+          />
+          <div className="flex gap-4">
+            <SubmitButton isEdit={true} />
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              Title *
-            </label>
-            <input
-              type="text"
-              id="title"
-              name="title"
-              required
-              defaultValue={presentation?.title}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+              Cancel
+            </button>
           </div>
+        </form>
+      </div>
+    );
+  }
 
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={4}
-              defaultValue={presentation?.description || ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="trackId"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Track
-            </label>
-            {tracks.length === 0 ? (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                No tracks defined for this event yet.
-              </p>
-            ) : (
-              <select
-                id="trackId"
-                name="trackId"
-                defaultValue={presentation?.trackId || ""}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">No track</option>
-                {tracks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {presentationTypes.length > 0 && (
-            <div>
-              <label
-                htmlFor="type"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Type
-              </label>
-              <select
-                id="type"
-                name="type"
-                defaultValue={presentation?.type || ""}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">No type</option>
-                {presentationTypes.map((t) => (
-                  <option key={t.id} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div>
-            <label
-              htmlFor="notes"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              name="notes"
-              rows={2}
-              placeholder="Internal notes about this presentation..."
-              defaultValue={presentation?.notes || ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
+  return (
+    <form action={handleSubmit} className="space-y-6 max-w-2xl">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          Presentation Details
+        </h2>
+        <PresentationFields tracks={tracks} presentationTypes={presentationTypes} />
       </div>
 
-      {/* Speakers (inline for create, info-only for edit) */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Speakers
         </h2>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Add Speaker
+          </label>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search contacts by name, email, or organization..."
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+          />
+          {isSearching && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Searching...</p>
+          )}
+          {searchResults.length > 0 && (
+            <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-40 overflow-y-auto">
+              {searchResults.map((contact) => (
+                <button
+                  key={contact.id}
+                  type="button"
+                  onClick={() => handleAddSpeaker(contact)}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+                >
+                  <span className="text-gray-900 dark:text-white font-medium">
+                    {contact.firstName} {contact.lastName}
+                  </span>
+                  {contact.organization && (
+                    <span className="text-gray-500 dark:text-gray-400"> - {contact.organization}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              No contacts found.{" "}
+              <a href="/contacts/new" target="_blank" className="text-blue-600 hover:underline">
+                Create a new contact
+              </a>
+            </p>
+          )}
+        </div>
 
-        {isEdit ? (
+        {speakers.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Manage speakers in the panel on the right.
+            No speakers added yet. Search above to add speakers.
           </p>
         ) : (
-          <>
-            {/* Search for contacts */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Add Speaker
-              </label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search contacts by name, email, or organization..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
-              />
-              {isSearching && (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Searching...
-                </p>
-              )}
-              {searchResults.length > 0 && (
-                <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-40 overflow-y-auto">
-                  {searchResults.map((contact) => (
-                    <button
-                      key={contact.id}
-                      type="button"
-                      onClick={() => handleAddSpeaker(contact)}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
-                    >
-                      <span className="text-gray-900 dark:text-white font-medium">
-                        {contact.firstName} {contact.lastName}
-                      </span>
-                      {contact.organization && (
-                        <span className="text-gray-500 dark:text-gray-400">
-                          {" "}
-                          - {contact.organization}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+          <div className="space-y-2">
+            {speakers.map((speaker) => (
+              <div
+                key={speaker.contact.id}
+                className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
+              >
+                <div className="flex-1">
+                  <span className="text-gray-900 dark:text-white font-medium">
+                    {speaker.contact.firstName} {speaker.contact.lastName}
+                  </span>
+                  {speaker.contact.organization && (
+                    <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
+                      ({speaker.contact.organization})
+                    </span>
+                  )}
                 </div>
-              )}
-              {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  No contacts found.{" "}
-                  <a
-                    href="/contacts/new"
-                    target="_blank"
-                    className="text-blue-600 hover:underline"
-                  >
-                    Create a new contact
-                  </a>
-                </p>
-              )}
-            </div>
 
-            {/* Selected speakers */}
-            {speakers.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                No speakers added yet. Search above to add speakers.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {speakers.map((speaker) => (
-                  <div
-                    key={speaker.contact.id}
-                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <span className="text-gray-900 dark:text-white font-medium">
-                        {speaker.contact.firstName} {speaker.contact.lastName}
-                      </span>
-                      {speaker.contact.organization && (
-                        <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
-                          ({speaker.contact.organization})
-                        </span>
-                      )}
-                    </div>
+                <select
+                  value={speaker.role}
+                  onChange={(e) => handleRoleChange(speaker.contact.id, e.target.value)}
+                  className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="">Role...</option>
+                  {presenterRoles.map((r) => (
+                    <option key={r.id} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
 
-                    <select
-                      value={speaker.role}
-                      onChange={(e) =>
-                        handleRoleChange(speaker.contact.id, e.target.value)
-                      }
-                      className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                    >
-                      <option value="">Role...</option>
-                      {presenterRoles.map((r) => (
-                        <option key={r.id} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
+                <label className="flex items-center gap-1 text-sm">
+                  <input
+                    type="radio"
+                    name="primarySpeakerUI"
+                    checked={speaker.isPrimary}
+                    onChange={() => handleSetPrimary(speaker.contact.id)}
+                    className="text-blue-600"
+                  />
+                  <span className="text-gray-600 dark:text-gray-400">Primary</span>
+                </label>
 
-                    <label className="flex items-center gap-1 text-sm">
-                      <input
-                        type="radio"
-                        name="primarySpeakerUI"
-                        checked={speaker.isPrimary}
-                        onChange={() => handleSetPrimary(speaker.contact.id)}
-                        className="text-blue-600"
-                      />
-                      <span className="text-gray-600 dark:text-gray-400">Primary</span>
-                    </label>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSpeaker(speaker.contact.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSpeaker(speaker.contact.id)}
+                  className="text-red-600 hover:text-red-800 text-sm"
+                >
+                  Remove
+                </button>
               </div>
-            )}
-          </>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Form Actions */}
       <div className="flex gap-4">
-        <SubmitButton isEdit={isEdit} />
+        <SubmitButton isEdit={false} />
         <a
           href={`/events/${eventId}/presentations`}
           className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"

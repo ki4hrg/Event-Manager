@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Suspense } from "react";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
+import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { getEvent } from "../../../actions";
 import {
   getCateringOrder,
@@ -287,15 +289,18 @@ export default async function CateringOrderPage({
 
       <div className="flex justify-between items-center mb-6">
         <div>
-          <Link
-            href={`/events/${eventId}/catering-orders`}
-            className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-          >
-            &larr; Back to Catering Orders
-          </Link>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {cateringOrder.name}
-          </h1>
+          <Breadcrumbs items={[
+            { label: "Events", href: "/events" },
+            { label: event.name, href: `/events/${eventId}` },
+            { label: "Catering Orders", href: `/events/${eventId}/catering-orders` },
+            { label: cateringOrder.name },
+          ]} />
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {cateringOrder.name}
+            </h1>
+            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+          </div>
         </div>
         <DeleteButton
           action={deleteCateringOrderAction}
@@ -306,8 +311,8 @@ export default async function CateringOrderPage({
       <CateringOrderTabs basePath={basePath} activeTab={activeTab} />
 
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 space-y-6">
             <CateringOrderOverviewForm
               cateringOrder={cateringOrder}
               action={updateOverviewAction}
@@ -339,7 +344,7 @@ export default async function CateringOrderPage({
               createContact={createContactAction}
             />
           </div>
-          <div className="space-y-6">
+          <div className="lg:col-span-2 space-y-6">
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
@@ -371,9 +376,11 @@ export default async function CateringOrderPage({
       )}
 
       {activeTab === "service" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <CateringOrderServiceForm cateringOrder={cateringOrder} action={updateServiceAction} />
-          <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <CateringOrderServiceForm cateringOrder={cateringOrder} action={updateServiceAction} />
+          </div>
+          <div className="lg:col-span-2 space-y-6">
             <TimelineTable
               items={cateringOrder.timelineItems}
               createItem={createTimelineAction}
@@ -394,14 +401,18 @@ export default async function CateringOrderPage({
       )}
 
       {activeTab === "contract" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <CateringOrderContractForm cateringOrder={cateringOrder} action={updateContractAction} />
-          <LineItemTable
-            items={cateringOrder.lineItems}
-            createItem={createLineItemAction}
-            updateItem={updateLineItemAction}
-            deleteItem={deleteLineItemAction}
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <CateringOrderContractForm cateringOrder={cateringOrder} action={updateContractAction} />
+          </div>
+          <div className="lg:col-span-2">
+            <LineItemTable
+              items={cateringOrder.lineItems}
+              createItem={createLineItemAction}
+              updateItem={updateLineItemAction}
+              deleteItem={deleteLineItemAction}
+            />
+          </div>
         </div>
       )}
     </PageWrapper>

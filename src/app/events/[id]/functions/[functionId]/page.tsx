@@ -42,6 +42,7 @@ import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { CateringOrderPanel } from "../../../catering-orders/CateringOrderPanel";
 import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
+import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { getOptions } from "@/app/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -205,9 +206,12 @@ export default async function FunctionPage({
             { label: event.name, href: `/events/${eventId}` },
             { label: fn.name },
           ]} />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {fn.name}
-          </h1>
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {fn.name}
+            </h1>
+            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+          </div>
         </div>
         <div className="flex gap-2">
           <form action={duplicateFunctionAction}>
@@ -225,8 +229,8 @@ export default async function FunctionPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
           <FunctionForm
             fn={fn}
             rooms={rooms}
@@ -237,7 +241,7 @@ export default async function FunctionPage({
           />
         </div>
 
-        <div className="space-y-8">
+        <div className="lg:col-span-2 space-y-8">
           <ScheduleList
             schedules={fn.schedules}
             scheduleTypes={scheduleTypes}

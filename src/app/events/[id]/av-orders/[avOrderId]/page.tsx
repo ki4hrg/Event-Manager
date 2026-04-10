@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Suspense } from "react";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
+import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { prisma } from "@/lib/prisma";
 import { getEvent } from "../../../actions";
 import {
@@ -156,15 +157,18 @@ export default async function AVOrderPage({
       </Suspense>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <Link
-            href={`/events/${eventId}/av-orders`}
-            className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-          >
-            &larr; Back to AV Orders
-          </Link>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {avOrder.name}
-          </h1>
+          <Breadcrumbs items={[
+            { label: "Events", href: "/events" },
+            { label: event.name, href: `/events/${eventId}` },
+            { label: "AV Orders", href: `/events/${eventId}/av-orders` },
+            { label: avOrder.name },
+          ]} />
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {avOrder.name}
+            </h1>
+            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+          </div>
         </div>
         <DeleteButton
           action={deleteAVOrderAction}
@@ -172,8 +176,8 @@ export default async function AVOrderPage({
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 space-y-6">
           <AVOrderForm
             avOrder={avOrder}
             eventId={eventId}
@@ -191,7 +195,7 @@ export default async function AVOrderPage({
           />
         </div>
 
-        <div className="space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           <WorkflowPanel
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}

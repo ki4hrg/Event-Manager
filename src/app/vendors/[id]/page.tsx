@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import {
@@ -77,12 +77,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
 
       <div className="flex justify-between items-center mb-6">
         <div>
-          <Link
-            href="/vendors"
-            className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-          >
-            &larr; Back to Vendors
-          </Link>
+          <Breadcrumbs items={[{ label: "Vendors", href: "/vendors" }, { label: vendor.name }]} />
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
             {vendor.name}
           </h1>
@@ -105,12 +100,12 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
           <VendorForm vendor={vendor} vendorTypes={vendorTypes} action={updateVendorAction} />
         </div>
 
-        <div>
+        <div className="lg:col-span-2">
           <VendorContactList
             contacts={vendor.contacts}
             contactTypes={contactTypes}

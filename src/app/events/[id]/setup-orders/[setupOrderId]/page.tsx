@@ -33,6 +33,7 @@ import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
+import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -209,9 +210,12 @@ export default async function SetupOrderPage({
               { label: displayName },
             ]}
           />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {displayName}
-          </h1>
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {displayName}
+            </h1>
+            <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
+          </div>
         </div>
         <DeleteButton
           action={deleteSetupOrderAction}
@@ -219,8 +223,8 @@ export default async function SetupOrderPage({
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 space-y-8">
           <SetupOrderForm
             setupOrder={setupOrder}
             eventId={eventId}
@@ -249,7 +253,7 @@ export default async function SetupOrderPage({
           />
         </div>
 
-        <div className="space-y-8">
+        <div className="lg:col-span-2 space-y-8">
           <WorkflowPanel
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}
