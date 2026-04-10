@@ -30,6 +30,7 @@ import {
   updateCateringOrderContact,
   removeCateringOrderContact,
   searchContactsForCateringOrder,
+  createAndAddCateringOrderContact,
 } from "../../../catering-orders/actions";
 import { getOptions, getEquipment } from "../../../../settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
@@ -233,6 +234,11 @@ export default async function CateringOrderPage({
     return searchContactsForCateringOrder(query);
   };
 
+  const createContactAction = async (formData: FormData) => {
+    "use server";
+    await createAndAddCateringOrderContact(cateringOrderId, eventId, formData);
+  };
+
   const assignWorkflowAction = async (templateId: string) => {
     "use server";
     await assignWorkflow(templateId, "catering_order", cateringOrderId, eventId);
@@ -330,6 +336,7 @@ export default async function CateringOrderPage({
               updateContact={updateContactAction}
               removeContact={removeContactAction}
               searchContacts={searchContactsAction}
+              createContact={createContactAction}
             />
           </div>
           <div className="space-y-6">

@@ -300,6 +300,53 @@ export async function removeSpeaker(speakerId: string, presentationId: string, e
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
+export async function createAndAddPresentationSpeaker(
+  presentationId: string,
+  eventId: string,
+  formData: FormData
+) {
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
+  const email = formData.get("email") as string;
+  const organization = formData.get("organization") as string;
+  const role = formData.get("role") as string;
+  const isPrimary = formData.get("isPrimary") === "true";
+
+  const contact = await prisma.contact.create({
+    data: {
+      firstName,
+      lastName,
+      email: email || null,
+      organization: organization || null,
+    },
+  });
+
+  const maxOrder = await prisma.presentationContact.findFirst({
+    where: { presentationId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+
+  if (isPrimary) {
+    await prisma.presentationContact.updateMany({
+      where: { presentationId },
+      data: { isPrimary: false },
+    });
+  }
+
+  await prisma.presentationContact.create({
+    data: {
+      presentationId,
+      contactId: contact.id,
+      role: role || null,
+      isPrimary,
+      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+    },
+  });
+
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
 export async function reorderSpeakers(
   presentationId: string,
   eventId: string,

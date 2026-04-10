@@ -172,3 +172,26 @@ export async function removeVenueContact(contactId: string, venueId: string) {
   await prisma.venueContact.delete({ where: { id: contactId } });
   revalidatePath(`/venues/${venueId}`);
 }
+
+export async function createAndAddVenueContact(venueId: string, formData: FormData) {
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
+  const email = formData.get("email") as string;
+  const organization = formData.get("organization") as string;
+  const role = formData.get("role") as string;
+
+  const contact = await prisma.contact.create({
+    data: {
+      firstName,
+      lastName,
+      email: email || null,
+      organization: organization || null,
+    },
+  });
+
+  await prisma.venueContact.create({
+    data: { venueId, contactId: contact.id, role: role || null },
+  });
+
+  revalidatePath(`/venues/${venueId}`);
+}

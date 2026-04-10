@@ -16,6 +16,7 @@ import {
   addVenueContact,
   updateVenueContact,
   removeVenueContact,
+  createAndAddVenueContact,
 } from "../actions";
 import { VenueForm } from "../VenueForm";
 import { RoomList } from "../RoomList";
@@ -82,6 +83,11 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
     await removeVenueContact(contactId, id);
   };
 
+  const createContactAction = async (formData: FormData) => {
+    "use server";
+    await createAndAddVenueContact(id, formData);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -123,6 +129,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
             updateContact={updateContactAction}
             removeContact={removeContactAction}
             searchContacts={searchContactsAction}
+            createContact={createContactAction}
           />
           <FileUploadPanel
             entityType="venue"

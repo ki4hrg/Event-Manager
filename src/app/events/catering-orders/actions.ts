@@ -350,6 +350,29 @@ export async function removeCateringOrderContact(id: string, cateringOrderId: st
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
+export async function createAndAddCateringOrderContact(cateringOrderId: string, eventId: string, formData: FormData) {
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
+  const email = formData.get("email") as string;
+  const organization = formData.get("organization") as string;
+  const role = formData.get("role") as string;
+
+  const contact = await prisma.contact.create({
+    data: {
+      firstName,
+      lastName,
+      email: email || null,
+      organization: organization || null,
+    },
+  });
+
+  await prisma.cateringOrderContact.create({
+    data: { cateringOrderId, contactId: contact.id, role: role || null },
+  });
+
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+}
+
 export async function searchContactsForCateringOrder(query: string) {
   return prisma.contact.findMany({
     where: {

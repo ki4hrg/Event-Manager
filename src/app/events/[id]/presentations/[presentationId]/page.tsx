@@ -16,6 +16,7 @@ import {
   updateSpeaker,
   removeSpeaker,
   searchContacts,
+  createAndAddPresentationSpeaker,
 } from "../../../presentations/actions";
 import {
   getAvailableAVOrdersForPresentation,
@@ -103,6 +104,11 @@ export default async function PresentationPage({
     return searchContacts(query);
   };
 
+  const createContactAction = async (formData: FormData) => {
+    "use server";
+    await createAndAddPresentationSpeaker(presentationId, eventId, formData);
+  };
+
   const linkAVOrderAction = async (avOrderId: string) => {
     "use server";
     await linkAVOrderToPresentationFromPresentation(avOrderId, presentationId, eventId);
@@ -178,6 +184,7 @@ export default async function PresentationPage({
             updateSpeaker={updateSpeakerAction}
             removeSpeaker={removeSpeakerAction}
             searchContacts={searchContactsAction}
+            createContact={createContactAction}
           />
 
           <BreakoutSlotPanel

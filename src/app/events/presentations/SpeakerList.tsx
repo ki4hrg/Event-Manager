@@ -14,6 +14,7 @@ type SpeakerListProps = {
   updateSpeaker: (speakerId: string, formData: FormData) => Promise<void>;
   removeSpeaker: (speakerId: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
+  createContact?: (formData: FormData) => Promise<void>;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -37,8 +38,9 @@ export function SpeakerList({
   updateSpeaker,
   removeSpeaker,
   searchContacts,
+  createContact,
 }: SpeakerListProps) {
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Contact[]>([]);
@@ -73,12 +75,24 @@ export function SpeakerList({
     setSearchResults([]);
   };
 
+  const closeAddForm = () => {
+    setFormView("hidden");
+    setSelectedContact(null);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
+
   const handleAddFormSubmit = async (formData: FormData) => {
     if (!selectedContact) return;
     formData.set("contactId", selectedContact.id);
     await addSpeaker(formData);
-    setSelectedContact(null);
-    setShowAddForm(false);
+    closeAddForm();
+  };
+
+  const handleCreateFormSubmit = async (formData: FormData) => {
+    if (!createContact) return;
+    await createContact(formData);
+    closeAddForm();
   };
 
   const handleUpdateSubmit = async (speakerId: string, formData: FormData) => {
@@ -92,9 +106,9 @@ export function SpeakerList({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Speakers</h2>
         <button
           onClick={() => {
-            setShowAddForm(true);
             setSelectedContact(null);
             setSearchQuery("");
+            setFormView("search");
           }}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
         >
@@ -102,7 +116,7 @@ export function SpeakerList({
         </button>
       </div>
 
-      {showAddForm && (
+      {formView === "search" && (
         <form action={handleAddFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-4">
             {!selectedContact ? (
@@ -150,9 +164,19 @@ export function SpeakerList({
                 {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     No contacts found.{" "}
-                    <a href="/contacts/new" className="text-blue-600 hover:underline">
-                      Create a new contact
-                    </a>
+                    {createContact ? (
+                      <button
+                        type="button"
+                        onClick={() => setFormView("create")}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Create new contact
+                      </button>
+                    ) : (
+                      <a href="/contacts/new" className="text-blue-600 hover:underline">
+                        Create a new contact
+                      </a>
+                    )}
                   </p>
                 )}
               </div>
@@ -227,11 +251,101 @@ export function SpeakerList({
             <SubmitButton label="Add Speaker" />
             <button
               type="button"
-              onClick={() => {
-                setShowAddForm(false);
-                setSelectedContact(null);
-                setSearchQuery("");
-              }}
+              onClick={closeAddForm}
+              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {formView === "create" && (
+        <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  name="firstName"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  name="lastName"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Organization
+              </label>
+              <input
+                type="text"
+                name="organization"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Role
+                </label>
+                <input
+                  type="text"
+                  name="role"
+                  placeholder="e.g. Speaker, Moderator..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+              <div className="flex items-end pb-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name="isPrimary"
+                    value="true"
+                    defaultChecked={speakers.length === 0}
+                    className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Primary speaker</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <SubmitButton label="Create & Add" />
+            <button
+              type="button"
+              onClick={() => setFormView("search")}
+              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={closeAddForm}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
             >
               Cancel
