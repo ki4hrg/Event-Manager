@@ -178,7 +178,7 @@ export function MenuSectionTable({
                     </div>
                   </div>
                   <div
-                    className="text-sm text-gray-900 dark:text-white prose prose-sm dark:prose-invert max-w-none"
+                    className="text-sm text-gray-900 dark:text-white not-italic [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
                     dangerouslySetInnerHTML={{ __html: section.menuContent }}
                   />
                   {section.notes && (
