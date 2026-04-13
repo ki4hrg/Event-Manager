@@ -31,6 +31,8 @@ import {
   SLOT_INTERVAL_MS,
 } from "@/lib/agendaUtils";
 import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from "@/app/events/functions/actions";
+import type { RoomConflict } from "@/lib/conflicts";
+import { ConflictWarning } from "@/components/ConflictWarning";
 import { DateTabs } from "./DateTabs";
 import { AgendaViewOptions, loadAgendaViewSettings, type AgendaViewSettings } from "./AgendaViewOptions";
 
@@ -180,6 +182,8 @@ function DraggableCard({
   onResizeStart,
   slotTime,
   rowspan,
+  columnIndex = 0,
+  columnCount = 1,
 }: {
   entry: AgendaEntry;
   sourceRoomId: string;
@@ -188,6 +192,8 @@ function DraggableCard({
   onResizeStart: OnResizeStart;
   slotTime: Date;
   rowspan: number;
+  columnIndex?: number;
+  columnCount?: number;
 }) {
   const router = useRouter();
   const draggedRef = useRef(false);
@@ -214,6 +220,10 @@ function DraggableCard({
   const topPct = (topOffset / totalMs) * 100;
   const bottomPct = (bottomOffset / totalMs) * 100;
 
+  // Side-by-side layout for overlapping entries
+  const colWidthPct = 100 / columnCount;
+  const colLeftPct = columnIndex * colWidthPct;
+
   return (
     <div
       ref={setNodeRef}
@@ -222,8 +232,8 @@ function DraggableCard({
         position: "absolute",
         top: `${topPct}%`,
         bottom: `${bottomPct}%`,
-        left: 0,
-        right: 0,
+        left: `${colLeftPct}%`,
+        width: `${colWidthPct}%`,
       }}
       className={`relative group/card ${getEntryColors(entry).bg}${isDragDisabled ? " cursor-pointer" : " cursor-grab active:cursor-grabbing"}${isDragging ? " opacity-40" : ""}`}
       onClick={() => {
@@ -426,7 +436,7 @@ function DayGrid({
                     rowSpan={cell.rowspan}
                     isEmpty={false}
                   >
-                    {cell.entries.map((entry) => (
+                    {cell.entries.map((entry, colIdx) => (
                       <DraggableCard
                         key={entry.scheduleId}
                         entry={entry}
@@ -436,6 +446,8 @@ function DayGrid({
                         onResizeStart={onResizeStart}
                         slotTime={cell.slotTime}
                         rowspan={cell.rowspan}
+                        columnIndex={colIdx}
+                        columnCount={cell.entries.length}
                       />
                     ))}
                   </DroppableCell>
@@ -520,6 +532,10 @@ export function AgendaGrid({
   const [resizing, setResizing] = useState<ResizeState | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [viewSettings, setViewSettings] = useState<AgendaViewSettings>(loadAgendaViewSettings);
+  const [conflictPending, setConflictPending] = useState<{
+    conflicts: RoomConflict[];
+    onConfirm: () => Promise<void>;
+  } | null>(null);
 
   // Always-current ref so callbacks can snapshot state without stale closures
   const agendaDataRef = useRef(agendaData);
@@ -600,8 +616,30 @@ export function AgendaGrid({
         eventId
       );
       if (!result.success) {
-        setAgendaData(snapshot);
-        setErrorMsg(result.error ?? "Failed to resize.");
+        if (result.conflicts?.length) {
+          setConflictPending({
+            conflicts: result.conflicts,
+            onConfirm: async () => {
+              const forced = await rescheduleEntry(
+                entry.scheduleId,
+                entry.functionId,
+                commitStart.toISOString(),
+                commitEnd.toISOString(),
+                eventId,
+                true
+              );
+              if (!forced.success) {
+                setAgendaData(snapshot);
+                setErrorMsg(forced.error ?? "Failed to resize.");
+              } else {
+                router.refresh();
+              }
+            },
+          });
+        } else {
+          setAgendaData(snapshot);
+          setErrorMsg(result.error ?? "Failed to resize.");
+        }
       } else {
         router.refresh();
       }
@@ -642,7 +680,28 @@ export function AgendaGrid({
           eventId
         );
         if (!result.success) {
-          setErrorMsg(result.error ?? "Failed to schedule.");
+          if (result.conflicts?.length) {
+            setConflictPending({
+              conflicts: result.conflicts,
+              onConfirm: async () => {
+                const forced = await scheduleUnscheduledFunction(
+                  functionId,
+                  roomId,
+                  slotTime.toISOString(),
+                  endTime.toISOString(),
+                  eventId,
+                  true
+                );
+                if (!forced.success) {
+                  setErrorMsg(forced.error ?? "Failed to schedule.");
+                } else {
+                  router.refresh();
+                }
+              },
+            });
+          } else {
+            setErrorMsg(result.error ?? "Failed to schedule.");
+          }
         } else {
           router.refresh();
         }
@@ -687,22 +746,61 @@ export function AgendaGrid({
       const snapshot = agendaDataRef.current;
       setAgendaData(applyDragToState(snapshot, drag, drop, deltaMs, timezone));
 
-      const ops: Promise<{ success: boolean; error?: string }>[] = [];
-      if (roomChanged) {
-        ops.push(updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId));
-      }
+      // Check for time conflicts before committing room change
       if (timeChanged) {
-        ops.push(
-          rescheduleEntry(entry.scheduleId, entry.functionId, newStart.toISOString(), newEnd.toISOString(), eventId)
+        const reschedResult = await rescheduleEntry(
+          entry.scheduleId,
+          entry.functionId,
+          newStart.toISOString(),
+          newEnd.toISOString(),
+          eventId
         );
+        if (!reschedResult.success) {
+          setAgendaData(snapshot);
+          if (reschedResult.conflicts?.length) {
+            setConflictPending({
+              conflicts: reschedResult.conflicts,
+              onConfirm: async () => {
+                const ops: Promise<{ success: boolean; error?: string }>[] = [];
+                if (roomChanged) {
+                  ops.push(updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId));
+                }
+                ops.push(
+                  rescheduleEntry(entry.scheduleId, entry.functionId, newStart.toISOString(), newEnd.toISOString(), eventId, true)
+                );
+                const results = await Promise.all(ops);
+                const failed = results.find((r) => !r.success);
+                if (failed) {
+                  setErrorMsg(failed.error ?? "Failed to save change.");
+                } else {
+                  router.refresh();
+                }
+              },
+            });
+          } else {
+            setErrorMsg(reschedResult.error ?? "Failed to reschedule.");
+          }
+          return;
+        }
+        if (roomChanged) {
+          const roomResult = await updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId);
+          if (!roomResult.success) {
+            setAgendaData(snapshot);
+            setErrorMsg(roomResult.error ?? "Failed to save change.");
+            return;
+          }
+        }
+        router.refresh();
+        return;
       }
 
-      const results = await Promise.all(ops);
-      const failed = results.find((r) => !r.success);
-      if (failed) {
-        setAgendaData(snapshot);
-        setErrorMsg(failed.error ?? "Failed to save change.");
-      } else {
+      if (roomChanged) {
+        const roomResult = await updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId);
+        if (!roomResult.success) {
+          setAgendaData(snapshot);
+          setErrorMsg(roomResult.error ?? "Failed to save change.");
+          return;
+        }
         router.refresh();
       }
     },
@@ -715,6 +813,21 @@ export function AgendaGrid({
         {errorMsg && (
           <div className="mb-4 text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded px-3 py-2">
             {errorMsg}
+          </div>
+        )}
+
+        {conflictPending && (
+          <div className="mb-4">
+            <ConflictWarning
+              conflicts={conflictPending.conflicts}
+              timezone={timezone}
+              onCancel={() => setConflictPending(null)}
+              onConfirm={async () => {
+                const action = conflictPending.onConfirm;
+                setConflictPending(null);
+                await action();
+              }}
+            />
           </div>
         )}
 

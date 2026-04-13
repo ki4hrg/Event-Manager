@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 
 /**
  * Parse a datetime-local input value (YYYY-MM-DDTHH:MM) as if it's in the given timezone
@@ -233,20 +234,37 @@ export async function duplicateFunction(id: string, eventId: string) {
   redirect(`/events/${eventId}/functions/${duplicate.id}`);
 }
 
+async function getFunctionRoomIds(functionId: string): Promise<string[]> {
+  const rooms = await prisma.functionRoom.findMany({ where: { functionId }, select: { roomId: true } });
+  return rooms.map((r) => r.roomId);
+}
+
 // Schedule item actions
-export async function createSchedule(functionId: string, eventId: string, formData: FormData) {
+export async function createSchedule(
+  functionId: string,
+  eventId: string,
+  formData: FormData
+): Promise<{ conflicts: RoomConflict[] } | undefined> {
   const type = formData.get("type") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
   const notes = formData.get("notes") as string;
   const isPublic = formData.get("isPublic") === "true";
+  const force = formData.get("force") === "true";
 
-  // Get event timezone
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: { timezone: true },
-  });
+  const [event, roomIds] = await Promise.all([
+    prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true } }),
+    force ? Promise.resolve([]) : getFunctionRoomIds(functionId),
+  ]);
   const timezone = event?.timezone || "America/Chicago";
+
+  const parsedStart = parseDateTimeInTimezone(startTime, timezone);
+  const parsedEnd = parseDateTimeInTimezone(endTime, timezone);
+
+  if (!force && roomIds.length > 0) {
+    const conflicts = await checkRoomConflicts(roomIds, parsedStart, parsedEnd, functionId);
+    if (conflicts.length > 0) return { conflicts };
+  }
 
   // Get max sortOrder
   const maxOrder = await prisma.functionSchedule.findFirst({
@@ -259,8 +277,8 @@ export async function createSchedule(functionId: string, eventId: string, formDa
     data: {
       functionId,
       type,
-      startTime: parseDateTimeInTimezone(startTime, timezone),
-      endTime: parseDateTimeInTimezone(endTime, timezone),
+      startTime: parsedStart,
+      endTime: parsedEnd,
       notes: notes || null,
       isPublic,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
@@ -270,26 +288,39 @@ export async function createSchedule(functionId: string, eventId: string, formDa
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
-export async function updateSchedule(scheduleId: string, functionId: string, eventId: string, formData: FormData) {
+export async function updateSchedule(
+  scheduleId: string,
+  functionId: string,
+  eventId: string,
+  formData: FormData
+): Promise<{ conflicts: RoomConflict[] } | undefined> {
   const type = formData.get("type") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
   const notes = formData.get("notes") as string;
   const isPublic = formData.get("isPublic") === "true";
+  const force = formData.get("force") === "true";
 
-  // Get event timezone
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: { timezone: true },
-  });
+  const [event, roomIds] = await Promise.all([
+    prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true } }),
+    force ? Promise.resolve([]) : getFunctionRoomIds(functionId),
+  ]);
   const timezone = event?.timezone || "America/Chicago";
+
+  const parsedStart = parseDateTimeInTimezone(startTime, timezone);
+  const parsedEnd = parseDateTimeInTimezone(endTime, timezone);
+
+  if (!force && roomIds.length > 0) {
+    const conflicts = await checkRoomConflicts(roomIds, parsedStart, parsedEnd, functionId);
+    if (conflicts.length > 0) return { conflicts };
+  }
 
   await prisma.functionSchedule.update({
     where: { id: scheduleId },
     data: {
       type,
-      startTime: parseDateTimeInTimezone(startTime, timezone),
-      endTime: parseDateTimeInTimezone(endTime, timezone),
+      startTime: parsedStart,
+      endTime: parsedEnd,
       notes: notes || null,
       isPublic,
     },
@@ -427,19 +458,24 @@ export async function scheduleUnscheduledFunction(
   roomId: string,
   startTime: string,
   endTime: string,
-  eventId: string
-): Promise<{ success: boolean; error?: string }> {
+  eventId: string,
+  force = false
+): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
   const start = new Date(startTime);
   const end = new Date(endTime);
   if (end <= start) return { success: false, error: "End time must be after start time" };
 
-  // Assign room if not already assigned
-  const existingRoom = await prisma.functionRoom.findUnique({
-    where: { functionId_roomId: { functionId, roomId } },
-  });
-  if (!existingRoom) {
-    await prisma.functionRoom.create({ data: { functionId, roomId } });
+  // Check for room conflicts unless forced
+  if (!force) {
+    const conflicts = await checkRoomConflicts([roomId], start, end, functionId);
+    if (conflicts.length > 0) return { success: false, conflicts };
   }
+
+  await prisma.functionRoom.upsert({
+    where: { functionId_roomId: { functionId, roomId } },
+    create: { functionId, roomId },
+    update: {},
+  });
 
   // Create schedule entry
   await prisma.functionSchedule.create({
@@ -462,12 +498,21 @@ export async function rescheduleEntry(
   functionId: string,
   newStartTime: string,
   newEndTime: string,
-  eventId: string
-): Promise<{ success: boolean; error?: string }> {
+  eventId: string,
+  force = false
+): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
   const startTime = new Date(newStartTime);
   const endTime = new Date(newEndTime);
 
   if (endTime <= startTime) return { success: false, error: "End time must be after start time" };
+
+  if (!force) {
+    const roomIds = await getFunctionRoomIds(functionId);
+    if (roomIds.length > 0) {
+      const conflicts = await checkRoomConflicts(roomIds, startTime, endTime, functionId);
+      if (conflicts.length > 0) return { success: false, conflicts };
+    }
+  }
 
   await prisma.functionSchedule.update({
     where: { id: scheduleId },

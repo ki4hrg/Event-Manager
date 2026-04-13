@@ -106,12 +106,12 @@ export default async function FunctionPage({
 
   const createScheduleAction = async (formData: FormData) => {
     "use server";
-    await createSchedule(functionId, eventId, formData);
+    return createSchedule(functionId, eventId, formData);
   };
 
   const updateScheduleAction = async (scheduleId: string, formData: FormData) => {
     "use server";
-    await updateSchedule(scheduleId, functionId, eventId, formData);
+    return updateSchedule(scheduleId, functionId, eventId, formData);
   };
 
   const deleteScheduleAction = async (scheduleId: string) => {
