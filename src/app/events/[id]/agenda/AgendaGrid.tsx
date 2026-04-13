@@ -329,12 +329,11 @@ function DayGrid({
     );
   }
 
-  const skipMap = new Map<string, number>();
+  type EntriesCell = { type: "entries"; entries: AgendaEntry[]; rowspan: number; slotTime: Date };
+  type CellRender = { type: "skip" } | { type: "empty"; slotTime: Date } | EntriesCell;
 
-  type CellRender =
-    | { type: "skip" }
-    | { type: "empty"; slotTime: Date }
-    | { type: "entries"; entries: AgendaEntry[]; rowspan: number; slotTime: Date };
+  type SkipState = { remaining: number; cell: EntriesCell };
+  const skipMap = new Map<string, SkipState>();
 
   const rowData: Array<{ slotTime: Date; cells: CellRender[] }> = [];
 
@@ -343,9 +342,24 @@ function DayGrid({
     const cells: CellRender[] = [];
 
     for (const room of visibleRooms) {
-      const remaining = skipMap.get(room.id) ?? 0;
-      if (remaining > 0) {
-        skipMap.set(room.id, remaining - 1);
+      const skip = skipMap.get(room.id);
+      if (skip && skip.remaining > 0) {
+        // Check if any new entries start in this skipped slot — merge them into the parent cell.
+        const newEntries = day.cells.get(room.id)?.get(slotKey) ?? [];
+        if (newEntries.length > 0) {
+          const prevMaxSpan = skip.cell.rowspan;
+          for (const e of newEntries) skip.cell.entries.push(e);
+          // Only compute rowspan for new entries; old entries' rowspan is already tracked.
+          const newMaxSpan = Math.max(
+            prevMaxSpan,
+            ...newEntries.map((e) => computeRowspan(e, day.timeSlots))
+          );
+          if (newMaxSpan > prevMaxSpan) {
+            skip.cell.rowspan = newMaxSpan;
+            skip.remaining += newMaxSpan - prevMaxSpan;
+          }
+        }
+        skip.remaining -= 1;
         cells.push({ type: "skip" });
         continue;
       }
@@ -358,10 +372,11 @@ function DayGrid({
         const maxSpan = Math.max(
           ...entries.map((e) => computeRowspan(e, day.timeSlots))
         );
+        const cell: EntriesCell = { type: "entries", entries, rowspan: maxSpan, slotTime: slot };
         if (maxSpan > 1) {
-          skipMap.set(room.id, maxSpan - 1);
+          skipMap.set(room.id, { remaining: maxSpan - 1, cell });
         }
-        cells.push({ type: "entries", entries, rowspan: maxSpan, slotTime: slot });
+        cells.push(cell);
       }
     }
 
