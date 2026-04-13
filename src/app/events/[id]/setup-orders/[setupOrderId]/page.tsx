@@ -28,6 +28,7 @@ import {
   searchAssignedEventVendors,
 } from "@/app/vendors/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
+import { SetupOrderTabs, SETUP_ORDER_TABS } from "../../../setup-orders/SetupOrderTabs";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
@@ -45,9 +46,11 @@ export default async function SetupOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string; setupOrderId: string }>;
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<{ tab?: string; success?: string }>;
 }) {
   const { id: eventId, setupOrderId } = await params;
+  const { tab = "overview" } = await searchParams;
+  const activeTab = SETUP_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
   const [event, setupOrder, setupTypes, responsiblePartyOptions, equipmentOptions, equipmentCategories, workflowInstances, allTemplates] =
     await Promise.all([
@@ -223,25 +226,63 @@ export default async function SetupOrderPage({
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 space-y-8">
-          <SetupOrderForm
-            setupOrder={setupOrder}
-            eventId={eventId}
-            setupTypes={setupTypes}
-            action={updateSetupOrderAction}
-            rooms={venueRooms}
-            functionLink={{
-              linkedFunctionId: setupOrder.functionId,
-              linkedFunctionName: setupOrder.function?.name ?? null,
-              linkedFunctionPath: setupOrder.function
-                ? `/events/${eventId}/functions/${setupOrder.function.id}`
-                : null,
-              availableFunctions: availableFunctions.map((f) => ({ id: f.id, label: f.name })),
-              linkFunction: linkToFunctionAction,
-              unlinkFunction: unlinkFromFunctionAction,
-            }}
-          />
+      <SetupOrderTabs basePath={`/events/${eventId}/setup-orders/${setupOrderId}`} activeTab={activeTab} />
+
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <SetupOrderForm
+              setupOrder={setupOrder}
+              eventId={eventId}
+              setupTypes={setupTypes}
+              action={updateSetupOrderAction}
+              rooms={venueRooms}
+              functionLink={{
+                linkedFunctionId: setupOrder.functionId,
+                linkedFunctionName: setupOrder.function?.name ?? null,
+                linkedFunctionPath: setupOrder.function
+                  ? `/events/${eventId}/functions/${setupOrder.function.id}`
+                  : null,
+                availableFunctions: availableFunctions.map((f) => ({ id: f.id, label: f.name })),
+                linkFunction: linkToFunctionAction,
+                unlinkFunction: unlinkFromFunctionAction,
+              }}
+            />
+          </div>
+
+          <div className="lg:col-span-2 space-y-8">
+            <WorkflowPanel
+              instances={workflowInstances}
+              availableTemplates={availableWorkflowTemplates}
+              assignWorkflow={assignWorkflowAction}
+              removeWorkflow={removeWorkflowAction}
+              toggleStep={toggleStepAction}
+              toggleItem={toggleItemAction}
+            />
+            <SetupTableList
+              tables={setupOrder.tables}
+              tableOptions={tableOptions}
+              chairOptions={chairOptions}
+              createTable={createTableAction}
+              updateTable={updateTableAction}
+              deleteTable={deleteTableAction}
+            />
+            <EquipmentTable
+              items={setupOrder.equipmentItems}
+              responsiblePartyOptions={responsiblePartyOptions}
+              equipmentOptions={equipmentOptions}
+              equipmentCategories={equipmentCategories}
+              createItem={createEquipmentAction}
+              updateItem={updateEquipmentAction}
+              deleteItem={deleteEquipmentAction}
+              readOnlyItems={setupReadOnlyItems}
+            />
+          </div>
+        </div>
+      )}
+
+      {activeTab === "vendors" && (
+        <div className="max-w-2xl">
           <VendorPanel
             assignedVendors={setupOrderVendors}
             eventId={eventId}
@@ -252,24 +293,10 @@ export default async function SetupOrderPage({
             vendorTypeLabels={vendorTypeLabels}
           />
         </div>
+      )}
 
-        <div className="lg:col-span-2 space-y-8">
-          <WorkflowPanel
-            instances={workflowInstances}
-            availableTemplates={availableWorkflowTemplates}
-            assignWorkflow={assignWorkflowAction}
-            removeWorkflow={removeWorkflowAction}
-            toggleStep={toggleStepAction}
-            toggleItem={toggleItemAction}
-          />
-          <SetupTableList
-            tables={setupOrder.tables}
-            tableOptions={tableOptions}
-            chairOptions={chairOptions}
-            createTable={createTableAction}
-            updateTable={updateTableAction}
-            deleteTable={deleteTableAction}
-          />
+      {activeTab === "files" && (
+        <div className="max-w-2xl">
           <FileUploadPanel
             entityType="setupOrder"
             entityId={setupOrderId}
@@ -277,18 +304,8 @@ export default async function SetupOrderPage({
             fileTypeOptions={fileTypeOptions}
             revalidateTarget={`/events/${eventId}/setup-orders/${setupOrderId}`}
           />
-          <EquipmentTable
-            items={setupOrder.equipmentItems}
-            responsiblePartyOptions={responsiblePartyOptions}
-            equipmentOptions={equipmentOptions}
-            equipmentCategories={equipmentCategories}
-            createItem={createEquipmentAction}
-            updateItem={updateEquipmentAction}
-            deleteItem={deleteEquipmentAction}
-            readOnlyItems={setupReadOnlyItems}
-          />
         </div>
-      </div>
+      )}
     </PageWrapper>
   );
 }

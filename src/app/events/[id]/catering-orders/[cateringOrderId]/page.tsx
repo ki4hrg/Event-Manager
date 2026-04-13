@@ -46,7 +46,7 @@ import {
   searchAssignedEventVendors,
 } from "@/app/vendors/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
-import { CateringOrderTabs } from "../../../catering-orders/CateringOrderTabs";
+import { CateringOrderTabs, CATERING_ORDER_TABS } from "../../../catering-orders/CateringOrderTabs";
 import { CateringOrderOverviewForm } from "../../../catering-orders/CateringOrderOverviewForm";
 import { CateringOrderServiceForm } from "../../../catering-orders/CateringOrderServiceForm";
 import { CateringOrderContractForm } from "../../../catering-orders/CateringOrderContractForm";
@@ -108,7 +108,7 @@ export default async function CateringOrderPage({
 }) {
   const { id: eventId, cateringOrderId } = await params;
   const { tab = "overview" } = await searchParams;
-  const activeTab = ["overview", "service", "contract"].includes(tab) ? tab : "overview";
+  const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
   const [event, cateringOrder, serviceStyleOptions, responsiblePartyOptions, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, vendorTypeOptions, fileTypeOptions, cateringOrderFiles] =
     await Promise.all([
@@ -326,15 +326,6 @@ export default async function CateringOrderPage({
               linkFunction={linkToFunctionAction}
               unlinkFunction={unlinkFromFunctionAction}
             />
-            <VendorPanel
-              assignedVendors={cateringOrderVendors}
-              eventId={eventId}
-              searchEventVendors={searchEventVendorsAction}
-              addVendor={addVendorAction}
-              updateVendor={updateVendorAction}
-              removeVendor={removeVendorAction}
-              vendorTypeLabels={vendorTypeLabels}
-            />
             <ContactList
               contacts={cateringOrder.contacts}
               addContact={addContactAction}
@@ -364,14 +355,33 @@ export default async function CateringOrderPage({
               updateSection={updateMenuSectionAction}
               deleteSection={deleteMenuSectionAction}
             />
-            <FileUploadPanel
-              entityType="cateringOrder"
-              entityId={cateringOrderId}
-              files={cateringOrderFiles}
-              fileTypeOptions={fileTypeOptions}
-              revalidateTarget={`/events/${eventId}/catering-orders/${cateringOrderId}`}
-            />
           </div>
+        </div>
+      )}
+
+      {activeTab === "vendors" && (
+        <div className="max-w-2xl">
+          <VendorPanel
+            assignedVendors={cateringOrderVendors}
+            eventId={eventId}
+            searchEventVendors={searchEventVendorsAction}
+            addVendor={addVendorAction}
+            updateVendor={updateVendorAction}
+            removeVendor={removeVendorAction}
+            vendorTypeLabels={vendorTypeLabels}
+          />
+        </div>
+      )}
+
+      {activeTab === "files" && (
+        <div className="max-w-2xl">
+          <FileUploadPanel
+            entityType="cateringOrder"
+            entityId={cateringOrderId}
+            files={cateringOrderFiles}
+            fileTypeOptions={fileTypeOptions}
+            revalidateTarget={`/events/${eventId}/catering-orders/${cateringOrderId}`}
+          />
         </div>
       )}
 

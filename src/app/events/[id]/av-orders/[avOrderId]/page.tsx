@@ -27,6 +27,7 @@ import { getOptions } from "@/app/settings/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
+import { AVOrderTabs, AV_ORDER_TABS } from "../../../av-orders/AVOrderTabs";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getEquipment } from "@/app/settings/actions";
@@ -37,10 +38,14 @@ export const dynamic = "force-dynamic";
 
 export default async function AVOrderPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; avOrderId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id: eventId, avOrderId } = await params;
+  const { tab = "overview" } = await searchParams;
+  const activeTab = AV_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
   const [event, avOrder, avEquipment, workflowInstances, allTemplates] = await Promise.all([
     getEvent(eventId),
     getAVOrder(avOrderId),
@@ -176,14 +181,64 @@ export default async function AVOrderPage({
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 space-y-6">
-          <AVOrderForm
-            avOrder={avOrder}
-            eventId={eventId}
-            avEquipment={avEquipment}
-            action={updateAVOrderAction}
-          />
+      <AVOrderTabs basePath={`/events/${eventId}/av-orders/${avOrderId}`} activeTab={activeTab} />
+
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <AVOrderForm
+              avOrder={avOrder}
+              eventId={eventId}
+              avEquipment={avEquipment}
+              action={updateAVOrderAction}
+            />
+          </div>
+
+          <div className="lg:col-span-2 space-y-6">
+            <WorkflowPanel
+              instances={workflowInstances}
+              availableTemplates={availableWorkflowTemplates}
+              assignWorkflow={assignWorkflowAction}
+              removeWorkflow={removeWorkflowAction}
+              toggleStep={toggleStepAction}
+              toggleItem={toggleItemAction}
+            />
+            <AVOrderLinkPanel
+              title="Linked Function"
+              linkedId={avOrder.functionId}
+              linkedName={avOrder.function?.name ?? null}
+              linkedDetailPath={
+                avOrder.functionId
+                  ? `/events/${eventId}/functions/${avOrder.functionId}`
+                  : null
+              }
+              availableItems={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+              newItemPath={`/events/${eventId}/av-orders/new?functionId=placeholder`}
+              linkItem={linkToFunctionAction}
+              unlinkItem={unlinkFromFunctionAction}
+              entityLabel="function"
+            />
+            <AVOrderLinkPanel
+              title="Linked Presentation"
+              linkedId={avOrder.presentationId}
+              linkedName={avOrder.presentation?.title ?? null}
+              linkedDetailPath={
+                avOrder.presentationId
+                  ? `/events/${eventId}/presentations/${avOrder.presentationId}`
+                  : null
+              }
+              availableItems={availablePresentations.map((p) => ({ id: p.id, label: p.title }))}
+              newItemPath={`/events/${eventId}/av-orders/new?presentationId=placeholder`}
+              linkItem={linkToPresentationAction}
+              unlinkItem={unlinkFromPresentationAction}
+              entityLabel="presentation"
+            />
+          </div>
+        </div>
+      )}
+
+      {activeTab === "vendors" && (
+        <div className="max-w-2xl">
           <VendorPanel
             assignedVendors={avOrderVendors}
             eventId={eventId}
@@ -194,32 +249,10 @@ export default async function AVOrderPage({
             vendorTypeLabels={vendorTypeLabels}
           />
         </div>
+      )}
 
-        <div className="lg:col-span-2 space-y-6">
-          <WorkflowPanel
-            instances={workflowInstances}
-            availableTemplates={availableWorkflowTemplates}
-            assignWorkflow={assignWorkflowAction}
-            removeWorkflow={removeWorkflowAction}
-            toggleStep={toggleStepAction}
-            toggleItem={toggleItemAction}
-          />
-          <AVOrderLinkPanel
-            title="Linked Function"
-            linkedId={avOrder.functionId}
-            linkedName={avOrder.function?.name ?? null}
-            linkedDetailPath={
-              avOrder.functionId
-                ? `/events/${eventId}/functions/${avOrder.functionId}`
-                : null
-            }
-            availableItems={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
-            newItemPath={`/events/${eventId}/av-orders/new?functionId=placeholder`}
-            linkItem={linkToFunctionAction}
-            unlinkItem={unlinkFromFunctionAction}
-            entityLabel="function"
-          />
-
+      {activeTab === "files" && (
+        <div className="max-w-2xl">
           <FileUploadPanel
             entityType="avOrder"
             entityId={avOrderId}
@@ -227,24 +260,8 @@ export default async function AVOrderPage({
             fileTypeOptions={fileTypeOptions}
             revalidateTarget={`/events/${eventId}/av-orders/${avOrderId}`}
           />
-
-          <AVOrderLinkPanel
-            title="Linked Presentation"
-            linkedId={avOrder.presentationId}
-            linkedName={avOrder.presentation?.title ?? null}
-            linkedDetailPath={
-              avOrder.presentationId
-                ? `/events/${eventId}/presentations/${avOrder.presentationId}`
-                : null
-            }
-            availableItems={availablePresentations.map((p) => ({ id: p.id, label: p.title }))}
-            newItemPath={`/events/${eventId}/av-orders/new?presentationId=placeholder`}
-            linkItem={linkToPresentationAction}
-            unlinkItem={unlinkFromPresentationAction}
-            entityLabel="presentation"
-          />
         </div>
-      </div>
+      )}
     </PageWrapper>
   );
 }
