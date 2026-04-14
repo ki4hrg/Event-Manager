@@ -2,21 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import type { EventVendor, Vendor, CustomOption } from "@prisma/client";
+import type { EventVendor, Vendor } from "@prisma/client";
 import type { ModelType } from "@/app/vendors/actions";
+import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 
 type EventVendorWithVendor = EventVendor & { vendor: Vendor };
 
-// Add new entries here when wiring up a new model type in vendors/actions.ts
-const MODEL_TYPES: { value: ModelType; label: string }[] = [
-  { value: "CATERING_ORDER", label: "Catering Order" },
-  { value: "AV_ORDER", label: "AV Order" },
-  { value: "SETUP_ORDER", label: "Setup Order" },
-];
-
 type EventVendorListProps = {
   eventVendors: EventVendorWithVendor[];
-  vendorTypes: CustomOption[];
   searchVendors: (query: string) => Promise<Vendor[]>;
   addVendor: (vendorId: string) => Promise<void>;
   removeVendor: (eventVendorId: string) => Promise<void>;
@@ -26,14 +19,12 @@ type EventVendorListProps = {
 
 export function EventVendorList({
   eventVendors,
-  vendorTypes,
   searchVendors,
   addVendor,
   removeVendor,
   setDefault,
   removeDefault,
 }: EventVendorListProps) {
-  const typeLabels = new Map(vendorTypes.map((t) => [t.value, t.label]));
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Vendor[]>([]);
@@ -127,9 +118,9 @@ export function EventVendorList({
                   className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
                 >
                   <span className="text-gray-900 dark:text-white font-medium">{vendor.name}</span>
-                  {vendor.types.length > 0 && (
+                  {vendor.models.length > 0 && (
                     <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
-                      {vendor.types.map((t) => typeLabels.get(t) || t).join(", ")}
+                      {vendor.models.map((m) => MODEL_LABELS[m] || m).join(", ")}
                     </span>
                   )}
                 </button>
@@ -189,12 +180,12 @@ export function EventVendorList({
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
-                      {ev.vendor.types.map((type) => (
+                      {ev.vendor.models.map((model) => (
                         <span
-                          key={type}
+                          key={model}
                           className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                         >
-                          {typeLabels.get(type) || type}
+                          {MODEL_LABELS[model] || model}
                         </span>
                       ))}
                     </div>

@@ -1,17 +1,12 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getVendors } from "./actions";
-import { getOptions } from "@/app/settings/actions";
+import { MODEL_LABELS } from "./model-types";
 
 export const dynamic = "force-dynamic";
 
 export default async function VendorsPage() {
-  const [vendors, vendorTypes] = await Promise.all([
-    getVendors(),
-    getOptions("vendor_type"),
-  ]);
-
-  const typeLabels = new Map(vendorTypes.map((t) => [t.value, t.label]));
+  const vendors = await getVendors();
 
   return (
     <PageWrapper>
@@ -43,7 +38,7 @@ export default async function VendorsPage() {
                   Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Types
+                  Models
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Contacts
@@ -63,12 +58,12 @@ export default async function VendorsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
-                      {vendor.types.map((type) => (
+                      {vendor.models.map((model) => (
                         <span
-                          key={type}
+                          key={model}
                           className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                         >
-                          {typeLabels.get(type) || type}
+                          {MODEL_LABELS[model] || model}
                         </span>
                       ))}
                     </div>

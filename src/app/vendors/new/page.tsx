@@ -1,14 +1,11 @@
 import { PageWrapper } from "@/components/PageWrapper";
 import Link from "next/link";
 import { createVendor } from "../actions";
-import { getOptions } from "@/app/settings/actions";
 import { VendorForm } from "../VendorForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewVendorPage() {
-  const vendorTypes = await getOptions("vendor_type");
-
   return (
     <PageWrapper>
       <div className="mb-6">
@@ -24,7 +21,7 @@ export default async function NewVendorPage() {
       </div>
 
       <div className="max-w-lg">
-        <VendorForm vendorTypes={vendorTypes} action={createVendor} />
+        <VendorForm action={createVendor} />
       </div>
     </PageWrapper>
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Vendor } from "@prisma/client";
+import { MODEL_LABELS } from "@/app/vendors/model-types";
 
 type AssignedVendor = {
   id: string;
@@ -17,7 +18,6 @@ type VendorPanelProps = {
   addVendor: (vendorId: string, notes: string) => Promise<void>;
   updateVendor: (id: string, notes: string) => Promise<void>;
   removeVendor: (id: string) => Promise<void>;
-  vendorTypeLabels: Record<string, string>;
 };
 
 export function VendorPanel({
@@ -27,7 +27,6 @@ export function VendorPanel({
   addVendor,
   updateVendor,
   removeVendor,
-  vendorTypeLabels,
 }: VendorPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,9 +126,9 @@ export function VendorPanel({
                       className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
                     >
                       <span className="text-gray-900 dark:text-white font-medium">{vendor.name}</span>
-                      {vendor.types.length > 0 && (
+                      {vendor.models.length > 0 && (
                         <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
-                          {vendor.types.map((t) => vendorTypeLabels[t] || t).join(", ")}
+                          {vendor.models.map((m) => MODEL_LABELS[m] || m).join(", ")}
                         </span>
                       )}
                     </button>
@@ -240,9 +239,9 @@ export function VendorPanel({
                     <span className="text-gray-900 dark:text-white font-medium text-sm">
                       {item.vendor.name}
                     </span>
-                    {item.vendor.types.length > 0 && (
+                    {item.vendor.models.length > 0 && (
                       <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                        {item.vendor.types.map((t) => vendorTypeLabels[t] || t).join(", ")}
+                        {item.vendor.models.map((m) => MODEL_LABELS[m] || m).join(", ")}
                       </span>
                     )}
                     {item.notes && (

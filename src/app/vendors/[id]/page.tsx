@@ -16,15 +16,15 @@ import {
 } from "../actions";
 import { getOptions } from "@/app/settings/actions";
 import { VendorForm } from "../VendorForm";
+import { MODEL_LABELS } from "../model-types";
 import { VendorContactList } from "../VendorContactList";
 
 export const dynamic = "force-dynamic";
 
 export default async function VendorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [vendor, vendorTypes, contactTypes] = await Promise.all([
+  const [vendor, contactTypes] = await Promise.all([
     getVendor(id),
-    getOptions("vendor_type"),
     getOptions("vendor_contact_type"),
   ]);
 
@@ -67,8 +67,6 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
     await createAndAddVendorContact(id, formData);
   };
 
-  const typeLabels = new Map(vendorTypes.map((t) => [t.value, t.label]));
-
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -81,14 +79,14 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
             {vendor.name}
           </h1>
-          {vendor.types.length > 0 && (
+          {vendor.models.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {vendor.types.map((type) => (
+              {vendor.models.map((model) => (
                 <span
-                  key={type}
+                  key={model}
                   className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                 >
-                  {typeLabels.get(type) || type}
+                  {MODEL_LABELS[model] || model}
                 </span>
               ))}
             </div>
@@ -111,7 +109,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <VendorForm vendor={vendor} vendorTypes={vendorTypes} action={updateVendorAction} />
+            <VendorForm vendor={vendor} action={updateVendorAction} />
           </div>
 
           <div className="lg:col-span-2">

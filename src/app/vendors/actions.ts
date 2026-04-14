@@ -67,11 +67,11 @@ export async function searchVendors(query: string) {
 
 export async function createVendor(formData: FormData) {
   const name = (formData.get("name") as string).trim();
-  const types = formData.getAll("types") as string[];
+  const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
 
   const vendor = await prisma.vendor.create({
-    data: { name, types, notes },
+    data: { name, models, notes },
   });
 
   revalidatePath("/vendors");
@@ -80,12 +80,12 @@ export async function createVendor(formData: FormData) {
 
 export async function updateVendor(id: string, formData: FormData) {
   const name = (formData.get("name") as string).trim();
-  const types = formData.getAll("types") as string[];
+  const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
 
   await prisma.vendor.update({
     where: { id },
-    data: { name, types, notes },
+    data: { name, models, notes },
   });
 
   revalidatePath(`/vendors/${id}`);
@@ -240,12 +240,16 @@ export async function getEventVendorsForPicker(eventId: string) {
   });
 }
 
-// Search among vendors assigned to the event (for entity-level vendor pickers)
-export async function searchAssignedEventVendors(query: string, eventId: string) {
+// Search among vendors assigned to the event (for entity-level vendor pickers).
+// When modelType is provided, only returns vendors with that model or no models (general-purpose).
+export async function searchAssignedEventVendors(query: string, eventId: string, modelType?: ModelType) {
+  const modelFilter = modelType
+    ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
+    : undefined;
   const rows = await prisma.eventVendor.findMany({
     where: {
       eventId,
-      vendor: { name: { contains: query, mode: "insensitive" } },
+      vendor: { name: { contains: query, mode: "insensitive" }, ...modelFilter },
     },
     include: { vendor: true },
     orderBy: { vendor: { name: "asc" } },

@@ -97,16 +97,6 @@ export default async function SettingsPage() {
     await reorderOptions("setup_type", ids);
   };
 
-  const createVendorType = async (formData: FormData) => {
-    "use server";
-    await createOption("vendor_type", formData);
-  };
-
-  const reorderVendorTypes = async (ids: string[]) => {
-    "use server";
-    await reorderOptions("vendor_type", ids);
-  };
-
   const createVendorContactType = async (formData: FormData) => {
     "use server";
     await createOption("vendor_contact_type", formData);
@@ -256,18 +246,6 @@ export default async function SettingsPage() {
           updateOption={updateOptionAction}
           deleteOption={deleteOptionAction}
           reorderOptions={reorderSetupTypes}
-        />
-
-        <OptionList
-          title="Vendor Types"
-          description="Types of vendors (e.g., Caterer, A/V, Florist)"
-          category="vendor_type"
-          options={options.vendor_type}
-          showColor={false}
-          createOption={createVendorType}
-          updateOption={updateOptionAction}
-          deleteOption={deleteOptionAction}
-          reorderOptions={reorderVendorTypes}
         />
 
         <OptionList

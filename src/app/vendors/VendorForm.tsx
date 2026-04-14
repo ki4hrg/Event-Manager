@@ -1,11 +1,11 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import type { CustomOption, Vendor } from "@prisma/client";
+import type { Vendor } from "@prisma/client";
+import { MODEL_TYPES } from "./model-types";
 
 type VendorFormProps = {
   vendor?: Vendor;
-  vendorTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -22,7 +22,7 @@ function SubmitButton() {
   );
 }
 
-export function VendorForm({ vendor, vendorTypes, action }: VendorFormProps) {
+export function VendorForm({ vendor, action }: VendorFormProps) {
   return (
     <form action={action} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
       <div>
@@ -38,27 +38,28 @@ export function VendorForm({ vendor, vendorTypes, action }: VendorFormProps) {
         />
       </div>
 
-      {vendorTypes.length > 0 && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Types
-          </label>
-          <div className="space-y-2">
-            {vendorTypes.map((type) => (
-              <label key={type.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="types"
-                  value={type.value}
-                  defaultChecked={vendor?.types.includes(type.value)}
-                  className="rounded border-gray-300 dark:border-gray-600"
-                />
-                <span className="text-gray-700 dark:text-gray-300">{type.label}</span>
-              </label>
-            ))}
-          </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Models
+        </label>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+          Leave unchecked to make this vendor available for all order types.
+        </p>
+        <div className="space-y-2">
+          {MODEL_TYPES.map((type) => (
+            <label key={type.value} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="models"
+                value={type.value}
+                defaultChecked={vendor?.models.includes(type.value)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              <span className="text-gray-700 dark:text-gray-300">{type.label}</span>
+            </label>
+          ))}
         </div>
-      )}
+      </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

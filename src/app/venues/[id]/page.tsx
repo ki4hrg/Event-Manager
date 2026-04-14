@@ -24,15 +24,15 @@ import { RoomList } from "../RoomList";
 import { ContactList } from "../ContactList";
 import { getOptions } from "@/app/settings/actions";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
+import { MODEL_TYPES } from "@/app/vendors/model-types";
 
 export const dynamic = "force-dynamic";
 
 export default async function VenuePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [venue, fileTypeOptions, vendorTypeOptions, venueFiles] = await Promise.all([
+  const [venue, fileTypeOptions, venueFiles] = await Promise.all([
     getVenue(id),
     getOptions("file_type"),
-    getOptions("vendor_type"),
     prisma.fileUpload.findMany({ where: { venueId: id }, orderBy: { createdAt: "asc" } }),
   ]);
 
@@ -119,25 +119,23 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
           {venue.vendor && (
             <form action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendor Details</h2>
-              {vendorTypeOptions.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Types</label>
-                  <div className="space-y-2">
-                    {vendorTypeOptions.map((type) => (
-                      <label key={type.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          name="types"
-                          value={type.value}
-                          defaultChecked={venue.vendor!.types.includes(type.value)}
-                          className="rounded border-gray-300 dark:border-gray-600"
-                        />
-                        <span className="text-gray-700 dark:text-gray-300">{type.label}</span>
-                      </label>
-                    ))}
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Models</label>
+                <div className="space-y-2">
+                  {MODEL_TYPES.map((type) => (
+                    <label key={type.value} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        name="models"
+                        value={type.value}
+                        defaultChecked={venue.vendor!.models.includes(type.value)}
+                        className="rounded border-gray-300 dark:border-gray-600"
+                      />
+                      <span className="text-gray-700 dark:text-gray-300">{type.label}</span>
+                    </label>
+                  ))}
                 </div>
-              )}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                 <textarea

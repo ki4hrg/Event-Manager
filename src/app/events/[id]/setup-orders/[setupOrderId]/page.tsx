@@ -68,9 +68,8 @@ export default async function SetupOrderPage({
     notFound();
   }
 
-  const [setupOrderVendors, vendorTypeOptions, fileTypeOptions, setupOrderFiles] = await Promise.all([
+  const [setupOrderVendors, fileTypeOptions, setupOrderFiles] = await Promise.all([
     getSetupOrderVendors(setupOrderId),
-    getOptions("vendor_type"),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { setupOrderId }, orderBy: { createdAt: "asc" } }),
   ]);
@@ -96,11 +95,9 @@ export default async function SetupOrderPage({
         }),
   ]);
 
-  const vendorTypeLabels = Object.fromEntries(vendorTypeOptions.map((t) => [t.value, t.label]));
-
   const searchEventVendorsAction = async (query: string) => {
     "use server";
-    return searchAssignedEventVendors(query, eventId);
+    return searchAssignedEventVendors(query, eventId, "SETUP_ORDER");
   };
 
   const addVendorAction = async (vendorId: string, notes: string) => {
@@ -291,7 +288,6 @@ export default async function SetupOrderPage({
             addVendor={addVendorAction}
             updateVendor={updateVendorAction}
             removeVendor={removeVendorAction}
-            vendorTypeLabels={vendorTypeLabels}
           />
         </div>
       )}

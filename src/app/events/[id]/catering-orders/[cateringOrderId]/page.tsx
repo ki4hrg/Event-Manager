@@ -111,7 +111,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, vendorTypeOptions, fileTypeOptions, cateringOrderFiles] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -123,7 +123,6 @@ export default async function CateringOrderPage({
       getWorkflowInstances("catering_order", cateringOrderId),
       getWorkflowTemplateOptions(),
       getCateringOrderVendors(cateringOrderId),
-      getOptions("vendor_type"),
       getOptions("file_type"),
       prisma.fileUpload.findMany({ where: { cateringOrderId }, orderBy: { createdAt: "asc" } }),
     ]);
@@ -133,7 +132,6 @@ export default async function CateringOrderPage({
 
   const availableFunctions = cateringOrder.functionId ? [] : allAvailableFunctions;
   const basePath = `/events/${eventId}/catering-orders/${cateringOrderId}`;
-  const vendorTypeLabels = Object.fromEntries(vendorTypeOptions.map((t) => [t.value, t.label]));
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
@@ -264,7 +262,7 @@ export default async function CateringOrderPage({
 
   const searchEventVendorsAction = async (query: string) => {
     "use server";
-    return searchAssignedEventVendors(query, eventId);
+    return searchAssignedEventVendors(query, eventId, "CATERING_ORDER");
   };
 
   const addVendorAction = async (vendorId: string, notes: string) => {
@@ -369,7 +367,6 @@ export default async function CateringOrderPage({
             addVendor={addVendorAction}
             updateVendor={updateVendorAction}
             removeVendor={removeVendorAction}
-            vendorTypeLabels={vendorTypeLabels}
           />
         </div>
       )}

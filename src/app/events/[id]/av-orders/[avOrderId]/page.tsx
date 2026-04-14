@@ -57,9 +57,8 @@ export default async function AVOrderPage({
     notFound();
   }
 
-  const [avOrderVendors, vendorTypeOptions, fileTypeOptions, avOrderFiles] = await Promise.all([
+  const [avOrderVendors, fileTypeOptions, avOrderFiles] = await Promise.all([
     getAVOrderVendors(avOrderId),
-    getOptions("vendor_type"),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { avOrderId }, orderBy: { createdAt: "asc" } }),
   ]);
@@ -110,11 +109,9 @@ export default async function AVOrderPage({
     await unlinkAVOrderFromPresentation(avOrderId, eventId);
   };
 
-  const vendorTypeLabels = Object.fromEntries(vendorTypeOptions.map((t) => [t.value, t.label]));
-
   const searchEventVendorsAction = async (query: string) => {
     "use server";
-    return searchAssignedEventVendors(query, eventId);
+    return searchAssignedEventVendors(query, eventId, "AV_ORDER");
   };
 
   const addVendorAction = async (vendorId: string, notes: string) => {
@@ -246,7 +243,6 @@ export default async function AVOrderPage({
             addVendor={addVendorAction}
             updateVendor={updateVendorAction}
             removeVendor={removeVendorAction}
-            vendorTypeLabels={vendorTypeLabels}
           />
         </div>
       )}

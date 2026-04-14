@@ -594,7 +594,7 @@ model WorkflowChecklistCompletion {
 model Vendor {
   id                        String                     @id @default(cuid())
   name                      String
-  types                     String[]                   @default([]) // references vendor_type CustomOption values
+  models                    String[]                   @default([]) // references ModelType values: CATERING_ORDER, AV_ORDER, SETUP_ORDER
   notes                     String?
   isSystemVendor            Boolean                    @default(false)
   venueId                   String?                    @unique
