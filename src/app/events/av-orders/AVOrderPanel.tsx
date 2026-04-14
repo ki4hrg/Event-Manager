@@ -64,11 +64,6 @@ export function AVOrderPanel({
               >
                 {avOrder.name}
               </Link>
-              {avOrder.equipment.length > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {avOrder.equipment.length} equipment item{avOrder.equipment.length !== 1 ? "s" : ""}
-                </p>
-              )}
             </div>
             <button
               onClick={handleUnlink}

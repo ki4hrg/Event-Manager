@@ -15,6 +15,21 @@ import {
   linkAVOrderToPresentation,
   unlinkAVOrderFromFunction,
   unlinkAVOrderFromPresentation,
+  getAVOrderPartyOptions,
+  updateAudioSection,
+  createInputGroup,
+  updateInputGroup,
+  deleteInputGroup,
+  createInputItem,
+  updateInputItem,
+  deleteInputItem,
+  createMonitorMix,
+  updateMonitorMix,
+  deleteMonitorMix,
+  updateVideoSection,
+  createVideoEquipmentItem,
+  updateVideoEquipmentItem,
+  deleteVideoEquipmentItem,
 } from "../../../av-orders/actions";
 import {
   getAVOrderVendors,
@@ -27,10 +42,12 @@ import { getOptions } from "@/app/settings/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
+import { AVOrderFunctionList } from "../../../av-orders/AVOrderFunctionList";
 import { AVOrderTabs, AV_ORDER_TABS } from "../../../av-orders/AVOrderTabs";
+import { AudioSectionPanel } from "../../../av-orders/AudioSectionPanel";
+import { VideoSectionPanel } from "../../../av-orders/VideoSectionPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { getEquipment } from "@/app/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
@@ -46,13 +63,14 @@ export default async function AVOrderPage({
   const { id: eventId, avOrderId } = await params;
   const { tab = "overview" } = await searchParams;
   const activeTab = AV_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
-  const [event, avOrder, avEquipment, workflowInstances, allTemplates] = await Promise.all([
+
+  const [event, avOrder, workflowInstances, allTemplates] = await Promise.all([
     getEvent(eventId),
     getAVOrder(avOrderId),
-    getEquipment(),
     getWorkflowInstances("av_order", avOrderId),
     getWorkflowTemplateOptions(),
   ]);
+
   if (!event || !avOrder) {
     notFound();
   }
@@ -63,21 +81,36 @@ export default async function AVOrderPage({
     prisma.fileUpload.findMany({ where: { avOrderId }, orderBy: { createdAt: "asc" } }),
   ]);
 
-  // Get available functions and presentations for linking
-  const [availableFunctions, availablePresentations] = await Promise.all([
-    avOrder.functionId
-      ? []
-      : prisma.function.findMany({
-          where: { eventId, avOrder: null },
-          orderBy: { name: "asc" },
-        }),
-    avOrder.presentationId
-      ? []
-      : prisma.presentation.findMany({
-          where: { eventId, avOrder: null },
-          orderBy: { title: "asc" },
-        }),
-  ]);
+  // Fetch tab-specific data
+  let availableFunctions: Awaited<ReturnType<typeof prisma.function.findMany>> = [];
+  let availablePresentations: Awaited<ReturnType<typeof prisma.presentation.findMany>> = [];
+  if (activeTab === "overview") {
+    [availableFunctions, availablePresentations] = await Promise.all([
+      prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
+      avOrder.presentationId
+        ? []
+        : prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
+    ]);
+  }
+
+  let partyOptions: Awaited<ReturnType<typeof getAVOrderPartyOptions>> = { vendors: [], contacts: [] };
+  let audioEquipmentItems: Awaited<ReturnType<typeof prisma.equipment.findMany>> = [];
+  if (activeTab === "audio") {
+    [partyOptions, audioEquipmentItems] = await Promise.all([
+      getAVOrderPartyOptions(avOrderId, eventId),
+      prisma.equipment.findMany({
+        where: { category: { in: ["AUDIO_INPUTS", "AUDIO_OUTPUTS"] } },
+        orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
+      }),
+    ]);
+  } else if (activeTab === "video") {
+    partyOptions = await getAVOrderPartyOptions(avOrderId, eventId);
+  }
+
+  const audioInputOptions = audioEquipmentItems.filter((e) => e.category === "AUDIO_INPUTS");
+  const audioOutputOptions = audioEquipmentItems.filter((e) => e.category === "AUDIO_OUTPUTS");
+
+  // ---- Server action closures ----
 
   const updateAVOrderAction = async (formData: FormData) => {
     "use server";
@@ -94,9 +127,9 @@ export default async function AVOrderPage({
     await linkAVOrderToFunction(avOrderId, functionId, eventId);
   };
 
-  const unlinkFromFunctionAction = async () => {
+  const unlinkFromFunctionAction = async (functionId: string) => {
     "use server";
-    await unlinkAVOrderFromFunction(avOrderId, eventId);
+    await unlinkAVOrderFromFunction(avOrderId, functionId, eventId);
   };
 
   const linkToPresentationAction = async (presentationId: string) => {
@@ -152,6 +185,83 @@ export default async function AVOrderPage({
     await toggleItemCompletion(instanceId, itemId, "av_order", avOrderId, eventId);
   };
 
+  // Audio section actions
+  const updateAudioSectionAction = async (formData: FormData) => {
+    "use server";
+    if (!avOrder.audioSection) return;
+    await updateAudioSection(avOrder.audioSection.id, avOrderId, eventId, formData);
+  };
+
+  const createInputGroupAction = async (formData: FormData) => {
+    "use server";
+    if (!avOrder.audioSection) return;
+    await createInputGroup(avOrder.audioSection.id, avOrderId, eventId, formData);
+  };
+
+  const updateInputGroupAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateInputGroup(id, avOrderId, eventId, formData);
+  };
+
+  const deleteInputGroupAction = async (id: string) => {
+    "use server";
+    await deleteInputGroup(id, avOrderId, eventId);
+  };
+
+  const createInputItemAction = async (inputGroupId: string, formData: FormData) => {
+    "use server";
+    await createInputItem(inputGroupId, avOrderId, eventId, formData);
+  };
+
+  const updateInputItemAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateInputItem(id, avOrderId, eventId, formData);
+  };
+
+  const deleteInputItemAction = async (id: string) => {
+    "use server";
+    await deleteInputItem(id, avOrderId, eventId);
+  };
+
+  const createMonitorMixAction = async (formData: FormData) => {
+    "use server";
+    if (!avOrder.audioSection) return;
+    await createMonitorMix(avOrder.audioSection.id, avOrderId, eventId, formData);
+  };
+
+  const updateMonitorMixAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateMonitorMix(id, avOrderId, eventId, formData);
+  };
+
+  const deleteMonitorMixAction = async (id: string) => {
+    "use server";
+    await deleteMonitorMix(id, avOrderId, eventId);
+  };
+
+  // Video section actions
+  const updateVideoSectionAction = async (formData: FormData) => {
+    "use server";
+    if (!avOrder.videoSection) return;
+    await updateVideoSection(avOrder.videoSection.id, avOrderId, eventId, formData);
+  };
+
+  const createVideoItemAction = async (formData: FormData) => {
+    "use server";
+    if (!avOrder.videoSection) return;
+    await createVideoEquipmentItem(avOrder.videoSection.id, avOrderId, eventId, formData);
+  };
+
+  const updateVideoItemAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateVideoEquipmentItem(id, avOrderId, eventId, formData);
+  };
+
+  const deleteVideoItemAction = async (id: string) => {
+    "use server";
+    await deleteVideoEquipmentItem(id, avOrderId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -186,7 +296,6 @@ export default async function AVOrderPage({
             <AVOrderForm
               avOrder={avOrder}
               eventId={eventId}
-              avEquipment={avEquipment}
               action={updateAVOrderAction}
             />
           </div>
@@ -200,20 +309,15 @@ export default async function AVOrderPage({
               toggleStep={toggleStepAction}
               toggleItem={toggleItemAction}
             />
-            <AVOrderLinkPanel
-              title="Linked Function"
-              linkedId={avOrder.functionId}
-              linkedName={avOrder.function?.name ?? null}
-              linkedDetailPath={
-                avOrder.functionId
-                  ? `/events/${eventId}/functions/${avOrder.functionId}`
-                  : null
-              }
-              availableItems={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
-              newItemPath={`/events/${eventId}/av-orders/new?functionId=placeholder`}
-              linkItem={linkToFunctionAction}
-              unlinkItem={unlinkFromFunctionAction}
-              entityLabel="function"
+            <AVOrderFunctionList
+              linkedFunctions={avOrder.functions.map((f) => ({
+                id: f.id,
+                name: f.name,
+                detailPath: `/events/${eventId}/functions/${f.id}`,
+              }))}
+              availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+              linkFunction={linkToFunctionAction}
+              unlinkFunction={unlinkFromFunctionAction}
             />
             <AVOrderLinkPanel
               title="Linked Presentation"
@@ -232,6 +336,37 @@ export default async function AVOrderPage({
             />
           </div>
         </div>
+      )}
+
+      {activeTab === "audio" && avOrder.audioSection && (
+        <AudioSectionPanel
+          audioSection={avOrder.audioSection}
+          audioInputOptions={audioInputOptions}
+          audioOutputOptions={audioOutputOptions}
+          vendorOptions={partyOptions.vendors}
+          contactOptions={partyOptions.contacts}
+          updateSection={updateAudioSectionAction}
+          createInputGroup={createInputGroupAction}
+          updateInputGroup={updateInputGroupAction}
+          deleteInputGroup={deleteInputGroupAction}
+          createInputItem={createInputItemAction}
+          updateInputItem={updateInputItemAction}
+          deleteInputItem={deleteInputItemAction}
+          createMonitorMix={createMonitorMixAction}
+          updateMonitorMix={updateMonitorMixAction}
+          deleteMonitorMix={deleteMonitorMixAction}
+        />
+      )}
+
+      {activeTab === "video" && avOrder.videoSection && (
+        <VideoSectionPanel
+          videoSection={avOrder.videoSection}
+          responsiblePartyVendors={partyOptions.vendors}
+          updateSection={updateVideoSectionAction}
+          createItem={createVideoItemAction}
+          updateItem={updateVideoItemAction}
+          deleteItem={deleteVideoItemAction}
+        />
       )}
 
       {activeTab === "vendors" && (

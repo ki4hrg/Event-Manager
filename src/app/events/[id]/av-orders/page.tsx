@@ -82,12 +82,11 @@ export default async function AVOrdersPage({
                   <WorkflowBadge summary={workflowSummaries[avOrder.id]} />
                 </div>
                 <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                  {avOrder.equipment.length > 0 && (
-                    <span>{avOrder.equipment.length} equipment item{avOrder.equipment.length !== 1 ? "s" : ""}</span>
-                  )}
-                  {avOrder.function && (
+                  {avOrder.functions.length > 0 && (
                     <span className="text-green-600 dark:text-green-400">
-                      Linked to function: {avOrder.function.name}
+                      {avOrder.functions.length === 1
+                        ? `Linked to function: ${avOrder.functions[0].name}`
+                        : `Linked to ${avOrder.functions.length} functions`}
                     </span>
                   )}
                   {avOrder.presentation && (
@@ -95,7 +94,7 @@ export default async function AVOrdersPage({
                       Linked to presentation: {avOrder.presentation.title}
                     </span>
                   )}
-                  {!avOrder.function && !avOrder.presentation && (
+                  {avOrder.functions.length === 0 && !avOrder.presentation && (
                     <span className="text-orange-600 dark:text-orange-400">Unlinked</span>
                   )}
                 </div>

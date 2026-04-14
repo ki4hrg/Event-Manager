@@ -1,12 +1,11 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import type { AVOrder, Equipment } from "@prisma/client";
+import type { AVOrder } from "@prisma/client";
 
 type AVOrderFormProps = {
   avOrder?: AVOrder | null;
   eventId: string;
-  avEquipment: Equipment[];
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -23,9 +22,8 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function AVOrderForm({ avOrder, eventId, avEquipment, action }: AVOrderFormProps) {
+export function AVOrderForm({ avOrder, eventId, action }: AVOrderFormProps) {
   const isEdit = !!avOrder;
-  const selectedEquipment = avOrder?.equipment || [];
 
   return (
     <form action={action} className="space-y-6 max-w-2xl">
@@ -51,35 +49,6 @@ export function AVOrderForm({ avOrder, eventId, avEquipment, action }: AVOrderFo
               placeholder="e.g., Main Stage AV, Breakout Room 1 AV"
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Equipment
-            </label>
-            {avEquipment.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                No AV equipment options defined.{" "}
-                <a href="/settings" className="text-blue-600 hover:underline">
-                  Add equipment in Settings
-                </a>
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {avEquipment.map((item) => (
-                  <label key={item.id} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      name="equipment"
-                      value={item.name}
-                      defaultChecked={selectedEquipment.includes(item.name)}
-                      className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-900 dark:text-white text-sm">{item.name}</span>
-                  </label>
-                ))}
-              </div>
-            )}
           </div>
 
           <div>

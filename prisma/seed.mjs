@@ -53,6 +53,13 @@ const defaultEquipmentCategories = [
   { value: "CHAIRS", label: "Chairs", isSystem: true, sortOrder: 2 },
   { value: "STAGING", label: "Staging", sortOrder: 3 },
   { value: "SIGNAGE", label: "Signage", sortOrder: 4 },
+  { value: "AUDIO_INPUTS", label: "Audio Inputs", isSystem: true, sortOrder: 5 },
+  { value: "AUDIO_OUTPUTS", label: "Audio Outputs", isSystem: true, sortOrder: 6 },
+];
+
+const defaultDeliveryMethods = [
+  { value: "PRE_LOADED", label: "Pre-loaded", sortOrder: 0 },
+  { value: "BROUGHT_DAY_OF", label: "Brought Day Of", sortOrder: 1 },
 ];
 
 const defaultFileTypes = [
@@ -172,6 +179,7 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("equipment_category", defaultEquipmentCategories);
   totalCreated += await seedOptionsForCategory("setup_type", defaultSetupTypes);
   totalCreated += await seedOptionsForCategory("file_type", defaultFileTypes);
+  totalCreated += await seedOptionsForCategory("delivery_method", defaultDeliveryMethods);
 
   console.log(`Seeded ${totalCreated} total options`);
 }

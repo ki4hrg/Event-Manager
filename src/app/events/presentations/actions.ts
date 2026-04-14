@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 
 // ============================================================================
 // Track CRUD (event-scoped)
@@ -106,6 +107,10 @@ export async function getPresentation(id: string) {
       },
       avOrder: true,
       event: true,
+      mediaItems: {
+        include: { advancerVendor: true, advancerContact: true },
+        orderBy: { sortOrder: "asc" },
+      },
     },
   });
 }
@@ -362,6 +367,74 @@ export async function reorderSpeakers(
   );
 
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+// ============================================================================
+// Contact Search (for speaker selection)
+// ============================================================================
+
+// ============================================================================
+// MediaItem CRUD
+// ============================================================================
+
+export async function createMediaItem(presentationId: string, eventId: string, formData: FormData) {
+  const { _max } = await prisma.mediaItem.aggregate({ where: { presentationId }, _max: { sortOrder: true } });
+  await prisma.mediaItem.create({
+    data: {
+      presentationId,
+      description: formData.get("description") as string,
+      delivery: (formData.get("delivery") as string) || null,
+      advancerVendorId: (formData.get("advancerVendorId") as string) || null,
+      advancerContactId: (formData.get("advancerContactId") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      sortOrder: (_max.sortOrder ?? -1) + 1,
+    },
+  });
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function updateMediaItem(id: string, presentationId: string, eventId: string, formData: FormData) {
+  await prisma.mediaItem.update({
+    where: { id },
+    data: {
+      description: formData.get("description") as string,
+      delivery: (formData.get("delivery") as string) || null,
+      advancerVendorId: (formData.get("advancerVendorId") as string) || null,
+      advancerContactId: (formData.get("advancerContactId") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function deleteMediaItem(id: string, presentationId: string, eventId: string) {
+  await prisma.mediaItem.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function getMediaItemPartyOptions(presentationId: string, eventId: string) {
+  const [vendors, presentation] = await Promise.all([
+    getResponsiblePartyVendors(eventId),
+    prisma.presentation.findUnique({
+      where: { id: presentationId },
+      select: {
+        speakers: {
+          include: { contact: true },
+          orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+        },
+      },
+    }),
+  ]);
+
+  const contacts =
+    presentation?.speakers.map((s) => ({
+      id: s.contact.id,
+      firstName: s.contact.firstName,
+      lastName: s.contact.lastName,
+      organization: s.contact.organization,
+    })) ?? [];
+
+  return { vendors, contacts };
 }
 
 // ============================================================================

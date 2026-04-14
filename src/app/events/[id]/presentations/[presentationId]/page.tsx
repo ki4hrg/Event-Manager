@@ -19,6 +19,10 @@ import {
   removeSpeaker,
   searchContacts,
   createAndAddPresentationSpeaker,
+  createMediaItem,
+  updateMediaItem,
+  deleteMediaItem,
+  getMediaItemPartyOptions,
 } from "../../../presentations/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -36,6 +40,7 @@ import { PresentationForm } from "../../../presentations/PresentationForm";
 import { BreakoutSlotPanel } from "../../../presentations/BreakoutSlotPanel";
 import { SpeakerList } from "../../../presentations/SpeakerList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
+import { MediaItemsPanel } from "../../../presentations/MediaItemsPanel";
 import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +51,7 @@ export default async function PresentationPage({
   params: Promise<{ id: string; presentationId: string }>;
 }) {
   const { id: eventId, presentationId } = await params;
-  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates] = await Promise.all([
+  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates, deliveryOptions] = await Promise.all([
     getEvent(eventId),
     getPresentation(presentationId),
     getTracks(eventId),
@@ -54,6 +59,7 @@ export default async function PresentationPage({
     getOptions("presentation_type"),
     getWorkflowInstances("presentation", presentationId),
     getWorkflowTemplateOptions(),
+    getOptions("delivery_method"),
   ]);
 
   if (!event || !presentation) {
@@ -68,11 +74,12 @@ export default async function PresentationPage({
       })
     : [];
 
-  const [availableAVOrders, availableBlocks] = await Promise.all([
+  const [availableAVOrders, availableBlocks, mediaItemPartyOptions] = await Promise.all([
     presentation.avOrder
       ? []
       : getAvailableAVOrdersForPresentation(eventId),
     getAvailableBlocksForPresentation(presentationId, eventId),
+    getMediaItemPartyOptions(presentationId, eventId),
   ]);
 
   const updatePresentationAction = async (formData: FormData) => {
@@ -133,6 +140,21 @@ export default async function PresentationPage({
   const removeSlotAction = async (slotId: string) => {
     "use server";
     await removePresentationFromBlock(slotId, eventId);
+  };
+
+  const createMediaItemAction = async (formData: FormData) => {
+    "use server";
+    await createMediaItem(presentationId, eventId, formData);
+  };
+
+  const updateMediaItemAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateMediaItem(id, presentationId, eventId, formData);
+  };
+
+  const deleteMediaItemAction = async (id: string) => {
+    "use server";
+    await deleteMediaItem(id, presentationId, eventId);
   };
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
@@ -247,6 +269,15 @@ export default async function PresentationPage({
             newAVOrderPath={`/events/${eventId}/av-orders/new?presentationId=${presentationId}`}
             linkAVOrder={linkAVOrderAction}
             unlinkAVOrder={unlinkAVOrderAction}
+          />
+          <MediaItemsPanel
+            mediaItems={presentation.mediaItems}
+            deliveryOptions={deliveryOptions}
+            vendorOptions={mediaItemPartyOptions.vendors}
+            contactOptions={mediaItemPartyOptions.contacts}
+            createItem={createMediaItemAction}
+            updateItem={updateMediaItemAction}
+            deleteItem={deleteMediaItemAction}
           />
         </div>
       </div>
