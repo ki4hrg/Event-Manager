@@ -80,12 +80,11 @@ export async function updateVenue(id: string, formData: FormData) {
 }
 
 export async function updateVenueVendorDetails(venueId: string, formData: FormData) {
-  const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
 
   await prisma.vendor.updateMany({
     where: { venueId },
-    data: { models, notes },
+    data: { notes },
   });
 
   revalidatePath(`/venues/${venueId}`);
