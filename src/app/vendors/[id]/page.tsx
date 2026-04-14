@@ -94,29 +94,39 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
             </div>
           )}
         </div>
-        <DeleteButton
-          action={deleteVendorAction}
-          confirmMessage="Are you sure you want to delete this vendor?"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
-          <VendorForm vendor={vendor} vendorTypes={vendorTypes} action={updateVendorAction} />
-        </div>
-
-        <div className="lg:col-span-2">
-          <VendorContactList
-            contacts={vendor.contacts}
-            contactTypes={contactTypes}
-            addContact={addContactAction}
-            updateContact={updateContactAction}
-            removeContact={removeContactAction}
-            searchContacts={searchContactsAction}
-            createContact={createContactAction}
+        {!vendor.isSystemVendor && (
+          <DeleteButton
+            action={deleteVendorAction}
+            confirmMessage="Are you sure you want to delete this vendor?"
           />
-        </div>
+        )}
       </div>
+
+      {vendor.isSystemVendor ? (
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 max-w-lg">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            This is a system vendor and cannot be edited.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <VendorForm vendor={vendor} vendorTypes={vendorTypes} action={updateVendorAction} />
+          </div>
+
+          <div className="lg:col-span-2">
+            <VendorContactList
+              contacts={vendor.contacts}
+              contactTypes={contactTypes}
+              addContact={addContactAction}
+              updateContact={updateContactAction}
+              removeContact={removeContactAction}
+              searchContacts={searchContactsAction}
+              createContact={createContactAction}
+            />
+          </div>
+        </div>
+      )}
     </PageWrapper>
   );
 }
