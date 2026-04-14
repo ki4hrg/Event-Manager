@@ -104,6 +104,19 @@ const defaultEquipment = [
   { name: "Banquet Chair", category: "CHAIRS", sortOrder: 0 },
   { name: "Folding Chair", category: "CHAIRS", sortOrder: 1 },
   { name: "Theater Seat (fixed)", category: "CHAIRS", sortOrder: 2 },
+  // Audio Inputs
+  { name: "Handheld Mic", category: "AUDIO_INPUTS", sortOrder: 0 },
+  { name: "Lapel / Lavalier Mic", category: "AUDIO_INPUTS", sortOrder: 1 },
+  { name: "Headset Mic", category: "AUDIO_INPUTS", sortOrder: 2 },
+  { name: "Podium Mic", category: "AUDIO_INPUTS", sortOrder: 3 },
+  { name: "Direct Input (DI)", category: "AUDIO_INPUTS", sortOrder: 4 },
+  { name: "Handheld + Belt Pack", category: "AUDIO_INPUTS", sortOrder: 5 },
+  // Audio Outputs
+  { name: "Stage Monitor / Wedge", category: "AUDIO_OUTPUTS", sortOrder: 0 },
+  { name: "In-Ear Monitor (IEM)", category: "AUDIO_OUTPUTS", sortOrder: 1 },
+  { name: "PA Speaker", category: "AUDIO_OUTPUTS", sortOrder: 2 },
+  { name: "Subwoofer", category: "AUDIO_OUTPUTS", sortOrder: 3 },
+  { name: "Hearing Loop", category: "AUDIO_OUTPUTS", sortOrder: 4 },
 ];
 
 async function seedUsers() {
@@ -139,32 +152,25 @@ async function seedUsers() {
 }
 
 async function seedOptionsForCategory(category, options) {
-  const existingCount = await prisma.customOption.count({ where: { category } });
-  if (existingCount > 0) {
-    console.log(`${category} options already exist, skipping.`);
-    return 0;
-  }
-
   for (const option of options) {
-    await prisma.customOption.create({
-      data: { category, ...option },
+    await prisma.customOption.upsert({
+      where: { category_value: { category, value: option.value } },
+      update: {},
+      create: { category, ...option },
     });
   }
-  return options.length;
+  return 0;
 }
 
 async function seedEquipment() {
-  const existingCount = await prisma.equipment.count();
-  if (existingCount > 0) {
-    console.log("Equipment already exists, skipping.");
-    return 0;
-  }
-
   for (const item of defaultEquipment) {
-    await prisma.equipment.create({ data: item });
+    await prisma.equipment.upsert({
+      where: { category_name: { category: item.category, name: item.name } },
+      update: {},
+      create: item,
+    });
   }
-  console.log(`Seeded ${defaultEquipment.length} equipment items`);
-  return defaultEquipment.length;
+  return 0;
 }
 
 async function seedOptions() {
