@@ -423,11 +423,11 @@ function InputGroupCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-                <PartyField fieldPrefix="provider" vendors={vendors} contacts={contacts} />
+                <PartyField fieldPrefix="provider" vendors={vendors} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-                <PartyField fieldPrefix="operator" vendors={vendors} contacts={contacts} />
+                <PartyField fieldPrefix="operator" vendors={vendors} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
               </div>
             </div>
             <div>

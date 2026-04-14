@@ -30,6 +30,9 @@ import {
   createVideoEquipmentItem,
   updateVideoEquipmentItem,
   deleteVideoEquipmentItem,
+  createAVEquipmentItem,
+  updateAVEquipmentItem,
+  deleteAVEquipmentItem,
 } from "../../../av-orders/actions";
 import {
   getAVOrderVendors,
@@ -38,7 +41,7 @@ import {
   removeVendorFromAVOrder,
   searchAssignedEventVendors,
 } from "@/app/vendors/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions, getEquipment } from "@/app/settings/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
@@ -48,7 +51,7 @@ import { AudioSectionPanel } from "../../../av-orders/AudioSectionPanel";
 import { VideoSectionPanel } from "../../../av-orders/VideoSectionPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { AVOrderEquipmentRollup } from "../../../av-orders/AVOrderEquipmentRollup";
+import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
@@ -85,12 +88,16 @@ export default async function AVOrderPage({
   // Fetch tab-specific data
   let availableFunctions: Awaited<ReturnType<typeof prisma.function.findMany>> = [];
   let availablePresentations: Awaited<ReturnType<typeof prisma.presentation.findMany>> = [];
+  let equipmentOptions: Awaited<ReturnType<typeof getEquipment>> = [];
+  let equipmentCategories: Awaited<ReturnType<typeof getOptions>> = [];
   if (activeTab === "overview") {
-    [availableFunctions, availablePresentations] = await Promise.all([
+    [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories] = await Promise.all([
       prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
       avOrder.presentationId
         ? []
         : prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
+      getEquipment(),
+      getOptions("equipment_category"),
     ]);
   }
 
@@ -163,26 +170,19 @@ export default async function AVOrderPage({
     await removeVendorFromAVOrder(id, avOrderId, eventId);
   };
 
-  const rawEquipment: { label: string; qty: number; source: string }[] = [];
+  const readOnlyTotals: Record<string, number> = {};
   for (const group of avOrder.audioSection?.inputGroups ?? []) {
     for (const item of group.inputItems) {
-      if (item.equipment) rawEquipment.push({ label: item.equipment.name, qty: item.quantity, source: "Audio input" });
+      if (item.equipment) readOnlyTotals[item.equipment.name] = (readOnlyTotals[item.equipment.name] ?? 0) + item.quantity;
     }
   }
   for (const mix of avOrder.audioSection?.monitorMixes ?? []) {
-    if (mix.equipment) rawEquipment.push({ label: mix.equipment.name, qty: 1, source: "Monitor" });
+    if (mix.equipment) readOnlyTotals[mix.equipment.name] = (readOnlyTotals[mix.equipment.name] ?? 0) + 1;
   }
   for (const item of avOrder.videoSection?.equipmentItems ?? []) {
-    rawEquipment.push({ label: item.item, qty: item.quantity ?? 1, source: "Video" });
+    readOnlyTotals[item.item] = (readOnlyTotals[item.item] ?? 0) + (item.quantity ?? 1);
   }
-  const rollupTotals = rawEquipment.reduce<Record<string, { quantity: number; source: string }>>(
-    (acc, { label, qty, source }) => {
-      acc[label] = { quantity: (acc[label]?.quantity ?? 0) + qty, source: acc[label]?.source ?? source };
-      return acc;
-    },
-    {}
-  );
-  const equipmentRollup = Object.entries(rollupTotals).map(([label, { quantity, source }]) => ({ label, quantity, source }));
+  const readOnlyItems = Object.entries(readOnlyTotals).map(([label, quantity]) => ({ label, quantity }));
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
@@ -284,6 +284,21 @@ export default async function AVOrderPage({
     await deleteVideoEquipmentItem(id, avOrderId, eventId);
   };
 
+  const createAVEquipmentAction = async (formData: FormData) => {
+    "use server";
+    await createAVEquipmentItem(avOrderId, eventId, formData);
+  };
+
+  const updateAVEquipmentAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateAVEquipmentItem(id, avOrderId, eventId, formData);
+  };
+
+  const deleteAVEquipmentAction = async (id: string) => {
+    "use server";
+    await deleteAVEquipmentItem(id, avOrderId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -356,7 +371,16 @@ export default async function AVOrderPage({
               unlinkItem={unlinkFromPresentationAction}
               entityLabel="presentation"
             />
-            <AVOrderEquipmentRollup rows={equipmentRollup} />
+            <EquipmentTable
+              items={avOrder.equipmentItems}
+              responsiblePartyVendors={avOrderVendors.map((v) => v.vendor)}
+              equipmentOptions={equipmentOptions}
+              equipmentCategories={equipmentCategories}
+              createItem={createAVEquipmentAction}
+              updateItem={updateAVEquipmentAction}
+              deleteItem={deleteAVEquipmentAction}
+              readOnlyItems={readOnlyItems}
+            />
           </div>
         </div>
       )}

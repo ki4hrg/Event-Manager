@@ -241,6 +241,7 @@ model AVOrder {
   functions      Function[]
   audioSection   AudioSection?
   videoSection   VideoSection?
+  equipmentItems EquipmentItem[]
   vendors        AVOrderVendor[]
   files          FileUpload[]
   createdAt      DateTime        @default(now())
@@ -307,9 +308,11 @@ model EquipmentItem {
   cateringOrderId          String?
   setupOrderId             String?
   videoSectionId           String?
+  avOrderId                String?
   cateringOrder            CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   setupOrder               SetupOrder?   @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   videoSection             VideoSection? @relation(fields: [videoSectionId], references: [id], onDelete: Cascade)
+  avOrder                  AVOrder?      @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
   item                     String
   quantity                 Int?
   responsiblePartyVendorId String?
@@ -322,6 +325,7 @@ model EquipmentItem {
   @@index([cateringOrderId])
   @@index([setupOrderId])
   @@index([videoSectionId])
+  @@index([avOrderId])
   @@index([responsiblePartyVendorId])
 }
 

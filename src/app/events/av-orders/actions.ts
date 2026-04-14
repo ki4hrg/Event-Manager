@@ -63,6 +63,10 @@ export async function getAVOrder(id: string) {
           },
         },
       },
+      equipmentItems: {
+        include: { responsiblePartyVendor: true },
+        orderBy: [{ sortOrder: "asc" }, { item: "asc" }],
+      },
     },
   });
 }
@@ -419,6 +423,43 @@ export async function updateVideoEquipmentItem(id: string, avOrderId: string, ev
 }
 
 export async function deleteVideoEquipmentItem(id: string, avOrderId: string, eventId: string) {
+  await prisma.equipmentItem.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+// ============================================================================
+// AV Order-level EquipmentItem CRUD
+// ============================================================================
+
+export async function createAVEquipmentItem(avOrderId: string, eventId: string, formData: FormData) {
+  const { _max } = await prisma.equipmentItem.aggregate({ where: { avOrderId }, _max: { sortOrder: true } });
+  await prisma.equipmentItem.create({
+    data: {
+      avOrderId,
+      item: formData.get("item") as string,
+      quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
+      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      sortOrder: (_max.sortOrder ?? -1) + 1,
+    },
+  });
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+export async function updateAVEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await prisma.equipmentItem.update({
+    where: { id },
+    data: {
+      item: formData.get("item") as string,
+      quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
+      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+export async function deleteAVEquipmentItem(id: string, avOrderId: string, eventId: string) {
   await prisma.equipmentItem.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
