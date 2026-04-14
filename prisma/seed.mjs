@@ -186,11 +186,29 @@ async function seedSystemVendors() {
   console.log("Created system vendor: Event Team");
 }
 
+async function backfillVenueVendors() {
+  const venues = await prisma.venue.findMany({
+    where: { vendor: null },
+    select: { id: true, name: true },
+  });
+
+  if (venues.length === 0) {
+    console.log("All venues already have linked vendors, skipping backfill.");
+    return;
+  }
+
+  for (const venue of venues) {
+    await prisma.vendor.create({ data: { name: venue.name, venueId: venue.id } });
+  }
+  console.log(`Backfilled ${venues.length} venue vendor(s).`);
+}
+
 async function main() {
   await seedUsers();
   await seedOptions();
   await seedEquipment();
   await seedSystemVendors();
+  await backfillVenueVendors();
 }
 
 main()
