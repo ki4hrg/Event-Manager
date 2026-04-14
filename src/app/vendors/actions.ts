@@ -38,6 +38,7 @@ export async function getResponsiblePartyVendors(eventId: string): Promise<{ id:
 
 export async function getVendors() {
   return prisma.vendor.findMany({
+    where: { isSystemVendor: false, venueId: null },
     include: {
       _count: { select: { contacts: true } },
     },
