@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type {
   AudioSection,
@@ -94,6 +94,20 @@ function parsePartyValue(value: string) {
   return { vendorId: "", contactId: "" };
 }
 
+// Merges extra vendors into the base list, deduplicating by id and sorting by name.
+// Used to ensure a row's existing provider/operator vendor always appears as an option
+// even if it's no longer assigned to the AV order's scoped vendor list.
+function mergeAndSortVendors(
+  baseVendors: PartyOptions,
+  extra: (PartyOptions[number] | null | undefined)[]
+): PartyOptions {
+  const map = new Map(baseVendors.map((v) => [v.id, v]));
+  for (const vendor of extra) {
+    if (vendor) map.set(vendor.id, vendor);
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function PartyField({
   fieldPrefix,
   vendors,
@@ -175,6 +189,11 @@ function InputItemRow({
 }) {
   const [editing, setEditing] = useState(false);
 
+  const effectiveVendors = useMemo(
+    () => mergeAndSortVendors(vendors, [item.providerVendor, item.operatorVendor]),
+    [vendors, item.providerVendor, item.operatorVendor]
+  );
+
   const provider = partyLabel(item.providerVendor, item.providerContact);
   const operator = partyLabel(item.operatorVendor, item.operatorContact);
 
@@ -226,11 +245,11 @@ function InputItemRow({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-              <PartyField fieldPrefix="provider" vendors={vendors} contacts={contacts} defaultVendorId={item.providerVendorId} defaultContactId={item.providerContactId} />
+              <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={item.providerVendorId} defaultContactId={item.providerContactId} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-              <PartyField fieldPrefix="operator" vendors={vendors} contacts={contacts} defaultVendorId={item.operatorVendorId} defaultContactId={item.operatorContactId} />
+              <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={item.operatorVendorId} defaultContactId={item.operatorContactId} />
             </div>
           </div>
           <div>
@@ -298,6 +317,11 @@ function InputGroupCard({
   const [editingGroup, setEditingGroup] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
 
+  const effectiveVendors = useMemo(
+    () => mergeAndSortVendors(vendors, [group.providerVendor, group.operatorVendor]),
+    [vendors, group.providerVendor, group.operatorVendor]
+  );
+
   const provider = partyLabel(group.providerVendor, group.providerContact);
   const operator = partyLabel(group.operatorVendor, group.operatorContact);
 
@@ -325,11 +349,11 @@ function InputGroupCard({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-              <PartyField fieldPrefix="provider" vendors={vendors} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
+              <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-              <PartyField fieldPrefix="operator" vendors={vendors} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
+              <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
             </div>
           </div>
           <div>
@@ -371,7 +395,7 @@ function InputGroupCard({
             key={item.id}
             item={item}
             audioInputOptions={audioInputOptions}
-            vendors={vendors}
+            vendors={effectiveVendors}
             contacts={contacts}
             updateItem={updateItem}
             deleteItem={deleteItem}
@@ -423,11 +447,11 @@ function InputGroupCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-                <PartyField fieldPrefix="provider" vendors={vendors} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
+                <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-                <PartyField fieldPrefix="operator" vendors={vendors} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
+                <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
               </div>
             </div>
             <div>
@@ -477,6 +501,11 @@ function MonitorMixRow({
 }) {
   const [editing, setEditing] = useState(false);
 
+  const effectiveVendors = useMemo(
+    () => mergeAndSortVendors(vendors, [mix.providerVendor, mix.operatorVendor]),
+    [vendors, mix.providerVendor, mix.operatorVendor]
+  );
+
   const provider = partyLabel(mix.providerVendor, mix.providerContact);
   const operator = partyLabel(mix.operatorVendor, mix.operatorContact);
 
@@ -518,11 +547,11 @@ function MonitorMixRow({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-              <PartyField fieldPrefix="provider" vendors={vendors} contacts={contacts} defaultVendorId={mix.providerVendorId} defaultContactId={mix.providerContactId} />
+              <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={mix.providerVendorId} defaultContactId={mix.providerContactId} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-              <PartyField fieldPrefix="operator" vendors={vendors} contacts={contacts} defaultVendorId={mix.operatorVendorId} defaultContactId={mix.operatorContactId} />
+              <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={mix.operatorVendorId} defaultContactId={mix.operatorContactId} />
             </div>
           </div>
           <div>
