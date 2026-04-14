@@ -77,6 +77,45 @@ npm run db:studio # Open Prisma Studio
 docker compose up # Run full stack in containers
 ```
 
+## Vendor Model Types
+
+Vendors are tagged with one or more "model types" that indicate which order types they service. This drives vendor picker filtering so users only see relevant vendors.
+
+### Where things live
+
+- **`ModelType` union** — `src/app/vendors/actions.ts` (exported type, line ~210):
+  ```ts
+  export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER";
+  ```
+- **Display constants** — `src/app/vendors/model-types.ts` (no `"use server"` directive, importable by client components):
+  ```ts
+  export const MODEL_TYPES = [
+    { value: "CATERING_ORDER", label: "Catering Order" },
+    { value: "AV_ORDER", label: "AV Order" },
+    { value: "SETUP_ORDER", label: "Setup Order" },
+  ] as const;
+
+  export const MODEL_LABELS: Record<string, string> = Object.fromEntries(
+    MODEL_TYPES.map(({ value, label }) => [value, label])
+  );
+  ```
+  Always import from this file for display — never re-declare the array or labels inline.
+
+### Filter behavior
+
+`searchAssignedEventVendors(query, eventId, modelType?)` in `src/app/vendors/actions.ts` applies:
+```ts
+OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }]
+```
+Vendors with an empty `models` array are treated as general-purpose and appear in every picker regardless of `modelType`.
+
+### Adding a new model type
+
+1. Add the string value to `ModelType` in `src/app/vendors/actions.ts`
+2. Add a `{ value, label }` entry to `MODEL_TYPES` in `src/app/vendors/model-types.ts` — `MODEL_LABELS` is derived automatically
+3. In the new order type's page/component, pass the new `ModelType` value to `searchAssignedEventVendors`
+4. No changes needed to `VendorPanel`, `EventVendorList`, or the filter logic — they handle any `ModelType` generically
+
 ## Code Conventions
 - Use named exports for components
 - Colocate component-specific logic
