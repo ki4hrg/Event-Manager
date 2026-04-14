@@ -88,6 +88,12 @@ function contactName(c: { firstName: string; lastName: string; organization: str
   return c.organization ? `${name} (${c.organization})` : name;
 }
 
+function parsePartyValue(value: string) {
+  if (value.startsWith("vendor:")) return { vendorId: value.slice(7), contactId: "" };
+  if (value.startsWith("contact:")) return { vendorId: "", contactId: value.slice(8) };
+  return { vendorId: "", contactId: "" };
+}
+
 function PartyField({
   fieldPrefix,
   vendors,
@@ -101,51 +107,40 @@ function PartyField({
   defaultVendorId?: string | null;
   defaultContactId?: string | null;
 }) {
-  const [mode, setMode] = useState<"vendor" | "contact">(
-    defaultContactId ? "contact" : "vendor"
-  );
-  const vendorField = `${fieldPrefix}VendorId`;
-  const contactField = `${fieldPrefix}ContactId`;
+  const initialValue = defaultVendorId
+    ? `vendor:${defaultVendorId}`
+    : defaultContactId
+    ? `contact:${defaultContactId}`
+    : "";
+  const [selected, setSelected] = useState(initialValue);
+
+  const { vendorId, contactId } = parsePartyValue(selected);
 
   return (
-    <div className="space-y-1">
-      <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400 mb-1">
-        <label className="flex items-center gap-1">
-          <input type="radio" checked={mode === "vendor"} onChange={() => setMode("vendor")} /> Vendor
-        </label>
-        <label className="flex items-center gap-1">
-          <input type="radio" checked={mode === "contact"} onChange={() => setMode("contact")} /> Contact
-        </label>
-      </div>
-      {mode === "vendor" ? (
-        <>
-          <select
-            name={vendorField}
-            defaultValue={defaultVendorId || ""}
-            className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          >
-            <option value="">— None —</option>
+    <div>
+      <select
+        value={selected}
+        onChange={(e) => setSelected(e.target.value)}
+        className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+      >
+        <option value="">— None —</option>
+        {vendors.length > 0 && (
+          <optgroup label="Vendors">
             {vendors.map((v) => (
-              <option key={v.id} value={v.id}>{v.name}</option>
+              <option key={v.id} value={`vendor:${v.id}`}>{v.name}</option>
             ))}
-          </select>
-          <input type="hidden" name={contactField} value="" />
-        </>
-      ) : (
-        <>
-          <input type="hidden" name={vendorField} value="" />
-          <select
-            name={contactField}
-            defaultValue={defaultContactId || ""}
-            className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          >
-            <option value="">— None —</option>
+          </optgroup>
+        )}
+        {contacts.length > 0 && (
+          <optgroup label="Contacts">
             {contacts.map((c) => (
-              <option key={c.id} value={c.id}>{contactName(c)}</option>
+              <option key={c.id} value={`contact:${c.id}`}>{contactName(c)}</option>
             ))}
-          </select>
-        </>
-      )}
+          </optgroup>
+        )}
+      </select>
+      <input type="hidden" name={`${fieldPrefix}VendorId`} value={vendorId} />
+      <input type="hidden" name={`${fieldPrefix}ContactId`} value={contactId} />
     </div>
   );
 }

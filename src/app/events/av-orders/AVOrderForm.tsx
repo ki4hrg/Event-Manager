@@ -7,7 +7,45 @@ type AVOrderFormProps = {
   avOrder?: AVOrder | null;
   eventId: string;
   action: (formData: FormData) => Promise<void>;
+  availableFunctions?: { id: string; label: string }[];
+  availablePresentations?: { id: string; label: string }[];
+  defaultFunctionId?: string;
+  defaultPresentationId?: string;
 };
+
+function LinkSelectField({
+  fieldName,
+  label,
+  options,
+  defaultValue,
+}: {
+  fieldName: string;
+  label: string;
+  options: { id: string; label: string }[];
+  defaultValue?: string;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={fieldName}
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+      >
+        {label}
+      </label>
+      <select
+        id={fieldName}
+        name={fieldName}
+        defaultValue={defaultValue || ""}
+        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="">— None —</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>{o.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
@@ -22,7 +60,15 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function AVOrderForm({ avOrder, eventId, action }: AVOrderFormProps) {
+export function AVOrderForm({
+  avOrder,
+  eventId,
+  action,
+  availableFunctions,
+  availablePresentations,
+  defaultFunctionId,
+  defaultPresentationId,
+}: AVOrderFormProps) {
   const isEdit = !!avOrder;
 
   return (
@@ -67,6 +113,24 @@ export function AVOrderForm({ avOrder, eventId, action }: AVOrderFormProps) {
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          {availableFunctions && (
+            <LinkSelectField
+              fieldName="functionId"
+              label="Link to Function"
+              options={availableFunctions}
+              defaultValue={defaultFunctionId}
+            />
+          )}
+
+          {availablePresentations && (
+            <LinkSelectField
+              fieldName="presentationId"
+              label="Link to Presentation"
+              options={availablePresentations}
+              defaultValue={defaultPresentationId}
+            />
+          )}
         </div>
       </div>
 

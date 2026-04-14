@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
+import { prisma } from "@/lib/prisma";
 import { getEvent } from "../../../actions";
 import { createAVOrder } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
@@ -17,7 +18,11 @@ export default async function NewAVOrderPage({
   const { id: eventId } = await params;
   const { functionId, presentationId } = await searchParams;
 
-  const event = await getEvent(eventId);
+  const [event, availableFunctions, availablePresentations] = await Promise.all([
+    getEvent(eventId),
+    prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
+    prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
+  ]);
 
   if (!event) {
     notFound();
@@ -25,8 +30,6 @@ export default async function NewAVOrderPage({
 
   const createAVOrderAction = async (formData: FormData) => {
     "use server";
-    if (functionId) formData.set("functionId", functionId);
-    if (presentationId) formData.set("presentationId", presentationId);
     await createAVOrder(eventId, formData);
   };
 
@@ -47,6 +50,10 @@ export default async function NewAVOrderPage({
       <AVOrderForm
         eventId={eventId}
         action={createAVOrderAction}
+        availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+        availablePresentations={availablePresentations.map((p) => ({ id: p.id, label: p.title }))}
+        defaultFunctionId={functionId}
+        defaultPresentationId={presentationId}
       />
     </PageWrapper>
   );

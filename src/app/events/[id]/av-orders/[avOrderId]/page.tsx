@@ -48,6 +48,7 @@ import { AudioSectionPanel } from "../../../av-orders/AudioSectionPanel";
 import { VideoSectionPanel } from "../../../av-orders/VideoSectionPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
+import { AVOrderEquipmentRollup } from "../../../av-orders/AVOrderEquipmentRollup";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
@@ -161,6 +162,27 @@ export default async function AVOrderPage({
     "use server";
     await removeVendorFromAVOrder(id, avOrderId, eventId);
   };
+
+  const rawEquipment: { label: string; qty: number; source: string }[] = [];
+  for (const group of avOrder.audioSection?.inputGroups ?? []) {
+    for (const item of group.inputItems) {
+      if (item.equipment) rawEquipment.push({ label: item.equipment.name, qty: item.quantity, source: "Audio input" });
+    }
+  }
+  for (const mix of avOrder.audioSection?.monitorMixes ?? []) {
+    if (mix.equipment) rawEquipment.push({ label: mix.equipment.name, qty: 1, source: "Monitor" });
+  }
+  for (const item of avOrder.videoSection?.equipmentItems ?? []) {
+    rawEquipment.push({ label: item.item, qty: item.quantity ?? 1, source: "Video" });
+  }
+  const rollupTotals = rawEquipment.reduce<Record<string, { quantity: number; source: string }>>(
+    (acc, { label, qty, source }) => {
+      acc[label] = { quantity: (acc[label]?.quantity ?? 0) + qty, source: acc[label]?.source ?? source };
+      return acc;
+    },
+    {}
+  );
+  const equipmentRollup = Object.entries(rollupTotals).map(([label, { quantity, source }]) => ({ label, quantity, source }));
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
@@ -334,6 +356,7 @@ export default async function AVOrderPage({
               unlinkItem={unlinkFromPresentationAction}
               entityLabel="presentation"
             />
+            <AVOrderEquipmentRollup rows={equipmentRollup} />
           </div>
         </div>
       )}

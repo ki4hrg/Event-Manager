@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getDefaultVendorForModel, getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { getDefaultVendorForModel } from "@/app/vendors/actions";
 
 export async function getAVOrders(eventId: string) {
   return prisma.aVOrder.findMany({
@@ -428,8 +428,12 @@ export async function deleteVideoEquipmentItem(id: string, avOrderId: string, ev
 // ============================================================================
 
 export async function getAVOrderPartyOptions(avOrderId: string, eventId: string) {
-  const [vendors, avOrder] = await Promise.all([
-    getResponsiblePartyVendors(eventId),
+  const [avOrderVendors, avOrder] = await Promise.all([
+    prisma.aVOrderVendor.findMany({
+      where: { avOrderId },
+      select: { vendor: { select: { id: true, name: true } } },
+      orderBy: { vendor: { name: "asc" } },
+    }),
     prisma.aVOrder.findUnique({
       where: { id: avOrderId },
       select: {
@@ -444,6 +448,8 @@ export async function getAVOrderPartyOptions(avOrderId: string, eventId: string)
       },
     }),
   ]);
+
+  const vendors = avOrderVendors.map((av) => av.vendor);
 
   const contacts =
     avOrder?.presentation?.speakers.map((s) => ({
