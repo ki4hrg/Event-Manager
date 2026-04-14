@@ -20,6 +20,7 @@ import {
   deleteSetupEquipmentItem,
 } from "../../../setup-orders/actions";
 import { getOptions, getEquipment } from "@/app/settings/actions";
+import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import {
   getSetupOrderVendors,
   addVendorToSetupOrder,
@@ -52,12 +53,12 @@ export default async function SetupOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = SETUP_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, setupOrder, setupTypes, responsiblePartyOptions, equipmentOptions, equipmentCategories, workflowInstances, allTemplates] =
+  const [event, setupOrder, setupTypes, responsiblePartyVendors, equipmentOptions, equipmentCategories, workflowInstances, allTemplates] =
     await Promise.all([
       getEvent(eventId),
       getSetupOrder(setupOrderId),
       getOptions("setup_type"),
-      getOptions("responsible_party"),
+      getResponsiblePartyVendors(eventId),
       getEquipment(),
       getOptions("equipment_category"),
       getWorkflowInstances("setup_order", setupOrderId),
@@ -269,7 +270,7 @@ export default async function SetupOrderPage({
             />
             <EquipmentTable
               items={setupOrder.equipmentItems}
-              responsiblePartyOptions={responsiblePartyOptions}
+              responsiblePartyVendors={responsiblePartyVendors}
               equipmentOptions={equipmentOptions}
               equipmentCategories={equipmentCategories}
               createItem={createEquipmentAction}

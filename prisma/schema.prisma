@@ -97,6 +97,7 @@ model Venue {
   rooms     Room[]
   events    Event[]
   contacts  VenueContact[]
+  vendor    Vendor?
   files     FileUpload[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
@@ -289,24 +290,26 @@ model TimelineItem {
 }
 
 model EquipmentItem {
-  id               String      @id @default(cuid())
-  cateringOrderId  String?
-  avOrderId        String?
-  setupOrderId     String?
-  cateringOrder    CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
-  avOrder          AVOrder?    @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
-  setupOrder       SetupOrder? @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
-  item             String
-  quantity         Int?
-  responsibleParty String?
-  notes            String?
-  sortOrder        Int         @default(0)
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  id                       String      @id @default(cuid())
+  cateringOrderId          String?
+  avOrderId                String?
+  setupOrderId             String?
+  cateringOrder            CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  avOrder                  AVOrder?    @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  setupOrder               SetupOrder? @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  item                     String
+  quantity                 Int?
+  responsiblePartyVendorId String?
+  responsiblePartyVendor   Vendor?     @relation("EquipmentResponsibleVendor", fields: [responsiblePartyVendorId], references: [id], onDelete: SetNull)
+  notes                    String?
+  sortOrder                Int         @default(0)
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
 
   @@index([cateringOrderId])
   @@index([avOrderId])
   @@index([setupOrderId])
+  @@index([responsiblePartyVendorId])
 }
 
 model SetupOrder {
@@ -365,18 +368,20 @@ model CateringOrderLineItem {
 }
 
 model CateringOrderMenuSection {
-  id              String        @id @default(cuid())
-  cateringOrderId String        @map("beoId")
-  cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
-  responsibleParty String
-  menuContent      String
-  notes            String?
-  sortOrder        Int           @default(0)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id                       String        @id @default(cuid())
+  cateringOrderId          String        @map("beoId")
+  cateringOrder            CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  responsiblePartyVendorId String?
+  responsiblePartyVendor   Vendor?       @relation("MenuSectionResponsibleVendor", fields: [responsiblePartyVendorId], references: [id], onDelete: SetNull)
+  menuContent              String
+  notes                    String?
+  sortOrder                Int           @default(0)
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
 
   @@map("BEOMenuSection")
   @@index([cateringOrderId])
+  @@index([responsiblePartyVendorId])
 }
 
 model CateringOrderContact {
@@ -587,17 +592,22 @@ model WorkflowChecklistCompletion {
 // Vendor management
 
 model Vendor {
-  id           String             @id @default(cuid())
-  name         String
-  types        String[]           @default([]) // references vendor_type CustomOption values
-  notes        String?
-  contacts     VendorContact[]
-  eventVendors EventVendor[]
-  avOrderVendors AVOrderVendor[]
-  cateringOrderVendors CateringOrderVendor[]
-  setupOrderVendors SetupOrderVendor[]
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id                        String                     @id @default(cuid())
+  name                      String
+  types                     String[]                   @default([]) // references vendor_type CustomOption values
+  notes                     String?
+  isSystemVendor            Boolean                    @default(false)
+  venueId                   String?                    @unique
+  venue                     Venue?                     @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  contacts                  VendorContact[]
+  eventVendors              EventVendor[]
+  avOrderVendors            AVOrderVendor[]
+  cateringOrderVendors      CateringOrderVendor[]
+  setupOrderVendors         SetupOrderVendor[]
+  responsibleEquipmentItems EquipmentItem[]            @relation("EquipmentResponsibleVendor")
+  responsibleMenuSections   CateringOrderMenuSection[] @relation("MenuSectionResponsibleVendor")
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
 }
 
 // Junction: Vendor <-> Contact

@@ -25,7 +25,7 @@ export async function getSetupOrder(id: string) {
       room: true,
       function: { include: { schedules: { orderBy: { startTime: "asc" } } } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
-      equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
+      equipmentItems: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
     },
   });
 }
@@ -186,7 +186,7 @@ export async function createSetupEquipmentItem(setupOrderId: string, eventId: st
       setupOrderId,
       item: formData.get("item") as string,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-      responsibleParty: (formData.get("responsibleParty") as string) || null,
+      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
@@ -201,7 +201,7 @@ export async function updateSetupEquipmentItem(id: string, setupOrderId: string,
     data: {
       item: formData.get("item") as string,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-      responsibleParty: (formData.get("responsibleParty") as string) || null,
+      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,
     },
   });

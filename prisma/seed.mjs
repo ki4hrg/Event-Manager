@@ -176,10 +176,21 @@ async function seedOptions() {
   console.log(`Seeded ${totalCreated} total options`);
 }
 
+async function seedSystemVendors() {
+  const existing = await prisma.vendor.findFirst({ where: { isSystemVendor: true } });
+  if (existing) {
+    console.log("System vendor (Event Team) already exists, skipping.");
+    return;
+  }
+  await prisma.vendor.create({ data: { name: "Event Team", isSystemVendor: true } });
+  console.log("Created system vendor: Event Team");
+}
+
 async function main() {
   await seedUsers();
   await seedOptions();
   await seedEquipment();
+  await seedSystemVendors();
 }
 
 main()

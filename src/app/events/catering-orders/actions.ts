@@ -19,9 +19,9 @@ export async function getCateringOrder(id: string) {
     include: {
       function: { include: { schedules: { orderBy: { startTime: "asc" } } } },
       timelineItems: { orderBy: [{ sortOrder: "asc" }, { startTime: "asc" }] },
-      equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
+      equipmentItems: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
       lineItems: { orderBy: [{ sortOrder: "asc" }, { description: "asc" }] },
-      menuSections: { orderBy: [{ sortOrder: "asc" }, { responsibleParty: "asc" }] },
+      menuSections: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }] },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
     },
   });
@@ -221,7 +221,7 @@ export async function createEquipmentItem(cateringOrderId: string, eventId: stri
       cateringOrderId,
       item: formData.get("item") as string,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-      responsibleParty: (formData.get("responsibleParty") as string) || null,
+      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
@@ -236,7 +236,7 @@ export async function updateEquipmentItem(id: string, cateringOrderId: string, e
     data: {
       item: formData.get("item") as string,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-      responsibleParty: (formData.get("responsibleParty") as string) || null,
+      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,
     },
   });
@@ -293,7 +293,7 @@ export async function createCateringOrderMenuSection(cateringOrderId: string, ev
   await prisma.cateringOrderMenuSection.create({
     data: {
       cateringOrderId,
-      responsibleParty: formData.get("responsibleParty") as string,
+      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       menuContent: formData.get("menuContent") as string,
       notes: (formData.get("notes") as string) || null,
       sortOrder: (_max.sortOrder ?? -1) + 1,
@@ -307,7 +307,7 @@ export async function updateCateringOrderMenuSection(id: string, cateringOrderId
   await prisma.cateringOrderMenuSection.update({
     where: { id },
     data: {
-      responsibleParty: formData.get("responsibleParty") as string,
+      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       menuContent: formData.get("menuContent") as string,
       notes: (formData.get("notes") as string) || null,
     },

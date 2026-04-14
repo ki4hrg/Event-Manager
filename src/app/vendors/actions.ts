@@ -4,6 +4,38 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+export async function getResponsiblePartyVendors(eventId: string): Promise<{ id: string; name: string }[]> {
+  const [eventVendors, event, systemVendor] = await Promise.all([
+    prisma.eventVendor.findMany({ where: { eventId }, select: { vendor: { select: { id: true, name: true } } } }),
+    prisma.event.findUnique({ where: { id: eventId }, select: { venue: { select: { vendor: { select: { id: true, name: true } } } } } }),
+    prisma.vendor.findFirst({ where: { isSystemVendor: true }, select: { id: true, name: true } }),
+  ]);
+
+  const seen = new Set<string>();
+  const vendors: { id: string; name: string }[] = [];
+
+  const addVendor = (v: { id: string; name: string }) => {
+    if (!seen.has(v.id)) {
+      seen.add(v.id);
+      vendors.push({ id: v.id, name: v.name });
+    }
+  };
+
+  for (const ev of eventVendors) {
+    addVendor(ev.vendor);
+  }
+
+  if (event?.venue?.vendor) {
+    addVendor(event.venue.vendor);
+  }
+
+  if (systemVendor) {
+    addVendor(systemVendor);
+  }
+
+  return vendors.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function getVendors() {
   return prisma.vendor.findMany({
     include: {

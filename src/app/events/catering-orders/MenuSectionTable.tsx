@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { CateringOrderMenuSection } from "@prisma/client";
-import type { CustomOption } from "@prisma/client";
+import type { CateringOrderMenuSection, Vendor } from "@prisma/client";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
+type MenuSectionWithVendor = CateringOrderMenuSection & {
+  responsiblePartyVendor: Vendor | null;
+};
+
 type MenuSectionTableProps = {
-  sections: CateringOrderMenuSection[];
-  responsiblePartyOptions: CustomOption[];
+  sections: MenuSectionWithVendor[];
+  responsiblePartyVendors: { id: string; name: string }[];
   createSection: (formData: FormData) => Promise<void>;
   updateSection: (id: string, formData: FormData) => Promise<void>;
   deleteSection: (id: string) => Promise<void>;
@@ -36,7 +39,7 @@ function isMenuContentEmpty(form: HTMLFormElement): boolean {
 
 export function MenuSectionTable({
   sections,
-  responsiblePartyOptions,
+  responsiblePartyVendors,
   createSection,
   updateSection,
   deleteSection,
@@ -82,8 +85,8 @@ export function MenuSectionTable({
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3"
         >
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party *</label>
-            <ResponsiblePartyField options={responsiblePartyOptions} />
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
+            <ResponsiblePartyField vendors={responsiblePartyVendors} />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
@@ -131,8 +134,8 @@ export function MenuSectionTable({
                   className="space-y-3"
                 >
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party *</label>
-                    <ResponsiblePartyField options={responsiblePartyOptions} defaultValue={section.responsibleParty} />
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
+                    <ResponsiblePartyField vendors={responsiblePartyVendors} defaultValue={section.responsiblePartyVendorId} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
@@ -163,7 +166,7 @@ export function MenuSectionTable({
                 <div>
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                      {section.responsibleParty}
+                      {section.responsiblePartyVendor?.name ?? "—"}
                     </span>
                     <div className="flex gap-2 ml-2 shrink-0">
                       <button onClick={() => setEditingId(section.id)} className="text-blue-600 hover:underline text-sm">Edit</button>

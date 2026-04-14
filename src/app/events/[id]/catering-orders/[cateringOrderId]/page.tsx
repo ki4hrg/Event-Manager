@@ -35,6 +35,7 @@ import {
   createAndAddCateringOrderContact,
 } from "../../../catering-orders/actions";
 import { getOptions, getEquipment } from "../../../../settings/actions";
+import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
@@ -110,12 +111,12 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyOptions, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, vendorTypeOptions, fileTypeOptions, cateringOrderFiles] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, vendorTypeOptions, fileTypeOptions, cateringOrderFiles] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
       getOptions("service_style"),
-      getOptions("responsible_party"),
+      getResponsiblePartyVendors(eventId),
       getEquipment(),
       getOptions("equipment_category"),
       prisma.function.findMany({ where: { eventId, cateringOrder: null }, orderBy: { name: "asc" } }),
@@ -350,7 +351,7 @@ export default async function CateringOrderPage({
             />
             <MenuSectionTable
               sections={cateringOrder.menuSections}
-              responsiblePartyOptions={responsiblePartyOptions}
+              responsiblePartyVendors={responsiblePartyVendors}
               createSection={createMenuSectionAction}
               updateSection={updateMenuSectionAction}
               deleteSection={deleteMenuSectionAction}
@@ -399,7 +400,7 @@ export default async function CateringOrderPage({
             />
             <EquipmentTable
               items={cateringOrder.equipmentItems}
-              responsiblePartyOptions={responsiblePartyOptions}
+              responsiblePartyVendors={responsiblePartyVendors}
               equipmentOptions={equipmentOptions}
               equipmentCategories={equipmentCategories}
               createItem={createEquipmentAction}

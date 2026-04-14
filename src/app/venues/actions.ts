@@ -17,6 +17,7 @@ export async function getVenue(id: string) {
     include: {
       rooms: { orderBy: { name: "asc" } },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
+      vendor: true,
     },
   });
 }
@@ -42,6 +43,8 @@ export async function createVenue(formData: FormData) {
     },
   });
 
+  await prisma.vendor.create({ data: { name, venueId: venue.id } });
+
   revalidatePath("/venues");
   redirect("/venues");
 }
@@ -55,22 +58,37 @@ export async function updateVenue(id: string, formData: FormData) {
   const country = formData.get("country") as string;
   const notes = formData.get("notes") as string;
 
-  await prisma.venue.update({
-    where: { id },
-    data: {
-      name,
-      address: address || null,
-      city: city || null,
-      state: state || null,
-      zip: zip || null,
-      country: country || null,
-      notes: notes || null,
-    },
-  });
+  await Promise.all([
+    prisma.venue.update({
+      where: { id },
+      data: {
+        name,
+        address: address || null,
+        city: city || null,
+        state: state || null,
+        zip: zip || null,
+        country: country || null,
+        notes: notes || null,
+      },
+    }),
+    prisma.vendor.updateMany({ where: { venueId: id }, data: { name } }),
+  ]);
 
   revalidatePath("/venues");
   revalidatePath(`/venues/${id}`);
   redirect(`/venues/${id}?success=Venue updated`);
+}
+
+export async function updateVenueVendorDetails(venueId: string, formData: FormData) {
+  const types = formData.getAll("types") as string[];
+  const notes = (formData.get("notes") as string) || null;
+
+  await prisma.vendor.updateMany({
+    where: { venueId },
+    data: { types, notes },
+  });
+
+  revalidatePath(`/venues/${venueId}`);
 }
 
 export async function deleteVenue(id: string) {

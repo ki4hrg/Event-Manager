@@ -8,6 +8,7 @@ import { Toast } from "@/components/Toast";
 import {
   getVenue,
   updateVenue,
+  updateVenueVendorDetails,
   deleteVenue,
   createRoom,
   updateRoom,
@@ -28,9 +29,10 @@ export const dynamic = "force-dynamic";
 
 export default async function VenuePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [venue, fileTypeOptions, venueFiles] = await Promise.all([
+  const [venue, fileTypeOptions, vendorTypeOptions, venueFiles] = await Promise.all([
     getVenue(id),
     getOptions("file_type"),
+    getOptions("vendor_type"),
     prisma.fileUpload.findMany({ where: { venueId: id }, orderBy: { createdAt: "asc" } }),
   ]);
 
@@ -88,6 +90,11 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
     await createAndAddVenueContact(id, formData);
   };
 
+  const updateVendorDetailsAction = async (formData: FormData) => {
+    "use server";
+    await updateVenueVendorDetails(id, formData);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -107,8 +114,47 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-8">
           <VenueForm venue={venue} action={updateVenueWithId} />
+          {venue.vendor && (
+            <form action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendor Details</h2>
+              {vendorTypeOptions.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Types</label>
+                  <div className="space-y-2">
+                    {vendorTypeOptions.map((type) => (
+                      <label key={type.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="types"
+                          value={type.value}
+                          defaultChecked={venue.vendor!.types.includes(type.value)}
+                          className="rounded border-gray-300 dark:border-gray-600"
+                        />
+                        <span className="text-gray-700 dark:text-gray-300">{type.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                <textarea
+                  name="notes"
+                  rows={3}
+                  defaultValue={venue.vendor.notes || ""}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Save Vendor Details
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="lg:col-span-2 space-y-8">
