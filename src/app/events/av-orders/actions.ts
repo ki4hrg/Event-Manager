@@ -58,7 +58,12 @@ export async function getAVOrder(id: string) {
       videoSection: {
         include: {
           equipmentItems: {
-            include: { responsiblePartyVendor: true },
+            include: {
+              providerVendor: true,
+              providerContact: true,
+              operatorVendor: true,
+              operatorContact: true,
+            },
             orderBy: [{ sortOrder: "asc" }, { item: "asc" }],
           },
         },
@@ -401,7 +406,10 @@ export async function createVideoEquipmentItem(videoSectionId: string, avOrderId
       videoSectionId,
       item: formData.get("item") as string,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
+      providerVendorId: (formData.get("providerVendorId") as string) || null,
+      providerContactId: (formData.get("providerContactId") as string) || null,
+      operatorVendorId: (formData.get("operatorVendorId") as string) || null,
+      operatorContactId: (formData.get("operatorContactId") as string) || null,
       notes: (formData.get("notes") as string) || null,
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
@@ -415,7 +423,10 @@ export async function updateVideoEquipmentItem(id: string, avOrderId: string, ev
     data: {
       item: formData.get("item") as string,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
+      providerVendorId: (formData.get("providerVendorId") as string) || null,
+      providerContactId: (formData.get("providerContactId") as string) || null,
+      operatorVendorId: (formData.get("operatorVendorId") as string) || null,
+      operatorContactId: (formData.get("operatorContactId") as string) || null,
       notes: (formData.get("notes") as string) || null,
     },
   });

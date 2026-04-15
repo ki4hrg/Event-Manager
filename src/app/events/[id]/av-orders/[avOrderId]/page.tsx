@@ -408,7 +408,8 @@ export default async function AVOrderPage({
       {activeTab === "video" && avOrder.videoSection && (
         <VideoSectionPanel
           videoSection={avOrder.videoSection}
-          responsiblePartyVendors={partyOptions.vendors}
+          vendorOptions={partyOptions.vendors}
+          contactOptions={partyOptions.contacts}
           updateSection={updateVideoSectionAction}
           createItem={createVideoItemAction}
           updateItem={updateVideoItemAction}

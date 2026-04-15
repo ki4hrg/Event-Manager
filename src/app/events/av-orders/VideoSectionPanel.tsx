@@ -1,20 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { EquipmentItem, VideoSection, Vendor } from "@prisma/client";
+import type { EquipmentItem, VideoSection, Vendor, Contact } from "@prisma/client";
+import {
+  type PartyOptions,
+  type ContactOptions,
+  mergeAndSortVendors,
+  partyLabel,
+  PartyField,
+} from "./party-field";
 
-type EquipmentItemWithVendor = EquipmentItem & {
-  responsiblePartyVendor: Vendor | null;
+type EquipmentItemWithParties = EquipmentItem & {
+  providerVendor: Vendor | null;
+  providerContact: Contact | null;
+  operatorVendor: Vendor | null;
+  operatorContact: Contact | null;
 };
 
 type VideoSectionWithItems = VideoSection & {
-  equipmentItems: EquipmentItemWithVendor[];
+  equipmentItems: EquipmentItemWithParties[];
 };
 
 type VideoSectionPanelProps = {
   videoSection: VideoSectionWithItems;
-  responsiblePartyVendors: { id: string; name: string }[];
+  vendorOptions: PartyOptions;
+  contactOptions: ContactOptions;
   updateSection: (formData: FormData) => Promise<void>;
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
@@ -36,7 +47,8 @@ function SubmitButton({ label }: { label: string }) {
 
 export function VideoSectionPanel({
   videoSection,
-  responsiblePartyVendors,
+  vendorOptions,
+  contactOptions,
   updateSection,
   createItem,
   updateItem,
@@ -116,58 +128,12 @@ export function VideoSectionPanel({
         </div>
 
         {showAddForm && (
-          <form action={handleCreate} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
-                <input
-                  type="text"
-                  name="item"
-                  required
-                  placeholder="Equipment name"
-                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-                <select
-                  name="responsiblePartyVendorId"
-                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                >
-                  <option value="">— None —</option>
-                  {responsiblePartyVendors.map((v) => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-                <input
-                  type="number"
-                  name="quantity"
-                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                <input
-                  type="text"
-                  name="notes"
-                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <SubmitButton label="Add" />
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+          <AddItemForm
+            vendorOptions={vendorOptions}
+            contactOptions={contactOptions}
+            onSubmit={handleCreate}
+            onCancel={() => setShowAddForm(false)}
+          />
         )}
 
         {videoSection.equipmentItems.length === 0 && !showAddForm && (
@@ -177,91 +143,204 @@ export function VideoSectionPanel({
         {videoSection.equipmentItems.length > 0 && (
           <div className="space-y-2">
             {videoSection.equipmentItems.map((item) => (
-              <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                {editingId === item.id ? (
-                  <form action={(fd) => handleUpdate(item.id, fd)} className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
-                        <input
-                          type="text"
-                          name="item"
-                          required
-                          defaultValue={item.item}
-                          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-                        <select
-                          name="responsiblePartyVendorId"
-                          defaultValue={item.responsiblePartyVendorId || ""}
-                          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                        >
-                          <option value="">— None —</option>
-                          {responsiblePartyVendors.map((v) => (
-                            <option key={v.id} value={v.id}>{v.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-                        <input
-                          type="number"
-                          name="quantity"
-                          defaultValue={item.quantity ?? ""}
-                          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                        <input
-                          type="text"
-                          name="notes"
-                          defaultValue={item.notes || ""}
-                          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <SubmitButton label="Save" />
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-gray-900 dark:text-white font-medium">{item.item}</span>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                        {item.quantity != null && <span>× {item.quantity} </span>}
-                        {item.responsiblePartyVendor && <span>{item.responsiblePartyVendor.name}</span>}
-                        {item.notes && <span className="ml-2">· {item.notes}</span>}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 ml-2 shrink-0">
-                      <button onClick={() => setEditingId(item.id)} className="text-blue-600 hover:underline text-sm">Edit</button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this item?")) await deleteItem(item.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <EquipmentItemRow
+                key={item.id}
+                item={item}
+                vendorOptions={vendorOptions}
+                contactOptions={contactOptions}
+                editing={editingId === item.id}
+                onEdit={() => setEditingId(item.id)}
+                onUpdate={(fd) => handleUpdate(item.id, fd)}
+                onCancelEdit={() => setEditingId(null)}
+                onDelete={deleteItem}
+              />
             ))}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function AddItemForm({
+  vendorOptions,
+  contactOptions,
+  onSubmit,
+  onCancel,
+}: {
+  vendorOptions: PartyOptions;
+  contactOptions: ContactOptions;
+  onSubmit: (formData: FormData) => Promise<void>;
+  onCancel: () => void;
+}) {
+  return (
+    <form action={onSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
+          <input
+            type="text"
+            name="item"
+            required
+            placeholder="Equipment name"
+            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+          <input
+            type="number"
+            name="quantity"
+            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+          <PartyField fieldPrefix="provider" vendors={vendorOptions} contacts={contactOptions} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
+          <PartyField fieldPrefix="operator" vendors={vendorOptions} contacts={contactOptions} />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+          <input
+            type="text"
+            name="notes"
+            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <SubmitButton label="Add" />
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function EquipmentItemRow({
+  item,
+  vendorOptions,
+  contactOptions,
+  editing,
+  onEdit,
+  onUpdate,
+  onCancelEdit,
+  onDelete,
+}: {
+  item: EquipmentItemWithParties;
+  vendorOptions: PartyOptions;
+  contactOptions: ContactOptions;
+  editing: boolean;
+  onEdit: () => void;
+  onUpdate: (formData: FormData) => Promise<void>;
+  onCancelEdit: () => void;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const effectiveVendors = useMemo(
+    () => mergeAndSortVendors(vendorOptions, [item.providerVendor, item.operatorVendor]),
+    [vendorOptions, item.providerVendor, item.operatorVendor]
+  );
+
+  const provider = partyLabel(item.providerVendor, item.providerContact);
+  const operator = partyLabel(item.operatorVendor, item.operatorContact);
+
+  return (
+    <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+      {editing ? (
+        <form action={onUpdate} className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
+              <input
+                type="text"
+                name="item"
+                required
+                defaultValue={item.item}
+                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+              <input
+                type="number"
+                name="quantity"
+                defaultValue={item.quantity ?? ""}
+                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+              <PartyField
+                fieldPrefix="provider"
+                vendors={effectiveVendors}
+                contacts={contactOptions}
+                defaultVendorId={item.providerVendorId}
+                defaultContactId={item.providerContactId}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
+              <PartyField
+                fieldPrefix="operator"
+                vendors={effectiveVendors}
+                contacts={contactOptions}
+                defaultVendorId={item.operatorVendorId}
+                defaultContactId={item.operatorContactId}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+              <input
+                type="text"
+                name="notes"
+                defaultValue={item.notes || ""}
+                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <SubmitButton label="Save" />
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex items-start justify-between">
+          <div>
+            <span className="text-gray-900 dark:text-white font-medium">{item.item}</span>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              {item.quantity != null && <span>× {item.quantity} </span>}
+              {provider && <span>Provider: {provider} </span>}
+              {operator && <span>Op: {operator}</span>}
+              {item.notes && <span className="ml-2">· {item.notes}</span>}
+            </div>
+          </div>
+          <div className="flex gap-2 ml-2 shrink-0">
+            <button onClick={onEdit} className="text-blue-600 hover:underline text-sm">Edit</button>
+            <button
+              onClick={async () => {
+                if (confirm("Delete this item?")) await onDelete(item.id);
+              }}
+              className="text-red-600 hover:underline text-sm"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
