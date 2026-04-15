@@ -160,6 +160,14 @@ export async function createPresentation(eventId: string, formData: FormData) {
   redirect(`/events/${eventId}/presentations/${presentation.id}`);
 }
 
+export async function updatePresentationInstanceCount(id: string, eventId: string, count: number) {
+  await prisma.presentation.update({
+    where: { id },
+    data: { instanceCount: count },
+  });
+  revalidatePath(`/events/${eventId}/presentations/${id}`);
+}
+
 export async function updatePresentation(id: string, eventId: string, formData: FormData) {
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;

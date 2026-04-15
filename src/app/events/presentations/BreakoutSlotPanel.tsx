@@ -38,6 +38,7 @@ type BreakoutSlotPanelProps = {
   removeAll: () => Promise<void>;
   editSlot: (slotId: string, functionId: string, roomId: string | null) => Promise<{ success: boolean; error?: string }>;
   assignToGroup: (groupId: string) => Promise<void>;
+  updateInstanceCount: (count: number) => Promise<void>;
 };
 
 function formatSessionTime(
@@ -66,8 +67,11 @@ export function BreakoutSlotPanel({
   removeAll,
   editSlot,
   assignToGroup,
+  updateInstanceCount,
 }: BreakoutSlotPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingCount, setEditingCount] = useState(false);
+  const [countValue, setCountValue] = useState(String(instanceCount));
   const [addGroupId, setAddGroupId] = useState("");
   const [addSessionId, setAddSessionId] = useState("");
   const [addRoomId, setAddRoomId] = useState("");
@@ -191,9 +195,46 @@ export function BreakoutSlotPanel({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">
           Breakout Schedule
         </h2>
-        <span className={`text-xs px-2 py-0.5 rounded ${placementBadge}`}>
-          {slots.length}/{instanceCount} placed
-        </span>
+        <div className="flex items-center gap-2">
+          {editingCount ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const n = Math.max(1, parseInt(countValue) || 1);
+                setCountValue(String(n));
+                startTransition(async () => {
+                  await updateInstanceCount(n);
+                  setEditingCount(false);
+                });
+              }}
+              className="flex items-center gap-1"
+            >
+              <input
+                type="number"
+                min={1}
+                value={countValue}
+                onChange={(e) => setCountValue(e.target.value)}
+                autoFocus
+                className="w-14 px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+              />
+              <span className="text-xs text-gray-500 dark:text-gray-400">instances</span>
+              <button type="submit" disabled={isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">Save</button>
+              <button type="button" onClick={() => { setEditingCount(false); setCountValue(String(instanceCount)); }} className="text-xs text-gray-500 hover:underline">Cancel</button>
+            </form>
+          ) : (
+            <>
+              <span className={`text-xs px-2 py-0.5 rounded ${placementBadge}`}>
+                {slots.length}/{instanceCount} placed
+              </span>
+              <button
+                onClick={() => setEditingCount(true)}
+                className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                Edit
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Current group + slots display */}

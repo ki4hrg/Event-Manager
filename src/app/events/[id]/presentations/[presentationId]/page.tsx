@@ -12,6 +12,7 @@ import {
   getPresentation,
   getTracks,
   updatePresentation,
+  updatePresentationInstanceCount,
   deletePresentation,
   duplicatePresentation,
   addSpeaker,
@@ -175,6 +176,11 @@ export default async function PresentationPage({
     await assignPresentationToGroup(presentationId, groupId, eventId);
   };
 
+  const updateInstanceCountAction = async (count: number) => {
+    "use server";
+    await updatePresentationInstanceCount(presentationId, eventId, count);
+  };
+
   const createMediaItemAction = async (formData: FormData) => {
     "use server";
     await createMediaItem(presentationId, eventId, formData);
@@ -285,6 +291,7 @@ export default async function PresentationPage({
             removeAll={removeAllAction}
             editSlot={editSlotAction}
             assignToGroup={assignToGroupAction}
+            updateInstanceCount={updateInstanceCountAction}
           />
 
           <WorkflowPanel

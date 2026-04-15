@@ -18,7 +18,6 @@ import {
   assignPresentationToSession,
   movePresentationSlot,
   removePresentationFromSession,
-  createGroupPresentation,
   assignPresentationToGroup,
   getAvailablePresentationsForGroup,
 } from "../../breakout-schedule/actions";
@@ -117,10 +116,6 @@ export default async function BreakoutSchedulePage({
         removeSlot={async (slotId: string) => {
           "use server";
           await removePresentationFromSession(slotId, eventId);
-        }}
-        createGroupPresentation={async (groupId: string, formData: FormData) => {
-          "use server";
-          await createGroupPresentation(groupId, eventId, formData);
         }}
         getAvailablePresentations={async (groupId: string) => {
           "use server";

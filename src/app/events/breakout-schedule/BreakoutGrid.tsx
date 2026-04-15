@@ -84,7 +84,6 @@ type BreakoutGridProps = {
   assignPresentation: (presentationId: string, functionId: string, roomId: string | null) => Promise<{ success: boolean; error?: string }>;
   moveSlot: (slotId: string, newFunctionId: string, newRoomId: string | null) => Promise<{ success: boolean; error?: string }>;
   removeSlot: (slotId: string) => Promise<void>;
-  createGroupPresentation: (groupId: string, formData: FormData) => Promise<void>;
   getAvailablePresentations: (groupId: string) => Promise<AvailablePresentation[]>;
   assignExistingPresentation: (presentationId: string, groupId: string) => Promise<void>;
 };
@@ -347,17 +346,15 @@ function SessionManager({
 function PresentationManager({
   group,
   eventId,
-  createPresentation,
   getAvailablePresentations,
   assignExistingPresentation,
 }: {
   group: GroupData;
   eventId: string;
-  createPresentation: (groupId: string, formData: FormData) => Promise<void>;
   getAvailablePresentations: (groupId: string) => Promise<AvailablePresentation[]>;
   assignExistingPresentation: (presentationId: string, groupId: string) => Promise<void>;
 }) {
-  const [mode, setMode] = useState<null | "select" | "create">(null);
+  const [open, setOpen] = useState(false);
   const [available, setAvailable] = useState<AvailablePresentation[] | null>(null);
   const [filter, setFilter] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -366,13 +363,13 @@ function PresentationManager({
     startTransition(async () => {
       const results = await getAvailablePresentations(group.id);
       setAvailable(results);
-      setMode(results.length === 0 ? "create" : "select");
       setFilter("");
+      setOpen(true);
     });
   };
 
   const close = () => {
-    setMode(null);
+    setOpen(false);
     setAvailable(null);
     setFilter("");
   };
@@ -430,7 +427,7 @@ function PresentationManager({
         </div>
       )}
 
-      {mode === null && (
+      {!open && (
         <button
           onClick={openPicker}
           disabled={isPending}
@@ -440,27 +437,17 @@ function PresentationManager({
         </button>
       )}
 
-      {mode !== null && (
+      {open && (
         <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded space-y-2">
-          {/* Mode tabs */}
-          {available !== null && available.length > 0 && (
-            <div className="flex gap-3 text-xs border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">
-              <button
-                onClick={() => setMode("select")}
-                className={`pb-0.5 ${mode === "select" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
-              >
-                Select existing
-              </button>
-              <button
-                onClick={() => setMode("create")}
-                className={`pb-0.5 ${mode === "create" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
-              >
-                Quick add
-              </button>
-            </div>
-          )}
-
-          {mode === "select" && available !== null && (
+          {available !== null && available.length === 0 ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              No unassigned presentations.{" "}
+              <Link href={`/events/${eventId}/presentations/new`} className="text-blue-600 hover:underline">
+                Create one
+              </Link>{" "}
+              first.
+            </p>
+          ) : (
             <>
               <input
                 type="text"
@@ -472,7 +459,7 @@ function PresentationManager({
               />
               <div className="max-h-48 overflow-y-auto space-y-1">
                 {filteredAvailable.length === 0 ? (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 py-1">No presentations found.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 py-1">No presentations match.</p>
                 ) : (
                   filteredAvailable.map((p) => {
                     const speaker = p.speakers[0]?.contact;
@@ -516,46 +503,6 @@ function PresentationManager({
               </div>
             </>
           )}
-
-          {mode === "create" && (
-            <form
-              action={(formData) => {
-                startTransition(async () => {
-                  await createPresentation(group.id, formData);
-                  close();
-                });
-              }}
-              className="space-y-2"
-            >
-              <input
-                name="title"
-                placeholder="Presentation title"
-                required
-                autoFocus
-                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Instances (how many sessions)</label>
-                <input
-                  name="instanceCount"
-                  type="number"
-                  min="1"
-                  defaultValue="1"
-                  className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
-          )}
-
           <button
             type="button"
             onClick={close}
@@ -1127,7 +1074,6 @@ function GroupPanel({
   assignPresentation,
   moveSlot,
   removeSlot,
-  createGroupPresentation,
   getAvailablePresentations,
   assignExistingPresentation,
 }: {
@@ -1144,7 +1090,6 @@ function GroupPanel({
   assignPresentation: (presentationId: string, functionId: string, roomId: string | null) => Promise<{ success: boolean; error?: string }>;
   moveSlot: (slotId: string, newFunctionId: string, newRoomId: string | null) => Promise<{ success: boolean; error?: string }>;
   removeSlot: (slotId: string) => Promise<void>;
-  createGroupPresentation: (groupId: string, formData: FormData) => Promise<void>;
   getAvailablePresentations: (groupId: string) => Promise<AvailablePresentation[]>;
   assignExistingPresentation: (presentationId: string, groupId: string) => Promise<void>;
 }) {
@@ -1219,7 +1164,6 @@ function GroupPanel({
           <PresentationManager
             group={group}
             eventId={eventId}
-            createPresentation={createGroupPresentation}
             getAvailablePresentations={getAvailablePresentations}
             assignExistingPresentation={assignExistingPresentation}
           />
@@ -1259,7 +1203,6 @@ export function BreakoutGrid({
   assignPresentation,
   moveSlot,
   removeSlot,
-  createGroupPresentation,
   getAvailablePresentations,
   assignExistingPresentation,
 }: BreakoutGridProps) {
@@ -1290,7 +1233,6 @@ export function BreakoutGrid({
           assignPresentation={assignPresentation}
           moveSlot={moveSlot}
           removeSlot={removeSlot}
-          createGroupPresentation={createGroupPresentation}
           getAvailablePresentations={getAvailablePresentations}
           assignExistingPresentation={assignExistingPresentation}
         />

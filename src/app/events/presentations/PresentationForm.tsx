@@ -122,18 +122,6 @@ function PresentationFields({ presentation, tracks, presentationTypes }: Present
       )}
 
       <div>
-        <label htmlFor="instanceCount" className={labelClass}>Instances</label>
-        <input
-          type="number"
-          id="instanceCount"
-          name="instanceCount"
-          min={1}
-          defaultValue={presentation?.instanceCount ?? 1}
-          className={inputClass}
-        />
-      </div>
-
-      <div>
         <label htmlFor="notes" className={labelClass}>Notes</label>
         <textarea
           id="notes"
@@ -253,7 +241,6 @@ export function PresentationForm({
           <ReadOnlyField label="Description" value={presentation.description} />
           <ReadOnlyField label="Track" value={presentation.track?.name ?? null} />
           <ReadOnlyField label="Type" value={typeLabel} />
-          <ReadOnlyField label="Instances" value={String(presentation.instanceCount)} />
           <ReadOnlyField label="Notes" value={presentation.notes} />
         </dl>
       </div>
