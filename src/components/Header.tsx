@@ -1,5 +1,6 @@
 import { auth, signOut } from "@/lib/auth";
 import Link from "next/link";
+import { AdminDropdown } from "./AdminDropdown";
 
 export async function Header() {
   const session = await auth();
@@ -36,28 +37,7 @@ export async function Header() {
             >
               Vendors
             </Link>
-            {session?.user?.role === "admin" && (
-              <>
-                <Link
-                  href="/users"
-                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                >
-                  Users
-                </Link>
-                <Link
-                  href="/workflows"
-                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                >
-                  Workflows
-                </Link>
-                <Link
-                  href="/settings"
-                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                >
-                  Settings
-                </Link>
-              </>
-            )}
+            {session?.user?.role === "admin" && <AdminDropdown />}
           </nav>
         </div>
         <div className="flex items-center gap-4">
