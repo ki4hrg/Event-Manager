@@ -8,3 +8,5 @@ export const colorClasses: Record<string, string> = {
   purple: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300",
   pink: "bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300",
 };
+
+export const COLOR_OPTIONS = Object.keys(colorClasses) as Array<keyof typeof colorClasses>;

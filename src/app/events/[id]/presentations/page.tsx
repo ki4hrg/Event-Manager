@@ -4,10 +4,14 @@ import { getEvent } from "../../actions";
 import {
   getPresentations,
   getTracks,
+  createTrack,
+  updateTrack,
+  deleteTrack,
   duplicatePresentation,
   deletePresentation,
 } from "../../presentations/actions";
 import { PresentationList } from "../../presentations/PresentationList";
+import { TrackPanel } from "../../presentations/TrackPanel";
 import { PageWrapper } from "@/components/PageWrapper";
 import { EventTabs } from "../EventTabs";
 import { getOptions } from "@/app/settings/actions";
@@ -31,6 +35,21 @@ export default async function PresentationsPage({
     notFound();
   }
 
+  const createTrackAction = async (formData: FormData) => {
+    "use server";
+    await createTrack(eventId, formData);
+  };
+
+  const updateTrackAction = async (trackId: string, formData: FormData) => {
+    "use server";
+    await updateTrack(trackId, eventId, formData);
+  };
+
+  const deleteTrackAction = async (trackId: string) => {
+    "use server";
+    await deleteTrack(trackId, eventId);
+  };
+
   const duplicatePresentationAction = async (presentationId: string) => {
     "use server";
     await duplicatePresentation(presentationId, eventId);
@@ -51,6 +70,13 @@ export default async function PresentationsPage({
       </div>
 
       <EventTabs eventId={eventId} />
+
+      <TrackPanel
+        tracks={tracks}
+        createTrack={createTrackAction}
+        updateTrack={updateTrackAction}
+        deleteTrack={deleteTrackAction}
+      />
 
       <PresentationList
         presentations={presentations}
