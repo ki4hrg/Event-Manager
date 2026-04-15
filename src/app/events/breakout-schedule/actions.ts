@@ -536,3 +536,18 @@ export async function getAvailableBlocksForPresentation(
     orderBy: { name: "asc" },
   });
 }
+
+export async function removeAllBreakoutAssignments(
+  presentationId: string,
+  eventId: string
+) {
+  await prisma.$transaction([
+    prisma.presentationSlot.deleteMany({ where: { presentationId } }),
+    prisma.presentation.update({
+      where: { id: presentationId },
+      data: { breakoutGroupId: null },
+    }),
+  ]);
+  revalidatePath(`/events/${eventId}/breakout-schedule`);
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}

@@ -32,11 +32,10 @@ import {
   unlinkAVOrderFromPresentationPage,
 } from "../../../av-orders/actions";
 import {
-  getAvailableBlocksForPresentation,
   assignPresentationToBlock,
-  removePresentationFromBlock,
   assignPresentationToGroup,
-  unassignPresentationFromGroup,
+  removeAllBreakoutAssignments,
+  movePresentationSlot,
 } from "../../../breakout-schedule/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
 import { BreakoutSlotPanel } from "../../../presentations/BreakoutSlotPanel";
@@ -68,28 +67,43 @@ export default async function PresentationPage({
     notFound();
   }
 
-  // Get rooms from the event's venue
-  const [rooms, breakoutGroups] = await Promise.all([
-    event.venueId
-      ? prisma.room.findMany({
-          where: { venueId: event.venueId },
-          orderBy: { name: "asc" },
-        })
-      : Promise.resolve([]),
+  const [breakoutGroups, availableAVOrders, mediaItemPartyOptions] = await Promise.all([
     prisma.breakoutGroup.findMany({
       where: { eventId },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        rooms: {
+          select: { room: { select: { id: true, name: true } } },
+          orderBy: { id: "asc" },
+        },
+        functions: {
+          where: { type: "BREAKOUT_BLOCK" },
+          select: {
+            id: true,
+            name: true,
+            schedules: {
+              select: { startTime: true, endTime: true },
+              orderBy: { startTime: "asc" },
+            },
+          },
+          orderBy: { name: "asc" },
+        },
+      },
       orderBy: { sortOrder: "asc" },
     }),
-  ]);
-
-  const [availableAVOrders, availableBlocks, mediaItemPartyOptions] = await Promise.all([
     presentation.avOrder
-      ? []
+      ? Promise.resolve([])
       : getAvailableAVOrdersForPresentation(eventId),
-    getAvailableBlocksForPresentation(presentationId, eventId),
     getMediaItemPartyOptions(presentationId, eventId),
   ]);
+
+  const breakoutGroupsFull = breakoutGroups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    rooms: g.rooms.map((r) => ({ id: r.room.id, name: r.room.name })),
+    sessions: g.functions,
+  }));
 
   const updatePresentationAction = async (formData: FormData) => {
     "use server";
@@ -146,19 +160,19 @@ export default async function PresentationPage({
     await assignPresentationToBlock(presentationId, functionId, roomId, eventId);
   };
 
-  const removeSlotAction = async (slotId: string) => {
+  const removeAllAction = async () => {
     "use server";
-    await removePresentationFromBlock(slotId, eventId);
+    await removeAllBreakoutAssignments(presentationId, eventId);
+  };
+
+  const editSlotAction = async (slotId: string, functionId: string, roomId: string | null) => {
+    "use server";
+    return movePresentationSlot(slotId, functionId, roomId, eventId);
   };
 
   const assignToGroupAction = async (groupId: string) => {
     "use server";
     await assignPresentationToGroup(presentationId, groupId, eventId);
-  };
-
-  const unassignFromGroupAction = async () => {
-    "use server";
-    await unassignPresentationFromGroup(presentationId, eventId);
   };
 
   const createMediaItemAction = async (formData: FormData) => {
@@ -262,17 +276,15 @@ export default async function PresentationPage({
 
           <BreakoutSlotPanel
             slots={presentation.slots}
-            availableBlocks={availableBlocks}
-            rooms={rooms}
             eventId={eventId}
             timezone={event.timezone}
             instanceCount={presentation.instanceCount}
             currentGroupId={presentation.breakoutGroupId}
-            groups={breakoutGroups}
+            groups={breakoutGroupsFull}
             addSlot={addSlotAction}
-            removeSlot={removeSlotAction}
+            removeAll={removeAllAction}
+            editSlot={editSlotAction}
             assignToGroup={assignToGroupAction}
-            unassignFromGroup={unassignFromGroupAction}
           />
 
           <WorkflowPanel
