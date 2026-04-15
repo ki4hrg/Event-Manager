@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useMemo } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -57,6 +57,14 @@ type GroupData = BreakoutGroup & {
   presentations: GroupPresentation[];
 };
 
+type AvailablePresentation = {
+  id: string;
+  title: string;
+  instanceCount: number;
+  track: { color: string | null } | null;
+  speakers: { contact: { firstName: string; lastName: string } }[];
+};
+
 type BreakoutGridProps = {
   eventId: string;
   groups: GroupData[];
@@ -77,6 +85,8 @@ type BreakoutGridProps = {
   moveSlot: (slotId: string, newFunctionId: string, newRoomId: string | null) => Promise<{ success: boolean; error?: string }>;
   removeSlot: (slotId: string) => Promise<void>;
   createGroupPresentation: (groupId: string, formData: FormData) => Promise<void>;
+  getAvailablePresentations: (groupId: string) => Promise<AvailablePresentation[]>;
+  assignExistingPresentation: (presentationId: string, groupId: string) => Promise<void>;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -338,13 +348,41 @@ function PresentationManager({
   group,
   eventId,
   createPresentation,
+  getAvailablePresentations,
+  assignExistingPresentation,
 }: {
   group: GroupData;
   eventId: string;
   createPresentation: (groupId: string, formData: FormData) => Promise<void>;
+  getAvailablePresentations: (groupId: string) => Promise<AvailablePresentation[]>;
+  assignExistingPresentation: (presentationId: string, groupId: string) => Promise<void>;
 }) {
-  const [showAdd, setShowAdd] = useState(false);
+  const [mode, setMode] = useState<null | "select" | "create">(null);
+  const [available, setAvailable] = useState<AvailablePresentation[] | null>(null);
+  const [filter, setFilter] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  const openPicker = () => {
+    startTransition(async () => {
+      const results = await getAvailablePresentations(group.id);
+      setAvailable(results);
+      setMode(results.length === 0 ? "create" : "select");
+      setFilter("");
+    });
+  };
+
+  const close = () => {
+    setMode(null);
+    setAvailable(null);
+    setFilter("");
+  };
+
+  const filteredAvailable = useMemo(
+    () => available
+      ? available.filter((p) => p.title.toLowerCase().includes(filter.toLowerCase()))
+      : [],
+    [available, filter]
+  );
 
   return (
     <div className="mb-4">
@@ -391,57 +429,141 @@ function PresentationManager({
           })}
         </div>
       )}
-      {showAdd ? (
-        <form
-          action={(formData) => {
-            startTransition(async () => {
-              await createPresentation(group.id, formData);
-              setShowAdd(false);
-            });
-          }}
-          className="p-3 bg-gray-50 dark:bg-gray-800 rounded space-y-2"
-        >
-          <input
-            name="title"
-            placeholder="Presentation title"
-            required
-            autoFocus
-            className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          />
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Instances (how many sessions)</label>
-            <input
-              name="instanceCount"
-              type="number"
-              min="1"
-              defaultValue="1"
-              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={isPending}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              Create
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAdd(false)}
-              className="text-gray-500 text-sm hover:text-gray-700"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
+
+      {mode === null && (
         <button
-          onClick={() => setShowAdd(true)}
-          className="text-sm text-blue-600 hover:underline"
+          onClick={openPicker}
+          disabled={isPending}
+          className="text-sm text-blue-600 hover:underline disabled:opacity-50"
         >
-          + Add Presentation
+          {isPending ? "Loading..." : "+ Add Presentation"}
         </button>
+      )}
+
+      {mode !== null && (
+        <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded space-y-2">
+          {/* Mode tabs */}
+          {available !== null && available.length > 0 && (
+            <div className="flex gap-3 text-xs border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">
+              <button
+                onClick={() => setMode("select")}
+                className={`pb-0.5 ${mode === "select" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+              >
+                Select existing
+              </button>
+              <button
+                onClick={() => setMode("create")}
+                className={`pb-0.5 ${mode === "create" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+              >
+                Quick add
+              </button>
+            </div>
+          )}
+
+          {mode === "select" && available !== null && (
+            <>
+              <input
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filter presentations..."
+                autoFocus
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              />
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {filteredAvailable.length === 0 ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 py-1">No presentations found.</p>
+                ) : (
+                  filteredAvailable.map((p) => {
+                    const speaker = p.speakers[0]?.contact;
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between gap-2 px-2 py-1.5 bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-sm"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {p.track && (
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: p.track.color || "#9ca3af" }}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <div className="truncate text-gray-900 dark:text-white">{p.title}</div>
+                            {speaker && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {speaker.firstName} {speaker.lastName}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            startTransition(async () => {
+                              await assignExistingPresentation(p.id, group.id);
+                              close();
+                            });
+                          }}
+                          disabled={isPending}
+                          className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 shrink-0"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+
+          {mode === "create" && (
+            <form
+              action={(formData) => {
+                startTransition(async () => {
+                  await createPresentation(group.id, formData);
+                  close();
+                });
+              }}
+              className="space-y-2"
+            >
+              <input
+                name="title"
+                placeholder="Presentation title"
+                required
+                autoFocus
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              />
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Instances (how many sessions)</label>
+                <input
+                  name="instanceCount"
+                  type="number"
+                  min="1"
+                  defaultValue="1"
+                  className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          )}
+
+          <button
+            type="button"
+            onClick={close}
+            className="text-gray-500 dark:text-gray-400 text-sm hover:text-gray-700 dark:hover:text-gray-200"
+          >
+            Cancel
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1006,6 +1128,8 @@ function GroupPanel({
   moveSlot,
   removeSlot,
   createGroupPresentation,
+  getAvailablePresentations,
+  assignExistingPresentation,
 }: {
   group: GroupData;
   eventId: string;
@@ -1021,6 +1145,8 @@ function GroupPanel({
   moveSlot: (slotId: string, newFunctionId: string, newRoomId: string | null) => Promise<{ success: boolean; error?: string }>;
   removeSlot: (slotId: string) => Promise<void>;
   createGroupPresentation: (groupId: string, formData: FormData) => Promise<void>;
+  getAvailablePresentations: (groupId: string) => Promise<AvailablePresentation[]>;
+  assignExistingPresentation: (presentationId: string, groupId: string) => Promise<void>;
 }) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -1094,6 +1220,8 @@ function GroupPanel({
             group={group}
             eventId={eventId}
             createPresentation={createGroupPresentation}
+            getAvailablePresentations={getAvailablePresentations}
+            assignExistingPresentation={assignExistingPresentation}
           />
         </div>
 
@@ -1132,6 +1260,8 @@ export function BreakoutGrid({
   moveSlot,
   removeSlot,
   createGroupPresentation,
+  getAvailablePresentations,
+  assignExistingPresentation,
 }: BreakoutGridProps) {
   const [showAddGroup, setShowAddGroup] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -1161,6 +1291,8 @@ export function BreakoutGrid({
           moveSlot={moveSlot}
           removeSlot={removeSlot}
           createGroupPresentation={createGroupPresentation}
+          getAvailablePresentations={getAvailablePresentations}
+          assignExistingPresentation={assignExistingPresentation}
         />
       ))}
 

@@ -19,6 +19,8 @@ import {
   movePresentationSlot,
   removePresentationFromSession,
   createGroupPresentation,
+  assignPresentationToGroup,
+  getAvailablePresentationsForGroup,
 } from "../../breakout-schedule/actions";
 import { BreakoutGrid } from "../../breakout-schedule/BreakoutGrid";
 
@@ -119,6 +121,14 @@ export default async function BreakoutSchedulePage({
         createGroupPresentation={async (groupId: string, formData: FormData) => {
           "use server";
           await createGroupPresentation(groupId, eventId, formData);
+        }}
+        getAvailablePresentations={async (groupId: string) => {
+          "use server";
+          return getAvailablePresentationsForGroup(groupId, eventId);
+        }}
+        assignExistingPresentation={async (presentationId: string, groupId: string) => {
+          "use server";
+          await assignPresentationToGroup(presentationId, groupId, eventId);
         }}
       />
     </PageWrapper>

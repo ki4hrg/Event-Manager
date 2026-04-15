@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import type {
   PresentationSlot,
@@ -23,16 +23,21 @@ type AvailableBlock = PrismaFunction & {
   breakoutGroup: BreakoutGroup | null;
 };
 
+type BreakoutGroupBasic = { id: string; name: string };
+
 type BreakoutSlotPanelProps = {
   slots: SlotWithDetails[];
   availableBlocks: AvailableBlock[];
   rooms: Room[];
   eventId: string;
   timezone: string;
-  groupName: string | null;
   instanceCount: number;
+  currentGroupId: string | null;
+  groups: BreakoutGroupBasic[];
   addSlot: (functionId: string, roomId: string | null) => Promise<void>;
   removeSlot: (slotId: string) => Promise<void>;
+  assignToGroup: (groupId: string) => Promise<void>;
+  unassignFromGroup: () => Promise<void>;
 };
 
 function formatBlockTime(
@@ -57,23 +62,65 @@ export function BreakoutSlotPanel({
   rooms,
   eventId,
   timezone,
-  groupName,
   instanceCount,
+  currentGroupId,
+  groups,
   addSlot,
   removeSlot,
+  assignToGroup,
+  unassignFromGroup,
 }: BreakoutSlotPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [step, setStep] = useState<"group" | "session">("group");
+  const [selectedGroupId, setSelectedGroupId] = useState(currentGroupId ?? "");
   const [selectedBlockId, setSelectedBlockId] = useState("");
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const handleAdd = () => {
+  const blocksForGroup = useMemo(
+    () => selectedGroupId
+      ? availableBlocks.filter((b) => b.breakoutGroup?.id === selectedGroupId)
+      : availableBlocks,
+    [availableBlocks, selectedGroupId]
+  );
+
+  const currentGroup = useMemo(
+    () => groups.find((g) => g.id === currentGroupId),
+    [groups, currentGroupId]
+  );
+
+  const resetForm = () => {
+    setShowAddForm(false);
+    setStep("group");
+    setSelectedGroupId(currentGroupId ?? "");
+    setSelectedBlockId("");
+    setSelectedRoomId("");
+  };
+
+  const handleGroupOnly = () => {
+    if (!selectedGroupId) return;
+    startTransition(async () => {
+      await assignToGroup(selectedGroupId);
+      resetForm();
+    });
+  };
+
+  const handleNextToSession = () => {
+    if (!selectedGroupId) return;
+    setSelectedBlockId("");
+    setSelectedRoomId("");
+    setStep("session");
+  };
+
+  const handleAddWithSession = () => {
     if (!selectedBlockId) return;
     startTransition(async () => {
+      // Assign to group first if not already in this group
+      if (currentGroupId !== selectedGroupId) {
+        await assignToGroup(selectedGroupId);
+      }
       await addSlot(selectedBlockId, selectedRoomId || null);
-      setShowAddForm(false);
-      setSelectedBlockId("");
-      setSelectedRoomId("");
+      resetForm();
     });
   };
 
@@ -84,37 +131,53 @@ export function BreakoutSlotPanel({
     });
   };
 
+  const handleUnassignFromGroup = () => {
+    if (!confirm("Remove this presentation from the breakout group?")) return;
+    startTransition(async () => {
+      await unassignFromGroup();
+    });
+  };
+
+  // Derive placement status
+  const placementBadge =
+    slots.length >= instanceCount
+      ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+      : slots.length > 0
+      ? "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
+      : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400";
+
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">
           Breakout Schedule
         </h2>
-        <div className="flex items-center gap-2">
-          {groupName && (
-            <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
-              {groupName}
-            </span>
-          )}
-          <span
-            className={`text-xs px-2 py-0.5 rounded ${
-              slots.length >= instanceCount
-                ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
-                : slots.length > 0
-                ? "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-            }`}
-          >
-            {slots.length}/{instanceCount} placed
-          </span>
-        </div>
+        <span className={`text-xs px-2 py-0.5 rounded ${placementBadge}`}>
+          {slots.length}/{instanceCount} placed
+        </span>
       </div>
 
-      {slots.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Not assigned to any breakout block.
-        </p>
-      ) : (
+      {/* Group-only assignment (in group but no slots) */}
+      {currentGroupId && slots.length === 0 && (
+        <div className="flex items-center justify-between p-3 mb-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <div>
+            <div className="text-sm text-gray-900 dark:text-white">
+              In group: <span className="font-medium">{currentGroup?.name ?? currentGroupId}</span>
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">No session assigned</div>
+          </div>
+          <button
+            onClick={handleUnassignFromGroup}
+            disabled={isPending}
+            className="text-red-600 hover:underline text-sm disabled:opacity-50 shrink-0 ml-3"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+
+      {/* Existing slots */}
+      {slots.length > 0 && (
         <div className="space-y-2 mb-4">
           {slots.map((slot) => (
             <div
@@ -156,91 +219,154 @@ export function BreakoutSlotPanel({
         </div>
       )}
 
+      {/* Add form */}
       {showAddForm ? (
         <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-          {availableBlocks.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              No available breakout blocks. Create blocks on the{" "}
-              <Link
-                href={`/events/${eventId}/breakout-schedule`}
-                className="text-blue-600 hover:underline"
-              >
-                Breakout tab
-              </Link>
-              .
-            </p>
-          ) : (
+          {step === "group" && (
             <>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Block
+                  Breakout Group
                 </label>
-                <select
-                  value={selectedBlockId}
-                  onChange={(e) => setSelectedBlockId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                {groups.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No breakout groups. Create groups on the{" "}
+                    <Link
+                      href={`/events/${eventId}/breakout-schedule`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Breakout tab
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  <select
+                    value={selectedGroupId}
+                    onChange={(e) => setSelectedGroupId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value="">Select group...</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {groups.length > 0 && (
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={handleNextToSession}
+                    disabled={!selectedGroupId || isPending}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Next: Select session
+                  </button>
+                  <button
+                    onClick={handleGroupOnly}
+                    disabled={!selectedGroupId || isPending}
+                    className="px-3 py-1.5 text-blue-600 text-sm hover:underline disabled:opacity-50"
+                  >
+                    {isPending ? "Saving..." : "Add to group (no session)"}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {step === "session" && (
+            <>
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <button
+                  onClick={() => setStep("group")}
+                  className="text-blue-600 hover:underline"
                 >
-                  <option value="">Select block...</option>
-                  {availableBlocks.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                      {b.schedules[0]
-                        ? ` — ${formatBlockTime(b.schedules, timezone)}`
-                        : ""}
-                      {b.breakoutGroup ? ` (${b.breakoutGroup.name})` : ""}
-                    </option>
-                  ))}
-                </select>
+                  ← Back
+                </button>
+                <span>Group: <span className="font-medium text-gray-700 dark:text-gray-300">{groups.find((g) => g.id === selectedGroupId)?.name}</span></span>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Room (optional)
+                  Session (optional)
                 </label>
-                <select
-                  value={selectedRoomId}
-                  onChange={(e) => setSelectedRoomId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                {blocksForGroup.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No available sessions in this group.
+                  </p>
+                ) : (
+                  <select
+                    value={selectedBlockId}
+                    onChange={(e) => setSelectedBlockId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value="">Select session...</option>
+                    {blocksForGroup.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                        {b.schedules[0] ? ` — ${formatBlockTime(b.schedules, timezone)}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {selectedBlockId && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Room (optional)
+                  </label>
+                  <select
+                    value={selectedRoomId}
+                    onChange={(e) => setSelectedRoomId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value="">Unassigned</option>
+                    {rooms.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex gap-2 items-center">
+                {selectedBlockId && (
+                  <button
+                    onClick={handleAddWithSession}
+                    disabled={isPending}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isPending ? "Adding..." : "Add to session"}
+                  </button>
+                )}
+                <button
+                  onClick={handleGroupOnly}
+                  disabled={isPending}
+                  className="px-3 py-1.5 text-blue-600 text-sm hover:underline disabled:opacity-50"
                 >
-                  <option value="">Unassigned</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                  {isPending ? "Saving..." : "Add to group only"}
+                </button>
               </div>
             </>
           )}
 
-          <div className="flex gap-2">
-            {availableBlocks.length > 0 && (
-              <button
-                onClick={handleAdd}
-                disabled={!selectedBlockId || isPending}
-                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isPending ? "Adding..." : "Add"}
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setShowAddForm(false);
-                setSelectedBlockId("");
-                setSelectedRoomId("");
-              }}
-              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
-            >
-              Cancel
-            </button>
-          </div>
+          <button
+            onClick={resetForm}
+            className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
+          >
+            Cancel
+          </button>
         </div>
       ) : (
         <button
           onClick={() => setShowAddForm(true)}
           className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
         >
-          Add to Block
+          Add to Breakout
         </button>
       )}
     </div>

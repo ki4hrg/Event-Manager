@@ -422,6 +422,52 @@ export async function removePresentationFromSession(slotId: string, eventId: str
 
 // ── Group Presentation Management ──────────────────────────────────────────────
 
+export async function assignPresentationToGroup(
+  presentationId: string,
+  groupId: string,
+  eventId: string
+) {
+  await prisma.presentation.update({
+    where: { id: presentationId },
+    data: { breakoutGroupId: groupId },
+  });
+  revalidatePath(`/events/${eventId}/breakout-schedule`);
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function unassignPresentationFromGroup(
+  presentationId: string,
+  eventId: string
+) {
+  await prisma.presentation.update({
+    where: { id: presentationId },
+    data: { breakoutGroupId: null },
+  });
+  revalidatePath(`/events/${eventId}/breakout-schedule`);
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function getAvailablePresentationsForGroup(
+  groupId: string,
+  eventId: string
+) {
+  return prisma.presentation.findMany({
+    where: { eventId, NOT: { breakoutGroupId: groupId } },
+    select: {
+      id: true,
+      title: true,
+      instanceCount: true,
+      track: { select: { color: true } },
+      speakers: {
+        select: { contact: { select: { firstName: true, lastName: true } } },
+        take: 1,
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+    orderBy: { title: "asc" },
+  });
+}
+
 export async function createGroupPresentation(
   groupId: string,
   eventId: string,

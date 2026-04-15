@@ -35,6 +35,8 @@ import {
   getAvailableBlocksForPresentation,
   assignPresentationToBlock,
   removePresentationFromBlock,
+  assignPresentationToGroup,
+  unassignPresentationFromGroup,
 } from "../../../breakout-schedule/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
 import { BreakoutSlotPanel } from "../../../presentations/BreakoutSlotPanel";
@@ -67,12 +69,19 @@ export default async function PresentationPage({
   }
 
   // Get rooms from the event's venue
-  const rooms = event.venueId
-    ? await prisma.room.findMany({
-        where: { venueId: event.venueId },
-        orderBy: { name: "asc" },
-      })
-    : [];
+  const [rooms, breakoutGroups] = await Promise.all([
+    event.venueId
+      ? prisma.room.findMany({
+          where: { venueId: event.venueId },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    prisma.breakoutGroup.findMany({
+      where: { eventId },
+      select: { id: true, name: true },
+      orderBy: { sortOrder: "asc" },
+    }),
+  ]);
 
   const [availableAVOrders, availableBlocks, mediaItemPartyOptions] = await Promise.all([
     presentation.avOrder
@@ -140,6 +149,16 @@ export default async function PresentationPage({
   const removeSlotAction = async (slotId: string) => {
     "use server";
     await removePresentationFromBlock(slotId, eventId);
+  };
+
+  const assignToGroupAction = async (groupId: string) => {
+    "use server";
+    await assignPresentationToGroup(presentationId, groupId, eventId);
+  };
+
+  const unassignFromGroupAction = async () => {
+    "use server";
+    await unassignPresentationFromGroup(presentationId, eventId);
   };
 
   const createMediaItemAction = async (formData: FormData) => {
@@ -247,10 +266,13 @@ export default async function PresentationPage({
             rooms={rooms}
             eventId={eventId}
             timezone={event.timezone}
-            groupName={presentation.breakoutGroup?.name ?? null}
             instanceCount={presentation.instanceCount}
+            currentGroupId={presentation.breakoutGroupId}
+            groups={breakoutGroups}
             addSlot={addSlotAction}
             removeSlot={removeSlotAction}
+            assignToGroup={assignToGroupAction}
+            unassignFromGroup={unassignFromGroupAction}
           />
 
           <WorkflowPanel
