@@ -13,6 +13,9 @@ import {
   createRoom,
   updateRoom,
   deleteRoom,
+  createRoomGroup,
+  updateRoomGroup,
+  deleteRoomGroup,
   searchContacts,
   addVenueContact,
   updateVenueContact,
@@ -62,6 +65,21 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
   const deleteRoomAction = async (roomId: string) => {
     "use server";
     await deleteRoom(roomId, id);
+  };
+
+  const createRoomGroupAction = async (formData: FormData) => {
+    "use server";
+    await createRoomGroup(id, formData);
+  };
+
+  const updateRoomGroupAction = async (groupId: string, formData: FormData) => {
+    "use server";
+    await updateRoomGroup(groupId, id, formData);
+  };
+
+  const deleteRoomGroupAction = async (groupId: string) => {
+    "use server";
+    await deleteRoomGroup(groupId, id);
   };
 
   const searchContactsAction = async (query: string) => {
@@ -140,10 +158,14 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
         <div className="lg:col-span-2 space-y-8">
           <RoomList
             rooms={venue.rooms}
+            roomGroups={venue.roomGroups}
             venueId={id}
             createRoom={createRoomAction}
             updateRoom={updateRoomAction}
             deleteRoom={deleteRoomAction}
+            createRoomGroup={createRoomGroupAction}
+            updateRoomGroup={updateRoomGroupAction}
+            deleteRoomGroup={deleteRoomGroupAction}
           />
           <ContactList
             contacts={venue.contacts}

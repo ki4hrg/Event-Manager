@@ -16,6 +16,7 @@ export async function getVenue(id: string) {
     where: { id },
     include: {
       rooms: { orderBy: { name: "asc" } },
+      roomGroups: { orderBy: { sortOrder: "asc" } },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       vendor: true,
     },
@@ -101,6 +102,7 @@ export async function createRoom(venueId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const capacity = formData.get("capacity") as string;
   const notes = formData.get("notes") as string;
+  const groupId = formData.get("groupId") as string;
 
   await prisma.room.create({
     data: {
@@ -108,6 +110,7 @@ export async function createRoom(venueId: string, formData: FormData) {
       capacity: capacity ? parseInt(capacity) : null,
       notes: notes || null,
       venueId,
+      groupId: groupId || null,
     },
   });
 
@@ -118,6 +121,7 @@ export async function updateRoom(roomId: string, venueId: string, formData: Form
   const name = formData.get("name") as string;
   const capacity = formData.get("capacity") as string;
   const notes = formData.get("notes") as string;
+  const groupId = formData.get("groupId") as string;
 
   await prisma.room.update({
     where: { id: roomId },
@@ -125,6 +129,7 @@ export async function updateRoom(roomId: string, venueId: string, formData: Form
       name,
       capacity: capacity ? parseInt(capacity) : null,
       notes: notes || null,
+      groupId: groupId || null,
     },
   });
 
@@ -133,6 +138,24 @@ export async function updateRoom(roomId: string, venueId: string, formData: Form
 
 export async function deleteRoom(roomId: string, venueId: string) {
   await prisma.room.delete({ where: { id: roomId } });
+  revalidatePath(`/venues/${venueId}`);
+}
+
+// Room group actions
+export async function createRoomGroup(venueId: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  await prisma.roomGroup.create({ data: { name, venueId } });
+  revalidatePath(`/venues/${venueId}`);
+}
+
+export async function updateRoomGroup(groupId: string, venueId: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  await prisma.roomGroup.update({ where: { id: groupId }, data: { name } });
+  revalidatePath(`/venues/${venueId}`);
+}
+
+export async function deleteRoomGroup(groupId: string, venueId: string) {
+  await prisma.roomGroup.delete({ where: { id: groupId } });
   revalidatePath(`/venues/${venueId}`);
 }
 
