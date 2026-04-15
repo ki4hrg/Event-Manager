@@ -1,0 +1,234 @@
+import type { getCateringOrder } from "./actions";
+import type { getWorkflowInstances } from "../workflows/actions";
+import type { getCateringOrderVendors } from "@/app/vendors/actions";
+import { Section, Field } from "@/components/print/PrintDetails";
+import { WorkflowSection } from "@/components/print/WorkflowSection";
+
+type CateringOrderData = NonNullable<Awaited<ReturnType<typeof getCateringOrder>>>;
+type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
+type VendorAssignment = Awaited<ReturnType<typeof getCateringOrderVendors>>[number];
+
+function formatDate(d: Date | null | undefined): string {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function formatTime(d: Date | null | undefined): string {
+  if (!d) return "—";
+  return new Date(d).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+interface CateringOrderDetailsProps {
+  order: CateringOrderData;
+  vendors: VendorAssignment[];
+  workflowInstances: WorkflowInstance[];
+}
+
+export function CateringOrderDetails({
+  order,
+  vendors,
+  workflowInstances,
+}: CateringOrderDetailsProps) {
+  return (
+    <div className="space-y-2">
+      {/* Overview */}
+      <Section title="Overview">
+        <Field label="Linked Function" value={order.function?.name} />
+        <Field label="Service Style" value={order.serviceStyle} />
+        {(order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null) && (
+          <div className="mb-2 text-sm">
+            <span className="font-medium text-gray-500 print:text-gray-600">Attendance: </span>
+            <span className="text-gray-900 print:text-black">
+              {[
+                order.expectedCount != null && `Expected: ${order.expectedCount}`,
+                order.confirmedCount != null && `Confirmed: ${order.confirmedCount}`,
+                order.guaranteeCount != null && `Guarantee: ${order.guaranteeCount}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </div>
+        )}
+        {(order.depositDeadline || order.guaranteeDeadline || order.paymentDeadline) && (
+          <div className="mb-2 text-sm">
+            <span className="font-medium text-gray-500 print:text-gray-600">Deadlines: </span>
+            <span className="text-gray-900 print:text-black">
+              {[
+                order.depositDeadline && `Deposit: ${formatDate(order.depositDeadline)}`,
+                order.guaranteeDeadline && `Guarantee: ${formatDate(order.guaranteeDeadline)}`,
+                order.paymentDeadline && `Payment: ${formatDate(order.paymentDeadline)}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </div>
+        )}
+        {(order.rentalMinimum != null || order.fbMinimum != null) && (
+          <div className="mb-2 text-sm">
+            <span className="font-medium text-gray-500 print:text-gray-600">Minimums: </span>
+            <span className="text-gray-900 print:text-black">
+              {[
+                order.rentalMinimum != null && `Rental: $${order.rentalMinimum.toLocaleString()}`,
+                order.fbMinimum != null && `F&B: $${order.fbMinimum.toLocaleString()}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </div>
+        )}
+        <Field label="Dietary Notes" value={order.dietaryNotes} />
+        <Field label="Staffing Notes" value={order.staffingNotes} />
+        <Field label="Cancellation Terms" value={order.cancellationTerms} />
+        <Field label="Notes" value={order.notes} />
+      </Section>
+
+      {/* Timeline */}
+      {order.timelineItems.length > 0 && (
+        <Section title="Timeline">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left text-gray-500 print:text-gray-600">
+                <th className="pb-1 pr-4 font-medium">Label</th>
+                <th className="pb-1 pr-4 font-medium">Start</th>
+                <th className="pb-1 pr-4 font-medium">End</th>
+                <th className="pb-1 font-medium">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.timelineItems.map((item) => (
+                <tr key={item.id} className="border-t border-gray-100 print:border-gray-300">
+                  <td className="py-1.5 pr-4 text-gray-900 print:text-black">{item.label}</td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{formatTime(item.startTime)}</td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{formatTime(item.endTime)}</td>
+                  <td className="py-1.5 text-gray-600 print:text-gray-700">{item.notes ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
+
+      {/* Menu */}
+      {order.menuSections.length > 0 && (
+        <Section title="Menu">
+          {order.menuSections.map((section) => (
+            <div key={section.id} className="mb-4">
+              {section.responsiblePartyVendor && (
+                <p className="text-xs text-gray-500 print:text-gray-600 mb-1">
+                  By: {section.responsiblePartyVendor.name}
+                </p>
+              )}
+              <div
+                className="text-sm text-gray-700 print:text-black prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: section.menuContent }}
+              />
+              {section.notes && (
+                <p className="text-xs text-gray-500 print:text-gray-600 mt-1">{section.notes}</p>
+              )}
+            </div>
+          ))}
+        </Section>
+      )}
+
+      {/* Equipment */}
+      {order.equipmentItems.length > 0 && (
+        <Section title="Equipment">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left text-gray-500 print:text-gray-600">
+                <th className="pb-1 pr-4 font-medium">Item</th>
+                <th className="pb-1 pr-4 font-medium">Qty</th>
+                <th className="pb-1 font-medium">Responsible Party</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.equipmentItems.map((e) => (
+                <tr key={e.id} className="border-t border-gray-100 print:border-gray-300">
+                  <td className="py-1.5 pr-4 text-gray-900 print:text-black">{e.item}</td>
+                  <td className="py-1.5 pr-4 text-gray-900 print:text-black">{e.quantity}</td>
+                  <td className="py-1.5 text-gray-600 print:text-gray-700">
+                    {e.responsiblePartyVendor?.name ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
+
+      {/* Line Items */}
+      {order.lineItems.length > 0 && (
+        <Section title="Contract Line Items">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left text-gray-500 print:text-gray-600">
+                <th className="pb-1 pr-4 font-medium">Description</th>
+                <th className="pb-1 pr-4 font-medium">Unit</th>
+                <th className="pb-1 pr-4 font-medium">Unit Price</th>
+                <th className="pb-1 pr-4 font-medium">Qty</th>
+                <th className="pb-1 font-medium">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.lineItems.map((li) => (
+                <tr key={li.id} className="border-t border-gray-100 print:border-gray-300">
+                  <td className="py-1.5 pr-4 text-gray-900 print:text-black">{li.description}</td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{li.unitType ?? "—"}</td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">
+                    {li.unitPrice != null ? `$${li.unitPrice.toLocaleString()}` : "—"}
+                  </td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{li.quantity ?? "—"}</td>
+                  <td className="py-1.5 text-gray-600 print:text-gray-700">{li.notes ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
+
+      {/* Contacts */}
+      {order.contacts.length > 0 && (
+        <Section title="Contacts">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left text-gray-500 print:text-gray-600">
+                <th className="pb-1 pr-4 font-medium">Name</th>
+                <th className="pb-1 pr-4 font-medium">Role</th>
+                <th className="pb-1 pr-4 font-medium">Email</th>
+                <th className="pb-1 font-medium">Phone</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.contacts.map((oc) => (
+                <tr key={oc.id} className="border-t border-gray-100 print:border-gray-300">
+                  <td className="py-1.5 pr-4 text-gray-900 print:text-black">
+                    {oc.contact.firstName} {oc.contact.lastName}
+                  </td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{oc.role ?? "—"}</td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{oc.contact.email ?? "—"}</td>
+                  <td className="py-1.5 text-gray-600 print:text-gray-700">{oc.contact.phone ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
+
+      {/* Vendors */}
+      {vendors.length > 0 && (
+        <Section title="Vendors">
+          {vendors.map((v) => (
+            <div key={v.id} className="text-sm mb-1">
+              <span className="text-gray-900 print:text-black font-medium">{v.vendor.name}</span>
+              {v.notes && (
+                <span className="text-gray-500 print:text-gray-600 ml-2">— {v.notes}</span>
+              )}
+            </div>
+          ))}
+        </Section>
+      )}
+
+      <WorkflowSection workflowInstances={workflowInstances} />
+    </div>
+  );
+}

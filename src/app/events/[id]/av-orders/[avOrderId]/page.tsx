@@ -319,10 +319,20 @@ export default async function AVOrderPage({
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
         </div>
-        <DeleteButton
-          action={deleteAVOrderAction}
-          confirmMessage="Are you sure you want to delete this AV Order?"
-        />
+        <div className="flex gap-2">
+          <a
+            href={`/events/${eventId}/av-orders/${avOrderId}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Print
+          </a>
+          <DeleteButton
+            action={deleteAVOrderAction}
+            confirmMessage="Are you sure you want to delete this AV Order?"
+          />
+        </div>
       </div>
 
       <AVOrderTabs basePath={`/events/${eventId}/av-orders/${avOrderId}`} activeTab={activeTab} />

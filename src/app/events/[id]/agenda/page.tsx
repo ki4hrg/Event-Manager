@@ -53,6 +53,26 @@ export default async function AgendaPage({
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
             {event.name}
           </h1>
+          <div className="flex gap-2">
+            {activeDate && (
+              <a
+                href={`/events/${eventId}/agenda/print?date=${activeDate}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Print Day
+              </a>
+            )}
+            <a
+              href={`/events/${eventId}/agenda/print`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Print All
+            </a>
+          </div>
         </div>
         <EventTabs eventId={eventId} />
       </div>

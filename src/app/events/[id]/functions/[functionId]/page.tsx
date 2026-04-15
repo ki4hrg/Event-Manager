@@ -214,6 +214,14 @@ export default async function FunctionPage({
           </div>
         </div>
         <div className="flex gap-2">
+          <a
+            href={`/events/${eventId}/functions/${functionId}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Print
+          </a>
           <form action={duplicateFunctionAction}>
             <button
               type="submit"

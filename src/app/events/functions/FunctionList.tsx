@@ -184,12 +184,22 @@ export function FunctionList({ functions, eventId, timezone, functionTypes, work
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">
           Functions ({functions.length})
         </h2>
-        <Link
-          href={`/events/${eventId}/functions/new`}
-          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Function
-        </Link>
+        <div className="flex gap-2">
+          <a
+            href={`/events/${eventId}/functions/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Print All
+          </a>
+          <Link
+            href={`/events/${eventId}/functions/new`}
+            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Function
+          </Link>
+        </div>
       </div>
 
       {functions.length === 0 ? (
