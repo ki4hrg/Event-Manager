@@ -24,15 +24,6 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div>
-      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
-      <dd className="mt-1 text-sm text-gray-900 dark:text-white">{value || "—"}</dd>
-    </div>
-  );
-}
-
 export function EventForm({ event, venues, action }: EventFormProps) {
   const isEdit = !!event;
   const [editing, setEditing] = useState(!isEdit);
@@ -64,26 +55,42 @@ export function EventForm({ event, venues, action }: EventFormProps) {
   };
 
   if (isEdit && !editing) {
+    const now = Date.now();
+    const startDays = Math.ceil(
+      (new Date(event.startDate).getTime() - now) / 86_400_000
+    );
+    const endDays = Math.ceil(
+      (new Date(event.endDate).getTime() - now) / 86_400_000
+    );
+    let daysLabel: string;
+    if (startDays > 0) daysLabel = `${startDays} days away`;
+    else if (endDays < 0) daysLabel = `ended ${Math.abs(endDays)} days ago`;
+    else daysLabel = "ongoing";
+
+    const dateRange = `${formatDateForDisplay(event.startDate)} – ${formatDateForDisplay(event.endDate)}`;
+
     return (
-      <div className="space-y-4">
-        <div className="flex justify-end">
-          <button
-            onClick={() => setEditing(true)}
-            className="px-3 py-1.5 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-950"
-          >
-            Edit
-          </button>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {event.venueId && `${venueName} · `}
+            {dateRange}
+            <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
+              {daysLabel}
+            </span>
+          </p>
+          {event.description && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {event.description}
+            </p>
+          )}
         </div>
-        <dl className="space-y-4">
-          <ReadOnlyField label="Event Name" value={event.name} />
-          <ReadOnlyField label="Description" value={event.description} />
-          <div className="grid grid-cols-2 gap-4">
-            <ReadOnlyField label="Start Date" value={formatDateForDisplay(event.startDate)} />
-            <ReadOnlyField label="End Date" value={formatDateForDisplay(event.endDate)} />
-          </div>
-          <ReadOnlyField label="Timezone" value={timezoneLabels[event.timezone] || event.timezone} />
-          <ReadOnlyField label="Venue" value={venueName} />
-        </dl>
+        <button
+          onClick={() => setEditing(true)}
+          className="px-3 py-1.5 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-950 shrink-0 ml-4"
+        >
+          Edit
+        </button>
       </div>
     );
   }
