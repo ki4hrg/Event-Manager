@@ -88,37 +88,55 @@ model Event {
 }
 
 model Venue {
-  id        String         @id @default(cuid())
+  id         String         @id @default(cuid())
+  name       String
+  address    String?
+  city       String?
+  state      String?
+  zip        String?
+  country    String?
+  notes      String?
+  rooms      Room[]
+  roomGroups RoomGroup[]
+  events     Event[]
+  contacts   VenueContact[]
+  vendor     Vendor?
+  files      FileUpload[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+model RoomGroup {
+  id        String   @id @default(cuid())
   name      String
-  address   String?
-  city      String?
-  state     String?
-  zip       String?
-  country   String?
-  notes     String?
+  sortOrder Int      @default(0)
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   rooms     Room[]
-  events    Event[]
-  contacts  VenueContact[]
-  vendor    Vendor?
-  files     FileUpload[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([venueId])
 }
 
 model Room {
-  id                   String                       @id @default(cuid())
+  id                   String                        @id @default(cuid())
   name                 String
   capacity             Int?
   notes                String?
   venueId              String
-  venue                Venue                        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue                Venue                         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  groupId              String?
+  group                RoomGroup?                    @relation(fields: [groupId], references: [id], onDelete: SetNull)
   functions            FunctionRoom[]
   presentationSlots    PresentationSlot[]
   breakoutGroupRooms   BreakoutGroupRoom[]
   sessionRoomOverrides BreakoutSessionRoomOverride[]
   setupOrders          SetupOrder[]
-  createdAt            DateTime                     @default(now())
-  updatedAt            DateTime                     @updatedAt
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+
+  @@index([groupId])
 }
 
 // Flexible contact model with roles
