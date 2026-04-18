@@ -132,8 +132,8 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
                 <input
                   type="checkbox"
                   name="roles"
-                  value={option.value}
-                  defaultChecked={contact?.roles.includes(option.value)}
+                  value={option.label}
+                  defaultChecked={contact?.roles.includes(option.label)}
                   className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">

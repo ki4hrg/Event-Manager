@@ -248,7 +248,7 @@ export function SetupOrderForm({
               >
                 <option value="">— Select setup type —</option>
                 {setupTypes.map((t) => (
-                  <option key={t.id} value={t.value}>
+                  <option key={t.id} value={t.label}>
                     {t.label}
                   </option>
                 ))}

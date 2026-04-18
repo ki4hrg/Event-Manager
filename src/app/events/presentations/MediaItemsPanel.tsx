@@ -144,7 +144,7 @@ function ItemForm({
           >
             <option value="">— None —</option>
             {deliveryOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.label} value={opt.label}>{opt.label}</option>
             ))}
           </select>
         </div>
@@ -203,11 +203,6 @@ export function MediaItemsPanel({
     setEditingId(null);
   };
 
-  const deliveryLabel = (value: string | null) => {
-    if (!value) return null;
-    return deliveryOptions.find((o) => o.value === value)?.label ?? value;
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
@@ -258,7 +253,7 @@ export function MediaItemsPanel({
                   <div>
                     <span className="text-gray-900 dark:text-white font-medium">{item.description}</span>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 space-x-2">
-                      {deliveryLabel(item.delivery) && <span>{deliveryLabel(item.delivery)}</span>}
+                      {item.delivery && <span>{item.delivery}</span>}
                       {advancerLabel(item.advancerVendor, item.advancerContact) && (
                         <span>· {advancerLabel(item.advancerVendor, item.advancerContact)}</span>
                       )}

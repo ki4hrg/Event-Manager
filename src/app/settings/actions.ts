@@ -35,7 +35,6 @@ export async function getAllOptions() {
 export async function createOption(category: OptionCategory, formData: FormData) {
   await requireAdmin();
   const label = formData.get("label") as string;
-  const value = formData.get("value") as string;
   const color = formData.get("color") as string;
 
   // Get max sortOrder for this category
@@ -48,7 +47,6 @@ export async function createOption(category: OptionCategory, formData: FormData)
   await prisma.customOption.create({
     data: {
       category,
-      value: value || label.toUpperCase().replace(/[^A-Z0-9]/g, "_"),
       label,
       color: color || null,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
@@ -61,14 +59,12 @@ export async function createOption(category: OptionCategory, formData: FormData)
 export async function updateOption(id: string, formData: FormData) {
   await requireAdmin();
   const label = formData.get("label") as string;
-  const value = formData.get("value") as string;
   const color = formData.get("color") as string;
 
   await prisma.customOption.update({
     where: { id },
     data: {
       label,
-      value,
       color: color || null,
     },
   });

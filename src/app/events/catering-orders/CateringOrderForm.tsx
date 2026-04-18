@@ -54,7 +54,7 @@ export function CateringOrderForm({ eventId, action, serviceStyleOptions }: Cate
             >
               <option value="">— Select —</option>
               {serviceStyleOptions.map((opt) => (
-                <option key={opt.id} value={opt.value}>
+                <option key={opt.id} value={opt.label}>
                   {opt.label}
                 </option>
               ))}

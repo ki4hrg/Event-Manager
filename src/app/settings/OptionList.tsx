@@ -148,7 +148,7 @@ function SortableOptionRow({
           }}
           className="space-y-3"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
             <input
               type="text"
               name="label"
@@ -156,14 +156,6 @@ function SortableOptionRow({
               required
               placeholder="Label"
               className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-            />
-            <input
-              type="text"
-              name="value"
-              defaultValue={option.value}
-              required
-              placeholder="Value"
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono"
             />
           </div>
           {showColor && (
@@ -215,9 +207,6 @@ function SortableOptionRow({
             )}
             <span className="font-medium text-gray-900 dark:text-white">
               {option.label}
-            </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-              {option.value}
             </span>
           </div>
           {!reordering && (
@@ -336,18 +325,12 @@ export function OptionList({
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"
         >
           <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
               <input
                 type="text"
                 name="label"
                 placeholder="Label *"
                 required
-                className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-              <input
-                type="text"
-                name="value"
-                placeholder="Value (auto-generated if empty)"
                 className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
             </div>

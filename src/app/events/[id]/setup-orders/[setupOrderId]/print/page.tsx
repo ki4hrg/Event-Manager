@@ -3,7 +3,6 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { SetupOrderDetails } from "@/app/events/setup-orders/SetupOrderDetails";
 import { getSetupOrder } from "@/app/events/setup-orders/actions";
 import { getEvent } from "../../../../actions";
-import { getOptions } from "@/app/settings/actions";
 import { getSetupOrderVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
@@ -17,10 +16,9 @@ export default async function SetupOrderPrintPage({
 }) {
   const { id: eventId, setupOrderId } = await params;
 
-  const [event, setupOrder, setupTypes, vendors, workflowInstances] = await Promise.all([
+  const [event, setupOrder, vendors, workflowInstances] = await Promise.all([
     getEvent(eventId),
     getSetupOrder(setupOrderId),
-    getOptions("setup_type"),
     getSetupOrderVendors(setupOrderId),
     getWorkflowInstances("setup_order", setupOrderId),
   ]);
@@ -41,7 +39,6 @@ export default async function SetupOrderPrintPage({
       />
       <SetupOrderDetails
         setupOrder={setupOrder}
-        setupTypes={setupTypes}
         vendors={vendors}
         workflowInstances={workflowInstances}
       />

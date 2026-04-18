@@ -124,7 +124,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
   // Read-only view for existing functions
   if (isEdit && !editing) {
     const typeLabel = fn.type
-      ? functionTypes.find((t) => t.value === fn.type)?.label || fn.type
+      ? fn.type
       : "—";
     const roomNames = fn.rooms.length > 0
       ? fn.rooms.map((r) => r.room.name).join(", ")
@@ -262,7 +262,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
                 >
                   <option value="">Select type...</option>
                   {functionTypes.map((t) => (
-                    <option key={t.id} value={t.value}>
+                    <option key={t.id} value={t.label}>
                       {t.label}
                     </option>
                   ))}

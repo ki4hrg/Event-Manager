@@ -1,4 +1,3 @@
-import type { CustomOption } from "@prisma/client";
 import type { getSetupOrder } from "./actions";
 import type { getWorkflowInstances } from "../workflows/actions";
 import type { getSetupOrderVendors } from "@/app/vendors/actions";
@@ -12,18 +11,16 @@ type VendorAssignment = Awaited<ReturnType<typeof getSetupOrderVendors>>[number]
 
 interface SetupOrderDetailsProps {
   setupOrder: SetupOrderData;
-  setupTypes: CustomOption[];
   vendors: VendorAssignment[];
   workflowInstances: WorkflowInstance[];
 }
 
 export function SetupOrderDetails({
   setupOrder,
-  setupTypes,
   vendors,
   workflowInstances,
 }: SetupOrderDetailsProps) {
-  const setupTypeLabel = setupTypes.find((t) => t.value === setupOrder.setupType)?.label ?? setupOrder.setupType ?? null;
+  const setupTypeLabel = setupOrder.setupType ?? null;
   const { tableTotals, chairTotals } = aggregateSetupTables(setupOrder.tables);
 
   return (

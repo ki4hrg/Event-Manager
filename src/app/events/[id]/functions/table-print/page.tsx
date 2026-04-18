@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { getFunctionsForTable } from "@/app/events/functions/actions";
 import { getEvent } from "../../../actions";
-import { getOptions } from "@/app/settings/actions";
 import { getWorkflowBadgeSummaries } from "@/app/events/workflows/actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import type { FunctionForTable } from "@/app/events/functions/actions";
@@ -50,10 +49,9 @@ export default async function FunctionTablePrintPage({
 }) {
   const { id: eventId } = await params;
 
-  const [event, functions, functionTypes] = await Promise.all([
+  const [event, functions] = await Promise.all([
     getEvent(eventId),
     getFunctionsForTable(eventId),
-    getOptions("function_type"),
   ]);
 
   if (!event) notFound();
@@ -63,7 +61,6 @@ export default async function FunctionTablePrintPage({
       ? await getWorkflowBadgeSummaries("function", functions.map((f) => f.id))
       : {};
 
-  const typeLabels = new Map(functionTypes.map((t) => [t.value, t.label]));
   const tz = event.timezone || "America/Chicago";
 
   const th = "px-3 py-2 text-left text-xs font-semibold text-gray-900 print:text-black border-b border-gray-300 print:border-gray-400 bg-gray-100 print:bg-gray-200 whitespace-nowrap";
@@ -102,7 +99,7 @@ export default async function FunctionTablePrintPage({
                 <td className={`${td} whitespace-nowrap`}>{formatDateTime(getLatestEnd(fn), tz)}</td>
                 <td className={td}>{fn.setupNotes || "—"}</td>
                 <td className={`${td} whitespace-nowrap`}>
-                  {fn.type ? (typeLabels.get(fn.type) || fn.type) : "—"}
+                  {fn.type ?? "—"}
                 </td>
                 <td className={td}>
                   {fn.rooms.length > 0 ? fn.rooms.map((r) => r.room.name).join(", ") : "—"}

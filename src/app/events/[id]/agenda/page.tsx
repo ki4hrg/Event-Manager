@@ -38,7 +38,7 @@ export default async function AgendaPage({
   const timezone = event.timezone || "America/Chicago";
   const rooms = event.venue?.rooms ?? [];
 
-  const scheduleTypeAttrs = new Map(scheduleTypes.map((t) => [t.value, { label: t.label, color: t.color }]));
+  const scheduleTypeAttrs = new Map(scheduleTypes.map((t) => [t.label, { label: t.label, color: t.color }]));
   const agendaData = buildAgendaData(functions, rooms, timezone, scheduleTypeAttrs);
 
   const activeDate =

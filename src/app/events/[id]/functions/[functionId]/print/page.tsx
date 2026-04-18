@@ -3,7 +3,6 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { FunctionDetails } from "@/app/events/functions/FunctionDetails";
 import { getFunction } from "@/app/events/functions/actions";
 import { getEvent } from "../../../../actions";
-import { getOptions } from "@/app/settings/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +14,9 @@ export default async function FunctionPrintPage({
 }) {
   const { id: eventId, functionId } = await params;
 
-  const [event, fn, functionTypes, scheduleTypes, workflowInstances] = await Promise.all([
+  const [event, fn, workflowInstances] = await Promise.all([
     getEvent(eventId),
     getFunction(functionId),
-    getOptions("function_type"),
-    getOptions("schedule_type"),
     getWorkflowInstances("function", functionId),
   ]);
 
@@ -37,8 +34,6 @@ export default async function FunctionPrintPage({
       />
       <FunctionDetails
         fn={fn}
-        functionTypes={functionTypes}
-        scheduleTypes={scheduleTypes}
         timezone={event.timezone}
         workflowInstances={workflowInstances}
       />

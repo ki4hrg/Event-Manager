@@ -156,7 +156,7 @@ export function CateringOrderOverviewForm({
             <ReadOnlyField label="Name" value={cateringOrder.name} />
             <ReadOnlyField
               label="Service Style"
-              value={serviceStyleOptions.find((o) => o.value === cateringOrder.serviceStyle)?.label ?? cateringOrder.serviceStyle}
+              value={cateringOrder.serviceStyle}
             />
             <FunctionLinkControl
               linkedFunctionId={linkedFunctionId}
@@ -211,7 +211,7 @@ export function CateringOrderOverviewForm({
             >
               <option value="">— Select —</option>
               {serviceStyleOptions.map((opt) => (
-                <option key={opt.id} value={opt.value}>{opt.label}</option>
+                <option key={opt.id} value={opt.label}>{opt.label}</option>
               ))}
             </select>
           </div>

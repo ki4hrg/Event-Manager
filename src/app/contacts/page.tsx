@@ -1,18 +1,11 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getContacts } from "./actions";
-import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContactsPage() {
-  const [contacts, contactRoles] = await Promise.all([
-    getContacts(),
-    getOptions("contact_role"),
-  ]);
-
-  // Create lookup map for role labels
-  const roleLabels = new Map(contactRoles.map((r) => [r.value, r.label]));
+  const contacts = await getContacts();
 
   return (
     <PageWrapper>
@@ -75,7 +68,7 @@ export default async function ContactsPage() {
                           key={role}
                           className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                         >
-                          {roleLabels.get(role) || role}
+                          {role}
                         </span>
                       ))}
                     </div>

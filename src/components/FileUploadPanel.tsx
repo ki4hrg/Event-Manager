@@ -28,11 +28,6 @@ export function FileUploadPanel({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const fileTypeLabel = (value: string | null) => {
-    if (!value) return null;
-    return fileTypeOptions.find((o) => o.value === value)?.label ?? value;
-  };
-
   const handleUpload = async () => {
     const input = fileInputRef.current;
     if (!input?.files?.length) return;
@@ -85,7 +80,7 @@ export function FileUploadPanel({
           >
             <option value="">File type (optional)</option>
             {fileTypeOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
+              <option key={opt.label} value={opt.label}>
                 {opt.label}
               </option>
             ))}
@@ -115,7 +110,7 @@ export function FileUploadPanel({
       ) : (
         <ul className="divide-y divide-gray-100 dark:divide-gray-700">
           {files.map((file) => {
-            const label = fileTypeLabel(file.fileType);
+            const label = file.fileType;
             return (
               <li key={file.id} className="py-2 flex items-center justify-between gap-3">
                 <div className="min-w-0">

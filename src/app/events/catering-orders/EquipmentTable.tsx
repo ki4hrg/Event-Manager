@@ -43,9 +43,9 @@ function EquipmentSelect({
   equipmentCategories: CustomOption[];
   defaultValue?: string;
 }) {
-  const knownCategorySet = new Set(equipmentCategories.map((c) => c.value));
+  const knownCategorySet = new Set(equipmentCategories.map((c) => c.label));
   const grouped = equipmentCategories
-    .map((cat) => ({ label: cat.label, items: equipmentOptions.filter((e) => e.category === cat.value) }))
+    .map((cat) => ({ label: cat.label, items: equipmentOptions.filter((e) => e.category === cat.label) }))
     .filter((g) => g.items.length > 0);
   const uncategorized = equipmentOptions.filter((e) => !knownCategorySet.has(e.category));
 

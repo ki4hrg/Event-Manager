@@ -1,4 +1,3 @@
-import type { CustomOption } from "@prisma/client";
 import type { getFunction } from "./actions";
 import type { getWorkflowInstances } from "../workflows/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
@@ -20,20 +19,16 @@ function formatDateTime(date: Date, timezone: string): string {
 
 interface FunctionDetailsProps {
   fn: FunctionData;
-  functionTypes: CustomOption[];
-  scheduleTypes: CustomOption[];
   timezone: string;
   workflowInstances: WorkflowInstance[];
 }
 
 export function FunctionDetails({
   fn,
-  functionTypes,
-  scheduleTypes,
   timezone,
   workflowInstances,
 }: FunctionDetailsProps) {
-  const typeLabel = functionTypes.find((t) => t.value === fn.type)?.label ?? fn.type ?? null;
+  const typeLabel = fn.type ?? null;
 
   return (
     <div className="space-y-2">
@@ -61,11 +56,10 @@ export function FunctionDetails({
             </thead>
             <tbody>
               {fn.schedules.map((s) => {
-                const typeObj = scheduleTypes.find((t) => t.value === s.type);
                 return (
                   <tr key={s.id} className="border-t border-gray-100 print:border-gray-300">
                     <td className="py-1.5 pr-4 text-gray-900 print:text-black">
-                      {typeObj?.label ?? s.type ?? "—"}
+                      {s.type ?? "—"}
                     </td>
                     <td className="py-1.5 pr-4 text-gray-900 print:text-black">
                       {s.startTime ? formatDateTime(s.startTime, timezone) : "—"}

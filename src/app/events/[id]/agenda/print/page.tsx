@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { getFunctionsWithPresentations } from "@/app/events/functions/actions";
-import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +37,9 @@ export default async function AgendaPrintPage({
   const { id: eventId } = await params;
   const { date: filterDate } = await searchParams;
 
-  const [event, functions, scheduleTypes] = await Promise.all([
+  const [event, functions] = await Promise.all([
     prisma.event.findUnique({ where: { id: eventId } }),
     getFunctionsWithPresentations(eventId),
-    getOptions("schedule_type"),
   ]);
 
   if (!event) {
@@ -49,7 +47,6 @@ export default async function AgendaPrintPage({
   }
 
   const timezone = event.timezone || "America/Chicago";
-  const scheduleTypeLabels = new Map(scheduleTypes.map((t) => [t.value, t.label]));
 
   // Build per-day entries: { dateKey → entries sorted by start time }
   type AgendaEntry = {
@@ -150,9 +147,7 @@ export default async function AgendaPrintPage({
                     )}
                   </td>
                   <td className="py-2 pr-4 text-gray-600 print:text-gray-700 align-top text-xs">
-                    {entry.scheduleType
-                      ? (scheduleTypeLabels.get(entry.scheduleType) ?? entry.scheduleType)
-                      : "—"}
+                    {entry.scheduleType ?? "—"}
                   </td>
                   <td className="py-2 text-gray-600 print:text-gray-700 align-top">
                     {entry.rooms.join(", ") || "—"}

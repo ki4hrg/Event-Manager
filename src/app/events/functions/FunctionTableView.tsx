@@ -82,8 +82,7 @@ export function FunctionTableView({
     setFilters((prev) => ({ ...prev, [key]: value }));
   }
 
-  const typeLabels = useMemo(() => new Map(functionTypes.map((t) => [t.value, t.label])), [functionTypes]);
-  const typeColors = useMemo(() => new Map(functionTypes.map((t) => [t.value, t.color || "gray"])), [functionTypes]);
+  const typeColors = useMemo(() => new Map(functionTypes.map((t) => [t.label, t.color || "gray"])), [functionTypes]);
 
   const allRooms = useMemo(() => {
     const names = new Set<string>();
@@ -302,7 +301,7 @@ export function FunctionTableView({
                 >
                   <option value="">All</option>
                   {functionTypes.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
+                    <option key={t.label} value={t.label}>{t.label}</option>
                   ))}
                 </select>
               </td>
@@ -387,7 +386,7 @@ export function FunctionTableView({
                   <td className="px-3 py-3 whitespace-nowrap">
                     {fn.type ? (
                       <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[typeColors.get(fn.type) || "gray"] || colorClasses.gray}`}>
-                        {typeLabels.get(fn.type) || fn.type}
+                        {fn.type}
                       </span>
                     ) : "—"}
                   </td>

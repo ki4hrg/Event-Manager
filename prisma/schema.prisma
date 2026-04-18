@@ -37,15 +37,14 @@ model UserSetting {
 model CustomOption {
   id        String   @id @default(cuid())
   category  String   // "function_type", "contact_role", "av_equipment", "equipment_category", "setup_type"
-  value     String   // The stored value (e.g., "MEAL", "SPEAKER")
-  label     String   // The display label (e.g., "Meal / BEO", "Speaker")
+  label     String   // The display label and stored value (e.g., "Meal / BEO", "Speaker")
   color     String?  // Optional color for badges (e.g., "orange", "blue")
   isSystem  Boolean  @default(false) // System entries cannot be deleted from the UI
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([category, value])
+  @@unique([category, label])
   @@index([category])
 }
 
@@ -53,7 +52,7 @@ model CustomOption {
 model Equipment {
   id           String       @id @default(cuid())
   name         String
-  category     String       // references equipment_category CustomOption values
+  category     String       // references equipment_category CustomOption label
   sortOrder    Int          @default(0)
   inputItems   InputItem[]  @relation("InputItemEquipment")
   monitorMixes MonitorMix[] @relation("MonitorMixEquipment")

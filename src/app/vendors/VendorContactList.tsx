@@ -45,7 +45,7 @@ function ContactTypeField({
       >
         <option value="">— None —</option>
         {contactTypes.map((t) => (
-          <option key={t.id} value={t.value}>
+          <option key={t.id} value={t.label}>
             {t.label}
           </option>
         ))}
@@ -354,7 +354,7 @@ export function VendorContactList({
                     </span>
                     {item.contactType && (
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {contactTypes.find((t) => t.value === item.contactType)?.label || item.contactType}
+                        {item.contactType}
                       </span>
                     )}
                     {item.contact.organization && (

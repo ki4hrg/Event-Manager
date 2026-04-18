@@ -115,7 +115,7 @@ function PresentationFields({ presentation, tracks, presentationTypes }: Present
           >
             <option value="">No type</option>
             {presentationTypes.map((t) => (
-              <option key={t.id} value={t.value}>{t.label}</option>
+              <option key={t.id} value={t.label}>{t.label}</option>
             ))}
           </select>
         </div>
@@ -221,9 +221,7 @@ export function PresentationForm({
   };
 
   if (isEdit && !editing) {
-    const typeLabel = presentation.type
-      ? (presentationTypes.find((t) => t.value === presentation.type)?.label ?? presentation.type)
-      : null;
+    const typeLabel = presentation.type ?? null;
 
     return (
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -365,7 +363,7 @@ export function PresentationForm({
                 >
                   <option value="">Role...</option>
                   {presenterRoles.map((r) => (
-                    <option key={r.id} value={r.value}>{r.label}</option>
+                    <option key={r.id} value={r.label}>{r.label}</option>
                   ))}
                 </select>
 

@@ -52,7 +52,7 @@ export function PresentationList({
     {} as Record<string, PresentationWithRelations[]>
   );
 
-  const typeMap = new Map(presentationTypes.map((t) => [t.value, t]));
+  const typeMap = new Map(presentationTypes.map((t) => [t.label, t]));
 
   // Sort tracks: defined tracks first (by sortOrder), then unassigned
   const trackMap = new Map(tracks.map((t) => [t.id, t]));

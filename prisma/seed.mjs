@@ -4,83 +4,83 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 const defaultFunctionTypes = [
-  { value: "GENERAL", label: "General", color: "gray", sortOrder: 0 },
-  { value: "MEAL", label: "Meal / Catering Order", color: "orange", sortOrder: 1 },
-  { value: "BREAKOUT", label: "Breakout Session", color: "blue", sortOrder: 2 },
-  { value: "PLENARY", label: "Plenary Session", color: "purple", sortOrder: 3 },
+  { label: "General", color: "gray", sortOrder: 0 },
+  { label: "Meal / Catering Order", color: "orange", sortOrder: 1 },
+  { label: "Breakout Session", color: "blue", sortOrder: 2 },
+  { label: "Plenary Session", color: "purple", sortOrder: 3 },
 ];
 
 const defaultContactRoles = [
-  { value: "SPEAKER", label: "Speaker", sortOrder: 0 },
-  { value: "VENUE_CONTACT", label: "Venue Contact", sortOrder: 1 },
-  { value: "VENDOR", label: "Vendor", sortOrder: 2 },
-  { value: "STAFF", label: "Staff", sortOrder: 3 },
-  { value: "OTHER", label: "Other", sortOrder: 4 },
+  { label: "Speaker", sortOrder: 0 },
+  { label: "Venue Contact", sortOrder: 1 },
+  { label: "Vendor", sortOrder: 2 },
+  { label: "Staff", sortOrder: 3 },
+  { label: "Other", sortOrder: 4 },
 ];
 
 const defaultAVEquipment = [
-  { value: "PROJECTOR", label: "Projector", sortOrder: 0 },
-  { value: "SCREEN", label: "Screen", sortOrder: 1 },
-  { value: "MICROPHONE", label: "Microphone", sortOrder: 2 },
-  { value: "PODIUM", label: "Podium", sortOrder: 3 },
-  { value: "WEBCAST", label: "Webcast", sortOrder: 4 },
-  { value: "RECORDING", label: "Recording", sortOrder: 5 },
-  { value: "VIDEO_PLAYBACK", label: "Video Playback", sortOrder: 6 },
+  { label: "Projector", sortOrder: 0 },
+  { label: "Screen", sortOrder: 1 },
+  { label: "Microphone", sortOrder: 2 },
+  { label: "Podium", sortOrder: 3 },
+  { label: "Webcast", sortOrder: 4 },
+  { label: "Recording", sortOrder: 5 },
+  { label: "Video Playback", sortOrder: 6 },
 ];
 
 const defaultScheduleTypes = [
-  { value: "SETUP", label: "Setup", color: "yellow", sortOrder: 0 },
-  { value: "REHEARSAL", label: "Rehearsal", color: "blue", sortOrder: 1 },
-  { value: "MAIN", label: "Main Event", color: "green", sortOrder: 2 },
-  { value: "BREAKDOWN", label: "Breakdown", color: "orange", sortOrder: 3 },
+  { label: "Setup", color: "yellow", sortOrder: 0 },
+  { label: "Rehearsal", color: "blue", sortOrder: 1 },
+  { label: "Main Event", color: "green", sortOrder: 2 },
+  { label: "Breakdown", color: "orange", sortOrder: 3 },
 ];
 
 const defaultPresenterRoles = [
-  { value: "PRESENTER", label: "Presenter", sortOrder: 0 },
-  { value: "CO_PRESENTER", label: "Co-Presenter", sortOrder: 1 },
-  { value: "MODERATOR", label: "Moderator", sortOrder: 2 },
-  { value: "PANELIST", label: "Panelist", sortOrder: 3 },
+  { label: "Presenter", sortOrder: 0 },
+  { label: "Co-Presenter", sortOrder: 1 },
+  { label: "Moderator", sortOrder: 2 },
+  { label: "Panelist", sortOrder: 3 },
 ];
 
 const defaultPresentationTypes = [
-  { value: "BREAKOUT", label: "Breakout", color: "blue", sortOrder: 0 },
-  { value: "PLENARY", label: "Plenary", color: "purple", sortOrder: 1 },
+  { label: "Breakout", color: "blue", sortOrder: 0 },
+  { label: "Plenary", color: "purple", sortOrder: 1 },
 ];
 
 const defaultEquipmentCategories = [
-  { value: "AV", label: "AV", sortOrder: 0 },
-  { value: "TABLES", label: "Tables", isSystem: true, sortOrder: 1 },
-  { value: "CHAIRS", label: "Chairs", isSystem: true, sortOrder: 2 },
-  { value: "STAGING", label: "Staging", sortOrder: 3 },
-  { value: "SIGNAGE", label: "Signage", sortOrder: 4 },
-  { value: "AUDIO_INPUTS", label: "Audio Inputs", isSystem: true, sortOrder: 5 },
-  { value: "AUDIO_OUTPUTS", label: "Audio Outputs", isSystem: true, sortOrder: 6 },
+  { label: "AV", sortOrder: 0 },
+  { label: "Tables", isSystem: true, sortOrder: 1 },
+  { label: "Chairs", isSystem: true, sortOrder: 2 },
+  { label: "Staging", sortOrder: 3 },
+  { label: "Signage", sortOrder: 4 },
+  { label: "Audio Inputs", isSystem: true, sortOrder: 5 },
+  { label: "Audio Outputs", isSystem: true, sortOrder: 6 },
 ];
 
 const defaultDeliveryMethods = [
-  { value: "PRE_LOADED", label: "Pre-loaded", sortOrder: 0 },
-  { value: "BROUGHT_DAY_OF", label: "Brought Day Of", sortOrder: 1 },
+  { label: "Pre-loaded", sortOrder: 0 },
+  { label: "Brought Day Of", sortOrder: 1 },
 ];
 
 const defaultFileTypes = [
-  { value: "PROPOSAL", label: "Proposal", sortOrder: 0 },
-  { value: "INVOICE", label: "Invoice", sortOrder: 1 },
-  { value: "CONTRACT", label: "Contract", sortOrder: 2 },
-  { value: "FLOOR_PLAN", label: "Floor Plan", sortOrder: 3 },
-  { value: "DIAGRAM", label: "Diagram", sortOrder: 4 },
-  { value: "MENU", label: "Menu", sortOrder: 5 },
-  { value: "SPEC_SHEET", label: "Spec Sheet", sortOrder: 6 },
-  { value: "OTHER", label: "Other", sortOrder: 7 },
+  { label: "Proposal", sortOrder: 0 },
+  { label: "Invoice", sortOrder: 1 },
+  { label: "Contract", sortOrder: 2 },
+  { label: "Floor Plan", sortOrder: 3 },
+  { label: "Diagram", sortOrder: 4 },
+  { label: "Menu", sortOrder: 5 },
+  { label: "Spec Sheet", sortOrder: 6 },
+  { label: "Other", sortOrder: 7 },
 ];
 
 const defaultSetupTypes = [
-  { value: "FIXED_IN_ROOM", label: "Fixed in Room", sortOrder: 0 },
-  { value: "THEATER", label: "Theater", sortOrder: 1 },
-  { value: "CLASSROOM", label: "Classroom", sortOrder: 2 },
-  { value: "BANQUET_ROUNDS", label: "Banquet Rounds", sortOrder: 3 },
-  { value: "U_SHAPE", label: "U-Shape", sortOrder: 4 },
-  { value: "HOLLOW_SQUARE", label: "Hollow Square", sortOrder: 5 },
-  { value: "RECEPTION_STANDING", label: "Reception / Standing", sortOrder: 6 },
+  { label: "Fixed in Room", sortOrder: 0 },
+  { label: "Theater", sortOrder: 1 },
+  { label: "Classroom", sortOrder: 2 },
+  { label: "Banquet Rounds", sortOrder: 3 },
+  { label: "U-Shape", sortOrder: 4 },
+  { label: "Hollow Square", sortOrder: 5 },
+  { label: "Reception / Standing", sortOrder: 6 },
 ];
 
 const defaultEquipment = [
@@ -93,30 +93,30 @@ const defaultEquipment = [
   { name: "Recording", category: "AV", sortOrder: 5 },
   { name: "Video Playback", category: "AV", sortOrder: 6 },
   // Tables
-  { name: "6' Rectangle", category: "TABLES", sortOrder: 0 },
-  { name: "8' Rectangle", category: "TABLES", sortOrder: 1 },
-  { name: "60\" Round", category: "TABLES", sortOrder: 2 },
-  { name: "72\" Round", category: "TABLES", sortOrder: 3 },
-  { name: "Half Round", category: "TABLES", sortOrder: 4 },
-  { name: "Cocktail / Highboy", category: "TABLES", sortOrder: 5 },
-  { name: "Head Table", category: "TABLES", sortOrder: 6 },
+  { name: "6' Rectangle", category: "Tables", sortOrder: 0 },
+  { name: "8' Rectangle", category: "Tables", sortOrder: 1 },
+  { name: "60\" Round", category: "Tables", sortOrder: 2 },
+  { name: "72\" Round", category: "Tables", sortOrder: 3 },
+  { name: "Half Round", category: "Tables", sortOrder: 4 },
+  { name: "Cocktail / Highboy", category: "Tables", sortOrder: 5 },
+  { name: "Head Table", category: "Tables", sortOrder: 6 },
   // Chairs
-  { name: "Banquet Chair", category: "CHAIRS", sortOrder: 0 },
-  { name: "Folding Chair", category: "CHAIRS", sortOrder: 1 },
-  { name: "Theater Seat (fixed)", category: "CHAIRS", sortOrder: 2 },
+  { name: "Banquet Chair", category: "Chairs", sortOrder: 0 },
+  { name: "Folding Chair", category: "Chairs", sortOrder: 1 },
+  { name: "Theater Seat (fixed)", category: "Chairs", sortOrder: 2 },
   // Audio Inputs
-  { name: "Handheld Mic", category: "AUDIO_INPUTS", sortOrder: 0 },
-  { name: "Lapel / Lavalier Mic", category: "AUDIO_INPUTS", sortOrder: 1 },
-  { name: "Headset Mic", category: "AUDIO_INPUTS", sortOrder: 2 },
-  { name: "Podium Mic", category: "AUDIO_INPUTS", sortOrder: 3 },
-  { name: "Direct Input (DI)", category: "AUDIO_INPUTS", sortOrder: 4 },
-  { name: "Handheld + Belt Pack", category: "AUDIO_INPUTS", sortOrder: 5 },
+  { name: "Handheld Mic", category: "Audio Inputs", sortOrder: 0 },
+  { name: "Lapel / Lavalier Mic", category: "Audio Inputs", sortOrder: 1 },
+  { name: "Headset Mic", category: "Audio Inputs", sortOrder: 2 },
+  { name: "Podium Mic", category: "Audio Inputs", sortOrder: 3 },
+  { name: "Direct Input (DI)", category: "Audio Inputs", sortOrder: 4 },
+  { name: "Handheld + Belt Pack", category: "Audio Inputs", sortOrder: 5 },
   // Audio Outputs
-  { name: "Stage Monitor / Wedge", category: "AUDIO_OUTPUTS", sortOrder: 0 },
-  { name: "In-Ear Monitor (IEM)", category: "AUDIO_OUTPUTS", sortOrder: 1 },
-  { name: "PA Speaker", category: "AUDIO_OUTPUTS", sortOrder: 2 },
-  { name: "Subwoofer", category: "AUDIO_OUTPUTS", sortOrder: 3 },
-  { name: "Hearing Loop", category: "AUDIO_OUTPUTS", sortOrder: 4 },
+  { name: "Stage Monitor / Wedge", category: "Audio Outputs", sortOrder: 0 },
+  { name: "In-Ear Monitor (IEM)", category: "Audio Outputs", sortOrder: 1 },
+  { name: "PA Speaker", category: "Audio Outputs", sortOrder: 2 },
+  { name: "Subwoofer", category: "Audio Outputs", sortOrder: 3 },
+  { name: "Hearing Loop", category: "Audio Outputs", sortOrder: 4 },
 ];
 
 async function seedUsers() {
@@ -154,7 +154,7 @@ async function seedUsers() {
 async function seedOptionsForCategory(category, options) {
   for (const option of options) {
     await prisma.customOption.upsert({
-      where: { category_value: { category, value: option.value } },
+      where: { category_label: { category, label: option.label } },
       update: {},
       create: { category, ...option },
     });

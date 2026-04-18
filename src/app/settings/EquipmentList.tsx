@@ -41,7 +41,7 @@ function CategorySelect({
     >
       <option value="">Select category...</option>
       {categories.map((c) => (
-        <option key={c.id} value={c.value}>
+        <option key={c.id} value={c.label}>
           {c.label}
         </option>
       ))}
@@ -71,12 +71,12 @@ export function EquipmentList({
 
   // Group equipment by category
   const grouped = categories.reduce<Record<string, Equipment[]>>((acc, cat) => {
-    acc[cat.value] = equipment.filter((e) => e.category === cat.value);
+    acc[cat.label] = equipment.filter((e) => e.category === cat.label);
     return acc;
   }, {});
 
   // Also include items in unknown categories
-  const knownCategories = new Set(categories.map((c) => c.value));
+  const knownCategories = new Set(categories.map((c) => c.label));
   const uncategorized = equipment.filter((e) => !knownCategories.has(e.category));
 
   return (
@@ -131,7 +131,7 @@ export function EquipmentList({
       <div className="mt-4 space-y-4">
         {[
           ...categories
-            .map((cat) => ({ label: cat.label, items: grouped[cat.value] || [] }))
+            .map((cat) => ({ label: cat.label, items: grouped[cat.label] || [] }))
             .filter((g) => g.items.length > 0),
           ...(uncategorized.length > 0 ? [{ label: "Uncategorized", items: uncategorized }] : []),
         ].map((group) => (

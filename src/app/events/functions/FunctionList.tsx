@@ -64,8 +64,7 @@ export function FunctionList({
 }: FunctionListProps) {
   const [view, setView] = useState<"list" | "table">("list");
 
-  const typeLabels = useMemo(() => new Map(functionTypes.map((t) => [t.value, t.label])), [functionTypes]);
-  const typeColors = useMemo(() => new Map(functionTypes.map((t) => [t.value, t.color || "gray"])), [functionTypes]);
+  const typeColors = useMemo(() => new Map(functionTypes.map((t) => [t.label, t.color || "gray"])), [functionTypes]);
 
   const { dated, unscheduled } = useMemo(
     () => groupByDate(functions, timezone),
@@ -86,7 +85,7 @@ export function FunctionList({
             </Link>
             {fn.type && (
               <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[typeColors.get(fn.type) || "gray"] || colorClasses.gray}`}>
-                {typeLabels.get(fn.type) || fn.type}
+                {fn.type}
               </span>
             )}
             {fn.breakoutGroup && (

@@ -225,7 +225,7 @@ export function SpeakerList({
                   >
                     <option value="">Select role...</option>
                     {presenterRoles.map((r) => (
-                      <option key={r.id} value={r.value}>
+                      <option key={r.id} value={r.label}>
                         {r.label}
                       </option>
                     ))}
@@ -379,7 +379,7 @@ export function SpeakerList({
                       >
                         <option value="">Select role...</option>
                         {presenterRoles.map((r) => (
-                          <option key={r.id} value={r.value}>
+                          <option key={r.id} value={r.label}>
                             {r.label}
                           </option>
                         ))}
@@ -425,7 +425,7 @@ export function SpeakerList({
                     )}
                     {speaker.role && (
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {presenterRoles.find((r) => r.value === speaker.role)?.label || speaker.role}
+                        {speaker.role}
                       </span>
                     )}
                     {speaker.contact.organization && (

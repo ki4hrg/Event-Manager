@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useFormStatus } from "react-dom";
 import type { FunctionSchedule, CustomOption } from "@prisma/client";
 import { colorClasses } from "@/lib/colors";
@@ -89,9 +89,7 @@ export function ScheduleList({
   const [showAddForm, setShowAddForm] = useState(false);
   const [pendingConflict, setPendingConflict] = useState<PendingConflict | null>(null);
 
-  // Create lookup maps
-  const typeLabels = new Map(scheduleTypes.map((t) => [t.value, t.label]));
-  const typeColors = new Map(scheduleTypes.map((t) => [t.value, t.color || "gray"]));
+  const typeColors = useMemo(() => new Map(scheduleTypes.map((t) => [t.label, t.color || "gray"])), [scheduleTypes]);
 
   // Sort schedules by start time, then end time
   const sortedSchedules = [...schedules].sort((a, b) => {
@@ -197,11 +195,11 @@ export function ScheduleList({
                   <select
                     name="type"
                     required
-                    defaultValue={scheduleTypes[0]?.value ?? ""}
+                    defaultValue={scheduleTypes[0]?.label ?? ""}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                   >
                     {scheduleTypes.map((t) => (
-                      <option key={t.id} value={t.value}>
+                      <option key={t.id} value={t.label}>
                         {t.label}
                       </option>
                     ))}
@@ -325,7 +323,7 @@ export function ScheduleList({
                           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                         >
                           {scheduleTypes.map((t) => (
-                            <option key={t.id} value={t.value}>
+                            <option key={t.id} value={t.label}>
                               {t.label}
                             </option>
                           ))}
@@ -410,7 +408,7 @@ export function ScheduleList({
                         colorClasses[typeColors.get(schedule.type) || "gray"] || colorClasses.gray
                       }`}
                     >
-                      {typeLabels.get(schedule.type) || schedule.type}
+                      {schedule.type}
                     </span>
                     <span className="text-sm text-gray-900 dark:text-white">
                       {formatDateTimeInTimezone(schedule.startTime, timezone)} – {formatDateTimeInTimezone(schedule.endTime, timezone)}
