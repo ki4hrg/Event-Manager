@@ -1,81 +1,50 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import type { Function, FunctionRoom, Room, FunctionSchedule, CustomOption, BreakoutGroup } from "@prisma/client";
+import type { CustomOption } from "@prisma/client";
+import type { FunctionForTable } from "./actions";
 import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
 import { colorClasses } from "@/lib/colors";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
-
-type FunctionWithRelations = Function & {
-  rooms: (FunctionRoom & { room: Room })[];
-  schedules: FunctionSchedule[];
-  breakoutGroup: BreakoutGroup | null;
-};
+import { ViewToggle } from "@/components/ui/ViewToggle";
+import { FunctionTableView } from "./FunctionTableView";
+import { getEarliestStart, formatScheduleDateTime } from "./scheduleUtils";
 
 type FunctionListProps = {
-  functions: FunctionWithRelations[];
+  functions: FunctionForTable[];
   eventId: string;
   timezone: string;
   functionTypes: CustomOption[];
   workflowSummaries?: Record<string, WorkflowBadgeSummary>;
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
+  deleteFunctions: (ids: string[]) => Promise<void>;
 };
 
-function formatTypeLabel(raw: string): string {
-  return raw
-    .split("_")
-    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
-    .join(" ");
-}
-
-
-function formatDateTime(date: Date): string {
-  return new Date(date).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-
-// Get the earliest schedule date for a function
-function getEarliestDate(fn: FunctionWithRelations): Date | null {
-  if (fn.schedules.length === 0) return null;
-  return fn.schedules.reduce((earliest, s) => {
-    const start = new Date(s.startTime);
-    return start < earliest ? start : earliest;
-  }, new Date(fn.schedules[0].startTime));
-}
-
-// Group functions by date of earliest schedule (in the event's timezone)
-function groupByDate(functions: FunctionWithRelations[], timezone: string): {
-  dated: Map<string, FunctionWithRelations[]>;
-  unscheduled: FunctionWithRelations[];
+function groupByDate(functions: FunctionForTable[], timezone: string): {
+  dated: Map<string, FunctionForTable[]>;
+  unscheduled: FunctionForTable[];
 } {
-  const dated = new Map<string, FunctionWithRelations[]>();
-  const unscheduled: FunctionWithRelations[] = [];
+  const dated = new Map<string, FunctionForTable[]>();
+  const unscheduled: FunctionForTable[] = [];
 
   functions.forEach((fn) => {
-    const earliest = getEarliestDate(fn);
+    const earliest = getEarliestStart(fn);
     if (!earliest) {
       unscheduled.push(fn);
     } else {
       const dateKey = getDateKeyInTimezone(earliest, timezone);
-      if (!dated.has(dateKey)) {
-        dated.set(dateKey, []);
-      }
+      if (!dated.has(dateKey)) dated.set(dateKey, []);
       dated.get(dateKey)!.push(fn);
     }
   });
 
-  // Sort each group by earliest time
   dated.forEach((fns) => {
     fns.sort((a, b) => {
-      const aTime = getEarliestDate(a)?.getTime() || 0;
-      const bTime = getEarliestDate(b)?.getTime() || 0;
+      const aTime = getEarliestStart(a)?.getTime() || 0;
+      const bTime = getEarliestStart(b)?.getTime() || 0;
       return aTime - bTime;
     });
   });
@@ -83,21 +52,29 @@ function groupByDate(functions: FunctionWithRelations[], timezone: string): {
   return { dated, unscheduled };
 }
 
-export function FunctionList({ functions, eventId, timezone, functionTypes, workflowSummaries = {}, duplicateFunction, deleteFunction }: FunctionListProps) {
-  const { dated, unscheduled } = groupByDate(functions, timezone);
+export function FunctionList({
+  functions,
+  eventId,
+  timezone,
+  functionTypes,
+  workflowSummaries = {},
+  duplicateFunction,
+  deleteFunction,
+  deleteFunctions,
+}: FunctionListProps) {
+  const [view, setView] = useState<"list" | "table">("list");
 
-  // Create lookup maps for type labels and colors
-  const typeLabels = new Map(functionTypes.map((t) => [t.value, t.label]));
-  const typeColors = new Map(functionTypes.map((t) => [t.value, t.color || "gray"]));
+  const typeLabels = useMemo(() => new Map(functionTypes.map((t) => [t.value, t.label])), [functionTypes]);
+  const typeColors = useMemo(() => new Map(functionTypes.map((t) => [t.value, t.color || "gray"])), [functionTypes]);
 
-  // Sort dates
-  const sortedDates = Array.from(dated.keys()).sort();
+  const { dated, unscheduled } = useMemo(
+    () => groupByDate(functions, timezone),
+    [functions, timezone]
+  );
+  const sortedDates = useMemo(() => Array.from(dated.keys()).sort(), [dated]);
 
-  const renderFunction = (fn: FunctionWithRelations) => (
-    <div
-      key={fn.id}
-      className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700"
-    >
+  const renderFunction = (fn: FunctionForTable) => (
+    <div key={fn.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -108,12 +85,8 @@ export function FunctionList({ functions, eventId, timezone, functionTypes, work
               {fn.name}
             </Link>
             {fn.type && (
-              <span
-                className={`px-2 py-0.5 text-xs rounded ${
-                  colorClasses[typeColors.get(fn.type) || "gray"] || colorClasses.gray
-                }`}
-              >
-                {typeLabels.get(fn.type) || formatTypeLabel(fn.type)}
+              <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[typeColors.get(fn.type) || "gray"] || colorClasses.gray}`}>
+                {typeLabels.get(fn.type) || fn.type}
               </span>
             )}
             {fn.breakoutGroup && (
@@ -127,47 +100,34 @@ export function FunctionList({ functions, eventId, timezone, functionTypes, work
             {fn.schedules.length > 0 ? (
               <span>
                 {fn.schedules.length === 1
-                  ? formatDateTime(fn.schedules[0].startTime) +
-                    " – " +
-                    formatDateTime(fn.schedules[0].endTime)
+                  ? formatScheduleDateTime(new Date(fn.schedules[0].startTime), timezone) + " – " + formatScheduleDateTime(new Date(fn.schedules[0].endTime), timezone)
                   : `${fn.schedules.length} scheduled times`}
               </span>
             ) : (
               <span className="text-yellow-600 dark:text-yellow-400">No schedule</span>
             )}
             {fn.rooms.length > 0 && (
-              <span className="ml-2">
-                | {fn.rooms.map((r) => r.room.name).join(", ")}
-              </span>
+              <span className="ml-2">| {fn.rooms.map((r) => r.room.name).join(", ")}</span>
             )}
           </div>
           {fn.description && (
-            <p className="text-sm text-gray-500 dark:text-gray-500 mt-1 truncate">
-              {fn.description}
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-500 mt-1 truncate">{fn.description}</p>
           )}
         </div>
         <div className="flex items-center gap-2 ml-4">
           <button
-            onClick={async () => {
-              await duplicateFunction(fn.id);
-            }}
+            onClick={async () => { await duplicateFunction(fn.id); }}
             className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
             title="Duplicate"
           >
             Copy
           </button>
-          <Link
-            href={`/events/${eventId}/functions/${fn.id}`}
-            className="text-blue-600 hover:underline text-sm"
-          >
+          <Link href={`/events/${eventId}/functions/${fn.id}`} className="text-blue-600 hover:underline text-sm">
             Edit
           </Link>
           <button
             onClick={async () => {
-              if (confirm("Delete this function?")) {
-                await deleteFunction(fn.id);
-              }
+              if (confirm("Delete this function?")) await deleteFunction(fn.id);
             }}
             className="text-red-600 hover:underline text-sm"
           >
@@ -181,9 +141,12 @@ export function FunctionList({ functions, eventId, timezone, functionTypes, work
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-          Functions ({functions.length})
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+            Functions ({functions.length})
+          </h2>
+          <ViewToggle view={view} onChange={setView} />
+        </div>
         <div className="flex gap-2">
           <a
             href={`/events/${eventId}/functions/print`}
@@ -192,6 +155,14 @@ export function FunctionList({ functions, eventId, timezone, functionTypes, work
             className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Print All
+          </a>
+          <a
+            href={`/events/${eventId}/functions/table-print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Print Table
           </a>
           <Link
             href={`/events/${eventId}/functions/new`}
@@ -205,13 +176,19 @@ export function FunctionList({ functions, eventId, timezone, functionTypes, work
       {functions.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
           No functions yet.{" "}
-          <Link
-            href={`/events/${eventId}/functions/new`}
-            className="text-blue-600 hover:underline"
-          >
+          <Link href={`/events/${eventId}/functions/new`} className="text-blue-600 hover:underline">
             Add your first function
           </Link>
         </p>
+      ) : view === "table" ? (
+        <FunctionTableView
+          functions={functions}
+          eventId={eventId}
+          timezone={timezone}
+          functionTypes={functionTypes}
+          workflowSummaries={workflowSummaries}
+          deleteFunctions={deleteFunctions}
+        />
       ) : (
         <div className="space-y-6">
           {sortedDates.map((dateKey) => (

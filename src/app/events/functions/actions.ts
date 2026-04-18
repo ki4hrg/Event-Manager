@@ -65,6 +65,24 @@ export async function getFunctions(eventId: string) {
   });
 }
 
+export async function getFunctionsForTable(eventId: string) {
+  return prisma.function.findMany({
+    where: { eventId },
+    include: {
+      rooms: { include: { room: true } },
+      schedules: { orderBy: { startTime: "asc" } },
+      breakoutGroup: true,
+      contacts: { include: { contact: true }, orderBy: { id: "asc" } },
+      avOrder: true,
+      cateringOrder: true,
+      setupOrder: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+export type FunctionForTable = Awaited<ReturnType<typeof getFunctionsForTable>>[number];
+
 export async function getFunctionsWithPresentations(eventId: string) {
   return prisma.function.findMany({
     where: { eventId },
@@ -185,6 +203,13 @@ export async function deleteFunction(id: string, eventId: string) {
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/agenda`);
   redirect(`/events/${eventId}`);
+}
+
+export async function deleteFunctions(ids: string[], eventId: string) {
+  await prisma.function.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath(`/events/${eventId}/functions`);
+  revalidatePath(`/events/${eventId}/agenda`);
 }
 
 export async function duplicateFunction(id: string, eventId: string) {

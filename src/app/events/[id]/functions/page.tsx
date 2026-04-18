@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
-import { getFunctions, duplicateFunction, deleteFunction } from "../../functions/actions";
+import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunctions } from "../../functions/actions";
 import { FunctionList } from "../../functions/FunctionList";
 import { getOptions } from "@/app/settings/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
@@ -14,7 +14,7 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
   const { id } = await params;
   const [event, functions, functionTypes] = await Promise.all([
     getEvent(id),
-    getFunctions(id),
+    getFunctionsForTable(id),
     getOptions("function_type"),
   ]);
 
@@ -34,6 +34,11 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
   const deleteFunctionAction = async (functionId: string) => {
     "use server";
     await deleteFunction(functionId, id);
+  };
+
+  const deleteFunctionsAction = async (ids: string[]) => {
+    "use server";
+    await deleteFunctions(ids, id);
   };
 
   return (
@@ -61,6 +66,7 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
         workflowSummaries={workflowSummaries}
         duplicateFunction={duplicateFunctionAction}
         deleteFunction={deleteFunctionAction}
+        deleteFunctions={deleteFunctionsAction}
       />
     </PageWrapper>
   );
