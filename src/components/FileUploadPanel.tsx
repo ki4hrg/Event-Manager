@@ -12,6 +12,7 @@ type FileUploadPanelProps = {
   files: FileUpload[];
   fileTypeOptions: CustomOption[];
   revalidateTarget: string;
+  title?: string;
 };
 
 export function FileUploadPanel({
@@ -20,6 +21,7 @@ export function FileUploadPanel({
   files,
   fileTypeOptions,
   revalidateTarget,
+  title = "Files",
 }: FileUploadPanelProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,7 +71,7 @@ export function FileUploadPanel({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Files</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{title}</h2>
 
       <div className="space-y-3 mb-4">
         <div className="flex gap-2">
