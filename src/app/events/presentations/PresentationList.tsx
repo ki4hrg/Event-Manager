@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { colorClasses } from "@/lib/colors";
+import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import type {
   Presentation,
   PresentationContact,
@@ -51,8 +52,6 @@ export function PresentationList({
     },
     {} as Record<string, PresentationWithRelations[]>
   );
-
-  const typeMap = new Map(presentationTypes.map((t) => [t.label, t]));
 
   // Sort tracks: defined tracks first (by sortOrder), then unassigned
   const trackMap = new Map(tracks.map((t) => [t.id, t]));
@@ -141,8 +140,8 @@ export function PresentationList({
 
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
                               {presentation.type && (
-                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[typeMap.get(presentation.type)?.color ?? "gray"] ?? colorClasses.gray}`}>
-                                  {typeMap.get(presentation.type)?.label ?? presentation.type}
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[resolveOptionColor(presentation.type, presentationTypes)] ?? colorClasses.gray}`}>
+                                  {resolveOptionLabel(presentation.type, presentationTypes)}
                                 </span>
                               )}
                               {primarySpeaker && (

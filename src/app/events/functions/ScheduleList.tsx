@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { FunctionSchedule, CustomOption } from "@prisma/client";
 import { colorClasses } from "@/lib/colors";
+import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
 
@@ -88,8 +89,6 @@ export function ScheduleList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [pendingConflict, setPendingConflict] = useState<PendingConflict | null>(null);
-
-  const typeColors = useMemo(() => new Map(scheduleTypes.map((t) => [t.label, t.color || "gray"])), [scheduleTypes]);
 
   // Sort schedules by start time, then end time
   const sortedSchedules = [...schedules].sort((a, b) => {
@@ -405,10 +404,10 @@ export function ScheduleList({
                   <div className="flex items-center gap-3 flex-wrap">
                     <span
                       className={`px-2 py-0.5 text-xs rounded ${
-                        colorClasses[typeColors.get(schedule.type) || "gray"] || colorClasses.gray
+                        colorClasses[resolveOptionColor(schedule.type, scheduleTypes)] || colorClasses.gray
                       }`}
                     >
-                      {schedule.type}
+                      {resolveOptionLabel(schedule.type, scheduleTypes)}
                     </span>
                     <span className="text-sm text-gray-900 dark:text-white">
                       {formatDateTimeInTimezone(schedule.startTime, timezone)} – {formatDateTimeInTimezone(schedule.endTime, timezone)}

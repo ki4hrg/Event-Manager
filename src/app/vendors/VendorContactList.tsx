@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { resolveOptionLabel } from "@/lib/optionUtils";
 import { useFormStatus } from "react-dom";
 import type { VendorContact, Contact, CustomOption } from "@prisma/client";
 
@@ -354,7 +355,7 @@ export function VendorContactList({
                     </span>
                     {item.contactType && (
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {item.contactType}
+                        {resolveOptionLabel(item.contactType, contactTypes)}
                       </span>
                     )}
                     {item.contact.organization && (

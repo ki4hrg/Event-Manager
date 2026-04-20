@@ -11,6 +11,7 @@ import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { FunctionTableView } from "./FunctionTableView";
 import { getEarliestStart, formatScheduleDateTime } from "./scheduleUtils";
+import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 
 type FunctionListProps = {
   functions: FunctionForTable[];
@@ -64,8 +65,6 @@ export function FunctionList({
 }: FunctionListProps) {
   const [view, setView] = useState<"list" | "table">("list");
 
-  const typeColors = useMemo(() => new Map(functionTypes.map((t) => [t.label, t.color || "gray"])), [functionTypes]);
-
   const { dated, unscheduled } = useMemo(
     () => groupByDate(functions, timezone),
     [functions, timezone]
@@ -84,8 +83,8 @@ export function FunctionList({
               {fn.name}
             </Link>
             {fn.type && (
-              <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[typeColors.get(fn.type) || "gray"] || colorClasses.gray}`}>
-                {fn.type}
+              <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[resolveOptionColor(fn.type, functionTypes)] || colorClasses.gray}`}>
+                {resolveOptionLabel(fn.type, functionTypes)}
               </span>
             )}
             {fn.breakoutGroup && (

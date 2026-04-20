@@ -10,6 +10,7 @@ import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { colorClasses } from "@/lib/colors";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { getEarliestStart, getLatestEnd, formatScheduleDateTime } from "./scheduleUtils";
+import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 
 type SortField = "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 
@@ -81,8 +82,6 @@ export function FunctionTableView({
   function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
   }
-
-  const typeColors = useMemo(() => new Map(functionTypes.map((t) => [t.label, t.color || "gray"])), [functionTypes]);
 
   const allRooms = useMemo(() => {
     const names = new Set<string>();
@@ -385,8 +384,8 @@ export function FunctionTableView({
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     {fn.type ? (
-                      <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[typeColors.get(fn.type) || "gray"] || colorClasses.gray}`}>
-                        {fn.type}
+                      <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[resolveOptionColor(fn.type, functionTypes)] || colorClasses.gray}`}>
+                        {resolveOptionLabel(fn.type, functionTypes)}
                       </span>
                     ) : "—"}
                   </td>
