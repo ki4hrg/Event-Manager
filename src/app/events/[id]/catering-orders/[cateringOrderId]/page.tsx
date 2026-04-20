@@ -48,7 +48,7 @@ import {
 } from "@/app/vendors/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { CateringOrderTabs, CATERING_ORDER_TABS } from "../../../catering-orders/CateringOrderTabs";
-import { CateringOrderOverviewForm } from "../../../catering-orders/CateringOrderOverviewForm";
+import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
 import { CateringOrderServiceForm } from "../../../catering-orders/CateringOrderServiceForm";
 import { CateringOrderContractForm } from "../../../catering-orders/CateringOrderContractForm";
 import { TimelineTable } from "../../../catering-orders/TimelineTable";
@@ -111,7 +111,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -125,6 +125,7 @@ export default async function CateringOrderPage({
       getCateringOrderVendors(cateringOrderId),
       getOptions("file_type"),
       prisma.fileUpload.findMany({ where: { cateringOrderId }, orderBy: { createdAt: "asc" } }),
+      searchAssignedEventVendors("", eventId, "CATERING_ORDER"),
     ]);
   if (!event || !cateringOrder) {
     notFound();
@@ -280,6 +281,16 @@ export default async function CateringOrderPage({
     await removeVendorFromCateringOrder(id, cateringOrderId, eventId);
   };
 
+  const addVendorToFormAction = async (vendorId: string) => {
+    "use server";
+    await addVendorToCateringOrder(cateringOrderId, vendorId, eventId);
+  };
+
+  const removeVendorFromFormAction = async (junctionId: string) => {
+    "use server";
+    await removeVendorFromCateringOrder(junctionId, cateringOrderId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -322,10 +333,11 @@ export default async function CateringOrderPage({
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-6">
-            <CateringOrderOverviewForm
+            <CateringOrderForm
               cateringOrder={cateringOrder}
               action={updateOverviewAction}
               serviceStyleOptions={serviceStyleOptions}
+              eventId={eventId}
               linkedFunctionId={cateringOrder.functionId}
               linkedFunctionName={cateringOrder.function?.name ?? null}
               linkedFunctionPath={
@@ -334,6 +346,10 @@ export default async function CateringOrderPage({
               availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
               linkFunction={linkToFunctionAction}
               unlinkFunction={unlinkFromFunctionAction}
+              assignedVendors={cateringOrderVendors}
+              availableVendors={availableEventVendors.map((v) => ({ id: v.id, label: v.name }))}
+              addVendor={addVendorToFormAction}
+              removeVendor={removeVendorFromFormAction}
             />
             <ContactList
               contacts={cateringOrder.contacts}

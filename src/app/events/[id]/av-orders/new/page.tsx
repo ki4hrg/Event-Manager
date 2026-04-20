@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getEvent } from "../../../actions";
 import { createAVOrder } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
+import { searchAssignedEventVendors } from "@/app/vendors/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,11 @@ export default async function NewAVOrderPage({
   const { id: eventId } = await params;
   const { functionId, presentationId } = await searchParams;
 
-  const [event, availableFunctions, availablePresentations] = await Promise.all([
+  const [event, availableFunctions, availablePresentations, eventVendors] = await Promise.all([
     getEvent(eventId),
     prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
     prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
+    searchAssignedEventVendors("", eventId, "AV_ORDER"),
   ]);
 
   if (!event) {
@@ -54,6 +56,7 @@ export default async function NewAVOrderPage({
         availablePresentations={availablePresentations.map((p) => ({ id: p.id, label: p.title }))}
         defaultFunctionId={functionId}
         defaultPresentationId={presentationId}
+        availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
       />
     </PageWrapper>
   );

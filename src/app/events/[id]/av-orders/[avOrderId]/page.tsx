@@ -79,10 +79,11 @@ export default async function AVOrderPage({
     notFound();
   }
 
-  const [avOrderVendors, fileTypeOptions, avOrderFiles] = await Promise.all([
+  const [avOrderVendors, fileTypeOptions, avOrderFiles, availableEventVendors] = await Promise.all([
     getAVOrderVendors(avOrderId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { avOrderId }, orderBy: { createdAt: "asc" } }),
+    searchAssignedEventVendors("", eventId, "AV_ORDER"),
   ]);
 
   // Fetch tab-specific data
@@ -168,6 +169,16 @@ export default async function AVOrderPage({
   const removeVendorAction = async (id: string) => {
     "use server";
     await removeVendorFromAVOrder(id, avOrderId, eventId);
+  };
+
+  const addVendorToFormAction = async (vendorId: string) => {
+    "use server";
+    await addVendorToAVOrder(avOrderId, vendorId, eventId);
+  };
+
+  const removeVendorFromFormAction = async (junctionId: string) => {
+    "use server";
+    await removeVendorFromAVOrder(junctionId, avOrderId, eventId);
   };
 
   const readOnlyTotals: Record<string, number> = {};
@@ -344,6 +355,12 @@ export default async function AVOrderPage({
               avOrder={avOrder}
               eventId={eventId}
               action={updateAVOrderAction}
+              vendorLink={{
+                assignedVendors: avOrderVendors,
+                availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),
+                addVendor: addVendorToFormAction,
+                removeVendor: removeVendorFromFormAction,
+              }}
             />
           </div>
 

@@ -81,6 +81,7 @@ export async function createAVOrder(eventId: string, formData: FormData) {
   const notes = formData.get("notes") as string;
   const presentationId = formData.get("presentationId") as string;
   const functionId = formData.get("functionId") as string;
+  const selectedVendorId = (formData.get("vendorId") as string) || null;
 
   const avOrder = await prisma.aVOrder.create({
     data: {
@@ -96,10 +97,9 @@ export async function createAVOrder(eventId: string, formData: FormData) {
     data: { avOrderId: avOrder.id },
   });
 
-  const [, , defaultVendor] = await Promise.all([
+  await Promise.all([
     prisma.inputGroup.create({ data: { audioSectionId: audioSection.id, name: "Default" } }),
     prisma.videoSection.create({ data: { avOrderId: avOrder.id } }),
-    getDefaultVendorForModel(eventId, "AV_ORDER"),
   ]);
 
   // Link to function if provided (FK is on Function)
@@ -111,8 +111,9 @@ export async function createAVOrder(eventId: string, formData: FormData) {
     revalidatePath(`/events/${eventId}/functions/${functionId}`);
   }
 
-  if (defaultVendor) {
-    await prisma.aVOrderVendor.create({ data: { avOrderId: avOrder.id, vendorId: defaultVendor.vendorId } });
+  const vendorIdToAssign = selectedVendorId ?? (await getDefaultVendorForModel(eventId, "AV_ORDER"))?.vendorId ?? null;
+  if (vendorIdToAssign) {
+    await prisma.aVOrderVendor.create({ data: { avOrderId: avOrder.id, vendorId: vendorIdToAssign } });
   }
 
   revalidatePath(`/events/${eventId}/av-orders`);

@@ -5,6 +5,7 @@ import { getEvent } from "../../../actions";
 import { createCateringOrder } from "../../../catering-orders/actions";
 import { getOptions } from "../../../../settings/actions";
 import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
+import { searchAssignedEventVendors } from "@/app/vendors/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,10 @@ export default async function NewCateringOrderPage({
   const { id: eventId } = await params;
   const { functionId } = await searchParams;
 
-  const [event, serviceStyleOptions] = await Promise.all([
+  const [event, serviceStyleOptions, eventVendors] = await Promise.all([
     getEvent(eventId),
     getOptions("service_style"),
+    searchAssignedEventVendors("", eventId, "CATERING_ORDER"),
   ]);
 
   if (!event) {
@@ -47,7 +49,12 @@ export default async function NewCateringOrderPage({
         </h1>
       </div>
 
-      <CateringOrderForm eventId={eventId} action={createCateringOrderAction} serviceStyleOptions={serviceStyleOptions} />
+      <CateringOrderForm
+        eventId={eventId}
+        action={createCateringOrderAction}
+        serviceStyleOptions={serviceStyleOptions}
+        availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
+      />
     </PageWrapper>
   );
 }

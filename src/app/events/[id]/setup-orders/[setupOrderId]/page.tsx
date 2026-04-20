@@ -68,10 +68,11 @@ export default async function SetupOrderPage({
     notFound();
   }
 
-  const [setupOrderVendors, fileTypeOptions, setupOrderFiles] = await Promise.all([
+  const [setupOrderVendors, fileTypeOptions, setupOrderFiles, availableEventVendors] = await Promise.all([
     getSetupOrderVendors(setupOrderId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { setupOrderId }, orderBy: { createdAt: "asc" } }),
+    searchAssignedEventVendors("", eventId, "SETUP_ORDER"),
   ]);
 
   const TABLE_CAT = "TABLES";
@@ -113,6 +114,16 @@ export default async function SetupOrderPage({
   const removeVendorAction = async (id: string) => {
     "use server";
     await removeVendorFromSetupOrder(id, setupOrderId, eventId);
+  };
+
+  const addVendorToFormAction = async (vendorId: string) => {
+    "use server";
+    await addVendorToSetupOrder(setupOrderId, vendorId, eventId);
+  };
+
+  const removeVendorFromFormAction = async (junctionId: string) => {
+    "use server";
+    await removeVendorFromSetupOrder(junctionId, setupOrderId, eventId);
   };
 
   const { tableTotals, chairTotals } = aggregateSetupTables(setupOrder.tables);
@@ -254,6 +265,12 @@ export default async function SetupOrderPage({
                 availableFunctions: availableFunctions.map((f) => ({ id: f.id, label: f.name })),
                 linkFunction: linkToFunctionAction,
                 unlinkFunction: unlinkFromFunctionAction,
+              }}
+              vendorLink={{
+                assignedVendors: setupOrderVendors,
+                availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),
+                addVendor: addVendorToFormAction,
+                removeVendor: removeVendorFromFormAction,
               }}
             />
           </div>

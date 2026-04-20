@@ -36,6 +36,7 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
   const notes = formData.get("notes") as string;
   const functionId = (formData.get("functionId") as string) || null;
   const roomId = (formData.get("roomId") as string) || null;
+  const selectedVendorId = (formData.get("vendorId") as string) || null;
 
   const setupOrder = await prisma.setupOrder.create({
     data: {
@@ -48,9 +49,9 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
     },
   });
 
-  const defaultVendor = await getDefaultVendorForModel(eventId, "SETUP_ORDER");
-  if (defaultVendor) {
-    await prisma.setupOrderVendor.create({ data: { setupOrderId: setupOrder.id, vendorId: defaultVendor.vendorId } });
+  const vendorIdToAssign = selectedVendorId ?? (await getDefaultVendorForModel(eventId, "SETUP_ORDER"))?.vendorId ?? null;
+  if (vendorIdToAssign) {
+    await prisma.setupOrderVendor.create({ data: { setupOrderId: setupOrder.id, vendorId: vendorIdToAssign } });
   }
 
   revalidatePath(`/events/${eventId}/setup-orders`);

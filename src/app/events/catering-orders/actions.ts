@@ -58,9 +58,10 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
     },
   });
 
-  const defaultVendor = await getDefaultVendorForModel(eventId, "CATERING_ORDER");
-  if (defaultVendor) {
-    await prisma.cateringOrderVendor.create({ data: { cateringOrderId: cateringOrder.id, vendorId: defaultVendor.vendorId } });
+  const selectedVendorId = (formData.get("vendorId") as string) || null;
+  const vendorIdToAssign = selectedVendorId ?? (await getDefaultVendorForModel(eventId, "CATERING_ORDER"))?.vendorId ?? null;
+  if (vendorIdToAssign) {
+    await prisma.cateringOrderVendor.create({ data: { cateringOrderId: cateringOrder.id, vendorId: vendorIdToAssign } });
   }
 
   revalidatePath(`/events/${eventId}/catering-orders`);

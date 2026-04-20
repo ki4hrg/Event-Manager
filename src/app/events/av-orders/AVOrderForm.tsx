@@ -2,6 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import type { AVOrder } from "@prisma/client";
+import { VendorLinkControl, type AvailableVendor, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
 
 type AVOrderFormProps = {
   avOrder?: AVOrder | null;
@@ -11,6 +12,8 @@ type AVOrderFormProps = {
   availablePresentations?: { id: string; label: string }[];
   defaultFunctionId?: string;
   defaultPresentationId?: string;
+  vendorLink?: VendorLinkEditProps;
+  availableVendors?: AvailableVendor[];
 };
 
 function LinkSelectField({
@@ -68,6 +71,8 @@ export function AVOrderForm({
   availablePresentations,
   defaultFunctionId,
   defaultPresentationId,
+  vendorLink,
+  availableVendors = [],
 }: AVOrderFormProps) {
   const isEdit = !!avOrder;
 
@@ -114,7 +119,7 @@ export function AVOrderForm({
             />
           </div>
 
-          {availableFunctions && (
+          {!isEdit && availableFunctions && (
             <LinkSelectField
               fieldName="functionId"
               label="Link to Function"
@@ -123,7 +128,7 @@ export function AVOrderForm({
             />
           )}
 
-          {availablePresentations && (
+          {!isEdit && availablePresentations && (
             <LinkSelectField
               fieldName="presentationId"
               label="Link to Presentation"
@@ -131,6 +136,12 @@ export function AVOrderForm({
               defaultValue={defaultPresentationId}
             />
           )}
+
+          {isEdit && vendorLink ? (
+            <VendorLinkControl mode="edit" {...vendorLink} />
+          ) : !isEdit ? (
+            <VendorLinkControl mode="create" availableVendors={availableVendors} />
+          ) : null}
         </div>
       </div>
 
