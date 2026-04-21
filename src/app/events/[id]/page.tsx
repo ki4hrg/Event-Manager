@@ -11,16 +11,17 @@ import { EventTabs } from "./EventTabs";
 import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
+import { STATUS_CLASS, STATUS_LABEL } from "@/lib/statusConstants";
+import type { EntityStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-function WorkflowRow({ dot, label, count }: { dot: string; label: string; count: number }) {
+function StatusRow({ status, count }: { status: EntityStatus; count: number }) {
   return (
     <div className="flex items-center justify-between text-sm">
-      <div className="flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${dot} shrink-0`} />
-        <span className="text-gray-600 dark:text-gray-300">{label}</span>
-      </div>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASS[status]}`}>
+        {STATUS_LABEL[status]}
+      </span>
       <span className="font-medium text-gray-900 dark:text-white">{count}</span>
     </div>
   );
@@ -53,8 +54,11 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     await deleteEvent(id);
   };
 
-  const totalWorkflow =
-    stats.workflow.notStarted + stats.workflow.inProgress + stats.workflow.done;
+  const totalEntityStatus =
+    stats.entityStatus.pending +
+    stats.entityStatus.inProgress +
+    stats.entityStatus.complete +
+    stats.entityStatus.cancelled;
 
   return (
     <PageWrapper>
@@ -154,17 +158,26 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Workflow
+              Status
             </p>
-            {totalWorkflow === 0 ? (
+            {totalEntityStatus === 0 ? (
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                No workflows assigned
+                No entities tracked
               </p>
             ) : (
               <div className="space-y-2">
-                <WorkflowRow dot="bg-gray-400 dark:bg-gray-500" label="Not started" count={stats.workflow.notStarted} />
-                <WorkflowRow dot="bg-yellow-400" label="In progress" count={stats.workflow.inProgress} />
-                <WorkflowRow dot="bg-green-500" label="Done" count={stats.workflow.done} />
+                {stats.entityStatus.pending > 0 && (
+                  <StatusRow status="PENDING" count={stats.entityStatus.pending} />
+                )}
+                {stats.entityStatus.inProgress > 0 && (
+                  <StatusRow status="IN_PROGRESS" count={stats.entityStatus.inProgress} />
+                )}
+                {stats.entityStatus.complete > 0 && (
+                  <StatusRow status="COMPLETE" count={stats.entityStatus.complete} />
+                )}
+                {stats.entityStatus.cancelled > 0 && (
+                  <StatusRow status="CANCELLED" count={stats.entityStatus.cancelled} />
+                )}
               </div>
             )}
           </div>

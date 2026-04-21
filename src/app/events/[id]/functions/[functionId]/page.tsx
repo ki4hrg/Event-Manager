@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { DeleteButton } from "@/components/DeleteButton";
+import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "../../../actions";
 import {
@@ -247,8 +247,12 @@ export default async function FunctionPage({
               Duplicate
             </button>
           </form>
-          <DeleteButton
-            action={deleteFunctionAction}
+          <CancelOrDeleteButton
+            status={fn.status ?? null}
+            substatuses={substatuses}
+            cancel={cancelAction}
+            restore={restoreAction}
+            deleteAction={deleteFunctionAction}
             confirmMessage="Are you sure you want to delete this function?"
           />
         </div>
@@ -256,25 +260,30 @@ export default async function FunctionPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-8">
-          <FunctionForm
-            fn={fn}
-            rooms={rooms}
-            eventId={eventId}
-            functionTypes={functionTypes}
-            action={updateFunctionAction}
-            breakoutGroups={fn.type === "BREAKOUT_BLOCK" ? breakoutGroups : undefined}
-          />
-          <EntityStatusPanel
-            entityType="function"
-            entityId={functionId}
-            eventId={eventId}
-            status={fn.status ?? null}
-            substatus={fn.substatus ?? null}
-            substatuses={substatuses}
-            setStatus={setStatusAction}
-            cancel={cancelAction}
-            restore={restoreAction}
-          />
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <FunctionForm
+              noCard
+              fn={fn}
+              rooms={rooms}
+              eventId={eventId}
+              functionTypes={functionTypes}
+              action={updateFunctionAction}
+              breakoutGroups={fn.type === "BREAKOUT_BLOCK" ? breakoutGroups : undefined}
+            />
+            <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Status</p>
+              <EntityStatusPanel
+                standalone={false}
+                entityType="function"
+                entityId={functionId}
+                eventId={eventId}
+                status={fn.status ?? null}
+                substatus={fn.substatus ?? null}
+                substatuses={substatuses}
+                setStatus={setStatusAction}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="lg:col-span-2 space-y-8">

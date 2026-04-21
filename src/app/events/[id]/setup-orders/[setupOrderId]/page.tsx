@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { DeleteButton } from "@/components/DeleteButton";
+import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "../../../actions";
 import {
@@ -269,8 +269,12 @@ export default async function SetupOrderPage({
               Duplicate
             </button>
           </form>
-          <DeleteButton
-            action={deleteSetupOrderAction}
+          <CancelOrDeleteButton
+            status={setupOrder.status ?? null}
+            substatuses={substatuses}
+            cancel={cancelAction}
+            restore={restoreAction}
+            deleteAction={deleteSetupOrderAction}
             confirmMessage="Are you sure you want to delete this Setup Order?"
           />
         </div>
@@ -281,40 +285,45 @@ export default async function SetupOrderPage({
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-8">
-            <SetupOrderForm
-              setupOrder={setupOrder}
-              eventId={eventId}
-              setupTypes={setupTypes}
-              action={updateSetupOrderAction}
-              rooms={venueRooms}
-              functionLink={{
-                linkedFunctionId: setupOrder.functionId,
-                linkedFunctionName: setupOrder.function?.name ?? null,
-                linkedFunctionPath: setupOrder.function
-                  ? `/events/${eventId}/functions/${setupOrder.function.id}`
-                  : null,
-                availableFunctions: availableFunctions.map((f) => ({ id: f.id, label: f.name })),
-                linkFunction: linkToFunctionAction,
-                unlinkFunction: unlinkFromFunctionAction,
-              }}
-              vendorLink={{
-                assignedVendors: setupOrderVendors,
-                availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),
-                addVendor: addVendorToFormAction,
-                removeVendor: removeVendorFromFormAction,
-              }}
-            />
-            <EntityStatusPanel
-              entityType="setup_order"
-              entityId={setupOrderId}
-              eventId={eventId}
-              status={setupOrder.status ?? null}
-              substatus={setupOrder.substatus ?? null}
-              substatuses={substatuses}
-              setStatus={setStatusAction}
-              cancel={cancelAction}
-              restore={restoreAction}
-            />
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <SetupOrderForm
+                noCard
+                setupOrder={setupOrder}
+                eventId={eventId}
+                setupTypes={setupTypes}
+                action={updateSetupOrderAction}
+                rooms={venueRooms}
+                functionLink={{
+                  linkedFunctionId: setupOrder.functionId,
+                  linkedFunctionName: setupOrder.function?.name ?? null,
+                  linkedFunctionPath: setupOrder.function
+                    ? `/events/${eventId}/functions/${setupOrder.function.id}`
+                    : null,
+                  availableFunctions: availableFunctions.map((f) => ({ id: f.id, label: f.name })),
+                  linkFunction: linkToFunctionAction,
+                  unlinkFunction: unlinkFromFunctionAction,
+                }}
+                vendorLink={{
+                  assignedVendors: setupOrderVendors,
+                  availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),
+                  addVendor: addVendorToFormAction,
+                  removeVendor: removeVendorFromFormAction,
+                }}
+              />
+              <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Status</p>
+                <EntityStatusPanel
+                  standalone={false}
+                  entityType="setup_order"
+                  entityId={setupOrderId}
+                  eventId={eventId}
+                  status={setupOrder.status ?? null}
+                  substatus={setupOrder.substatus ?? null}
+                  substatuses={substatuses}
+                  setStatus={setStatusAction}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="lg:col-span-2 space-y-8">

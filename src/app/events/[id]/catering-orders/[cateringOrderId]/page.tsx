@@ -4,7 +4,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { DeleteButton } from "@/components/DeleteButton";
+import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { getEvent } from "../../../actions";
@@ -338,8 +338,12 @@ export default async function CateringOrderPage({
           >
             Print
           </a>
-          <DeleteButton
-            action={deleteCateringOrderAction}
+          <CancelOrDeleteButton
+            status={cateringOrder.status ?? null}
+            substatuses={substatuses}
+            cancel={cancelAction}
+            restore={restoreAction}
+            deleteAction={deleteCateringOrderAction}
             confirmMessage="Are you sure you want to delete this Catering Order?"
           />
         </div>
@@ -350,24 +354,40 @@ export default async function CateringOrderPage({
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-6">
-            <CateringOrderForm
-              cateringOrder={cateringOrder}
-              action={updateOverviewAction}
-              serviceStyleOptions={serviceStyleOptions}
-              eventId={eventId}
-              linkedFunctionId={cateringOrder.functionId}
-              linkedFunctionName={cateringOrder.function?.name ?? null}
-              linkedFunctionPath={
-                cateringOrder.functionId ? `/events/${eventId}/functions/${cateringOrder.functionId}` : null
-              }
-              availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
-              linkFunction={linkToFunctionAction}
-              unlinkFunction={unlinkFromFunctionAction}
-              assignedVendors={cateringOrderVendors}
-              availableVendors={availableEventVendors.map((v) => ({ id: v.id, label: v.name }))}
-              addVendor={addVendorToFormAction}
-              removeVendor={removeVendorFromFormAction}
-            />
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <CateringOrderForm
+                noCard
+                cateringOrder={cateringOrder}
+                action={updateOverviewAction}
+                serviceStyleOptions={serviceStyleOptions}
+                eventId={eventId}
+                linkedFunctionId={cateringOrder.functionId}
+                linkedFunctionName={cateringOrder.function?.name ?? null}
+                linkedFunctionPath={
+                  cateringOrder.functionId ? `/events/${eventId}/functions/${cateringOrder.functionId}` : null
+                }
+                availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+                linkFunction={linkToFunctionAction}
+                unlinkFunction={unlinkFromFunctionAction}
+                assignedVendors={cateringOrderVendors}
+                availableVendors={availableEventVendors.map((v) => ({ id: v.id, label: v.name }))}
+                addVendor={addVendorToFormAction}
+                removeVendor={removeVendorFromFormAction}
+              />
+              <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Status</p>
+                <EntityStatusPanel
+                  standalone={false}
+                  entityType="catering_order"
+                  entityId={cateringOrderId}
+                  eventId={eventId}
+                  status={cateringOrder.status ?? null}
+                  substatus={cateringOrder.substatus ?? null}
+                  substatuses={substatuses}
+                  setStatus={setStatusAction}
+                />
+              </div>
+            </div>
             <ContactList
               contacts={cateringOrder.contacts}
               addContact={addContactAction}
@@ -378,17 +398,6 @@ export default async function CateringOrderPage({
             />
           </div>
           <div className="lg:col-span-2 space-y-6">
-            <EntityStatusPanel
-              entityType="catering_order"
-              entityId={cateringOrderId}
-              eventId={eventId}
-              status={cateringOrder.status ?? null}
-              substatus={cateringOrder.substatus ?? null}
-              substatuses={substatuses}
-              setStatus={setStatusAction}
-              cancel={cancelAction}
-              restore={restoreAction}
-            />
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}

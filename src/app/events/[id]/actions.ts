@@ -6,72 +6,43 @@ export async function getEventOverviewStats(eventId: string) {
   const [
     functionsWithoutSchedule,
     functionsWithoutRoom,
+    totalFunctions,
+    totalPresentations,
     unassignedPresentations,
-    functionIds,
-    presentationIds,
-    cateringOrderIds,
-    avOrderIds,
+    functionStatusGroups,
+    avOrderStatusGroups,
+    cateringOrderStatusGroups,
+    setupOrderStatusGroups,
   ] = await Promise.all([
     prisma.function.count({ where: { eventId, schedules: { none: {} } } }),
     prisma.function.count({ where: { eventId, rooms: { none: {} } } }),
+    prisma.function.count({ where: { eventId } }),
+    prisma.presentation.count({ where: { eventId } }),
     prisma.presentation.count({ where: { eventId, slots: { none: {} } } }),
-    prisma.function
-      .findMany({ where: { eventId }, select: { id: true } })
-      .then((r) => r.map((x) => x.id)),
-    prisma.presentation
-      .findMany({ where: { eventId }, select: { id: true } })
-      .then((r) => r.map((x) => x.id)),
-    prisma.cateringOrder
-      .findMany({ where: { eventId }, select: { id: true } })
-      .then((r) => r.map((x) => x.id)),
-    prisma.aVOrder
-      .findMany({ where: { eventId }, select: { id: true } })
-      .then((r) => r.map((x) => x.id)),
+    prisma.function.groupBy({ by: ["status"], where: { eventId }, _count: true }),
+    prisma.aVOrder.groupBy({ by: ["status"], where: { eventId }, _count: true }),
+    prisma.cateringOrder.groupBy({ by: ["status"], where: { eventId }, _count: true }),
+    prisma.setupOrder.groupBy({ by: ["status"], where: { eventId }, _count: true }),
   ]);
 
-  const workflowStats = { notStarted: 0, inProgress: 0, done: 0 };
-
-  const hasEntities =
-    functionIds.length > 0 ||
-    presentationIds.length > 0 ||
-    cateringOrderIds.length > 0 ||
-    avOrderIds.length > 0;
-
-  if (hasEntities) {
-    const instances = await prisma.workflowInstance.findMany({
-      where: {
-        OR: [
-          { entityType: "function", entityId: { in: functionIds } },
-          { entityType: "presentation", entityId: { in: presentationIds } },
-          { entityType: "catering_order", entityId: { in: cateringOrderIds } },
-          { entityType: "av_order", entityId: { in: avOrderIds } },
-        ],
-      },
-      include: {
-        template: { select: { _count: { select: { steps: true } } } },
-        stepCompletions: { select: { id: true } },
-      },
-    });
-
-    for (const inst of instances) {
-      const total = inst.template._count.steps;
-      const completed = inst.stepCompletions.length;
-      if (completed === 0) workflowStats.notStarted++;
-      else if (completed >= total) workflowStats.done++;
-      else workflowStats.inProgress++;
-    }
+  const entityStatus = { pending: 0, inProgress: 0, complete: 0, cancelled: 0 };
+  for (const g of [...functionStatusGroups, ...avOrderStatusGroups, ...cateringOrderStatusGroups, ...setupOrderStatusGroups]) {
+    if (g.status === "PENDING") entityStatus.pending += g._count;
+    else if (g.status === "IN_PROGRESS") entityStatus.inProgress += g._count;
+    else if (g.status === "COMPLETE") entityStatus.complete += g._count;
+    else if (g.status === "CANCELLED") entityStatus.cancelled += g._count;
   }
 
   return {
     functions: {
-      total: functionIds.length,
+      total: totalFunctions,
       missingSchedule: functionsWithoutSchedule,
       missingRoom: functionsWithoutRoom,
     },
     presentations: {
-      total: presentationIds.length,
+      total: totalPresentations,
       unassigned: unassignedPresentations,
     },
-    workflow: workflowStats,
+    entityStatus,
   };
 }

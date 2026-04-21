@@ -16,6 +16,7 @@ type AVOrderFormProps = {
   defaultPresentationId?: string;
   vendorLink?: VendorLinkEditProps;
   availableVendors?: AvailableVendor[];
+  noCard?: boolean;
 };
 
 function LinkSelectField({
@@ -75,13 +76,16 @@ export function AVOrderForm({
   defaultPresentationId,
   vendorLink,
   availableVendors = [],
+  noCard = false,
 }: AVOrderFormProps) {
   const isEdit = !!avOrder;
   const [editing, setEditing] = useState(false);
 
+  const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
+
   if (isEdit && !editing) {
     return (
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={cardClass}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">AV Order Details</h2>
           <button
@@ -108,9 +112,9 @@ export function AVOrderForm({
         await action(formData);
         if (isEdit) setEditing(false);
       }}
-      className="space-y-6 max-w-2xl"
+      className={noCard ? "space-y-6" : "space-y-6 max-w-2xl"}
     >
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           AV Order Details
         </h2>

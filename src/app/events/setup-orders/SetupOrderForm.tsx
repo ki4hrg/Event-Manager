@@ -30,6 +30,7 @@ type SetupOrderFormProps = {
   functions?: { id: string; name: string; roomIds: string[] }[];
   initialRoomId?: string;
   initialFunctionId?: string;
+  noCard?: boolean;
 };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -57,6 +58,7 @@ export function SetupOrderForm({
   functions = [],
   initialRoomId,
   initialFunctionId,
+  noCard = false,
 }: SetupOrderFormProps) {
   const isEdit = !!setupOrder;
   const [editing, setEditing] = useState(false);
@@ -68,9 +70,11 @@ export function SetupOrderForm({
     ? functions.filter((f) => f.roomIds.includes(selectedRoomId))
     : functions;
 
+  const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
+
   if (isEdit && !editing) {
     return (
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={cardClass}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Setup Order Details</h2>
           <button
@@ -99,7 +103,7 @@ export function SetupOrderForm({
         if (isEdit) setEditing(false);
       }}
     >
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Setup Order Details
         </h2>

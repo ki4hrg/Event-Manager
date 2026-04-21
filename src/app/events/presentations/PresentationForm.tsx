@@ -32,6 +32,7 @@ type PresentationFormProps = {
   presentationTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
+  noCard?: boolean;
 };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -144,6 +145,7 @@ export function PresentationForm({
   presentationTypes,
   action,
   searchContacts,
+  noCard = false,
 }: PresentationFormProps) {
   const isEdit = !!presentation;
   const [editing, setEditing] = useState(false);
@@ -220,11 +222,13 @@ export function PresentationForm({
     await action(formData);
   };
 
+  const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
+
   if (isEdit && !editing) {
     const typeLabel = presentation.type ?? null;
 
     return (
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={cardClass}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Presentation Details</h2>
           <button
@@ -247,7 +251,7 @@ export function PresentationForm({
 
   if (isEdit) {
     return (
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Presentation Details
         </h2>

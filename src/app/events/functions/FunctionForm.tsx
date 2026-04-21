@@ -18,6 +18,7 @@ type FunctionFormProps = {
   breakoutGroupId?: string;
   breakoutGroups?: BreakoutGroup[];
   timezone?: string;
+  noCard?: boolean;
 };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -43,7 +44,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string | null |
   );
 }
 
-function RoomSelector({ rooms, selectedRoomIds }: { rooms: Room[]; selectedRoomIds: string[] }) {
+function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: Room[]; selectedRoomIds: string[]; noCard?: boolean }) {
   const [roomFilter, setRoomFilter] = useState("");
   const SHOW_FILTER_THRESHOLD = 8;
   const showFilter = rooms.length > SHOW_FILTER_THRESHOLD;
@@ -54,9 +55,12 @@ function RoomSelector({ rooms, selectedRoomIds }: { rooms: Room[]; selectedRoomI
       )
     : rooms;
 
+  const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
+  const dividerClass = noCard ? "border-t border-gray-200 dark:border-gray-700 mt-0 pt-4" : "";
+
   if (rooms.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={noCard ? dividerClass : cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Room Assignment
         </h2>
@@ -68,7 +72,7 @@ function RoomSelector({ rooms, selectedRoomIds }: { rooms: Room[]; selectedRoomI
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className={noCard ? dividerClass : cardClass}>
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
         Room Assignment
       </h2>
@@ -107,7 +111,7 @@ function RoomSelector({ rooms, selectedRoomIds }: { rooms: Room[]; selectedRoomI
   );
 }
 
-export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId, breakoutGroups, timezone }: FunctionFormProps) {
+export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId, breakoutGroups, timezone, noCard = false }: FunctionFormProps) {
   const isEdit = !!fn;
   const [editing, setEditing] = useState(!isEdit);
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
@@ -120,6 +124,9 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
         .split(" ")
         .pop()
     : "local";
+
+  const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
+  const dividerClass = "border-t border-gray-200 dark:border-gray-700 pt-4";
 
   // Read-only view for existing functions
   if (isEdit && !editing) {
@@ -134,8 +141,8 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       : null;
 
     return (
-      <div className="space-y-6 max-w-2xl">
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={noCard ? "" : "space-y-6 max-w-2xl"}>
+        <div className={cardClass}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white">
               Basic Information
@@ -155,7 +162,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
           </dl>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className={noCard ? `${dividerClass} mt-4` : "bg-white dark:bg-gray-800 shadow rounded-lg p-6"}>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
             Room Assignment
           </h2>
@@ -163,7 +170,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
         </div>
 
         {!isBreakoutType && (
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <div className={noCard ? `${dividerClass} mt-4` : "bg-white dark:bg-gray-800 shadow rounded-lg p-6"}>
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
               Setup Notes
             </h2>
@@ -182,14 +189,14 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
         await action(formData);
         if (isEdit) setEditing(false);
       }}
-      className="space-y-6 max-w-2xl"
+      className={noCard ? "space-y-0" : "space-y-6 max-w-2xl"}
     >
       {breakoutGroupId && !breakoutGroups && (
         <input type="hidden" name="breakoutGroupId" value={breakoutGroupId} />
       )}
 
       {/* Basic Info */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Basic Information
         </h2>
@@ -325,11 +332,11 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       )}
 
       {/* Room Assignment */}
-      <RoomSelector rooms={rooms} selectedRoomIds={selectedRoomIds} />
+      <RoomSelector rooms={rooms} selectedRoomIds={selectedRoomIds} noCard={noCard} />
 
       {/* Setup Notes (not shown for breakout blocks) */}
       {!isBreakoutType && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className={noCard ? `${dividerClass} mt-4` : "bg-white dark:bg-gray-800 shadow rounded-lg p-6"}>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
             Setup Notes
           </h2>
@@ -346,7 +353,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       )}
 
       {/* Form Actions */}
-      <div className="flex gap-4">
+      <div className={`flex gap-4${noCard ? " mt-4" : ""}`}>
         <SubmitButton isEdit={isEdit} />
         {isEdit ? (
           <button

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { DeleteButton } from "@/components/DeleteButton";
+import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { prisma } from "@/lib/prisma";
@@ -356,8 +356,12 @@ export default async function AVOrderPage({
           >
             Print
           </a>
-          <DeleteButton
-            action={deleteAVOrderAction}
+          <CancelOrDeleteButton
+            status={avOrder.status ?? null}
+            substatuses={substatuses}
+            cancel={cancelAction}
+            restore={restoreAction}
+            deleteAction={deleteAVOrderAction}
             confirmMessage="Are you sure you want to delete this AV Order?"
           />
         </div>
@@ -368,28 +372,33 @@ export default async function AVOrderPage({
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-6">
-            <AVOrderForm
-              avOrder={avOrder}
-              eventId={eventId}
-              action={updateAVOrderAction}
-              vendorLink={{
-                assignedVendors: avOrderVendors,
-                availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),
-                addVendor: addVendorToFormAction,
-                removeVendor: removeVendorFromFormAction,
-              }}
-            />
-            <EntityStatusPanel
-              entityType="av_order"
-              entityId={avOrderId}
-              eventId={eventId}
-              status={avOrder.status ?? null}
-              substatus={avOrder.substatus ?? null}
-              substatuses={substatuses}
-              setStatus={setStatusAction}
-              cancel={cancelAction}
-              restore={restoreAction}
-            />
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <AVOrderForm
+                noCard
+                avOrder={avOrder}
+                eventId={eventId}
+                action={updateAVOrderAction}
+                vendorLink={{
+                  assignedVendors: avOrderVendors,
+                  availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),
+                  addVendor: addVendorToFormAction,
+                  removeVendor: removeVendorFromFormAction,
+                }}
+              />
+              <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Status</p>
+                <EntityStatusPanel
+                  standalone={false}
+                  entityType="av_order"
+                  entityId={avOrderId}
+                  eventId={eventId}
+                  status={avOrder.status ?? null}
+                  substatus={avOrder.substatus ?? null}
+                  substatuses={substatuses}
+                  setStatus={setStatusAction}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="lg:col-span-2 space-y-6">

@@ -24,6 +24,7 @@ type CateringOrderFormProps = {
   availableVendors?: AvailableVendor[];
   addVendor?: (vendorId: string) => Promise<void>;
   removeVendor?: (junctionId: string) => Promise<void>;
+  noCard?: boolean;
 };
 
 function SaveButton({ isEdit }: { isEdit: boolean }) {
@@ -54,14 +55,20 @@ export function CateringOrderForm({
   availableVendors = [],
   addVendor,
   removeVendor,
+  noCard = false,
 }: CateringOrderFormProps) {
   const isEdit = !!cateringOrder;
   const [editing, setEditing] = useState(false);
 
+  const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
+  const dividerClass = noCard
+    ? "border-t border-gray-200 dark:border-gray-700 mt-6 pt-4"
+    : "";
+
   if (isEdit && !editing) {
     return (
-      <div className="space-y-6">
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={noCard ? "" : "space-y-6"}>
+        <div className={cardClass}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
             <button
@@ -96,7 +103,7 @@ export function CateringOrderForm({
           </dl>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className={noCard ? dividerClass : cardClass}>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Guest Counts</h2>
           <dl className="grid grid-cols-3 gap-4">
             <ReadOnlyField label="Expected" value={cateringOrder.expectedCount != null ? String(cateringOrder.expectedCount) : null} />
@@ -114,9 +121,9 @@ export function CateringOrderForm({
         await action(formData);
         if (isEdit) setEditing(false);
       }}
-      className="space-y-6 max-w-2xl"
+      className={noCard ? "space-y-0" : "space-y-6 max-w-2xl"}
     >
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Details</h2>
         <div className="space-y-4">
           <div>
@@ -158,7 +165,7 @@ export function CateringOrderForm({
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className={noCard ? dividerClass : cardClass}>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Guest Counts</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
