@@ -255,7 +255,7 @@ export default async function FunctionPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-8">
           <FunctionForm
             fn={fn}
             rooms={rooms}
@@ -263,6 +263,17 @@ export default async function FunctionPage({
             functionTypes={functionTypes}
             action={updateFunctionAction}
             breakoutGroups={fn.type === "BREAKOUT_BLOCK" ? breakoutGroups : undefined}
+          />
+          <EntityStatusPanel
+            entityType="function"
+            entityId={functionId}
+            eventId={eventId}
+            status={fn.status ?? null}
+            substatus={fn.substatus ?? null}
+            substatuses={substatuses}
+            setStatus={setStatusAction}
+            cancel={cancelAction}
+            restore={restoreAction}
           />
         </div>
 
@@ -308,17 +319,6 @@ export default async function FunctionPage({
             newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}
             linkSetupOrder={linkSetupOrderAction}
             unlinkSetupOrder={unlinkSetupOrderAction}
-          />
-          <EntityStatusPanel
-            entityType="function"
-            entityId={functionId}
-            eventId={eventId}
-            status={fn.status ?? null}
-            substatus={fn.substatus ?? null}
-            substatuses={substatuses}
-            setStatus={setStatusAction}
-            cancel={cancelAction}
-            restore={restoreAction}
           />
           <WorkflowPanel
             instances={workflowInstances}

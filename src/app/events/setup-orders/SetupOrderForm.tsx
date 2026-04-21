@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
+import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
 import { FunctionLinkControl, type FunctionLinkProps } from "@/app/events/functions/FunctionLinkControl";
 
@@ -58,6 +59,7 @@ export function SetupOrderForm({
   initialFunctionId,
 }: SetupOrderFormProps) {
   const isEdit = !!setupOrder;
+  const [editing, setEditing] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState(
     setupOrder?.roomId ?? initialRoomId ?? ""
   );
@@ -66,8 +68,37 @@ export function SetupOrderForm({
     ? functions.filter((f) => f.roomIds.includes(selectedRoomId))
     : functions;
 
+  if (isEdit && !editing) {
+    return (
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Setup Order Details</h2>
+          <button
+            onClick={() => setEditing(true)}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Edit
+          </button>
+        </div>
+        <dl className="space-y-4">
+          <ReadOnlyField label="Room" value={setupOrder.room?.name ?? null} />
+          <ReadOnlyField label="Setup Type" value={setupOrder.setupType ?? null} />
+          <ReadOnlyField label="Description" value={setupOrder.description ?? null} />
+          <ReadOnlyField label="Notes" value={setupOrder.notes ?? null} />
+          {functionLink && <FunctionLinkControl {...functionLink} />}
+          {vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
+        </dl>
+      </div>
+    );
+  }
+
   return (
-    <form action={action}>
+    <form
+      action={async (formData) => {
+        await action(formData);
+        if (isEdit) setEditing(false);
+      }}
+    >
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Setup Order Details
@@ -193,12 +224,22 @@ export function SetupOrderForm({
 
       <div className="flex gap-4 mt-6">
         <SubmitButton isEdit={isEdit} />
-        <a
-          href={`/events/${eventId}/setup-orders`}
-          className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-        >
-          Cancel
-        </a>
+        {isEdit ? (
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </button>
+        ) : (
+          <a
+            href={`/events/${eventId}/setup-orders`}
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </a>
+        )}
       </div>
     </form>
   );

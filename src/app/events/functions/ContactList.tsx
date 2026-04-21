@@ -348,20 +348,37 @@ export function ContactList({
                   </div>
                 </form>
               ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-900 dark:text-white font-medium">
-                      {item.contact.firstName} {item.contact.lastName}
-                    </span>
-                    {item.role && (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {item.role}
-                      </span>
-                    )}
-                    {item.contact.organization && (
-                      <span className="text-sm text-gray-400 dark:text-gray-500">
-                        ({item.contact.organization})
-                      </span>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <a
+                        href={`/contacts/${item.contact.id}`}
+                        className="text-gray-900 dark:text-white font-medium hover:underline"
+                      >
+                        {item.contact.firstName} {item.contact.lastName}
+                      </a>
+                      {item.role && (
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {item.role}
+                        </span>
+                      )}
+                      {item.contact.organization && (
+                        <span className="text-sm text-gray-400 dark:text-gray-500">
+                          ({item.contact.organization})
+                        </span>
+                      )}
+                    </div>
+                    {(item.contact.email || item.contact.phone) && (
+                      <div className="flex items-center gap-3 mt-0.5">
+                        {item.contact.email && (
+                          <a href={`mailto:${item.contact.email}`} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">
+                            {item.contact.email}
+                          </a>
+                        )}
+                        {item.contact.phone && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{item.contact.phone}</span>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-2">

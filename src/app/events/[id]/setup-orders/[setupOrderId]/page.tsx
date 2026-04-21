@@ -10,6 +10,7 @@ import {
   getSetupOrder,
   updateSetupOrder,
   deleteSetupOrder,
+  duplicateSetupOrder,
   linkSetupOrderToFunction,
   unlinkSetupOrderFromFunction,
   createSetupTable,
@@ -144,6 +145,11 @@ export default async function SetupOrderPage({
     await deleteSetupOrder(setupOrderId, eventId);
   };
 
+  const duplicateSetupOrderAction = async () => {
+    "use server";
+    await duplicateSetupOrder(setupOrderId, eventId);
+  };
+
   const linkToFunctionAction = async (functionId: string) => {
     "use server";
     await linkSetupOrderToFunction(setupOrderId, functionId, eventId);
@@ -255,6 +261,14 @@ export default async function SetupOrderPage({
           >
             Print
           </a>
+          <form action={duplicateSetupOrderAction}>
+            <button
+              type="submit"
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Duplicate
+            </button>
+          </form>
           <DeleteButton
             action={deleteSetupOrderAction}
             confirmMessage="Are you sure you want to delete this Setup Order?"
@@ -266,7 +280,7 @@ export default async function SetupOrderPage({
 
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-8">
             <SetupOrderForm
               setupOrder={setupOrder}
               eventId={eventId}
@@ -290,9 +304,6 @@ export default async function SetupOrderPage({
                 removeVendor: removeVendorFromFormAction,
               }}
             />
-          </div>
-
-          <div className="lg:col-span-2 space-y-8">
             <EntityStatusPanel
               entityType="setup_order"
               entityId={setupOrderId}
@@ -304,6 +315,9 @@ export default async function SetupOrderPage({
               cancel={cancelAction}
               restore={restoreAction}
             />
+          </div>
+
+          <div className="lg:col-span-2 space-y-8">
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}

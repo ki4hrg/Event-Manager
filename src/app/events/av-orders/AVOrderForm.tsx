@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { AVOrder } from "@prisma/client";
+import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type AvailableVendor, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
 
 type AVOrderFormProps = {
@@ -75,9 +77,39 @@ export function AVOrderForm({
   availableVendors = [],
 }: AVOrderFormProps) {
   const isEdit = !!avOrder;
+  const [editing, setEditing] = useState(false);
+
+  if (isEdit && !editing) {
+    return (
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">AV Order Details</h2>
+          <button
+            onClick={() => setEditing(true)}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Edit
+          </button>
+        </div>
+        <dl className="space-y-4">
+          <ReadOnlyField label="Name" value={avOrder.name} />
+          <ReadOnlyField label="Notes" value={avOrder.notes} />
+          {vendorLink && (
+            <VendorLinkControl mode="edit" {...vendorLink} />
+          )}
+        </dl>
+      </div>
+    );
+  }
 
   return (
-    <form action={action} className="space-y-6 max-w-2xl">
+    <form
+      action={async (formData) => {
+        await action(formData);
+        if (isEdit) setEditing(false);
+      }}
+      className="space-y-6 max-w-2xl"
+    >
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           AV Order Details
@@ -147,12 +179,22 @@ export function AVOrderForm({
 
       <div className="flex gap-4">
         <SubmitButton isEdit={isEdit} />
-        <a
-          href={`/events/${eventId}/av-orders`}
-          className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-        >
-          Cancel
-        </a>
+        {isEdit ? (
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </button>
+        ) : (
+          <a
+            href={`/events/${eventId}/av-orders`}
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </a>
+        )}
       </div>
     </form>
   );

@@ -87,6 +87,54 @@ export async function deleteSetupOrder(id: string, eventId: string) {
   redirect(`/events/${eventId}/setup-orders`);
 }
 
+export async function duplicateSetupOrder(id: string, eventId: string) {
+  const source = await prisma.setupOrder.findUnique({
+    where: { id },
+    include: {
+      tables: true,
+      equipmentItems: true,
+    },
+  });
+  if (!source) throw new Error("Setup order not found");
+
+  const duplicate = await prisma.setupOrder.create({
+    data: {
+      eventId,
+      description: source.description ? `${source.description} (Copy)` : null,
+      setupType: source.setupType,
+      notes: source.notes,
+      roomId: source.roomId,
+    },
+  });
+
+  await Promise.all([
+    prisma.setupTable.createMany({
+      data: source.tables.map((t) => ({
+        setupOrderId: duplicate.id,
+        quantity: t.quantity,
+        tableType: t.tableType,
+        chairCount: t.chairCount,
+        chairType: t.chairType,
+        notes: t.notes,
+        sortOrder: t.sortOrder,
+      })),
+    }),
+    prisma.equipmentItem.createMany({
+      data: source.equipmentItems.map((e) => ({
+        setupOrderId: duplicate.id,
+        item: e.item,
+        quantity: e.quantity,
+        notes: e.notes,
+        sortOrder: e.sortOrder,
+      })),
+    }),
+  ]);
+
+  await autoAssignDefaultWorkflows("setup_order", duplicate.id);
+  revalidatePath(`/events/${eventId}/setup-orders`);
+  redirect(`/events/${eventId}/setup-orders/${duplicate.id}`);
+}
+
 // Link/unlink from Setup Order detail page
 export async function linkSetupOrderToFunction(setupOrderId: string, functionId: string, eventId: string) {
   await prisma.setupOrder.update({

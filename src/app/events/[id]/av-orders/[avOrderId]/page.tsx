@@ -367,7 +367,7 @@ export default async function AVOrderPage({
 
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
             <AVOrderForm
               avOrder={avOrder}
               eventId={eventId}
@@ -379,9 +379,6 @@ export default async function AVOrderPage({
                 removeVendor: removeVendorFromFormAction,
               }}
             />
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
             <EntityStatusPanel
               entityType="av_order"
               entityId={avOrderId}
@@ -393,6 +390,9 @@ export default async function AVOrderPage({
               cancel={cancelAction}
               restore={restoreAction}
             />
+          </div>
+
+          <div className="lg:col-span-2 space-y-6">
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}

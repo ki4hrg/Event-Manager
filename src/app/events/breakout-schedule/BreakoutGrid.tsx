@@ -592,6 +592,11 @@ function DraggableSidebarCard({
       <div className="text-amber-600 dark:text-amber-400 mt-0.5">
         {instanceLabel}
       </div>
+      {presentation.notes && (
+        <div className="text-amber-700 dark:text-amber-300 mt-0.5 line-clamp-2 opacity-80">
+          {presentation.notes}
+        </div>
+      )}
     </div>
   );
 }
@@ -635,24 +640,34 @@ function DraggableCellCard({
       {...listeners}
       {...attributes}
     >
-      <Link
-        href={`/events/${eventId}/presentations/${slot.presentationId}`}
-        className="text-blue-700 dark:text-blue-300 text-xs font-medium hover:underline truncate"
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        {slot.presentation.title}
-      </Link>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(slot.id);
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        className="text-red-400 hover:text-red-600 text-xs shrink-0"
-      >
-        &times;
-      </button>
+      <div className="flex items-start justify-between gap-1 w-full">
+        <Link
+          href={`/events/${eventId}/presentations/${slot.presentationId}`}
+          className="text-blue-700 dark:text-blue-300 text-xs font-medium hover:underline truncate"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {slot.presentation.title}
+        </Link>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(slot.id);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="text-red-400 hover:text-red-600 text-xs shrink-0"
+        >
+          &times;
+        </button>
+      </div>
+      {slot.presentation.notes && (
+        <div
+          className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 line-clamp-2"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {slot.presentation.notes}
+        </div>
+      )}
     </div>
   );
 }
