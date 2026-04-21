@@ -587,18 +587,20 @@ model WorkflowTemplate {
 }
 
 model WorkflowStep {
-  id             String                   @id @default(cuid())
-  templateId     String
-  template       WorkflowTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  label          String
-  sortOrder      Int                      @default(0)
-  computedKey    String?                  // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
-  statusValue    EntityStatus?            // PENDING, IN_PROGRESS, or COMPLETE — applied to entity on step completion
-  substatusValue String?                  // CustomOption label (substatus category) — applied to entity on step completion
-  items          WorkflowChecklistItem[]
-  completions    WorkflowStepCompletion[]
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  id                    String                   @id @default(cuid())
+  templateId            String
+  template              WorkflowTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  label                 String
+  sortOrder             Int                      @default(0)
+  computedKey           String?                  // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
+  pendingStatusValue    EntityStatus?            // status applied while this step is the first uncompleted (current) step
+  pendingSubstatusValue String?                  // substatus applied while this step is the first uncompleted (current) step
+  statusValue           EntityStatus?            // terminal status — applied when this is the last completed step and workflow is done
+  substatusValue        String?                  // terminal substatus — applied when this is the last completed step and workflow is done
+  items                 WorkflowChecklistItem[]
+  completions           WorkflowStepCompletion[]
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
 
   @@index([templateId])
 }

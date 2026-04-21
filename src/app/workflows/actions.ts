@@ -95,6 +95,8 @@ export async function deleteWorkflowTemplate(id: string) {
 export async function createWorkflowStep(templateId: string, formData: FormData) {
   await requireAdmin();
   const label = formData.get("label") as string;
+  const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
+  const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
   const statusValue = (formData.get("statusValue") as EntityStatus | null) || null;
   const substatusValue = (formData.get("substatusValue") as string | null) || null;
 
@@ -108,6 +110,8 @@ export async function createWorkflowStep(templateId: string, formData: FormData)
     data: {
       templateId,
       label,
+      pendingStatusValue,
+      pendingSubstatusValue,
       statusValue,
       substatusValue,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
@@ -120,10 +124,15 @@ export async function createWorkflowStep(templateId: string, formData: FormData)
 export async function updateWorkflowStep(id: string, templateId: string, formData: FormData) {
   await requireAdmin();
   const label = formData.get("label") as string;
+  const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
+  const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
   const statusValue = (formData.get("statusValue") as EntityStatus | null) || null;
   const substatusValue = (formData.get("substatusValue") as string | null) || null;
 
-  await prisma.workflowStep.update({ where: { id }, data: { label, statusValue, substatusValue } });
+  await prisma.workflowStep.update({
+    where: { id },
+    data: { label, pendingStatusValue, pendingSubstatusValue, statusValue, substatusValue },
+  });
   revalidatePath(`/workflows/${templateId}`);
 }
 

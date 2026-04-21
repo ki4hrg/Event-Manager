@@ -137,7 +137,9 @@ function StepRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [addingItem, setAddingItem] = useState(false);
+  const [editPendingStatus, setEditPendingStatus] = useState<string>(step.pendingStatusValue ?? "");
   const [editStatusValue, setEditStatusValue] = useState<string>(step.statusValue ?? "");
+  const filteredPendingSubstatuses = substatuses.filter((s) => s.group === (editPendingStatus || null));
   const filteredSubstatuses = substatuses.filter((s) => s.group === (editStatusValue || null));
 
   return (
@@ -164,7 +166,39 @@ function StepRow({
           </div>
           <div className="flex items-center gap-2 pl-6">
             <label className="text-xs text-gray-500 dark:text-gray-400 w-24 shrink-0">
-              Status on complete
+              Status while pending
+            </label>
+            <select
+              name="pendingStatusValue"
+              value={editPendingStatus}
+              onChange={(e) => setEditPendingStatus(e.target.value)}
+              className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="">None</option>
+              {EDIT_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {editPendingStatus && filteredPendingSubstatuses.length > 0 && (
+              <select
+                name="pendingSubstatusValue"
+                defaultValue={step.pendingSubstatusValue ?? ""}
+                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              >
+                <option value="">No substatus</option>
+                {filteredPendingSubstatuses.map((s) => (
+                  <option key={s.id} value={s.label}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="flex items-center gap-2 pl-6">
+            <label className="text-xs text-gray-500 dark:text-gray-400 w-24 shrink-0">
+              Terminal status
             </label>
             <select
               name="statusValue"
@@ -199,6 +233,7 @@ function StepRow({
             <button
               type="button"
               onClick={() => {
+                setEditPendingStatus(step.pendingStatusValue ?? "");
                 setEditStatusValue(step.statusValue ?? "");
                 setEditing(false);
               }}
@@ -220,9 +255,15 @@ function StepRow({
                 ({step.items.length} checklist item{step.items.length !== 1 ? "s" : ""})
               </span>
             )}
+            {step.pendingStatusValue && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                pending: {EDIT_STATUS_OPTIONS.find((o) => o.value === step.pendingStatusValue)?.label ?? step.pendingStatusValue}
+                {step.pendingSubstatusValue ? ` / ${step.pendingSubstatusValue}` : ""}
+              </span>
+            )}
             {step.statusValue && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                {EDIT_STATUS_OPTIONS.find((o) => o.value === step.statusValue)?.label ?? step.statusValue}
+                terminal: {EDIT_STATUS_OPTIONS.find((o) => o.value === step.statusValue)?.label ?? step.statusValue}
                 {step.substatusValue ? ` / ${step.substatusValue}` : ""}
               </span>
             )}
@@ -312,7 +353,9 @@ export function WorkflowEditor({
 }: WorkflowEditorProps) {
   const [editingName, setEditingName] = useState(false);
   const [addingStep, setAddingStep] = useState(false);
+  const [addStepPendingStatus, setAddStepPendingStatus] = useState<string>("");
   const [addStepStatus, setAddStepStatus] = useState<string>("");
+  const filteredAddPendingSubstatuses = substatuses.filter((s) => s.group === (addStepPendingStatus || null));
   const filteredAddSubstatuses = substatuses.filter((s) => s.group === (addStepStatus || null));
 
   return (
@@ -465,6 +508,7 @@ export function WorkflowEditor({
             action={async (fd) => {
               await createStep(fd);
               setAddingStep(false);
+              setAddStepPendingStatus("");
               setAddStepStatus("");
             }}
             className="mt-3 space-y-2"
@@ -484,7 +528,38 @@ export function WorkflowEditor({
             </div>
             <div className="flex items-center gap-2 pl-6">
               <label className="text-xs text-gray-500 dark:text-gray-400 w-24 shrink-0">
-                Status on complete
+                Status while pending
+              </label>
+              <select
+                name="pendingStatusValue"
+                value={addStepPendingStatus}
+                onChange={(e) => setAddStepPendingStatus(e.target.value)}
+                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              >
+                <option value="">None</option>
+                {EDIT_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              {addStepPendingStatus && filteredAddPendingSubstatuses.length > 0 && (
+                <select
+                  name="pendingSubstatusValue"
+                  className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="">No substatus</option>
+                  {filteredAddPendingSubstatuses.map((s) => (
+                    <option key={s.id} value={s.label}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="flex items-center gap-2 pl-6">
+              <label className="text-xs text-gray-500 dark:text-gray-400 w-24 shrink-0">
+                Terminal status
               </label>
               <select
                 name="statusValue"
@@ -519,6 +594,7 @@ export function WorkflowEditor({
                 type="button"
                 onClick={() => {
                   setAddingStep(false);
+                  setAddStepPendingStatus("");
                   setAddStepStatus("");
                 }}
                 className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
