@@ -41,7 +41,7 @@ import {
   removeVendorFromAVOrder,
   searchAssignedEventVendors,
 } from "@/app/vendors/actions";
-import { getOptions, getEquipment } from "@/app/settings/actions";
+import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
@@ -52,7 +52,8 @@ import { VideoSectionPanel } from "../../../av-orders/VideoSectionPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
-import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
+import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
 export const dynamic = "force-dynamic";
@@ -79,11 +80,12 @@ export default async function AVOrderPage({
     notFound();
   }
 
-  const [avOrderVendors, fileTypeOptions, avOrderFiles, availableEventVendors] = await Promise.all([
+  const [avOrderVendors, fileTypeOptions, avOrderFiles, availableEventVendors, substatuses] = await Promise.all([
     getAVOrderVendors(avOrderId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { avOrderId }, orderBy: { createdAt: "asc" } }),
     searchAssignedEventVendors("", eventId, "AV_ORDER"),
+    getSubstatusOptions(),
   ]);
 
   // Fetch tab-specific data
@@ -310,6 +312,21 @@ export default async function AVOrderPage({
     await deleteAVEquipmentItem(id, avOrderId, eventId);
   };
 
+  const setStatusAction = async (formData: FormData) => {
+    "use server";
+    await setEntityStatus("av_order", avOrderId, eventId, formData);
+  };
+
+  const cancelAction = async (substatus: string) => {
+    "use server";
+    await cancelEntity("av_order", avOrderId, substatus, eventId);
+  };
+
+  const restoreAction = async () => {
+    "use server";
+    await restoreEntity("av_order", avOrderId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -365,9 +382,21 @@ export default async function AVOrderPage({
           </div>
 
           <div className="lg:col-span-2 space-y-6">
+            <EntityStatusPanel
+              entityType="av_order"
+              entityId={avOrderId}
+              eventId={eventId}
+              status={avOrder.status ?? null}
+              substatus={avOrder.substatus ?? null}
+              substatuses={substatuses}
+              setStatus={setStatusAction}
+              cancel={cancelAction}
+              restore={restoreAction}
+            />
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
+              entityStatus={avOrder.status ?? null}
               assignWorkflow={assignWorkflowAction}
               removeWorkflow={removeWorkflowAction}
               toggleStep={toggleStepAction}

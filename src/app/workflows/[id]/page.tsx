@@ -13,6 +13,7 @@ import {
   updateChecklistItem,
   deleteChecklistItem,
 } from "../actions";
+import { getSubstatusOptions } from "@/app/settings/actions";
 import { WorkflowEditor } from "./WorkflowEditor";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,10 @@ export default async function WorkflowDetailPage({
 }) {
   await requireAdmin();
   const { id } = await params;
-  const template = await getWorkflowTemplate(id);
+  const [template, substatuses] = await Promise.all([
+    getWorkflowTemplate(id),
+    getSubstatusOptions(),
+  ]);
 
   if (!template) notFound();
 
@@ -81,6 +85,7 @@ export default async function WorkflowDetailPage({
 
       <WorkflowEditor
         template={template}
+        substatuses={substatuses}
         updateTemplate={updateTemplateAction}
         deleteTemplate={deleteTemplateAction}
         createStep={createStepAction}

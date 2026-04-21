@@ -34,11 +34,12 @@ import {
   searchContactsForCateringOrder,
   createAndAddCateringOrderContact,
 } from "../../../catering-orders/actions";
-import { getOptions, getEquipment } from "../../../../settings/actions";
+import { getOptions, getEquipment, getSubstatusOptions } from "../../../../settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
-import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
+import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import {
   getCateringOrderVendors,
   addVendorToCateringOrder,
@@ -111,7 +112,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -126,6 +127,7 @@ export default async function CateringOrderPage({
       getOptions("file_type"),
       prisma.fileUpload.findMany({ where: { cateringOrderId }, orderBy: { createdAt: "asc" } }),
       searchAssignedEventVendors("", eventId, "CATERING_ORDER"),
+      getSubstatusOptions(),
     ]);
   if (!event || !cateringOrder) {
     notFound();
@@ -261,6 +263,21 @@ export default async function CateringOrderPage({
     await toggleItemCompletion(instanceId, itemId, "catering_order", cateringOrderId, eventId);
   };
 
+  const setStatusAction = async (formData: FormData) => {
+    "use server";
+    await setEntityStatus("catering_order", cateringOrderId, eventId, formData);
+  };
+
+  const cancelAction = async (substatus: string) => {
+    "use server";
+    await cancelEntity("catering_order", cateringOrderId, substatus, eventId);
+  };
+
+  const restoreAction = async () => {
+    "use server";
+    await restoreEntity("catering_order", cateringOrderId, eventId);
+  };
+
   const searchEventVendorsAction = async (query: string) => {
     "use server";
     return searchAssignedEventVendors(query, eventId, "CATERING_ORDER");
@@ -361,9 +378,21 @@ export default async function CateringOrderPage({
             />
           </div>
           <div className="lg:col-span-2 space-y-6">
+            <EntityStatusPanel
+              entityType="catering_order"
+              entityId={cateringOrderId}
+              eventId={eventId}
+              status={cateringOrder.status ?? null}
+              substatus={cateringOrder.substatus ?? null}
+              substatuses={substatuses}
+              setStatus={setStatusAction}
+              cancel={cancelAction}
+              restore={restoreAction}
+            />
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
+              entityStatus={cateringOrder.status ?? null}
               assignWorkflow={assignWorkflowAction}
               removeWorkflow={removeWorkflowAction}
               toggleStep={toggleStepAction}

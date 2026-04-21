@@ -8,6 +8,7 @@ import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
 import { colorClasses } from "@/lib/colors";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { FunctionTableView } from "./FunctionTableView";
 import { getEarliestStart, formatScheduleDateTime } from "./scheduleUtils";
@@ -93,6 +94,7 @@ export function FunctionList({
               </span>
             )}
             <WorkflowBadge summary={workflowSummaries[fn.id]} />
+            <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">
             {fn.schedules.length > 0 ? (

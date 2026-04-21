@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { colorClasses } from "@/lib/colors";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import type {
   Presentation,
   PresentationContact,
@@ -144,6 +145,7 @@ export function PresentationList({
                                   {resolveOptionLabel(presentation.type, presentationTypes)}
                                 </span>
                               )}
+                              <EntityStatusBadge status={presentation.status} substatus={presentation.substatus} />
                               {primarySpeaker && (
                                 <span className="text-gray-600 dark:text-gray-400">
                                   {primarySpeaker}

@@ -19,7 +19,7 @@ import {
   updateSetupEquipmentItem,
   deleteSetupEquipmentItem,
 } from "../../../setup-orders/actions";
-import { getOptions, getEquipment } from "@/app/settings/actions";
+import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import {
   getSetupOrderVendors,
@@ -37,8 +37,9 @@ import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -68,11 +69,12 @@ export default async function SetupOrderPage({
     notFound();
   }
 
-  const [setupOrderVendors, fileTypeOptions, setupOrderFiles, availableEventVendors] = await Promise.all([
+  const [setupOrderVendors, fileTypeOptions, setupOrderFiles, availableEventVendors, substatuses] = await Promise.all([
     getSetupOrderVendors(setupOrderId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { setupOrderId }, orderBy: { createdAt: "asc" } }),
     searchAssignedEventVendors("", eventId, "SETUP_ORDER"),
+    getSubstatusOptions(),
   ]);
 
   const TABLE_CAT = "TABLES";
@@ -205,6 +207,21 @@ export default async function SetupOrderPage({
     await toggleItemCompletion(instanceId, itemId, "setup_order", setupOrderId, eventId);
   };
 
+  const setStatusAction = async (formData: FormData) => {
+    "use server";
+    await setEntityStatus("setup_order", setupOrderId, eventId, formData);
+  };
+
+  const cancelAction = async (substatus: string) => {
+    "use server";
+    await cancelEntity("setup_order", setupOrderId, substatus, eventId);
+  };
+
+  const restoreAction = async () => {
+    "use server";
+    await restoreEntity("setup_order", setupOrderId, eventId);
+  };
+
   const displayName = getSetupOrderDisplayName(setupOrder);
 
   return (
@@ -276,9 +293,21 @@ export default async function SetupOrderPage({
           </div>
 
           <div className="lg:col-span-2 space-y-8">
+            <EntityStatusPanel
+              entityType="setup_order"
+              entityId={setupOrderId}
+              eventId={eventId}
+              status={setupOrder.status ?? null}
+              substatus={setupOrder.substatus ?? null}
+              substatuses={substatuses}
+              setStatus={setStatusAction}
+              cancel={cancelAction}
+              restore={restoreAction}
+            />
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
+              entityStatus={setupOrder.status ?? null}
               assignWorkflow={assignWorkflowAction}
               removeWorkflow={removeWorkflowAction}
               toggleStep={toggleStepAction}

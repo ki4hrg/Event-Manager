@@ -7,6 +7,7 @@ import { getEvent } from "../../actions";
 import { getAVOrders, deleteAVOrder } from "../../av-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
@@ -90,6 +91,7 @@ export default async function AVOrdersPage({
                     {avOrder.name}
                   </Link>
                   <WorkflowBadge summary={workflowSummaries[avOrder.id]} />
+                  <EntityStatusBadge status={avOrder.status} substatus={avOrder.substatus} />
                 </div>
                 <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                   {avOrder.functions.length > 0 && (

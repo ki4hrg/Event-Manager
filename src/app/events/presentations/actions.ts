@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 // ============================================================================
 // Track CRUD (event-scoped)
@@ -156,6 +157,7 @@ export async function createPresentation(eventId: string, formData: FormData) {
     });
   }
 
+  await autoAssignDefaultWorkflows("presentation", presentation.id);
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations/${presentation.id}`);
 }

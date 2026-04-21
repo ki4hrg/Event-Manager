@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
+import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 export async function getCateringOrders(eventId: string) {
   return prisma.cateringOrder.findMany({
@@ -64,6 +65,7 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
     await prisma.cateringOrderVendor.create({ data: { cateringOrderId: cateringOrder.id, vendorId: vendorIdToAssign } });
   }
 
+  await autoAssignDefaultWorkflows("catering_order", cateringOrder.id);
   revalidatePath(`/events/${eventId}/catering-orders`);
   redirect(`/events/${eventId}/catering-orders/${cateringOrder.id}`);
 }

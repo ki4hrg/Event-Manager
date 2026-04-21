@@ -7,6 +7,7 @@ import { getEvent } from "../../actions";
 import { getCateringOrders, deleteCateringOrder } from "../../catering-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
@@ -90,6 +91,7 @@ export default async function CateringOrdersPage({
                     {order.name}
                   </Link>
                   <WorkflowBadge summary={workflowSummaries[order.id]} />
+                  <EntityStatusBadge status={order.status} substatus={order.substatus} />
                 </div>
                 <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                   {order.guaranteeCount != null && (

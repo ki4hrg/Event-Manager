@@ -43,9 +43,10 @@ import { CateringOrderPanel } from "../../../catering-orders/CateringOrderPanel"
 import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
-import { getOptions } from "@/app/settings/actions";
-import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -78,12 +79,13 @@ export default async function FunctionPage({
       })
     : [];
 
-  const [availableAVOrders, availableCateringOrders, availableSetupOrders, workflowInstances, allTemplates] = await Promise.all([
+  const [availableAVOrders, availableCateringOrders, availableSetupOrders, workflowInstances, allTemplates, substatuses] = await Promise.all([
     fn.avOrder ? [] : getAvailableAVOrdersForFunction(eventId),
     fn.cateringOrder ? [] : getAvailableCateringOrders(eventId),
     fn.setupOrder ? [] : getAvailableSetupOrdersForFunction(eventId),
     getWorkflowInstances("function", functionId),
     getWorkflowTemplateOptions(),
+    getSubstatusOptions(),
   ]);
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
@@ -194,6 +196,21 @@ export default async function FunctionPage({
     await toggleItemCompletion(instanceId, itemId, "function", functionId, eventId);
   };
 
+  const setStatusAction = async (formData: FormData) => {
+    "use server";
+    await setEntityStatus("function", functionId, eventId, formData);
+  };
+
+  const cancelAction = async (substatus: string) => {
+    "use server";
+    await cancelEntity("function", functionId, substatus, eventId);
+  };
+
+  const restoreAction = async () => {
+    "use server";
+    await restoreEntity("function", functionId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -292,9 +309,21 @@ export default async function FunctionPage({
             linkSetupOrder={linkSetupOrderAction}
             unlinkSetupOrder={unlinkSetupOrderAction}
           />
+          <EntityStatusPanel
+            entityType="function"
+            entityId={functionId}
+            eventId={eventId}
+            status={fn.status ?? null}
+            substatus={fn.substatus ?? null}
+            substatuses={substatuses}
+            setStatus={setStatusAction}
+            cancel={cancelAction}
+            restore={restoreAction}
+          />
           <WorkflowPanel
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}
+            entityStatus={fn.status ?? null}
             assignWorkflow={assignWorkflowAction}
             removeWorkflow={removeWorkflowAction}
             toggleStep={toggleStepAction}

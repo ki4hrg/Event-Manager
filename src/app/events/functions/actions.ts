@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
+import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 /**
  * Parse a datetime-local input value (YYYY-MM-DDTHH:MM) as if it's in the given timezone
@@ -155,6 +156,7 @@ export async function createFunction(eventId: string, formData: FormData) {
     });
   }
 
+  await autoAssignDefaultWorkflows("function", fn.id);
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 

@@ -25,8 +25,9 @@ import {
   deleteMediaItem,
   getMediaItemPartyOptions,
 } from "../../../presentations/actions";
-import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion } from "../../../workflows/actions";
+import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import {
   getAvailableAVOrdersForPresentation,
   linkAVOrderToPresentationFromPresentation,
@@ -43,7 +44,7 @@ import { BreakoutSlotPanel } from "../../../presentations/BreakoutSlotPanel";
 import { SpeakerList } from "../../../presentations/SpeakerList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { MediaItemsPanel } from "../../../presentations/MediaItemsPanel";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function PresentationPage({
   params: Promise<{ id: string; presentationId: string }>;
 }) {
   const { id: eventId, presentationId } = await params;
-  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates, deliveryOptions] = await Promise.all([
+  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates, deliveryOptions, substatuses] = await Promise.all([
     getEvent(eventId),
     getPresentation(presentationId),
     getTracks(eventId),
@@ -62,6 +63,7 @@ export default async function PresentationPage({
     getWorkflowInstances("presentation", presentationId),
     getWorkflowTemplateOptions(),
     getOptions("delivery_method"),
+    getSubstatusOptions(),
   ]);
 
   if (!event || !presentation) {
@@ -219,6 +221,21 @@ export default async function PresentationPage({
     await toggleItemCompletion(instanceId, itemId, "presentation", presentationId, eventId);
   };
 
+  const setStatusAction = async (formData: FormData) => {
+    "use server";
+    await setEntityStatus("presentation", presentationId, eventId, formData);
+  };
+
+  const cancelAction = async (substatus: string) => {
+    "use server";
+    await cancelEntity("presentation", presentationId, substatus, eventId);
+  };
+
+  const restoreAction = async () => {
+    "use server";
+    await restoreEntity("presentation", presentationId, eventId);
+  };
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -294,9 +311,21 @@ export default async function PresentationPage({
             updateInstanceCount={updateInstanceCountAction}
           />
 
+          <EntityStatusPanel
+            entityType="presentation"
+            entityId={presentationId}
+            eventId={eventId}
+            status={presentation.status ?? null}
+            substatus={presentation.substatus ?? null}
+            substatuses={substatuses}
+            setStatus={setStatusAction}
+            cancel={cancelAction}
+            restore={restoreAction}
+          />
           <WorkflowPanel
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}
+            entityStatus={presentation.status ?? null}
             assignWorkflow={assignWorkflowAction}
             removeWorkflow={removeWorkflowAction}
             toggleStep={toggleStepAction}

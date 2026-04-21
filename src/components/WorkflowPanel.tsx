@@ -8,6 +8,7 @@ import type {
   WorkflowChecklistItem,
   WorkflowStepCompletion,
   WorkflowChecklistCompletion,
+  EntityStatus,
 } from "@prisma/client";
 
 type StepWithItems = WorkflowStep & {
@@ -29,6 +30,7 @@ type AvailableTemplate = { id: string; name: string };
 type WorkflowPanelProps = {
   instances: InstanceWithData[];
   availableTemplates: AvailableTemplate[];
+  entityStatus?: EntityStatus | null;
   assignWorkflow: (templateId: string) => Promise<void>;
   removeWorkflow: (instanceId: string) => Promise<void>;
   toggleStep: (instanceId: string, stepId: string) => Promise<void>;
@@ -40,6 +42,15 @@ function CheckIcon({ size = "md" }: { size?: "sm" | "md" }) {
   return (
     <svg className={`${cls} text-white`} viewBox="0 0 10 8" fill="none">
       <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg className="w-3 h-3 text-gray-400 dark:text-gray-500" viewBox="0 0 12 14" fill="none">
+      <rect x="1.5" y="6" width="9" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.25" />
+      <path d="M3.5 6V4a2.5 2.5 0 015 0v2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
     </svg>
   );
 }
@@ -76,11 +87,13 @@ function isStepComplete(
 
 function WorkflowInstancePanel({
   instance,
+  isCancelled,
   removeWorkflow,
   toggleStep,
   toggleItem,
 }: {
   instance: InstanceWithData;
+  isCancelled: boolean;
   removeWorkflow: (instanceId: string) => Promise<void>;
   toggleStep: (instanceId: string, stepId: string) => Promise<void>;
   toggleItem: (instanceId: string, itemId: string) => Promise<void>;
@@ -140,9 +153,12 @@ function WorkflowInstancePanel({
             const stepDone = isStepComplete(step, completedStepIds, completedItemIds);
             const isChecklistStep = step.items.length > 0;
             const stepPending = pending === `step:${step.id}`;
+            const prevStep = index > 0 ? instance.template.steps[index - 1] : null;
+            const prevDone = prevStep ? isStepComplete(prevStep, completedStepIds, completedItemIds) : true;
+            const isLocked = isCancelled || (!stepDone && !prevDone);
 
             return (
-              <div key={step.id}>
+              <div key={step.id} className={isLocked && !stepDone ? "opacity-50" : undefined}>
                 <div className="flex items-center gap-3 px-4 py-2.5">
                   <span className="text-xs text-gray-400 dark:text-gray-500 w-5 shrink-0 text-right">
                     {index + 1}
@@ -167,6 +183,11 @@ function WorkflowInstancePanel({
                       >
                         {step.label}
                       </span>
+                    </div>
+                  ) : isLocked && !stepDone ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center shrink-0" />
+                      <span className="text-sm text-gray-900 dark:text-white">{step.label}</span>
                     </div>
                   ) : (
                     <button
@@ -199,6 +220,9 @@ function WorkflowInstancePanel({
                       {step.items.filter((i) => completedItemIds.has(i.id)).length}/{step.items.length}
                     </span>
                   )}
+                  {isLocked && !stepDone && !isChecklistStep && (
+                    <span className="shrink-0"><LockIcon /></span>
+                  )}
                 </div>
 
                 {isChecklistStep && (
@@ -206,7 +230,17 @@ function WorkflowInstancePanel({
                     {step.items.map((item) => {
                       const itemDone = completedItemIds.has(item.id);
                       const itemPending = pending === `item:${item.id}`;
-                      return (
+                      const itemLocked = isLocked && !itemDone;
+                      return itemLocked ? (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-2 w-full px-4 py-1.5 cursor-default"
+                        >
+                          <span className="w-5 shrink-0" />
+                          <span className="w-3.5 h-3.5 rounded border border-gray-300 dark:border-gray-600 flex items-center justify-center shrink-0" />
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{item.label}</span>
+                        </div>
+                      ) : (
                         <button
                           key={item.id}
                           className="flex items-center gap-2 w-full text-left px-4 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -249,6 +283,7 @@ function WorkflowInstancePanel({
 export function WorkflowPanel({
   instances,
   availableTemplates,
+  entityStatus,
   assignWorkflow,
   removeWorkflow,
   toggleStep,
@@ -256,6 +291,7 @@ export function WorkflowPanel({
 }: WorkflowPanelProps) {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [assigning, setAssigning] = useState(false);
+  const isCancelled = entityStatus === "CANCELLED";
 
   const handleAssign = async () => {
     if (!selectedTemplateId) return;
@@ -274,6 +310,7 @@ export function WorkflowPanel({
           <WorkflowInstancePanel
             key={instance.id}
             instance={instance}
+            isCancelled={isCancelled}
             removeWorkflow={removeWorkflow}
             toggleStep={toggleStep}
             toggleItem={toggleItem}

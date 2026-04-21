@@ -33,12 +33,20 @@ model UserSetting {
   @@index([userId])
 }
 
+enum EntityStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETE
+  CANCELLED
+}
+
 // Customizable options for dropdowns
 model CustomOption {
   id        String   @id @default(cuid())
-  category  String   // "function_type", "contact_role", "av_equipment", "equipment_category", "setup_type"
+  category  String   // "function_type", "contact_role", "av_equipment", "equipment_category", "setup_type", "substatus"
   label     String   // The display label and stored value (e.g., "Meal / BEO", "Speaker")
   color     String?  // Optional color for badges (e.g., "orange", "blue")
+  group     String?  // Optional grouping key; used by "substatus" category to tie options to an EntityStatus value
   isSystem  Boolean  @default(false) // System entries cannot be deleted from the UI
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -185,6 +193,8 @@ model Function {
   description       String?
   type              String             @default("")
   setupNotes        String?
+  status            EntityStatus?
+  substatus         String?
   eventId           String
   breakoutGroupId   String?
   event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -249,6 +259,8 @@ model FunctionContact {
 model AVOrder {
   id             String        @id @default(cuid())
   name           String
+  status         EntityStatus?
+  substatus      String?
   eventId        String
   event          Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   presentationId String?       @unique
@@ -273,6 +285,8 @@ model AVOrder {
 model CateringOrder {
   id                 String                    @id @default(cuid())
   name               String
+  status             EntityStatus?
+  substatus          String?
   eventId            String
   event              Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
   functionId         String?                   @unique
@@ -364,6 +378,8 @@ model SetupOrder {
   id             String          @id @default(cuid())
   description    String?
   setupType      String?
+  status         EntityStatus?
+  substatus      String?
   eventId        String
   event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   roomId         String?
@@ -519,6 +535,8 @@ model Presentation {
   id              String                @id @default(cuid())
   title           String
   type            String                @default("")
+  status          EntityStatus?
+  substatus       String?
   description     String?
   notes           String?
   instanceCount   Int                   @default(1)
@@ -557,27 +575,30 @@ model PresentationContact {
 // Workflow system — hierarchical templates with sequential steps and optional checklist sub-items
 
 model WorkflowTemplate {
-  id          String             @id @default(cuid())
-  name        String
-  description String?
-  sortOrder   Int                @default(0)
-  steps       WorkflowStep[]
-  instances   WorkflowInstance[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                    String             @id @default(cuid())
+  name                  String
+  description           String?
+  sortOrder             Int                @default(0)
+  defaultForEntityTypes String[]           @default([])
+  steps                 WorkflowStep[]
+  instances             WorkflowInstance[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 }
 
 model WorkflowStep {
-  id          String                  @id @default(cuid())
-  templateId  String
-  template    WorkflowTemplate        @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  label       String
-  sortOrder   Int                     @default(0)
-  computedKey String?                 // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
-  items       WorkflowChecklistItem[]
-  completions WorkflowStepCompletion[]
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  id             String                   @id @default(cuid())
+  templateId     String
+  template       WorkflowTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  label          String
+  sortOrder      Int                      @default(0)
+  computedKey    String?                  // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
+  statusValue    EntityStatus?            // PENDING, IN_PROGRESS, or COMPLETE — applied to entity on step completion
+  substatusValue String?                  // CustomOption label (substatus category) — applied to entity on step completion
+  items          WorkflowChecklistItem[]
+  completions    WorkflowStepCompletion[]
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
 
   @@index([templateId])
 }

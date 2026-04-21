@@ -57,6 +57,15 @@ const defaultEquipmentCategories = [
   { label: "Audio Outputs", isSystem: true, sortOrder: 6 },
 ];
 
+const defaultSubstatuses = [
+  { label: "Expected", group: "PENDING", sortOrder: 0 },
+  { label: "Requested", group: "PENDING", sortOrder: 1 },
+  { label: "Approved", group: "IN_PROGRESS", sortOrder: 0 },
+  { label: "Confirmed", group: "COMPLETE", sortOrder: 0 },
+  { label: "Denied", group: "CANCELLED", sortOrder: 0 },
+  { label: "Cancelled", group: "CANCELLED", sortOrder: 1 },
+];
+
 const defaultDeliveryMethods = [
   { label: "Pre-loaded", sortOrder: 0 },
   { label: "Brought Day Of", sortOrder: 1 },
@@ -186,6 +195,7 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("setup_type", defaultSetupTypes);
   totalCreated += await seedOptionsForCategory("file_type", defaultFileTypes);
   totalCreated += await seedOptionsForCategory("delivery_method", defaultDeliveryMethods);
+  totalCreated += await seedOptionsForCategory("substatus", defaultSubstatuses);
 
   console.log(`Seeded ${totalCreated} total options`);
 }

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "substatus";
 
 export async function getOptions(category: OptionCategory) {
   return prisma.customOption.findMany({
@@ -36,8 +36,8 @@ export async function createOption(category: OptionCategory, formData: FormData)
   await requireAdmin();
   const label = formData.get("label") as string;
   const color = formData.get("color") as string;
+  const group = formData.get("group") as string | null;
 
-  // Get max sortOrder for this category
   const maxOrder = await prisma.customOption.findFirst({
     where: { category },
     orderBy: { sortOrder: "desc" },
@@ -49,6 +49,7 @@ export async function createOption(category: OptionCategory, formData: FormData)
       category,
       label,
       color: color || null,
+      group: group || null,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
@@ -60,16 +61,25 @@ export async function updateOption(id: string, formData: FormData) {
   await requireAdmin();
   const label = formData.get("label") as string;
   const color = formData.get("color") as string;
+  const group = formData.get("group") as string | null;
 
   await prisma.customOption.update({
     where: { id },
     data: {
       label,
       color: color || null,
+      group: group || null,
     },
   });
 
   revalidatePath("/settings");
+}
+
+export async function getSubstatusOptions(group?: string) {
+  return prisma.customOption.findMany({
+    where: { category: "substatus", ...(group ? { group } : {}) },
+    orderBy: { sortOrder: "asc" },
+  });
 }
 
 export async function deleteOption(id: string) {

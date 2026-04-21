@@ -8,6 +8,7 @@ import { getSetupOrders, deleteSetupOrder } from "../../setup-orders/actions";
 import { getSetupOrderDisplayName } from "../../setup-orders/utils";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +100,7 @@ export default async function SetupOrdersPage({
                       {displayName}
                     </Link>
                     <WorkflowBadge summary={workflowSummaries[so.id]} />
+                    <EntityStatusBadge status={so.status} substatus={so.substatus} />
                   </div>
                   <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                     {so.setupType && <span>{so.setupType}</span>}

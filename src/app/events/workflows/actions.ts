@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import type { EntityStatus } from "@prisma/client";
 
 export type WorkflowEntityType = "function" | "catering_order" | "av_order" | "presentation" | "setup_order";
 
@@ -23,6 +24,64 @@ function revalidateEntity(entityType: WorkflowEntityType, entityId: string, even
       revalidatePath(`/events/${eventId}/setup-orders/${entityId}`);
       break;
   }
+}
+
+async function updateEntityStatus(
+  entityType: WorkflowEntityType,
+  entityId: string,
+  status: EntityStatus | null,
+  substatus: string | null
+) {
+  const data = { status, substatus };
+  switch (entityType) {
+    case "function":
+      await prisma.function.update({ where: { id: entityId }, data });
+      break;
+    case "catering_order":
+      await prisma.cateringOrder.update({ where: { id: entityId }, data });
+      break;
+    case "av_order":
+      await prisma.aVOrder.update({ where: { id: entityId }, data });
+      break;
+    case "presentation":
+      await prisma.presentation.update({ where: { id: entityId }, data });
+      break;
+    case "setup_order":
+      await prisma.setupOrder.update({ where: { id: entityId }, data });
+      break;
+  }
+}
+
+async function recomputeEntityStatus(entityType: WorkflowEntityType, entityId: string) {
+  const instances = await prisma.workflowInstance.findMany({
+    where: { entityType, entityId },
+    include: {
+      stepCompletions: {
+        include: { step: true },
+        orderBy: { step: { sortOrder: "desc" } },
+      },
+    },
+  });
+
+  let latestStatus: EntityStatus | null = null;
+  let latestSubstatus: string | null = null;
+  let highestSortOrder: number | null = null;
+  let found = false;
+
+  for (const instance of instances) {
+    for (const completion of instance.stepCompletions) {
+      if (completion.step.statusValue) {
+        if (highestSortOrder === null || completion.step.sortOrder > highestSortOrder) {
+          highestSortOrder = completion.step.sortOrder;
+          latestStatus = completion.step.statusValue;
+          latestSubstatus = completion.step.substatusValue ?? null;
+          found = true;
+        }
+      }
+    }
+  }
+
+  await updateEntityStatus(entityType, entityId, found ? latestStatus : null, found ? latestSubstatus : null);
 }
 
 export async function getWorkflowInstances(entityType: WorkflowEntityType, entityId: string) {
@@ -58,8 +117,15 @@ export async function assignWorkflow(
   revalidateEntity(entityType, entityId, eventId);
 }
 
-export async function removeWorkflow(instanceId: string, entityType: WorkflowEntityType, entityId: string, eventId: string) {
+export async function removeWorkflow(
+  instanceId: string,
+  entityType: WorkflowEntityType,
+  entityId: string,
+  eventId: string
+) {
   await prisma.workflowInstance.delete({ where: { id: instanceId } });
+  // Recompute status since a workflow was removed
+  await recomputeEntityStatus(entityType, entityId);
   revalidateEntity(entityType, entityId, eventId);
 }
 
@@ -75,13 +141,47 @@ export async function toggleStepCompletion(
   });
 
   if (existing) {
-    await prisma.workflowStepCompletion.delete({
-      where: { instanceId_stepId: { instanceId, stepId } },
+    // Unchecking: cascade delete this step + all subsequent steps in the template
+    const instance = await prisma.workflowInstance.findUniqueOrThrow({
+      where: { id: instanceId },
+      include: {
+        template: {
+          include: {
+            steps: {
+              orderBy: { sortOrder: "asc" },
+              include: { items: true },
+            },
+          },
+        },
+      },
     });
+
+    const stepIndex = instance.template.steps.findIndex((s) => s.id === stepId);
+    const affectedSteps = instance.template.steps.slice(stepIndex);
+    const affectedStepIds = affectedSteps.map((s) => s.id);
+    const affectedItemIds = affectedSteps.flatMap((s) => s.items.map((i) => i.id));
+
+    const anyHaveStatus = affectedSteps.some((s) => s.statusValue !== null);
+
+    await prisma.workflowStepCompletion.deleteMany({
+      where: { instanceId, stepId: { in: affectedStepIds } },
+    });
+    if (affectedItemIds.length > 0) {
+      await prisma.workflowChecklistCompletion.deleteMany({
+        where: { instanceId, itemId: { in: affectedItemIds } },
+      });
+    }
+
+    if (anyHaveStatus) {
+      await recomputeEntityStatus(entityType, entityId);
+    }
   } else {
-    await prisma.workflowStepCompletion.create({
-      data: { instanceId, stepId },
-    });
+    // Checking: create completion, apply statusValue if set
+    const step = await prisma.workflowStep.findUniqueOrThrow({ where: { id: stepId } });
+    await prisma.workflowStepCompletion.create({ data: { instanceId, stepId } });
+    if (step.statusValue) {
+      await updateEntityStatus(entityType, entityId, step.statusValue, step.substatusValue ?? null);
+    }
   }
 
   revalidateEntity(entityType, entityId, eventId);
@@ -149,14 +249,126 @@ export async function toggleItemCompletion(
   });
 
   if (existing) {
+    // Unchecking an item: step becomes incomplete → cascade subsequent steps
+    const item = await prisma.workflowChecklistItem.findUniqueOrThrow({
+      where: { id: itemId },
+      include: { step: true },
+    });
+
+    const instance = await prisma.workflowInstance.findUniqueOrThrow({
+      where: { id: instanceId },
+      include: {
+        template: {
+          include: {
+            steps: {
+              orderBy: { sortOrder: "asc" },
+              include: { items: true },
+            },
+          },
+        },
+      },
+    });
+
+    const stepIndex = instance.template.steps.findIndex((s) => s.id === item.stepId);
+    // Cascade subsequent steps only (not the current step's other items)
+    const subsequentSteps = instance.template.steps.slice(stepIndex + 1);
+    const subsequentStepIds = subsequentSteps.map((s) => s.id);
+    const subsequentItemIds = subsequentSteps.flatMap((s) => s.items.map((i) => i.id));
+
+    const anyHaveStatus = [item.step, ...subsequentSteps].some((s) => s.statusValue !== null);
+
     await prisma.workflowChecklistCompletion.delete({
       where: { instanceId_itemId: { instanceId, itemId } },
     });
+    if (subsequentStepIds.length > 0) {
+      await prisma.workflowStepCompletion.deleteMany({
+        where: { instanceId, stepId: { in: subsequentStepIds } },
+      });
+    }
+    if (subsequentItemIds.length > 0) {
+      await prisma.workflowChecklistCompletion.deleteMany({
+        where: { instanceId, itemId: { in: subsequentItemIds } },
+      });
+    }
+
+    if (anyHaveStatus) {
+      await recomputeEntityStatus(entityType, entityId);
+    }
   } else {
-    await prisma.workflowChecklistCompletion.create({
-      data: { instanceId, itemId },
+    // Checking an item: if all items of parent step are now done, apply step's statusValue
+    const item = await prisma.workflowChecklistItem.findUniqueOrThrow({
+      where: { id: itemId },
+      include: {
+        step: {
+          include: { items: true },
+        },
+      },
     });
+
+    await prisma.workflowChecklistCompletion.create({ data: { instanceId, itemId } });
+
+    const allItemIds = item.step.items.map((i) => i.id);
+    const completedItems = await prisma.workflowChecklistCompletion.findMany({
+      where: { instanceId, itemId: { in: allItemIds } },
+    });
+
+    if (completedItems.length === allItemIds.length && item.step.statusValue) {
+      await updateEntityStatus(
+        entityType,
+        entityId,
+        item.step.statusValue,
+        item.step.substatusValue ?? null
+      );
+    }
   }
 
   revalidateEntity(entityType, entityId, eventId);
+}
+
+export async function setEntityStatus(
+  entityType: WorkflowEntityType,
+  entityId: string,
+  eventId: string,
+  formData: FormData
+) {
+  const status = (formData.get("status") as EntityStatus | null) || null;
+  const substatus = (formData.get("substatus") as string | null) || null;
+  await updateEntityStatus(entityType, entityId, status, substatus);
+  revalidateEntity(entityType, entityId, eventId);
+}
+
+export async function cancelEntity(
+  entityType: WorkflowEntityType,
+  entityId: string,
+  substatus: string,
+  eventId: string
+) {
+  await updateEntityStatus(entityType, entityId, "CANCELLED", substatus);
+  revalidateEntity(entityType, entityId, eventId);
+}
+
+export async function restoreEntity(
+  entityType: WorkflowEntityType,
+  entityId: string,
+  eventId: string
+) {
+  await recomputeEntityStatus(entityType, entityId);
+  revalidateEntity(entityType, entityId, eventId);
+}
+
+export async function autoAssignDefaultWorkflows(
+  entityType: WorkflowEntityType,
+  entityId: string
+) {
+  const templates = await prisma.workflowTemplate.findMany({
+    where: { defaultForEntityTypes: { has: entityType } },
+    select: { id: true },
+  });
+
+  if (templates.length === 0) return;
+
+  await prisma.workflowInstance.createMany({
+    data: templates.map((t) => ({ templateId: t.id, entityType, entityId })),
+    skipDuplicates: true,
+  });
 }
