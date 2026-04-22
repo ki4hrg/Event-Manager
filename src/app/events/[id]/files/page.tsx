@@ -113,7 +113,7 @@ export default async function EventFilesPage({ params }: { params: Promise<{ id:
           id: true,
           description: true,
           room: { select: { name: true } },
-          function: { select: { name: true } },
+          functions: { select: { name: true } },
           files: { orderBy: { createdAt: "asc" }, select: { id: true, fileName: true, fileType: true, fileSize: true, createdAt: true } },
         },
         orderBy: { createdAt: "asc" },

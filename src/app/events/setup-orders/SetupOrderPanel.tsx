@@ -9,7 +9,6 @@ type SetupOrderSummary = {
   description?: string | null;
   setupType?: string | null;
   room?: { name: string } | null;
-  function?: { name: string } | null;
 };
 
 type SetupOrderPanelProps = {

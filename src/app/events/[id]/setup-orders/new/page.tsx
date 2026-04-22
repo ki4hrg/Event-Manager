@@ -34,7 +34,7 @@ export default async function NewSetupOrderPage({
       ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
     prisma.function.findMany({
-      where: { eventId, setupOrder: null },
+      where: { eventId, setupOrderId: null },
       include: { rooms: true },
       orderBy: { name: "asc" },
     }),

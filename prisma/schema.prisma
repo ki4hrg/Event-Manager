@@ -201,19 +201,21 @@ model Function {
   breakoutGroup     BreakoutGroup?     @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
   avOrderId            String?
   avOrder              AVOrder?           @relation(fields: [avOrderId], references: [id], onDelete: SetNull)
+  setupOrderId         String?
+  setupOrder           SetupOrder?        @relation(fields: [setupOrderId], references: [id], onDelete: SetNull)
   rooms                FunctionRoom[]
   contacts             FunctionContact[]
   schedules            FunctionSchedule[]
   presentationSlots    PresentationSlot[]
   sessionRoomOverrides BreakoutSessionRoomOverride[]
   cateringOrder        CateringOrder?
-  setupOrder           SetupOrder?
   timelineItems        TimelineItem[]
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
   @@index([eventId])
   @@index([breakoutGroupId])
+  @@index([setupOrderId])
 }
 
 // Schedule items for a function (setup, rehearsal, main event, etc.)
@@ -384,8 +386,7 @@ model SetupOrder {
   event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   roomId         String?
   room           Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  functionId     String?         @unique
-  function       Function?       @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  functions      Function[]
   notes          String?
   tables         SetupTable[]
   equipmentItems EquipmentItem[]

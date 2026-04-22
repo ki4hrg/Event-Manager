@@ -87,16 +87,14 @@ export default async function SetupOrderPage({
     event.venueId
       ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
-    setupOrder.functionId
-      ? Promise.resolve([])
-      : prisma.function.findMany({
-          where: {
-            eventId,
-            setupOrder: null,
-            ...(setupOrder.roomId ? { rooms: { some: { roomId: setupOrder.roomId } } } : {}),
-          },
-          orderBy: { name: "asc" },
-        }),
+    prisma.function.findMany({
+      where: {
+        eventId,
+        setupOrderId: null,
+        ...(setupOrder.roomId ? { rooms: { some: { roomId: setupOrder.roomId } } } : {}),
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const searchEventVendorsAction = async (query: string) => {
@@ -155,9 +153,9 @@ export default async function SetupOrderPage({
     await linkSetupOrderToFunction(setupOrderId, functionId, eventId);
   };
 
-  const unlinkFromFunctionAction = async () => {
+  const unlinkFromFunctionAction = async (functionId: string) => {
     "use server";
-    await unlinkSetupOrderFromFunction(setupOrderId, eventId);
+    await unlinkSetupOrderFromFunction(setupOrderId, functionId, eventId);
   };
 
   const createTableAction = async (formData: FormData) => {
@@ -306,11 +304,11 @@ export default async function SetupOrderPage({
                 action={updateSetupOrderAction}
                 rooms={venueRooms}
                 functionLink={{
-                  linkedFunctionId: setupOrder.functionId,
-                  linkedFunctionName: setupOrder.function?.name ?? null,
-                  linkedFunctionPath: setupOrder.function
-                    ? `/events/${eventId}/functions/${setupOrder.function.id}`
-                    : null,
+                  linkedFunctions: setupOrder.functions.map((f) => ({
+                    id: f.id,
+                    name: f.name,
+                    path: `/events/${eventId}/functions/${f.id}`,
+                  })),
                   availableFunctions: availableFunctions.map((f) => ({ id: f.id, label: f.name })),
                   linkFunction: linkToFunctionAction,
                   unlinkFunction: unlinkFromFunctionAction,

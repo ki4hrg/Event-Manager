@@ -11,7 +11,7 @@ export async function getSetupOrders(eventId: string) {
     where: { eventId },
     include: {
       room: true,
-      function: true,
+      functions: true,
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
     },
@@ -24,7 +24,7 @@ export async function getSetupOrder(id: string) {
     where: { id },
     include: {
       room: true,
-      function: { include: { schedules: { orderBy: { startTime: "asc" } } } },
+      functions: { include: { schedules: { orderBy: { startTime: "asc" } } }, orderBy: { name: "asc" } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
     },
@@ -45,10 +45,13 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
       eventId,
       setupType: setupType || null,
       notes: notes || null,
-      functionId,
       roomId,
     },
   });
+
+  if (functionId) {
+    await prisma.function.update({ where: { id: functionId }, data: { setupOrderId: setupOrder.id } });
+  }
 
   const vendorIdToAssign = selectedVendorId ?? (await getDefaultVendorForModel(eventId, "SETUP_ORDER"))?.vendorId ?? null;
   if (vendorIdToAssign) {
@@ -137,32 +140,20 @@ export async function duplicateSetupOrder(id: string, eventId: string) {
 
 // Link/unlink from Setup Order detail page
 export async function linkSetupOrderToFunction(setupOrderId: string, functionId: string, eventId: string) {
-  await prisma.setupOrder.update({
-    where: { id: setupOrderId },
-    data: { functionId },
-  });
+  await prisma.function.update({ where: { id: functionId }, data: { setupOrderId } });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
-export async function unlinkSetupOrderFromFunction(setupOrderId: string, eventId: string) {
-  const setupOrder = await prisma.setupOrder.findUnique({
-    where: { id: setupOrderId },
-    select: { functionId: true },
-  });
-  await prisma.setupOrder.update({
-    where: { id: setupOrderId },
-    data: { functionId: null },
-  });
+export async function unlinkSetupOrderFromFunction(setupOrderId: string, functionId: string, eventId: string) {
+  await prisma.function.update({ where: { id: functionId }, data: { setupOrderId: null } });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
-  if (setupOrder?.functionId) {
-    revalidatePath(`/events/${eventId}/functions/${setupOrder.functionId}`);
-  }
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function getAvailableSetupOrdersForFunction(eventId: string) {
   return prisma.setupOrder.findMany({
-    where: { eventId, functionId: null },
+    where: { eventId },
     include: { room: true },
     orderBy: { createdAt: "asc" },
   });
@@ -174,18 +165,12 @@ export async function linkSetupOrderToFunctionFromFunction(
   functionId: string,
   eventId: string
 ) {
-  await prisma.setupOrder.update({
-    where: { id: setupOrderId },
-    data: { functionId },
-  });
+  await prisma.function.update({ where: { id: functionId }, data: { setupOrderId } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function unlinkSetupOrderFromFunctionPage(functionId: string, eventId: string) {
-  await prisma.setupOrder.updateMany({
-    where: { functionId },
-    data: { functionId: null },
-  });
+  await prisma.function.update({ where: { id: functionId }, data: { setupOrderId: null } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 

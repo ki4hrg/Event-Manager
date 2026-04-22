@@ -321,7 +321,7 @@ export default async function FunctionPage({
             unlinkCateringOrder={unlinkCateringOrderAction}
           />
           <SetupOrderPanel
-            setupOrder={fn.setupOrder ? { ...fn.setupOrder, function: { name: fn.name } } : null}
+            setupOrder={fn.setupOrder ?? null}
             eventId={eventId}
             availableSetupOrders={availableSetupOrders}
             newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}
