@@ -149,3 +149,25 @@ For function subtypes with minimal bespoke data (e.g., office, registration, exh
 * Workflow
 * Vendor
 * Equipment Summary
+
+## Create Forms
+
+When creating a new order record, the create form should include a standard set of fields. Fields not listed here (e.g., contacts) require an existing record ID and are deferred to the detail page after creation.
+
+### Standard fields (all order types)
+* **Name** — required, free text
+* **Notes** — optional textarea for any relevant notes
+* **Vendor** — optional; picker pre-filtered to the model type; defaults may be auto-applied server-side
+* **Function** — optional selector for linking to an existing event function at creation time; only shown when unlinked functions exist for the event
+* **Workflows** — auto-assigned server-side from defaults; no UI field on the create form
+
+### CateringOrder additions
+* **Service Style** — optional; select from custom options
+* **Guest Counts** — Expected, Confirmed, Guarantee (optional numeric fields)
+
+### SetupOrder additions
+* **Room** — required; determines the setup order's display name (no separate name field)
+* **Setup Type** — optional; select from custom options
+
+### AVOrder additions
+* **Linked Presentation** — optional; selector for associating with a presentation at creation time

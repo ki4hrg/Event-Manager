@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { createCateringOrder } from "../../../catering-orders/actions";
@@ -19,10 +20,11 @@ export default async function NewCateringOrderPage({
   const { id: eventId } = await params;
   const { functionId } = await searchParams;
 
-  const [event, serviceStyleOptions, eventVendors] = await Promise.all([
+  const [event, serviceStyleOptions, eventVendors, eventFunctions] = await Promise.all([
     getEvent(eventId),
     getOptions("service_style"),
     searchAssignedEventVendors("", eventId, "CATERING_ORDER"),
+    prisma.function.findMany({ where: { eventId, cateringOrder: null }, orderBy: { name: "asc" } }),
   ]);
 
   if (!event) {
@@ -31,7 +33,6 @@ export default async function NewCateringOrderPage({
 
   const createCateringOrderAction = async (formData: FormData) => {
     "use server";
-    if (functionId) formData.set("functionId", functionId);
     await createCateringOrder(eventId, formData);
   };
 
@@ -54,6 +55,8 @@ export default async function NewCateringOrderPage({
         action={createCateringOrderAction}
         serviceStyleOptions={serviceStyleOptions}
         availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
+        createFunctions={eventFunctions.map((f) => ({ id: f.id, label: f.name }))}
+        defaultFunctionId={functionId}
       />
     </PageWrapper>
   );

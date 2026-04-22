@@ -286,6 +286,18 @@ export default async function SetupOrderPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <div className="border-b border-gray-200 dark:border-gray-700 mb-4 pb-4">
+                <EntityStatusPanel
+                  standalone={false}
+                  entityType="setup_order"
+                  entityId={setupOrderId}
+                  eventId={eventId}
+                  status={setupOrder.status ?? null}
+                  substatus={setupOrder.substatus ?? null}
+                  substatuses={substatuses}
+                  setStatus={setStatusAction}
+                />
+              </div>
               <SetupOrderForm
                 noCard
                 setupOrder={setupOrder}
@@ -310,19 +322,6 @@ export default async function SetupOrderPage({
                   removeVendor: removeVendorFromFormAction,
                 }}
               />
-              <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Status</p>
-                <EntityStatusPanel
-                  standalone={false}
-                  entityType="setup_order"
-                  entityId={setupOrderId}
-                  eventId={eventId}
-                  status={setupOrder.status ?? null}
-                  substatus={setupOrder.substatus ?? null}
-                  substatuses={substatuses}
-                  setStatus={setStatusAction}
-                />
-              </div>
             </div>
           </div>
 

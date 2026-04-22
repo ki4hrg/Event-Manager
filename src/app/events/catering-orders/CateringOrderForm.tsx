@@ -12,13 +12,16 @@ type CateringOrderFormProps = {
   action: (formData: FormData) => Promise<void>;
   serviceStyleOptions: CustomOption[];
   eventId: string;
-  // function linking
+  // function linking (edit mode)
   linkedFunctionId?: string | null;
   linkedFunctionName?: string | null;
   linkedFunctionPath?: string | null;
   availableFunctions?: { id: string; label: string }[];
   linkFunction?: (id: string) => Promise<void>;
   unlinkFunction?: () => Promise<void>;
+  // function selector (create mode)
+  createFunctions?: { id: string; label: string }[];
+  defaultFunctionId?: string;
   // vendor linking
   assignedVendors?: AssignedVendor[];
   availableVendors?: AvailableVendor[];
@@ -51,6 +54,8 @@ export function CateringOrderForm({
   availableFunctions = [],
   linkFunction,
   unlinkFunction,
+  createFunctions,
+  defaultFunctionId,
   assignedVendors = [],
   availableVendors = [],
   addVendor,
@@ -81,6 +86,7 @@ export function CateringOrderForm({
           <dl className="space-y-4">
             <ReadOnlyField label="Name" value={cateringOrder.name} />
             <ReadOnlyField label="Service Style" value={cateringOrder.serviceStyle} />
+            <ReadOnlyField label="Notes" value={cateringOrder.notes} />
             {linkFunction && unlinkFunction && (
               <FunctionLinkControl
                 linkedFunctionId={linkedFunctionId}
@@ -156,6 +162,36 @@ export function CateringOrderForm({
               ))}
             </select>
           </div>
+          <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              rows={3}
+              defaultValue={cateringOrder?.notes || ""}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {!isEdit && createFunctions && createFunctions.length > 0 && (
+            <div>
+              <label htmlFor="functionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Function <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <select
+                id="functionId"
+                name="functionId"
+                defaultValue={defaultFunctionId ?? ""}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— No function —</option>
+                {createFunctions.map((f) => (
+                  <option key={f.id} value={f.id}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {!isEdit && (
             <VendorLinkControl
               mode="create"
