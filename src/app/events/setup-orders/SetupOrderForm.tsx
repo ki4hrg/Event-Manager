@@ -9,6 +9,7 @@ import { FunctionMultiLinkControl, type FunctionMultiLinkProps } from "@/app/eve
 
 type SetupOrderData = {
   id: string;
+  name?: string | null;
   description?: string | null;
   setupType?: string | null;
   notes?: string | null;
@@ -83,6 +84,7 @@ export function SetupOrderForm({
           </button>
         </div>
         <dl className="space-y-4">
+          <ReadOnlyField label="Name" value={setupOrder.name ?? null} />
           <ReadOnlyField label="Room" value={setupOrder.room?.name ?? null} />
           <ReadOnlyField label="Setup Type" value={setupOrder.setupType ?? null} />
           <ReadOnlyField label="Description" value={setupOrder.description ?? null} />
@@ -108,8 +110,23 @@ export function SetupOrderForm({
 
         <div className="space-y-4">
           <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Name <span className="text-red-500 ml-1">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              name="name"
+              required
+              defaultValue={setupOrder?.name ?? ""}
+              placeholder="e.g. Ballroom Banquet Setup"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
             <label htmlFor="roomId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Room{!isEdit && <span className="text-red-500 ml-1">*</span>}
+              Room
             </label>
             {rooms.length === 0 ? (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

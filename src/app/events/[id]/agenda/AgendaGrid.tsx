@@ -34,13 +34,15 @@ import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from
 import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
 import { DateTabs } from "./DateTabs";
-import { AgendaViewOptions, loadAgendaViewSettings, type AgendaViewSettings } from "./AgendaViewOptions";
+import { AgendaViewOptions, type AgendaViewSettings } from "./AgendaViewOptions";
+import { DEFAULT_AGENDA_VIEW_SETTINGS } from "@/lib/userSettings";
 
 type AgendaGridProps = {
   eventId: string;
   agendaData: SerializedAgendaData;
   timezone: string;
   activeDate: string | null;
+  initialSettings?: AgendaViewSettings;
 };
 
 type ScheduledDragData = {
@@ -540,13 +542,16 @@ export function AgendaGrid({
   agendaData: serializedData,
   timezone,
   activeDate,
+  initialSettings,
 }: AgendaGridProps) {
   const router = useRouter();
   const [agendaData, setAgendaData] = useState<AgendaData>(() => deserializeAgendaData(serializedData));
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null);
   const [resizing, setResizing] = useState<ResizeState | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [viewSettings, setViewSettings] = useState<AgendaViewSettings>(loadAgendaViewSettings);
+  const [viewSettings, setViewSettings] = useState<AgendaViewSettings>(
+    initialSettings ?? DEFAULT_AGENDA_VIEW_SETTINGS
+  );
   const [conflictPending, setConflictPending] = useState<{
     conflicts: RoomConflict[];
     onConfirm: () => Promise<void>;

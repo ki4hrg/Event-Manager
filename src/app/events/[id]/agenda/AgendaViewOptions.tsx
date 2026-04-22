@@ -1,32 +1,9 @@
 "use client";
 
-export type AgendaViewSettings = {
-  showUnusedRooms: boolean;
-  showFullDayRooms: boolean;
-};
+import { saveAgendaViewSettings } from "./actions";
+import type { AgendaViewSettings } from "@/lib/userSettings";
 
-const STORAGE_KEY = "agenda-view-options";
-
-const DEFAULTS: AgendaViewSettings = {
-  showUnusedRooms: false,
-  showFullDayRooms: false,
-};
-
-export function loadAgendaViewSettings(): AgendaViewSettings {
-  if (typeof window === "undefined") return DEFAULTS;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULTS;
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULTS, ...parsed };
-  } catch {
-    return DEFAULTS;
-  }
-}
-
-function saveSettings(settings: AgendaViewSettings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-}
+export type { AgendaViewSettings };
 
 export function AgendaViewOptions({
   settings,
@@ -37,8 +14,8 @@ export function AgendaViewOptions({
 }) {
   function toggle(key: keyof AgendaViewSettings) {
     const next = { ...settings, [key]: !settings[key] };
-    saveSettings(next);
     onChange(next);
+    saveAgendaViewSettings(next.showUnusedRooms, next.showFullDayRooms);
   }
 
   return (

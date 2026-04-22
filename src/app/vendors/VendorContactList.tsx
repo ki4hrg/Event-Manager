@@ -237,6 +237,10 @@ export function VendorContactList({
               </label>
               <ContactTypeField contactTypes={contactTypes} />
             </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+              <input type="checkbox" name="isPrimary" value="true" className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" />
+              Primary contact
+            </label>
           </div>
 
           <div className="mt-4 flex gap-2">
@@ -301,6 +305,10 @@ export function VendorContactList({
               </label>
               <ContactTypeField contactTypes={contactTypes} />
             </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+              <input type="checkbox" name="isPrimary" value="true" className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" />
+              Primary contact
+            </label>
           </div>
 
           <div className="mt-4 flex gap-2">
@@ -336,6 +344,16 @@ export function VendorContactList({
                     </label>
                     <ContactTypeField contactTypes={contactTypes} defaultValue={item.contactType || ""} />
                   </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="isPrimary"
+                      value="true"
+                      defaultChecked={item.isPrimary}
+                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                    />
+                    Primary contact
+                  </label>
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
@@ -353,6 +371,11 @@ export function VendorContactList({
                     <span className="text-gray-900 dark:text-white font-medium">
                       {item.contact.firstName} {item.contact.lastName}
                     </span>
+                    {item.isPrimary && (
+                      <span className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                        Primary
+                      </span>
+                    )}
                     {item.contactType && (
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         {resolveOptionLabel(item.contactType, contactTypes)}

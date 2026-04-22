@@ -5,6 +5,8 @@ import { EventTabs } from "../EventTabs";
 import { getFunctionsWithPresentations } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
 import { getOptions } from "@/app/settings/actions";
+import { requireAuth } from "@/lib/auth";
+import { getAgendaViewSettings } from "@/lib/userSettings";
 import dynamicImport from "next/dynamic";
 const AgendaGrid = dynamicImport(() => import("./AgendaGrid").then((m) => m.AgendaGrid), { ssr: false });
 
@@ -20,7 +22,9 @@ export default async function AgendaPage({
   const { id: eventId } = await params;
   const { date } = await searchParams;
 
-  const [event, functions, scheduleTypes] = await Promise.all([
+  const session = await requireAuth();
+
+  const [event, functions, scheduleTypes, agendaViewSettings] = await Promise.all([
     prisma.event.findUnique({
       where: { id: eventId },
       include: {
@@ -29,6 +33,7 @@ export default async function AgendaPage({
     }),
     getFunctionsWithPresentations(eventId),
     getOptions("schedule_type"),
+    getAgendaViewSettings(session.user.id),
   ]);
 
   if (!event) {
@@ -82,6 +87,7 @@ export default async function AgendaPage({
         agendaData={serializeAgendaData(agendaData)}
         timezone={timezone}
         activeDate={activeDate}
+        initialSettings={agendaViewSettings}
       />
     </PageWrapper>
   );

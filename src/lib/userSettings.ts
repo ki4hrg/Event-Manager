@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 export const SETTING_KEYS = {
   LANDING_PAGE: "landing_page",
   LAST_EVENT_ID: "last_event_id",
+  AGENDA_SHOW_UNUSED_ROOMS: "agenda_show_unused_rooms",
+  AGENDA_SHOW_FULL_DAY_ROOMS: "agenda_show_full_day_rooms",
 } as const;
 
 export type LandingPageOption = "dashboard" | "events" | "last_event";
@@ -35,4 +37,25 @@ export async function getUserLandingPage(userId: string): Promise<LandingPageOpt
 
 export async function getLastEventId(userId: string): Promise<string | null> {
   return getUserSetting(userId, SETTING_KEYS.LAST_EVENT_ID);
+}
+
+export type AgendaViewSettings = {
+  showUnusedRooms: boolean;
+  showFullDayRooms: boolean;
+};
+
+export const DEFAULT_AGENDA_VIEW_SETTINGS: AgendaViewSettings = {
+  showUnusedRooms: false,
+  showFullDayRooms: false,
+};
+
+export async function getAgendaViewSettings(userId: string): Promise<AgendaViewSettings> {
+  const [unusedRooms, fullDayRooms] = await Promise.all([
+    getUserSetting(userId, SETTING_KEYS.AGENDA_SHOW_UNUSED_ROOMS),
+    getUserSetting(userId, SETTING_KEYS.AGENDA_SHOW_FULL_DAY_ROOMS),
+  ]);
+  return {
+    showUnusedRooms: unusedRooms === "true",
+    showFullDayRooms: fullDayRooms === "true",
+  };
 }

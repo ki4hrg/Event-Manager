@@ -50,7 +50,7 @@ export async function getVendor(id: string) {
   return prisma.vendor.findUnique({
     where: { id },
     include: {
-      contacts: { include: { contact: true }, orderBy: { id: "asc" } },
+      contacts: { include: { contact: true }, orderBy: [{ isPrimary: "desc" }, { id: "asc" }] },
     },
   });
 }
@@ -115,12 +115,20 @@ export async function searchContactsForVendor(query: string) {
   });
 }
 
+async function clearOtherPrimaries(vendorId: string, excludeId?: string) {
+  await prisma.vendorContact.updateMany({
+    where: { vendorId, ...(excludeId ? { NOT: { id: excludeId } } : {}) },
+    data: { isPrimary: false },
+  });
+}
+
 export async function createAndAddVendorContact(vendorId: string, formData: FormData) {
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
   const organization = formData.get("organization") as string;
   const contactType = (formData.get("contactType") as string) || null;
+  const isPrimary = formData.get("isPrimary") === "true";
 
   const contact = await prisma.contact.create({
     data: {
@@ -131,8 +139,10 @@ export async function createAndAddVendorContact(vendorId: string, formData: Form
     },
   });
 
+  if (isPrimary) await clearOtherPrimaries(vendorId);
+
   await prisma.vendorContact.create({
-    data: { vendorId, contactId: contact.id, contactType },
+    data: { vendorId, contactId: contact.id, contactType, isPrimary },
   });
 
   revalidatePath(`/vendors/${vendorId}`);
@@ -141,9 +151,12 @@ export async function createAndAddVendorContact(vendorId: string, formData: Form
 export async function addVendorContact(vendorId: string, formData: FormData) {
   const contactId = formData.get("contactId") as string;
   const contactType = (formData.get("contactType") as string) || null;
+  const isPrimary = formData.get("isPrimary") === "true";
+
+  if (isPrimary) await clearOtherPrimaries(vendorId);
 
   await prisma.vendorContact.create({
-    data: { vendorId, contactId, contactType },
+    data: { vendorId, contactId, contactType, isPrimary },
   });
 
   revalidatePath(`/vendors/${vendorId}`);
@@ -151,10 +164,13 @@ export async function addVendorContact(vendorId: string, formData: FormData) {
 
 export async function updateVendorContact(contactId: string, vendorId: string, formData: FormData) {
   const contactType = (formData.get("contactType") as string) || null;
+  const isPrimary = formData.get("isPrimary") === "true";
+
+  if (isPrimary) await clearOtherPrimaries(vendorId, contactId);
 
   await prisma.vendorContact.update({
     where: { id: contactId },
-    data: { contactType },
+    data: { contactType, isPrimary },
   });
 
   revalidatePath(`/vendors/${vendorId}`);

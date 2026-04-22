@@ -378,6 +378,7 @@ model EquipmentItem {
 
 model SetupOrder {
   id             String          @id @default(cuid())
+  name           String?
   description    String?
   setupType      String?
   status         EntityStatus?
@@ -698,6 +699,7 @@ model VendorContact {
   vendorId    String
   contactId   String
   contactType String? // from vendor_contact_type CustomOption
+  isPrimary   Boolean @default(false)
   vendor      Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
