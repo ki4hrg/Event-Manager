@@ -375,7 +375,7 @@ function DayGrid({
         const maxSpan = Math.max(
           ...entries.map((e) => computeRowspan(e, day.timeSlots))
         );
-        const cell: EntriesCell = { type: "entries", entries, rowspan: maxSpan, slotTime: slot };
+        const cell: EntriesCell = { type: "entries", entries: [...entries], rowspan: maxSpan, slotTime: slot };
         if (maxSpan > 1) {
           skipMap.set(room.id, { remaining: maxSpan - 1, cell });
         }
