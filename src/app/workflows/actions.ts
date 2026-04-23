@@ -74,10 +74,12 @@ export async function updateWorkflowTemplate(id: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const defaultForEntityTypes = formData.getAll("defaultForEntityTypes") as string[];
+  const completionStatusValue = (formData.get("completionStatusValue") as EntityStatus | null) || null;
+  const completionSubstatusValue = (formData.get("completionSubstatusValue") as string | null) || null;
 
   await prisma.workflowTemplate.update({
     where: { id },
-    data: { name, description: description || null, defaultForEntityTypes },
+    data: { name, description: description || null, defaultForEntityTypes, completionStatusValue, completionSubstatusValue },
   });
 
   revalidatePath(`/workflows/${id}`);
@@ -97,8 +99,6 @@ export async function createWorkflowStep(templateId: string, formData: FormData)
   const label = formData.get("label") as string;
   const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
   const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
-  const statusValue = (formData.get("statusValue") as EntityStatus | null) || null;
-  const substatusValue = (formData.get("substatusValue") as string | null) || null;
 
   const maxOrder = await prisma.workflowStep.findFirst({
     where: { templateId },
@@ -112,8 +112,6 @@ export async function createWorkflowStep(templateId: string, formData: FormData)
       label,
       pendingStatusValue,
       pendingSubstatusValue,
-      statusValue,
-      substatusValue,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
@@ -126,12 +124,10 @@ export async function updateWorkflowStep(id: string, templateId: string, formDat
   const label = formData.get("label") as string;
   const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
   const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
-  const statusValue = (formData.get("statusValue") as EntityStatus | null) || null;
-  const substatusValue = (formData.get("substatusValue") as string | null) || null;
 
   await prisma.workflowStep.update({
     where: { id },
-    data: { label, pendingStatusValue, pendingSubstatusValue, statusValue, substatusValue },
+    data: { label, pendingStatusValue, pendingSubstatusValue },
   });
   revalidatePath(`/workflows/${templateId}`);
 }

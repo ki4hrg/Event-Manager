@@ -73,13 +73,21 @@ async function recomputeEntityStatus(entityType: WorkflowEntityType, entityId: s
           },
         },
       },
-      stepCompletions: {
-        include: { step: true },
-        orderBy: { step: { sortOrder: "desc" } },
-      },
+      stepCompletions: true,
       itemCompletions: true,
     },
   });
+
+  type InstanceSets = { completedStepIds: Set<string>; completedItemIds: Set<string> };
+  const instanceSets = new Map<string, InstanceSets>(
+    instances.map((inst) => [
+      inst.id,
+      {
+        completedStepIds: new Set(inst.stepCompletions.map((c) => c.stepId)),
+        completedItemIds: new Set(inst.itemCompletions.map((c) => c.itemId)),
+      },
+    ])
+  );
 
   // Phase 1: find the first uncompleted step with pendingStatusValue across all instances.
   // Among instances, prefer the most-advanced one (highest sortOrder of first uncompleted step).
@@ -88,8 +96,7 @@ async function recomputeEntityStatus(entityType: WorkflowEntityType, entityId: s
   let highestPendingOrder: number | null = null;
 
   for (const instance of instances) {
-    const completedStepIds = new Set(instance.stepCompletions.map((c) => c.stepId));
-    const completedItemIds = new Set(instance.itemCompletions.map((c) => c.itemId));
+    const { completedStepIds, completedItemIds } = instanceSets.get(instance.id)!;
 
     for (const step of instance.template.steps) {
       if (!isStepDone(step, completedStepIds, completedItemIds)) {
@@ -110,25 +117,24 @@ async function recomputeEntityStatus(entityType: WorkflowEntityType, entityId: s
     return;
   }
 
-  // Phase 2: all steps done (or no pendingStatusValue set on uncompleted steps).
-  // Fall back to the last completed step with statusValue (terminal state).
-  let latestStatus: EntityStatus | null = null;
-  let latestSubstatus: string | null = null;
-  let highestSortOrder: number | null = null;
+  // Phase 2: all steps done (or no pendingStatusValue on uncompleted step).
+  // Apply the completion status from any fully-completed instance's template.
+  let completionStatus: EntityStatus | null = null;
+  let completionSubstatus: string | null = null;
 
   for (const instance of instances) {
-    for (const completion of instance.stepCompletions) {
-      if (completion.step.statusValue) {
-        if (highestSortOrder === null || completion.step.sortOrder > highestSortOrder) {
-          highestSortOrder = completion.step.sortOrder;
-          latestStatus = completion.step.statusValue;
-          latestSubstatus = completion.step.substatusValue ?? null;
-        }
-      }
+    const { completedStepIds, completedItemIds } = instanceSets.get(instance.id)!;
+    const allDone = instance.template.steps.every((s) =>
+      isStepDone(s, completedStepIds, completedItemIds)
+    );
+    if (allDone && instance.template.completionStatusValue) {
+      completionStatus = instance.template.completionStatusValue;
+      completionSubstatus = instance.template.completionSubstatusValue ?? null;
+      break;
     }
   }
 
-  await updateEntityStatus(entityType, entityId, latestStatus, latestSubstatus);
+  await updateEntityStatus(entityType, entityId, completionStatus, completionSubstatus);
 }
 
 export async function getWorkflowInstances(entityType: WorkflowEntityType, entityId: string) {
@@ -208,9 +214,7 @@ export async function toggleStepCompletion(
     const affectedStepIds = affectedSteps.map((s) => s.id);
     const affectedItemIds = affectedSteps.flatMap((s) => s.items.map((i) => i.id));
 
-    const anyHaveStatus = affectedSteps.some(
-      (s) => s.statusValue !== null || s.pendingStatusValue !== null
-    );
+    const anyHaveStatus = affectedSteps.some((s) => s.pendingStatusValue !== null);
 
     await prisma.workflowStepCompletion.deleteMany({
       where: { instanceId, stepId: { in: affectedStepIds } },
@@ -321,7 +325,7 @@ export async function toggleItemCompletion(
     const subsequentItemIds = subsequentSteps.flatMap((s) => s.items.map((i) => i.id));
 
     const anyHaveStatus = [item.step, ...subsequentSteps].some(
-      (s) => s.statusValue !== null || s.pendingStatusValue !== null
+      (s) => s.pendingStatusValue !== null
     );
 
     await prisma.workflowChecklistCompletion.delete({

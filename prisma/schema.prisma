@@ -577,15 +577,17 @@ model PresentationContact {
 // Workflow system — hierarchical templates with sequential steps and optional checklist sub-items
 
 model WorkflowTemplate {
-  id                    String             @id @default(cuid())
-  name                  String
-  description           String?
-  sortOrder             Int                @default(0)
-  defaultForEntityTypes String[]           @default([])
-  steps                 WorkflowStep[]
-  instances             WorkflowInstance[]
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+  id                       String             @id @default(cuid())
+  name                     String
+  description              String?
+  sortOrder                Int                @default(0)
+  defaultForEntityTypes    String[]           @default([])
+  completionStatusValue    EntityStatus?      // status applied when all steps in this workflow are complete
+  completionSubstatusValue String?
+  steps                    WorkflowStep[]
+  instances                WorkflowInstance[]
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
 }
 
 model WorkflowStep {
@@ -595,10 +597,8 @@ model WorkflowStep {
   label                 String
   sortOrder             Int                      @default(0)
   computedKey           String?                  // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
-  pendingStatusValue    EntityStatus?            // status applied while this step is the first uncompleted (current) step
-  pendingSubstatusValue String?                  // substatus applied while this step is the first uncompleted (current) step
-  statusValue           EntityStatus?            // terminal status — applied when this is the last completed step and workflow is done
-  substatusValue        String?                  // terminal substatus — applied when this is the last completed step and workflow is done
+  pendingStatusValue    EntityStatus?            // status applied while this step is the current (first incomplete) step
+  pendingSubstatusValue String?
   items                 WorkflowChecklistItem[]
   completions           WorkflowStepCompletion[]
   createdAt             DateTime                 @default(now())
