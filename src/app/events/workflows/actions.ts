@@ -89,6 +89,20 @@ async function recomputeEntityStatus(entityType: WorkflowEntityType, entityId: s
     ])
   );
 
+  // Phase 0: workflow just assigned (no completions at all) → apply template-level pending status.
+  const hasAnyCompletion = instances.some((inst) => {
+    const { completedStepIds, completedItemIds } = instanceSets.get(inst.id)!;
+    return completedStepIds.size > 0 || completedItemIds.size > 0;
+  });
+  if (!hasAnyCompletion) {
+    for (const instance of instances) {
+      if (instance.template.pendingStatusValue) {
+        await updateEntityStatus(entityType, entityId, instance.template.pendingStatusValue, instance.template.pendingSubstatusValue ?? null);
+        return;
+      }
+    }
+  }
+
   // Phase 1: find the first uncompleted step with pendingStatusValue across all instances.
   // Among instances, prefer the most-advanced one (highest sortOrder of first uncompleted step).
   let pendingStatus: EntityStatus | null = null;
@@ -167,6 +181,7 @@ export async function assignWorkflow(
   await prisma.workflowInstance.create({
     data: { templateId, entityType, entityId },
   });
+  await recomputeEntityStatus(entityType, entityId);
   revalidateEntity(entityType, entityId, eventId);
 }
 

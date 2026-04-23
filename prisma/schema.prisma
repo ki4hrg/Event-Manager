@@ -582,6 +582,8 @@ model WorkflowTemplate {
   description              String?
   sortOrder                Int                @default(0)
   defaultForEntityTypes    String[]           @default([])
+  pendingStatusValue       EntityStatus?      // status applied when assigned but no steps completed yet
+  pendingSubstatusValue    String?
   completionStatusValue    EntityStatus?      // status applied when all steps in this workflow are complete
   completionSubstatusValue String?
   steps                    WorkflowStep[]

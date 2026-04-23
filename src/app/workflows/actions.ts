@@ -74,12 +74,14 @@ export async function updateWorkflowTemplate(id: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const defaultForEntityTypes = formData.getAll("defaultForEntityTypes") as string[];
+  const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
+  const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
   const completionStatusValue = (formData.get("completionStatusValue") as EntityStatus | null) || null;
   const completionSubstatusValue = (formData.get("completionSubstatusValue") as string | null) || null;
 
   await prisma.workflowTemplate.update({
     where: { id },
-    data: { name, description: description || null, defaultForEntityTypes, completionStatusValue, completionSubstatusValue },
+    data: { name, description: description || null, defaultForEntityTypes, pendingStatusValue, pendingSubstatusValue, completionStatusValue, completionSubstatusValue },
   });
 
   revalidatePath(`/workflows/${id}`);

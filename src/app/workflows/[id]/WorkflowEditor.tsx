@@ -15,6 +15,8 @@ type StepWithItems = WorkflowStep & { items: WorkflowChecklistItem[] };
 type TemplateWithSteps = WorkflowTemplate & {
   steps: StepWithItems[];
   _count: { instances: number };
+  pendingStatusValue: EntityStatus | null;
+  pendingSubstatusValue: string | null;
   completionStatusValue: EntityStatus | null;
   completionSubstatusValue: string | null;
 };
@@ -165,14 +167,82 @@ function StepRow({
               className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             />
           </div>
+          {/* Preserve current status when saving label */}
+          <input type="hidden" name="pendingStatusValue" value={editPendingStatus} />
+          <input type="hidden" name="pendingSubstatusValue" value={step.pendingSubstatusValue ?? ""} />
           <div className="flex items-center gap-2 pl-6">
+            <SubmitButton label="Save" />
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-500 dark:text-gray-400 w-6 shrink-0">
+                {index + 1}.
+              </span>
+              <span className="font-medium text-gray-900 dark:text-white text-sm">{step.label}</span>
+              {step.items.length > 0 && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  ({step.items.length} checklist item{step.items.length !== 1 ? "s" : ""})
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAddingItem(true)}
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xs"
+              >
+                + Checklist item
+              </button>
+              <button
+                onClick={() => setEditing(true)}
+                className="text-blue-600 hover:underline text-sm"
+              >
+                Edit
+              </button>
+              <button
+                onClick={async () => {
+                  if (
+                    confirm(
+                      `Delete step "${step.label}"? This will also delete its checklist items.`
+                    )
+                  ) {
+                    await deleteStep(step.id);
+                  }
+                }}
+                className="text-red-600 hover:underline text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+
+          {/* Always-visible inline status form */}
+          <form
+            action={async (fd) => {
+              await updateStep(step.id, fd);
+            }}
+            className="flex items-center gap-2 pl-6"
+          >
+            <input type="hidden" name="label" value={step.label} />
             <label className="text-xs text-gray-500 dark:text-gray-400 w-16 shrink-0">
               Status
             </label>
             <select
               name="pendingStatusValue"
               value={editPendingStatus}
-              onChange={(e) => setEditPendingStatus(e.target.value)}
+              onChange={(e) => {
+                setEditPendingStatus(e.target.value);
+                e.currentTarget.form?.requestSubmit();
+              }}
               className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             >
               <option value="">None</option>
@@ -186,6 +256,7 @@ function StepRow({
               <select
                 name="pendingSubstatusValue"
                 defaultValue={step.pendingSubstatusValue ?? ""}
+                onChange={(e) => e.currentTarget.form?.requestSubmit()}
                 className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               >
                 <option value="">No substatus</option>
@@ -196,69 +267,8 @@ function StepRow({
                 ))}
               </select>
             )}
-          </div>
-          <div className="flex items-center gap-2 pl-6">
-            <SubmitButton label="Save" />
-            <button
-              type="button"
-              onClick={() => {
-                setEditPendingStatus(step.pendingStatusValue ?? "");
-                setEditing(false);
-              }}
-              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-gray-500 dark:text-gray-400 w-6 shrink-0">
-              {index + 1}.
-            </span>
-            <span className="font-medium text-gray-900 dark:text-white text-sm">{step.label}</span>
-            {step.items.length > 0 && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                ({step.items.length} checklist item{step.items.length !== 1 ? "s" : ""})
-              </span>
-            )}
-            {step.pendingStatusValue && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
-                {EDIT_STATUS_OPTIONS.find((o) => o.value === step.pendingStatusValue)?.label ?? step.pendingStatusValue}
-                {step.pendingSubstatusValue ? ` / ${step.pendingSubstatusValue}` : ""}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAddingItem(true)}
-              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xs"
-            >
-              + Checklist item
-            </button>
-            <button
-              onClick={() => setEditing(true)}
-              className="text-blue-600 hover:underline text-sm"
-            >
-              Edit
-            </button>
-            <button
-              onClick={async () => {
-                if (
-                  confirm(
-                    `Delete step "${step.label}"? This will also delete its checklist items.`
-                  )
-                ) {
-                  await deleteStep(step.id);
-                }
-              }}
-              className="text-red-600 hover:underline text-sm"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
+          </form>
+        </>
       )}
 
       {step.items.map((item) => (
@@ -316,8 +326,10 @@ export function WorkflowEditor({
   const [editingName, setEditingName] = useState(false);
   const [addingStep, setAddingStep] = useState(false);
   const [addStepPendingStatus, setAddStepPendingStatus] = useState<string>("");
+  const [editTemplatePendingStatus, setEditTemplatePendingStatus] = useState<string>(template.pendingStatusValue ?? "");
   const [editCompletionStatus, setEditCompletionStatus] = useState<string>(template.completionStatusValue ?? "");
   const filteredAddPendingSubstatuses = substatuses.filter((s) => s.group === (addStepPendingStatus || null));
+  const filteredTemplatePendingSubstatuses = substatuses.filter((s) => s.group === (editTemplatePendingStatus || null));
   const filteredCompletionSubstatuses = substatuses.filter((s) => s.group === (editCompletionStatus || null));
 
   return (
@@ -368,6 +380,43 @@ export function WorkflowEditor({
             </div>
             <div>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Pending status
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+                Applied when assigned but no steps completed
+              </p>
+              <div className="flex items-center gap-2">
+                <select
+                  name="pendingStatusValue"
+                  value={editTemplatePendingStatus}
+                  onChange={(e) => setEditTemplatePendingStatus(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="">None</option>
+                  {EDIT_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                {editTemplatePendingStatus && filteredTemplatePendingSubstatuses.length > 0 && (
+                  <select
+                    name="pendingSubstatusValue"
+                    defaultValue={template.pendingSubstatusValue ?? ""}
+                    className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value="">No substatus</option>
+                    {filteredTemplatePendingSubstatuses.map((s) => (
+                      <option key={s.id} value={s.label}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Completion status
               </p>
               <div className="flex items-center gap-2">
@@ -405,6 +454,7 @@ export function WorkflowEditor({
               <button
                 type="button"
                 onClick={() => {
+                  setEditTemplatePendingStatus(template.pendingStatusValue ?? "");
                   setEditCompletionStatus(template.completionStatusValue ?? "");
                   setEditingName(false);
                 }}
@@ -433,6 +483,15 @@ export function WorkflowEditor({
                       (v) => ENTITY_TYPE_OPTIONS.find((o) => o.value === v)?.label ?? v
                     )
                     .join(", ")}
+                </p>
+              )}
+              {template.pendingStatusValue && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Pending:{" "}
+                  <span className="text-amber-600 dark:text-amber-400">
+                    {EDIT_STATUS_OPTIONS.find((o) => o.value === template.pendingStatusValue)?.label ?? template.pendingStatusValue}
+                    {template.pendingSubstatusValue ? ` / ${template.pendingSubstatusValue}` : ""}
+                  </span>
                 </p>
               )}
               {template.completionStatusValue && (
@@ -498,7 +557,7 @@ export function WorkflowEditor({
         <div className="space-y-2">
           {template.steps.map((step, index) => (
             <StepRow
-              key={step.id}
+              key={`${step.id}-${step.updatedAt.toISOString()}`}
               step={step}
               index={index}
               substatuses={substatuses}
