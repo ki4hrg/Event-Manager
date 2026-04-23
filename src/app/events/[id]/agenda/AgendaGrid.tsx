@@ -124,7 +124,7 @@ function EntryContent({
             {entry.breakoutGroupName}
           </div>
         )}
-        <div className={`font-medium ${colors.title} leading-tight break-words`}>
+        <div className={`font-medium ${colors.title} leading-tight line-clamp-2`}>
           {entry.functionName}
         </div>
         <div className={`${colors.text} leading-tight mt-0.5 truncate`}>
@@ -238,7 +238,8 @@ function DraggableCard({
         left: `${colLeftPct}%`,
         width: `${colWidthPct}%`,
       }}
-      className={`relative group/card ${getEntryColors(entry).bg}${isDragDisabled ? " cursor-pointer" : " cursor-grab active:cursor-grabbing"}${isDragging ? " opacity-40" : ""}`}
+      title={entry.functionName}
+      className={`relative group/card overflow-hidden ${getEntryColors(entry).bg}${isDragDisabled ? " cursor-pointer" : " cursor-grab active:cursor-grabbing"}${isDragging ? " opacity-40" : ""}`}
       onClick={() => {
         if (draggedRef.current) {
           draggedRef.current = false;
