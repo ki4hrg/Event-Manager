@@ -5,6 +5,7 @@ export const SETTING_KEYS = {
   LAST_EVENT_ID: "last_event_id",
   AGENDA_SHOW_UNUSED_ROOMS: "agenda_show_unused_rooms",
   AGENDA_SHOW_FULL_DAY_ROOMS: "agenda_show_full_day_rooms",
+  AGENDA_COLLAPSE_EMPTY_HOURS: "agenda_collapse_empty_hours",
 } as const;
 
 export type LandingPageOption = "dashboard" | "events" | "last_event";
@@ -42,20 +43,24 @@ export async function getLastEventId(userId: string): Promise<string | null> {
 export type AgendaViewSettings = {
   showUnusedRooms: boolean;
   showFullDayRooms: boolean;
+  collapseEmptyHours: boolean;
 };
 
 export const DEFAULT_AGENDA_VIEW_SETTINGS: AgendaViewSettings = {
   showUnusedRooms: false,
   showFullDayRooms: false,
+  collapseEmptyHours: false,
 };
 
 export async function getAgendaViewSettings(userId: string): Promise<AgendaViewSettings> {
-  const [unusedRooms, fullDayRooms] = await Promise.all([
+  const [unusedRooms, fullDayRooms, collapseHours] = await Promise.all([
     getUserSetting(userId, SETTING_KEYS.AGENDA_SHOW_UNUSED_ROOMS),
     getUserSetting(userId, SETTING_KEYS.AGENDA_SHOW_FULL_DAY_ROOMS),
+    getUserSetting(userId, SETTING_KEYS.AGENDA_COLLAPSE_EMPTY_HOURS),
   ]);
   return {
     showUnusedRooms: unusedRooms === "true",
     showFullDayRooms: fullDayRooms === "true",
+    collapseEmptyHours: collapseHours === "true",
   };
 }

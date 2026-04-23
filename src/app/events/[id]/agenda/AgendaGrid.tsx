@@ -337,7 +337,7 @@ function DayGrid({
   type SkipState = { remaining: number; cell: EntriesCell };
   const skipMap = new Map<string, SkipState>();
 
-  const rowData: Array<{ slotTime: Date; cells: CellRender[] }> = [];
+  let rowData: Array<{ slotTime: Date; cells: CellRender[] }> = [];
 
   for (const slot of day.timeSlots) {
     const slotKey = slot.toISOString();
@@ -385,13 +385,44 @@ function DayGrid({
     rowData.push({ slotTime: slot, cells });
   }
 
+  let sliceStart = 0;
+  if (viewSettings.collapseEmptyHours) {
+    const BUFFER = 2;
+    const dayMidnightMs = day.timeSlots[0].getTime();
+    const nextMidnightMs = day.timeSlots[day.timeSlots.length - 1].getTime() + SLOT_INTERVAL_MS;
+
+    let earliestStart = Infinity;
+    let latestEnd = -Infinity;
+    for (const room of visibleRooms) {
+      const col = day.cells.get(room.id);
+      if (!col) continue;
+      col.forEach((entries) => {
+        for (const entry of entries) {
+          const startMs = entry.startTime.getTime();
+          const endMs = entry.endTime.getTime();
+          if (startMs > dayMidnightMs && startMs < earliestStart) earliestStart = startMs;
+          if (endMs < nextMidnightMs && endMs > latestEnd) latestEnd = endMs;
+        }
+      });
+    }
+
+    if (earliestStart < Infinity) {
+      const firstIdx = Math.max(0, day.timeSlots.findLastIndex(s => s.getTime() <= earliestStart) - BUFFER);
+      const lastIdx = latestEnd > -Infinity
+        ? Math.min(rowData.length - 1, day.timeSlots.findLastIndex(s => s.getTime() < latestEnd) + BUFFER)
+        : rowData.length - 1;
+      sliceStart = firstIdx;
+      rowData = rowData.slice(firstIdx, lastIdx + 1);
+    }
+  }
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasScrolled = useRef(false);
 
   useEffect(() => {
     if (!scrollRef.current || hasScrolled.current) return;
     const rows = scrollRef.current.querySelectorAll("tbody tr");
-    const targetRow = rows[day.scrollToSlotIndex];
+    const targetRow = rows[Math.max(0, day.scrollToSlotIndex - sliceStart)];
     if (targetRow) {
       scrollRef.current.scrollTop = (targetRow as HTMLElement).offsetTop;
     }
