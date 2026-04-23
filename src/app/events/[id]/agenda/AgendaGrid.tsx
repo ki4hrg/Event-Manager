@@ -33,6 +33,7 @@ import {
 import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from "@/app/events/functions/actions";
 import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
+import { toTitleCase } from "@/lib/optionUtils";
 import { DateTabs } from "./DateTabs";
 import { AgendaViewOptions, type AgendaViewSettings } from "./AgendaViewOptions";
 import { DEFAULT_AGENDA_VIEW_SETTINGS } from "@/lib/userSettings";
@@ -113,7 +114,7 @@ function EntryContent({
   eventId: string;
   timezone: string;
 }) {
-  const typeDisplay = entry.scheduleTypeLabel || entry.scheduleType;
+  const typeDisplay = toTitleCase(entry.scheduleTypeLabel || entry.scheduleType);
   const colors = getEntryColors(entry);
   return (
     <div className="px-1.5 pt-3 pb-1 text-xs h-full">

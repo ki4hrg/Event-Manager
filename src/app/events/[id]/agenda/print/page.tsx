@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { getFunctionsWithPresentations } from "@/app/events/functions/actions";
+import { toTitleCase } from "@/lib/optionUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -147,7 +148,7 @@ export default async function AgendaPrintPage({
                     )}
                   </td>
                   <td className="py-2 pr-4 text-gray-600 print:text-gray-700 align-top text-xs">
-                    {entry.scheduleType ?? "—"}
+                    {entry.scheduleType ? toTitleCase(entry.scheduleType) : "—"}
                   </td>
                   <td className="py-2 text-gray-600 print:text-gray-700 align-top">
                     {entry.rooms.join(", ") || "—"}

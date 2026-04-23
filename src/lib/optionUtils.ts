@@ -4,15 +4,22 @@ function normalize(label: string): string {
   return label.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 }
 
+export function toTitleCase(str: string): string {
+  return str
+    .split(/[\s_]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export function resolveOptionLabel(
   stored: string | null | undefined,
   options: { label: string }[]
 ): string {
   if (!stored) return "";
   const exact = options.find((o) => o.label === stored);
-  if (exact) return exact.label;
+  if (exact) return toTitleCase(exact.label);
   const normalized = options.find((o) => normalize(o.label) === stored);
-  return normalized ? normalized.label : stored;
+  return toTitleCase(normalized ? normalized.label : stored);
 }
 
 export function resolveOptionColor(
