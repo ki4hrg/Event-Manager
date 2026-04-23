@@ -37,6 +37,26 @@ For models with significant volumes of information, it may be more appropriate t
 ### Bottom Table
 If a tabular design is used, it should be linked from the top of the screen and reserved for high-importance information that can only usefully be shown in a tabular layout. An example here is the function list on the Event Overview screen.
 
+## Order Model Layout
+
+All order-type models (AVOrder, CateringOrder, SetupOrder) follow a shared layout convention.
+
+### Header
+The page header shows: record name, entity status badge (Pending / In Progress / Complete / Cancelled), and workflow progress badge. The status badge is a small color-coded pill using the same color conventions as workflow status.
+
+### Left Column (col-span-1)
+- **Details Card**: Name, Status (interactive EntityStatusPanel), Notes, Vendor(s)
+- **Linked Function(s) card**: Functions associated with this order; rendered as a standalone card, not embedded inside the Details Card
+- **Workflows card**: Workflow instances with step/checklist progress
+
+Model-specific additions to the left column (e.g., Linked Presentation for AVOrder, Guest Counts for CateringOrder) appear below the Linked Function(s) card and above the Workflows card.
+
+### Right Column (col-span-2)
+Model-specific working content. See each model's section under Critical Information for specifics.
+
+### Vendors and Files Tabs
+Full-width layout — no two-column split. Do not apply `max-w-2xl` or similar constraints.
+
 ## Tabs
 
 Most detail pages use tabs to organize content. Standard tabs that appear on most models are:
@@ -55,6 +75,7 @@ Cards are the primary grouping unit within a column. Conventions:
 * **Empty state**: Cards with no data should display a subtle "None added" message to confirm no data exists rather than appearing blank.
 * **No count badges**: Count badges in card headers add visual noise without enough utility for overview contexts — omit them.
 * **Inline creation forms**: Forms to create new records should keep the user on the current page (e.g., an inline form that expands within the card), following the pattern established by the function contact panel. Avoid navigating away to a separate create page.
+* **No single-field cards**: Avoid cards that contain only one field; merge them with a related card unless there is a clear reason to separate them.
 
 ## Editing
 
@@ -133,6 +154,10 @@ For function subtypes with minimal bespoke data (e.g., office, registration, exh
 * Vendor
 * Equipment Summary
 
+#### Layout
+- **Left column**: Details Card (name, notes, vendor), Linked Function(s) card, Linked Presentation card, Workflows card
+- **Right column**: Equipment card
+
 ### Catering Order Model
 * Name
 * Linked Function
@@ -143,12 +168,23 @@ For function subtypes with minimal bespoke data (e.g., office, registration, exh
 * Contacts
 * Menu
 
+#### Layout
+- **Left column**: Details Card (name, service style, notes, vendor), Guest Counts card (expected, confirmed, guarantee), Linked Function(s) card, Contacts card, Workflows card
+- **Right column**: Timeline summary card (read-only summary; edit on Service tab), Menu card
+
+#### Tab Order
+Overview → Service → Contract & Billing → Vendors → Files
+
 ### Setup Order Model
 * Name
 * Linked Function
 * Workflow
 * Vendor
 * Equipment Summary
+
+#### Layout
+- **Left column**: Details Card (name, room, setup type, notes, vendor), Linked Function(s) card, Workflows card
+- **Right column**: Table/Chair Setup card, Equipment card
 
 ## Create Forms
 

@@ -5,7 +5,6 @@ import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
-import { FunctionMultiLinkControl, type FunctionMultiLinkProps } from "@/app/events/functions/FunctionMultiLinkControl";
 
 type SetupOrderData = {
   id: string;
@@ -22,7 +21,6 @@ type SetupOrderFormProps = {
   eventId: string;
   setupTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
-  functionLink?: FunctionMultiLinkProps;
   vendorLink?: VendorLinkEditProps;
   availableVendors?: { id: string; label: string }[];
   rooms?: { id: string; name: string }[];
@@ -50,7 +48,6 @@ export function SetupOrderForm({
   eventId,
   setupTypes,
   action,
-  functionLink,
   vendorLink,
   availableVendors = [],
   rooms = [],
@@ -89,7 +86,6 @@ export function SetupOrderForm({
           <ReadOnlyField label="Setup Type" value={setupOrder.setupType ?? null} />
           <ReadOnlyField label="Description" value={setupOrder.description ?? null} />
           <ReadOnlyField label="Notes" value={setupOrder.notes ?? null} />
-          {functionLink && <FunctionMultiLinkControl {...functionLink} />}
           {vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
         </dl>
       </div>
@@ -228,10 +224,6 @@ export function SetupOrderForm({
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-
-          {functionLink && (
-            <FunctionMultiLinkControl {...functionLink} />
-          )}
 
           {isEdit && vendorLink ? (
             <VendorLinkControl mode="edit" {...vendorLink} />

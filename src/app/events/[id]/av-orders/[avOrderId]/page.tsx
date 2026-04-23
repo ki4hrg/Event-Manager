@@ -54,6 +54,7 @@ import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
 export const dynamic = "force-dynamic";
@@ -182,6 +183,8 @@ export default async function AVOrderPage({
     "use server";
     await removeVendorFromAVOrder(junctionId, avOrderId, eventId);
   };
+
+  const entityStatus = avOrder.status ?? null;
 
   const readOnlyTotals: Record<string, number> = {};
   for (const group of avOrder.audioSection?.inputGroups ?? []) {
@@ -344,6 +347,7 @@ export default async function AVOrderPage({
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               {avOrder.name}
             </h1>
+            <EntityStatusBadge status={entityStatus} substatus={avOrder.substatus ?? null} />
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
         </div>
@@ -398,18 +402,6 @@ export default async function AVOrderPage({
                 }}
               />
             </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
-            <WorkflowPanel
-              instances={workflowInstances}
-              availableTemplates={availableWorkflowTemplates}
-              entityStatus={avOrder.status ?? null}
-              assignWorkflow={assignWorkflowAction}
-              removeWorkflow={removeWorkflowAction}
-              toggleStep={toggleStepAction}
-              toggleItem={toggleItemAction}
-            />
             <AVOrderFunctionList
               linkedFunctions={avOrder.functions.map((f) => ({
                 id: f.id,
@@ -435,6 +427,18 @@ export default async function AVOrderPage({
               unlinkItem={unlinkFromPresentationAction}
               entityLabel="presentation"
             />
+            <WorkflowPanel
+              instances={workflowInstances}
+              availableTemplates={availableWorkflowTemplates}
+              entityStatus={avOrder.status ?? null}
+              assignWorkflow={assignWorkflowAction}
+              removeWorkflow={removeWorkflowAction}
+              toggleStep={toggleStepAction}
+              toggleItem={toggleItemAction}
+            />
+          </div>
+
+          <div className="lg:col-span-2 space-y-6">
             <EquipmentTable
               items={avOrder.equipmentItems}
               responsiblePartyVendors={avOrderVendors.map((v) => v.vendor)}
@@ -482,28 +486,24 @@ export default async function AVOrderPage({
       )}
 
       {activeTab === "vendors" && (
-        <div className="max-w-2xl">
-          <VendorPanel
-            assignedVendors={avOrderVendors}
-            eventId={eventId}
-            searchEventVendors={searchEventVendorsAction}
-            addVendor={addVendorAction}
-            updateVendor={updateVendorAction}
-            removeVendor={removeVendorAction}
-          />
-        </div>
+        <VendorPanel
+          assignedVendors={avOrderVendors}
+          eventId={eventId}
+          searchEventVendors={searchEventVendorsAction}
+          addVendor={addVendorAction}
+          updateVendor={updateVendorAction}
+          removeVendor={removeVendorAction}
+        />
       )}
 
       {activeTab === "files" && (
-        <div className="max-w-2xl">
-          <FileUploadPanel
-            entityType="avOrder"
-            entityId={avOrderId}
-            files={avOrderFiles}
-            fileTypeOptions={fileTypeOptions}
-            revalidateTarget={`/events/${eventId}/av-orders/${avOrderId}`}
-          />
-        </div>
+        <FileUploadPanel
+          entityType="avOrder"
+          entityId={avOrderId}
+          files={avOrderFiles}
+          fileTypeOptions={fileTypeOptions}
+          revalidateTarget={`/events/${eventId}/av-orders/${avOrderId}`}
+        />
       )}
     </PageWrapper>
   );

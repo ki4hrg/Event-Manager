@@ -70,18 +70,28 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
   redirect(`/events/${eventId}/catering-orders/${cateringOrder.id}`);
 }
 
-export async function updateCateringOrderOverview(id: string, eventId: string, formData: FormData) {
+export async function updateCateringOrderDetails(id: string, eventId: string, formData: FormData) {
   await prisma.cateringOrder.update({
     where: { id },
     data: {
       name: formData.get("name") as string,
       serviceStyle: (formData.get("serviceStyle") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  revalidatePath(`/events/${eventId}/catering-orders/${id}`);
+  redirect(`/events/${eventId}/catering-orders/${id}?tab=overview&success=Saved`);
+}
+
+export async function updateCateringOrderGuestCounts(id: string, eventId: string, formData: FormData) {
+  await prisma.cateringOrder.update({
+    where: { id },
+    data: {
       expectedCount: formData.get("expectedCount") ? parseInt(formData.get("expectedCount") as string) : null,
       confirmedCount: formData.get("confirmedCount") ? parseInt(formData.get("confirmedCount") as string) : null,
       guaranteeCount: formData.get("guaranteeCount") ? parseInt(formData.get("guaranteeCount") as string) : null,
     },
   });
-  revalidatePath(`/events/${eventId}/catering-orders`);
   revalidatePath(`/events/${eventId}/catering-orders/${id}`);
   redirect(`/events/${eventId}/catering-orders/${id}?tab=overview&success=Saved`);
 }

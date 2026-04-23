@@ -90,7 +90,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           <EventForm venues={venues} event={event} action={updateEventWithId} />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
               Functions

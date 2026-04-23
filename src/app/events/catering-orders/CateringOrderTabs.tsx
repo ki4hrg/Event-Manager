@@ -2,10 +2,10 @@ import { DetailTabs } from "@/components/DetailTabs";
 
 export const CATERING_ORDER_TABS = [
   { label: "Overview", value: "overview" },
-  { label: "Vendors", value: "vendors" },
-  { label: "Files", value: "files" },
   { label: "Service", value: "service" },
   { label: "Contract & Billing", value: "contract" },
+  { label: "Vendors", value: "vendors" },
+  { label: "Files", value: "files" },
 ] as const;
 
 type CateringOrderTabsProps = {

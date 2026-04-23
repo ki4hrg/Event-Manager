@@ -35,8 +35,10 @@ import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
+import { FunctionMultiLinkControl } from "../../../functions/FunctionMultiLinkControl";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -227,6 +229,7 @@ export default async function SetupOrderPage({
   };
 
   const displayName = getSetupOrderDisplayName(setupOrder);
+  const entityStatus = setupOrder.status ?? null;
 
   return (
     <PageWrapper>
@@ -247,6 +250,7 @@ export default async function SetupOrderPage({
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               {displayName}
             </h1>
+            <EntityStatusBadge status={entityStatus} substatus={setupOrder.substatus ?? null} />
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
         </div>
@@ -303,16 +307,6 @@ export default async function SetupOrderPage({
                 setupTypes={setupTypes}
                 action={updateSetupOrderAction}
                 rooms={venueRooms}
-                functionLink={{
-                  linkedFunctions: setupOrder.functions.map((f) => ({
-                    id: f.id,
-                    name: f.name,
-                    path: `/events/${eventId}/functions/${f.id}`,
-                  })),
-                  availableFunctions: availableFunctions.map((f) => ({ id: f.id, label: f.name })),
-                  linkFunction: linkToFunctionAction,
-                  unlinkFunction: unlinkFromFunctionAction,
-                }}
                 vendorLink={{
                   assignedVendors: setupOrderVendors,
                   availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),
@@ -321,9 +315,21 @@ export default async function SetupOrderPage({
                 }}
               />
             </div>
-          </div>
 
-          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Linked Functions</h2>
+              <FunctionMultiLinkControl
+                linkedFunctions={setupOrder.functions.map((f) => ({
+                  id: f.id,
+                  name: f.name,
+                  path: `/events/${eventId}/functions/${f.id}`,
+                }))}
+                availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+                linkFunction={linkToFunctionAction}
+                unlinkFunction={unlinkFromFunctionAction}
+              />
+            </div>
+
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
@@ -333,6 +339,9 @@ export default async function SetupOrderPage({
               toggleStep={toggleStepAction}
               toggleItem={toggleItemAction}
             />
+          </div>
+
+          <div className="lg:col-span-2 space-y-8">
             <SetupTableList
               tables={setupOrder.tables}
               tableOptions={tableOptions}
@@ -356,28 +365,24 @@ export default async function SetupOrderPage({
       )}
 
       {activeTab === "vendors" && (
-        <div className="max-w-2xl">
-          <VendorPanel
-            assignedVendors={setupOrderVendors}
-            eventId={eventId}
-            searchEventVendors={searchEventVendorsAction}
-            addVendor={addVendorAction}
-            updateVendor={updateVendorAction}
-            removeVendor={removeVendorAction}
-          />
-        </div>
+        <VendorPanel
+          assignedVendors={setupOrderVendors}
+          eventId={eventId}
+          searchEventVendors={searchEventVendorsAction}
+          addVendor={addVendorAction}
+          updateVendor={updateVendorAction}
+          removeVendor={removeVendorAction}
+        />
       )}
 
       {activeTab === "files" && (
-        <div className="max-w-2xl">
-          <FileUploadPanel
-            entityType="setupOrder"
-            entityId={setupOrderId}
-            files={setupOrderFiles}
-            fileTypeOptions={fileTypeOptions}
-            revalidateTarget={`/events/${eventId}/setup-orders/${setupOrderId}`}
-          />
-        </div>
+        <FileUploadPanel
+          entityType="setupOrder"
+          entityId={setupOrderId}
+          files={setupOrderFiles}
+          fileTypeOptions={fileTypeOptions}
+          revalidateTarget={`/events/${eventId}/setup-orders/${setupOrderId}`}
+        />
       )}
     </PageWrapper>
   );

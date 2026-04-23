@@ -7,10 +7,12 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getEvent } from "../../../actions";
 import {
   getCateringOrder,
-  updateCateringOrderOverview,
+  updateCateringOrderDetails,
+  updateCateringOrderGuestCounts,
   updateCateringOrderService,
   updateCateringOrderContract,
   deleteCateringOrder,
@@ -50,6 +52,7 @@ import {
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { CateringOrderTabs, CATERING_ORDER_TABS } from "../../../catering-orders/CateringOrderTabs";
 import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
+import { GuestCountsCard } from "../../../catering-orders/GuestCountsCard";
 import { CateringOrderServiceForm } from "../../../catering-orders/CateringOrderServiceForm";
 import { CateringOrderContractForm } from "../../../catering-orders/CateringOrderContractForm";
 import { TimelineTable } from "../../../catering-orders/TimelineTable";
@@ -57,6 +60,7 @@ import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { LineItemTable } from "../../../catering-orders/LineItemTable";
 import { MenuSectionTable } from "../../../catering-orders/MenuSectionTable";
 import { ContactList } from "../../../functions/ContactList";
+import { FunctionLinkControl } from "../../../functions/FunctionLinkControl";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import type { TimelineItem } from "@prisma/client";
 
@@ -154,9 +158,14 @@ export default async function CateringOrderPage({
     await unlinkCateringOrderFromFunction(cateringOrderId, eventId);
   };
 
-  const updateOverviewAction = async (formData: FormData) => {
+  const updateDetailsAction = async (formData: FormData) => {
     "use server";
-    await updateCateringOrderOverview(cateringOrderId, eventId, formData);
+    await updateCateringOrderDetails(cateringOrderId, eventId, formData);
+  };
+
+  const updateGuestCountsAction = async (formData: FormData) => {
+    "use server";
+    await updateCateringOrderGuestCounts(cateringOrderId, eventId, formData);
   };
 
   const updateServiceAction = async (formData: FormData) => {
@@ -308,6 +317,8 @@ export default async function CateringOrderPage({
     await removeVendorFromCateringOrder(junctionId, cateringOrderId, eventId);
   };
 
+  const entityStatus = cateringOrder.status ?? null;
+
   return (
     <PageWrapper>
       <Suspense fallback={null}>
@@ -326,6 +337,7 @@ export default async function CateringOrderPage({
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               {cateringOrder.name}
             </h1>
+            <EntityStatusBadge status={entityStatus} substatus={cateringOrder.substatus ?? null} />
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
         </div>
@@ -370,9 +382,26 @@ export default async function CateringOrderPage({
               <CateringOrderForm
                 noCard
                 cateringOrder={cateringOrder}
-                action={updateOverviewAction}
+                action={updateDetailsAction}
                 serviceStyleOptions={serviceStyleOptions}
                 eventId={eventId}
+                assignedVendors={cateringOrderVendors}
+                availableVendors={availableEventVendors.map((v) => ({ id: v.id, label: v.name }))}
+                addVendor={addVendorToFormAction}
+                removeVendor={removeVendorFromFormAction}
+              />
+            </div>
+
+            <GuestCountsCard
+              expectedCount={cateringOrder.expectedCount}
+              confirmedCount={cateringOrder.confirmedCount}
+              guaranteeCount={cateringOrder.guaranteeCount}
+              action={updateGuestCountsAction}
+            />
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Linked Function</h2>
+              <FunctionLinkControl
                 linkedFunctionId={cateringOrder.functionId}
                 linkedFunctionName={cateringOrder.function?.name ?? null}
                 linkedFunctionPath={
@@ -381,12 +410,9 @@ export default async function CateringOrderPage({
                 availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
                 linkFunction={linkToFunctionAction}
                 unlinkFunction={unlinkFromFunctionAction}
-                assignedVendors={cateringOrderVendors}
-                availableVendors={availableEventVendors.map((v) => ({ id: v.id, label: v.name }))}
-                addVendor={addVendorToFormAction}
-                removeVendor={removeVendorFromFormAction}
               />
             </div>
+
             <ContactList
               contacts={cateringOrder.contacts}
               addContact={addContactAction}
@@ -395,8 +421,7 @@ export default async function CateringOrderPage({
               searchContacts={searchContactsAction}
               createContact={createContactAction}
             />
-          </div>
-          <div className="lg:col-span-2 space-y-6">
+
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
@@ -406,6 +431,9 @@ export default async function CateringOrderPage({
               toggleStep={toggleStepAction}
               toggleItem={toggleItemAction}
             />
+          </div>
+
+          <div className="lg:col-span-2 space-y-6">
             <TimelinePreview
               items={cateringOrder.timelineItems}
               serviceTabPath={`${basePath}?tab=service`}
@@ -418,31 +446,6 @@ export default async function CateringOrderPage({
               deleteSection={deleteMenuSectionAction}
             />
           </div>
-        </div>
-      )}
-
-      {activeTab === "vendors" && (
-        <div className="max-w-2xl">
-          <VendorPanel
-            assignedVendors={cateringOrderVendors}
-            eventId={eventId}
-            searchEventVendors={searchEventVendorsAction}
-            addVendor={addVendorAction}
-            updateVendor={updateVendorAction}
-            removeVendor={removeVendorAction}
-          />
-        </div>
-      )}
-
-      {activeTab === "files" && (
-        <div className="max-w-2xl">
-          <FileUploadPanel
-            entityType="cateringOrder"
-            entityId={cateringOrderId}
-            files={cateringOrderFiles}
-            fileTypeOptions={fileTypeOptions}
-            revalidateTarget={`/events/${eventId}/catering-orders/${cateringOrderId}`}
-          />
         </div>
       )}
 
@@ -485,6 +488,27 @@ export default async function CateringOrderPage({
             />
           </div>
         </div>
+      )}
+
+      {activeTab === "vendors" && (
+        <VendorPanel
+          assignedVendors={cateringOrderVendors}
+          eventId={eventId}
+          searchEventVendors={searchEventVendorsAction}
+          addVendor={addVendorAction}
+          updateVendor={updateVendorAction}
+          removeVendor={removeVendorAction}
+        />
+      )}
+
+      {activeTab === "files" && (
+        <FileUploadPanel
+          entityType="cateringOrder"
+          entityId={cateringOrderId}
+          files={cateringOrderFiles}
+          fileTypeOptions={fileTypeOptions}
+          revalidateTarget={`/events/${eventId}/catering-orders/${cateringOrderId}`}
+        />
       )}
     </PageWrapper>
   );

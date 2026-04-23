@@ -5,21 +5,12 @@ import { useFormStatus } from "react-dom";
 import type { CateringOrder, CustomOption } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type AssignedVendor, type AvailableVendor } from "@/app/events/vendors/VendorLinkControl";
-import { FunctionLinkControl } from "@/app/events/functions/FunctionLinkControl";
 
 type CateringOrderFormProps = {
   cateringOrder?: CateringOrder | null;
   action: (formData: FormData) => Promise<void>;
   serviceStyleOptions: CustomOption[];
   eventId: string;
-  // function linking (edit mode)
-  linkedFunctionId?: string | null;
-  linkedFunctionName?: string | null;
-  linkedFunctionPath?: string | null;
-  availableFunctions?: { id: string; label: string }[];
-  linkFunction?: (id: string) => Promise<void>;
-  unlinkFunction?: () => Promise<void>;
-  // function selector (create mode)
   createFunctions?: { id: string; label: string }[];
   defaultFunctionId?: string;
   // vendor linking
@@ -48,12 +39,6 @@ export function CateringOrderForm({
   action,
   serviceStyleOptions,
   eventId,
-  linkedFunctionId,
-  linkedFunctionName,
-  linkedFunctionPath,
-  availableFunctions = [],
-  linkFunction,
-  unlinkFunction,
   createFunctions,
   defaultFunctionId,
   assignedVendors = [],
@@ -66,57 +51,33 @@ export function CateringOrderForm({
   const [editing, setEditing] = useState(false);
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
-  const dividerClass = noCard
-    ? "border-t border-gray-200 dark:border-gray-700 mt-6 pt-4"
-    : "";
 
   if (isEdit && !editing) {
     return (
-      <div className={noCard ? "" : "space-y-6"}>
-        <div className={cardClass}>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
-            <button
-              onClick={() => setEditing(true)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Edit
-            </button>
-          </div>
-          <dl className="space-y-4">
-            <ReadOnlyField label="Name" value={cateringOrder.name} />
-            <ReadOnlyField label="Service Style" value={cateringOrder.serviceStyle} />
-            <ReadOnlyField label="Notes" value={cateringOrder.notes} />
-            {linkFunction && unlinkFunction && (
-              <FunctionLinkControl
-                linkedFunctionId={linkedFunctionId}
-                linkedFunctionName={linkedFunctionName}
-                linkedFunctionPath={linkedFunctionPath}
-                availableFunctions={availableFunctions}
-                linkFunction={linkFunction}
-                unlinkFunction={unlinkFunction}
-              />
-            )}
-            {addVendor && removeVendor && (
-              <VendorLinkControl
-                mode="edit"
-                assignedVendors={assignedVendors}
-                availableVendors={availableVendors}
-                addVendor={addVendor}
-                removeVendor={removeVendor}
-              />
-            )}
-          </dl>
+      <div className={cardClass}>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
+          <button
+            onClick={() => setEditing(true)}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Edit
+          </button>
         </div>
-
-        <div className={noCard ? dividerClass : cardClass}>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Guest Counts</h2>
-          <dl className="grid grid-cols-3 gap-4">
-            <ReadOnlyField label="Expected" value={cateringOrder.expectedCount != null ? String(cateringOrder.expectedCount) : null} />
-            <ReadOnlyField label="Confirmed" value={cateringOrder.confirmedCount != null ? String(cateringOrder.confirmedCount) : null} />
-            <ReadOnlyField label="Guarantee" value={cateringOrder.guaranteeCount != null ? String(cateringOrder.guaranteeCount) : null} />
-          </dl>
-        </div>
+        <dl className="space-y-4">
+          <ReadOnlyField label="Name" value={cateringOrder.name} />
+          <ReadOnlyField label="Service Style" value={cateringOrder.serviceStyle} />
+          <ReadOnlyField label="Notes" value={cateringOrder.notes} />
+          {addVendor && removeVendor && (
+            <VendorLinkControl
+              mode="edit"
+              assignedVendors={assignedVendors}
+              availableVendors={availableVendors}
+              addVendor={addVendor}
+              removeVendor={removeVendor}
+            />
+          )}
+        </dl>
       </div>
     );
   }
@@ -192,54 +153,20 @@ export function CateringOrderForm({
               </select>
             </div>
           )}
-          {!isEdit && (
+          {!isEdit ? (
             <VendorLinkControl
               mode="create"
               availableVendors={availableVendors}
             />
-          )}
-        </div>
-      </div>
-
-      <div className={noCard ? dividerClass : cardClass}>
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Guest Counts</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="expectedCount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Expected
-            </label>
-            <input
-              type="number"
-              id="expectedCount"
-              name="expectedCount"
-              defaultValue={cateringOrder?.expectedCount ?? ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          ) : addVendor && removeVendor ? (
+            <VendorLinkControl
+              mode="edit"
+              assignedVendors={assignedVendors}
+              availableVendors={availableVendors}
+              addVendor={addVendor}
+              removeVendor={removeVendor}
             />
-          </div>
-          <div>
-            <label htmlFor="confirmedCount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Confirmed
-            </label>
-            <input
-              type="number"
-              id="confirmedCount"
-              name="confirmedCount"
-              defaultValue={cateringOrder?.confirmedCount ?? ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="guaranteeCount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Guarantee
-            </label>
-            <input
-              type="number"
-              id="guaranteeCount"
-              name="guaranteeCount"
-              defaultValue={cateringOrder?.guaranteeCount ?? ""}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          ) : null}
         </div>
       </div>
 
