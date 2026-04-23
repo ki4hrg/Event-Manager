@@ -660,14 +660,6 @@ function DraggableCellCard({
           &times;
         </button>
       </div>
-      {slot.presentation.notes && (
-        <div
-          className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 line-clamp-2"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {slot.presentation.notes}
-        </div>
-      )}
     </div>
   );
 }
