@@ -4,14 +4,16 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { EquipmentItem, CustomOption, Equipment, Vendor } from "@prisma/client";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 
 type EquipmentItemWithVendor = EquipmentItem & {
   responsiblePartyVendor: Vendor | null;
+  equipment: Equipment | null;
 };
 
 type EquipmentTableProps = {
   items: EquipmentItemWithVendor[];
-  responsiblePartyVendors: { id: string; name: string }[];
+  responsiblePartyVendors: ResponsiblePartyOptions;
   equipmentOptions: Equipment[];
   equipmentCategories: CustomOption[];
   createItem: (formData: FormData) => Promise<void>;
@@ -64,7 +66,7 @@ function EquipmentSelect({
 
   return (
     <select
-      name="item"
+      name="equipmentId"
       required
       defaultValue={defaultValue || ""}
       className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
@@ -73,14 +75,14 @@ function EquipmentSelect({
       {grouped.map((group) => (
         <optgroup key={group.label} label={group.label}>
           {group.items.map((e) => (
-            <option key={e.id} value={e.name}>{e.name}</option>
+            <option key={e.id} value={e.id}>{e.name}</option>
           ))}
         </optgroup>
       ))}
       {uncategorized.length > 0 && (
         <optgroup label="Other">
           {uncategorized.map((e) => (
-            <option key={e.id} value={e.name}>{e.name}</option>
+            <option key={e.id} value={e.id}>{e.name}</option>
           ))}
         </optgroup>
       )}
@@ -123,7 +125,7 @@ export function EquipmentTable({ items, responsiblePartyVendors, equipmentOption
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-              <ResponsiblePartyField vendors={responsiblePartyVendors} />
+              <ResponsiblePartyField options={responsiblePartyVendors} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
@@ -181,11 +183,11 @@ export function EquipmentTable({ items, responsiblePartyVendors, equipmentOption
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
-                      <EquipmentSelect equipmentOptions={equipmentOptions} equipmentCategories={equipmentCategories} defaultValue={item.item} />
+                      <EquipmentSelect equipmentOptions={equipmentOptions} equipmentCategories={equipmentCategories} defaultValue={item.equipmentId ?? undefined} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-                      <ResponsiblePartyField vendors={responsiblePartyVendors} defaultValue={item.responsiblePartyVendorId} />
+                      <ResponsiblePartyField options={responsiblePartyVendors} defaultValue={item.responsiblePartyVendorId} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>

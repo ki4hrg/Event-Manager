@@ -36,6 +36,13 @@ const tabs: TabItem[] = [
   },
   { type: "link", label: "Vendors", segment: "vendors" },
   { type: "link", label: "Files", segment: "files" },
+  {
+    type: "group",
+    label: "Reports",
+    children: [
+      { label: "Equipment Responsibility", segment: "reports/equipment-responsibility" },
+    ],
+  },
 ];
 
 type EventTabsProps = {

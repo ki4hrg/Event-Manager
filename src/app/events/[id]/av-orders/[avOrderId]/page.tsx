@@ -40,6 +40,7 @@ import {
   updateAVOrderVendor,
   removeVendorFromAVOrder,
   searchAssignedEventVendors,
+  getResponsiblePartyVendors,
 } from "@/app/vendors/actions";
 import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
@@ -94,14 +95,16 @@ export default async function AVOrderPage({
   let availablePresentations: Awaited<ReturnType<typeof prisma.presentation.findMany>> = [];
   let equipmentOptions: Awaited<ReturnType<typeof getEquipment>> = [];
   let equipmentCategories: Awaited<ReturnType<typeof getOptions>> = [];
+  let responsiblePartyVendors: Awaited<ReturnType<typeof getResponsiblePartyVendors>> = { vendors: [], venueVendor: null, systemVendor: null };
   if (activeTab === "overview") {
-    [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories] = await Promise.all([
+    [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories, responsiblePartyVendors] = await Promise.all([
       prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
       avOrder.presentationId
         ? []
         : prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
       getEquipment(),
       getOptions("equipment_category"),
+      getResponsiblePartyVendors(eventId),
     ]);
   }
 
@@ -441,7 +444,7 @@ export default async function AVOrderPage({
           <div className="lg:col-span-2 space-y-6">
             <EquipmentTable
               items={avOrder.equipmentItems}
-              responsiblePartyVendors={avOrderVendors.map((v) => v.vendor)}
+              responsiblePartyVendors={responsiblePartyVendors}
               equipmentOptions={equipmentOptions}
               equipmentCategories={equipmentCategories}
               createItem={createAVEquipmentAction}

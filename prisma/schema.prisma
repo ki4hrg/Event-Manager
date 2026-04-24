@@ -62,10 +62,11 @@ model Equipment {
   name         String
   category     String       // references equipment_category CustomOption label
   sortOrder    Int          @default(0)
-  inputItems   InputItem[]  @relation("InputItemEquipment")
-  monitorMixes MonitorMix[] @relation("MonitorMixEquipment")
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  inputItems     InputItem[]     @relation("InputItemEquipment")
+  monitorMixes   MonitorMix[]    @relation("MonitorMixEquipment")
+  equipmentItems EquipmentItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@unique([category, name])
   @@index([category])
@@ -365,6 +366,8 @@ model EquipmentItem {
   setupOrder               SetupOrder?   @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   videoSection             VideoSection? @relation(fields: [videoSectionId], references: [id], onDelete: Cascade)
   avOrder                  AVOrder?      @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  equipmentId              String?
+  equipment                Equipment?    @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
   item                     String
   quantity                 Int?
   responsiblePartyVendorId String?
@@ -386,6 +389,7 @@ model EquipmentItem {
   @@index([setupOrderId])
   @@index([videoSectionId])
   @@index([avOrderId])
+  @@index([equipmentId])
   @@index([responsiblePartyVendorId])
   @@index([providerVendorId])
   @@index([providerContactId])

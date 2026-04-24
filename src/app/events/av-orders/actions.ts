@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
+import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 export async function getAVOrders(eventId: string) {
@@ -60,6 +61,7 @@ export async function getAVOrder(id: string) {
         include: {
           equipmentItems: {
             include: {
+              equipment: true,
               providerVendor: true,
               providerContact: true,
               operatorVendor: true,
@@ -70,7 +72,7 @@ export async function getAVOrder(id: string) {
         },
       },
       equipmentItems: {
-        include: { responsiblePartyVendor: true },
+        include: { equipment: true, responsiblePartyVendor: true },
         orderBy: [{ sortOrder: "asc" }, { item: "asc" }],
       },
     },
@@ -404,10 +406,13 @@ export async function updateVideoSection(id: string, avOrderId: string, eventId:
 
 export async function createVideoEquipmentItem(videoSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
   const { _max } = await prisma.equipmentItem.aggregate({ where: { videoSectionId }, _max: { sortOrder: true } });
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
   await prisma.equipmentItem.create({
     data: {
       videoSectionId,
-      item: formData.get("item") as string,
+      equipmentId,
+      item,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       providerVendorId: (formData.get("providerVendorId") as string) || null,
       providerContactId: (formData.get("providerContactId") as string) || null,
@@ -421,10 +426,13 @@ export async function createVideoEquipmentItem(videoSectionId: string, avOrderId
 }
 
 export async function updateVideoEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
   await prisma.equipmentItem.update({
     where: { id },
     data: {
-      item: formData.get("item") as string,
+      equipmentId,
+      item,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       providerVendorId: (formData.get("providerVendorId") as string) || null,
       providerContactId: (formData.get("providerContactId") as string) || null,
@@ -447,10 +455,13 @@ export async function deleteVideoEquipmentItem(id: string, avOrderId: string, ev
 
 export async function createAVEquipmentItem(avOrderId: string, eventId: string, formData: FormData) {
   const { _max } = await prisma.equipmentItem.aggregate({ where: { avOrderId }, _max: { sortOrder: true } });
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
   await prisma.equipmentItem.create({
     data: {
       avOrderId,
-      item: formData.get("item") as string,
+      equipmentId,
+      item,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,
@@ -461,10 +472,13 @@ export async function createAVEquipmentItem(avOrderId: string, eventId: string, 
 }
 
 export async function updateAVEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
   await prisma.equipmentItem.update({
     where: { id },
     data: {
-      item: formData.get("item") as string,
+      equipmentId,
+      item,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,

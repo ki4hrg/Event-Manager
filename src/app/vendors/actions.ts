@@ -4,36 +4,30 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-export async function getResponsiblePartyVendors(eventId: string): Promise<{ id: string; name: string }[]> {
+export type ResponsiblePartyOptions = {
+  vendors: { id: string; name: string }[];
+  venueVendor: { id: string; name: string } | null;
+  systemVendor: { id: string; name: string } | null;
+};
+
+export async function getResponsiblePartyVendors(eventId: string): Promise<ResponsiblePartyOptions> {
   const [eventVendors, event, systemVendor] = await Promise.all([
     prisma.eventVendor.findMany({ where: { eventId }, select: { vendor: { select: { id: true, name: true } } } }),
     prisma.event.findUnique({ where: { id: eventId }, select: { venue: { select: { vendor: { select: { id: true, name: true } } } } } }),
     prisma.vendor.findFirst({ where: { isSystemVendor: true }, select: { id: true, name: true } }),
   ]);
 
-  const seen = new Set<string>();
-  const vendors: { id: string; name: string }[] = [];
+  const venueVendor = event?.venue?.vendor ?? null;
+  const excludeIds = new Set<string>();
+  if (venueVendor) excludeIds.add(venueVendor.id);
+  if (systemVendor) excludeIds.add(systemVendor.id);
 
-  const addVendor = (v: { id: string; name: string }) => {
-    if (!seen.has(v.id)) {
-      seen.add(v.id);
-      vendors.push({ id: v.id, name: v.name });
-    }
-  };
+  const vendors = eventVendors
+    .map((ev) => ev.vendor)
+    .filter((v) => !excludeIds.has(v.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  for (const ev of eventVendors) {
-    addVendor(ev.vendor);
-  }
-
-  if (event?.venue?.vendor) {
-    addVendor(event.venue.vendor);
-  }
-
-  if (systemVendor) {
-    addVendor(systemVendor);
-  }
-
-  return vendors.sort((a, b) => a.name.localeCompare(b.name));
+  return { vendors, venueVendor, systemVendor: systemVendor ?? null };
 }
 
 export async function getVendors() {

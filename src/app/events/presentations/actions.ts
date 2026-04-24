@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 // ============================================================================
@@ -423,7 +424,7 @@ export async function deleteMediaItem(id: string, presentationId: string, eventI
 }
 
 export async function getMediaItemPartyOptions(presentationId: string, eventId: string) {
-  const [vendors, presentation] = await Promise.all([
+  const [options, presentation] = await Promise.all([
     getResponsiblePartyVendors(eventId),
     prisma.presentation.findUnique({
       where: { id: presentationId },
@@ -435,6 +436,8 @@ export async function getMediaItemPartyOptions(presentationId: string, eventId: 
       },
     }),
   ]);
+
+  const vendors = flattenResponsiblePartyOptions(options);
 
   const contacts =
     presentation?.speakers.map((s) => ({

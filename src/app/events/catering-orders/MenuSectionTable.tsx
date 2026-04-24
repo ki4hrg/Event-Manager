@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import type { CateringOrderMenuSection, Vendor } from "@prisma/client";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 
 type MenuSectionWithVendor = CateringOrderMenuSection & {
   responsiblePartyVendor: Vendor | null;
@@ -12,7 +13,7 @@ type MenuSectionWithVendor = CateringOrderMenuSection & {
 
 type MenuSectionTableProps = {
   sections: MenuSectionWithVendor[];
-  responsiblePartyVendors: { id: string; name: string }[];
+  responsiblePartyVendors: ResponsiblePartyOptions;
   createSection: (formData: FormData) => Promise<void>;
   updateSection: (id: string, formData: FormData) => Promise<void>;
   deleteSection: (id: string) => Promise<void>;
@@ -86,7 +87,7 @@ export function MenuSectionTable({
         >
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-            <ResponsiblePartyField vendors={responsiblePartyVendors} />
+            <ResponsiblePartyField options={responsiblePartyVendors} />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>
@@ -135,7 +136,7 @@ export function MenuSectionTable({
                 >
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-                    <ResponsiblePartyField vendors={responsiblePartyVendors} defaultValue={section.responsiblePartyVendorId} />
+                    <ResponsiblePartyField options={responsiblePartyVendors} defaultValue={section.responsiblePartyVendorId} />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Menu *</label>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
+import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 export async function getCateringOrders(eventId: string) {
@@ -20,7 +21,7 @@ export async function getCateringOrder(id: string) {
     include: {
       function: { include: { schedules: { orderBy: { startTime: "asc" } } } },
       timelineItems: { orderBy: [{ sortOrder: "asc" }, { startTime: "asc" }] },
-      equipmentItems: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
+      equipmentItems: { include: { equipment: true, responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
       lineItems: { orderBy: [{ sortOrder: "asc" }, { description: "asc" }] },
       menuSections: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }] },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
@@ -228,11 +229,14 @@ export async function deleteTimelineItem(id: string, cateringOrderId: string, ev
 
 export async function createEquipmentItem(cateringOrderId: string, eventId: string, formData: FormData) {
   const { _max } = await prisma.equipmentItem.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
 
   await prisma.equipmentItem.create({
     data: {
       cateringOrderId,
-      item: formData.get("item") as string,
+      equipmentId,
+      item,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,
@@ -244,10 +248,14 @@ export async function createEquipmentItem(cateringOrderId: string, eventId: stri
 }
 
 export async function updateEquipmentItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
+
   await prisma.equipmentItem.update({
     where: { id },
     data: {
-      item: formData.get("item") as string,
+      equipmentId,
+      item,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
+import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 export async function getSetupOrders(eventId: string) {
@@ -26,7 +27,7 @@ export async function getSetupOrder(id: string) {
       room: true,
       functions: { include: { schedules: { orderBy: { startTime: "asc" } } }, orderBy: { name: "asc" } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
-      equipmentItems: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
+      equipmentItems: { include: { equipment: true, responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
     },
   });
 }
@@ -216,11 +217,14 @@ export async function deleteSetupTable(id: string, setupOrderId: string, eventId
 // EquipmentItem CRUD for Setup Orders
 export async function createSetupEquipmentItem(setupOrderId: string, eventId: string, formData: FormData) {
   const { _max } = await prisma.equipmentItem.aggregate({ where: { setupOrderId }, _max: { sortOrder: true } });
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
 
   await prisma.equipmentItem.create({
     data: {
       setupOrderId,
-      item: formData.get("item") as string,
+      equipmentId,
+      item,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,
@@ -232,10 +236,14 @@ export async function createSetupEquipmentItem(setupOrderId: string, eventId: st
 }
 
 export async function updateSetupEquipmentItem(id: string, setupOrderId: string, eventId: string, formData: FormData) {
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
+
   await prisma.equipmentItem.update({
     where: { id },
     data: {
-      item: formData.get("item") as string,
+      equipmentId,
+      item,
       quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
       responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       notes: (formData.get("notes") as string) || null,
