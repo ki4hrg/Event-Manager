@@ -90,6 +90,7 @@ model Event {
   setupOrders        SetupOrder[]
   vendors            EventVendor[]
   files              FileUpload[]
+  keyStaff           EventKeyStaff[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -170,6 +171,7 @@ model Contact {
   mediaItemsAsAdvancer        MediaItem[]           @relation("MediaItemAdvancerContact")
   equipmentItemsAsProvider    EquipmentItem[]       @relation("EquipmentItemProviderContact")
   equipmentItemsAsOperator    EquipmentItem[]       @relation("EquipmentItemOperatorContact")
+  eventKeyStaff               EventKeyStaff[]
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
 }
@@ -184,6 +186,21 @@ model VenueContact {
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@unique([venueId, contactId])
+}
+
+// Junction table for Event <-> Contact (key staff designations)
+model EventKeyStaff {
+  id        String   @id @default(cuid())
+  eventId   String
+  contactId String
+  title     String?
+  models    String[]
+  sortOrder Int      @default(0)
+
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, contactId, title])
 }
 
 // Function is the core scheduling unit

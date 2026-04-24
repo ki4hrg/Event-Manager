@@ -71,3 +71,76 @@ export async function deleteEvent(id: string) {
   revalidatePath("/events");
   redirect("/events");
 }
+
+export async function searchContactsForKeyStaff(query: string) {
+  if (!query || query.length < 2) return [];
+  return prisma.contact.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { email: { contains: query, mode: "insensitive" } },
+        { organization: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    take: 10,
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
+}
+
+export async function addEventKeyStaff(eventId: string, formData: FormData) {
+  const contactId = formData.get("contactId") as string;
+  const title = (formData.get("title") as string) || null;
+  const models = formData.getAll("models") as string[];
+
+  await prisma.eventKeyStaff.create({
+    data: { eventId, contactId, title, models },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function updateEventKeyStaff(
+  keyStaffId: string,
+  eventId: string,
+  formData: FormData
+) {
+  const title = (formData.get("title") as string) || null;
+  const models = formData.getAll("models") as string[];
+
+  await prisma.eventKeyStaff.update({
+    where: { id: keyStaffId },
+    data: { title, models },
+  });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function removeEventKeyStaff(keyStaffId: string, eventId: string) {
+  await prisma.eventKeyStaff.delete({ where: { id: keyStaffId } });
+  revalidatePath(`/events/${eventId}`);
+}
+
+export async function createContactAndAddKeyStaff(eventId: string, formData: FormData) {
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
+  const email = formData.get("email") as string;
+  const organization = formData.get("organization") as string;
+  const title = (formData.get("title") as string) || null;
+  const models = formData.getAll("models") as string[];
+
+  await prisma.$transaction(async (tx) => {
+    const contact = await tx.contact.create({
+      data: {
+        firstName,
+        lastName,
+        email: email || null,
+        organization: organization || null,
+      },
+    });
+
+    await tx.eventKeyStaff.create({
+      data: { eventId, contactId: contact.id, title, models },
+    });
+  });
+
+  revalidatePath(`/events/${eventId}`);
+}

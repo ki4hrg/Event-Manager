@@ -5,8 +5,18 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
-import { getEvent, updateEvent, deleteEvent } from "../actions";
+import {
+  getEvent,
+  updateEvent,
+  deleteEvent,
+  addEventKeyStaff,
+  updateEventKeyStaff,
+  removeEventKeyStaff,
+  searchContactsForKeyStaff,
+  createContactAndAddKeyStaff,
+} from "../actions";
 import { EventForm } from "../EventForm";
+import { KeyStaffList } from "../KeyStaffList";
 import { EventTabs } from "./EventTabs";
 import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
@@ -29,10 +39,15 @@ function StatusRow({ status, count }: { status: EntityStatus; count: number }) {
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, venues, stats] = await Promise.all([
+  const [event, venues, stats, keyStaff] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
     getEventOverviewStats(id),
+    prisma.eventKeyStaff.findMany({
+      where: { eventId: id },
+      include: { contact: true },
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
 
   if (!event) {
@@ -52,6 +67,31 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const deleteEventAction = async () => {
     "use server";
     await deleteEvent(id);
+  };
+
+  const addKeyStaffAction = async (formData: FormData) => {
+    "use server";
+    await addEventKeyStaff(id, formData);
+  };
+
+  const updateKeyStaffAction = async (keyStaffId: string, formData: FormData) => {
+    "use server";
+    await updateEventKeyStaff(keyStaffId, id, formData);
+  };
+
+  const removeKeyStaffAction = async (keyStaffId: string) => {
+    "use server";
+    await removeEventKeyStaff(keyStaffId, id);
+  };
+
+  const searchContactsAction = async (query: string) => {
+    "use server";
+    return searchContactsForKeyStaff(query);
+  };
+
+  const createContactAction = async (formData: FormData) => {
+    "use server";
+    await createContactAndAddKeyStaff(id, formData);
   };
 
   const totalEntityStatus =
@@ -182,6 +222,15 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             )}
           </div>
         </div>
+
+        <KeyStaffList
+          keyStaff={keyStaff}
+          addKeyStaff={addKeyStaffAction}
+          updateKeyStaff={updateKeyStaffAction}
+          removeKeyStaff={removeKeyStaffAction}
+          searchContacts={searchContactsAction}
+          createContact={createContactAction}
+        />
       </div>
     </PageWrapper>
   );
