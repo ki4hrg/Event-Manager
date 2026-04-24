@@ -2,6 +2,7 @@ import type { getFunction } from "./actions";
 import type { getWorkflowInstances } from "../workflows/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
+import { getSetupOrderDisplayName } from "../setup-orders/utils";
 
 type FunctionData = NonNullable<Awaited<ReturnType<typeof getFunction>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
@@ -36,7 +37,7 @@ export function FunctionDetails({
       <Section title="Overview">
         <Field label="Type" value={typeLabel} />
         <Field label="Description" value={fn.description} />
-        <Field label="Setup Notes" value={fn.setupNotes} />
+        <Field label="Notes" value={fn.notes} />
         {fn.rooms.length > 0 && (
           <Field label="Rooms" value={fn.rooms.map((fr) => fr.room.name).join(", ")} />
         )}
@@ -123,7 +124,7 @@ export function FunctionDetails({
             <div className="text-sm mb-1">
               <span className="font-medium text-gray-500 print:text-gray-600">Setup Order: </span>
               <span className="text-gray-900 print:text-black">
-                {[fn.setupOrder.room?.name, fn.setupOrder.description].filter(Boolean).join(" — ") || "Setup Order"}
+                {getSetupOrderDisplayName(fn.setupOrder)}
               </span>
             </div>
           )}

@@ -11,8 +11,7 @@ async function main() {
   console.log(`Backfilling names for ${orders.length} setup orders...`);
 
   for (const o of orders) {
-    const parts = [o.room?.name, o.description].filter(Boolean);
-    const name = parts.join(" — ") || "Setup Order";
+    const name = o.room?.name || "Setup Order";
     await prisma.setupOrder.update({ where: { id: o.id }, data: { name } });
     console.log(`  ${o.id}: "${name}"`);
   }

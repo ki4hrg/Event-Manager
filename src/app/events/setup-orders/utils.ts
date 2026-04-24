@@ -2,12 +2,10 @@ import type { SetupTable } from "@prisma/client";
 
 export function getSetupOrderDisplayName(setupOrder: {
   name?: string | null;
+  setupType?: string | null;
   room?: { name: string } | null;
-  description?: string | null;
 }): string {
-  if (setupOrder.name) return setupOrder.name;
-  const parts = [setupOrder.room?.name, setupOrder.description].filter(Boolean);
-  return parts.join(" — ") || "Unnamed Setup Order";
+  return setupOrder.name || setupOrder.setupType || setupOrder.room?.name || "Unnamed Setup Order";
 }
 
 export function aggregateSetupTables(tables: SetupTable[]) {

@@ -33,7 +33,6 @@ export async function getSetupOrder(id: string) {
 
 export async function createSetupOrder(eventId: string, formData: FormData) {
   const name = (formData.get("name") as string)?.trim() || null;
-  const description = (formData.get("description") as string)?.trim() || null;
   const setupType = formData.get("setupType") as string;
   const notes = formData.get("notes") as string;
   const functionId = (formData.get("functionId") as string) || null;
@@ -43,7 +42,6 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
   const setupOrder = await prisma.setupOrder.create({
     data: {
       name,
-      description,
       eventId,
       setupType: setupType || null,
       notes: notes || null,
@@ -67,7 +65,6 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
 
 export async function updateSetupOrder(id: string, eventId: string, formData: FormData) {
   const name = (formData.get("name") as string)?.trim() || null;
-  const description = (formData.get("description") as string)?.trim() || null;
   const setupType = formData.get("setupType") as string;
   const notes = formData.get("notes") as string;
   const roomId = (formData.get("roomId") as string) || null;
@@ -76,7 +73,6 @@ export async function updateSetupOrder(id: string, eventId: string, formData: Fo
     where: { id },
     data: {
       name,
-      description,
       setupType: setupType || null,
       notes: notes || null,
       roomId,
@@ -108,7 +104,6 @@ export async function duplicateSetupOrder(id: string, eventId: string) {
     data: {
       eventId,
       name: source.name ? `${source.name} (Copy)` : null,
-      description: source.description,
       setupType: source.setupType,
       notes: source.notes,
       roomId: source.roomId,

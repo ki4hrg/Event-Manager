@@ -192,7 +192,7 @@ model Function {
   name              String
   description       String?
   type              String             @default("")
-  setupNotes        String?
+  notes             String?
   status            EntityStatus?
   substatus         String?
   eventId           String
@@ -379,7 +379,6 @@ model EquipmentItem {
 model SetupOrder {
   id             String          @id @default(cuid())
   name           String?
-  description    String?
   setupType      String?
   status         EntityStatus?
   substatus      String?

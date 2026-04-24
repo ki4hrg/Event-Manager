@@ -11,6 +11,7 @@ import { colorClasses } from "@/lib/colors";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { getEarliestStart, getLatestEnd, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
+import { getSetupOrderDisplayName } from "../setup-orders/utils";
 
 type SortField = "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 
@@ -380,7 +381,7 @@ export function FunctionTableView({
                     {formatScheduleDateTime(latest, timezone)}
                   </td>
                   <td className="px-3 py-3 text-gray-600 dark:text-gray-400 max-w-xs">
-                    <span className="line-clamp-2">{fn.setupNotes || "—"}</span>
+                    <span className="line-clamp-2">{fn.notes || "—"}</span>
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     {fn.type ? (
@@ -407,7 +408,7 @@ export function FunctionTableView({
                   <td className="px-3 py-3 whitespace-nowrap">
                     {fn.setupOrder ? (
                       <Link href={`/events/${eventId}/setup-orders/${fn.setupOrder.id}`} className="text-blue-600 hover:underline text-sm">
-                        {fn.setupOrder.description || fn.setupOrder.setupType || "Setup Order"}
+                        {getSetupOrderDisplayName(fn.setupOrder)}
                       </Link>
                     ) : <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>}
                   </td>

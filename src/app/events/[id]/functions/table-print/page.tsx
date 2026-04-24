@@ -5,6 +5,7 @@ import { getEvent } from "../../../actions";
 import { getWorkflowBadgeSummaries } from "@/app/events/workflows/actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import type { FunctionForTable } from "@/app/events/functions/actions";
+import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export default async function FunctionTablePrintPage({
               <th className={th}>Name</th>
               <th className={th}>Earliest Start</th>
               <th className={th}>Latest End</th>
-              <th className={th}>Setup Notes</th>
+              <th className={th}>Notes</th>
               <th className={th}>Type</th>
               <th className={th}>Room(s)</th>
               <th className={th}>Contact(s)</th>
@@ -97,7 +98,7 @@ export default async function FunctionTablePrintPage({
                 <td className={`${td} font-medium`}>{fn.name}</td>
                 <td className={`${td} whitespace-nowrap`}>{formatDateTime(getEarliestStart(fn), tz)}</td>
                 <td className={`${td} whitespace-nowrap`}>{formatDateTime(getLatestEnd(fn), tz)}</td>
-                <td className={td}>{fn.setupNotes || "—"}</td>
+                <td className={td}>{fn.notes || "—"}</td>
                 <td className={`${td} whitespace-nowrap`}>
                   {fn.type ?? "—"}
                 </td>
@@ -111,9 +112,7 @@ export default async function FunctionTablePrintPage({
                 </td>
                 <td className={`${td} whitespace-nowrap`}>{fn.avOrder?.name || "—"}</td>
                 <td className={`${td} whitespace-nowrap`}>
-                  {fn.setupOrder
-                    ? fn.setupOrder.description || fn.setupOrder.setupType || "Setup Order"
-                    : "—"}
+                  {fn.setupOrder ? getSetupOrderDisplayName(fn.setupOrder) : "—"}
                 </td>
                 <td className={`${td} whitespace-nowrap`}>{fn.cateringOrder?.name || "—"}</td>
                 <td className={`${td} whitespace-nowrap`}>{workflowLabel(workflowSummaries[fn.id])}</td>

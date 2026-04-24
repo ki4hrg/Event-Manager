@@ -9,7 +9,6 @@ import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendor
 type SetupOrderData = {
   id: string;
   name?: string | null;
-  description?: string | null;
   setupType?: string | null;
   notes?: string | null;
   roomId?: string | null;
@@ -84,7 +83,6 @@ export function SetupOrderForm({
           <ReadOnlyField label="Name" value={setupOrder.name ?? null} />
           <ReadOnlyField label="Room" value={setupOrder.room?.name ?? null} />
           <ReadOnlyField label="Setup Type" value={setupOrder.setupType ?? null} />
-          <ReadOnlyField label="Description" value={setupOrder.description ?? null} />
           <ReadOnlyField label="Notes" value={setupOrder.notes ?? null} />
           {vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
         </dl>
@@ -195,20 +193,6 @@ export function SetupOrderForm({
                 ))}
               </select>
             )}
-          </div>
-
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={2}
-              defaultValue={setupOrder?.description || ""}
-              placeholder="Optional clarifying note for this setup"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
           </div>
 
           <div>

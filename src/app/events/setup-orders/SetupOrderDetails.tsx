@@ -33,7 +33,6 @@ export function SetupOrderDetails({
           label="Linked Functions"
           value={setupOrder.functions.length > 0 ? setupOrder.functions.map((f) => f.name).join(", ") : null}
         />
-        <Field label="Description" value={setupOrder.description} />
         <Field label="Notes" value={setupOrder.notes} />
       </Section>
 

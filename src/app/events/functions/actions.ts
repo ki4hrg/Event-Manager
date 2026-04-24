@@ -117,7 +117,7 @@ export async function createFunction(eventId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
-  const setupNotes = formData.get("setupNotes") as string;
+  const notes = formData.get("notes") as string;
   const roomIds = formData.getAll("roomIds") as string[];
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
   const startTimeRaw = formData.get("startTime") as string;
@@ -129,7 +129,7 @@ export async function createFunction(eventId: string, formData: FormData) {
       name,
       description: description || null,
       type: type || "",
-      setupNotes: setupNotes || null,
+      notes: notes || null,
       eventId,
       breakoutGroupId: breakoutGroupId || null,
       rooms: {
@@ -170,7 +170,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
-  const setupNotes = formData.get("setupNotes") as string;
+  const notes = formData.get("notes") as string;
   const roomIds = formData.getAll("roomIds") as string[];
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
 
@@ -181,7 +181,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
       name,
       description: description || null,
       type: type || "",
-      setupNotes: setupNotes || null,
+      notes: notes || null,
       breakoutGroupId: breakoutGroupId || null,
     },
   });
@@ -233,7 +233,7 @@ export async function duplicateFunction(id: string, eventId: string) {
       name: `${original.name} (Copy)`,
       description: original.description,
       type: original.type,
-      setupNotes: original.setupNotes,
+      notes: original.notes,
       eventId: original.eventId,
       rooms: {
         create: original.rooms.map((r) => ({ roomId: r.roomId })),

@@ -172,10 +172,10 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
         {!isBreakoutType && (
           <div className={noCard ? `${dividerClass} mt-4` : "bg-white dark:bg-gray-800 shadow rounded-lg p-6"}>
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Setup Notes
+              Notes
             </h2>
             <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
-              {fn.setupNotes || "—"}
+              {fn.notes || "—"}
             </p>
           </div>
         )}
@@ -334,19 +334,19 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       {/* Room Assignment */}
       <RoomSelector rooms={rooms} selectedRoomIds={selectedRoomIds} noCard={noCard} />
 
-      {/* Setup Notes (not shown for breakout blocks) */}
+      {/* Notes (not shown for breakout blocks) */}
       {!isBreakoutType && (
         <div className={noCard ? `${dividerClass} mt-4` : "bg-white dark:bg-gray-800 shadow rounded-lg p-6"}>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            Setup Notes
+            Notes
           </h2>
 
           <textarea
-            id="setupNotes"
-            name="setupNotes"
+            id="notes"
+            name="notes"
             rows={3}
             placeholder="Table setup, seating arrangement, special requirements..."
-            defaultValue={fn?.setupNotes || ""}
+            defaultValue={fn?.notes || ""}
             className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>

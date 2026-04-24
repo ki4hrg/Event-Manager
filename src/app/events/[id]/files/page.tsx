@@ -111,9 +111,8 @@ export default async function EventFilesPage({ params }: { params: Promise<{ id:
         where: { eventId: id },
         select: {
           id: true,
-          description: true,
+          name: true,
           room: { select: { name: true } },
-          functions: { select: { name: true } },
           files: { orderBy: { createdAt: "asc" }, select: { id: true, fileName: true, fileType: true, fileSize: true, createdAt: true } },
         },
         orderBy: { createdAt: "asc" },
