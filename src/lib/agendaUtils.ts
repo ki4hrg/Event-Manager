@@ -29,6 +29,8 @@ export type AgendaEntry = {
   /** Breakout-specific fields */
   isBreakout: boolean;
   breakoutGroupName: string | null;
+  /** Off-site location name, present only for synthetic __offsite__ entries */
+  offSiteLocation: string | null;
   /** Set only on segments of multi-day entries — the full original time range */
   originalStartTime?: Date;
   originalEndTime?: Date;
@@ -332,6 +334,8 @@ export function buildAgendaData(
       breakoutBlocks.push(fn);
     } else if (fn.rooms.length > 0 && fn.schedules.length > 0) {
       eligible.push(fn);
+    } else if (fn.offSiteLocation && fn.schedules.length > 0) {
+      eligible.push(fn);
     } else {
       unscheduled.push(fn);
     }
@@ -339,14 +343,21 @@ export function buildAgendaData(
 
   // Expand each eligible fn × each schedule → AgendaEntry
   const entries: AgendaEntry[] = [];
+  let hasOffSiteEntries = false;
   for (const fn of eligible) {
-    const roomIds = fn.rooms
-      .map((fr) => fr.roomId)
-      .filter((id) => roomIdSet.has(id));
-    if (roomIds.length === 0) {
-      // All assigned rooms were removed from venue — treat as unscheduled
-      unscheduled.push(fn);
-      continue;
+    let roomIds: string[];
+    if (fn.offSiteLocation && fn.rooms.length === 0) {
+      roomIds = ["__offsite__"];
+      hasOffSiteEntries = true;
+    } else {
+      roomIds = fn.rooms
+        .map((fr) => fr.roomId)
+        .filter((id) => roomIdSet.has(id));
+      if (roomIds.length === 0) {
+        // All assigned rooms were removed from venue — treat as unscheduled
+        unscheduled.push(fn);
+        continue;
+      }
     }
     const presentationTitles = (fn.presentationSlots ?? []).map(
       (ps) => ps.presentation.title
@@ -369,6 +380,7 @@ export function buildAgendaData(
         presentationTitles,
         isBreakout: false,
         breakoutGroupName: null,
+        offSiteLocation: fn.offSiteLocation ?? null,
       });
     }
   }
@@ -419,6 +431,7 @@ export function buildAgendaData(
           presentationTitles,
           isBreakout: true,
           breakoutGroupName: groupName,
+          offSiteLocation: null,
         });
       }
     }
@@ -448,10 +461,13 @@ export function buildAgendaData(
       timeSlots.push(new Date(t));
     }
 
-    // Initialize cells: one column per venue room
+    // Initialize cells: one column per venue room (plus __offsite__ if needed)
     const cells = new Map<string, Map<string, AgendaEntry[]>>();
     for (const room of rooms) {
       cells.set(room.id, new Map());
+    }
+    if (hasOffSiteEntries) {
+      cells.set("__offsite__", new Map());
     }
 
     // Place entries into cells keyed by the containing slot's ISO string.
@@ -490,5 +506,8 @@ export function buildAgendaData(
     return { dateKey, timeSlots, scrollToSlotIndex, cells };
   });
 
-  return { days, rooms, unscheduled };
+  const returnRooms = hasOffSiteEntries
+    ? [...rooms, { id: "__offsite__", name: "Off-site", capacity: null } as Room]
+    : rooms;
+  return { days, rooms: returnRooms, unscheduled };
 }

@@ -144,6 +144,11 @@ function EntryContent({
             {entry.presentationTitles.join(", ")}
           </div>
         )}
+        {entry.offSiteLocation && (
+          <div className={`${colors.text} opacity-75 leading-tight mt-0.5 text-[10px] italic`}>
+            {entry.offSiteLocation}
+          </div>
+        )}
         {entry.functionDescription && entry.presentationTitles.length === 0 && !entry.isBreakout && (
           <div className={`${colors.text} opacity-75 leading-tight mt-0.5 line-clamp-2`}>
             {entry.functionDescription}
@@ -201,7 +206,8 @@ function DraggableCard({
   const router = useRouter();
   const draggedRef = useRef(false);
   const isSegment = !!entry.originalStartTime;
-  const isDragDisabled = isSegment || entry.isBreakout;
+  const isOffSite = sourceRoomId === "__offsite__";
+  const isDragDisabled = isSegment || entry.isBreakout || isOffSite;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `${entry.scheduleId}:${sourceRoomId}`,
     data: { entry, sourceRoomId } satisfies DragData,
@@ -278,16 +284,19 @@ function DroppableCell({
   rowSpan,
   children,
   isEmpty,
+  disabled = false,
 }: {
   roomId: string;
   slotTime: Date;
   rowSpan?: number;
   children?: React.ReactNode;
   isEmpty: boolean;
+  disabled?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `${roomId}:${slotTime.toISOString()}`,
     data: { roomId, slotTime } satisfies DropData,
+    disabled,
   });
 
   const base = "border border-gray-200 dark:border-gray-700 align-top p-0";
@@ -320,6 +329,7 @@ function DayGrid({
   const usedIds = getUsedRoomIds(day);
   const fullDayIds = getFullDayRoomIds(day);
   const visibleRooms = rooms.filter((r) => {
+    if (r.id === "__offsite__") return true; // always show off-site column when present
     if (!viewSettings.showUnusedRooms && !usedIds.has(r.id)) return false;
     if (!viewSettings.showFullDayRooms && fullDayIds.has(r.id)) return false;
     return true;
@@ -468,6 +478,7 @@ function DayGrid({
               {cells.map((cell, i) => {
                 if (cell.type === "skip") return null;
                 const room = visibleRooms[i];
+                const isOffSiteCol = room.id === "__offsite__";
                 if (cell.type === "empty") {
                   return (
                     <DroppableCell
@@ -475,6 +486,7 @@ function DayGrid({
                       roomId={room.id}
                       slotTime={cell.slotTime}
                       isEmpty={true}
+                      disabled={isOffSiteCol}
                     />
                   );
                 }
@@ -485,6 +497,7 @@ function DayGrid({
                     slotTime={cell.slotTime}
                     rowSpan={cell.rowspan}
                     isEmpty={false}
+                    disabled={isOffSiteCol}
                   >
                     {cell.entries.map((entry, colIdx) => (
                       <DraggableCard

@@ -135,7 +135,9 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
       : "—";
     const roomNames = fn.rooms.length > 0
       ? fn.rooms.map((r) => r.room.name).join(", ")
-      : "—";
+      : fn.offSiteLocation
+        ? `Off-site: ${fn.offSiteLocation}`
+        : "—";
     const groupName = isBreakoutType && breakoutGroups
       ? breakoutGroups.find((g) => g.id === fn.breakoutGroupId)?.name || "No group"
       : null;
@@ -333,6 +335,24 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
 
       {/* Room Assignment */}
       <RoomSelector rooms={rooms} selectedRoomIds={selectedRoomIds} noCard={noCard} />
+
+      {/* Off-site Location */}
+      {!isBreakoutType && (
+        <div className={noCard ? dividerClass : "bg-white dark:bg-gray-800 shadow rounded-lg p-6"}>
+          <label htmlFor="offSiteLocation" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Off-site Location
+          </label>
+          <input
+            id="offSiteLocation"
+            name="offSiteLocation"
+            type="text"
+            placeholder="e.g. The Capital Grille"
+            defaultValue={fn?.offSiteLocation || ""}
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Use if this function takes place outside the venue</p>
+        </div>
+      )}
 
       {/* Notes (not shown for breakout blocks) */}
       {!isBreakoutType && (

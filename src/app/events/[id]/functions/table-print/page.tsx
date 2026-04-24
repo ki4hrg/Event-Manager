@@ -103,7 +103,7 @@ export default async function FunctionTablePrintPage({
                   {fn.type ?? "—"}
                 </td>
                 <td className={td}>
-                  {fn.rooms.length > 0 ? fn.rooms.map((r) => r.room.name).join(", ") : "—"}
+                  {fn.rooms.length > 0 ? fn.rooms.map((r) => r.room.name).join(", ") : fn.offSiteLocation ? `Off-site: ${fn.offSiteLocation}` : "—"}
                 </td>
                 <td className={td}>
                   {fn.contacts.length > 0

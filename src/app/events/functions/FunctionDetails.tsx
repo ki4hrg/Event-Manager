@@ -38,9 +38,11 @@ export function FunctionDetails({
         <Field label="Type" value={typeLabel} />
         <Field label="Description" value={fn.description} />
         <Field label="Notes" value={fn.notes} />
-        {fn.rooms.length > 0 && (
+        {fn.rooms.length > 0 ? (
           <Field label="Rooms" value={fn.rooms.map((fr) => fr.room.name).join(", ")} />
-        )}
+        ) : fn.offSiteLocation ? (
+          <Field label="Location" value={`Off-site: ${fn.offSiteLocation}`} />
+        ) : null}
       </Section>
 
       {/* Schedules */}

@@ -38,6 +38,7 @@ import {
 } from "../../../catering-orders/actions";
 import { getOptions, getEquipment, getSubstatusOptions } from "../../../../settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
@@ -121,7 +122,7 @@ export default async function CateringOrderPage({
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
       getOptions("service_style"),
-      getResponsiblePartyVendors(eventId),
+      getResponsiblePartyVendors(eventId, "CATERING_ORDER"),
       getEquipment(),
       getOptions("equipment_category"),
       prisma.function.findMany({ where: { eventId, cateringOrder: null }, orderBy: { name: "asc" } }),
@@ -463,7 +464,7 @@ export default async function CateringOrderPage({
             />
             <EquipmentTable
               items={cateringOrder.equipmentItems}
-              responsiblePartyVendors={responsiblePartyVendors}
+              partyVendors={flattenResponsiblePartyOptions(responsiblePartyVendors)}
               equipmentOptions={equipmentOptions}
               equipmentCategories={equipmentCategories}
               createItem={createEquipmentAction}

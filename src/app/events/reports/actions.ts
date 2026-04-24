@@ -101,7 +101,6 @@ export async function getEquipmentResponsibilityData(
       },
       include: {
         equipment: { select: { id: true, name: true, category: true } },
-        responsiblePartyVendor: { select: { id: true, name: true } },
         providerVendor: { select: { id: true, name: true } },
         cateringOrder: {
           select: {
@@ -182,7 +181,7 @@ export async function getEquipmentResponsibilityData(
   const normalized: NormalizedItem[] = [];
 
   for (const item of equipmentItems) {
-    const attribution = item.responsiblePartyVendor ?? item.providerVendor;
+    const attribution = item.providerVendor;
     let orderId: string;
     let orderName: string;
     let modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";

@@ -105,12 +105,12 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
             Clear filters
           </button>
         )}
-        <button
-          onClick={() => window.print()}
+        <a
+          href={`/events/${eventId}/reports/equipment-responsibility/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
           className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
         >
           Print / Save PDF
-        </button>
+        </a>
       </div>
     </div>
   );

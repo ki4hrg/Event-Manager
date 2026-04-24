@@ -10,9 +10,15 @@ export type ResponsiblePartyOptions = {
   systemVendor: { id: string; name: string } | null;
 };
 
-export async function getResponsiblePartyVendors(eventId: string): Promise<ResponsiblePartyOptions> {
+export async function getResponsiblePartyVendors(eventId: string, modelType?: string): Promise<ResponsiblePartyOptions> {
+  const modelFilter = modelType
+    ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
+    : undefined;
   const [eventVendors, event, systemVendor] = await Promise.all([
-    prisma.eventVendor.findMany({ where: { eventId }, select: { vendor: { select: { id: true, name: true } } } }),
+    prisma.eventVendor.findMany({
+      where: { eventId, ...(modelFilter ? { vendor: modelFilter } : {}) },
+      select: { vendor: { select: { id: true, name: true } } },
+    }),
     prisma.event.findUnique({ where: { id: eventId }, select: { venue: { select: { vendor: { select: { id: true, name: true } } } } } }),
     prisma.vendor.findFirst({ where: { isSystemVendor: true }, select: { id: true, name: true } }),
   ]);

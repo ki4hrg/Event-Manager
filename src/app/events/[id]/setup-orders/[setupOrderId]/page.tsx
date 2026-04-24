@@ -22,6 +22,7 @@ import {
 } from "../../../setup-orders/actions";
 import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import {
   getSetupOrderVendors,
   addVendorToSetupOrder,
@@ -62,7 +63,7 @@ export default async function SetupOrderPage({
       getEvent(eventId),
       getSetupOrder(setupOrderId),
       getOptions("setup_type"),
-      getResponsiblePartyVendors(eventId),
+      getResponsiblePartyVendors(eventId, "SETUP_ORDER"),
       getEquipment(),
       getOptions("equipment_category"),
       getWorkflowInstances("setup_order", setupOrderId),
@@ -352,7 +353,7 @@ export default async function SetupOrderPage({
             />
             <EquipmentTable
               items={setupOrder.equipmentItems}
-              responsiblePartyVendors={responsiblePartyVendors}
+              partyVendors={flattenResponsiblePartyOptions(responsiblePartyVendors)}
               equipmentOptions={equipmentOptions}
               equipmentCategories={equipmentCategories}
               createItem={createEquipmentAction}

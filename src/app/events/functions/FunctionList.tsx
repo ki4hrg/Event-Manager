@@ -106,9 +106,11 @@ export function FunctionList({
             ) : (
               <span className="text-yellow-600 dark:text-yellow-400">No schedule</span>
             )}
-            {fn.rooms.length > 0 && (
+            {fn.rooms.length > 0 ? (
               <span className="ml-2">| {fn.rooms.map((r) => r.room.name).join(", ")}</span>
-            )}
+            ) : fn.offSiteLocation ? (
+              <span className="ml-2">| Off-site: {fn.offSiteLocation}</span>
+            ) : null}
           </div>
           {fn.description && (
             <p className="text-sm text-gray-500 dark:text-gray-500 mt-1 truncate">{fn.description}</p>

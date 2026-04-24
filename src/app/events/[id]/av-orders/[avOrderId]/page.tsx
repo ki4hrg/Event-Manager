@@ -43,6 +43,7 @@ import {
   getResponsiblePartyVendors,
 } from "@/app/vendors/actions";
 import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
+import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
@@ -96,15 +97,17 @@ export default async function AVOrderPage({
   let equipmentOptions: Awaited<ReturnType<typeof getEquipment>> = [];
   let equipmentCategories: Awaited<ReturnType<typeof getOptions>> = [];
   let responsiblePartyVendors: Awaited<ReturnType<typeof getResponsiblePartyVendors>> = { vendors: [], venueVendor: null, systemVendor: null };
+  let overviewPartyOptions: Awaited<ReturnType<typeof getAVOrderPartyOptions>> = { vendors: [], contacts: [] };
   if (activeTab === "overview") {
-    [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories, responsiblePartyVendors] = await Promise.all([
+    [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories, responsiblePartyVendors, overviewPartyOptions] = await Promise.all([
       prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
       avOrder.presentationId
         ? []
         : prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
       getEquipment(),
       getOptions("equipment_category"),
-      getResponsiblePartyVendors(eventId),
+      getResponsiblePartyVendors(eventId, "AV_ORDER"),
+      getAVOrderPartyOptions(avOrderId, eventId),
     ]);
   }
 
@@ -444,7 +447,9 @@ export default async function AVOrderPage({
           <div className="lg:col-span-2 space-y-6">
             <EquipmentTable
               items={avOrder.equipmentItems}
-              responsiblePartyVendors={responsiblePartyVendors}
+              partyVendors={flattenResponsiblePartyOptions(responsiblePartyVendors)}
+              contactOptions={overviewPartyOptions.contacts}
+              contactsLabel="Presenters"
               equipmentOptions={equipmentOptions}
               equipmentCategories={equipmentCategories}
               createItem={createAVEquipmentAction}

@@ -118,6 +118,7 @@ export async function createFunction(eventId: string, formData: FormData) {
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
   const notes = formData.get("notes") as string;
+  const offSiteLocation = (formData.get("offSiteLocation") as string)?.trim() || null;
   const roomIds = formData.getAll("roomIds") as string[];
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
   const startTimeRaw = formData.get("startTime") as string;
@@ -130,6 +131,7 @@ export async function createFunction(eventId: string, formData: FormData) {
       description: description || null,
       type: type || "",
       notes: notes || null,
+      offSiteLocation,
       eventId,
       breakoutGroupId: breakoutGroupId || null,
       rooms: {
@@ -171,6 +173,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
   const notes = formData.get("notes") as string;
+  const offSiteLocation = (formData.get("offSiteLocation") as string)?.trim() || null;
   const roomIds = formData.getAll("roomIds") as string[];
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
 
@@ -182,6 +185,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
       description: description || null,
       type: type || "",
       notes: notes || null,
+      offSiteLocation,
       breakoutGroupId: breakoutGroupId || null,
     },
   });
@@ -234,6 +238,7 @@ export async function duplicateFunction(id: string, eventId: string) {
       description: original.description,
       type: original.type,
       notes: original.notes,
+      offSiteLocation: original.offSiteLocation,
       eventId: original.eventId,
       rooms: {
         create: original.rooms.map((r) => ({ roomId: r.roomId })),

@@ -2,18 +2,23 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { EquipmentItem, CustomOption, Equipment, Vendor } from "@prisma/client";
-import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
-import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import type { EquipmentItem, CustomOption, Equipment, Vendor, Contact } from "@prisma/client";
+import { PartyField, partyLabel } from "@/app/events/av-orders/party-field";
+import type { ContactOptions } from "@/app/events/av-orders/party-field";
 
-type EquipmentItemWithVendor = EquipmentItem & {
-  responsiblePartyVendor: Vendor | null;
+type EquipmentItemFull = EquipmentItem & {
+  providerVendor: Vendor | null;
+  providerContact: Contact | null;
+  operatorVendor: Vendor | null;
+  operatorContact: Contact | null;
   equipment: Equipment | null;
 };
 
 type EquipmentTableProps = {
-  items: EquipmentItemWithVendor[];
-  responsiblePartyVendors: ResponsiblePartyOptions;
+  items: EquipmentItemFull[];
+  partyVendors: { id: string; name: string }[];
+  contactOptions?: ContactOptions;
+  contactsLabel?: string;
   equipmentOptions: Equipment[];
   equipmentCategories: CustomOption[];
   createItem: (formData: FormData) => Promise<void>;
@@ -34,7 +39,6 @@ function SubmitButton({ label }: { label: string }) {
     </button>
   );
 }
-
 
 function EquipmentSelect({
   equipmentOptions,
@@ -90,7 +94,18 @@ function EquipmentSelect({
   );
 }
 
-export function EquipmentTable({ items, responsiblePartyVendors, equipmentOptions, equipmentCategories, createItem, updateItem, deleteItem, readOnlyItems }: EquipmentTableProps) {
+export function EquipmentTable({
+  items,
+  partyVendors,
+  contactOptions,
+  contactsLabel,
+  equipmentOptions,
+  equipmentCategories,
+  createItem,
+  updateItem,
+  deleteItem,
+  readOnlyItems,
+}: EquipmentTableProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -124,8 +139,22 @@ export function EquipmentTable({ items, responsiblePartyVendors, equipmentOption
               <EquipmentSelect equipmentOptions={equipmentOptions} equipmentCategories={equipmentCategories} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-              <ResponsiblePartyField options={responsiblePartyVendors} />
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+              <PartyField
+                fieldPrefix="provider"
+                vendors={partyVendors}
+                contacts={contactOptions ?? []}
+                contactsLabel={contactsLabel}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
+              <PartyField
+                fieldPrefix="operator"
+                vendors={partyVendors}
+                contacts={contactOptions ?? []}
+                contactsLabel={contactsLabel}
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
@@ -183,11 +212,33 @@ export function EquipmentTable({ items, responsiblePartyVendors, equipmentOption
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
-                      <EquipmentSelect equipmentOptions={equipmentOptions} equipmentCategories={equipmentCategories} defaultValue={item.equipmentId ?? undefined} />
+                      <EquipmentSelect
+                        equipmentOptions={equipmentOptions}
+                        equipmentCategories={equipmentCategories}
+                        defaultValue={item.equipmentId ?? undefined}
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
-                      <ResponsiblePartyField options={responsiblePartyVendors} defaultValue={item.responsiblePartyVendorId} />
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+                      <PartyField
+                        fieldPrefix="provider"
+                        vendors={partyVendors}
+                        contacts={contactOptions ?? []}
+                        contactsLabel={contactsLabel}
+                        defaultVendorId={item.providerVendorId}
+                        defaultContactId={item.providerContactId}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
+                      <PartyField
+                        fieldPrefix="operator"
+                        vendors={partyVendors}
+                        contacts={contactOptions ?? []}
+                        contactsLabel={contactsLabel}
+                        defaultVendorId={item.operatorVendorId}
+                        defaultContactId={item.operatorContactId}
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
@@ -225,7 +276,9 @@ export function EquipmentTable({ items, responsiblePartyVendors, equipmentOption
                     <span className="text-gray-900 dark:text-white font-medium">{item.item}</span>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                       {item.quantity != null && <span>× {item.quantity} </span>}
-                      {item.responsiblePartyVendor && <span>{item.responsiblePartyVendor.name}</span>}
+                      {partyLabel(item.providerVendor, item.providerContact) && (
+                        <span>{partyLabel(item.providerVendor, item.providerContact)}</span>
+                      )}
                       {item.notes && <span className="ml-2">· {item.notes}</span>}
                     </div>
                   </div>

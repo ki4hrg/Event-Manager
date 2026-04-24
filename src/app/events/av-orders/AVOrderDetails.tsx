@@ -52,7 +52,7 @@ export function AVOrderDetails({
               <tr className="text-left text-gray-500 print:text-gray-600">
                 <th className="pb-1 pr-4 font-medium">Item</th>
                 <th className="pb-1 pr-4 font-medium">Qty</th>
-                <th className="pb-1 font-medium">Responsible Party</th>
+                <th className="pb-1 font-medium">Provider</th>
               </tr>
             </thead>
             <tbody>
@@ -61,7 +61,7 @@ export function AVOrderDetails({
                   <td className="py-1.5 pr-4 text-gray-900 print:text-black">{e.item}</td>
                   <td className="py-1.5 pr-4 text-gray-900 print:text-black">{e.quantity}</td>
                   <td className="py-1.5 text-gray-600 print:text-gray-700">
-                    {e.responsiblePartyVendor?.name ?? "—"}
+                    {partyLabel(e.providerVendor, e.providerContact) ?? "—"}
                   </td>
                 </tr>
               ))}

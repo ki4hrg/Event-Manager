@@ -51,12 +51,14 @@ export function PartyField({
   fieldPrefix,
   vendors,
   contacts,
+  contactsLabel = "Contacts",
   defaultVendorId,
   defaultContactId,
 }: {
   fieldPrefix: "provider" | "operator";
   vendors: PartyOptions;
   contacts: ContactOptions;
+  contactsLabel?: string;
   defaultVendorId?: string | null;
   defaultContactId?: string | null;
 }) {
@@ -84,7 +86,7 @@ export function PartyField({
           </optgroup>
         )}
         {contacts.length > 0 && (
-          <optgroup label="Contacts">
+          <optgroup label={contactsLabel}>
             {contacts.map((c) => (
               <option key={c.id} value={`contact:${c.id}`}>{contactName(c)}</option>
             ))}

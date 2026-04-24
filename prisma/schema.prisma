@@ -211,6 +211,7 @@ model Function {
   description       String?
   type              String             @default("")
   notes             String?
+  offSiteLocation   String?
   status            EntityStatus?
   substatus         String?
   eventId           String
@@ -370,8 +371,6 @@ model EquipmentItem {
   equipment                Equipment?    @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
   item                     String
   quantity                 Int?
-  responsiblePartyVendorId String?
-  responsiblePartyVendor   Vendor?       @relation("EquipmentResponsibleVendor", fields: [responsiblePartyVendorId], references: [id], onDelete: SetNull)
   providerVendorId         String?
   providerVendor           Vendor?       @relation("EquipmentItemProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
   providerContactId        String?
@@ -390,7 +389,6 @@ model EquipmentItem {
   @@index([videoSectionId])
   @@index([avOrderId])
   @@index([equipmentId])
-  @@index([responsiblePartyVendorId])
   @@index([providerVendorId])
   @@index([providerContactId])
   @@index([operatorVendorId])
@@ -700,7 +698,6 @@ model Vendor {
   avOrderVendors            AVOrderVendor[]
   cateringOrderVendors      CateringOrderVendor[]
   setupOrderVendors         SetupOrderVendor[]
-  responsibleEquipmentItems EquipmentItem[]            @relation("EquipmentResponsibleVendor")
   equipmentItemsAsProvider  EquipmentItem[]            @relation("EquipmentItemProviderVendor")
   equipmentItemsAsOperator  EquipmentItem[]            @relation("EquipmentItemOperatorVendor")
   responsibleMenuSections   CateringOrderMenuSection[] @relation("MenuSectionResponsibleVendor")
