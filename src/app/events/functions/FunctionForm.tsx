@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Function, Room, FunctionRoom, CustomOption, BreakoutGroup } from "@prisma/client";
+import { ReadOnlyField } from "@/components/ReadOnlyField";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
@@ -35,14 +36,6 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div>
-      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
-      <dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{value || "—"}</dd>
-    </div>
-  );
-}
 
 function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: Room[]; selectedRoomIds: string[]; noCard?: boolean }) {
   const [roomFilter, setRoomFilter] = useState("");

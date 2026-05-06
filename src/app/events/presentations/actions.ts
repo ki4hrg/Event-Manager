@@ -181,7 +181,7 @@ export async function updatePresentation(id: string, eventId: string, formData: 
   const internalNotes = formData.get("internalNotes") as string;
 
   const type = formData.get("type") as string;
-  const breakoutGroupId = formData.get("breakoutGroupId") as string;
+  const breakoutGroupId = formData.get("breakoutGroupId");
   const instanceCountRaw = formData.get("instanceCount") as string;
 
   await prisma.presentation.update({
@@ -193,7 +193,7 @@ export async function updatePresentation(id: string, eventId: string, formData: 
       trackId: trackId || null,
       schedulingNotes: schedulingNotes || null,
       internalNotes: internalNotes || null,
-      breakoutGroupId: breakoutGroupId || null,
+      ...(breakoutGroupId !== null ? { breakoutGroupId: (breakoutGroupId as string) || null } : {}),
       ...(instanceCountRaw ? { instanceCount: parseInt(instanceCountRaw) || 1 } : {}),
     },
   });
