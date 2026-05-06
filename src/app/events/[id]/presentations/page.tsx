@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
 import {
@@ -64,9 +65,17 @@ export default async function PresentationsPage({
     <PageWrapper>
       <div className="mb-4">
         <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "Presentations" }]} />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-          {event.name}
-        </h1>
+        <div className="flex items-center justify-between mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            {event.name}
+          </h1>
+          <Link
+            href={`/events/${eventId}/presentations/import`}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Import from CSV
+          </Link>
+        </div>
       </div>
 
       <EventTabs eventId={eventId} />

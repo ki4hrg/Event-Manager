@@ -123,13 +123,23 @@ function PresentationFields({ presentation, tracks, presentationTypes }: Present
       )}
 
       <div>
-        <label htmlFor="notes" className={labelClass}>Notes</label>
+        <label htmlFor="schedulingNotes" className={labelClass}>Scheduling Notes</label>
         <textarea
-          id="notes"
-          name="notes"
+          id="schedulingNotes"
+          name="schedulingNotes"
           rows={2}
-          defaultValue={presentation?.notes || ""}
-          placeholder={presentation ? undefined : "Internal notes about this presentation..."}
+          defaultValue={presentation?.schedulingNotes || ""}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="internalNotes" className={labelClass}>Internal Notes</label>
+        <textarea
+          id="internalNotes"
+          name="internalNotes"
+          rows={2}
+          defaultValue={presentation?.internalNotes || ""}
           className={inputClass}
         />
       </div>
@@ -243,7 +253,8 @@ export function PresentationForm({
           <ReadOnlyField label="Description" value={presentation.description} />
           <ReadOnlyField label="Track" value={presentation.track?.name ?? null} />
           <ReadOnlyField label="Type" value={typeLabel} />
-          <ReadOnlyField label="Notes" value={presentation.notes} />
+          <ReadOnlyField label="Scheduling Notes" value={presentation.schedulingNotes} />
+          <ReadOnlyField label="Internal Notes" value={presentation.internalNotes} />
         </dl>
       </div>
     );

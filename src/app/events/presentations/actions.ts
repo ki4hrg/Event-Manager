@@ -121,7 +121,8 @@ export async function createPresentation(eventId: string, formData: FormData) {
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const trackId = formData.get("trackId") as string;
-  const notes = formData.get("notes") as string;
+  const schedulingNotes = formData.get("schedulingNotes") as string;
+  const internalNotes = formData.get("internalNotes") as string;
 
   // Get speaker data from form
   const speakerContactIds = formData.getAll("speakerContactIds") as string[];
@@ -138,7 +139,8 @@ export async function createPresentation(eventId: string, formData: FormData) {
       type: type || "",
       description: description || null,
       trackId: trackId || null,
-      notes: notes || null,
+      schedulingNotes: schedulingNotes || null,
+      internalNotes: internalNotes || null,
       breakoutGroupId: breakoutGroupId || null,
       instanceCount: instanceCountRaw ? parseInt(instanceCountRaw) || 1 : 1,
       eventId,
@@ -175,7 +177,8 @@ export async function updatePresentation(id: string, eventId: string, formData: 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const trackId = formData.get("trackId") as string;
-  const notes = formData.get("notes") as string;
+  const schedulingNotes = formData.get("schedulingNotes") as string;
+  const internalNotes = formData.get("internalNotes") as string;
 
   const type = formData.get("type") as string;
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
@@ -188,7 +191,8 @@ export async function updatePresentation(id: string, eventId: string, formData: 
       type: type || "",
       description: description || null,
       trackId: trackId || null,
-      notes: notes || null,
+      schedulingNotes: schedulingNotes || null,
+      internalNotes: internalNotes || null,
       breakoutGroupId: breakoutGroupId || null,
       ...(instanceCountRaw ? { instanceCount: parseInt(instanceCountRaw) || 1 } : {}),
     },
@@ -223,7 +227,8 @@ export async function duplicatePresentation(id: string, eventId: string) {
       type: original.type,
       description: original.description,
       trackId: original.trackId,
-      notes: original.notes,
+      schedulingNotes: original.schedulingNotes,
+      internalNotes: original.internalNotes,
       eventId: original.eventId,
     },
   });
@@ -471,4 +476,117 @@ export async function searchContacts(query: string) {
     take: 10,
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
+}
+
+// ============================================================================
+// CSV Import
+// ============================================================================
+
+export type ImportDestination =
+  | "presentation.title"
+  | "presentation.description"
+  | "presentation.schedulingNotes"
+  | "presentation.internalNotes"
+  | "presentation.instanceCount"
+  | "contact.fullName"
+  | "contact.firstName"
+  | "contact.lastName"
+  | "contact.email"
+  | "skip";
+
+export type ColumnMapping = Record<string, ImportDestination>;
+
+function splitFullName(name: string): { firstName: string; lastName: string } {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= 1) return { firstName: parts[0] ?? "", lastName: "" };
+  const lastName = parts.pop()!;
+  return { firstName: parts.join(" "), lastName };
+}
+
+export async function importPresentationsFromCSV(
+  eventId: string,
+  rows: Record<string, string>[],
+  mapping: ColumnMapping
+): Promise<{ created: number; errors: Array<{ row: number; message: string }> }> {
+  const errors: Array<{ row: number; message: string }> = [];
+  let created = 0;
+
+  // Pre-fetch all existing contacts matching emails in this import
+  const emailHeaders = Object.entries(mapping)
+    .filter(([, dest]) => dest === "contact.email")
+    .map(([h]) => h);
+  const uniqueEmails = Array.from(
+    new Set(rows.flatMap((r) => emailHeaders.map((h) => (r[h] ?? "").trim()).filter(Boolean)))
+  );
+  const existingContacts = uniqueEmails.length
+    ? await prisma.contact.findMany({ where: { email: { in: uniqueEmails } } })
+    : [];
+  const contactByEmail = new Map(existingContacts.map((c) => [c.email as string, c]));
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      const fields: Record<ImportDestination, string> = {} as Record<ImportDestination, string>;
+      for (const [header, dest] of Object.entries(mapping)) {
+        if (dest !== "skip") {
+          fields[dest] = (fields[dest] ? fields[dest] + " " : "") + (row[header] ?? "").trim();
+        }
+      }
+
+      const title = fields["presentation.title"]?.trim();
+      if (!title) {
+        errors.push({ row: i + 1, message: "Missing title — row skipped" });
+        continue;
+      }
+
+      let contactId: string | null = null;
+      const email = fields["contact.email"]?.trim() || null;
+      let firstName = fields["contact.firstName"]?.trim() || "";
+      let lastName = fields["contact.lastName"]?.trim() || "";
+      if (fields["contact.fullName"]?.trim()) {
+        const split = splitFullName(fields["contact.fullName"]);
+        if (!firstName) firstName = split.firstName;
+        if (!lastName) lastName = split.lastName;
+      }
+
+      if (firstName || lastName || email) {
+        let contact = email ? (contactByEmail.get(email) ?? null) : null;
+        if (!contact) {
+          contact = await prisma.contact.create({
+            data: { firstName: firstName || "Unknown", lastName, email },
+          });
+          if (email) contactByEmail.set(email, contact);
+        }
+        contactId = contact.id;
+      }
+
+      const instanceCountRaw = fields["presentation.instanceCount"]?.trim();
+      const instanceCount = instanceCountRaw ? parseInt(instanceCountRaw) || 1 : 1;
+
+      const presentation = await prisma.presentation.create({
+        data: {
+          eventId,
+          title,
+          description: fields["presentation.description"]?.trim() || null,
+          schedulingNotes: fields["presentation.schedulingNotes"]?.trim() || null,
+          internalNotes: fields["presentation.internalNotes"]?.trim() || null,
+          instanceCount,
+        },
+      });
+
+      if (contactId) {
+        await prisma.presentationContact.create({
+          data: { presentationId: presentation.id, contactId, isPrimary: true, sortOrder: 0 },
+        });
+      }
+
+      await autoAssignDefaultWorkflows("presentation", presentation.id);
+      created++;
+    } catch (err) {
+      errors.push({ row: i + 1, message: err instanceof Error ? err.message : "Unknown error" });
+    }
+  }
+
+  revalidatePath(`/events/${eventId}/presentations`);
+  return { created, errors };
 }

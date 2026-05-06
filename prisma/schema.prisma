@@ -558,7 +558,8 @@ model Presentation {
   status          EntityStatus?
   substatus       String?
   description     String?
-  notes           String?
+  schedulingNotes String?               @map("notes")
+  internalNotes   String?
   instanceCount   Int                   @default(1)
   trackId         String?
   track           PresentationTrack?    @relation(fields: [trackId], references: [id], onDelete: SetNull)

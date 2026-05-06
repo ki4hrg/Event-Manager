@@ -592,9 +592,9 @@ function DraggableSidebarCard({
       <div className="text-amber-600 dark:text-amber-400 mt-0.5">
         {instanceLabel}
       </div>
-      {presentation.notes && (
+      {presentation.schedulingNotes && (
         <div className="text-amber-700 dark:text-amber-300 mt-0.5 line-clamp-2 opacity-80">
-          {presentation.notes}
+          {presentation.schedulingNotes}
         </div>
       )}
     </div>
