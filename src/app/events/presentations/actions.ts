@@ -527,10 +527,18 @@ export async function importPresentationsFromCSV(
     const row = rows[i];
     try {
       const fields: Record<ImportDestination, string> = {} as Record<ImportDestination, string>;
+      const internalNotesEntries: string[] = [];
       for (const [header, dest] of Object.entries(mapping)) {
-        if (dest !== "skip") {
-          fields[dest] = (fields[dest] ? fields[dest] + " " : "") + (row[header] ?? "").trim();
+        if (dest === "skip") continue;
+        const val = (row[header] ?? "").trim();
+        if (dest === "presentation.internalNotes") {
+          if (val) internalNotesEntries.push(`${header}: ${val}`);
+        } else {
+          fields[dest] = val;
         }
+      }
+      if (internalNotesEntries.length) {
+        fields["presentation.internalNotes"] = internalNotesEntries.join("\n");
       }
 
       const title = fields["presentation.title"]?.trim();

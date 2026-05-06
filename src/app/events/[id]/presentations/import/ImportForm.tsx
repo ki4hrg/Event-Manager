@@ -116,11 +116,14 @@ export function ImportForm({ eventId, importAction }: ImportFormProps) {
 
   if (step === "map") {
     const activeCount = Object.values(mapping).filter((v) => v !== "skip").length;
+    const takenDestinations = new Set(
+      Object.values(mapping).filter((v) => v !== "skip" && v !== "presentation.internalNotes")
+    );
     return (
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Map Columns</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          {rows.length} rows detected. Assign each column to a field, or skip it.
+          {rows.length} rows detected. Assign each column to a field, or skip it. Multiple columns can map to Internal Notes.
         </p>
         <div className="overflow-x-auto mb-6">
           <table className="w-full text-sm">
@@ -132,31 +135,41 @@ export function ImportForm({ eventId, importAction }: ImportFormProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {headers.map((h) => (
-                <tr key={h}>
-                  <td className="py-2 pr-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                    {h}
-                  </td>
-                  <td className="py-2 pr-4 text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                    {rows[0]?.[h] ?? ""}
-                  </td>
-                  <td className="py-2">
-                    <select
-                      value={mapping[h] ?? "skip"}
-                      onChange={(e) =>
-                        setMapping((prev) => ({ ...prev, [h]: e.target.value as ImportDestination }))
-                      }
-                      className={inputClass}
-                    >
-                      {DESTINATION_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {headers.map((h) => {
+                const current = mapping[h] ?? "skip";
+                const availableOptions = DESTINATION_OPTIONS.filter(
+                  (opt) =>
+                    opt.value === "skip" ||
+                    opt.value === "presentation.internalNotes" ||
+                    opt.value === current ||
+                    !takenDestinations.has(opt.value)
+                );
+                return (
+                  <tr key={h}>
+                    <td className="py-2 pr-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                      {h}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                      {rows[0]?.[h] ?? ""}
+                    </td>
+                    <td className="py-2">
+                      <select
+                        value={current}
+                        onChange={(e) =>
+                          setMapping((prev) => ({ ...prev, [h]: e.target.value as ImportDestination }))
+                        }
+                        className={inputClass}
+                      >
+                        {availableOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -195,7 +208,9 @@ export function ImportForm({ eventId, importAction }: ImportFormProps) {
               <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                 {activeMappings.map(([header, dest]) => (
                   <th key={header} className="pb-2 pr-4 font-medium whitespace-nowrap">
-                    {DESTINATION_OPTIONS.find((o) => o.value === dest)?.label ?? dest}
+                    {dest === "presentation.internalNotes"
+                      ? `Internal Notes: ${header}`
+                      : (DESTINATION_OPTIONS.find((o) => o.value === dest)?.label ?? dest)}
                   </th>
                 ))}
               </tr>
