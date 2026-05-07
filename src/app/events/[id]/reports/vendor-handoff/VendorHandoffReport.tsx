@@ -4,6 +4,7 @@ import { formatTime } from "@/lib/agendaUtils";
 
 type HandoffData = NonNullable<Awaited<ReturnType<typeof getVendorHandoffData>>>;
 type Event = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
+type AudioInputItem = NonNullable<HandoffData["avOrders"][number]["audioSection"]>["inputGroups"][number]["inputItems"][number];
 
 type EquipmentItem = {
   id: string;
@@ -21,6 +22,10 @@ const th =
   "px-3 py-2 text-left text-xs font-semibold text-gray-900 print:text-black border-b border-gray-300 print:border-gray-400 bg-gray-100 print:bg-gray-200 whitespace-nowrap";
 const td =
   "px-3 py-2 text-xs text-gray-700 print:text-gray-900 border-b border-gray-200 print:border-gray-300 align-top";
+const sectionCard =
+  "bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:rounded-none print:border-t print:border-gray-300 print:px-0 print:py-4";
+const orderCard =
+  "print:break-inside-avoid border border-gray-200 print:border-0 print:border-b print:border-gray-200 rounded-lg p-4 print:px-0 print:rounded-none mb-4";
 
 function partyName(
   vendor: { name: string } | null | undefined,
@@ -29,6 +34,42 @@ function partyName(
   if (vendor) return vendor.name;
   if (contact) return `${contact.firstName} ${contact.lastName}`;
   return "—";
+}
+
+function rollUpInputItems(items: AudioInputItem[]) {
+  const map = new Map<string, {
+    displayName: string;
+    quantity: number;
+    providerVendor: AudioInputItem["providerVendor"];
+    providerContact: AudioInputItem["providerContact"];
+    operatorVendor: AudioInputItem["operatorVendor"];
+    operatorContact: AudioInputItem["operatorContact"];
+    notes: Set<string>;
+  }>();
+
+  for (const item of items) {
+    const displayName = item.equipment?.name ?? item.description;
+    const providerKey = item.providerVendor?.id ?? item.providerContact?.id ?? "";
+    const operatorKey = item.operatorVendor?.id ?? item.operatorContact?.id ?? "";
+    const key = `${displayName}\0${providerKey}\0${operatorKey}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.quantity += item.quantity;
+      if (item.notes) existing.notes.add(item.notes);
+    } else {
+      map.set(key, {
+        displayName,
+        quantity: item.quantity,
+        providerVendor: item.providerVendor,
+        providerContact: item.providerContact,
+        operatorVendor: item.operatorVendor,
+        operatorContact: item.operatorContact,
+        notes: new Set(item.notes ? [item.notes] : []),
+      });
+    }
+  }
+
+  return Array.from(map.values()).map((row) => ({ ...row, notes: Array.from(row.notes).join("; ") }));
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -207,7 +248,7 @@ function CateringOrderSection({
   const hasGuestCounts = order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null;
 
   return (
-    <div className="print:break-inside-avoid border border-gray-200 print:border-gray-300 rounded-lg p-4 mb-4">
+    <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 print:text-black">{order.name}</h3>
         {order.serviceStyle && (
@@ -329,7 +370,7 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
   const video = order.videoSection;
 
   return (
-    <div className="print:break-inside-avoid border border-gray-200 print:border-gray-300 rounded-lg p-4 mb-4">
+    <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 print:text-black">{order.name}</h3>
       </div>
@@ -366,13 +407,13 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {group.inputItems.map((item) => (
-                      <tr key={item.id}>
-                        <td className={td}>{item.equipment?.name ?? item.description}</td>
-                        <td className={td}>{item.quantity}</td>
-                        <td className={td}>{partyName(item.providerVendor, item.providerContact)}</td>
-                        <td className={td}>{partyName(item.operatorVendor, item.operatorContact)}</td>
-                        <td className={td}>{item.notes ?? ""}</td>
+                    {rollUpInputItems(group.inputItems).map((row, i) => (
+                      <tr key={i}>
+                        <td className={td}>{row.displayName}</td>
+                        <td className={td}>{row.quantity}</td>
+                        <td className={td}>{partyName(row.providerVendor, row.providerContact)}</td>
+                        <td className={td}>{partyName(row.operatorVendor, row.operatorContact)}</td>
+                        <td className={td}>{row.notes}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -444,7 +485,7 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
 
 function SetupOrderSection({ order }: { order: HandoffData["setupOrders"][number] }) {
   return (
-    <div className="print:break-inside-avoid border border-gray-200 print:border-gray-300 rounded-lg p-4 mb-4">
+    <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 print:text-black">
           {order.name ?? "Setup Order"}
@@ -512,9 +553,9 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
   const timezone = event.timezone ?? "America/Chicago";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:space-y-0">
       {/* Vendor info */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
+      <div className={sectionCard}>
         <div className="mb-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black">
             {vendor.name}
@@ -560,8 +601,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
       {/* Key event staff */}
       {keyStaff.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Key Event Staff
           </h2>
           <table className="w-full text-sm border-collapse">
@@ -593,8 +634,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
       {(cateringOrders.some((o) => o.function) ||
         avOrders.some((o) => o.functions.length > 0) ||
         setupOrders.some((o) => o.functions.length > 0)) && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Function Schedule
           </h2>
           <FunctionScheduleSection data={data} timezone={timezone} />
@@ -603,8 +644,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
       {/* Catering orders */}
       {cateringOrders.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Catering {cateringOrders.length > 1 ? `(${cateringOrders.length} orders)` : ""}
           </h2>
           {cateringOrders.map((order) => (
@@ -615,8 +656,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
       {/* AV orders */}
       {avOrders.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Audio / Visual {avOrders.length > 1 ? `(${avOrders.length} orders)` : ""}
           </h2>
           {avOrders.map((order) => (
@@ -627,8 +668,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
       {/* Setup orders */}
       {setupOrders.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Setup {setupOrders.length > 1 ? `(${setupOrders.length} orders)` : ""}
           </h2>
           {setupOrders.map((order) => (
