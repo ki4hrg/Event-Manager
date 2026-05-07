@@ -40,7 +40,7 @@ export default async function NewSetupOrderPage({
   if (!event) notFound();
 
   const [venueRooms, eventFunctions] = await Promise.all([
-    event.venueId
+    !presentationId && event.venueId
       ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
     isFromSource

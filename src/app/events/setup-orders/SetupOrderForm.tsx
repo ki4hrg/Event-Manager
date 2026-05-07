@@ -124,30 +124,32 @@ export function SetupOrderForm({
             />
           </div>
 
-          <div>
-            <label htmlFor="roomId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Room
-            </label>
-            {rooms.length === 0 ? (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                No rooms available. Add rooms to the event venue first.
-              </p>
-            ) : (
-              <select
-                id="roomId"
-                name="roomId"
-                required={!isEdit}
-                value={selectedRoomId}
-                onChange={(e) => setSelectedRoomId(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">— Select room —</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
+          {!lockedPresentationId && (
+            <div>
+              <label htmlFor="roomId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Room
+              </label>
+              {rooms.length === 0 ? (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  No rooms available. Add rooms to the event venue first.
+                </p>
+              ) : (
+                <select
+                  id="roomId"
+                  name="roomId"
+                  required={!isEdit}
+                  value={selectedRoomId}
+                  onChange={(e) => setSelectedRoomId(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">— Select room —</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {!isEdit && (lockedFunctionId
             ? <input type="hidden" name="functionId" value={lockedFunctionId} />
