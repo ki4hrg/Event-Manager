@@ -40,6 +40,7 @@ export default async function SettingsEquipmentPage() {
         category="equipment_category"
         options={equipmentCategories}
         showColor={false}
+        showModels={true}
         createOption={createEquipmentCategory}
         updateOption={updateOption}
         deleteOption={deleteOption}

@@ -81,8 +81,8 @@ export default async function SetupOrderPage({
     getSubstatusOptions(),
   ]);
 
-  const TABLE_CAT = "TABLES";
-  const CHAIR_CAT = "CHAIRS";
+  const TABLE_CAT = "Tables";
+  const CHAIR_CAT = "Chairs";
   const tableOptions = equipmentOptions.filter((e) => e.category === TABLE_CAT);
   const chairOptions = equipmentOptions.filter((e) => e.category === CHAIR_CAT);
 

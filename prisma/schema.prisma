@@ -49,6 +49,7 @@ model CustomOption {
   group     String?  // Optional grouping key; used by "substatus" category to tie options to an EntityStatus value
   isSystem  Boolean  @default(false) // System entries cannot be deleted from the UI
   sortOrder Int      @default(0)
+  models    String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

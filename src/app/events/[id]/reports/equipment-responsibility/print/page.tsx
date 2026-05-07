@@ -2,6 +2,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/actions";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
+import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { MODEL_LABELS } from "@/app/vendors/model-types";
 
@@ -70,13 +71,16 @@ export default async function EquipmentResponsibilityPrintPage({
           </thead>
           <tbody>
             {groups.map((group) => (
-              <React.Fragment key={group.vendorId ?? "__unassigned__"}>
+              <React.Fragment key={partyGroupKey(group)}>
                 <tr>
                   <td
                     colSpan={5}
                     className="px-3 py-2 text-xs font-semibold text-gray-900 print:text-black bg-gray-50 print:bg-gray-100 border-b border-gray-300 print:border-gray-400"
                   >
-                    {group.vendorName}
+                    {group.partyName}
+                    {group.partyType === "contact" && (
+                      <span className="font-normal text-gray-500 print:text-gray-600 ml-1">(Contact)</span>
+                    )}
                   </td>
                 </tr>
                 {group.rows.map((row, i) => (

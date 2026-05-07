@@ -7,6 +7,7 @@ import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getEvent } from "../../../actions";
 import {
   getPresentation,
@@ -253,6 +254,7 @@ export default async function PresentationPage({
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               {presentation.title}
             </h1>
+            <EntityStatusBadge status={presentation.status ?? null} substatus={presentation.substatus ?? null} />
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
         </div>
@@ -277,7 +279,7 @@ export default async function PresentationPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="border-b border-gray-200 dark:border-gray-700 mb-4 pb-4">
               <EntityStatusPanel
@@ -302,6 +304,16 @@ export default async function PresentationPage({
               searchContacts={searchContactsAction}
             />
           </div>
+
+          <WorkflowPanel
+            instances={workflowInstances}
+            availableTemplates={availableWorkflowTemplates}
+            entityStatus={presentation.status ?? null}
+            assignWorkflow={assignWorkflowAction}
+            removeWorkflow={removeWorkflowAction}
+            toggleStep={toggleStepAction}
+            toggleItem={toggleItemAction}
+          />
         </div>
 
         <div className="lg:col-span-2 space-y-6">
@@ -330,15 +342,6 @@ export default async function PresentationPage({
             updateInstanceCount={updateInstanceCountAction}
           />
 
-          <WorkflowPanel
-            instances={workflowInstances}
-            availableTemplates={availableWorkflowTemplates}
-            entityStatus={presentation.status ?? null}
-            assignWorkflow={assignWorkflowAction}
-            removeWorkflow={removeWorkflowAction}
-            toggleStep={toggleStepAction}
-            toggleItem={toggleItemAction}
-          />
           <AVOrderPanel
             title="AV Order"
             avOrder={presentation.avOrder}

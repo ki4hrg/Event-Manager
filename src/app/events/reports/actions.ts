@@ -25,11 +25,16 @@ export type EquipmentReportRow = {
   sources: EquipmentSourceRef[];
 };
 
-export type VendorEquipmentGroup = {
-  vendorId: string | null;
-  vendorName: string;
+export type ResponsiblePartyGroup = {
+  partyType: "vendor" | "contact" | "unassigned";
+  partyId: string | null;
+  partyName: string;
   rows: EquipmentReportRow[];
 };
+
+/** @deprecated use ResponsiblePartyGroup */
+export type VendorEquipmentGroup = ResponsiblePartyGroup;
+
 
 type NormalizedItem = {
   equipmentId: string | null;
@@ -38,6 +43,8 @@ type NormalizedItem = {
   category: string | null;
   attributionVendorId: string | null;
   attributionVendorName: string | null;
+  attributionContactId: string | null;
+  attributionContactName: string | null;
   quantity: number;
   orderId: string;
   orderName: string;
@@ -102,6 +109,7 @@ export async function getEquipmentResponsibilityData(
       include: {
         equipment: { select: { id: true, name: true, category: true } },
         providerVendor: { select: { id: true, name: true } },
+        providerContact: { select: { id: true, firstName: true, lastName: true } },
         cateringOrder: {
           select: {
             id: true,
@@ -141,6 +149,7 @@ export async function getEquipmentResponsibilityData(
       include: {
         equipment: { select: { id: true, name: true, category: true } },
         providerVendor: { select: { id: true, name: true } },
+        providerContact: { select: { id: true, firstName: true, lastName: true } },
         inputGroup: {
           select: {
             audioSection: {
@@ -163,6 +172,7 @@ export async function getEquipmentResponsibilityData(
       include: {
         equipment: { select: { id: true, name: true, category: true } },
         providerVendor: { select: { id: true, name: true } },
+        providerContact: { select: { id: true, firstName: true, lastName: true } },
         audioSection: {
           select: {
             avOrder: {
@@ -181,7 +191,8 @@ export async function getEquipmentResponsibilityData(
   const normalized: NormalizedItem[] = [];
 
   for (const item of equipmentItems) {
-    const attribution = item.providerVendor;
+    const attrVendor = item.providerVendor;
+    const attrContact = item.providerContact;
     let orderId: string;
     let orderName: string;
     let modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
@@ -218,8 +229,10 @@ export async function getEquipmentResponsibilityData(
       equipmentKey: item.equipmentId ?? `item:${item.item.toLowerCase()}`,
       itemName: item.equipment?.name ?? item.item,
       category: item.equipment?.category ?? null,
-      attributionVendorId: attribution?.id ?? null,
-      attributionVendorName: attribution?.name ?? null,
+      attributionVendorId: attrVendor?.id ?? null,
+      attributionVendorName: attrVendor?.name ?? null,
+      attributionContactId: attrVendor ? null : (attrContact?.id ?? null),
+      attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: item.quantity ?? 1,
       orderId,
       orderName,
@@ -230,13 +243,17 @@ export async function getEquipmentResponsibilityData(
 
   for (const item of inputItems) {
     const avOrder = item.inputGroup.audioSection.avOrder;
+    const attrVendor = item.providerVendor;
+    const attrContact = item.providerContact;
     normalized.push({
       equipmentId: item.equipmentId,
       equipmentKey: item.equipmentId ?? `item:${item.description.toLowerCase()}`,
       itemName: item.equipment?.name ?? item.description,
       category: item.equipment?.category ?? null,
-      attributionVendorId: item.providerVendor?.id ?? null,
-      attributionVendorName: item.providerVendor?.name ?? null,
+      attributionVendorId: attrVendor?.id ?? null,
+      attributionVendorName: attrVendor?.name ?? null,
+      attributionContactId: attrVendor ? null : (attrContact?.id ?? null),
+      attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: item.quantity,
       orderId: avOrder.id,
       orderName: avOrder.name,
@@ -247,13 +264,17 @@ export async function getEquipmentResponsibilityData(
 
   for (const item of monitorMixes) {
     const avOrder = item.audioSection.avOrder;
+    const attrVendor = item.providerVendor;
+    const attrContact = item.providerContact;
     normalized.push({
       equipmentId: item.equipmentId,
       equipmentKey: item.equipmentId ?? `item:${item.description.toLowerCase()}`,
       itemName: item.equipment?.name ?? item.description,
       category: item.equipment?.category ?? null,
-      attributionVendorId: item.providerVendor?.id ?? null,
-      attributionVendorName: item.providerVendor?.name ?? null,
+      attributionVendorId: attrVendor?.id ?? null,
+      attributionVendorName: attrVendor?.name ?? null,
+      attributionContactId: attrVendor ? null : (attrContact?.id ?? null),
+      attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: 1,
       orderId: avOrder.id,
       orderName: avOrder.name,
@@ -272,44 +293,53 @@ export async function getEquipmentResponsibilityData(
     filtered = filtered.filter((item) => filters.modelTypes!.includes(item.modelType));
   }
 
-  // Group by vendor, then by equipment key within each vendor
-  const vendorMap = new Map<
-    string,
-    {
-      vendorId: string | null;
-      vendorName: string;
-      equipmentMap: Map<
-        string,
-        {
-          equipmentId: string | null;
-          itemName: string;
-          category: string | null;
-          sources: { quantity: number; windows: { start: Date; end: Date }[]; source: EquipmentSourceRef }[];
-        }
-      >;
-    }
-  >();
+  type PartyBucket = {
+    partyType: "vendor" | "contact" | "unassigned";
+    partyId: string | null;
+    partyName: string;
+    equipmentMap: Map<
+      string,
+      {
+        equipmentId: string | null;
+        itemName: string;
+        category: string | null;
+        sources: { quantity: number; windows: { start: Date; end: Date }[]; source: EquipmentSourceRef }[];
+      }
+    >;
+  };
+
+  const partyMap = new Map<string, PartyBucket>();
 
   for (const item of filtered) {
-    const vendorKey = item.attributionVendorId ?? "__unassigned__";
-    if (!vendorMap.has(vendorKey)) {
-      vendorMap.set(vendorKey, {
-        vendorId: item.attributionVendorId,
-        vendorName: item.attributionVendorName ?? "Unassigned",
-        equipmentMap: new Map(),
-      });
-    }
-    const vendor = vendorMap.get(vendorKey)!;
+    let partyKey: string;
+    let bucket: Omit<PartyBucket, "equipmentMap">;
 
-    if (!vendor.equipmentMap.has(item.equipmentKey)) {
-      vendor.equipmentMap.set(item.equipmentKey, {
+    if (item.attributionVendorId) {
+      partyKey = `vendor:${item.attributionVendorId}`;
+      bucket = { partyType: "vendor", partyId: item.attributionVendorId, partyName: item.attributionVendorName! };
+    } else if (item.attributionContactId) {
+      partyKey = `contact:${item.attributionContactId}`;
+      bucket = { partyType: "contact", partyId: item.attributionContactId, partyName: item.attributionContactName! };
+    } else {
+      partyKey = "__unassigned__";
+      bucket = { partyType: "unassigned", partyId: null, partyName: "Unassigned" };
+    }
+
+    let party = partyMap.get(partyKey);
+    if (!party) {
+      party = { ...bucket, equipmentMap: new Map() };
+      partyMap.set(partyKey, party);
+    }
+
+    if (!party.equipmentMap.has(item.equipmentKey)) {
+      party.equipmentMap.set(item.equipmentKey, {
         equipmentId: item.equipmentId,
         itemName: item.itemName,
         category: item.category,
         sources: [],
       });
     }
-    vendor.equipmentMap.get(item.equipmentKey)!.sources.push({
+    party.equipmentMap.get(item.equipmentKey)!.sources.push({
       quantity: item.quantity,
       windows: item.scheduleWindows,
       source: {
@@ -322,11 +352,11 @@ export async function getEquipmentResponsibilityData(
     });
   }
 
-  const groups: VendorEquipmentGroup[] = [];
-  for (const vendorData of Array.from(vendorMap.values())) {
+  const groups: ResponsiblePartyGroup[] = [];
+  for (const partyData of Array.from(partyMap.values())) {
     const rows: EquipmentReportRow[] = [];
 
-    for (const eqData of Array.from(vendorData.equipmentMap.values())) {
+    for (const eqData of Array.from(partyData.equipmentMap.values())) {
       const totalQuantity = eqData.sources.reduce((sum, s) => sum + s.quantity, 0);
       const { peak, isExact } = calculatePeak(
         eqData.sources.map((s) => ({ quantity: s.quantity, windows: s.windows }))
@@ -352,14 +382,17 @@ export async function getEquipmentResponsibilityData(
       return a.itemName.localeCompare(b.itemName);
     });
 
-    groups.push({ vendorId: vendorData.vendorId, vendorName: vendorData.vendorName, rows });
+    groups.push({ partyType: partyData.partyType, partyId: partyData.partyId, partyName: partyData.partyName, rows });
   }
 
-  // Named vendors sorted alphabetically; Unassigned last
+  // Named vendors alphabetically → named contacts alphabetically → Unassigned last
   groups.sort((a, b) => {
-    if (a.vendorId === null) return 1;
-    if (b.vendorId === null) return -1;
-    return a.vendorName.localeCompare(b.vendorName);
+    if (a.partyType === "unassigned") return 1;
+    if (b.partyType === "unassigned") return -1;
+    if (a.partyType !== b.partyType) {
+      return a.partyType === "vendor" ? -1 : 1;
+    }
+    return a.partyName.localeCompare(b.partyName);
   });
 
   return groups;

@@ -37,6 +37,7 @@ export async function createOption(category: OptionCategory, formData: FormData)
   const label = formData.get("label") as string;
   const color = formData.get("color") as string;
   const group = formData.get("group") as string | null;
+  const models = formData.getAll("models") as string[];
 
   const maxOrder = await prisma.customOption.findFirst({
     where: { category },
@@ -50,6 +51,7 @@ export async function createOption(category: OptionCategory, formData: FormData)
       label,
       color: color || null,
       group: group || null,
+      models,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
@@ -62,6 +64,7 @@ export async function updateOption(id: string, formData: FormData) {
   const label = formData.get("label") as string;
   const color = formData.get("color") as string;
   const group = formData.get("group") as string | null;
+  const models = formData.getAll("models") as string[];
 
   await prisma.customOption.update({
     where: { id },
@@ -69,6 +72,7 @@ export async function updateOption(id: string, formData: FormData) {
       label,
       color: color || null,
       group: group || null,
+      models,
     },
   });
 

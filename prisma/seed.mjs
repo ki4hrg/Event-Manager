@@ -49,12 +49,12 @@ const defaultPresentationTypes = [
 
 const defaultEquipmentCategories = [
   { label: "AV", sortOrder: 0 },
-  { label: "Tables", isSystem: true, sortOrder: 1 },
-  { label: "Chairs", isSystem: true, sortOrder: 2 },
+  { label: "Tables", isSystem: true, sortOrder: 1, models: ["SETUP_ORDER"] },
+  { label: "Chairs", isSystem: true, sortOrder: 2, models: ["SETUP_ORDER"] },
   { label: "Staging", sortOrder: 3 },
   { label: "Signage", sortOrder: 4 },
-  { label: "Audio Inputs", isSystem: true, sortOrder: 5 },
-  { label: "Audio Outputs", isSystem: true, sortOrder: 6 },
+  { label: "Audio Inputs", isSystem: true, sortOrder: 5, models: ["AV_ORDER"] },
+  { label: "Audio Outputs", isSystem: true, sortOrder: 6, models: ["AV_ORDER"] },
 ];
 
 const defaultSubstatuses = [

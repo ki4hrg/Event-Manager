@@ -1,4 +1,5 @@
-import type { VendorEquipmentGroup, EquipmentReportRow, EquipmentSourceRef } from "@/app/events/reports/actions";
+import type { ResponsiblePartyGroup, EquipmentReportRow, EquipmentSourceRef } from "@/app/events/reports/actions";
+import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { MODEL_LABELS } from "@/app/vendors/model-types";
 
 function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
@@ -25,15 +26,18 @@ function PeakCell({ row }: { row: EquipmentReportRow }) {
   return <span>{row.peakNeeded}</span>;
 }
 
-function VendorCard({ group }: { group: VendorEquipmentGroup }) {
+function PartyCard({ group }: { group: ResponsiblePartyGroup }) {
   const hasUnscheduled = group.rows.some((r) => r.sources.some((s) => !s.isScheduled));
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden print:break-inside-avoid">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-          {group.vendorName}
+          {group.partyName}
         </h2>
+        {group.partyType === "contact" && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Contact</p>
+        )}
       </div>
 
       {group.rows.length === 0 ? (
@@ -89,7 +93,7 @@ function VendorCard({ group }: { group: VendorEquipmentGroup }) {
 }
 
 type EquipmentResponsibilityReportProps = {
-  groups: VendorEquipmentGroup[];
+  groups: ResponsiblePartyGroup[];
 };
 
 export function EquipmentResponsibilityReport({ groups }: EquipmentResponsibilityReportProps) {
@@ -104,7 +108,7 @@ export function EquipmentResponsibilityReport({ groups }: EquipmentResponsibilit
   return (
     <div className="space-y-6">
       {groups.map((group) => (
-        <VendorCard key={group.vendorId ?? "__unassigned__"} group={group} />
+        <PartyCard key={partyGroupKey(group)} group={group} />
       ))}
     </div>
   );

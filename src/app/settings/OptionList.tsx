@@ -4,6 +4,29 @@ import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import type { OptionCategory } from "./actions";
+import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
+
+function ModelTypesCheckboxGroup({ defaultValues }: { defaultValues?: string[] }) {
+  return (
+    <div>
+      <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Order Types</label>
+      <div className="flex flex-wrap gap-3">
+        {MODEL_TYPES.map((type) => (
+          <label key={type.value} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              name="models"
+              value={type.value}
+              defaultChecked={defaultValues?.includes(type.value)}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            {type.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 import {
   DndContext,
   closestCenter,
@@ -26,6 +49,7 @@ type OptionListProps = {
   category: OptionCategory;
   options: CustomOption[];
   showColor?: boolean;
+  showModels?: boolean;
   createOption: (formData: FormData) => Promise<void>;
   updateOption: (id: string, formData: FormData) => Promise<void>;
   deleteOption: (id: string) => Promise<void>;
@@ -113,6 +137,7 @@ function SortableOptionRow({
   reordering,
   editingId,
   showColor,
+  showModels,
   setEditingId,
   updateOption,
   deleteOption,
@@ -121,6 +146,7 @@ function SortableOptionRow({
   reordering: boolean;
   editingId: string | null;
   showColor: boolean;
+  showModels: boolean;
   setEditingId: (id: string | null) => void;
   updateOption: (id: string, formData: FormData) => Promise<void>;
   deleteOption: (id: string) => Promise<void>;
@@ -166,6 +192,7 @@ function SortableOptionRow({
               <ColorPicker name="color" defaultValue={option.color || ""} />
             </div>
           )}
+          {showModels && <ModelTypesCheckboxGroup defaultValues={option.models} />}
           <div className="flex gap-2">
             <SubmitButton label="Save" />
             <button
@@ -208,6 +235,11 @@ function SortableOptionRow({
             <span className="font-medium text-gray-900 dark:text-white">
               {option.label}
             </span>
+            {showModels && option.models.length > 0 && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                ({option.models.map((m) => MODEL_LABELS[m] ?? m).join(", ")})
+              </span>
+            )}
           </div>
           {!reordering && (
             <div className="flex items-center gap-2">
@@ -243,6 +275,7 @@ export function OptionList({
   category,
   options,
   showColor = false,
+  showModels = false,
   createOption,
   updateOption,
   deleteOption,
@@ -342,6 +375,7 @@ export function OptionList({
                 <ColorPicker name="color" />
               </div>
             )}
+            {showModels && <ModelTypesCheckboxGroup />}
           </div>
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Add" />
@@ -378,6 +412,7 @@ export function OptionList({
                   reordering={reordering}
                   editingId={editingId}
                   showColor={showColor}
+                  showModels={showModels}
                   setEditingId={setEditingId}
                   updateOption={updateOption}
                   deleteOption={deleteOption}

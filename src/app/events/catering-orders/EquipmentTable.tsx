@@ -20,6 +20,7 @@ type EquipmentTableProps = {
   contactOptions?: ContactOptions;
   contactsLabel?: string;
   equipmentOptions: Equipment[];
+  allEquipmentOptions?: Equipment[];
   equipmentCategories: CustomOption[];
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
@@ -100,6 +101,7 @@ export function EquipmentTable({
   contactOptions,
   contactsLabel,
   equipmentOptions,
+  allEquipmentOptions,
   equipmentCategories,
   createItem,
   updateItem,
@@ -108,6 +110,10 @@ export function EquipmentTable({
 }: EquipmentTableProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const hasFilter = !!allEquipmentOptions;
+  const activeEquipmentOptions = hasFilter && showAll ? allEquipmentOptions! : equipmentOptions;
 
   const handleCreate = async (formData: FormData) => {
     await createItem(formData);
@@ -123,12 +129,25 @@ export function EquipmentTable({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Equipment</h2>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Item
-        </button>
+        <div className="flex items-center gap-3">
+          {hasFilter && (
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              Show all equipment
+            </label>
+          )}
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Item
+          </button>
+        </div>
       </div>
 
       {showAddForm && (
@@ -136,7 +155,7 @@ export function EquipmentTable({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
-              <EquipmentSelect equipmentOptions={equipmentOptions} equipmentCategories={equipmentCategories} />
+              <EquipmentSelect equipmentOptions={activeEquipmentOptions} equipmentCategories={equipmentCategories} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
@@ -213,7 +232,7 @@ export function EquipmentTable({
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
                       <EquipmentSelect
-                        equipmentOptions={equipmentOptions}
+                        equipmentOptions={activeEquipmentOptions}
                         equipmentCategories={equipmentCategories}
                         defaultValue={item.equipmentId ?? undefined}
                       />

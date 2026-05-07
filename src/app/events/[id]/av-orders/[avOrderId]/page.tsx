@@ -111,22 +111,40 @@ export default async function AVOrderPage({
     ]);
   }
 
+  const avEquipmentCategoryLabels = new Set(
+    equipmentCategories.filter((c) => c.models.includes("AV_ORDER")).map((c) => c.label)
+  );
+  const hasAvEquipmentFilter = avEquipmentCategoryLabels.size > 0;
+  const filteredEquipmentOptions = hasAvEquipmentFilter
+    ? equipmentOptions.filter((e) => avEquipmentCategoryLabels.has(e.category))
+    : equipmentOptions;
+
   let partyOptions: Awaited<ReturnType<typeof getAVOrderPartyOptions>> = { vendors: [], contacts: [] };
+  let tabResponsiblePartyVendors: Awaited<ReturnType<typeof getResponsiblePartyVendors>> = { vendors: [], venueVendor: null, systemVendor: null };
   let audioEquipmentItems: Awaited<ReturnType<typeof prisma.equipment.findMany>> = [];
   if (activeTab === "audio") {
-    [partyOptions, audioEquipmentItems] = await Promise.all([
+    const avCategories = await prisma.customOption.findMany({
+      where: { category: "equipment_category", models: { has: "AV_ORDER" } },
+      select: { label: true },
+    });
+    const avCategoryLabels = avCategories.map((c) => c.label);
+    [partyOptions, tabResponsiblePartyVendors, audioEquipmentItems] = await Promise.all([
       getAVOrderPartyOptions(avOrderId, eventId),
+      getResponsiblePartyVendors(eventId, "AV_ORDER"),
       prisma.equipment.findMany({
-        where: { category: { in: ["AUDIO_INPUTS", "AUDIO_OUTPUTS"] } },
+        where: { category: { in: avCategoryLabels } },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
       }),
     ]);
   } else if (activeTab === "video") {
-    partyOptions = await getAVOrderPartyOptions(avOrderId, eventId);
+    [partyOptions, tabResponsiblePartyVendors] = await Promise.all([
+      getAVOrderPartyOptions(avOrderId, eventId),
+      getResponsiblePartyVendors(eventId, "AV_ORDER"),
+    ]);
   }
 
-  const audioInputOptions = audioEquipmentItems.filter((e) => e.category === "AUDIO_INPUTS");
-  const audioOutputOptions = audioEquipmentItems.filter((e) => e.category === "AUDIO_OUTPUTS");
+  const audioInputOptions = audioEquipmentItems.filter((e) => e.category === "Audio Inputs");
+  const audioOutputOptions = audioEquipmentItems.filter((e) => e.category === "Audio Outputs");
 
   // ---- Server action closures ----
 
@@ -450,7 +468,8 @@ export default async function AVOrderPage({
               partyVendors={flattenResponsiblePartyOptions(responsiblePartyVendors)}
               contactOptions={overviewPartyOptions.contacts}
               contactsLabel="Presenters"
-              equipmentOptions={equipmentOptions}
+              equipmentOptions={filteredEquipmentOptions}
+              allEquipmentOptions={hasAvEquipmentFilter ? equipmentOptions : undefined}
               equipmentCategories={equipmentCategories}
               createItem={createAVEquipmentAction}
               updateItem={updateAVEquipmentAction}
@@ -466,7 +485,7 @@ export default async function AVOrderPage({
           audioSection={avOrder.audioSection}
           audioInputOptions={audioInputOptions}
           audioOutputOptions={audioOutputOptions}
-          vendorOptions={partyOptions.vendors}
+          vendorOptions={flattenResponsiblePartyOptions(tabResponsiblePartyVendors)}
           contactOptions={partyOptions.contacts}
           updateSection={updateAudioSectionAction}
           createInputGroup={createInputGroupAction}
@@ -484,7 +503,7 @@ export default async function AVOrderPage({
       {activeTab === "video" && avOrder.videoSection && (
         <VideoSectionPanel
           videoSection={avOrder.videoSection}
-          vendorOptions={partyOptions.vendors}
+          vendorOptions={flattenResponsiblePartyOptions(tabResponsiblePartyVendors)}
           contactOptions={partyOptions.contacts}
           updateSection={updateVideoSectionAction}
           createItem={createVideoItemAction}
