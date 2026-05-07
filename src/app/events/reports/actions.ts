@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import type { ModelType } from "@/app/vendors/actions";
 
 export type EquipmentReportFilters = {
   vendorIds?: string[];
@@ -396,4 +397,134 @@ export async function getEquipmentResponsibilityData(
   });
 
   return groups;
+}
+
+export async function getOrderAssignedVendors(eventId: string) {
+  const vendors = await prisma.vendor.findMany({
+    where: {
+      OR: [
+        { cateringOrderVendors: { some: { cateringOrder: { eventId } } } },
+        { avOrderVendors: { some: { avOrder: { eventId } } } },
+        { setupOrderVendors: { some: { setupOrder: { eventId } } } },
+      ],
+    },
+    select: { id: true, name: true },
+    distinct: ["id"],
+    orderBy: { name: "asc" },
+  });
+  return vendors;
+}
+
+const partySelect = {
+  providerVendor: { select: { id: true, name: true } },
+  providerContact: { select: { id: true, firstName: true, lastName: true } },
+  operatorVendor: { select: { id: true, name: true } },
+  operatorContact: { select: { id: true, firstName: true, lastName: true } },
+} as const;
+
+const equipmentItemInclude = {
+  equipment: { select: { id: true, name: true, category: true } },
+  ...partySelect,
+} as const;
+
+const functionInclude = {
+  schedules: { orderBy: { sortOrder: "asc" as const } },
+  rooms: { include: { room: { select: { id: true, name: true } } } },
+} as const;
+
+export async function getVendorHandoffData(eventId: string, vendorId: string) {
+  const [vendor, cateringOrders, avOrders, setupOrders] = await Promise.all([
+    prisma.vendor.findUnique({
+      where: { id: vendorId },
+      include: {
+        contacts: {
+          include: {
+            contact: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+          },
+          orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+        },
+      },
+    }),
+    prisma.cateringOrder.findMany({
+      where: { eventId, vendors: { some: { vendorId } } },
+      include: {
+        function: { include: functionInclude },
+        timelineItems: { orderBy: { sortOrder: "asc" } },
+        menuSections: {
+          include: { responsiblePartyVendor: { select: { id: true, name: true } } },
+          orderBy: { sortOrder: "asc" },
+        },
+        equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.aVOrder.findMany({
+      where: { eventId, vendors: { some: { vendorId } } },
+      include: {
+        functions: { include: functionInclude },
+        audioSection: {
+          include: {
+            inputGroups: {
+              include: {
+                ...partySelect,
+                inputItems: {
+                  include: {
+                    equipment: { select: { id: true, name: true } },
+                    ...partySelect,
+                  },
+                  orderBy: { sortOrder: "asc" },
+                },
+              },
+              orderBy: { sortOrder: "asc" },
+            },
+            monitorMixes: {
+              include: {
+                equipment: { select: { id: true, name: true } },
+                ...partySelect,
+              },
+              orderBy: { sortOrder: "asc" },
+            },
+          },
+        },
+        videoSection: {
+          include: {
+            equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+          },
+        },
+        equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.setupOrder.findMany({
+      where: { eventId, vendors: { some: { vendorId } } },
+      include: {
+        room: { select: { id: true, name: true } },
+        functions: { include: functionInclude },
+        tables: { orderBy: { sortOrder: "asc" } },
+        equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+
+  if (!vendor) return null;
+
+  const relevantModelTypes: ModelType[] = [
+    ...(cateringOrders.length > 0 ? (["CATERING_ORDER"] as const) : []),
+    ...(avOrders.length > 0 ? (["AV_ORDER"] as const) : []),
+    ...(setupOrders.length > 0 ? (["SETUP_ORDER"] as const) : []),
+  ];
+
+  const keyStaff =
+    relevantModelTypes.length > 0
+      ? await prisma.eventKeyStaff.findMany({
+          where: { eventId, models: { hasSome: relevantModelTypes } },
+          include: {
+            contact: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+          },
+          orderBy: { sortOrder: "asc" },
+        })
+      : [];
+
+  return { vendor, cateringOrders, avOrders, setupOrders, keyStaff };
 }

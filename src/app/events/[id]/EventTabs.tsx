@@ -41,6 +41,7 @@ const tabs: TabItem[] = [
     label: "Reports",
     children: [
       { label: "Equipment Responsibility", segment: "reports/equipment-responsibility" },
+      { label: "Vendor Handoff", segment: "reports/vendor-handoff" },
     ],
   },
 ];
