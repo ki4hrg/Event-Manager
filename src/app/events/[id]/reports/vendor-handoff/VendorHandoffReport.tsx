@@ -4,6 +4,7 @@ import { formatTime } from "@/lib/agendaUtils";
 
 type HandoffData = NonNullable<Awaited<ReturnType<typeof getVendorHandoffData>>>;
 type Event = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
+type AudioInputItem = NonNullable<HandoffData["avOrders"][number]["audioSection"]>["inputGroups"][number]["inputItems"][number];
 
 type EquipmentItem = {
   id: string;
@@ -29,6 +30,42 @@ function partyName(
   if (vendor) return vendor.name;
   if (contact) return `${contact.firstName} ${contact.lastName}`;
   return "—";
+}
+
+function rollUpInputItems(items: AudioInputItem[]) {
+  const map = new Map<string, {
+    displayName: string;
+    quantity: number;
+    providerVendor: AudioInputItem["providerVendor"];
+    providerContact: AudioInputItem["providerContact"];
+    operatorVendor: AudioInputItem["operatorVendor"];
+    operatorContact: AudioInputItem["operatorContact"];
+    notes: Set<string>;
+  }>();
+
+  for (const item of items) {
+    const displayName = item.equipment?.name ?? item.description;
+    const providerKey = item.providerVendor?.id ?? item.providerContact?.id ?? "";
+    const operatorKey = item.operatorVendor?.id ?? item.operatorContact?.id ?? "";
+    const key = `${displayName}\0${providerKey}\0${operatorKey}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.quantity += item.quantity;
+      if (item.notes) existing.notes.add(item.notes);
+    } else {
+      map.set(key, {
+        displayName,
+        quantity: item.quantity,
+        providerVendor: item.providerVendor,
+        providerContact: item.providerContact,
+        operatorVendor: item.operatorVendor,
+        operatorContact: item.operatorContact,
+        notes: new Set(item.notes ? [item.notes] : []),
+      });
+    }
+  }
+
+  return Array.from(map.values()).map((row) => ({ ...row, notes: Array.from(row.notes).join("; ") }));
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -366,13 +403,13 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {group.inputItems.map((item) => (
-                      <tr key={item.id}>
-                        <td className={td}>{item.equipment?.name ?? item.description}</td>
-                        <td className={td}>{item.quantity}</td>
-                        <td className={td}>{partyName(item.providerVendor, item.providerContact)}</td>
-                        <td className={td}>{partyName(item.operatorVendor, item.operatorContact)}</td>
-                        <td className={td}>{item.notes ?? ""}</td>
+                    {rollUpInputItems(group.inputItems).map((row, i) => (
+                      <tr key={i}>
+                        <td className={td}>{row.displayName}</td>
+                        <td className={td}>{row.quantity}</td>
+                        <td className={td}>{partyName(row.providerVendor, row.providerContact)}</td>
+                        <td className={td}>{partyName(row.operatorVendor, row.operatorContact)}</td>
+                        <td className={td}>{row.notes}</td>
                       </tr>
                     ))}
                   </tbody>
