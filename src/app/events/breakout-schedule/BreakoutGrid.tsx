@@ -395,24 +395,24 @@ function PresentationManager({
           ].filter((g) => g.items.length > 0).map(({ label, items }) => (
             <div key={label} className="mb-2">
               <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">{label}</div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
                 {items.map((p) => {
                   const placedCount = p.slots.length;
                   const fullyPlaced = placedCount >= p.instanceCount;
                   return (
                     <div
                       key={p.id}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-700 dark:text-gray-300"
+                      className="flex items-start gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-700 dark:text-gray-300"
                     >
                       {p.track && (
                         <span
-                          className="w-1.5 h-1.5 rounded-full shrink-0"
+                          className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5"
                           style={{ backgroundColor: p.track.color || "#9ca3af" }}
                         />
                       )}
                       <Link
                         href={`/events/${eventId}/presentations/${p.id}`}
-                        className="text-blue-600 hover:underline max-w-[120px] truncate"
+                        className="text-blue-600 hover:underline grow"
                       >
                         {p.title}
                       </Link>
