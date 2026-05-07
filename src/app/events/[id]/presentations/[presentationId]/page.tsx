@@ -374,7 +374,7 @@ export default async function PresentationPage({
             setupOrder={presentation.setupOrder}
             eventId={eventId}
             availableSetupOrders={availableSetupOrders}
-            newSetupOrderPath={`/events/${eventId}/setup-orders/new`}
+            newSetupOrderPath={`/events/${eventId}/setup-orders/new?presentationId=${presentationId}`}
             linkSetupOrder={linkSetupOrderAction}
             unlinkSetupOrder={unlinkSetupOrderAction}
           />

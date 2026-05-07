@@ -14,6 +14,8 @@ type AVOrderFormProps = {
   availablePresentations?: { id: string; label: string }[];
   defaultFunctionId?: string;
   defaultPresentationId?: string;
+  defaultName?: string;
+  cancelPath?: string;
   vendorLink?: VendorLinkEditProps;
   availableVendors?: AvailableVendor[];
   noCard?: boolean;
@@ -74,6 +76,8 @@ export function AVOrderForm({
   availablePresentations,
   defaultFunctionId,
   defaultPresentationId,
+  defaultName,
+  cancelPath,
   vendorLink,
   availableVendors = [],
   noCard = false,
@@ -132,7 +136,7 @@ export function AVOrderForm({
               id="name"
               name="name"
               required
-              defaultValue={avOrder?.name}
+              defaultValue={avOrder?.name ?? defaultName ?? ""}
               placeholder="e.g., Main Stage AV, Breakout Room 1 AV"
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -193,7 +197,7 @@ export function AVOrderForm({
           </button>
         ) : (
           <a
-            href={`/events/${eventId}/av-orders`}
+            href={cancelPath ?? `/events/${eventId}/av-orders`}
             className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel

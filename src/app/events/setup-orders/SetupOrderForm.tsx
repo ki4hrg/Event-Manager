@@ -26,6 +26,8 @@ type SetupOrderFormProps = {
   functions?: { id: string; name: string; roomIds: string[] }[];
   initialRoomId?: string;
   initialFunctionId?: string;
+  defaultName?: string;
+  cancelPath?: string;
   noCard?: boolean;
 };
 
@@ -53,6 +55,8 @@ export function SetupOrderForm({
   functions = [],
   initialRoomId,
   initialFunctionId,
+  defaultName,
+  cancelPath,
   noCard = false,
 }: SetupOrderFormProps) {
   const isEdit = !!setupOrder;
@@ -112,7 +116,7 @@ export function SetupOrderForm({
               type="text"
               name="name"
               required
-              defaultValue={setupOrder?.name ?? ""}
+              defaultValue={setupOrder?.name ?? defaultName ?? ""}
               placeholder="e.g. Ballroom Banquet Setup"
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -229,7 +233,7 @@ export function SetupOrderForm({
           </button>
         ) : (
           <a
-            href={`/events/${eventId}/setup-orders`}
+            href={cancelPath ?? `/events/${eventId}/setup-orders`}
             className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel

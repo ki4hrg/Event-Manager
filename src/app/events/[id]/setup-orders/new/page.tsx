@@ -15,10 +15,10 @@ export default async function NewSetupOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ functionId?: string; roomId?: string }>;
+  searchParams: Promise<{ functionId?: string; roomId?: string; presentationId?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { functionId, roomId } = await searchParams;
+  const { functionId, roomId, presentationId } = await searchParams;
 
   const [event, setupTypes] = await Promise.all([
     getEvent(eventId),
@@ -29,7 +29,7 @@ export default async function NewSetupOrderPage({
     notFound();
   }
 
-  const [venueRooms, eventFunctions, eventVendors] = await Promise.all([
+  const [venueRooms, eventFunctions, eventVendors, sourcePresentation] = await Promise.all([
     event.venueId
       ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
@@ -39,6 +39,9 @@ export default async function NewSetupOrderPage({
       orderBy: { name: "asc" },
     }),
     searchAssignedEventVendors("", eventId, "SETUP_ORDER"),
+    presentationId
+      ? prisma.presentation.findUnique({ where: { id: presentationId }, select: { title: true } })
+      : Promise.resolve(null),
   ]);
 
   // If a functionId is provided, infer the roomId from that function's first room
@@ -47,6 +50,10 @@ export default async function NewSetupOrderPage({
     const fn = eventFunctions.find((f) => f.id === functionId);
     initialRoomId = fn?.rooms[0]?.roomId;
   }
+
+  const cancelPath = presentationId
+    ? `/events/${eventId}/presentations/${presentationId}`
+    : `/events/${eventId}/setup-orders`;
 
   const createSetupOrderAction = async (formData: FormData) => {
     "use server";
@@ -57,10 +64,10 @@ export default async function NewSetupOrderPage({
     <PageWrapper>
       <div className="mb-6">
         <Link
-          href={`/events/${eventId}/setup-orders`}
+          href={cancelPath}
           className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
         >
-          &larr; Back to Setup Orders
+          &larr; {presentationId ? "Back to Presentation" : "Back to Setup Orders"}
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           New Setup Order
@@ -79,6 +86,8 @@ export default async function NewSetupOrderPage({
         }))}
         initialRoomId={initialRoomId}
         initialFunctionId={functionId}
+        defaultName={sourcePresentation?.title}
+        cancelPath={cancelPath}
         availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
       />
     </PageWrapper>
