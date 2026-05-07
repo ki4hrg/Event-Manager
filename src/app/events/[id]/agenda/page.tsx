@@ -46,18 +46,6 @@ export default async function AgendaPage({
   const scheduleTypeAttrs = new Map(scheduleTypes.map((t) => [t.label, { label: t.label, color: t.color }]));
   const agendaData = buildAgendaData(functions, rooms, timezone, scheduleTypeAttrs);
 
-  // TEMP DEBUG — remove after diagnosing column misalignment bug
-  console.log("[AGENDA DEBUG] rooms:", rooms.map((r) => `${r.name}=${r.id.slice(0, 8)}`));
-  for (const day of agendaData.days) {
-    Array.from(day.cells.entries()).forEach(([roomId, slotMap]) => {
-      const hasEntries = Array.from(slotMap.values()).some((entries) => entries.length > 0);
-      if (!hasEntries) return;
-      const roomName = rooms.find((r) => r.id === roomId)?.name ?? `offsite/${roomId.slice(0, 8)}`;
-      const entryNames = Array.from(new Set(Array.from(slotMap.values()).flat().map((e) => e.functionName)));
-      console.log(`[AGENDA DEBUG] day=${day.dateKey} room=${roomName}: ${entryNames.join(", ")}`);
-    });
-  }
-
   const activeDate =
     date && agendaData.days.some((d) => d.dateKey === date)
       ? date

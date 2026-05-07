@@ -425,6 +425,22 @@ function DayGrid({
         : rowData.length - 1;
       sliceStart = firstIdx;
       rowData = rowData.slice(firstIdx, lastIdx + 1);
+
+      // Orphaned skip cells (rowspan origin sliced away) return null in React,
+      // shifting subsequent columns left — convert them to empty cells instead.
+      if (firstIdx > 0) {
+        const openedRooms = new Set<string>();
+        for (const row of rowData) {
+          for (let ci = 0; ci < row.cells.length; ci++) {
+            const cell = row.cells[ci];
+            if (cell.type === "entries") {
+              openedRooms.add(visibleRooms[ci].id);
+            } else if (cell.type === "skip" && !openedRooms.has(visibleRooms[ci].id)) {
+              row.cells[ci] = { type: "empty", slotTime: row.slotTime };
+            }
+          }
+        }
+      }
     }
   }
 
