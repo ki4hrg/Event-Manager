@@ -35,6 +35,12 @@ import {
   unlinkAVOrderFromPresentationPage,
 } from "../../../av-orders/actions";
 import {
+  getAvailableSetupOrdersForPresentation,
+  linkSetupOrderToPresentationFromPresentation,
+  unlinkSetupOrderFromPresentationPage,
+} from "../../../setup-orders/actions";
+import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
+import {
   assignPresentationToBlock,
   assignPresentationToGroup,
   removeAllBreakoutAssignments,
@@ -71,7 +77,7 @@ export default async function PresentationPage({
     notFound();
   }
 
-  const [breakoutGroups, availableAVOrders, mediaItemPartyOptions] = await Promise.all([
+  const [breakoutGroups, availableAVOrders, availableSetupOrders, mediaItemPartyOptions] = await Promise.all([
     prisma.breakoutGroup.findMany({
       where: { eventId },
       select: {
@@ -99,6 +105,9 @@ export default async function PresentationPage({
     presentation.avOrder
       ? Promise.resolve([])
       : getAvailableAVOrdersForPresentation(eventId),
+    presentation.setupOrder
+      ? Promise.resolve([])
+      : getAvailableSetupOrdersForPresentation(eventId),
     getMediaItemPartyOptions(presentationId, eventId),
   ]);
 
@@ -157,6 +166,16 @@ export default async function PresentationPage({
   const unlinkAVOrderAction = async () => {
     "use server";
     await unlinkAVOrderFromPresentationPage(presentationId, eventId);
+  };
+
+  const linkSetupOrderAction = async (setupOrderId: string) => {
+    "use server";
+    await linkSetupOrderToPresentationFromPresentation(setupOrderId, presentationId, eventId);
+  };
+
+  const unlinkSetupOrderAction = async () => {
+    "use server";
+    await unlinkSetupOrderFromPresentationPage(presentationId, eventId);
   };
 
   const addSlotAction = async (functionId: string, roomId: string | null) => {
@@ -350,6 +369,14 @@ export default async function PresentationPage({
             newAVOrderPath={`/events/${eventId}/av-orders/new?presentationId=${presentationId}`}
             linkAVOrder={linkAVOrderAction}
             unlinkAVOrder={unlinkAVOrderAction}
+          />
+          <SetupOrderPanel
+            setupOrder={presentation.setupOrder}
+            eventId={eventId}
+            availableSetupOrders={availableSetupOrders}
+            newSetupOrderPath={`/events/${eventId}/setup-orders/new`}
+            linkSetupOrder={linkSetupOrderAction}
+            unlinkSetupOrder={unlinkSetupOrderAction}
           />
           <MediaItemsPanel
             mediaItems={presentation.mediaItems}

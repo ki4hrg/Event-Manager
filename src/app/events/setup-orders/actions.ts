@@ -26,6 +26,7 @@ export async function getSetupOrder(id: string) {
     include: {
       room: true,
       functions: { include: { schedules: { orderBy: { startTime: "asc" } } }, orderBy: { name: "asc" } },
+      presentation: { select: { id: true, title: true, eventId: true } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { include: { equipment: true, providerVendor: true, providerContact: true, operatorVendor: true, operatorContact: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
     },
@@ -173,6 +174,45 @@ export async function linkSetupOrderToFunctionFromFunction(
 export async function unlinkSetupOrderFromFunctionPage(functionId: string, eventId: string) {
   await prisma.function.update({ where: { id: functionId }, data: { setupOrderId: null } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
+// Link/unlink from Setup Order detail page (Presentation)
+export async function linkSetupOrderToPresentation(setupOrderId: string, presentationId: string, eventId: string) {
+  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { presentationId } });
+  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function unlinkSetupOrderFromPresentation(setupOrderId: string, eventId: string) {
+  const setupOrder = await prisma.setupOrder.findUnique({ where: { id: setupOrderId }, select: { presentationId: true } });
+  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { presentationId: null } });
+  revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+  if (setupOrder?.presentationId) {
+    revalidatePath(`/events/${eventId}/presentations/${setupOrder.presentationId}`);
+  }
+}
+
+export async function getAvailableSetupOrdersForPresentation(eventId: string) {
+  return prisma.setupOrder.findMany({
+    where: { eventId, presentationId: null },
+    include: { room: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+// Link/unlink from Presentation detail page
+export async function linkSetupOrderToPresentationFromPresentation(
+  setupOrderId: string,
+  presentationId: string,
+  eventId: string
+) {
+  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { presentationId } });
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function unlinkSetupOrderFromPresentationPage(presentationId: string, eventId: string) {
+  await prisma.setupOrder.updateMany({ where: { presentationId }, data: { presentationId: null } });
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 // SetupTable CRUD

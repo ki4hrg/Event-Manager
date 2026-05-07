@@ -407,6 +407,8 @@ model SetupOrder {
   roomId         String?
   room           Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
   functions      Function[]
+  presentationId String?       @unique
+  presentation   Presentation? @relation(fields: [presentationId], references: [id], onDelete: SetNull)
   notes          String?
   tables         SetupTable[]
   equipmentItems EquipmentItem[]
@@ -571,6 +573,7 @@ model Presentation {
   speakers        PresentationContact[]
   slots           PresentationSlot[]
   avOrder         AVOrder?
+  setupOrder      SetupOrder?
   mediaItems      MediaItem[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
