@@ -7,6 +7,7 @@ import type {
   InputGroup,
   InputItem,
   MonitorMix,
+  MonitorOutput,
   Vendor,
   Contact,
   Equipment,
@@ -39,12 +40,21 @@ type InputGroupFull = InputGroup & {
   inputItems: InputItemFull[];
 };
 
+type MonitorOutputFull = MonitorOutput & {
+  equipment: Equipment | null;
+  providerVendor: Vendor | null;
+  providerContact: Contact | null;
+  operatorVendor: Vendor | null;
+  operatorContact: Contact | null;
+};
+
 type MonitorMixFull = MonitorMix & {
   equipment: Equipment | null;
   providerVendor: Vendor | null;
   providerContact: Contact | null;
   operatorVendor: Vendor | null;
   operatorContact: Contact | null;
+  monitorOutputs: MonitorOutputFull[];
 };
 
 type AudioSectionFull = AudioSection & {
@@ -68,6 +78,9 @@ type AudioSectionPanelProps = {
   createMonitorMix: (formData: FormData) => Promise<void>;
   updateMonitorMix: (id: string, formData: FormData) => Promise<void>;
   deleteMonitorMix: (id: string) => Promise<void>;
+  createMonitorOutput: (monitorMixId: string, formData: FormData) => Promise<void>;
+  updateMonitorOutput: (id: string, formData: FormData) => Promise<void>;
+  deleteMonitorOutput: (id: string) => Promise<void>;
 };
 
 // ============================================================================
@@ -400,60 +413,50 @@ function InputGroupCard({
 }
 
 // ============================================================================
-// MonitorMix row
+// MonitorOutput row (nested under a mix group)
 // ============================================================================
 
-function MonitorMixRow({
-  mix,
+function MonitorOutputRow({
+  output,
   audioOutputOptions,
   vendors,
   contacts,
-  updateMix,
-  deleteMix,
+  updateOutput,
+  deleteOutput,
 }: {
-  mix: MonitorMixFull;
+  output: MonitorOutputFull;
   audioOutputOptions: Equipment[];
   vendors: PartyOptions;
   contacts: ContactOptions;
-  updateMix: (id: string, formData: FormData) => Promise<void>;
-  deleteMix: (id: string) => Promise<void>;
+  updateOutput: (id: string, formData: FormData) => Promise<void>;
+  deleteOutput: (id: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
 
   const effectiveVendors = useMemo(
-    () => mergeAndSortVendors(vendors, [mix.providerVendor, mix.operatorVendor]),
-    [vendors, mix.providerVendor, mix.operatorVendor]
+    () => mergeAndSortVendors(vendors, [output.providerVendor, output.operatorVendor]),
+    [vendors, output.providerVendor, output.operatorVendor]
   );
 
-  const provider = partyLabel(mix.providerVendor, mix.providerContact);
-  const operator = partyLabel(mix.operatorVendor, mix.operatorContact);
+  const provider = partyLabel(output.providerVendor, output.providerContact);
+  const operator = partyLabel(output.operatorVendor, output.operatorContact);
 
   return (
-    <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+    <div className="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
       {editing ? (
         <form
           action={async (fd) => {
-            await updateMix(mix.id, fd);
+            await updateOutput(output.id, fd);
             setEditing(false);
           }}
           className="space-y-2"
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
-              <input
-                type="text"
-                name="description"
-                required
-                defaultValue={mix.description}
-                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-              />
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
               <select
                 name="equipmentId"
-                defaultValue={mix.equipmentId || ""}
+                defaultValue={output.equipmentId || ""}
                 className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
               >
                 <option value="">— None —</option>
@@ -462,15 +465,23 @@ function MonitorMixRow({
                 ))}
               </select>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty</label>
+              <input
+                type="number"
+                name="quantity"
+                min={1}
+                defaultValue={output.quantity}
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+              />
+            </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-              <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={mix.providerVendorId} defaultContactId={mix.providerContactId} />
+              <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={output.providerVendorId} defaultContactId={output.providerContactId} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-              <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={mix.operatorVendorId} defaultContactId={mix.operatorContactId} />
+              <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={output.operatorVendorId} defaultContactId={output.operatorContactId} />
             </div>
           </div>
           <div>
@@ -478,7 +489,7 @@ function MonitorMixRow({
             <input
               type="text"
               name="notes"
-              defaultValue={mix.notes || ""}
+              defaultValue={output.notes || ""}
               className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
             />
           </div>
@@ -488,22 +499,184 @@ function MonitorMixRow({
           </div>
         </form>
       ) : (
-        <div className="flex items-start justify-between">
-          <div className="text-sm">
-            <span className="font-medium text-gray-900 dark:text-white">{mix.description}</span>
-            {mix.equipment && <span className="ml-2 text-gray-500 dark:text-gray-400">({mix.equipment.name})</span>}
+        <div className="flex items-center justify-between text-sm">
+          <div className="text-gray-900 dark:text-white">
+            <span className="text-gray-500 dark:text-gray-400 mr-1">×{output.quantity}</span>
+            <span>{output.equipment?.name ?? <span className="italic text-gray-400">No type</span>}</span>
             {provider && <span className="ml-2 text-gray-500 dark:text-gray-400">Provider: {provider}</span>}
             {operator && <span className="ml-2 text-gray-500 dark:text-gray-400">Op: {operator}</span>}
-            {mix.notes && <span className="ml-2 text-gray-400 dark:text-gray-500">· {mix.notes}</span>}
+            {output.notes && <span className="ml-2 text-gray-400 dark:text-gray-500">· {output.notes}</span>}
           </div>
           <div className="flex gap-2 ml-2 shrink-0">
             <button onClick={() => setEditing(true)} className="text-blue-600 hover:underline text-xs">Edit</button>
             <button
-              onClick={async () => { if (confirm("Delete this monitor mix?")) await deleteMix(mix.id); }}
+              onClick={async () => { if (confirm("Delete this output?")) await deleteOutput(output.id); }}
               className="text-red-600 hover:underline text-xs"
             >Delete</button>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// MonitorMix group card
+// ============================================================================
+
+function MonitorMixGroupCard({
+  mix,
+  audioOutputOptions,
+  vendors,
+  contacts,
+  updateMix,
+  deleteMix,
+  createOutput,
+  updateOutput,
+  deleteOutput,
+}: {
+  mix: MonitorMixFull;
+  audioOutputOptions: Equipment[];
+  vendors: PartyOptions;
+  contacts: ContactOptions;
+  updateMix: (id: string, formData: FormData) => Promise<void>;
+  deleteMix: (id: string) => Promise<void>;
+  createOutput: (monitorMixId: string, formData: FormData) => Promise<void>;
+  updateOutput: (id: string, formData: FormData) => Promise<void>;
+  deleteOutput: (id: string) => Promise<void>;
+}) {
+  const [editingGroup, setEditingGroup] = useState(false);
+  const [showAddOutput, setShowAddOutput] = useState(false);
+
+  return (
+    <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2">
+      {/* Group header */}
+      {editingGroup ? (
+        <form
+          action={async (fd) => {
+            await updateMix(mix.id, fd);
+            setEditingGroup(false);
+          }}
+          className="space-y-2"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Mix Name *</label>
+              <input
+                type="text"
+                name="description"
+                required
+                defaultValue={mix.description}
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+              <input
+                type="text"
+                name="notes"
+                defaultValue={mix.notes || ""}
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <SubmitButton label="Save" />
+            <button type="button" onClick={() => setEditingGroup(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-sm text-gray-900 dark:text-white">
+            {mix.description}
+            {mix.notes && <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 font-normal">· {mix.notes}</span>}
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <button onClick={() => setShowAddOutput(true)} className="text-blue-600 hover:underline text-xs">Add Output</button>
+            <button onClick={() => setEditingGroup(true)} className="text-blue-600 hover:underline text-xs">Edit</button>
+            <button
+              onClick={async () => { if (confirm("Delete this mix and all its outputs?")) await deleteMix(mix.id); }}
+              className="text-red-600 hover:underline text-xs"
+            >Delete</button>
+          </div>
+        </div>
+      )}
+
+      {/* Add output form */}
+      {showAddOutput && (
+        <form
+          action={async (fd) => {
+            await createOutput(mix.id, fd);
+            setShowAddOutput(false);
+          }}
+          className="ml-4 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 space-y-2"
+        >
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
+                <select
+                  name="equipmentId"
+                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                >
+                  <option value="">— None —</option>
+                  {audioOutputOptions.map((e) => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  min={1}
+                  defaultValue={1}
+                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+                <PartyField fieldPrefix="provider" vendors={vendors} contacts={contacts} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
+                <PartyField fieldPrefix="operator" vendors={vendors} contacts={contacts} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+              <input
+                type="text"
+                name="notes"
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+              />
+            </div>
+            <div className="flex gap-2">
+              <SubmitButton label="Add Output" />
+              <button type="button" onClick={() => setShowAddOutput(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
+            </div>
+        </form>
+      )}
+
+      {/* Output rows */}
+      {mix.monitorOutputs.length > 0 && (
+        <div className="ml-4 space-y-1">
+          {mix.monitorOutputs.map((output) => (
+            <MonitorOutputRow
+              key={output.id}
+              output={output}
+              audioOutputOptions={audioOutputOptions}
+              vendors={vendors}
+              contacts={contacts}
+              updateOutput={updateOutput}
+              deleteOutput={deleteOutput}
+            />
+          ))}
+        </div>
+      )}
+
+      {mix.monitorOutputs.length === 0 && !showAddOutput && (
+        <p className="ml-4 text-xs text-gray-400 dark:text-gray-500 italic">No outputs — click Add Output to define output devices for this mix.</p>
       )}
     </div>
   );
@@ -529,6 +702,9 @@ export function AudioSectionPanel({
   createMonitorMix,
   updateMonitorMix,
   deleteMonitorMix,
+  createMonitorOutput,
+  updateMonitorOutput,
+  deleteMonitorOutput,
 }: AudioSectionPanelProps) {
   const [editingNotes, setEditingNotes] = useState(false);
   const [showAddGroup, setShowAddGroup] = useState(false);
@@ -667,47 +843,25 @@ export function AudioSectionPanel({
             }}
             className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2"
           >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Mix Name *</label>
                 <input
                   type="text"
                   name="description"
                   required
-                  placeholder="e.g., Lead vocal IEM"
+                  placeholder="e.g., Drums, Stage right, Vocalist 1"
                   className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
-                <select
-                  name="equipmentId"
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                <input
+                  type="text"
+                  name="notes"
                   className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-                >
-                  <option value="">— None —</option>
-                  {audioOutputOptions.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
+                />
               </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-                <PartyField fieldPrefix="provider" vendors={vendorOptions} contacts={contactOptions} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-                <PartyField fieldPrefix="operator" vendors={vendorOptions} contacts={contactOptions} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-              <input
-                type="text"
-                name="notes"
-                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-              />
             </div>
             <div className="flex gap-2">
               <SubmitButton label="Add Mix" />
@@ -721,7 +875,7 @@ export function AudioSectionPanel({
         ) : (
           <div className="space-y-2">
             {audioSection.monitorMixes.map((mix) => (
-              <MonitorMixRow
+              <MonitorMixGroupCard
                 key={mix.id}
                 mix={mix}
                 audioOutputOptions={audioOutputOptions}
@@ -729,6 +883,9 @@ export function AudioSectionPanel({
                 contacts={contactOptions}
                 updateMix={updateMonitorMix}
                 deleteMix={deleteMonitorMix}
+                createOutput={createMonitorOutput}
+                updateOutput={updateMonitorOutput}
+                deleteOutput={deleteMonitorOutput}
               />
             ))}
           </div>

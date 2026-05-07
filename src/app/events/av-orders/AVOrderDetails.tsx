@@ -120,30 +120,41 @@ export function AVOrderDetails({
           {order.audioSection.monitorMixes.length > 0 && (
             <div className="mt-2">
               <p className="text-sm font-semibold text-gray-700 print:text-black mb-1">Monitor Mixes</p>
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="text-left text-gray-500 print:text-gray-600">
-                    <th className="pb-1 pr-4 font-medium text-xs">Description</th>
-                    <th className="pb-1 pr-4 font-medium text-xs">Equipment</th>
-                    <th className="pb-1 font-medium text-xs">Provider / Operator</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.audioSection.monitorMixes.map((mix) => (
-                    <tr key={mix.id} className="border-t border-gray-100 print:border-gray-300">
-                      <td className="py-1 pr-4 text-gray-900 print:text-black text-xs">{mix.description}</td>
-                      <td className="py-1 pr-4 text-gray-600 print:text-gray-700 text-xs">
-                        {mix.equipment?.name ?? "—"}
-                      </td>
-                      <td className="py-1 text-gray-600 print:text-gray-700 text-xs">
-                        {partyLabel(mix.providerVendor, mix.providerContact)}
-                        {" / "}
-                        {partyLabel(mix.operatorVendor, mix.operatorContact)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="space-y-2">
+                {order.audioSection.monitorMixes.map((mix) => (
+                  <div key={mix.id}>
+                    <p className="text-xs font-medium text-gray-800 print:text-black">{mix.description}</p>
+                    {mix.monitorOutputs.length > 0 ? (
+                      <table className="w-full text-sm border-collapse ml-3">
+                        <thead>
+                          <tr className="text-left text-gray-500 print:text-gray-600">
+                            <th className="pb-0.5 pr-4 font-medium text-xs">Output</th>
+                            <th className="pb-0.5 pr-4 font-medium text-xs">Qty</th>
+                            <th className="pb-0.5 font-medium text-xs">Provider / Operator</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mix.monitorOutputs.map((output) => (
+                            <tr key={output.id} className="border-t border-gray-100 print:border-gray-300">
+                              <td className="py-0.5 pr-4 text-gray-900 print:text-black text-xs">
+                                {output.equipment?.name ?? "—"}
+                              </td>
+                              <td className="py-0.5 pr-4 text-gray-600 print:text-gray-700 text-xs">{output.quantity}</td>
+                              <td className="py-0.5 text-gray-600 print:text-gray-700 text-xs">
+                                {partyLabel(output.providerVendor, output.providerContact)}
+                                {" / "}
+                                {partyLabel(output.operatorVendor, output.operatorContact)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="text-xs text-gray-400 ml-3">No outputs</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </Section>

@@ -26,6 +26,9 @@ import {
   createMonitorMix,
   updateMonitorMix,
   deleteMonitorMix,
+  createMonitorOutput,
+  updateMonitorOutput,
+  deleteMonitorOutput,
   updateVideoSection,
   createVideoEquipmentItem,
   updateVideoEquipmentItem,
@@ -122,6 +125,7 @@ export default async function AVOrderPage({
   let partyOptions: Awaited<ReturnType<typeof getAVOrderPartyOptions>> = { vendors: [], contacts: [] };
   let tabResponsiblePartyVendors: Awaited<ReturnType<typeof getResponsiblePartyVendors>> = { vendors: [], venueVendor: null, systemVendor: null };
   let audioEquipmentItems: Awaited<ReturnType<typeof prisma.equipment.findMany>> = [];
+  let videoEquipmentItems: Awaited<ReturnType<typeof prisma.equipment.findMany>> = [];
   if (activeTab === "audio") {
     const avCategories = await prisma.customOption.findMany({
       where: { category: "equipment_category", models: { has: "AV_ORDER" } },
@@ -137,9 +141,18 @@ export default async function AVOrderPage({
       }),
     ]);
   } else if (activeTab === "video") {
-    [partyOptions, tabResponsiblePartyVendors] = await Promise.all([
+    const videoAvCategories = await prisma.customOption.findMany({
+      where: { category: "equipment_category", models: { has: "AV_ORDER" } },
+      select: { label: true },
+    });
+    const videoAvCategoryLabels = videoAvCategories.map((c) => c.label);
+    [partyOptions, tabResponsiblePartyVendors, videoEquipmentItems] = await Promise.all([
       getAVOrderPartyOptions(avOrderId, eventId),
       getResponsiblePartyVendors(eventId, "AV_ORDER"),
+      prisma.equipment.findMany({
+        where: { category: { in: videoAvCategoryLabels } },
+        orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
+      }),
     ]);
   }
 
@@ -217,7 +230,9 @@ export default async function AVOrderPage({
     }
   }
   for (const mix of avOrder.audioSection?.monitorMixes ?? []) {
-    if (mix.equipment) readOnlyTotals[mix.equipment.name] = (readOnlyTotals[mix.equipment.name] ?? 0) + 1;
+    for (const output of mix.monitorOutputs ?? []) {
+      if (output.equipment) readOnlyTotals[output.equipment.name] = (readOnlyTotals[output.equipment.name] ?? 0) + output.quantity;
+    }
   }
   for (const item of avOrder.videoSection?.equipmentItems ?? []) {
     readOnlyTotals[item.item] = (readOnlyTotals[item.item] ?? 0) + (item.quantity ?? 1);
@@ -299,6 +314,21 @@ export default async function AVOrderPage({
   const deleteMonitorMixAction = async (id: string) => {
     "use server";
     await deleteMonitorMix(id, avOrderId, eventId);
+  };
+
+  const createMonitorOutputAction = async (monitorMixId: string, formData: FormData) => {
+    "use server";
+    await createMonitorOutput(monitorMixId, avOrderId, eventId, formData);
+  };
+
+  const updateMonitorOutputAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateMonitorOutput(id, avOrderId, eventId, formData);
+  };
+
+  const deleteMonitorOutputAction = async (id: string) => {
+    "use server";
+    await deleteMonitorOutput(id, avOrderId, eventId);
   };
 
   // Video section actions
@@ -497,12 +527,16 @@ export default async function AVOrderPage({
           createMonitorMix={createMonitorMixAction}
           updateMonitorMix={updateMonitorMixAction}
           deleteMonitorMix={deleteMonitorMixAction}
+          createMonitorOutput={createMonitorOutputAction}
+          updateMonitorOutput={updateMonitorOutputAction}
+          deleteMonitorOutput={deleteMonitorOutputAction}
         />
       )}
 
       {activeTab === "video" && avOrder.videoSection && (
         <VideoSectionPanel
           videoSection={avOrder.videoSection}
+          equipmentOptions={videoEquipmentItems}
           vendorOptions={flattenResponsiblePartyOptions(tabResponsiblePartyVendors)}
           contactOptions={partyOptions.contacts}
           updateSection={updateVideoSectionAction}

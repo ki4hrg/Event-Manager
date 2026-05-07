@@ -52,6 +52,16 @@ export async function getAVOrder(id: string) {
               providerContact: true,
               operatorVendor: true,
               operatorContact: true,
+              monitorOutputs: {
+                include: {
+                  equipment: true,
+                  providerVendor: true,
+                  providerContact: true,
+                  operatorVendor: true,
+                  operatorContact: true,
+                },
+                orderBy: { sortOrder: "asc" },
+              },
             },
             orderBy: { sortOrder: "asc" },
           },
@@ -389,6 +399,45 @@ export async function updateMonitorMix(id: string, avOrderId: string, eventId: s
 
 export async function deleteMonitorMix(id: string, avOrderId: string, eventId: string) {
   await prisma.monitorMix.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+export async function createMonitorOutput(monitorMixId: string, avOrderId: string, eventId: string, formData: FormData) {
+  const { _max } = await prisma.monitorOutput.aggregate({ where: { monitorMixId }, _max: { sortOrder: true } });
+  await prisma.monitorOutput.create({
+    data: {
+      monitorMixId,
+      equipmentId: (formData.get("equipmentId") as string) || null,
+      quantity: parseInt(formData.get("quantity") as string) || 1,
+      providerVendorId: (formData.get("providerVendorId") as string) || null,
+      providerContactId: (formData.get("providerContactId") as string) || null,
+      operatorVendorId: (formData.get("operatorVendorId") as string) || null,
+      operatorContactId: (formData.get("operatorContactId") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      sortOrder: (_max.sortOrder ?? -1) + 1,
+    },
+  });
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+export async function updateMonitorOutput(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await prisma.monitorOutput.update({
+    where: { id },
+    data: {
+      equipmentId: (formData.get("equipmentId") as string) || null,
+      quantity: parseInt(formData.get("quantity") as string) || 1,
+      providerVendorId: (formData.get("providerVendorId") as string) || null,
+      providerContactId: (formData.get("providerContactId") as string) || null,
+      operatorVendorId: (formData.get("operatorVendorId") as string) || null,
+      operatorContactId: (formData.get("operatorContactId") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
+}
+
+export async function deleteMonitorOutput(id: string, avOrderId: string, eventId: string) {
+  await prisma.monitorOutput.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 

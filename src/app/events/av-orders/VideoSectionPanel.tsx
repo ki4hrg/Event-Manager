@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { EquipmentItem, VideoSection, Vendor, Contact } from "@prisma/client";
+import type { EquipmentItem, VideoSection, Vendor, Contact, Equipment } from "@prisma/client";
 import {
   type PartyOptions,
   type ContactOptions,
@@ -12,6 +12,7 @@ import {
 } from "./party-field";
 
 type EquipmentItemWithParties = EquipmentItem & {
+  equipment: Equipment | null;
   providerVendor: Vendor | null;
   providerContact: Contact | null;
   operatorVendor: Vendor | null;
@@ -24,6 +25,7 @@ type VideoSectionWithItems = VideoSection & {
 
 type VideoSectionPanelProps = {
   videoSection: VideoSectionWithItems;
+  equipmentOptions: Equipment[];
   vendorOptions: PartyOptions;
   contactOptions: ContactOptions;
   updateSection: (formData: FormData) => Promise<void>;
@@ -47,6 +49,7 @@ function SubmitButton({ label }: { label: string }) {
 
 export function VideoSectionPanel({
   videoSection,
+  equipmentOptions,
   vendorOptions,
   contactOptions,
   updateSection,
@@ -129,6 +132,7 @@ export function VideoSectionPanel({
 
         {showAddForm && (
           <AddItemForm
+            equipmentOptions={equipmentOptions}
             vendorOptions={vendorOptions}
             contactOptions={contactOptions}
             onSubmit={handleCreate}
@@ -146,6 +150,7 @@ export function VideoSectionPanel({
               <EquipmentItemRow
                 key={item.id}
                 item={item}
+                equipmentOptions={equipmentOptions}
                 vendorOptions={vendorOptions}
                 contactOptions={contactOptions}
                 editing={editingId === item.id}
@@ -163,11 +168,13 @@ export function VideoSectionPanel({
 }
 
 function AddItemForm({
+  equipmentOptions,
   vendorOptions,
   contactOptions,
   onSubmit,
   onCancel,
 }: {
+  equipmentOptions: Equipment[];
   vendorOptions: PartyOptions;
   contactOptions: ContactOptions;
   onSubmit: (formData: FormData) => Promise<void>;
@@ -177,12 +184,23 @@ function AddItemForm({
     <form action={onSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment</label>
+          <select
+            name="equipmentId"
+            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          >
+            <option value="">— select or type below —</option>
+            {equipmentOptions.map((eq) => (
+              <option key={eq.id} value={eq.id}>{eq.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item name</label>
           <input
             type="text"
             name="item"
-            required
-            placeholder="Equipment name"
+            placeholder="Leave blank to use equipment name"
             className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           />
         </div>
@@ -227,6 +245,7 @@ function AddItemForm({
 
 function EquipmentItemRow({
   item,
+  equipmentOptions,
   vendorOptions,
   contactOptions,
   editing,
@@ -236,6 +255,7 @@ function EquipmentItemRow({
   onDelete,
 }: {
   item: EquipmentItemWithParties;
+  equipmentOptions: Equipment[];
   vendorOptions: PartyOptions;
   contactOptions: ContactOptions;
   editing: boolean;
@@ -258,12 +278,25 @@ function EquipmentItemRow({
         <form action={onUpdate} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item *</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment</label>
+              <select
+                name="equipmentId"
+                defaultValue={item.equipmentId ?? ""}
+                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              >
+                <option value="">— select or type below —</option>
+                {equipmentOptions.map((eq) => (
+                  <option key={eq.id} value={eq.id}>{eq.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item name</label>
               <input
                 type="text"
                 name="item"
-                required
                 defaultValue={item.item}
+                placeholder="Leave blank to use equipment name"
                 className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>

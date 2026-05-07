@@ -63,9 +63,10 @@ model Equipment {
   name         String
   category     String       // references equipment_category CustomOption label
   sortOrder    Int          @default(0)
-  inputItems     InputItem[]     @relation("InputItemEquipment")
-  monitorMixes   MonitorMix[]    @relation("MonitorMixEquipment")
-  equipmentItems EquipmentItem[]
+  inputItems      InputItem[]      @relation("InputItemEquipment")
+  monitorMixes    MonitorMix[]     @relation("MonitorMixEquipment")
+  monitorOutputs  MonitorOutput[]  @relation("MonitorOutputEquipment")
+  equipmentItems  EquipmentItem[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -168,8 +169,10 @@ model Contact {
   inputGroupsAsOperator  InputGroup[]          @relation("InputGroupOperatorContact")
   inputItemsAsProvider   InputItem[]           @relation("InputItemProviderContact")
   inputItemsAsOperator   InputItem[]           @relation("InputItemOperatorContact")
-  monitorMixesAsProvider MonitorMix[]          @relation("MonitorMixProviderContact")
-  monitorMixesAsOperator MonitorMix[]          @relation("MonitorMixOperatorContact")
+  monitorMixesAsProvider    MonitorMix[]          @relation("MonitorMixProviderContact")
+  monitorMixesAsOperator    MonitorMix[]          @relation("MonitorMixOperatorContact")
+  monitorOutputsAsProvider  MonitorOutput[]       @relation("MonitorOutputProviderContact")
+  monitorOutputsAsOperator  MonitorOutput[]       @relation("MonitorOutputOperatorContact")
   mediaItemsAsAdvancer        MediaItem[]           @relation("MediaItemAdvancerContact")
   equipmentItemsAsProvider    EquipmentItem[]       @relation("EquipmentItemProviderContact")
   equipmentItemsAsOperator    EquipmentItem[]       @relation("EquipmentItemOperatorContact")
@@ -710,8 +713,10 @@ model Vendor {
   inputGroupsAsOperator     InputGroup[]               @relation("InputGroupOperatorVendor")
   inputItemsAsProvider      InputItem[]                @relation("InputItemProviderVendor")
   inputItemsAsOperator      InputItem[]                @relation("InputItemOperatorVendor")
-  monitorMixesAsProvider    MonitorMix[]               @relation("MonitorMixProviderVendor")
-  monitorMixesAsOperator    MonitorMix[]               @relation("MonitorMixOperatorVendor")
+  monitorMixesAsProvider      MonitorMix[]               @relation("MonitorMixProviderVendor")
+  monitorMixesAsOperator      MonitorMix[]               @relation("MonitorMixOperatorVendor")
+  monitorOutputsAsProvider    MonitorOutput[]            @relation("MonitorOutputProviderVendor")
+  monitorOutputsAsOperator    MonitorOutput[]            @relation("MonitorOutputOperatorVendor")
   mediaItemsAsAdvancer      MediaItem[]                @relation("MediaItemAdvancerVendor")
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
@@ -847,26 +852,51 @@ model InputItem {
 }
 
 model MonitorMix {
-  id                String       @id @default(cuid())
+  id                String          @id @default(cuid())
   audioSectionId    String
-  audioSection      AudioSection @relation(fields: [audioSectionId], references: [id], onDelete: Cascade)
+  audioSection      AudioSection    @relation(fields: [audioSectionId], references: [id], onDelete: Cascade)
   description       String
   equipmentId       String?
-  equipment         Equipment?   @relation("MonitorMixEquipment", fields: [equipmentId], references: [id], onDelete: SetNull)
+  equipment         Equipment?      @relation("MonitorMixEquipment", fields: [equipmentId], references: [id], onDelete: SetNull)
   providerVendorId  String?
-  providerVendor    Vendor?      @relation("MonitorMixProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  providerVendor    Vendor?         @relation("MonitorMixProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
   providerContactId String?
-  providerContact   Contact?     @relation("MonitorMixProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
+  providerContact   Contact?        @relation("MonitorMixProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
   operatorVendorId  String?
-  operatorVendor    Vendor?      @relation("MonitorMixOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
+  operatorVendor    Vendor?         @relation("MonitorMixOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
   operatorContactId String?
-  operatorContact   Contact?     @relation("MonitorMixOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
+  operatorContact   Contact?        @relation("MonitorMixOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
+  notes             String?
+  sortOrder         Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  monitorOutputs    MonitorOutput[]
+
+  @@index([audioSectionId])
+  @@index([equipmentId])
+}
+
+model MonitorOutput {
+  id                String       @id @default(cuid())
+  monitorMixId      String
+  monitorMix        MonitorMix   @relation(fields: [monitorMixId], references: [id], onDelete: Cascade)
+  equipmentId       String?
+  equipment         Equipment?   @relation("MonitorOutputEquipment", fields: [equipmentId], references: [id], onDelete: SetNull)
+  quantity          Int          @default(1)
+  providerVendorId  String?
+  providerVendor    Vendor?      @relation("MonitorOutputProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  providerContactId String?
+  providerContact   Contact?     @relation("MonitorOutputProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
+  operatorVendorId  String?
+  operatorVendor    Vendor?      @relation("MonitorOutputOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
+  operatorContactId String?
+  operatorContact   Contact?     @relation("MonitorOutputOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
   notes             String?
   sortOrder         Int          @default(0)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  @@index([audioSectionId])
+  @@index([monitorMixId])
   @@index([equipmentId])
 }
 
