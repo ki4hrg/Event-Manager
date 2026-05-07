@@ -305,7 +305,7 @@ function DroppableCell({
     : "bg-white dark:bg-gray-900";
 
   return (
-    <td ref={setNodeRef} rowSpan={rowSpan} className={`${base} ${bg} relative`} style={{ height: "1px" }}>
+    <td ref={setNodeRef} rowSpan={rowSpan} data-room-id={roomId} className={`${base} ${bg} relative`} style={{ height: "1px" }}>
       {children}
     </td>
   );
@@ -462,6 +462,7 @@ function DayGrid({
             {visibleRooms.map((room) => (
               <th
                 key={room.id}
+                data-room-id={room.id}
                 className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-900 dark:text-white whitespace-nowrap bg-gray-50 dark:bg-gray-800"
               >
                 {room.name}
