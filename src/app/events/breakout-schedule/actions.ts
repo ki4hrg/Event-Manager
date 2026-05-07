@@ -459,8 +459,7 @@ export async function getAvailablePresentationsForGroup(
       instanceCount: true,
       track: { select: { color: true } },
       speakers: {
-        select: { contact: { select: { firstName: true, lastName: true } } },
-        take: 1,
+        select: { isPrimary: true, contact: { select: { firstName: true, lastName: true } } },
         orderBy: { sortOrder: "asc" },
       },
     },

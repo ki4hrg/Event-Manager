@@ -62,7 +62,7 @@ type AvailablePresentation = {
   title: string;
   instanceCount: number;
   track: { color: string | null } | null;
-  speakers: { contact: { firstName: string; lastName: string } }[];
+  speakers: { isPrimary: boolean; contact: { firstName: string; lastName: string } }[];
 };
 
 type BreakoutGridProps = {
@@ -89,6 +89,15 @@ type BreakoutGridProps = {
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+function getPrimaryNames(
+  speakers: { isPrimary: boolean; contact: { firstName: string; lastName: string } }[]
+): string | null {
+  const primaries = speakers.filter((s) => s.isPrimary);
+  const source = primaries.length > 0 ? primaries : speakers.slice(0, 1);
+  if (source.length === 0) return null;
+  return source.map((s) => `${s.contact.firstName} ${s.contact.lastName}`).join(", ");
+}
 
 function formatSessionTime(
   schedules: { startTime: Date; endTime: Date }[],
@@ -471,7 +480,7 @@ function PresentationManager({
                   <p className="text-xs text-gray-500 dark:text-gray-400 py-1">No presentations match.</p>
                 ) : (
                   filteredAvailable.map((p) => {
-                    const speaker = p.speakers[0]?.contact;
+                    const speakerName = getPrimaryNames(p.speakers);
                     return (
                       <div
                         key={p.id}
@@ -486,9 +495,9 @@ function PresentationManager({
                           )}
                           <div className="min-w-0">
                             <div className="truncate text-gray-900 dark:text-white">{p.title}</div>
-                            {speaker && (
+                            {speakerName && (
                               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {speaker.firstName} {speaker.lastName}
+                                {speakerName}
                               </div>
                             )}
                           </div>
@@ -598,10 +607,9 @@ function DraggableSidebarCard({
           {presentation.title}
         </span>
       </div>
-      {presentation.speakers[0]?.contact && (
+      {getPrimaryNames(presentation.speakers) && (
         <div className="text-amber-700 dark:text-amber-300 mt-0.5">
-          {presentation.speakers[0].contact.firstName}{" "}
-          {presentation.speakers[0].contact.lastName}
+          {getPrimaryNames(presentation.speakers)}
         </div>
       )}
       <div className="text-amber-600 dark:text-amber-400 mt-0.5">
@@ -665,10 +673,9 @@ function DraggableCellCard({
           >
             {slot.presentation.title}
           </Link>
-          {slot.presentation.speakers[0]?.contact && (
+          {getPrimaryNames(slot.presentation.speakers) && (
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {slot.presentation.speakers[0].contact.firstName}{" "}
-              {slot.presentation.speakers[0].contact.lastName}
+              {getPrimaryNames(slot.presentation.speakers)}
             </div>
           )}
         </div>
