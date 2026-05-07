@@ -7,6 +7,7 @@ import { createSetupOrder } from "../../../setup-orders/actions";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { getOptions } from "@/app/settings/actions";
 import { searchAssignedEventVendors } from "@/app/vendors/actions";
+import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 
 export const dynamic = "force-dynamic";
 
@@ -20,40 +21,43 @@ export default async function NewSetupOrderPage({
   const { id: eventId } = await params;
   const { functionId, roomId, presentationId } = await searchParams;
 
-  const [event, setupTypes] = await Promise.all([
+  const isFromSource = !!(functionId || presentationId);
+
+  const [event, setupTypes, eventVendors, sourceData] = await Promise.all([
     getEvent(eventId),
     getOptions("setup_type"),
+    searchAssignedEventVendors("", eventId, "SETUP_ORDER"),
+    functionId
+      ? prisma.function.findUnique({
+          where: { id: functionId },
+          select: { name: true, rooms: { take: 1, select: { roomId: true } } },
+        })
+      : presentationId
+        ? prisma.presentation.findUnique({ where: { id: presentationId }, select: { title: true } })
+        : Promise.resolve(null),
   ]);
 
-  if (!event) {
-    notFound();
-  }
+  if (!event) notFound();
 
-  const [venueRooms, eventFunctions, eventVendors, sourcePresentation] = await Promise.all([
+  const [venueRooms, eventFunctions] = await Promise.all([
     event.venueId
       ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
-    prisma.function.findMany({
-      where: { eventId, setupOrderId: null },
-      include: { rooms: true },
-      orderBy: { name: "asc" },
-    }),
-    searchAssignedEventVendors("", eventId, "SETUP_ORDER"),
-    presentationId
-      ? prisma.presentation.findUnique({ where: { id: presentationId }, select: { title: true } })
-      : Promise.resolve(null),
+    isFromSource
+      ? Promise.resolve([])
+      : prisma.function.findMany({
+          where: { eventId, setupOrderId: null },
+          include: { rooms: true },
+          orderBy: { name: "asc" },
+        }),
   ]);
 
-  // If a functionId is provided, infer the roomId from that function's first room
-  let initialRoomId = roomId;
-  if (!initialRoomId && functionId) {
-    const fn = eventFunctions.find((f) => f.id === functionId);
-    initialRoomId = fn?.rooms[0]?.roomId;
-  }
+  const initialRoomId =
+    roomId ?? (sourceData && "rooms" in sourceData ? sourceData.rooms[0]?.roomId : undefined);
 
-  const cancelPath = presentationId
-    ? `/events/${eventId}/presentations/${presentationId}`
-    : `/events/${eventId}/setup-orders`;
+  const cancelPath = getSourceCancelPath(eventId, functionId, presentationId, `/events/${eventId}/setup-orders`);
+  const backLabel = getSourceBackLabel(functionId, presentationId, "Back to Setup Orders");
+  const defaultName = extractSourceName(sourceData);
 
   const createSetupOrderAction = async (formData: FormData) => {
     "use server";
@@ -67,7 +71,7 @@ export default async function NewSetupOrderPage({
           href={cancelPath}
           className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
         >
-          &larr; {presentationId ? "Back to Presentation" : "Back to Setup Orders"}
+          &larr; {backLabel}
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           New Setup Order
@@ -85,8 +89,9 @@ export default async function NewSetupOrderPage({
           roomIds: f.rooms.map((r) => r.roomId),
         }))}
         initialRoomId={initialRoomId}
-        initialFunctionId={functionId}
-        defaultName={sourcePresentation?.title}
+        lockedFunctionId={functionId}
+        lockedPresentationId={presentationId}
+        defaultName={defaultName}
         cancelPath={cancelPath}
         availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
       />

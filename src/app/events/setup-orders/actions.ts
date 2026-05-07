@@ -38,6 +38,7 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
   const setupType = formData.get("setupType") as string;
   const notes = formData.get("notes") as string;
   const functionId = (formData.get("functionId") as string) || null;
+  const presentationId = (formData.get("presentationId") as string) || null;
   const roomId = (formData.get("roomId") as string) || null;
   const selectedVendorId = (formData.get("vendorId") as string) || null;
 
@@ -48,6 +49,7 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
       setupType: setupType || null,
       notes: notes || null,
       roomId,
+      presentationId,
     },
   });
 

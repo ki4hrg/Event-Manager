@@ -14,6 +14,8 @@ type AVOrderFormProps = {
   availablePresentations?: { id: string; label: string }[];
   defaultFunctionId?: string;
   defaultPresentationId?: string;
+  lockedFunctionId?: string;
+  lockedPresentationId?: string;
   defaultName?: string;
   cancelPath?: string;
   vendorLink?: VendorLinkEditProps;
@@ -76,6 +78,8 @@ export function AVOrderForm({
   availablePresentations,
   defaultFunctionId,
   defaultPresentationId,
+  lockedFunctionId,
+  lockedPresentationId,
   defaultName,
   cancelPath,
   vendorLink,
@@ -159,22 +163,28 @@ export function AVOrderForm({
             />
           </div>
 
-          {!isEdit && availableFunctions && (
-            <LinkSelectField
-              fieldName="functionId"
-              label="Link to Function"
-              options={availableFunctions}
-              defaultValue={defaultFunctionId}
-            />
+          {!isEdit && (lockedFunctionId
+            ? <input type="hidden" name="functionId" value={lockedFunctionId} />
+            : availableFunctions && (
+                <LinkSelectField
+                  fieldName="functionId"
+                  label="Link to Function"
+                  options={availableFunctions}
+                  defaultValue={defaultFunctionId}
+                />
+              )
           )}
 
-          {!isEdit && availablePresentations && (
-            <LinkSelectField
-              fieldName="presentationId"
-              label="Link to Presentation"
-              options={availablePresentations}
-              defaultValue={defaultPresentationId}
-            />
+          {!isEdit && (lockedPresentationId
+            ? <input type="hidden" name="presentationId" value={lockedPresentationId} />
+            : availablePresentations && (
+                <LinkSelectField
+                  fieldName="presentationId"
+                  label="Link to Presentation"
+                  options={availablePresentations}
+                  defaultValue={defaultPresentationId}
+                />
+              )
           )}
 
           {isEdit && vendorLink ? (

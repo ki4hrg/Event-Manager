@@ -6,6 +6,7 @@ import { getEvent } from "../../../actions";
 import { createAVOrder } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { searchAssignedEventVendors } from "@/app/vendors/actions";
+import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 
 export const dynamic = "force-dynamic";
 
@@ -19,23 +20,30 @@ export default async function NewAVOrderPage({
   const { id: eventId } = await params;
   const { functionId, presentationId } = await searchParams;
 
-  const [event, availableFunctions, availablePresentations, eventVendors, sourcePresentation] = await Promise.all([
+  const isFromSource = !!(functionId || presentationId);
+
+  const [event, eventVendors, sourceLabel] = await Promise.all([
     getEvent(eventId),
-    prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
-    prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
     searchAssignedEventVendors("", eventId, "AV_ORDER"),
-    presentationId
-      ? prisma.presentation.findUnique({ where: { id: presentationId }, select: { title: true } })
-      : Promise.resolve(null),
+    functionId
+      ? prisma.function.findUnique({ where: { id: functionId }, select: { name: true } })
+      : presentationId
+        ? prisma.presentation.findUnique({ where: { id: presentationId }, select: { title: true } })
+        : Promise.resolve(null),
   ]);
 
-  if (!event) {
-    notFound();
-  }
+  if (!event) notFound();
 
-  const cancelPath = presentationId
-    ? `/events/${eventId}/presentations/${presentationId}`
-    : `/events/${eventId}/av-orders`;
+  const [availableFunctions, availablePresentations] = isFromSource
+    ? [undefined, undefined]
+    : await Promise.all([
+        prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
+        prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
+      ]);
+
+  const cancelPath = getSourceCancelPath(eventId, functionId, presentationId, `/events/${eventId}/av-orders`);
+  const backLabel = getSourceBackLabel(functionId, presentationId, "Back to AV Orders");
+  const defaultName = extractSourceName(sourceLabel);
 
   const createAVOrderAction = async (formData: FormData) => {
     "use server";
@@ -49,7 +57,7 @@ export default async function NewAVOrderPage({
           href={cancelPath}
           className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
         >
-          &larr; {presentationId ? "Back to Presentation" : "Back to AV Orders"}
+          &larr; {backLabel}
         </Link>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           New AV Order
@@ -59,11 +67,11 @@ export default async function NewAVOrderPage({
       <AVOrderForm
         eventId={eventId}
         action={createAVOrderAction}
-        availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
-        availablePresentations={availablePresentations.map((p) => ({ id: p.id, label: p.title }))}
-        defaultFunctionId={functionId}
-        defaultPresentationId={presentationId}
-        defaultName={sourcePresentation?.title}
+        availableFunctions={availableFunctions?.map((f) => ({ id: f.id, label: f.name }))}
+        availablePresentations={availablePresentations?.map((p) => ({ id: p.id, label: p.title }))}
+        lockedFunctionId={functionId}
+        lockedPresentationId={presentationId}
+        defaultName={defaultName}
         cancelPath={cancelPath}
         availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
       />

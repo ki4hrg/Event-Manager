@@ -25,7 +25,8 @@ type SetupOrderFormProps = {
   rooms?: { id: string; name: string }[];
   functions?: { id: string; name: string; roomIds: string[] }[];
   initialRoomId?: string;
-  initialFunctionId?: string;
+  lockedFunctionId?: string;
+  lockedPresentationId?: string;
   defaultName?: string;
   cancelPath?: string;
   noCard?: boolean;
@@ -54,7 +55,8 @@ export function SetupOrderForm({
   rooms = [],
   functions = [],
   initialRoomId,
-  initialFunctionId,
+  lockedFunctionId,
+  lockedPresentationId,
   defaultName,
   cancelPath,
   noCard = false,
@@ -147,28 +149,35 @@ export function SetupOrderForm({
             )}
           </div>
 
-          {!isEdit && (
-            <div>
-              <label htmlFor="functionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Function <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <select
-                id="functionId"
-                name="functionId"
-                defaultValue={initialFunctionId ?? ""}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">— No function —</option>
-                {filteredFunctions.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-              {selectedRoomId && filteredFunctions.length === 0 && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  No functions assigned to this room.
-                </p>
-              )}
-            </div>
+          {!isEdit && (lockedFunctionId
+            ? <input type="hidden" name="functionId" value={lockedFunctionId} />
+            : functions.length > 0 && (
+                <div>
+                  <label htmlFor="functionId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Function <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <select
+                    id="functionId"
+                    name="functionId"
+                    defaultValue=""
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— No function —</option>
+                    {filteredFunctions.map((f) => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                  {selectedRoomId && filteredFunctions.length === 0 && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      No functions assigned to this room.
+                    </p>
+                  )}
+                </div>
+              )
+          )}
+
+          {!isEdit && lockedPresentationId && (
+            <input type="hidden" name="presentationId" value={lockedPresentationId} />
           )}
 
           <div>
