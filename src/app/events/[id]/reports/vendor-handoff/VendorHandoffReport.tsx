@@ -22,6 +22,10 @@ const th =
   "px-3 py-2 text-left text-xs font-semibold text-gray-900 print:text-black border-b border-gray-300 print:border-gray-400 bg-gray-100 print:bg-gray-200 whitespace-nowrap";
 const td =
   "px-3 py-2 text-xs text-gray-700 print:text-gray-900 border-b border-gray-200 print:border-gray-300 align-top";
+const sectionCard =
+  "bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:rounded-none print:border-t print:border-gray-300 print:px-0 print:py-4";
+const orderCard =
+  "print:break-inside-avoid border border-gray-200 print:border-0 print:border-b print:border-gray-200 rounded-lg p-4 print:px-0 print:rounded-none mb-4";
 
 function partyName(
   vendor: { name: string } | null | undefined,
@@ -244,7 +248,7 @@ function CateringOrderSection({
   const hasGuestCounts = order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null;
 
   return (
-    <div className="print:break-inside-avoid border border-gray-200 print:border-gray-300 rounded-lg p-4 mb-4">
+    <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 print:text-black">{order.name}</h3>
         {order.serviceStyle && (
@@ -366,7 +370,7 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
   const video = order.videoSection;
 
   return (
-    <div className="print:break-inside-avoid border border-gray-200 print:border-gray-300 rounded-lg p-4 mb-4">
+    <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 print:text-black">{order.name}</h3>
       </div>
@@ -481,7 +485,7 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
 
 function SetupOrderSection({ order }: { order: HandoffData["setupOrders"][number] }) {
   return (
-    <div className="print:break-inside-avoid border border-gray-200 print:border-gray-300 rounded-lg p-4 mb-4">
+    <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 print:text-black">
           {order.name ?? "Setup Order"}
@@ -549,9 +553,9 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
   const timezone = event.timezone ?? "America/Chicago";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:space-y-0">
       {/* Vendor info */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
+      <div className={sectionCard}>
         <div className="mb-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black">
             {vendor.name}
@@ -597,8 +601,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
       {/* Key event staff */}
       {keyStaff.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Key Event Staff
           </h2>
           <table className="w-full text-sm border-collapse">
@@ -630,8 +634,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
       {(cateringOrders.some((o) => o.function) ||
         avOrders.some((o) => o.functions.length > 0) ||
         setupOrders.some((o) => o.functions.length > 0)) && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Function Schedule
           </h2>
           <FunctionScheduleSection data={data} timezone={timezone} />
@@ -640,8 +644,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
       {/* Catering orders */}
       {cateringOrders.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Catering {cateringOrders.length > 1 ? `(${cateringOrders.length} orders)` : ""}
           </h2>
           {cateringOrders.map((order) => (
@@ -652,8 +656,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
       {/* AV orders */}
       {avOrders.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Audio / Visual {avOrders.length > 1 ? `(${avOrders.length} orders)` : ""}
           </h2>
           {avOrders.map((order) => (
@@ -664,8 +668,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
       {/* Setup orders */}
       {setupOrders.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:border print:border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4">
+        <div className={sectionCard}>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Setup {setupOrders.length > 1 ? `(${setupOrders.length} orders)` : ""}
           </h2>
           {setupOrders.map((order) => (
