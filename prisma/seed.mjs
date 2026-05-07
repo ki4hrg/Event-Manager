@@ -48,13 +48,12 @@ const defaultPresentationTypes = [
 ];
 
 const defaultEquipmentCategories = [
-  { label: "AV", sortOrder: 0 },
-  { label: "Tables", isSystem: true, sortOrder: 1, models: ["SETUP_ORDER"] },
-  { label: "Chairs", isSystem: true, sortOrder: 2, models: ["SETUP_ORDER"] },
-  { label: "Staging", sortOrder: 3 },
-  { label: "Signage", sortOrder: 4 },
-  { label: "Audio Inputs", isSystem: true, sortOrder: 5, models: ["AV_ORDER"] },
-  { label: "Audio Outputs", isSystem: true, sortOrder: 6, models: ["AV_ORDER"] },
+  { label: "Tables", isSystem: true, sortOrder: 0, models: ["SETUP_ORDER"] },
+  { label: "Chairs", isSystem: true, sortOrder: 1, models: ["SETUP_ORDER"] },
+  { label: "Staging", sortOrder: 2 },
+  { label: "Signage", sortOrder: 3 },
+  { label: "Audio Inputs", isSystem: true, sortOrder: 4, models: ["AV_ORDER"] },
+  { label: "Audio Outputs", isSystem: true, sortOrder: 5, models: ["AV_ORDER"] },
 ];
 
 const defaultSubstatuses = [
@@ -93,14 +92,6 @@ const defaultSetupTypes = [
 ];
 
 const defaultEquipment = [
-  // AV
-  { name: "Projector", category: "AV", sortOrder: 0 },
-  { name: "Screen", category: "AV", sortOrder: 1 },
-  { name: "Microphone", category: "AV", sortOrder: 2 },
-  { name: "Podium", category: "AV", sortOrder: 3 },
-  { name: "Webcast", category: "AV", sortOrder: 4 },
-  { name: "Recording", category: "AV", sortOrder: 5 },
-  { name: "Video Playback", category: "AV", sortOrder: 6 },
   // Tables
   { name: "6' Rectangle", category: "Tables", sortOrder: 0 },
   { name: "8' Rectangle", category: "Tables", sortOrder: 1 },
