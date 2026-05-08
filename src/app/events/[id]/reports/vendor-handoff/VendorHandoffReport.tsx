@@ -291,7 +291,12 @@ function CateringOrderSection({
             <tbody>
               {order.menuSections.map((section) => (
                 <tr key={section.id}>
-                  <td className={td}>{section.menuContent}</td>
+                  <td className={td}>
+                    <div
+                      className="[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                      dangerouslySetInnerHTML={{ __html: section.menuContent }}
+                    />
+                  </td>
                   <td className={td}>{section.responsiblePartyVendor?.name ?? "—"}</td>
                   <td className={td}>{section.notes ?? ""}</td>
                 </tr>
