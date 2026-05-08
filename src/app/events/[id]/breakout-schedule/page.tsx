@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -57,6 +58,13 @@ export default async function BreakoutSchedulePage({
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
           {event.name}
         </h1>
+        <Link
+          href={`/events/${eventId}/breakout-schedule/print`}
+          target="_blank"
+          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+        >
+          Print view
+        </Link>
       </div>
 
       <BreakoutGrid
