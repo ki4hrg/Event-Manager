@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { reportTh as th, reportTd as td } from "@/lib/reportStyles";
+
+// Room header cells need word-wrap; reportTh has whitespace-nowrap which collides at narrow widths
+const roomTh = th.replace("whitespace-nowrap", "whitespace-normal break-words");
 import { getBreakoutGroups } from "@/app/events/breakout-schedule/actions";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "@/app/events/breakout-schedule/utils";
 import type { Room } from "@prisma/client";
@@ -128,7 +131,7 @@ export default async function BreakoutSchedulePrintPage({
                             <tr>
                               <th className={th}>Session</th>
                               {chunkRooms.map((room) => (
-                                <th key={room.id} className={th}>
+                                <th key={room.id} className={roomTh}>
                                   {room.name}
                                 </th>
                               ))}
