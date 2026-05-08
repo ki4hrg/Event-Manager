@@ -5,6 +5,7 @@ import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { MODEL_LABELS } from "@/app/vendors/model-types";
+import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 
 export const dynamic = "force-dynamic";
 
@@ -43,11 +44,6 @@ export default async function EquipmentResponsibilityPrintPage({
     year: "numeric",
   });
 
-  const th =
-    "px-3 py-2 text-left text-xs font-semibold text-gray-900 print:text-black border-b border-gray-300 print:border-gray-400 bg-gray-100 print:bg-gray-200 whitespace-nowrap";
-  const td =
-    "px-3 py-2 text-xs text-gray-700 print:text-gray-900 border-b border-gray-200 print:border-gray-300 align-top";
-
   const hasUnscheduled = groups.some((g) =>
     g.rows.some((r) => r.sources.some((s) => !s.isScheduled))
   );
@@ -75,11 +71,11 @@ export default async function EquipmentResponsibilityPrintPage({
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-3 py-2 text-xs font-semibold text-gray-900 print:text-black bg-gray-50 print:bg-gray-100 border-b border-gray-300 print:border-gray-400"
+                    className={reportGroupRow}
                   >
                     {group.partyName}
                     {group.partyType === "contact" && (
-                      <span className="font-normal text-gray-500 print:text-gray-600 ml-1">(Contact)</span>
+                      <span className="font-normal text-gray-500 dark:text-gray-400 print:text-gray-600 ml-1">(Contact)</span>
                     )}
                   </td>
                 </tr>
@@ -111,7 +107,7 @@ export default async function EquipmentResponsibilityPrintPage({
         </table>
       )}
 
-      <div className="mt-6 pt-4 border-t border-gray-200 print:border-gray-400 text-xs text-gray-500 print:text-gray-600 flex justify-between">
+      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600 print:border-gray-400 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 flex justify-between">
         <span>
           {totalItems} item{totalItems !== 1 ? "s" : ""}
         </span>
@@ -119,7 +115,7 @@ export default async function EquipmentResponsibilityPrintPage({
       </div>
 
       {hasUnscheduled && (
-        <p className="mt-2 text-xs text-gray-500 print:text-gray-600">
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
           † Unscheduled — peak is a floor estimate
         </p>
       )}
