@@ -82,7 +82,7 @@ export default async function BreakoutSchedulePrintPage({
           return (
             <div key={group.id}>
               {group.functions.length === 0 || roomList.length === 0 ? (
-                <div className={`mb-12${!isLastGroup ? " print:break-after-page" : ""}`}>
+                <div className="mb-12">
                   <div className="mb-3">
                     <h2 className="text-lg font-semibold text-gray-900 print:text-black">{group.name}</h2>
                     {dateHeading && (
@@ -95,13 +95,12 @@ export default async function BreakoutSchedulePrintPage({
                 </div>
               ) : (
                 roomChunks.map((chunkRooms, chunkIndex) => {
-                  const isLastChunk = chunkIndex === roomChunks.length - 1;
-                  const breakAfter = !isLastChunk || !isLastGroup;
+                  const breakBefore = chunkIndex > 0 || groupIndex > 0;
 
                   return (
                     <div
                       key={chunkIndex}
-                      className={`mb-8${breakAfter ? " print:break-after-page" : ""}`}
+                      className={`mb-8${breakBefore ? " print:break-before-page" : ""}`}
                     >
                       <div className="mb-3">
                         <h2 className="text-lg font-semibold text-gray-900 print:text-black">
