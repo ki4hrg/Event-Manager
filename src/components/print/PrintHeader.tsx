@@ -20,8 +20,8 @@ export function PrintHeader({ eventName, title, recordType, recordName, backHref
     <>
       <div className="flex justify-between items-start mb-6 print:mb-4">
         <div>
-          <p className="text-sm text-gray-500 print:text-gray-600">{eventName}</p>
-          <h1 className="text-2xl font-semibold text-gray-900 print:text-black">{heading}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 print:text-gray-600">{eventName}</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white print:text-black">{heading}</h1>
           <p className="text-xs text-gray-400 mt-0.5 print:hidden">Generated {generated}</p>
         </div>
         <PrintButton backHref={backHref} />

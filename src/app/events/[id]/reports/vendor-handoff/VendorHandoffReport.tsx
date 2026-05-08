@@ -184,6 +184,7 @@ function FunctionScheduleSection({
                   <th className={th}>Time</th>
                   <th className={th}>Function</th>
                   <th className={th}>Room(s)</th>
+                  <th className={th}>Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,6 +197,7 @@ function FunctionScheduleSection({
                       <td className={`${td} whitespace-nowrap`}>{timeStr}</td>
                       <td className={td}>{fn.name}</td>
                       <td className={td}>{rooms}</td>
+                      <td className={td}>{schedule.notes ?? ""}</td>
                     </tr>
                   );
                 })}
