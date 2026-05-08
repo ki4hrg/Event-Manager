@@ -1,6 +1,12 @@
 import type { getVendorHandoffData } from "@/app/events/reports/actions";
 import type { getEvent } from "@/app/events/actions";
 import { formatTime } from "@/lib/agendaUtils";
+import {
+  reportTh as th,
+  reportTd as td,
+  reportSectionCard as sectionCard,
+  reportOrderCard as orderCard,
+} from "@/lib/reportStyles";
 
 type HandoffData = NonNullable<Awaited<ReturnType<typeof getVendorHandoffData>>>;
 type Event = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
@@ -17,15 +23,6 @@ type EquipmentItem = {
   operatorContact: { id: string; firstName: string; lastName: string } | null;
   notes: string | null;
 };
-
-const th =
-  "px-3 py-2 text-left text-xs font-semibold text-gray-900 print:text-black border-b border-gray-300 print:border-gray-400 bg-gray-100 print:bg-gray-200 whitespace-nowrap";
-const td =
-  "px-3 py-2 text-xs text-gray-700 print:text-gray-900 border-b border-gray-200 print:border-gray-300 align-top";
-const sectionCard =
-  "bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:rounded-none print:border-t print:border-gray-300 print:px-0 print:py-4";
-const orderCard =
-  "print:break-inside-avoid border border-gray-200 print:border-0 print:border-b print:border-gray-200 rounded-lg p-4 print:px-0 print:rounded-none mb-4";
 
 function partyName(
   vendor: { name: string } | null | undefined,
@@ -74,7 +71,7 @@ function rollUpInputItems(items: AudioInputItem[]) {
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-sm font-semibold text-gray-700 print:text-gray-900 uppercase tracking-wide mb-2 mt-6 first:mt-0">
+    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-900 uppercase tracking-wide mb-2 mt-6 first:mt-0">
       {children}
     </h3>
   );
@@ -82,7 +79,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h4 className="text-xs font-semibold text-gray-500 print:text-gray-700 uppercase tracking-wide mb-1 mt-4">
+    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 print:text-gray-700 uppercase tracking-wide mb-1 mt-4">
       {children}
     </h4>
   );
@@ -128,6 +125,7 @@ function FunctionScheduleSection({
   type Fn = NonNullable<HandoffData["cateringOrders"][number]["function"]>;
   type AvFn = HandoffData["avOrders"][number]["functions"][number];
   type AnyFn = Fn | AvFn;
+  type ScheduleRow = { fn: AnyFn; schedule: AnyFn["schedules"][number] };
 
   const allFunctions: AnyFn[] = [];
   const seen = new Set<string>();
@@ -144,8 +142,8 @@ function FunctionScheduleSection({
 
   if (allFunctions.length === 0) return null;
 
-  const byDate = new Map<string, typeof allFunctions>();
-  const unscheduled: typeof allFunctions = [];
+  const byDate = new Map<string, ScheduleRow[]>();
+  const unscheduled: AnyFn[] = [];
   const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
 
   for (const fn of allFunctions) {
@@ -153,21 +151,15 @@ function FunctionScheduleSection({
       unscheduled.push(fn);
       continue;
     }
-    const earliest = fn.schedules.reduce(
-      (min, s) => (s.startTime < min ? s.startTime : min),
-      fn.schedules[0].startTime
-    );
-    const dateKey = dateFormatter.format(earliest);
-    if (!byDate.has(dateKey)) byDate.set(dateKey, []);
-    byDate.get(dateKey)!.push(fn);
+    for (const schedule of fn.schedules) {
+      const dateKey = dateFormatter.format(schedule.startTime);
+      if (!byDate.has(dateKey)) byDate.set(dateKey, []);
+      byDate.get(dateKey)!.push({ fn, schedule });
+    }
   }
 
-  for (const fns of Array.from(byDate.values())) {
-    fns.sort((a, b) => {
-      const aTime = a.schedules[0]?.startTime?.getTime() ?? 0;
-      const bTime = b.schedules[0]?.startTime?.getTime() ?? 0;
-      return aTime - bTime;
-    });
+  for (const rows of Array.from(byDate.values())) {
+    rows.sort((a, b) => a.schedule.startTime.getTime() - b.schedule.startTime.getTime());
   }
 
   const sortedDates = Array.from(byDate.keys()).sort();
@@ -176,7 +168,7 @@ function FunctionScheduleSection({
     <div className="print:break-inside-avoid">
       <SectionHeading>Function Schedule</SectionHeading>
       {sortedDates.map((dateKey) => {
-        const fns = byDate.get(dateKey)!;
+        const rows = byDate.get(dateKey)!;
         const dateLabel = new Date(dateKey + "T12:00:00Z").toLocaleDateString("en-US", {
           weekday: "long",
           month: "long",
@@ -184,24 +176,23 @@ function FunctionScheduleSection({
         });
         return (
           <div key={dateKey} className="mb-4">
-            <p className="text-xs font-semibold text-gray-600 print:text-gray-800 mb-1">{dateLabel}</p>
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">{dateLabel}</p>
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr>
+                  <th className={th}>Type</th>
                   <th className={th}>Time</th>
                   <th className={th}>Function</th>
                   <th className={th}>Room(s)</th>
                 </tr>
               </thead>
               <tbody>
-                {fns.map((fn) => {
-                  const firstSchedule = fn.schedules[0];
-                  const timeStr = firstSchedule
-                    ? `${formatTime(firstSchedule.startTime, timezone)} – ${formatTime(firstSchedule.endTime, timezone)}`
-                    : "—";
+                {rows.map(({ fn, schedule }) => {
+                  const timeStr = `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`;
                   const rooms = fn.rooms.map((r) => r.room.name).join(", ") || "—";
                   return (
-                    <tr key={fn.id}>
+                    <tr key={`${fn.id}-${schedule.startTime.getTime()}`}>
+                      <td className={`${td} whitespace-nowrap`}>{schedule.type}</td>
                       <td className={`${td} whitespace-nowrap`}>{timeStr}</td>
                       <td className={td}>{fn.name}</td>
                       <td className={td}>{rooms}</td>
@@ -215,7 +206,7 @@ function FunctionScheduleSection({
       })}
       {unscheduled.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs font-semibold text-gray-600 print:text-gray-800 mb-1">Unscheduled</p>
+          <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">Unscheduled</p>
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr>
@@ -250,16 +241,16 @@ function CateringOrderSection({
   return (
     <div className={orderCard}>
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-gray-900 print:text-black">{order.name}</h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">{order.name}</h3>
         {order.serviceStyle && (
-          <p className="text-xs text-gray-500 print:text-gray-600 mt-0.5">Service: {order.serviceStyle}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">Service: {order.serviceStyle}</p>
         )}
       </div>
 
       {hasGuestCounts && (
         <>
           <SectionHeading>Guest Counts</SectionHeading>
-          <div className="flex gap-6 mb-4 text-xs text-gray-700 print:text-gray-900">
+          <div className="flex gap-6 mb-4 text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">
             {order.expectedCount != null && (
               <span><span className="font-medium">Expected:</span> {order.expectedCount}</span>
             )}
@@ -348,7 +339,7 @@ function CateringOrderSection({
       {(order.dietaryNotes || order.staffingNotes || order.notes) && (
         <>
           <SectionHeading>Notes</SectionHeading>
-          <div className="space-y-2 text-xs text-gray-700 print:text-gray-900">
+          <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">
             {order.dietaryNotes && (
               <div><span className="font-medium">Dietary:</span> {order.dietaryNotes}</div>
             )}
@@ -372,28 +363,28 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
   return (
     <div className={orderCard}>
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-gray-900 print:text-black">{order.name}</h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">{order.name}</h3>
       </div>
 
       {audio && (audio.inputGroups.length > 0 || audio.monitorMixes.length > 0) && (
         <>
           <SectionHeading>Audio</SectionHeading>
           {audio.notes && (
-            <p className="text-xs text-gray-600 print:text-gray-800 mb-2">{audio.notes}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 print:text-gray-800 mb-2">{audio.notes}</p>
           )}
 
           {audio.inputGroups.map((group) => (
             <div key={group.id} className="mb-4">
               <SubHeading>Input Group: {group.name}</SubHeading>
               {(group.providerVendor || group.operatorVendor) && (
-                <p className="text-xs text-gray-600 print:text-gray-800 mb-1">
+                <p className="text-xs text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">
                   {group.providerVendor && <span>Provider: {group.providerVendor.name}</span>}
                   {group.providerVendor && group.operatorVendor && " · "}
                   {group.operatorVendor && <span>Operator: {group.operatorVendor.name}</span>}
                 </p>
               )}
               {group.notes && (
-                <p className="text-xs text-gray-500 print:text-gray-600 mb-1">{group.notes}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mb-1">{group.notes}</p>
               )}
               {group.inputItems.length > 0 && (
                 <table className="w-full text-sm border-collapse">
@@ -456,7 +447,7 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
         <>
           <SectionHeading>Video</SectionHeading>
           {video.notes && (
-            <p className="text-xs text-gray-600 print:text-gray-800 mb-2">{video.notes}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 print:text-gray-800 mb-2">{video.notes}</p>
           )}
           <div className="mb-4">
             <EquipmentTable items={video.equipmentItems} />
@@ -476,7 +467,7 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
       {order.notes && (
         <>
           <SectionHeading>Notes</SectionHeading>
-          <p className="text-xs text-gray-700 print:text-gray-900">{order.notes}</p>
+          <p className="text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">{order.notes}</p>
         </>
       )}
     </div>
@@ -487,10 +478,10 @@ function SetupOrderSection({ order }: { order: HandoffData["setupOrders"][number
   return (
     <div className={orderCard}>
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-gray-900 print:text-black">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">
           {order.name ?? "Setup Order"}
         </h3>
-        <div className="flex gap-4 mt-0.5 text-xs text-gray-500 print:text-gray-600">
+        <div className="flex gap-4 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
           {order.setupType && <span>Type: {order.setupType}</span>}
           {order.room && <span>Room: {order.room.name}</span>}
         </div>
@@ -536,7 +527,7 @@ function SetupOrderSection({ order }: { order: HandoffData["setupOrders"][number
       {order.notes && (
         <>
           <SectionHeading>Notes</SectionHeading>
-          <p className="text-xs text-gray-700 print:text-gray-900">{order.notes}</p>
+          <p className="text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">{order.notes}</p>
         </>
       )}
     </div>
@@ -569,7 +560,7 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
 
         {vendor.contacts.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-gray-500 print:text-gray-700 uppercase tracking-wide mb-2">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 print:text-gray-700 uppercase tracking-wide mb-2">
               Vendor Contacts
             </p>
             <table className="w-full text-sm border-collapse">
@@ -586,7 +577,7 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
                   <tr key={id}>
                     <td className={td}>
                       {contact.firstName} {contact.lastName}
-                      {isPrimary && <span className="ml-1 text-gray-400 print:text-gray-500">(Primary)</span>}
+                      {isPrimary && <span className="ml-1 text-gray-400 dark:text-gray-500 print:text-gray-500">(Primary)</span>}
                     </td>
                     <td className={td}>{contactType ?? "—"}</td>
                     <td className={td}>{contact.email ?? "—"}</td>

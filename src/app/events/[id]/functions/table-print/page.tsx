@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
+import { reportTh as th, reportTd as td } from "@/lib/reportStyles";
 import { getFunctionsForTable } from "@/app/events/functions/actions";
 import { getEvent } from "../../../actions";
 import { getWorkflowBadgeSummaries } from "@/app/events/workflows/actions";
@@ -64,11 +65,8 @@ export default async function FunctionTablePrintPage({
 
   const tz = event.timezone || "America/Chicago";
 
-  const th = "px-3 py-2 text-left text-xs font-semibold text-gray-900 print:text-black border-b border-gray-300 print:border-gray-400 bg-gray-100 print:bg-gray-200 whitespace-nowrap";
-  const td = "px-3 py-2 text-xs text-gray-700 print:text-gray-900 border-b border-gray-200 print:border-gray-300 align-top";
-
   return (
-    <div className="max-w-7xl mx-auto px-8 py-8 bg-white print:px-0 print:py-0">
+    <div className="max-w-7xl mx-auto px-8 py-8 bg-white dark:bg-gray-900 print:bg-white print:px-0 print:py-0">
       <PrintHeader
         eventName={event.name}
         title="Functions Table"
@@ -123,10 +121,10 @@ export default async function FunctionTablePrintPage({
       </div>
 
       {functions.length === 0 && (
-        <p className="text-gray-500 py-8 text-sm">No functions found.</p>
+        <p className="text-gray-500 dark:text-gray-400 py-8 text-sm">No functions found.</p>
       )}
 
-      <p className="text-xs text-gray-500 print:text-gray-600 mt-6">
+      <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-6">
         {functions.length} function{functions.length !== 1 ? "s" : ""} &middot; Generated{" "}
         {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
       </p>
