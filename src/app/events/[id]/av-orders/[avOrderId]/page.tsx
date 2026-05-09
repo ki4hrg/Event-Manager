@@ -127,30 +127,20 @@ export default async function AVOrderPage({
   let audioEquipmentItems: Awaited<ReturnType<typeof prisma.equipment.findMany>> = [];
   let videoEquipmentItems: Awaited<ReturnType<typeof prisma.equipment.findMany>> = [];
   if (activeTab === "audio") {
-    const avCategories = await prisma.customOption.findMany({
-      where: { category: "equipment_category", models: { has: "AV_ORDER" } },
-      select: { label: true },
-    });
-    const avCategoryLabels = avCategories.map((c) => c.label);
     [partyOptions, tabResponsiblePartyVendors, audioEquipmentItems] = await Promise.all([
       getAVOrderPartyOptions(avOrderId, eventId),
       getResponsiblePartyVendors(eventId, "AV_ORDER"),
       prisma.equipment.findMany({
-        where: { category: { in: avCategoryLabels } },
+        where: { category: { in: ["Audio Inputs", "Audio Outputs"] } },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
       }),
     ]);
   } else if (activeTab === "video") {
-    const videoAvCategories = await prisma.customOption.findMany({
-      where: { category: "equipment_category", models: { has: "AV_ORDER" } },
-      select: { label: true },
-    });
-    const videoAvCategoryLabels = videoAvCategories.map((c) => c.label);
     [partyOptions, tabResponsiblePartyVendors, videoEquipmentItems] = await Promise.all([
       getAVOrderPartyOptions(avOrderId, eventId),
       getResponsiblePartyVendors(eventId, "AV_ORDER"),
       prisma.equipment.findMany({
-        where: { category: { in: videoAvCategoryLabels } },
+        where: { category: { in: ["Video Inputs", "Video Outputs"] } },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
       }),
     ]);
