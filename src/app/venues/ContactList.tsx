@@ -321,6 +321,14 @@ export function ContactList({
                   action={(formData) => handleUpdateSubmit(item.id, formData)}
                   className="space-y-3"
                 >
+                  <div className="font-medium text-gray-900 dark:text-white text-sm">
+                    {item.contact.firstName} {item.contact.lastName}
+                    {item.contact.organization && (
+                      <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">
+                        ({item.contact.organization})
+                      </span>
+                    )}
+                  </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Role

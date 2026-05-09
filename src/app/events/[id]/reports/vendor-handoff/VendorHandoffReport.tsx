@@ -2,6 +2,7 @@ import type { getVendorHandoffData } from "@/app/events/reports/actions";
 import type { getEvent } from "@/app/events/actions";
 import { formatTime, formatDateHeading } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
+import { formatPhone } from "@/lib/format-phone";
 import {
   reportTh as th,
   reportTd as td,
@@ -882,7 +883,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
                     </td>
                     <td className={td}>{contactType ?? "—"}</td>
                     <td className={td}>{contact.email ?? "—"}</td>
-                    <td className={td}>{contact.phone ?? "—"}</td>
+                    <td className={td}>{contact.phone ? formatPhone(contact.phone) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -914,7 +915,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
                   </td>
                   <td className={td}>{staff.title ?? "—"}</td>
                   <td className={td}>{staff.contact.email ?? "—"}</td>
-                  <td className={td}>{staff.contact.phone ?? "—"}</td>
+                  <td className={td}>{staff.contact.phone ? formatPhone(staff.contact.phone) : "—"}</td>
                 </tr>
               ))}
             </tbody>

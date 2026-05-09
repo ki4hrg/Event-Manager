@@ -3,6 +3,7 @@ import type { getWorkflowInstances } from "../workflows/actions";
 import type { getCateringOrderVendors } from "@/app/vendors/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
+import { formatPhone } from "@/lib/format-phone";
 
 type CateringOrderData = NonNullable<Awaited<ReturnType<typeof getCateringOrder>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
@@ -206,7 +207,7 @@ export function CateringOrderDetails({
                   </td>
                   <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{oc.role ?? "—"}</td>
                   <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{oc.contact.email ?? "—"}</td>
-                  <td className="py-1.5 text-gray-600 print:text-gray-700">{oc.contact.phone ?? "—"}</td>
+                  <td className="py-1.5 text-gray-600 print:text-gray-700">{oc.contact.phone ? formatPhone(oc.contact.phone) : "—"}</td>
                 </tr>
               ))}
             </tbody>

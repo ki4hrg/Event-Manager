@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getContacts } from "./actions";
+import { formatPhone } from "@/lib/format-phone";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,7 @@ export default async function ContactsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                    {contact.email || contact.phone || "—"}
+                    {contact.email || formatPhone(contact.phone) || "—"}
                   </td>
                 </tr>
               ))}
