@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/actions";
 import { getVendorHandoffData } from "@/app/events/reports/actions";
+import { getOptions } from "@/app/settings/actions";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "../VendorHandoffReport";
 
@@ -18,9 +19,10 @@ export default async function VendorHandoffPrintPage({
 
   if (!vendorId) notFound();
 
-  const [event, data] = await Promise.all([
+  const [event, data, functionTypes] = await Promise.all([
     getEvent(eventId),
     getVendorHandoffData(eventId, vendorId),
+    getOptions("function_type"),
   ]);
 
   if (!event || !data) notFound();
@@ -34,7 +36,7 @@ export default async function VendorHandoffPrintPage({
         title={`Vendor Handoff — ${data.vendor.name}`}
         backHref={backHref}
       />
-      <VendorHandoffReport data={data} event={event} />
+      <VendorHandoffReport data={data} event={event} functionTypes={functionTypes} />
     </div>
   );
 }

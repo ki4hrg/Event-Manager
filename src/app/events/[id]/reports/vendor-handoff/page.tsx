@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { getOrderAssignedVendors, getVendorHandoffData } from "@/app/events/reports/actions";
+import { getOptions } from "@/app/settings/actions";
 import { EventTabs } from "../../EventTabs";
 import { ReportFilters } from "./ReportFilters";
 import { VendorHandoffReport } from "./VendorHandoffReport";
@@ -18,10 +19,11 @@ export default async function VendorHandoffPage({
   const { id: eventId } = await params;
   const { vendorId } = await searchParams;
 
-  const [event, vendors, data] = await Promise.all([
+  const [event, vendors, data, functionTypes] = await Promise.all([
     getEvent(eventId),
     getOrderAssignedVendors(eventId),
     vendorId ? getVendorHandoffData(eventId, vendorId) : Promise.resolve(null),
+    getOptions("function_type"),
   ]);
 
   if (!event) notFound();
@@ -43,7 +45,7 @@ export default async function VendorHandoffPage({
         />
 
         {vendorId && data ? (
-          <VendorHandoffReport data={data} event={event} />
+          <VendorHandoffReport data={data} event={event} functionTypes={functionTypes} />
         ) : vendorId && !data ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">Vendor not found.</p>
         ) : (

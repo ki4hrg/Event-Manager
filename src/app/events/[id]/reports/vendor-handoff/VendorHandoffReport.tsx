@@ -1,6 +1,7 @@
 import type { getVendorHandoffData } from "@/app/events/reports/actions";
 import type { getEvent } from "@/app/events/actions";
-import { formatTime } from "@/lib/agendaUtils";
+import { formatTime, formatDateHeading } from "@/lib/agendaUtils";
+import { resolveOptionLabel } from "@/lib/optionUtils";
 import {
   reportTh as th,
   reportTd as td,
@@ -22,6 +23,25 @@ type EquipmentItem = {
   operatorVendor: { id: string; name: string } | null;
   operatorContact: { id: string; firstName: string; lastName: string } | null;
   notes: string | null;
+};
+
+type CateringOrder = HandoffData["cateringOrders"][number];
+type AVOrder = HandoffData["avOrders"][number];
+type SetupOrder = HandoffData["setupOrders"][number];
+type AnyFn = NonNullable<CateringOrder["function"]> | AVOrder["functions"][number];
+
+type FunctionGroup = {
+  fn: AnyFn;
+  cateringOrders: CateringOrder[];
+  avOrders: AVOrder[];
+  setupOrders: SetupOrder[];
+  earliestStart: number;
+};
+
+type UnscheduledGroup = {
+  cateringOrders: CateringOrder[];
+  avOrders: AVOrder[];
+  setupOrders: SetupOrder[];
 };
 
 function partyName(
@@ -115,6 +135,80 @@ function EquipmentTable({ items }: { items: EquipmentItem[] }) {
   );
 }
 
+function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; unscheduled: UnscheduledGroup } {
+  const groupMap = new Map<string, FunctionGroup>();
+  const unscheduled: UnscheduledGroup = { cateringOrders: [], avOrders: [], setupOrders: [] };
+
+  function getOrCreateGroup(fn: AnyFn): FunctionGroup {
+    let group = groupMap.get(fn.id);
+    if (!group) {
+      const earliest = fn.schedules.length > 0
+        ? Math.min(...fn.schedules.map((s) => s.startTime.getTime()))
+        : Infinity;
+      group = { fn, cateringOrders: [], avOrders: [], setupOrders: [], earliestStart: earliest };
+      groupMap.set(fn.id, group);
+    }
+    return group;
+  }
+
+  for (const order of data.cateringOrders) {
+    if (order.function) getOrCreateGroup(order.function).cateringOrders.push(order);
+    else unscheduled.cateringOrders.push(order);
+  }
+  for (const order of data.avOrders) {
+    if (order.functions.length === 0) unscheduled.avOrders.push(order);
+    else for (const fn of order.functions) getOrCreateGroup(fn).avOrders.push(order);
+  }
+  for (const order of data.setupOrders) {
+    if (order.functions.length === 0) unscheduled.setupOrders.push(order);
+    else for (const fn of order.functions) getOrCreateGroup(fn).setupOrders.push(order);
+  }
+
+  const groups = Array.from(groupMap.values()).sort((a, b) => a.earliestStart - b.earliestStart);
+  return { groups, unscheduled };
+}
+
+type EquipmentSummaryRow = { itemName: string; quantity: number; providerName: string };
+
+function buildEquipmentSummary(data: HandoffData): EquipmentSummaryRow[] {
+  type Bucket = { itemName: string; quantity: number; providers: Set<string> };
+  const map = new Map<string, Bucket>();
+
+  const addItems = (items: EquipmentItem[]) => {
+    for (const item of items) {
+      const key = (item.equipment?.name ?? item.item).toLowerCase();
+      const itemName = item.equipment?.name ?? item.item;
+      const qty = item.quantity ?? 1;
+      const provider = item.providerVendor?.name
+        ?? (item.providerContact ? `${item.providerContact.firstName} ${item.providerContact.lastName}` : null);
+      const existing = map.get(key);
+      if (existing) {
+        existing.quantity += qty;
+        if (provider) existing.providers.add(provider);
+      } else {
+        const providers = new Set<string>();
+        if (provider) providers.add(provider);
+        map.set(key, { itemName, quantity: qty, providers });
+      }
+    }
+  };
+
+  for (const order of data.cateringOrders) addItems(order.equipmentItems);
+  for (const order of data.avOrders) {
+    addItems(order.equipmentItems);
+    if (order.videoSection) addItems(order.videoSection.equipmentItems);
+  }
+  for (const order of data.setupOrders) addItems(order.equipmentItems);
+
+  return Array.from(map.values())
+    .map(({ itemName, quantity, providers }) => ({
+      itemName,
+      quantity,
+      providerName: providers.size === 0 ? "—" : providers.size === 1 ? Array.from(providers)[0] : "Multiple",
+    }))
+    .sort((a, b) => a.itemName.localeCompare(b.itemName));
+}
+
 function FunctionScheduleSection({
   data,
   timezone,
@@ -122,9 +216,6 @@ function FunctionScheduleSection({
   data: HandoffData;
   timezone: string;
 }) {
-  type Fn = NonNullable<HandoffData["cateringOrders"][number]["function"]>;
-  type AvFn = HandoffData["avOrders"][number]["functions"][number];
-  type AnyFn = Fn | AvFn;
   type ScheduleRow = { fn: AnyFn; schedule: AnyFn["schedules"][number] };
 
   const allFunctions: AnyFn[] = [];
@@ -166,7 +257,6 @@ function FunctionScheduleSection({
 
   return (
     <div className="print:break-inside-avoid">
-      <SectionHeading>Function Schedule</SectionHeading>
       {sortedDates.map((dateKey) => {
         const rows = byDate.get(dateKey)!;
         const dateLabel = new Date(dateKey + "T12:00:00Z").toLocaleDateString("en-US", {
@@ -235,7 +325,7 @@ function CateringOrderSection({
   order,
   timezone,
 }: {
-  order: HandoffData["cateringOrders"][number];
+  order: CateringOrder;
   timezone: string;
 }) {
   const hasGuestCounts = order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null;
@@ -363,7 +453,7 @@ function CateringOrderSection({
   );
 }
 
-function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
+function AVOrderSection({ order }: { order: AVOrder }) {
   const audio = order.audioSection;
   const video = order.videoSection;
 
@@ -481,7 +571,7 @@ function AVOrderSection({ order }: { order: HandoffData["avOrders"][number] }) {
   );
 }
 
-function SetupOrderSection({ order }: { order: HandoffData["setupOrders"][number] }) {
+function SetupOrderSection({ order }: { order: SetupOrder }) {
   return (
     <div className={orderCard}>
       <div className="mb-3">
@@ -541,28 +631,148 @@ function SetupOrderSection({ order }: { order: HandoffData["setupOrders"][number
   );
 }
 
+function FunctionSection({
+  group,
+  functionTypes,
+  timezone,
+}: {
+  group: FunctionGroup;
+  functionTypes: { label: string }[];
+  timezone: string;
+}) {
+  const { fn, cateringOrders, avOrders, setupOrders } = group;
+  const typeLabel = fn.type ? resolveOptionLabel(fn.type, functionTypes) : null;
+  const rooms = fn.rooms.map((r) => r.room.name).join(", ") || "—";
+  const sortedSchedules = [...fn.schedules].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
+  const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0].filter(Boolean).length;
+
+  return (
+    <div className={sectionCard}>
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
+          {fn.name}
+        </h2>
+        <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+          {typeLabel && <span>{typeLabel}</span>}
+          <span>{rooms}</span>
+        </div>
+      </div>
+
+      {sortedSchedules.length > 0 && (
+        <div className="mb-4">
+          <SectionHeading>Schedule</SectionHeading>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr>
+                <th className={th}>Date</th>
+                <th className={th}>Time</th>
+                <th className={th}>Type</th>
+                <th className={th}>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedSchedules.map((schedule) => {
+                const dateKey = dateFormatter.format(schedule.startTime);
+                return (
+                  <tr key={`${fn.id}-${schedule.startTime.getTime()}`}>
+                    <td className={`${td} whitespace-nowrap`}>{formatDateHeading(dateKey, timezone)}</td>
+                    <td className={`${td} whitespace-nowrap`}>{`${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`}</td>
+                    <td className={td}>{schedule.type ?? ""}</td>
+                    <td className={td}>{schedule.notes ?? ""}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {cateringOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Catering</SubHeading>}
+          {cateringOrders.map((order) => (
+            <CateringOrderSection key={order.id} order={order} timezone={timezone} />
+          ))}
+        </>
+      )}
+
+      {avOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Audio / Visual</SubHeading>}
+          {avOrders.map((order) => (
+            <AVOrderSection key={order.id} order={order} />
+          ))}
+        </>
+      )}
+
+      {setupOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Setup</SubHeading>}
+          {setupOrders.map((order) => (
+            <SetupOrderSection key={order.id} order={order} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 type VendorHandoffReportProps = {
   data: HandoffData;
   event: Event;
+  functionTypes: { label: string }[];
 };
 
-export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
+export function VendorHandoffReport({ data, event, functionTypes }: VendorHandoffReportProps) {
   const { vendor, cateringOrders, avOrders, setupOrders, keyStaff } = data;
   const timezone = event.timezone ?? "America/Chicago";
+  const { groups, unscheduled } = buildFunctionGroups(data);
+  const equipmentSummary = buildEquipmentSummary(data);
+
+  const hasUnscheduled =
+    unscheduled.cateringOrders.length > 0 ||
+    unscheduled.avOrders.length > 0 ||
+    unscheduled.setupOrders.length > 0;
+
+  const unscheduledTypeCount = [
+    unscheduled.cateringOrders.length > 0,
+    unscheduled.avOrders.length > 0,
+    unscheduled.setupOrders.length > 0,
+  ].filter(Boolean).length;
+
+  const dateOpts: Intl.DateTimeFormatOptions = { timeZone: timezone, month: "long", day: "numeric", year: "numeric" };
+  const startDateStr = event.startDate ? new Date(event.startDate).toLocaleDateString("en-US", dateOpts) : null;
+  const endDateStr = event.endDate ? new Date(event.endDate).toLocaleDateString("en-US", dateOpts) : null;
+  const dateRange = startDateStr && endDateStr
+    ? `${startDateStr} – ${endDateStr}`
+    : (startDateStr ?? endDateStr ?? null);
+
+  const venue = event.venue;
+  const addressParts = venue ? [venue.city, venue.state].filter(Boolean) : [];
+  const addressLine = venue?.address
+    ? [venue.address, ...addressParts].join(", ")
+    : addressParts.join(", ");
 
   return (
     <div className="space-y-6 print:space-y-0">
-      {/* Vendor info */}
+      {/* Header: event details + vendor */}
       <div className={sectionCard}>
         <div className="mb-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black">
-            {vendor.name}
+            {event.name}
           </h2>
-          {event.venue && (
+          {dateRange && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">{dateRange}</p>
+          )}
+          {venue && (
             <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">
-              Venue: {event.venue.name}
+              {venue.name}{addressLine ? ` · ${addressLine}` : ""}
             </p>
           )}
+          <p className="text-xs font-medium text-gray-700 dark:text-gray-300 print:text-gray-800 mt-2">
+            Vendor: {vendor.name}
+          </p>
         </div>
 
         {vendor.contacts.length > 0 && (
@@ -597,11 +807,11 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
         )}
       </div>
 
-      {/* Key event staff */}
+      {/* Key event contacts */}
       {keyStaff.length > 0 && (
         <div className={sectionCard}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
-            Key Event Staff
+            Key Event Contacts
           </h2>
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -628,10 +838,8 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
         </div>
       )}
 
-      {/* Function schedule */}
-      {(cateringOrders.some((o) => o.function) ||
-        avOrders.some((o) => o.functions.length > 0) ||
-        setupOrders.some((o) => o.functions.length > 0)) && (
+      {/* Function schedule overview */}
+      {groups.length > 0 && (
         <div className={sectionCard}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Function Schedule
@@ -640,39 +848,73 @@ export function VendorHandoffReport({ data, event }: VendorHandoffReportProps) {
         </div>
       )}
 
-      {/* Catering orders */}
-      {cateringOrders.length > 0 && (
+      {/* Master equipment summary */}
+      {equipmentSummary.length > 0 && (
         <div className={sectionCard}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
-            Catering {cateringOrders.length > 1 ? `(${cateringOrders.length} orders)` : ""}
+            Equipment Summary
           </h2>
-          {cateringOrders.map((order) => (
-            <CateringOrderSection key={order.id} order={order} timezone={timezone} />
-          ))}
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr>
+                <th className={th}>Item</th>
+                <th className={th}>Qty</th>
+                <th className={th}>Provider</th>
+              </tr>
+            </thead>
+            <tbody>
+              {equipmentSummary.map((row) => (
+                <tr key={row.itemName}>
+                  <td className={td}>{row.itemName}</td>
+                  <td className={td}>{row.quantity}</td>
+                  <td className={td}>{row.providerName}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* AV orders */}
-      {avOrders.length > 0 && (
-        <div className={sectionCard}>
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
-            Audio / Visual {avOrders.length > 1 ? `(${avOrders.length} orders)` : ""}
-          </h2>
-          {avOrders.map((order) => (
-            <AVOrderSection key={order.id} order={order} />
-          ))}
-        </div>
-      )}
+      {/* Per-function detail sections */}
+      {groups.map((group) => (
+        <FunctionSection
+          key={group.fn.id}
+          group={group}
+          functionTypes={functionTypes}
+          timezone={timezone}
+        />
+      ))}
 
-      {/* Setup orders */}
-      {setupOrders.length > 0 && (
+      {/* Unscheduled orders */}
+      {hasUnscheduled && (
         <div className={sectionCard}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
-            Setup {setupOrders.length > 1 ? `(${setupOrders.length} orders)` : ""}
+            Unscheduled Orders
           </h2>
-          {setupOrders.map((order) => (
-            <SetupOrderSection key={order.id} order={order} />
-          ))}
+          {unscheduled.cateringOrders.length > 0 && (
+            <>
+              {unscheduledTypeCount > 1 && <SubHeading>Catering</SubHeading>}
+              {unscheduled.cateringOrders.map((order) => (
+                <CateringOrderSection key={order.id} order={order} timezone={timezone} />
+              ))}
+            </>
+          )}
+          {unscheduled.avOrders.length > 0 && (
+            <>
+              {unscheduledTypeCount > 1 && <SubHeading>Audio / Visual</SubHeading>}
+              {unscheduled.avOrders.map((order) => (
+                <AVOrderSection key={order.id} order={order} />
+              ))}
+            </>
+          )}
+          {unscheduled.setupOrders.length > 0 && (
+            <>
+              {unscheduledTypeCount > 1 && <SubHeading>Setup</SubHeading>}
+              {unscheduled.setupOrders.map((order) => (
+                <SetupOrderSection key={order.id} order={order} />
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>
