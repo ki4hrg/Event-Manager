@@ -53,6 +53,19 @@ function partyName(
   return "—";
 }
 
+function vendorRole(
+  providerVendor: { id: string } | null | undefined,
+  operatorVendor: { id: string } | null | undefined,
+  vendorId: string
+): string {
+  const isProvider = providerVendor?.id === vendorId;
+  const isOperator = operatorVendor?.id === vendorId;
+  if (isProvider && isOperator) return "Provider & Operator";
+  if (isProvider) return "Provider";
+  if (isOperator) return "Operator";
+  return "—";
+}
+
 function rollUpInputItems(items: AudioInputItem[]) {
   const map = new Map<string, {
     displayName: string;
@@ -105,8 +118,11 @@ function SubHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function EquipmentTable({ items }: { items: EquipmentItem[] }) {
-  if (items.length === 0) return null;
+function EquipmentTable({ items, vendorId }: { items: EquipmentItem[]; vendorId: string }) {
+  const relevant = items.filter(
+    (item) => item.providerVendor?.id === vendorId || item.operatorVendor?.id === vendorId
+  );
+  if (relevant.length === 0) return null;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
@@ -114,16 +130,18 @@ function EquipmentTable({ items }: { items: EquipmentItem[] }) {
           <tr>
             <th className={th}>Item</th>
             <th className={th}>Qty</th>
+            <th className={th}>Role</th>
             <th className={th}>Provider</th>
             <th className={th}>Operator</th>
             <th className={th}>Notes</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
+          {relevant.map((item) => (
             <tr key={item.id}>
               <td className={td}>{item.equipment?.name ?? item.item}</td>
               <td className={td}>{item.quantity ?? 1}</td>
+              <td className={td}>{vendorRole(item.providerVendor, item.operatorVendor, vendorId)}</td>
               <td className={td}>{partyName(item.providerVendor, item.providerContact)}</td>
               <td className={td}>{partyName(item.operatorVendor, item.operatorContact)}</td>
               <td className={td}>{item.notes ?? ""}</td>
@@ -168,27 +186,32 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; unsc
   return { groups, unscheduled };
 }
 
-type EquipmentSummaryRow = { itemName: string; quantity: number; providerName: string };
+type EquipmentSummaryRow = { itemName: string; quantity: number; providerName: string; role: string };
 
-function buildEquipmentSummary(data: HandoffData): EquipmentSummaryRow[] {
-  type Bucket = { itemName: string; quantity: number; providers: Set<string> };
+function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSummaryRow[] {
+  type Bucket = { itemName: string; quantity: number; providers: Set<string>; isProvider: boolean; isOperator: boolean };
   const map = new Map<string, Bucket>();
 
   const addItems = (items: EquipmentItem[]) => {
     for (const item of items) {
+      if (item.providerVendor?.id !== vendorId && item.operatorVendor?.id !== vendorId) continue;
       const key = (item.equipment?.name ?? item.item).toLowerCase();
       const itemName = item.equipment?.name ?? item.item;
       const qty = item.quantity ?? 1;
       const provider = item.providerVendor?.name
         ?? (item.providerContact ? `${item.providerContact.firstName} ${item.providerContact.lastName}` : null);
+      const isProvider = item.providerVendor?.id === vendorId;
+      const isOperator = item.operatorVendor?.id === vendorId;
       const existing = map.get(key);
       if (existing) {
         existing.quantity += qty;
         if (provider) existing.providers.add(provider);
+        if (isProvider) existing.isProvider = true;
+        if (isOperator) existing.isOperator = true;
       } else {
         const providers = new Set<string>();
         if (provider) providers.add(provider);
-        map.set(key, { itemName, quantity: qty, providers });
+        map.set(key, { itemName, quantity: qty, providers, isProvider, isOperator });
       }
     }
   };
@@ -201,10 +224,11 @@ function buildEquipmentSummary(data: HandoffData): EquipmentSummaryRow[] {
   for (const order of data.setupOrders) addItems(order.equipmentItems);
 
   return Array.from(map.values())
-    .map(({ itemName, quantity, providers }) => ({
+    .map(({ itemName, quantity, providers, isProvider, isOperator }) => ({
       itemName,
       quantity,
       providerName: providers.size === 0 ? "—" : providers.size === 1 ? Array.from(providers)[0] : "Multiple",
+      role: isProvider && isOperator ? "Provider & Operator" : isProvider ? "Provider" : "Operator",
     }))
     .sort((a, b) => a.itemName.localeCompare(b.itemName));
 }
@@ -324,9 +348,11 @@ function FunctionScheduleSection({
 function CateringOrderSection({
   order,
   timezone,
+  vendorId,
 }: {
   order: CateringOrder;
   timezone: string;
+  vendorId: string;
 }) {
   const hasGuestCounts = order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null;
 
@@ -334,9 +360,10 @@ function CateringOrderSection({
     <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">{order.name}</h3>
-        {order.serviceStyle && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">Service: {order.serviceStyle}</p>
-        )}
+        <div className="flex gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+          <span>Catering Order</span>
+          {order.serviceStyle && <span>Service: {order.serviceStyle}</span>}
+        </div>
       </div>
 
       {hasGuestCounts && (
@@ -428,7 +455,7 @@ function CateringOrderSection({
         <>
           <SectionHeading>Equipment</SectionHeading>
           <div className="mb-4">
-            <EquipmentTable items={order.equipmentItems} />
+            <EquipmentTable items={order.equipmentItems} vendorId={vendorId} />
           </div>
         </>
       )}
@@ -453,14 +480,18 @@ function CateringOrderSection({
   );
 }
 
-function AVOrderSection({ order }: { order: AVOrder }) {
+function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string }) {
   const audio = order.audioSection;
   const video = order.videoSection;
+  const relevantMixes = audio?.monitorMixes.filter(
+    (mix) => mix.providerVendor?.id === vendorId || mix.operatorVendor?.id === vendorId
+  ) ?? [];
 
   return (
     <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">{order.name}</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">AV Order</p>
       </div>
 
       {audio && (audio.inputGroups.length > 0 || audio.monitorMixes.length > 0) && (
@@ -470,35 +501,42 @@ function AVOrderSection({ order }: { order: AVOrder }) {
             <p className="text-xs text-gray-600 dark:text-gray-400 print:text-gray-800 mb-2">{audio.notes}</p>
           )}
 
-          {audio.inputGroups.map((group) => (
-            <div key={group.id} className="mb-4">
-              <SubHeading>Input Group: {group.name}</SubHeading>
-              {(group.providerVendor || group.operatorVendor) && (
-                <p className="text-xs text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">
-                  {group.providerVendor && <span>Provider: {group.providerVendor.name}</span>}
-                  {group.providerVendor && group.operatorVendor && " · "}
-                  {group.operatorVendor && <span>Operator: {group.operatorVendor.name}</span>}
-                </p>
-              )}
-              {group.notes && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mb-1">{group.notes}</p>
-              )}
-              {group.inputItems.length > 0 && (
+          {audio.inputGroups.map((group) => {
+            const relevantItems = group.inputItems.filter(
+              (item) => item.providerVendor?.id === vendorId || item.operatorVendor?.id === vendorId
+            );
+            const rolledUp = rollUpInputItems(relevantItems);
+            if (rolledUp.length === 0) return null;
+            return (
+              <div key={group.id} className="mb-4">
+                <SubHeading>Input Group: {group.name}</SubHeading>
+                {(group.providerVendor || group.operatorVendor) && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">
+                    {group.providerVendor && <span>Provider: {group.providerVendor.name}</span>}
+                    {group.providerVendor && group.operatorVendor && " · "}
+                    {group.operatorVendor && <span>Operator: {group.operatorVendor.name}</span>}
+                  </p>
+                )}
+                {group.notes && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mb-1">{group.notes}</p>
+                )}
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr>
                       <th className={th}>Input</th>
                       <th className={th}>Qty</th>
+                      <th className={th}>Role</th>
                       <th className={th}>Provider</th>
                       <th className={th}>Operator</th>
                       <th className={th}>Notes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rollUpInputItems(group.inputItems).map((row, i) => (
+                    {rolledUp.map((row, i) => (
                       <tr key={i}>
                         <td className={td}>{row.displayName}</td>
                         <td className={td}>{row.quantity}</td>
+                        <td className={td}>{vendorRole(row.providerVendor, row.operatorVendor, vendorId)}</td>
                         <td className={td}>{partyName(row.providerVendor, row.providerContact)}</td>
                         <td className={td}>{partyName(row.operatorVendor, row.operatorContact)}</td>
                         <td className={td}>{row.notes}</td>
@@ -506,11 +544,11 @@ function AVOrderSection({ order }: { order: AVOrder }) {
                     ))}
                   </tbody>
                 </table>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
 
-          {audio.monitorMixes.length > 0 && (
+          {relevantMixes.length > 0 && (
             <>
               <SubHeading>Monitor Mixes</SubHeading>
               <table className="w-full text-sm border-collapse mb-4">
@@ -518,16 +556,18 @@ function AVOrderSection({ order }: { order: AVOrder }) {
                   <tr>
                     <th className={th}>Description</th>
                     <th className={th}>Equipment</th>
+                    <th className={th}>Role</th>
                     <th className={th}>Provider</th>
                     <th className={th}>Operator</th>
                     <th className={th}>Notes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {audio.monitorMixes.map((mix) => (
+                  {relevantMixes.map((mix) => (
                     <tr key={mix.id}>
                       <td className={td}>{mix.description}</td>
                       <td className={td}>{mix.equipment?.name ?? "—"}</td>
+                      <td className={td}>{vendorRole(mix.providerVendor, mix.operatorVendor, vendorId)}</td>
                       <td className={td}>{partyName(mix.providerVendor, mix.providerContact)}</td>
                       <td className={td}>{partyName(mix.operatorVendor, mix.operatorContact)}</td>
                       <td className={td}>{mix.notes ?? ""}</td>
@@ -547,7 +587,7 @@ function AVOrderSection({ order }: { order: AVOrder }) {
             <p className="text-xs text-gray-600 dark:text-gray-400 print:text-gray-800 mb-2">{video.notes}</p>
           )}
           <div className="mb-4">
-            <EquipmentTable items={video.equipmentItems} />
+            <EquipmentTable items={video.equipmentItems} vendorId={vendorId} />
           </div>
         </>
       )}
@@ -556,7 +596,7 @@ function AVOrderSection({ order }: { order: AVOrder }) {
         <>
           <SectionHeading>Equipment</SectionHeading>
           <div className="mb-4">
-            <EquipmentTable items={order.equipmentItems} />
+            <EquipmentTable items={order.equipmentItems} vendorId={vendorId} />
           </div>
         </>
       )}
@@ -571,14 +611,15 @@ function AVOrderSection({ order }: { order: AVOrder }) {
   );
 }
 
-function SetupOrderSection({ order }: { order: SetupOrder }) {
+function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: string }) {
   return (
     <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">
           {order.name ?? "Setup Order"}
         </h3>
-        <div className="flex gap-4 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+        <div className="flex gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+          <span>Setup Order</span>
           {order.setupType && <span>Type: {order.setupType}</span>}
           {order.room && <span>Room: {order.room.name}</span>}
         </div>
@@ -616,7 +657,7 @@ function SetupOrderSection({ order }: { order: SetupOrder }) {
         <>
           <SectionHeading>Equipment</SectionHeading>
           <div className="mb-4">
-            <EquipmentTable items={order.equipmentItems} />
+            <EquipmentTable items={order.equipmentItems} vendorId={vendorId} />
           </div>
         </>
       )}
@@ -635,10 +676,12 @@ function FunctionSection({
   group,
   functionTypes,
   timezone,
+  vendorId,
 }: {
   group: FunctionGroup;
   functionTypes: { label: string }[];
   timezone: string;
+  vendorId: string;
 }) {
   const { fn, cateringOrders, avOrders, setupOrders } = group;
   const typeLabel = fn.type ? resolveOptionLabel(fn.type, functionTypes) : null;
@@ -692,7 +735,7 @@ function FunctionSection({
         <>
           {typeCount > 1 && <SubHeading>Catering</SubHeading>}
           {cateringOrders.map((order) => (
-            <CateringOrderSection key={order.id} order={order} timezone={timezone} />
+            <CateringOrderSection key={order.id} order={order} timezone={timezone} vendorId={vendorId} />
           ))}
         </>
       )}
@@ -701,7 +744,7 @@ function FunctionSection({
         <>
           {typeCount > 1 && <SubHeading>Audio / Visual</SubHeading>}
           {avOrders.map((order) => (
-            <AVOrderSection key={order.id} order={order} />
+            <AVOrderSection key={order.id} order={order} vendorId={vendorId} />
           ))}
         </>
       )}
@@ -710,7 +753,7 @@ function FunctionSection({
         <>
           {typeCount > 1 && <SubHeading>Setup</SubHeading>}
           {setupOrders.map((order) => (
-            <SetupOrderSection key={order.id} order={order} />
+            <SetupOrderSection key={order.id} order={order} vendorId={vendorId} />
           ))}
         </>
       )}
@@ -725,10 +768,11 @@ type VendorHandoffReportProps = {
 };
 
 export function VendorHandoffReport({ data, event, functionTypes }: VendorHandoffReportProps) {
-  const { vendor, cateringOrders, avOrders, setupOrders, keyStaff } = data;
+  const { vendor, keyStaff } = data;
+  const vendorId = vendor.id;
   const timezone = event.timezone ?? "America/Chicago";
   const { groups, unscheduled } = buildFunctionGroups(data);
-  const equipmentSummary = buildEquipmentSummary(data);
+  const equipmentSummary = buildEquipmentSummary(data, vendorId);
 
   const hasUnscheduled =
     unscheduled.cateringOrders.length > 0 ||
@@ -859,6 +903,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
               <tr>
                 <th className={th}>Item</th>
                 <th className={th}>Qty</th>
+                <th className={th}>Role</th>
                 <th className={th}>Provider</th>
               </tr>
             </thead>
@@ -867,6 +912,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
                 <tr key={row.itemName}>
                   <td className={td}>{row.itemName}</td>
                   <td className={td}>{row.quantity}</td>
+                  <td className={td}>{row.role}</td>
                   <td className={td}>{row.providerName}</td>
                 </tr>
               ))}
@@ -882,6 +928,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
           group={group}
           functionTypes={functionTypes}
           timezone={timezone}
+          vendorId={vendorId}
         />
       ))}
 
@@ -895,7 +942,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
             <>
               {unscheduledTypeCount > 1 && <SubHeading>Catering</SubHeading>}
               {unscheduled.cateringOrders.map((order) => (
-                <CateringOrderSection key={order.id} order={order} timezone={timezone} />
+                <CateringOrderSection key={order.id} order={order} timezone={timezone} vendorId={vendorId} />
               ))}
             </>
           )}
@@ -903,7 +950,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
             <>
               {unscheduledTypeCount > 1 && <SubHeading>Audio / Visual</SubHeading>}
               {unscheduled.avOrders.map((order) => (
-                <AVOrderSection key={order.id} order={order} />
+                <AVOrderSection key={order.id} order={order} vendorId={vendorId} />
               ))}
             </>
           )}
@@ -911,7 +958,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
             <>
               {unscheduledTypeCount > 1 && <SubHeading>Setup</SubHeading>}
               {unscheduled.setupOrders.map((order) => (
-                <SetupOrderSection key={order.id} order={order} />
+                <SetupOrderSection key={order.id} order={order} vendorId={vendorId} />
               ))}
             </>
           )}
