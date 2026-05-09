@@ -10,6 +10,7 @@ import {
   partyLabel,
   PartyField,
 } from "./party-field";
+import { GroupedEquipmentSelect } from "./grouped-equipment-select";
 
 type EquipmentItemWithParties = EquipmentItem & {
   equipment: Equipment | null;
@@ -33,6 +34,7 @@ type VideoSectionPanelProps = {
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 };
+
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -185,15 +187,7 @@ function AddItemForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment</label>
-          <select
-            name="equipmentId"
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          >
-            <option value="">— select or type below —</option>
-            {equipmentOptions.map((eq) => (
-              <option key={eq.id} value={eq.id}>{eq.name}</option>
-            ))}
-          </select>
+          <GroupedEquipmentSelect options={equipmentOptions} size="md" placeholder="— select or type below —" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item name</label>
@@ -279,16 +273,7 @@ function EquipmentItemRow({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment</label>
-              <select
-                name="equipmentId"
-                defaultValue={item.equipmentId ?? ""}
-                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              >
-                <option value="">— select or type below —</option>
-                {equipmentOptions.map((eq) => (
-                  <option key={eq.id} value={eq.id}>{eq.name}</option>
-                ))}
-              </select>
+              <GroupedEquipmentSelect options={equipmentOptions} defaultValue={item.equipmentId} size="md" placeholder="— select or type below —" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item name</label>

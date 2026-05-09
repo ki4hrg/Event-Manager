@@ -19,6 +19,7 @@ import {
   partyLabel,
   PartyField,
 } from "./party-field";
+import { GroupedEquipmentSelect } from "./grouped-equipment-select";
 
 // ============================================================================
 // Types
@@ -86,6 +87,7 @@ type AudioSectionPanelProps = {
 // ============================================================================
 // Helpers
 // ============================================================================
+
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -162,16 +164,7 @@ function InputItemRow({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Input Type</label>
-              <select
-                name="equipmentId"
-                defaultValue={item.equipmentId || ""}
-                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-              >
-                <option value="">— None —</option>
-                {audioInputOptions.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
+              <GroupedEquipmentSelect name="equipmentId" options={audioInputOptions} defaultValue={item.equipmentId} />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -365,15 +358,7 @@ function InputGroupCard({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Input Type</label>
-                <select
-                  name="equipmentId"
-                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-                >
-                  <option value="">— None —</option>
-                  {audioInputOptions.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
+                <GroupedEquipmentSelect name="equipmentId" options={audioInputOptions} />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -454,16 +439,7 @@ function MonitorOutputRow({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
-              <select
-                name="equipmentId"
-                defaultValue={output.equipmentId || ""}
-                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-              >
-                <option value="">— None —</option>
-                {audioOutputOptions.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
+              <GroupedEquipmentSelect name="equipmentId" options={audioOutputOptions} defaultValue={output.equipmentId} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty</label>
@@ -614,15 +590,7 @@ function MonitorMixGroupCard({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
-                <select
-                  name="equipmentId"
-                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-                >
-                  <option value="">— None —</option>
-                  {audioOutputOptions.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
+                <GroupedEquipmentSelect name="equipmentId" options={audioOutputOptions} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Qty</label>
