@@ -61,6 +61,20 @@ function extractWindows(
   );
 }
 
+type FunctionRef = { name: string; schedules: { startTime: Date; endTime: Date }[] };
+
+// Expands one item into one NormalizedItem per linked function.
+// When the same order is applied to N functions, each function is an independent
+// use of the equipment — contributing to both total qty and peak scheduling.
+// If no functions are linked, falls back to one unscheduled item.
+function expandByFunction(
+  base: Omit<NormalizedItem, "functionNames" | "scheduleWindows">,
+  fns: FunctionRef[]
+): NormalizedItem[] {
+  if (fns.length === 0) return [{ ...base, functionNames: [], scheduleWindows: [] }];
+  return fns.map((fn) => ({ ...base, functionNames: [fn.name], scheduleWindows: extractWindows([fn]) }));
+}
+
 function calculatePeak(
   sources: { quantity: number; windows: { start: Date; end: Date }[] }[]
 ): { peak: number; isExact: boolean } {
@@ -195,37 +209,30 @@ export async function getEquipmentResponsibilityData(
     const attrVendor = item.providerVendor;
     const attrContact = item.providerContact;
     let orderId: string;
-    let functionNames: string[];
     let modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
-    let scheduleWindows: { start: Date; end: Date }[];
+    let fns: FunctionRef[];
 
     if (item.cateringOrder) {
       orderId = item.cateringOrder.id;
-      functionNames = item.cateringOrder.function ? [item.cateringOrder.function.name] : [];
       modelType = "CATERING_ORDER";
-      scheduleWindows = item.cateringOrder.function
-        ? extractWindows([item.cateringOrder.function])
-        : [];
+      fns = item.cateringOrder.function ? [item.cateringOrder.function] : [];
     } else if (item.setupOrder) {
       orderId = item.setupOrder.id;
-      functionNames = item.setupOrder.functions.map((f) => f.name);
       modelType = "SETUP_ORDER";
-      scheduleWindows = extractWindows(item.setupOrder.functions);
+      fns = item.setupOrder.functions;
     } else if (item.avOrder) {
       orderId = item.avOrder.id;
-      functionNames = item.avOrder.functions.map((f) => f.name);
       modelType = "AV_ORDER";
-      scheduleWindows = extractWindows(item.avOrder.functions);
+      fns = item.avOrder.functions;
     } else if (item.videoSection?.avOrder) {
       orderId = item.videoSection.avOrder.id;
-      functionNames = item.videoSection.avOrder.functions.map((f) => f.name);
       modelType = "AV_ORDER";
-      scheduleWindows = extractWindows(item.videoSection.avOrder.functions);
+      fns = item.videoSection.avOrder.functions;
     } else {
       continue;
     }
 
-    normalized.push({
+    const base = {
       equipmentId: item.equipmentId,
       equipmentKey: item.equipmentId ?? `item:${item.item.toLowerCase()}`,
       itemName: item.equipment?.name ?? item.item,
@@ -236,17 +243,16 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: item.quantity ?? 1,
       orderId,
-      functionNames,
       modelType,
-      scheduleWindows,
-    });
+    };
+    normalized.push(...expandByFunction(base, fns));
   }
 
   for (const item of inputItems) {
     const avOrder = item.inputGroup.audioSection.avOrder;
     const attrVendor = item.providerVendor;
     const attrContact = item.providerContact;
-    normalized.push({
+    const base = {
       equipmentId: item.equipmentId,
       equipmentKey: item.equipmentId ?? `item:${item.description.toLowerCase()}`,
       itemName: item.equipment?.name ?? item.description,
@@ -257,17 +263,16 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: item.quantity,
       orderId: avOrder.id,
-      functionNames: avOrder.functions.map((f) => f.name),
-      modelType: "AV_ORDER",
-      scheduleWindows: extractWindows(avOrder.functions),
-    });
+      modelType: "AV_ORDER" as const,
+    };
+    normalized.push(...expandByFunction(base, avOrder.functions));
   }
 
   for (const item of monitorMixes) {
     const avOrder = item.audioSection.avOrder;
     const attrVendor = item.providerVendor;
     const attrContact = item.providerContact;
-    normalized.push({
+    const base = {
       equipmentId: item.equipmentId,
       equipmentKey: item.equipmentId ?? `item:${item.description.toLowerCase()}`,
       itemName: item.equipment?.name ?? item.description,
@@ -278,10 +283,9 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: 1,
       orderId: avOrder.id,
-      functionNames: avOrder.functions.map((f) => f.name),
-      modelType: "AV_ORDER",
-      scheduleWindows: extractWindows(avOrder.functions),
-    });
+      modelType: "AV_ORDER" as const,
+    };
+    normalized.push(...expandByFunction(base, avOrder.functions));
   }
 
   let filtered = normalized;
@@ -387,6 +391,11 @@ export async function getEquipmentResponsibilityData(
           existing.displayQty += s.quantity;
           existing.peakQty = Math.max(existing.peakQty, s.quantity);
           existing.source.isScheduled = existing.source.isScheduled || s.source.isScheduled;
+          for (const fn of s.source.functionNames) {
+            if (!existing.source.functionNames.includes(fn)) {
+              existing.source.functionNames.push(fn);
+            }
+          }
           for (const w of s.windows) {
             const wKey = `${w.start.getTime()},${w.end.getTime()}`;
             if (!existing.windowKeys.has(wKey)) {
