@@ -166,25 +166,21 @@ async function seedUsers() {
 }
 
 async function seedOptionsForCategory(category, options) {
-  for (const option of options) {
-    await prisma.customOption.upsert({
-      where: { category_label: { category, label: option.label } },
-      update: {},
-      create: { category, ...option },
-    });
-  }
-  return 0;
+  const existing = await prisma.customOption.count({ where: { category } });
+  if (existing > 0) return 0;
+  await prisma.customOption.createMany({ data: options.map((o) => ({ category, ...o })) });
+  return options.length;
 }
 
 async function seedEquipment() {
-  for (const item of defaultEquipment) {
-    await prisma.equipment.upsert({
-      where: { category_name: { category: item.category, name: item.name } },
-      update: {},
-      create: item,
+  const categories = [...new Set(defaultEquipment.map((e) => e.category))];
+  for (const category of categories) {
+    const existing = await prisma.equipment.count({ where: { category } });
+    if (existing > 0) continue;
+    await prisma.equipment.createMany({
+      data: defaultEquipment.filter((e) => e.category === category),
     });
   }
-  return 0;
 }
 
 async function seedOptions() {
