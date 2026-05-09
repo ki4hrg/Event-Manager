@@ -192,27 +192,35 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
   type Bucket = { itemName: string; quantity: number; providers: Set<string>; isProvider: boolean; isOperator: boolean };
   const map = new Map<string, Bucket>();
 
+  const addRow = (
+    itemName: string,
+    qty: number,
+    providerVendor: { id: string; name: string } | null | undefined,
+    providerContact: { id: string; firstName: string; lastName: string } | null | undefined,
+    operatorVendor: { id: string; name: string } | null | undefined,
+  ) => {
+    const isProvider = providerVendor?.id === vendorId;
+    const isOperator = operatorVendor?.id === vendorId;
+    if (!isProvider && !isOperator) return;
+    const key = itemName.toLowerCase();
+    const provider = providerVendor?.name
+      ?? (providerContact ? `${providerContact.firstName} ${providerContact.lastName}` : null);
+    const existing = map.get(key);
+    if (existing) {
+      existing.quantity += qty;
+      if (provider) existing.providers.add(provider);
+      if (isProvider) existing.isProvider = true;
+      if (isOperator) existing.isOperator = true;
+    } else {
+      const providers = new Set<string>();
+      if (provider) providers.add(provider);
+      map.set(key, { itemName, quantity: qty, providers, isProvider, isOperator });
+    }
+  };
+
   const addItems = (items: EquipmentItem[]) => {
     for (const item of items) {
-      if (item.providerVendor?.id !== vendorId && item.operatorVendor?.id !== vendorId) continue;
-      const key = (item.equipment?.name ?? item.item).toLowerCase();
-      const itemName = item.equipment?.name ?? item.item;
-      const qty = item.quantity ?? 1;
-      const provider = item.providerVendor?.name
-        ?? (item.providerContact ? `${item.providerContact.firstName} ${item.providerContact.lastName}` : null);
-      const isProvider = item.providerVendor?.id === vendorId;
-      const isOperator = item.operatorVendor?.id === vendorId;
-      const existing = map.get(key);
-      if (existing) {
-        existing.quantity += qty;
-        if (provider) existing.providers.add(provider);
-        if (isProvider) existing.isProvider = true;
-        if (isOperator) existing.isOperator = true;
-      } else {
-        const providers = new Set<string>();
-        if (provider) providers.add(provider);
-        map.set(key, { itemName, quantity: qty, providers, isProvider, isOperator });
-      }
+      addRow(item.equipment?.name ?? item.item, item.quantity ?? 1, item.providerVendor, item.providerContact, item.operatorVendor);
     }
   };
 
@@ -220,6 +228,16 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
   for (const order of data.avOrders) {
     addItems(order.equipmentItems);
     if (order.videoSection) addItems(order.videoSection.equipmentItems);
+    if (order.audioSection) {
+      for (const group of order.audioSection.inputGroups) {
+        for (const inputItem of group.inputItems) {
+          addRow(inputItem.equipment?.name ?? inputItem.description, inputItem.quantity, inputItem.providerVendor, inputItem.providerContact, inputItem.operatorVendor);
+        }
+      }
+      for (const mix of order.audioSection.monitorMixes) {
+        addRow(mix.equipment?.name ?? mix.description, 1, mix.providerVendor, mix.providerContact, mix.operatorVendor);
+      }
+    }
   }
   for (const order of data.setupOrders) addItems(order.equipmentItems);
 
@@ -814,9 +832,10 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
               {venue.name}{addressLine ? ` · ${addressLine}` : ""}
             </p>
           )}
-          <p className="text-xs font-medium text-gray-700 dark:text-gray-300 print:text-gray-800 mt-2">
-            Vendor: {vendor.name}
-          </p>
+          <div className="mt-3">
+            <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 print:text-gray-600 uppercase tracking-wide">Vendor</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white print:text-black">{vendor.name}</p>
+          </div>
         </div>
 
         {vendor.contacts.length > 0 && (
