@@ -362,53 +362,66 @@ export async function getEquipmentResponsibilityData(
     const rows: EquipmentReportRow[] = [];
 
     for (const eqData of Array.from(partyData.equipmentMap.values())) {
-      // Deduplicate by orderId: same item from the same order is counted once for peak.
-      // Peak uses max qty per order (same-order entries often represent the same physical unit);
-      // total and display qty use the sum across all entries.
-      const orderMap = new Map<string, {
+      // Two groupings from the same pass:
+      // - displayMap (by orderId): sum qty for display, merge function names
+      // - peakMap (by orderId+functionSlot): sum concurrent items within the same
+      //   order+function (e.g. Secretary Mic + Bishop Mic both active at Plenary 1),
+      //   then sweep-line across slots for true peak
+      const displayMap = new Map<string, {
         displayQty: number;
+        isScheduled: boolean;
+        source: EquipmentSourceRef;
+      }>();
+      const peakMap = new Map<string, {
         peakQty: number;
         windowKeys: Set<string>;
         windows: { start: Date; end: Date }[];
-        source: EquipmentSourceRef;
       }>();
       let totalQuantity = 0;
 
       for (const s of eqData.sources) {
         totalQuantity += s.quantity;
-        const key = s.source.orderId;
-        if (!orderMap.has(key)) {
-          const windowKeys = new Set(s.windows.map((w) => `${w.start.getTime()},${w.end.getTime()}`));
-          orderMap.set(key, {
+
+        // Display grouping by orderId
+        const disp = displayMap.get(s.source.orderId);
+        if (!disp) {
+          displayMap.set(s.source.orderId, {
             displayQty: s.quantity,
-            peakQty: s.quantity,
-            windowKeys,
-            windows: [...s.windows],
+            isScheduled: s.source.isScheduled,
             source: { ...s.source },
           });
         } else {
-          const existing = orderMap.get(key)!;
-          existing.displayQty += s.quantity;
-          existing.peakQty = Math.max(existing.peakQty, s.quantity);
-          existing.source.isScheduled = existing.source.isScheduled || s.source.isScheduled;
+          disp.displayQty += s.quantity;
+          disp.isScheduled = disp.isScheduled || s.source.isScheduled;
           for (const fn of s.source.functionNames) {
-            if (!existing.source.functionNames.includes(fn)) {
-              existing.source.functionNames.push(fn);
+            if (!disp.source.functionNames.includes(fn)) {
+              disp.source.functionNames.push(fn);
             }
           }
+        }
+
+        // Peak grouping by (orderId, functionSlot): items from the same order running
+        // at the same function are concurrent and must be summed, not maxed
+        const fnSlot = s.source.functionNames[0] ?? "__none__";
+        const peakKey = `${s.source.orderId}::${fnSlot}`;
+        const pk = peakMap.get(peakKey);
+        if (!pk) {
+          const windowKeys = new Set(s.windows.map((w) => `${w.start.getTime()},${w.end.getTime()}`));
+          peakMap.set(peakKey, { peakQty: s.quantity, windowKeys, windows: [...s.windows] });
+        } else {
+          pk.peakQty += s.quantity;
           for (const w of s.windows) {
             const wKey = `${w.start.getTime()},${w.end.getTime()}`;
-            if (!existing.windowKeys.has(wKey)) {
-              existing.windowKeys.add(wKey);
-              existing.windows.push(w);
+            if (!pk.windowKeys.has(wKey)) {
+              pk.windowKeys.add(wKey);
+              pk.windows.push(w);
             }
           }
         }
       }
 
-      const dedupedEntries = Array.from(orderMap.values());
       const { peak, isExact } = calculatePeak(
-        dedupedEntries.map((e) => ({ quantity: e.peakQty, windows: e.windows }))
+        Array.from(peakMap.values()).map((e) => ({ quantity: e.peakQty, windows: e.windows }))
       );
 
       rows.push({
@@ -418,7 +431,7 @@ export async function getEquipmentResponsibilityData(
         totalQuantity,
         peakNeeded: peak,
         peakIsExact: isExact,
-        sources: dedupedEntries.map((e) => ({ ...e.source, quantity: e.displayQty })),
+        sources: Array.from(displayMap.values()).map((d) => ({ ...d.source, quantity: d.displayQty, isScheduled: d.isScheduled })),
       });
     }
 
