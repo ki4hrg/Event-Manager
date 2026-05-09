@@ -530,7 +530,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
                 ...partySelect,
                 inputItems: {
                   include: {
-                    equipment: { select: { id: true, name: true } },
+                    equipment: { select: { id: true, name: true, category: true } },
                     ...partySelect,
                   },
                   orderBy: { sortOrder: "asc" },
@@ -540,7 +540,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
             },
             monitorMixes: {
               include: {
-                equipment: { select: { id: true, name: true } },
+                equipment: { select: { id: true, name: true, category: true } },
                 ...partySelect,
               },
               orderBy: { sortOrder: "asc" },
