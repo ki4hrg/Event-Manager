@@ -1,6 +1,5 @@
 import type { ResponsiblePartyGroup, EquipmentReportRow, EquipmentSourceRef } from "@/app/events/reports/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
-import { MODEL_LABELS } from "@/app/vendors/model-types";
 
 function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
   return (
@@ -9,10 +8,8 @@ function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
         <span key={`${s.orderId}-${i}`}>
           {i > 0 && ", "}
           <span className="inline-flex items-center gap-1">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-              {MODEL_LABELS[s.modelType] ?? s.modelType}:
-            </span>{" "}
-            {s.orderName} ({s.quantity}){!s.isScheduled && <span className="text-amber-600 dark:text-amber-400">†</span>}
+            {s.functionNames.length > 0 ? s.functionNames.join(", ") : "—"}
+            {" "}({s.quantity}){!s.isScheduled && <span className="text-amber-600 dark:text-amber-400">†</span>}
           </span>
         </span>
       ))}
@@ -21,7 +18,6 @@ function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
 }
 
 function PeakCell({ row }: { row: EquipmentReportRow }) {
-  if (row.sources.length === 1) return <span className="text-gray-400 dark:text-gray-500">—</span>;
   if (!row.peakIsExact) return <span>≥{row.peakNeeded}</span>;
   return <span>{row.peakNeeded}</span>;
 }
@@ -53,8 +49,8 @@ function PartyCard({ group }: { group: ResponsiblePartyGroup }) {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
                   Item
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-16">
-                  Qty
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-20">
+                  Total Qty
                 </th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-28">
                   Peak Needed

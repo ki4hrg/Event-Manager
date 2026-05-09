@@ -10,7 +10,7 @@ export type EquipmentReportFilters = {
 
 export type EquipmentSourceRef = {
   orderId: string;
-  orderName: string;
+  functionNames: string[];
   modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
   quantity: number;
   isScheduled: boolean;
@@ -48,7 +48,7 @@ type NormalizedItem = {
   attributionContactName: string | null;
   quantity: number;
   orderId: string;
-  orderName: string;
+  functionNames: string[];
   modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
   scheduleWindows: { start: Date; end: Date }[];
 };
@@ -115,21 +115,21 @@ export async function getEquipmentResponsibilityData(
           select: {
             id: true,
             name: true,
-            function: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+            function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
           },
         },
         setupOrder: {
           select: {
             id: true,
             name: true,
-            functions: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+            functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
           },
         },
         avOrder: {
           select: {
             id: true,
             name: true,
-            functions: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+            functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
           },
         },
         videoSection: {
@@ -138,7 +138,7 @@ export async function getEquipmentResponsibilityData(
               select: {
                 id: true,
                 name: true,
-                functions: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+                functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
               },
             },
           },
@@ -159,7 +159,7 @@ export async function getEquipmentResponsibilityData(
                   select: {
                     id: true,
                     name: true,
-                    functions: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+                    functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
                   },
                 },
               },
@@ -180,7 +180,7 @@ export async function getEquipmentResponsibilityData(
               select: {
                 id: true,
                 name: true,
-                functions: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+                functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
               },
             },
           },
@@ -195,30 +195,30 @@ export async function getEquipmentResponsibilityData(
     const attrVendor = item.providerVendor;
     const attrContact = item.providerContact;
     let orderId: string;
-    let orderName: string;
+    let functionNames: string[];
     let modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
     let scheduleWindows: { start: Date; end: Date }[];
 
     if (item.cateringOrder) {
       orderId = item.cateringOrder.id;
-      orderName = item.cateringOrder.name;
+      functionNames = item.cateringOrder.function ? [item.cateringOrder.function.name] : [];
       modelType = "CATERING_ORDER";
       scheduleWindows = item.cateringOrder.function
         ? extractWindows([item.cateringOrder.function])
         : [];
     } else if (item.setupOrder) {
       orderId = item.setupOrder.id;
-      orderName = item.setupOrder.name ?? item.setupOrder.id;
+      functionNames = item.setupOrder.functions.map((f) => f.name);
       modelType = "SETUP_ORDER";
       scheduleWindows = extractWindows(item.setupOrder.functions);
     } else if (item.avOrder) {
       orderId = item.avOrder.id;
-      orderName = item.avOrder.name;
+      functionNames = item.avOrder.functions.map((f) => f.name);
       modelType = "AV_ORDER";
       scheduleWindows = extractWindows(item.avOrder.functions);
     } else if (item.videoSection?.avOrder) {
       orderId = item.videoSection.avOrder.id;
-      orderName = item.videoSection.avOrder.name;
+      functionNames = item.videoSection.avOrder.functions.map((f) => f.name);
       modelType = "AV_ORDER";
       scheduleWindows = extractWindows(item.videoSection.avOrder.functions);
     } else {
@@ -236,7 +236,7 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: item.quantity ?? 1,
       orderId,
-      orderName,
+      functionNames,
       modelType,
       scheduleWindows,
     });
@@ -257,7 +257,7 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: item.quantity,
       orderId: avOrder.id,
-      orderName: avOrder.name,
+      functionNames: avOrder.functions.map((f) => f.name),
       modelType: "AV_ORDER",
       scheduleWindows: extractWindows(avOrder.functions),
     });
@@ -278,7 +278,7 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: 1,
       orderId: avOrder.id,
-      orderName: avOrder.name,
+      functionNames: avOrder.functions.map((f) => f.name),
       modelType: "AV_ORDER",
       scheduleWindows: extractWindows(avOrder.functions),
     });
@@ -345,7 +345,7 @@ export async function getEquipmentResponsibilityData(
       windows: item.scheduleWindows,
       source: {
         orderId: item.orderId,
-        orderName: item.orderName,
+        functionNames: item.functionNames,
         modelType: item.modelType,
         quantity: item.quantity,
         isScheduled: item.scheduleWindows.length > 0,
@@ -358,9 +358,48 @@ export async function getEquipmentResponsibilityData(
     const rows: EquipmentReportRow[] = [];
 
     for (const eqData of Array.from(partyData.equipmentMap.values())) {
-      const totalQuantity = eqData.sources.reduce((sum, s) => sum + s.quantity, 0);
+      // Deduplicate by orderId: same item from the same order is counted once for peak.
+      // Peak uses max qty per order (same-order entries often represent the same physical unit);
+      // total and display qty use the sum across all entries.
+      const orderMap = new Map<string, {
+        displayQty: number;
+        peakQty: number;
+        windowKeys: Set<string>;
+        windows: { start: Date; end: Date }[];
+        source: EquipmentSourceRef;
+      }>();
+      let totalQuantity = 0;
+
+      for (const s of eqData.sources) {
+        totalQuantity += s.quantity;
+        const key = s.source.orderId;
+        if (!orderMap.has(key)) {
+          const windowKeys = new Set(s.windows.map((w) => `${w.start.getTime()},${w.end.getTime()}`));
+          orderMap.set(key, {
+            displayQty: s.quantity,
+            peakQty: s.quantity,
+            windowKeys,
+            windows: [...s.windows],
+            source: { ...s.source },
+          });
+        } else {
+          const existing = orderMap.get(key)!;
+          existing.displayQty += s.quantity;
+          existing.peakQty = Math.max(existing.peakQty, s.quantity);
+          existing.source.isScheduled = existing.source.isScheduled || s.source.isScheduled;
+          for (const w of s.windows) {
+            const wKey = `${w.start.getTime()},${w.end.getTime()}`;
+            if (!existing.windowKeys.has(wKey)) {
+              existing.windowKeys.add(wKey);
+              existing.windows.push(w);
+            }
+          }
+        }
+      }
+
+      const dedupedEntries = Array.from(orderMap.values());
       const { peak, isExact } = calculatePeak(
-        eqData.sources.map((s) => ({ quantity: s.quantity, windows: s.windows }))
+        dedupedEntries.map((e) => ({ quantity: e.peakQty, windows: e.windows }))
       );
 
       rows.push({
@@ -370,7 +409,7 @@ export async function getEquipmentResponsibilityData(
         totalQuantity,
         peakNeeded: peak,
         peakIsExact: isExact,
-        sources: eqData.sources.map((s) => s.source),
+        sources: dedupedEntries.map((e) => ({ ...e.source, quantity: e.displayQty })),
       });
     }
 

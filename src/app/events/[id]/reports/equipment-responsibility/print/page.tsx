@@ -4,7 +4,6 @@ import { getEvent } from "@/app/events/actions";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
-import { MODEL_LABELS } from "@/app/vendors/model-types";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 
 export const dynamic = "force-dynamic";
@@ -60,9 +59,9 @@ export default async function EquipmentResponsibilityPrintPage({
             <tr>
               <th className={th}>Category</th>
               <th className={th}>Item</th>
-              <th className={`${th} text-right`}>Qty</th>
+              <th className={`${th} text-right`}>Total Qty</th>
               <th className={`${th} text-right`}>Peak Needed</th>
-              <th className={th}>Sources</th>
+              <th className={th}>Functions</th>
             </tr>
           </thead>
           <tbody>
@@ -85,19 +84,15 @@ export default async function EquipmentResponsibilityPrintPage({
                     <td className={td}>{row.itemName}</td>
                     <td className={`${td} text-right`}>{row.totalQuantity}</td>
                     <td className={`${td} text-right`}>
-                      {row.sources.length === 1
-                        ? "—"
-                        : row.peakIsExact
-                          ? String(row.peakNeeded)
-                          : `≥${row.peakNeeded}`}
+                      {row.peakIsExact ? String(row.peakNeeded) : `≥${row.peakNeeded}`}
                     </td>
                     <td className={td}>
                       {row.sources
                         .map(
                           (s) =>
-                            `${MODEL_LABELS[s.modelType] ?? s.modelType}: ${s.orderName} (${s.quantity})${!s.isScheduled ? " †" : ""}`
+                            `${s.functionNames.length > 0 ? s.functionNames.join(", ") : "—"} (${s.quantity})${!s.isScheduled ? " †" : ""}`
                         )
-                        .join(", ")}
+                        .join("; ")}
                     </td>
                   </tr>
                 ))}
