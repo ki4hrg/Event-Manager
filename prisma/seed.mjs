@@ -54,6 +54,8 @@ const defaultEquipmentCategories = [
   { label: "Signage", sortOrder: 3 },
   { label: "Audio Inputs", isSystem: true, sortOrder: 4, models: ["AV_ORDER"] },
   { label: "Audio Outputs", isSystem: true, sortOrder: 5, models: ["AV_ORDER"] },
+  { label: "Video Inputs", isSystem: true, sortOrder: 6, models: ["AV_ORDER"] },
+  { label: "Video Outputs", isSystem: true, sortOrder: 7, models: ["AV_ORDER"] },
 ];
 
 const defaultSubstatuses = [
@@ -117,6 +119,18 @@ const defaultEquipment = [
   { name: "PA Speaker", category: "Audio Outputs", sortOrder: 2 },
   { name: "Subwoofer", category: "Audio Outputs", sortOrder: 3 },
   { name: "Hearing Loop", category: "Audio Outputs", sortOrder: 4 },
+  // Video Inputs
+  { name: "Camera", category: "Video Inputs", sortOrder: 0 },
+  { name: "PTZ Camera", category: "Video Inputs", sortOrder: 1 },
+  { name: "Laptop / Presenter Input", category: "Video Inputs", sortOrder: 2 },
+  { name: "HDMI Input", category: "Video Inputs", sortOrder: 3 },
+  { name: "SDI Input", category: "Video Inputs", sortOrder: 4 },
+  // Video Outputs
+  { name: "Projector", category: "Video Outputs", sortOrder: 0 },
+  { name: "LED Screen / Wall", category: "Video Outputs", sortOrder: 1 },
+  { name: "Confidence Monitor", category: "Video Outputs", sortOrder: 2 },
+  { name: "IMAG Screen", category: "Video Outputs", sortOrder: 3 },
+  { name: "Recording Output", category: "Video Outputs", sortOrder: 4 },
 ];
 
 async function seedUsers() {
