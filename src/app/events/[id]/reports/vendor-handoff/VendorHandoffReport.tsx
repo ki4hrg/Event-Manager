@@ -186,14 +186,15 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; unsc
   return { groups, unscheduled };
 }
 
-type EquipmentSummaryRow = { itemName: string; quantity: number; providerName: string; role: string };
+type EquipmentSummaryRow = { itemName: string; category: string | null; quantity: number; providerName: string; role: string };
 
 function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSummaryRow[] {
-  type Bucket = { itemName: string; quantity: number; providers: Set<string>; isProvider: boolean; isOperator: boolean };
+  type Bucket = { itemName: string; category: string | null; quantity: number; providers: Set<string>; isProvider: boolean; isOperator: boolean };
   const map = new Map<string, Bucket>();
 
   const addRow = (
     itemName: string,
+    category: string | null,
     qty: number,
     providerVendor: { id: string; name: string } | null | undefined,
     providerContact: { id: string; firstName: string; lastName: string } | null | undefined,
@@ -211,16 +212,17 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
       if (provider) existing.providers.add(provider);
       if (isProvider) existing.isProvider = true;
       if (isOperator) existing.isOperator = true;
+      if (category !== null && existing.category === null) existing.category = category;
     } else {
       const providers = new Set<string>();
       if (provider) providers.add(provider);
-      map.set(key, { itemName, quantity: qty, providers, isProvider, isOperator });
+      map.set(key, { itemName, category, quantity: qty, providers, isProvider, isOperator });
     }
   };
 
   const addItems = (items: EquipmentItem[]) => {
     for (const item of items) {
-      addRow(item.equipment?.name ?? item.item, item.quantity ?? 1, item.providerVendor, item.providerContact, item.operatorVendor);
+      addRow(item.equipment?.name ?? item.item, item.equipment?.category ?? null, item.quantity ?? 1, item.providerVendor, item.providerContact, item.operatorVendor);
     }
   };
 
@@ -231,24 +233,31 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
     if (order.audioSection) {
       for (const group of order.audioSection.inputGroups) {
         for (const inputItem of group.inputItems) {
-          addRow(inputItem.equipment?.name ?? inputItem.description, inputItem.quantity, inputItem.providerVendor, inputItem.providerContact, inputItem.operatorVendor);
+          addRow(inputItem.equipment?.name ?? inputItem.description, inputItem.equipment?.category ?? null, inputItem.quantity, inputItem.providerVendor, inputItem.providerContact, inputItem.operatorVendor);
         }
       }
       for (const mix of order.audioSection.monitorMixes) {
-        addRow(mix.equipment?.name ?? mix.description, 1, mix.providerVendor, mix.providerContact, mix.operatorVendor);
+        addRow(mix.equipment?.name ?? mix.description, mix.equipment?.category ?? null, 1, mix.providerVendor, mix.providerContact, mix.operatorVendor);
       }
     }
   }
   for (const order of data.setupOrders) addItems(order.equipmentItems);
 
+  const SORT_LAST = "￿";
   return Array.from(map.values())
-    .map(({ itemName, quantity, providers, isProvider, isOperator }) => ({
+    .map(({ itemName, category, quantity, providers, isProvider, isOperator }) => ({
       itemName,
+      category,
       quantity,
       providerName: providers.size === 0 ? "—" : providers.size === 1 ? Array.from(providers)[0] : "Multiple",
       role: isProvider && isOperator ? "Provider & Operator" : isProvider ? "Provider" : "Operator",
     }))
-    .sort((a, b) => a.itemName.localeCompare(b.itemName));
+    .sort((a, b) => {
+      const catA = a.category ?? SORT_LAST;
+      const catB = b.category ?? SORT_LAST;
+      if (catA !== catB) return catA.localeCompare(catB);
+      return a.itemName.localeCompare(b.itemName);
+    });
 }
 
 function FunctionScheduleSection({
@@ -709,7 +718,7 @@ function FunctionSection({
   const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0].filter(Boolean).length;
 
   return (
-    <div className={sectionCard}>
+    <div className={`${sectionCard} print:break-before-page`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
           {fn.name}
@@ -791,6 +800,18 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
   const timezone = event.timezone ?? "America/Chicago";
   const { groups, unscheduled } = buildFunctionGroups(data);
   const equipmentSummary = buildEquipmentSummary(data, vendorId);
+  const equipmentByCategory: [string, EquipmentSummaryRow[]][] = (() => {
+    const grouped = new Map<string, EquipmentSummaryRow[]>();
+    for (const row of equipmentSummary) {
+      const cat = row.category ?? "Uncategorized";
+      const existing = grouped.get(cat);
+      if (existing) existing.push(row);
+      else grouped.set(cat, [row]);
+    }
+    return Array.from(grouped.entries());
+  })();
+
+  const multiCategory = equipmentByCategory.length > 1;
 
   const hasUnscheduled =
     unscheduled.cateringOrders.length > 0 ||
@@ -912,31 +933,36 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
       )}
 
       {/* Master equipment summary */}
-      {equipmentSummary.length > 0 && (
+      {equipmentByCategory.length > 0 && (
         <div className={sectionCard}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Equipment Summary
           </h2>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr>
-                <th className={th}>Item</th>
-                <th className={th}>Qty</th>
-                <th className={th}>Role</th>
-                <th className={th}>Provider</th>
-              </tr>
-            </thead>
-            <tbody>
-              {equipmentSummary.map((row) => (
-                <tr key={row.itemName}>
-                  <td className={td}>{row.itemName}</td>
-                  <td className={td}>{row.quantity}</td>
-                  <td className={td}>{row.role}</td>
-                  <td className={td}>{row.providerName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {equipmentByCategory.map(([cat, rows]) => (
+            <div key={cat}>
+              {multiCategory && <SubHeading>{cat}</SubHeading>}
+              <table className="w-full text-sm border-collapse mb-4">
+                <thead>
+                  <tr>
+                    <th className={th}>Item</th>
+                    <th className={th}>Qty</th>
+                    <th className={th}>Role</th>
+                    <th className={th}>Provider</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.itemName}>
+                      <td className={td}>{row.itemName}</td>
+                      <td className={td}>{row.quantity}</td>
+                      <td className={td}>{row.role}</td>
+                      <td className={td}>{row.providerName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </div>
       )}
 
@@ -953,7 +979,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
 
       {/* Unscheduled orders */}
       {hasUnscheduled && (
-        <div className={sectionCard}>
+        <div className={`${sectionCard} print:break-before-page`}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Unscheduled Orders
           </h2>
