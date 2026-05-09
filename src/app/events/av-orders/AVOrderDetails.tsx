@@ -169,6 +169,7 @@ export function AVOrderDetails({
               <thead>
                 <tr className="text-left text-gray-500 print:text-gray-600">
                   <th className="pb-1 pr-4 font-medium">Item</th>
+                  <th className="pb-1 pr-4 font-medium">Equipment Type</th>
                   <th className="pb-1 pr-4 font-medium">Qty</th>
                   <th className="pb-1 font-medium">Provider / Operator</th>
                 </tr>
@@ -177,6 +178,7 @@ export function AVOrderDetails({
                 {order.videoSection.equipmentItems.map((e) => (
                   <tr key={e.id} className="border-t border-gray-100 print:border-gray-300">
                     <td className="py-1.5 pr-4 text-gray-900 print:text-black">{e.item}</td>
+                    <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{e.equipment?.name ?? "—"}</td>
                     <td className="py-1.5 pr-4 text-gray-900 print:text-black">{e.quantity}</td>
                     <td className="py-1.5 text-gray-600 print:text-gray-700">
                       {partyLabel(e.providerVendor, e.providerContact)}

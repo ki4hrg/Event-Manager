@@ -123,14 +123,14 @@ const defaultEquipment = [
   { name: "Camera", category: "Video Inputs", sortOrder: 0 },
   { name: "PTZ Camera", category: "Video Inputs", sortOrder: 1 },
   { name: "Laptop / Presenter Input", category: "Video Inputs", sortOrder: 2 },
-  { name: "HDMI Input", category: "Video Inputs", sortOrder: 3 },
-  { name: "SDI Input", category: "Video Inputs", sortOrder: 4 },
+  { name: "Video Switcher", category: "Video Inputs", sortOrder: 3 },
+  { name: "Wireless Presentation System", category: "Video Inputs", sortOrder: 4 },
   // Video Outputs
   { name: "Projector", category: "Video Outputs", sortOrder: 0 },
   { name: "LED Screen / Wall", category: "Video Outputs", sortOrder: 1 },
-  { name: "Confidence Monitor", category: "Video Outputs", sortOrder: 2 },
-  { name: "IMAG Screen", category: "Video Outputs", sortOrder: 3 },
-  { name: "Recording Output", category: "Video Outputs", sortOrder: 4 },
+  { name: "Flat Screen / TV", category: "Video Outputs", sortOrder: 2 },
+  { name: "Projection Screen", category: "Video Outputs", sortOrder: 3 },
+  { name: "Recording Deck / Encoder", category: "Video Outputs", sortOrder: 4 },
 ];
 
 async function seedUsers() {

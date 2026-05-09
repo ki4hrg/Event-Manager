@@ -186,15 +186,15 @@ function AddItemForm({
     <form action={onSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment</label>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment Type</label>
           <GroupedEquipmentSelect options={equipmentOptions} size="md" placeholder="— select or type below —" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item name</label>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Label / Function</label>
           <input
             type="text"
             name="item"
-            placeholder="Leave blank to use equipment name"
+            placeholder="e.g., IMAG Monitor, Confidence Monitor, Stage Left"
             className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           />
         </div>
@@ -272,16 +272,16 @@ function EquipmentItemRow({
         <form action={onUpdate} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment Type</label>
               <GroupedEquipmentSelect options={equipmentOptions} defaultValue={item.equipmentId} size="md" placeholder="— select or type below —" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Item name</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Label / Function</label>
               <input
                 type="text"
                 name="item"
                 defaultValue={item.item}
-                placeholder="Leave blank to use equipment name"
+                placeholder="e.g., IMAG Monitor, Confidence Monitor, Stage Left"
                 className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
@@ -339,6 +339,9 @@ function EquipmentItemRow({
         <div className="flex items-start justify-between">
           <div>
             <span className="text-gray-900 dark:text-white font-medium">{item.item}</span>
+            {item.equipment && item.equipment.name !== item.item && (
+              <span className="ml-1.5 text-xs text-gray-400 dark:text-gray-500">({item.equipment.name})</span>
+            )}
             <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
               {item.quantity != null && <span>× {item.quantity} </span>}
               {provider && <span>Provider: {provider} </span>}
