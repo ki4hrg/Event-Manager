@@ -35,12 +35,18 @@ import {
   linkSetupOrderToFunctionFromFunction,
   unlinkSetupOrderFromFunctionPage,
 } from "../../../setup-orders/actions";
+import {
+  getAvailablePrintOrdersForFunction,
+  linkPrintOrderToFunctionFromFunction,
+  unlinkPrintOrderFromFunctionPage,
+} from "../../../print-orders/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
 import { ScheduleList } from "../../../functions/ScheduleList";
 import { ContactList } from "../../../functions/ContactList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { CateringOrderPanel } from "../../../catering-orders/CateringOrderPanel";
 import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
+import { PrintOrderPanel } from "../../../print-orders/PrintOrderPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
@@ -79,10 +85,11 @@ export default async function FunctionPage({
       })
     : [];
 
-  const [availableAVOrders, availableCateringOrders, availableSetupOrders, workflowInstances, allTemplates, substatuses] = await Promise.all([
+  const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, workflowInstances, allTemplates, substatuses] = await Promise.all([
     fn.avOrder ? [] : getAvailableAVOrdersForFunction(eventId),
     fn.cateringOrder ? [] : getAvailableCateringOrders(eventId),
     fn.setupOrder ? [] : getAvailableSetupOrdersForFunction(eventId),
+    getAvailablePrintOrdersForFunction(eventId, functionId),
     getWorkflowInstances("function", functionId),
     getWorkflowTemplateOptions(),
     getSubstatusOptions(),
@@ -174,6 +181,16 @@ export default async function FunctionPage({
   const unlinkSetupOrderAction = async () => {
     "use server";
     await unlinkSetupOrderFromFunctionPage(functionId, eventId);
+  };
+
+  const linkPrintOrderAction = async (printOrderId: string) => {
+    "use server";
+    await linkPrintOrderToFunctionFromFunction(printOrderId, functionId, eventId);
+  };
+
+  const unlinkPrintOrderAction = async (printOrderId: string) => {
+    "use server";
+    await unlinkPrintOrderFromFunctionPage(printOrderId, functionId, eventId);
   };
 
   const assignWorkflowAction = async (templateId: string) => {
@@ -327,6 +344,15 @@ export default async function FunctionPage({
             newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}
             linkSetupOrder={linkSetupOrderAction}
             unlinkSetupOrder={unlinkSetupOrderAction}
+          />
+          <PrintOrderPanel
+            mode="function"
+            printOrders={fn.printOrderFunctions.map((pof) => pof.printOrder)}
+            eventId={eventId}
+            availablePrintOrders={availablePrintOrders}
+            newPrintOrderPath={`/events/${eventId}/print-orders/new?functionId=${functionId}`}
+            linkPrintOrder={linkPrintOrderAction}
+            unlinkPrintOrder={unlinkPrintOrderAction}
           />
           <WorkflowPanel
             instances={workflowInstances}

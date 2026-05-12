@@ -39,7 +39,13 @@ import {
   linkSetupOrderToPresentationFromPresentation,
   unlinkSetupOrderFromPresentationPage,
 } from "../../../setup-orders/actions";
+import {
+  getAvailablePrintOrdersForPresentation,
+  linkPrintOrderToPresentationFromPresentation,
+  unlinkPrintOrderFromPresentationPage,
+} from "../../../print-orders/actions";
 import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
+import { PrintOrderPanel } from "../../../print-orders/PrintOrderPanel";
 import {
   assignPresentationToBlock,
   assignPresentationToGroup,
@@ -77,7 +83,7 @@ export default async function PresentationPage({
     notFound();
   }
 
-  const [breakoutGroups, availableAVOrders, availableSetupOrders, mediaItemPartyOptions] = await Promise.all([
+  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, mediaItemPartyOptions] = await Promise.all([
     prisma.breakoutGroup.findMany({
       where: { eventId },
       select: {
@@ -108,6 +114,9 @@ export default async function PresentationPage({
     presentation.setupOrder
       ? Promise.resolve([])
       : getAvailableSetupOrdersForPresentation(eventId),
+    presentation.printOrder
+      ? Promise.resolve([])
+      : getAvailablePrintOrdersForPresentation(eventId),
     getMediaItemPartyOptions(presentationId, eventId),
   ]);
 
@@ -176,6 +185,16 @@ export default async function PresentationPage({
   const unlinkSetupOrderAction = async () => {
     "use server";
     await unlinkSetupOrderFromPresentationPage(presentationId, eventId);
+  };
+
+  const linkPrintOrderAction = async (printOrderId: string) => {
+    "use server";
+    await linkPrintOrderToPresentationFromPresentation(printOrderId, presentationId, eventId);
+  };
+
+  const unlinkPrintOrderAction = async () => {
+    "use server";
+    await unlinkPrintOrderFromPresentationPage(presentationId, eventId);
   };
 
   const addSlotAction = async (functionId: string, roomId: string | null) => {
@@ -377,6 +396,14 @@ export default async function PresentationPage({
             newSetupOrderPath={`/events/${eventId}/setup-orders/new?presentationId=${presentationId}`}
             linkSetupOrder={linkSetupOrderAction}
             unlinkSetupOrder={unlinkSetupOrderAction}
+          />
+          <PrintOrderPanel
+            printOrder={presentation.printOrder ?? null}
+            eventId={eventId}
+            availablePrintOrders={availablePrintOrders}
+            newPrintOrderPath={`/events/${eventId}/print-orders/new?presentationId=${presentationId}`}
+            linkPrintOrder={linkPrintOrderAction}
+            unlinkPrintOrder={unlinkPrintOrderAction}
           />
           <MediaItemsPanel
             mediaItems={presentation.mediaItems}

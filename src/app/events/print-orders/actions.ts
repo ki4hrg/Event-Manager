@@ -126,6 +126,47 @@ export async function getAvailablePrintOrdersForPresentation(eventId: string) {
   });
 }
 
+export async function getAvailablePrintOrdersForFunction(eventId: string, functionId: string) {
+  return prisma.printOrder.findMany({
+    where: { eventId, functions: { none: { functionId } } },
+    orderBy: { name: "asc" },
+  });
+}
+
+// Link/unlink actions for the Function detail page panel
+export async function linkPrintOrderToFunctionFromFunction(
+  printOrderId: string,
+  functionId: string,
+  eventId: string
+) {
+  await prisma.printOrderFunction.create({ data: { printOrderId, functionId } });
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
+export async function unlinkPrintOrderFromFunctionPage(
+  printOrderId: string,
+  functionId: string,
+  eventId: string
+) {
+  await prisma.printOrderFunction.deleteMany({ where: { printOrderId, functionId } });
+  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+}
+
+// Link/unlink actions for the Presentation detail page panel
+export async function linkPrintOrderToPresentationFromPresentation(
+  printOrderId: string,
+  presentationId: string,
+  eventId: string
+) {
+  await prisma.printOrder.update({ where: { id: printOrderId }, data: { presentationId } });
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
+export async function unlinkPrintOrderFromPresentationPage(presentationId: string, eventId: string) {
+  await prisma.printOrder.updateMany({ where: { presentationId }, data: { presentationId: null } });
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+}
+
 function parsePrintItemData(formData: FormData) {
   return {
     description: (formData.get("description") as string)?.trim(),
