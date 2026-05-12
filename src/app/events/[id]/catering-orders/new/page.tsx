@@ -6,7 +6,8 @@ import { getEvent } from "../../../actions";
 import { createCateringOrder } from "../../../catering-orders/actions";
 import { getOptions } from "../../../../settings/actions";
 import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
-import { searchAssignedEventVendors } from "@/app/vendors/actions";
+import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +21,10 @@ export default async function NewCateringOrderPage({
   const { id: eventId } = await params;
   const { functionId } = await searchParams;
 
-  const [event, serviceStyleOptions, eventVendors, eventFunctions] = await Promise.all([
+  const [event, serviceStyleOptions, responsiblePartyVendors, eventFunctions] = await Promise.all([
     getEvent(eventId),
     getOptions("service_style"),
-    searchAssignedEventVendors("", eventId, "CATERING_ORDER"),
+    getResponsiblePartyVendors(eventId, "CATERING_ORDER"),
     prisma.function.findMany({ where: { eventId, cateringOrder: null }, orderBy: { name: "asc" } }),
   ]);
 
@@ -54,7 +55,7 @@ export default async function NewCateringOrderPage({
         eventId={eventId}
         action={createCateringOrderAction}
         serviceStyleOptions={serviceStyleOptions}
-        availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
+        availableVendors={flattenResponsiblePartyOptions(responsiblePartyVendors).map((v) => ({ id: v.id, label: v.name }))}
         createFunctions={eventFunctions.map((f) => ({ id: f.id, label: f.name }))}
         defaultFunctionId={functionId}
       />

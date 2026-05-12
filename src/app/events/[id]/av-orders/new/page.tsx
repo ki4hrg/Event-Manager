@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getEvent } from "../../../actions";
 import { createAVOrder } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
-import { searchAssignedEventVendors } from "@/app/vendors/actions";
+import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +23,9 @@ export default async function NewAVOrderPage({
 
   const isFromSource = !!(functionId || presentationId);
 
-  const [event, eventVendors, sourceLabel] = await Promise.all([
+  const [event, responsiblePartyVendors, sourceLabel] = await Promise.all([
     getEvent(eventId),
-    searchAssignedEventVendors("", eventId, "AV_ORDER"),
+    getResponsiblePartyVendors(eventId, "AV_ORDER"),
     functionId
       ? prisma.function.findUnique({ where: { id: functionId }, select: { name: true } })
       : presentationId
@@ -73,7 +74,7 @@ export default async function NewAVOrderPage({
         lockedPresentationId={presentationId}
         defaultName={defaultName}
         cancelPath={cancelPath}
-        availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
+        availableVendors={flattenResponsiblePartyOptions(responsiblePartyVendors).map((v) => ({ id: v.id, label: v.name }))}
       />
     </PageWrapper>
   );

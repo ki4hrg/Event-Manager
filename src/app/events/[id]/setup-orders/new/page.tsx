@@ -6,7 +6,8 @@ import { getEvent } from "../../../actions";
 import { createSetupOrder } from "../../../setup-orders/actions";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { getOptions } from "@/app/settings/actions";
-import { searchAssignedEventVendors } from "@/app/vendors/actions";
+import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +24,10 @@ export default async function NewSetupOrderPage({
 
   const isFromSource = !!(functionId || presentationId);
 
-  const [event, setupTypes, eventVendors, sourceData] = await Promise.all([
+  const [event, setupTypes, responsiblePartyVendors, sourceData] = await Promise.all([
     getEvent(eventId),
     getOptions("setup_type"),
-    searchAssignedEventVendors("", eventId, "SETUP_ORDER"),
+    getResponsiblePartyVendors(eventId, "SETUP_ORDER"),
     functionId
       ? prisma.function.findUnique({
           where: { id: functionId },
@@ -93,7 +94,7 @@ export default async function NewSetupOrderPage({
         lockedPresentationId={presentationId}
         defaultName={defaultName}
         cancelPath={cancelPath}
-        availableVendors={eventVendors.map((v) => ({ id: v.id, label: v.name }))}
+        availableVendors={flattenResponsiblePartyOptions(responsiblePartyVendors).map((v) => ({ id: v.id, label: v.name }))}
       />
     </PageWrapper>
   );
