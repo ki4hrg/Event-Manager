@@ -109,6 +109,7 @@ export async function getPresentation(id: string) {
       },
       avOrder: true,
       setupOrder: { select: { id: true, name: true, setupType: true, room: { select: { name: true } } } },
+      printOrder: { select: { id: true, name: true } },
       event: true,
       mediaItems: {
         include: { advancerVendor: true, advancerContact: true },

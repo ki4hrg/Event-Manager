@@ -108,6 +108,7 @@ export async function getFunction(id: string) {
       avOrder: true,
       cateringOrder: true,
       setupOrder: { include: { room: true } },
+      printOrderFunctions: { include: { printOrder: { select: { id: true, name: true } } } },
       breakoutGroup: true,
     },
   });
