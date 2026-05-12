@@ -223,7 +223,7 @@ export async function removeVendorFromEvent(eventVendorId: string, eventId: stri
 }
 
 // Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
-export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER";
+export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER";
 
 // Assigns a vendor as the default for a model type on this event.
 // Transfers the designation away from any other vendor that held it.
@@ -368,4 +368,32 @@ export async function updateSetupOrderVendor(id: string, setupOrderId: string, e
 export async function removeVendorFromSetupOrder(id: string, setupOrderId: string, eventId: string) {
   await prisma.setupOrderVendor.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+}
+
+export async function getPrintOrderVendors(printOrderId: string) {
+  return prisma.printOrderVendor.findMany({
+    where: { printOrderId },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+  });
+}
+
+export async function addVendorToPrintOrder(printOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await prisma.printOrderVendor.create({
+    data: { printOrderId, vendorId, notes: notes || null },
+  });
+  revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+}
+
+export async function updatePrintOrderVendor(id: string, printOrderId: string, eventId: string, notes: string) {
+  await prisma.printOrderVendor.update({
+    where: { id },
+    data: { notes: notes || null },
+  });
+  revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+}
+
+export async function removeVendorFromPrintOrder(id: string, printOrderId: string, eventId: string) {
+  await prisma.printOrderVendor.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }

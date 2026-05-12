@@ -83,6 +83,14 @@ const defaultFileTypes = [
   { label: "Other", sortOrder: 7 },
 ];
 
+const defaultPrintDistributions = [
+  { label: "Staged in Room", sortOrder: 0 },
+  { label: "On Tables", sortOrder: 1 },
+  { label: "At Door / Entrance", sortOrder: 2 },
+  { label: "At Registration", sortOrder: 3 },
+  { label: "Mailed in Advance", sortOrder: 4 },
+];
+
 const defaultSetupTypes = [
   { label: "Fixed in Room", sortOrder: 0 },
   { label: "Theater", sortOrder: 1 },
@@ -197,6 +205,7 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("file_type", defaultFileTypes);
   totalCreated += await seedOptionsForCategory("delivery_method", defaultDeliveryMethods);
   totalCreated += await seedOptionsForCategory("substatus", defaultSubstatuses);
+  totalCreated += await seedOptionsForCategory("print_distribution", defaultPrintDistributions);
 
   console.log(`Seeded ${totalCreated} total options`);
 }

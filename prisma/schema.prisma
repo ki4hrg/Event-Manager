@@ -91,6 +91,7 @@ model Event {
   avOrders           AVOrder[]
   cateringOrders     CateringOrder[]
   setupOrders        SetupOrder[]
+  printOrders        PrintOrder[]
   vendors            EventVendor[]
   files              FileUpload[]
   keyStaff           EventKeyStaff[]
@@ -165,6 +166,8 @@ model Contact {
   presentations          PresentationContact[]
   cateringOrders         CateringOrderContact[]
   vendorContacts         VendorContact[]
+  printItemsAsDesigner        PrintItem[]           @relation("PrintItemDesignerContact")
+  printItemsAsPrinter         PrintItem[]           @relation("PrintItemPrinterContact")
   inputGroupsAsProvider  InputGroup[]          @relation("InputGroupProviderContact")
   inputGroupsAsOperator  InputGroup[]          @relation("InputGroupOperatorContact")
   inputItemsAsProvider   InputItem[]           @relation("InputItemProviderContact")
@@ -226,6 +229,7 @@ model Function {
   avOrder              AVOrder?           @relation(fields: [avOrderId], references: [id], onDelete: SetNull)
   setupOrderId         String?
   setupOrder           SetupOrder?        @relation(fields: [setupOrderId], references: [id], onDelete: SetNull)
+  printOrderFunctions  PrintOrderFunction[]
   rooms                FunctionRoom[]
   contacts             FunctionContact[]
   schedules            FunctionSchedule[]
@@ -577,6 +581,7 @@ model Presentation {
   slots           PresentationSlot[]
   avOrder         AVOrder?
   setupOrder      SetupOrder?
+  printOrder      PrintOrder?
   mediaItems      MediaItem[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -706,6 +711,9 @@ model Vendor {
   avOrderVendors            AVOrderVendor[]
   cateringOrderVendors      CateringOrderVendor[]
   setupOrderVendors         SetupOrderVendor[]
+  printOrderVendors         PrintOrderVendor[]
+  printItemsAsDesigner      PrintItem[]                @relation("PrintItemDesignerVendor")
+  printItemsAsPrinter       PrintItem[]                @relation("PrintItemPrinterVendor")
   equipmentItemsAsProvider  EquipmentItem[]            @relation("EquipmentItemProviderVendor")
   equipmentItemsAsOperator  EquipmentItem[]            @relation("EquipmentItemOperatorVendor")
   responsibleMenuSections   CateringOrderMenuSection[] @relation("MenuSectionResponsibleVendor")
@@ -928,6 +936,78 @@ model MediaItem {
   @@index([presentationId])
 }
 
+model PrintOrder {
+  id             String               @id @default(cuid())
+  name           String
+  status         EntityStatus?
+  substatus      String?
+  eventId        String
+  event          Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  presentationId String?              @unique
+  presentation   Presentation?        @relation(fields: [presentationId], references: [id], onDelete: SetNull)
+  notes          String?
+  functions      PrintOrderFunction[]
+  items          PrintItem[]
+  vendors        PrintOrderVendor[]
+  files          FileUpload[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([eventId])
+}
+
+model PrintOrderFunction {
+  id           String     @id @default(cuid())
+  printOrderId String
+  functionId   String
+  printOrder   PrintOrder @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
+  function     Function   @relation(fields: [functionId], references: [id], onDelete: Cascade)
+
+  @@unique([printOrderId, functionId])
+  @@index([functionId])
+}
+
+model PrintItem {
+  id                 String     @id @default(cuid())
+  printOrderId       String
+  printOrder         PrintOrder @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
+  description        String
+  quantity           Int?
+  distributionMethod String?
+  distributionNotes  String?
+  designerVendorId   String?
+  designerVendor     Vendor?    @relation("PrintItemDesignerVendor", fields: [designerVendorId], references: [id], onDelete: SetNull)
+  designerContactId  String?
+  designerContact    Contact?   @relation("PrintItemDesignerContact", fields: [designerContactId], references: [id], onDelete: SetNull)
+  printerVendorId    String?
+  printerVendor      Vendor?    @relation("PrintItemPrinterVendor", fields: [printerVendorId], references: [id], onDelete: SetNull)
+  printerContactId   String?
+  printerContact     Contact?   @relation("PrintItemPrinterContact", fields: [printerContactId], references: [id], onDelete: SetNull)
+  notes              String?
+  sortOrder          Int        @default(0)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([printOrderId])
+  @@index([designerVendorId])
+  @@index([designerContactId])
+  @@index([printerVendorId])
+  @@index([printerContactId])
+}
+
+// Junction: PrintOrder <-> Vendor
+model PrintOrderVendor {
+  id           String     @id @default(cuid())
+  printOrderId String
+  vendorId     String
+  notes        String?
+  printOrder   PrintOrder @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
+  vendor       Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([printOrderId, vendorId])
+  @@index([printOrderId])
+}
+
 model FileUpload {
   id              String         @id @default(cuid())
   fileName        String
@@ -944,6 +1024,8 @@ model FileUpload {
   avOrder         AVOrder?       @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
   setupOrderId    String?
   setupOrder      SetupOrder?    @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  printOrderId    String?
+  printOrder      PrintOrder?    @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
   venueId         String?
   venue           Venue?         @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
@@ -953,5 +1035,6 @@ model FileUpload {
   @@index([cateringOrderId])
   @@index([avOrderId])
   @@index([setupOrderId])
+  @@index([printOrderId])
   @@index([venueId])
 }

@@ -55,7 +55,7 @@ export function PartyField({
   defaultVendorId,
   defaultContactId,
 }: {
-  fieldPrefix: "provider" | "operator";
+  fieldPrefix: string;
   vendors: PartyOptions;
   contacts: ContactOptions;
   contactsLabel?: string;

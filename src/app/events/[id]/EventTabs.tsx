@@ -31,6 +31,7 @@ const tabs: TabItem[] = [
     children: [
       { label: "AV Orders", segment: "av-orders" },
       { label: "Catering Orders", segment: "catering-orders" },
+      { label: "Print Orders", segment: "print-orders" },
       { label: "Setup Orders", segment: "setup-orders" },
     ],
   },

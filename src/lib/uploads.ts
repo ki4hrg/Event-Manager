@@ -7,6 +7,7 @@ const ENTITY_DIRS = {
   event: "events",
   cateringOrder: "catering-orders",
   avOrder: "av-orders",
+  printOrder: "print-orders",
   setupOrder: "setup-orders",
   venue: "venues",
 } as const;
@@ -19,20 +20,22 @@ export const ENTITY_FK_FIELD: Record<EntityType, string> = {
   event: "eventId",
   cateringOrder: "cateringOrderId",
   avOrder: "avOrderId",
+  printOrder: "printOrderId",
   setupOrder: "setupOrderId",
   venue: "venueId",
 };
 
-export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "setupOrderId" | "venueId">): EntityType {
+export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "venueId">): EntityType {
   if (record.eventId) return "event";
   if (record.cateringOrderId) return "cateringOrder";
   if (record.avOrderId) return "avOrder";
+  if (record.printOrderId) return "printOrder";
   if (record.setupOrderId) return "setupOrder";
   return "venue";
 }
 
-export function getEntityIdFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "setupOrderId" | "venueId">): string {
-  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.setupOrderId ?? record.venueId)!;
+export function getEntityIdFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "venueId">): string {
+  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.venueId)!;
 }
 
 export function getUploadDir(entityType: EntityType, entityId: string): string {
