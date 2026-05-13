@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { EquipmentItem, VideoSection, Vendor, Contact, Equipment } from "@prisma/client";
 import {
-  type PartyOptions,
   type ContactOptions,
-  mergeAndSortVendors,
+  mergeExtraVendorsIntoGroup,
   partyLabel,
   PartyField,
 } from "./party-field";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { GroupedEquipmentSelect } from "./grouped-equipment-select";
 
 type EquipmentItemWithParties = EquipmentItem & {
@@ -27,7 +27,7 @@ type VideoSectionWithItems = VideoSection & {
 type VideoSectionPanelProps = {
   videoSection: VideoSectionWithItems;
   equipmentOptions: Equipment[];
-  vendorOptions: PartyOptions;
+  vendorGroups: ResponsiblePartyOptions;
   contactOptions: ContactOptions;
   updateSection: (formData: FormData) => Promise<void>;
   createItem: (formData: FormData) => Promise<void>;
@@ -52,7 +52,7 @@ function SubmitButton({ label }: { label: string }) {
 export function VideoSectionPanel({
   videoSection,
   equipmentOptions,
-  vendorOptions,
+  vendorGroups,
   contactOptions,
   updateSection,
   createItem,
@@ -135,7 +135,7 @@ export function VideoSectionPanel({
         {showAddForm && (
           <AddItemForm
             equipmentOptions={equipmentOptions}
-            vendorOptions={vendorOptions}
+            vendorGroups={vendorGroups}
             contactOptions={contactOptions}
             onSubmit={handleCreate}
             onCancel={() => setShowAddForm(false)}
@@ -153,7 +153,7 @@ export function VideoSectionPanel({
                 key={item.id}
                 item={item}
                 equipmentOptions={equipmentOptions}
-                vendorOptions={vendorOptions}
+                vendorGroups={vendorGroups}
                 contactOptions={contactOptions}
                 editing={editingId === item.id}
                 onEdit={() => setEditingId(item.id)}
@@ -171,13 +171,13 @@ export function VideoSectionPanel({
 
 function AddItemForm({
   equipmentOptions,
-  vendorOptions,
+  vendorGroups,
   contactOptions,
   onSubmit,
   onCancel,
 }: {
   equipmentOptions: Equipment[];
-  vendorOptions: PartyOptions;
+  vendorGroups: ResponsiblePartyOptions;
   contactOptions: ContactOptions;
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
@@ -208,11 +208,11 @@ function AddItemForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-          <PartyField fieldPrefix="provider" vendors={vendorOptions} contacts={contactOptions} />
+          <PartyField fieldPrefix="provider" vendorGroups={vendorGroups} contacts={contactOptions} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-          <PartyField fieldPrefix="operator" vendors={vendorOptions} contacts={contactOptions} />
+          <PartyField fieldPrefix="operator" vendorGroups={vendorGroups} contacts={contactOptions} />
         </div>
         <div className="md:col-span-2">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
@@ -240,7 +240,7 @@ function AddItemForm({
 function EquipmentItemRow({
   item,
   equipmentOptions,
-  vendorOptions,
+  vendorGroups,
   contactOptions,
   editing,
   onEdit,
@@ -250,7 +250,7 @@ function EquipmentItemRow({
 }: {
   item: EquipmentItemWithParties;
   equipmentOptions: Equipment[];
-  vendorOptions: PartyOptions;
+  vendorGroups: ResponsiblePartyOptions;
   contactOptions: ContactOptions;
   editing: boolean;
   onEdit: () => void;
@@ -258,9 +258,9 @@ function EquipmentItemRow({
   onCancelEdit: () => void;
   onDelete: (id: string) => Promise<void>;
 }) {
-  const effectiveVendors = useMemo(
-    () => mergeAndSortVendors(vendorOptions, [item.providerVendor, item.operatorVendor]),
-    [vendorOptions, item.providerVendor, item.operatorVendor]
+  const effectiveVendorGroups = useMemo(
+    () => mergeExtraVendorsIntoGroup(vendorGroups, [item.providerVendor, item.operatorVendor]),
+    [vendorGroups, item.providerVendor, item.operatorVendor]
   );
 
   const provider = partyLabel(item.providerVendor, item.providerContact);
@@ -298,7 +298,7 @@ function EquipmentItemRow({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
               <PartyField
                 fieldPrefix="provider"
-                vendors={effectiveVendors}
+                vendorGroups={effectiveVendorGroups}
                 contacts={contactOptions}
                 defaultVendorId={item.providerVendorId}
                 defaultContactId={item.providerContactId}
@@ -308,7 +308,7 @@ function EquipmentItemRow({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
               <PartyField
                 fieldPrefix="operator"
-                vendors={effectiveVendors}
+                vendorGroups={effectiveVendorGroups}
                 contacts={contactOptions}
                 defaultVendorId={item.operatorVendorId}
                 defaultContactId={item.operatorContactId}

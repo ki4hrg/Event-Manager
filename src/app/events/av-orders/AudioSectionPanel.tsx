@@ -13,12 +13,12 @@ import type {
   Equipment,
 } from "@prisma/client";
 import {
-  type PartyOptions,
   type ContactOptions,
-  mergeAndSortVendors,
+  mergeExtraVendorsIntoGroup,
   partyLabel,
   PartyField,
 } from "./party-field";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { GroupedEquipmentSelect } from "./grouped-equipment-select";
 
 // ============================================================================
@@ -67,7 +67,7 @@ type AudioSectionPanelProps = {
   audioSection: AudioSectionFull;
   audioInputOptions: Equipment[];
   audioOutputOptions: Equipment[];
-  vendorOptions: PartyOptions;
+  vendorGroups: ResponsiblePartyOptions;
   contactOptions: ContactOptions;
   updateSection: (formData: FormData) => Promise<void>;
   createInputGroup: (formData: FormData) => Promise<void>;
@@ -109,23 +109,23 @@ function SubmitButton({ label }: { label: string }) {
 function InputItemRow({
   item,
   audioInputOptions,
-  vendors,
+  vendorGroups,
   contacts,
   updateItem,
   deleteItem,
 }: {
   item: InputItemFull;
   audioInputOptions: Equipment[];
-  vendors: PartyOptions;
+  vendorGroups: ResponsiblePartyOptions;
   contacts: ContactOptions;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
 
-  const effectiveVendors = useMemo(
-    () => mergeAndSortVendors(vendors, [item.providerVendor, item.operatorVendor]),
-    [vendors, item.providerVendor, item.operatorVendor]
+  const effectiveVendorGroups = useMemo(
+    () => mergeExtraVendorsIntoGroup(vendorGroups, [item.providerVendor, item.operatorVendor]),
+    [vendorGroups, item.providerVendor, item.operatorVendor]
   );
 
   const provider = partyLabel(item.providerVendor, item.providerContact);
@@ -170,11 +170,11 @@ function InputItemRow({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-              <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={item.providerVendorId} defaultContactId={item.providerContactId} />
+              <PartyField fieldPrefix="provider" vendorGroups={effectiveVendorGroups} contacts={contacts} defaultVendorId={item.providerVendorId} defaultContactId={item.providerContactId} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-              <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={item.operatorVendorId} defaultContactId={item.operatorContactId} />
+              <PartyField fieldPrefix="operator" vendorGroups={effectiveVendorGroups} contacts={contacts} defaultVendorId={item.operatorVendorId} defaultContactId={item.operatorContactId} />
             </div>
           </div>
           <div>
@@ -193,13 +193,20 @@ function InputItemRow({
         </form>
       ) : (
         <div className="flex items-start justify-between">
-          <div className="text-sm">
-            <span className="font-medium text-gray-900 dark:text-white">{item.description}</span>
-            <span className="text-gray-500 dark:text-gray-400"> × {item.quantity}</span>
-            {item.equipment && <span className="ml-2 text-gray-500 dark:text-gray-400">({item.equipment.name})</span>}
-            {provider && <span className="ml-2 text-gray-500 dark:text-gray-400">Provider: {provider}</span>}
-            {operator && <span className="ml-2 text-gray-500 dark:text-gray-400">Op: {operator}</span>}
-            {item.notes && <span className="ml-2 text-gray-400 dark:text-gray-500">· {item.notes}</span>}
+          <div className="text-sm space-y-0.5">
+            <div>
+              <span className="font-medium text-gray-900 dark:text-white">{item.description}</span>
+              <span className="text-gray-500 dark:text-gray-400"> × {item.quantity}</span>
+              {item.equipment && <span className="ml-2 text-gray-500 dark:text-gray-400">({item.equipment.name})</span>}
+              {item.notes && <span className="ml-2 text-gray-400 dark:text-gray-500">· {item.notes}</span>}
+            </div>
+            {(provider || operator) && (
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {provider && <span>Provider: {provider}</span>}
+                {provider && operator && <span className="mx-2">·</span>}
+                {operator && <span>Op: {operator}</span>}
+              </div>
+            )}
           </div>
           <div className="flex gap-2 ml-2 shrink-0">
             <button onClick={() => setEditing(true)} className="text-blue-600 hover:underline text-xs">Edit</button>
@@ -221,7 +228,7 @@ function InputItemRow({
 function InputGroupCard({
   group,
   audioInputOptions,
-  vendors,
+  vendorGroups,
   contacts,
   updateGroup,
   deleteGroup,
@@ -231,7 +238,7 @@ function InputGroupCard({
 }: {
   group: InputGroupFull;
   audioInputOptions: Equipment[];
-  vendors: PartyOptions;
+  vendorGroups: ResponsiblePartyOptions;
   contacts: ContactOptions;
   updateGroup: (id: string, formData: FormData) => Promise<void>;
   deleteGroup: (id: string) => Promise<void>;
@@ -242,9 +249,9 @@ function InputGroupCard({
   const [editingGroup, setEditingGroup] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
 
-  const effectiveVendors = useMemo(
-    () => mergeAndSortVendors(vendors, [group.providerVendor, group.operatorVendor]),
-    [vendors, group.providerVendor, group.operatorVendor]
+  const effectiveVendorGroups = useMemo(
+    () => mergeExtraVendorsIntoGroup(vendorGroups, [group.providerVendor, group.operatorVendor]),
+    [vendorGroups, group.providerVendor, group.operatorVendor]
   );
 
   const provider = partyLabel(group.providerVendor, group.providerContact);
@@ -274,11 +281,11 @@ function InputGroupCard({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-              <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
+              <PartyField fieldPrefix="provider" vendorGroups={effectiveVendorGroups} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-              <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
+              <PartyField fieldPrefix="operator" vendorGroups={effectiveVendorGroups} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
             </div>
           </div>
           <div>
@@ -320,7 +327,7 @@ function InputGroupCard({
             key={item.id}
             item={item}
             audioInputOptions={audioInputOptions}
-            vendors={effectiveVendors}
+            vendorGroups={effectiveVendorGroups}
             contacts={contacts}
             updateItem={updateItem}
             deleteItem={deleteItem}
@@ -364,11 +371,11 @@ function InputGroupCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-                <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
+                <PartyField fieldPrefix="provider" vendorGroups={effectiveVendorGroups} contacts={contacts} defaultVendorId={group.providerVendorId} defaultContactId={group.providerContactId} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-                <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
+                <PartyField fieldPrefix="operator" vendorGroups={effectiveVendorGroups} contacts={contacts} defaultVendorId={group.operatorVendorId} defaultContactId={group.operatorContactId} />
               </div>
             </div>
             <div>
@@ -404,23 +411,23 @@ function InputGroupCard({
 function MonitorOutputRow({
   output,
   audioOutputOptions,
-  vendors,
+  vendorGroups,
   contacts,
   updateOutput,
   deleteOutput,
 }: {
   output: MonitorOutputFull;
   audioOutputOptions: Equipment[];
-  vendors: PartyOptions;
+  vendorGroups: ResponsiblePartyOptions;
   contacts: ContactOptions;
   updateOutput: (id: string, formData: FormData) => Promise<void>;
   deleteOutput: (id: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
 
-  const effectiveVendors = useMemo(
-    () => mergeAndSortVendors(vendors, [output.providerVendor, output.operatorVendor]),
-    [vendors, output.providerVendor, output.operatorVendor]
+  const effectiveVendorGroups = useMemo(
+    () => mergeExtraVendorsIntoGroup(vendorGroups, [output.providerVendor, output.operatorVendor]),
+    [vendorGroups, output.providerVendor, output.operatorVendor]
   );
 
   const provider = partyLabel(output.providerVendor, output.providerContact);
@@ -453,11 +460,11 @@ function MonitorOutputRow({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-              <PartyField fieldPrefix="provider" vendors={effectiveVendors} contacts={contacts} defaultVendorId={output.providerVendorId} defaultContactId={output.providerContactId} />
+              <PartyField fieldPrefix="provider" vendorGroups={effectiveVendorGroups} contacts={contacts} defaultVendorId={output.providerVendorId} defaultContactId={output.providerContactId} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-              <PartyField fieldPrefix="operator" vendors={effectiveVendors} contacts={contacts} defaultVendorId={output.operatorVendorId} defaultContactId={output.operatorContactId} />
+              <PartyField fieldPrefix="operator" vendorGroups={effectiveVendorGroups} contacts={contacts} defaultVendorId={output.operatorVendorId} defaultContactId={output.operatorContactId} />
             </div>
           </div>
           <div>
@@ -503,7 +510,7 @@ function MonitorOutputRow({
 function MonitorMixGroupCard({
   mix,
   audioOutputOptions,
-  vendors,
+  vendorGroups,
   contacts,
   updateMix,
   deleteMix,
@@ -513,7 +520,7 @@ function MonitorMixGroupCard({
 }: {
   mix: MonitorMixFull;
   audioOutputOptions: Equipment[];
-  vendors: PartyOptions;
+  vendorGroups: ResponsiblePartyOptions;
   contacts: ContactOptions;
   updateMix: (id: string, formData: FormData) => Promise<void>;
   deleteMix: (id: string) => Promise<void>;
@@ -604,11 +611,11 @@ function MonitorMixGroupCard({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-                <PartyField fieldPrefix="provider" vendors={vendors} contacts={contacts} />
+                <PartyField fieldPrefix="provider" vendorGroups={vendorGroups} contacts={contacts} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-                <PartyField fieldPrefix="operator" vendors={vendors} contacts={contacts} />
+                <PartyField fieldPrefix="operator" vendorGroups={vendorGroups} contacts={contacts} />
               </div>
             </div>
             <div>
@@ -634,7 +641,7 @@ function MonitorMixGroupCard({
               key={output.id}
               output={output}
               audioOutputOptions={audioOutputOptions}
-              vendors={vendors}
+              vendorGroups={vendorGroups}
               contacts={contacts}
               updateOutput={updateOutput}
               deleteOutput={deleteOutput}
@@ -658,7 +665,7 @@ export function AudioSectionPanel({
   audioSection,
   audioInputOptions,
   audioOutputOptions,
-  vendorOptions,
+  vendorGroups,
   contactOptions,
   updateSection,
   createInputGroup,
@@ -747,11 +754,11 @@ export function AudioSectionPanel({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-                <PartyField fieldPrefix="provider" vendors={vendorOptions} contacts={contactOptions} />
+                <PartyField fieldPrefix="provider" vendorGroups={vendorGroups} contacts={contactOptions} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
-                <PartyField fieldPrefix="operator" vendors={vendorOptions} contacts={contactOptions} />
+                <PartyField fieldPrefix="operator" vendorGroups={vendorGroups} contacts={contactOptions} />
               </div>
             </div>
             <div>
@@ -778,7 +785,7 @@ export function AudioSectionPanel({
                 key={group.id}
                 group={group}
                 audioInputOptions={audioInputOptions}
-                vendors={vendorOptions}
+                vendorGroups={vendorGroups}
                 contacts={contactOptions}
                 updateGroup={updateInputGroup}
                 deleteGroup={deleteInputGroup}
@@ -847,7 +854,7 @@ export function AudioSectionPanel({
                 key={mix.id}
                 mix={mix}
                 audioOutputOptions={audioOutputOptions}
-                vendors={vendorOptions}
+                vendorGroups={vendorGroups}
                 contacts={contactOptions}
                 updateMix={updateMonitorMix}
                 deleteMix={deleteMonitorMix}

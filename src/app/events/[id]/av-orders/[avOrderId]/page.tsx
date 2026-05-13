@@ -14,7 +14,7 @@ import {
   linkAVOrderToPresentation,
   unlinkAVOrderFromFunction,
   unlinkAVOrderFromPresentation,
-  getAVOrderPartyOptions,
+  getAVOrderResponsiblePartyOptions,
   updateAudioSection,
   createInputGroup,
   updateInputGroup,
@@ -42,10 +42,8 @@ import {
   updateAVOrderVendor,
   removeVendorFromAVOrder,
   searchAssignedEventVendors,
-  getResponsiblePartyVendors,
 } from "@/app/vendors/actions";
 import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
-import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
@@ -98,18 +96,16 @@ export default async function AVOrderPage({
   let availablePresentations: Awaited<ReturnType<typeof prisma.presentation.findMany>> = [];
   let equipmentOptions: Awaited<ReturnType<typeof getEquipment>> = [];
   let equipmentCategories: Awaited<ReturnType<typeof getOptions>> = [];
-  let responsiblePartyVendors: Awaited<ReturnType<typeof getResponsiblePartyVendors>> = { vendors: [], venueVendor: null, systemVendor: null };
-  let overviewPartyOptions: Awaited<ReturnType<typeof getAVOrderPartyOptions>> = { vendors: [], contacts: [] };
+  let avOrderPartyOptions: Awaited<ReturnType<typeof getAVOrderResponsiblePartyOptions>> = { responsiblePartyVendors: { vendors: [], venueVendor: null, systemVendor: null }, contacts: [] };
   if (activeTab === "overview") {
-    [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories, responsiblePartyVendors, overviewPartyOptions] = await Promise.all([
+    [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories, avOrderPartyOptions] = await Promise.all([
       prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
       avOrder.presentationId
         ? []
         : prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
       getEquipment(),
       getOptions("equipment_category"),
-      getResponsiblePartyVendors(eventId, "AV_ORDER"),
-      getAVOrderPartyOptions(avOrderId, eventId),
+      getAVOrderResponsiblePartyOptions(avOrderId, eventId),
     ]);
   }
 
@@ -121,23 +117,19 @@ export default async function AVOrderPage({
     ? equipmentOptions.filter((e) => avEquipmentCategoryLabels.has(e.category))
     : equipmentOptions;
 
-  let partyOptions: Awaited<ReturnType<typeof getAVOrderPartyOptions>> = { vendors: [], contacts: [] };
-  let tabResponsiblePartyVendors: Awaited<ReturnType<typeof getResponsiblePartyVendors>> = { vendors: [], venueVendor: null, systemVendor: null };
   let audioEquipmentItems: Awaited<ReturnType<typeof prisma.equipment.findMany>> = [];
   let videoEquipmentItems: Awaited<ReturnType<typeof prisma.equipment.findMany>> = [];
   if (activeTab === "audio") {
-    [partyOptions, tabResponsiblePartyVendors, audioEquipmentItems] = await Promise.all([
-      getAVOrderPartyOptions(avOrderId, eventId),
-      getResponsiblePartyVendors(eventId, "AV_ORDER"),
+    [avOrderPartyOptions, audioEquipmentItems] = await Promise.all([
+      getAVOrderResponsiblePartyOptions(avOrderId, eventId),
       prisma.equipment.findMany({
         where: { category: { in: ["Audio Inputs", "Audio Outputs"] } },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
       }),
     ]);
   } else if (activeTab === "video") {
-    [partyOptions, tabResponsiblePartyVendors, videoEquipmentItems] = await Promise.all([
-      getAVOrderPartyOptions(avOrderId, eventId),
-      getResponsiblePartyVendors(eventId, "AV_ORDER"),
+    [avOrderPartyOptions, videoEquipmentItems] = await Promise.all([
+      getAVOrderResponsiblePartyOptions(avOrderId, eventId),
       prisma.equipment.findMany({
         where: { category: { in: ["Video Inputs", "Video Outputs"] } },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
@@ -484,8 +476,8 @@ export default async function AVOrderPage({
           <div className="lg:col-span-2 space-y-6">
             <EquipmentTable
               items={avOrder.equipmentItems}
-              partyVendors={flattenResponsiblePartyOptions(responsiblePartyVendors)}
-              contactOptions={overviewPartyOptions.contacts}
+              vendorGroups={avOrderPartyOptions.responsiblePartyVendors}
+              contactOptions={avOrderPartyOptions.contacts}
               contactsLabel="Presenters"
               equipmentOptions={filteredEquipmentOptions}
               allEquipmentOptions={hasAvEquipmentFilter ? equipmentOptions : undefined}
@@ -504,8 +496,8 @@ export default async function AVOrderPage({
           audioSection={avOrder.audioSection}
           audioInputOptions={audioInputOptions}
           audioOutputOptions={audioOutputOptions}
-          vendorOptions={flattenResponsiblePartyOptions(tabResponsiblePartyVendors)}
-          contactOptions={partyOptions.contacts}
+          vendorGroups={avOrderPartyOptions.responsiblePartyVendors}
+          contactOptions={avOrderPartyOptions.contacts}
           updateSection={updateAudioSectionAction}
           createInputGroup={createInputGroupAction}
           updateInputGroup={updateInputGroupAction}
@@ -526,8 +518,8 @@ export default async function AVOrderPage({
         <VideoSectionPanel
           videoSection={avOrder.videoSection}
           equipmentOptions={videoEquipmentItems}
-          vendorOptions={flattenResponsiblePartyOptions(tabResponsiblePartyVendors)}
-          contactOptions={partyOptions.contacts}
+          vendorGroups={avOrderPartyOptions.responsiblePartyVendors}
+          contactOptions={avOrderPartyOptions.contacts}
           updateSection={updateVideoSectionAction}
           createItem={createVideoItemAction}
           updateItem={updateVideoItemAction}

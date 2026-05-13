@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import type { EquipmentItem, CustomOption, Equipment, Vendor, Contact } from "@prisma/client";
 import { PartyField, partyLabel } from "@/app/events/av-orders/party-field";
 import type { ContactOptions } from "@/app/events/av-orders/party-field";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 
 type EquipmentItemFull = EquipmentItem & {
   providerVendor: Vendor | null;
@@ -16,7 +17,8 @@ type EquipmentItemFull = EquipmentItem & {
 
 type EquipmentTableProps = {
   items: EquipmentItemFull[];
-  partyVendors: { id: string; name: string }[];
+  partyVendors?: { id: string; name: string }[];
+  vendorGroups?: ResponsiblePartyOptions;
   contactOptions?: ContactOptions;
   contactsLabel?: string;
   equipmentOptions: Equipment[];
@@ -98,6 +100,7 @@ function EquipmentSelect({
 export function EquipmentTable({
   items,
   partyVendors,
+  vendorGroups,
   contactOptions,
   contactsLabel,
   equipmentOptions,
@@ -161,7 +164,7 @@ export function EquipmentTable({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
               <PartyField
                 fieldPrefix="provider"
-                vendors={partyVendors}
+                {...(vendorGroups ? { vendorGroups } : { vendors: partyVendors ?? [] })}
                 contacts={contactOptions ?? []}
                 contactsLabel={contactsLabel}
               />
@@ -170,7 +173,7 @@ export function EquipmentTable({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
               <PartyField
                 fieldPrefix="operator"
-                vendors={partyVendors}
+                {...(vendorGroups ? { vendorGroups } : { vendors: partyVendors ?? [] })}
                 contacts={contactOptions ?? []}
                 contactsLabel={contactsLabel}
               />

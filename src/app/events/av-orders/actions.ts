@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
@@ -586,6 +587,53 @@ export async function getAVOrderPartyOptions(avOrderId: string, eventId: string)
     })) ?? [];
 
   return { vendors, contacts };
+}
+
+export async function getAVOrderResponsiblePartyOptions(avOrderId: string, eventId: string): Promise<{ responsiblePartyVendors: ResponsiblePartyOptions; contacts: { id: string; firstName: string; lastName: string; organization: string | null }[] }> {
+  const [orderVendors, event, systemVendor, avOrder] = await Promise.all([
+    prisma.aVOrderVendor.findMany({
+      where: { avOrderId },
+      select: { vendor: { select: { id: true, name: true } } },
+      orderBy: { vendor: { name: "asc" } },
+    }),
+    prisma.event.findUnique({
+      where: { id: eventId },
+      select: { venue: { select: { vendor: { select: { id: true, name: true } } } } },
+    }),
+    prisma.vendor.findFirst({ where: { isSystemVendor: true }, select: { id: true, name: true } }),
+    prisma.aVOrder.findUnique({
+      where: { id: avOrderId },
+      select: {
+        presentation: {
+          select: {
+            speakers: {
+              include: { contact: true },
+              orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const venueVendor = event?.venue?.vendor ?? null;
+  const excludeIds = new Set([
+    ...(venueVendor ? [venueVendor.id] : []),
+    ...(systemVendor ? [systemVendor.id] : []),
+  ]);
+  const vendors = orderVendors.map((av) => av.vendor).filter((v) => !excludeIds.has(v.id));
+
+  const contacts = avOrder?.presentation?.speakers.map((s) => ({
+    id: s.contact.id,
+    firstName: s.contact.firstName,
+    lastName: s.contact.lastName,
+    organization: s.contact.organization,
+  })) ?? [];
+
+  return {
+    responsiblePartyVendors: { vendors, venueVendor, systemVendor: systemVendor ?? null },
+    contacts,
+  };
 }
 
 export async function deleteAVOrders(ids: string[], eventId: string) {

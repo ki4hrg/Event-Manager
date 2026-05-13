@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Vendor, Contact } from "@prisma/client";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 
 export type PartyOptions = { id: string; name: string }[];
 export type ContactOptions = {
@@ -24,6 +25,20 @@ export function parsePartyValue(value: string) {
   if (value.startsWith("vendor:")) return { vendorId: value.slice(7), contactId: "" };
   if (value.startsWith("contact:")) return { vendorId: "", contactId: value.slice(8) };
   return { vendorId: "", contactId: "" };
+}
+
+export function mergeExtraVendorsIntoGroup(
+  groups: ResponsiblePartyOptions,
+  extra: (PartyOptions[number] | null | undefined)[]
+): ResponsiblePartyOptions {
+  const knownIds = new Set([
+    ...(groups.systemVendor ? [groups.systemVendor.id] : []),
+    ...(groups.venueVendor ? [groups.venueVendor.id] : []),
+    ...groups.vendors.map((v) => v.id),
+  ]);
+  const extras = extra.filter((v): v is { id: string; name: string } => v != null && !knownIds.has(v.id));
+  if (!extras.length) return groups;
+  return { ...groups, vendors: [...groups.vendors, ...extras].sort((a, b) => a.name.localeCompare(b.name)) };
 }
 
 export function mergeAndSortVendors(
@@ -50,13 +65,15 @@ export function partyLabel(
 export function PartyField({
   fieldPrefix,
   vendors,
+  vendorGroups,
   contacts,
   contactsLabel = "Contacts",
   defaultVendorId,
   defaultContactId,
 }: {
   fieldPrefix: string;
-  vendors: PartyOptions;
+  vendors?: PartyOptions;
+  vendorGroups?: ResponsiblePartyOptions;
   contacts: ContactOptions;
   contactsLabel?: string;
   defaultVendorId?: string | null;
@@ -78,13 +95,31 @@ export function PartyField({
         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
       >
         <option value="">— None —</option>
-        {vendors.length > 0 && (
+        {vendorGroups ? (
+          <>
+            {vendorGroups.systemVendor && (
+              <option value={`vendor:${vendorGroups.systemVendor.id}`}>{vendorGroups.systemVendor.name}</option>
+            )}
+            {vendorGroups.venueVendor && (
+              <optgroup label="Venue">
+                <option value={`vendor:${vendorGroups.venueVendor.id}`}>{vendorGroups.venueVendor.name}</option>
+              </optgroup>
+            )}
+            {vendorGroups.vendors.length > 0 && (
+              <optgroup label="Vendors">
+                {vendorGroups.vendors.map((v) => (
+                  <option key={v.id} value={`vendor:${v.id}`}>{v.name}</option>
+                ))}
+              </optgroup>
+            )}
+          </>
+        ) : vendors && vendors.length > 0 ? (
           <optgroup label="Vendors">
             {vendors.map((v) => (
               <option key={v.id} value={`vendor:${v.id}`}>{v.name}</option>
             ))}
           </optgroup>
-        )}
+        ) : null}
         {contacts.length > 0 && (
           <optgroup label={contactsLabel}>
             {contacts.map((c) => (
