@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { EntityStatus } from "@prisma/client";
 import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
@@ -217,6 +218,23 @@ export async function deleteFunctions(ids: string[], eventId: string) {
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/functions`);
   revalidatePath(`/events/${eventId}/agenda`);
+}
+
+export async function getFunctionOptions(eventId: string) {
+  return prisma.function.findMany({
+    where: { eventId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function bulkUpdateFunctions(
+  ids: string[],
+  eventId: string,
+  updates: { status?: EntityStatus; substatus?: string | null; type?: string }
+) {
+  await prisma.function.updateMany({ where: { id: { in: ids }, eventId }, data: updates });
+  revalidatePath(`/events/${eventId}/functions`);
 }
 
 export async function duplicateFunction(id: string, eventId: string) {

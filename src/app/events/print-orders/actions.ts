@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
@@ -13,6 +14,7 @@ export async function getPrintOrders(eventId: string) {
       items: true,
       functions: { include: { function: { select: { id: true, name: true } } } },
       presentation: { select: { id: true, title: true } },
+      vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -245,4 +247,49 @@ export async function getPrintOrderPartyOptions(printOrderId: string) {
   }
 
   return { contacts: Array.from(contactMap.values()) };
+}
+
+export async function deletePrintOrders(ids: string[], eventId: string) {
+  await prisma.printOrder.deleteMany({ where: { id: { in: ids }, eventId } });
+  revalidatePath(`/events/${eventId}/print-orders`);
+}
+
+export async function bulkUpdatePrintOrders(
+  ids: string[],
+  eventId: string,
+  updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string }
+) {
+  const { status, substatus, vendorId, functionId } = updates;
+
+  if (status !== undefined || substatus !== undefined) {
+    await prisma.printOrder.updateMany({
+      where: { id: { in: ids }, eventId },
+      data: {
+        ...(status !== undefined ? { status } : {}),
+        ...(substatus !== undefined ? { substatus } : {}),
+      },
+    });
+  }
+
+  if (vendorId) {
+    await prisma.printOrderVendor.deleteMany({ where: { printOrderId: { in: ids } } });
+    await prisma.printOrderVendor.createMany({ data: ids.map((id) => ({ printOrderId: id, vendorId })) });
+  }
+
+  if (functionId) {
+    // Add function link via junction table (skip if already linked)
+    const existing = await prisma.printOrderFunction.findMany({
+      where: { printOrderId: { in: ids }, functionId },
+      select: { printOrderId: true },
+    });
+    const existingIds = new Set(existing.map((e) => e.printOrderId));
+    const toCreate = ids.filter((id) => !existingIds.has(id));
+    if (toCreate.length > 0) {
+      await prisma.printOrderFunction.createMany({
+        data: toCreate.map((id) => ({ printOrderId: id, functionId })),
+      });
+    }
+  }
+
+  revalidatePath(`/events/${eventId}/print-orders`);
 }

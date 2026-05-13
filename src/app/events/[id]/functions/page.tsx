@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
-import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunctions } from "../../functions/actions";
+import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunctions, bulkUpdateFunctions } from "../../functions/actions";
 import { FunctionList } from "../../functions/FunctionList";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { EventTabs } from "../EventTabs";
 
@@ -12,10 +12,11 @@ export const dynamic = "force-dynamic";
 
 export default async function EventFunctionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, functions, functionTypes] = await Promise.all([
+  const [event, functions, functionTypes, substatuses] = await Promise.all([
     getEvent(id),
     getFunctionsForTable(id),
     getOptions("function_type"),
+    getSubstatusOptions(),
   ]);
 
   if (!event) {
@@ -41,6 +42,14 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
     await deleteFunctions(ids, id);
   };
 
+  const bulkUpdateFunctionsAction = async (
+    ids: string[],
+    updates: { status?: import("@prisma/client").EntityStatus; substatus?: string | null; type?: string }
+  ) => {
+    "use server";
+    await bulkUpdateFunctions(ids, id, updates);
+  };
+
   return (
     <PageWrapper>
       <div className="flex justify-between items-center mb-4">
@@ -63,10 +72,12 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
         eventId={id}
         timezone={event.timezone || "America/Chicago"}
         functionTypes={functionTypes}
+        substatuses={substatuses}
         workflowSummaries={workflowSummaries}
         duplicateFunction={duplicateFunctionAction}
         deleteFunction={deleteFunctionAction}
         deleteFunctions={deleteFunctionsAction}
+        bulkUpdateFunctions={bulkUpdateFunctionsAction}
       />
     </PageWrapper>
   );

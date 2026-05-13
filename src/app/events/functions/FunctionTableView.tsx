@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CustomOption } from "@prisma/client";
+import type { EntityStatus } from "@prisma/client";
 import type { FunctionForTable } from "./actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
@@ -12,6 +13,7 @@ import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { getEarliestStart, getLatestEnd, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { getSetupOrderDisplayName } from "../setup-orders/utils";
+import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 
 type SortField = "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 
@@ -38,8 +40,10 @@ type Props = {
   eventId: string;
   timezone: string;
   functionTypes: CustomOption[];
+  substatuses: CustomOption[];
   workflowSummaries: Record<string, WorkflowBadgeSummary>;
   deleteFunctions: (ids: string[]) => Promise<void>;
+  bulkUpdateFunctions: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; type?: string }) => Promise<void>;
 };
 
 function workflowStatus(summary: WorkflowBadgeSummary | undefined): "none" | "in_progress" | "done" {
@@ -71,14 +75,20 @@ export function FunctionTableView({
   eventId,
   timezone,
   functionTypes,
+  substatuses,
   workflowSummaries,
   deleteFunctions,
+  bulkUpdateFunctions,
 }: Props) {
   const router = useRouter();
   const [sortField, setSortField] = useState<SortField>("earliestStart");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
+  const [bulkSubstatus, setBulkSubstatus] = useState("");
+  const [bulkType, setBulkType] = useState("");
 
   function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -202,6 +212,25 @@ export function FunctionTableView({
     router.refresh();
   }
 
+  async function handleBulkUpdate() {
+    const ids = Array.from(selected);
+    const updates: { status?: EntityStatus; substatus?: string | null; type?: string } = {};
+    if (bulkStatus) updates.status = bulkStatus;
+    if (bulkSubstatus) updates.substatus = bulkSubstatus;
+    if (bulkType) updates.type = bulkType;
+    if (Object.keys(updates).length === 0) return;
+    await bulkUpdateFunctions(ids, updates);
+    setShowBulkEdit(false);
+    setBulkStatus("");
+    setBulkSubstatus("");
+    setBulkType("");
+    router.refresh();
+  }
+
+  const filteredSubstatuses = bulkStatus
+    ? substatuses.filter((s) => !s.group || s.group === bulkStatus)
+    : substatuses;
+
   const thBase = "px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap bg-gray-50 dark:bg-gray-900";
   const thSortable = `${thBase} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none`;
   const filterCell = "px-2 py-1 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700";
@@ -210,22 +239,85 @@ export function FunctionTableView({
   return (
     <div className="space-y-2">
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-800">
-          <span className="text-sm text-blue-700 dark:text-blue-300">
-            {selected.size} selected
-          </span>
-          <button
-            onClick={handleBulkDelete}
-            className="text-sm text-red-600 dark:text-red-400 hover:underline"
-          >
-            Delete selected
-          </button>
-          <button
-            onClick={() => setSelected(new Set())}
-            className="text-sm text-gray-500 dark:text-gray-400 hover:underline ml-auto"
-          >
-            Clear selection
-          </button>
+        <div className="flex flex-col gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-blue-700 dark:text-blue-300">
+              {selected.size} selected
+            </span>
+            <button
+              onClick={() => setShowBulkEdit((v) => !v)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Bulk edit
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="text-sm text-red-600 dark:text-red-400 hover:underline"
+            >
+              Delete selected
+            </button>
+            <button
+              onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}
+              className="text-sm text-gray-500 dark:text-gray-400 hover:underline ml-auto"
+            >
+              Clear selection
+            </button>
+          </div>
+          {showBulkEdit && (
+            <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-blue-200 dark:border-blue-700">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-600 dark:text-gray-400">Status</label>
+                <select
+                  value={bulkStatus}
+                  onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }}
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">— no change —</option>
+                  {EDIT_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-600 dark:text-gray-400">Substatus</label>
+                <select
+                  value={bulkSubstatus}
+                  onChange={(e) => setBulkSubstatus(e.target.value)}
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">— no change —</option>
+                  {filteredSubstatuses.map((s) => (
+                    <option key={s.id} value={s.label}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-600 dark:text-gray-400">Type</label>
+                <select
+                  value={bulkType}
+                  onChange={(e) => setBulkType(e.target.value)}
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">— no change —</option>
+                  {functionTypes.map((t) => (
+                    <option key={t.id} value={t.label}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleBulkUpdate}
+                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Apply to {selected.size} selected
+              </button>
+              <button
+                onClick={() => setShowBulkEdit(false)}
+                className="text-sm text-gray-500 dark:text-gray-400 hover:underline"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 

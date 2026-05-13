@@ -19,10 +19,12 @@ type FunctionListProps = {
   eventId: string;
   timezone: string;
   functionTypes: CustomOption[];
+  substatuses: CustomOption[];
   workflowSummaries?: Record<string, WorkflowBadgeSummary>;
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
   deleteFunctions: (ids: string[]) => Promise<void>;
+  bulkUpdateFunctions: (ids: string[], updates: { status?: import("@prisma/client").EntityStatus; substatus?: string | null; type?: string }) => Promise<void>;
 };
 
 function groupByDate(functions: FunctionForTable[], timezone: string): {
@@ -59,10 +61,12 @@ export function FunctionList({
   eventId,
   timezone,
   functionTypes,
+  substatuses,
   workflowSummaries = {},
   duplicateFunction,
   deleteFunction,
   deleteFunctions,
+  bulkUpdateFunctions,
 }: FunctionListProps) {
   const [view, setView] = useState<"list" | "table">("list");
 
@@ -188,8 +192,10 @@ export function FunctionList({
           eventId={eventId}
           timezone={timezone}
           functionTypes={functionTypes}
+          substatuses={substatuses}
           workflowSummaries={workflowSummaries}
           deleteFunctions={deleteFunctions}
+          bulkUpdateFunctions={bulkUpdateFunctions}
         />
       ) : (
         <div className="space-y-6">

@@ -600,3 +600,11 @@ export async function importPresentationsFromCSV(
   revalidatePath(`/events/${eventId}/presentations`);
   return { created, errors };
 }
+
+export async function getPresentationOptions(eventId: string) {
+  return prisma.presentation.findMany({
+    where: { eventId },
+    select: { id: true, title: true },
+    orderBy: { title: "asc" },
+  });
+}

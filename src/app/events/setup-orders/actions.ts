@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
@@ -11,10 +12,11 @@ export async function getSetupOrders(eventId: string) {
   return prisma.setupOrder.findMany({
     where: { eventId },
     include: {
-      room: true,
-      functions: true,
+      room: { select: { id: true, name: true } },
+      functions: { select: { id: true, name: true } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
+      vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -304,4 +306,34 @@ export async function updateSetupEquipmentItem(id: string, setupOrderId: string,
 export async function deleteSetupEquipmentItem(id: string, setupOrderId: string, eventId: string) {
   await prisma.equipmentItem.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
+}
+
+export async function deleteSetupOrders(ids: string[], eventId: string) {
+  await prisma.setupOrder.deleteMany({ where: { id: { in: ids }, eventId } });
+  revalidatePath(`/events/${eventId}/setup-orders`);
+}
+
+export async function bulkUpdateSetupOrders(
+  ids: string[],
+  eventId: string,
+  updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }
+) {
+  const { status, substatus, vendorId } = updates;
+
+  if (status !== undefined || substatus !== undefined) {
+    await prisma.setupOrder.updateMany({
+      where: { id: { in: ids }, eventId },
+      data: {
+        ...(status !== undefined ? { status } : {}),
+        ...(substatus !== undefined ? { substatus } : {}),
+      },
+    });
+  }
+
+  if (vendorId) {
+    await prisma.setupOrderVendor.deleteMany({ where: { setupOrderId: { in: ids } } });
+    await prisma.setupOrderVendor.createMany({ data: ids.map((id) => ({ setupOrderId: id, vendorId })) });
+  }
+
+  revalidatePath(`/events/${eventId}/setup-orders`);
 }

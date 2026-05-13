@@ -116,6 +116,37 @@ Vendors with an empty `models` array are treated as general-purpose and appear i
 3. In the new order type's page/component, pass the new `ModelType` value to `searchAssignedEventVendors`
 4. No changes needed to `VendorPanel`, `EventVendorList`, or the filter logic — they handle any `ModelType` generically
 
+## Order List & Bulk Edit Pattern
+
+Every order type follows this structure. When adding a new order type, replicate it exactly.
+
+### File layout
+- `src/app/events/[order-type]/[OrderType]List.tsx` — `"use client"` component with list view, table view, selection, and bulk edit
+- `src/app/events/[order-type]/actions.ts` — server actions including `get*`, `delete*`, `delete*s` (bulk), and `bulkUpdate*`
+- `src/app/events/[id]/[order-type]/page.tsx` — thin server component: fetches data, defines inline `"use server"` wrapper actions, renders `<[OrderType]List>`
+
+### Selection state
+- `useState<Set<string>>` for row selection
+- Selection bar appears when `selected.size > 0`; shows count, "Bulk edit" toggle, "Delete selected", "Clear selection"
+- `showBulkEdit` state controls the inline edit panel below the bar
+
+### Bulk edit panel
+- Status: `EDIT_STATUS_OPTIONS` from `src/lib/statusConstants.ts`
+- Substatus: `getSubstatusOptions()` from `src/app/settings/actions.ts` → `CustomOption[]`, filtered by selected status via `group` field
+- Vendor: `getResponsiblePartyVendors(eventId, "X_ORDER")` + `flattenResponsiblePartyOptions()` — vendor replace pattern: `deleteMany` then `createMany` on the junction table
+- Function link: `getFunctionOptions(eventId)` — for many:many junctions (PrintOrder, SetupOrder), bulk-add is safe (skip existing). For 1:1 FK (CateringOrder), bulk-replace the FK directly
+- Presentation link: same 1:1 FK pattern (AVOrder, PrintOrder via FK)
+- After apply: call server action, reset state, `router.refresh()`
+
+### Vendor replace pattern (many:many)
+```ts
+await prisma.xOrderVendor.deleteMany({ where: { xOrderId: { in: ids } } });
+await prisma.xOrderVendor.createMany({ data: ids.map(id => ({ xOrderId: id, vendorId })) });
+```
+
+### ModelType values
+`"AV_ORDER"`, `"CATERING_ORDER"`, `"SETUP_ORDER"`, `"PRINT_ORDER"` — declared in `src/app/vendors/actions.ts`
+
 ## Code Conventions
 - Use named exports for components
 - Colocate component-specific logic

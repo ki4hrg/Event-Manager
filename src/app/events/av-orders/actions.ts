@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
@@ -12,7 +13,8 @@ export async function getAVOrders(eventId: string) {
     where: { eventId },
     include: {
       functions: true,
-      presentation: true,
+      presentation: { select: { id: true, title: true } },
+      vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },
     orderBy: { name: "asc" },
   });
@@ -584,4 +586,34 @@ export async function getAVOrderPartyOptions(avOrderId: string, eventId: string)
     })) ?? [];
 
   return { vendors, contacts };
+}
+
+export async function deleteAVOrders(ids: string[], eventId: string) {
+  await prisma.aVOrder.deleteMany({ where: { id: { in: ids }, eventId } });
+  revalidatePath(`/events/${eventId}/av-orders`);
+}
+
+export async function bulkUpdateAVOrders(
+  ids: string[],
+  eventId: string,
+  updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }
+) {
+  const { status, substatus, vendorId } = updates;
+
+  if (status !== undefined || substatus !== undefined) {
+    await prisma.aVOrder.updateMany({
+      where: { id: { in: ids }, eventId },
+      data: {
+        ...(status !== undefined ? { status } : {}),
+        ...(substatus !== undefined ? { substatus } : {}),
+      },
+    });
+  }
+
+  if (vendorId) {
+    await prisma.aVOrderVendor.deleteMany({ where: { avOrderId: { in: ids } } });
+    await prisma.aVOrderVendor.createMany({ data: ids.map((id) => ({ avOrderId: id, vendorId })) });
+  }
+
+  revalidatePath(`/events/${eventId}/av-orders`);
 }

@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
@@ -10,7 +11,10 @@ import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 export async function getCateringOrders(eventId: string) {
   return prisma.cateringOrder.findMany({
     where: { eventId },
-    include: { function: true },
+    include: {
+      function: { select: { id: true, name: true } },
+      vendors: { include: { vendor: { select: { id: true, name: true } } } },
+    },
     orderBy: { name: "asc" },
   });
 }
@@ -413,4 +417,34 @@ export async function searchContactsForCateringOrder(query: string) {
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     take: 20,
   });
+}
+
+export async function deleteCateringOrders(ids: string[], eventId: string) {
+  await prisma.cateringOrder.deleteMany({ where: { id: { in: ids }, eventId } });
+  revalidatePath(`/events/${eventId}/catering-orders`);
+}
+
+export async function bulkUpdateCateringOrders(
+  ids: string[],
+  eventId: string,
+  updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }
+) {
+  const { status, substatus, vendorId } = updates;
+
+  if (status !== undefined || substatus !== undefined) {
+    await prisma.cateringOrder.updateMany({
+      where: { id: { in: ids }, eventId },
+      data: {
+        ...(status !== undefined ? { status } : {}),
+        ...(substatus !== undefined ? { substatus } : {}),
+      },
+    });
+  }
+
+  if (vendorId) {
+    await prisma.cateringOrderVendor.deleteMany({ where: { cateringOrderId: { in: ids } } });
+    await prisma.cateringOrderVendor.createMany({ data: ids.map((id) => ({ cateringOrderId: id, vendorId })) });
+  }
+
+  revalidatePath(`/events/${eventId}/catering-orders`);
 }
