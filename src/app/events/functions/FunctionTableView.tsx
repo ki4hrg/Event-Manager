@@ -8,6 +8,7 @@ import type { EntityStatus } from "@prisma/client";
 import type { FunctionForTable } from "./actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
+import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { colorClasses } from "@/lib/colors";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { getEarliestStart, getLatestEnd, formatScheduleDateTime } from "./scheduleUtils";
@@ -19,6 +20,7 @@ type SortField = "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 
 type FilterState = {
   name: string;
+  status: string;
   dateFrom: string;
   dateTo: string;
   type: string;
@@ -31,7 +33,7 @@ type FilterState = {
 };
 
 const DEFAULT_FILTERS: FilterState = {
-  name: "", dateFrom: "", dateTo: "", type: "", room: "", contacts: "",
+  name: "", status: "", dateFrom: "", dateTo: "", type: "", room: "", contacts: "",
   av: "", setup: "", catering: "", workflow: "",
 };
 
@@ -111,6 +113,10 @@ export function FunctionTableView({
   const filtered = useMemo(() => {
     return functions.filter((fn) => {
       if (filters.name && !fn.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
+
+      if (filters.status === "__blank__") {
+        if (fn.status != null) return false;
+      } else if (filters.status && fn.status !== filters.status) return false;
 
       const { earliest } = scheduleBounds.get(fn.id)!;
       if (filters.dateFrom) {
@@ -336,6 +342,7 @@ export function FunctionTableView({
               <th className={thSortable} onClick={() => handleSort("name")}>
                 Name{sortIndicator(sortField === "name", sortDir)}
               </th>
+              <th className={thBase}>Status</th>
               <th className={thSortable} onClick={() => handleSort("earliestStart")}>
                 Earliest Start{sortIndicator(sortField === "earliestStart", sortDir)}
               </th>
@@ -365,6 +372,19 @@ export function FunctionTableView({
                   onChange={(e) => setFilter("name", e.target.value)}
                   className={filterInput}
                 />
+              </td>
+              <td className={filterCell}>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilter("status", e.target.value)}
+                  className={filterInput}
+                >
+                  <option value="">All</option>
+                  <option value="__blank__">(blank)</option>
+                  {EDIT_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </td>
               <td className={filterCell}>
                 <input
@@ -465,6 +485,9 @@ export function FunctionTableView({
                     >
                       {fn.name}
                     </Link>
+                  </td>
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap text-gray-600 dark:text-gray-400">
                     {formatScheduleDateTime(earliest, timezone)}

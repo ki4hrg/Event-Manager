@@ -60,7 +60,9 @@ export function SetupOrderList({
     return setupOrders.filter((o) => {
       const displayName = getSetupOrderDisplayName(o);
       if (filters.name && !displayName.toLowerCase().includes(filters.name.toLowerCase())) return false;
-      if (filters.status && o.status !== filters.status) return false;
+      if (filters.status === "__blank__") {
+        if (o.status != null) return false;
+      } else if (filters.status && o.status !== filters.status) return false;
       return true;
     });
   }, [setupOrders, filters]);
@@ -280,6 +282,7 @@ export function SetupOrderList({
                   <td className={filterCell}>
                     <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
                       <option value="">All</option>
+                      <option value="__blank__">(blank)</option>
                       {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </td>
