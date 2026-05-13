@@ -49,11 +49,6 @@ export default async function DashboardPage() {
           description="Manage speakers, vendors, and other contacts"
           href="/contacts"
         />
-        <DashboardCard
-          title="Schedule"
-          description="View event schedules"
-          href="/schedule"
-        />
       </div>
     </PageWrapper>
   );

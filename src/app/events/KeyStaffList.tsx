@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { EventKeyStaff, Contact } from "@prisma/client";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
+import { formatPhone } from "@/lib/format-phone";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
 
@@ -362,6 +363,9 @@ export function KeyStaffList({
                     </span>
                     {entry.title && (
                       <p className="text-sm text-gray-500 dark:text-gray-400">{entry.title}</p>
+                    )}
+                    {entry.contact.phone && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{formatPhone(entry.contact.phone)}</p>
                     )}
                     {entry.models.length > 0 && (
                       <div className="flex flex-wrap gap-1">
