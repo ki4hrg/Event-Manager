@@ -213,7 +213,7 @@ export async function unlinkAVOrderFromPresentation(avOrderId: string, eventId: 
 // AVOrders with no linked functions (for a given event)
 export async function getAvailableAVOrdersForFunction(eventId: string) {
   return prisma.aVOrder.findMany({
-    where: { eventId, functions: { none: {} } },
+    where: { eventId },
     orderBy: { name: "asc" },
   });
 }
