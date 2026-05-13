@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { PageWrapper } from "@/components/PageWrapper";
 import { prisma } from "@/lib/prisma";
 import { getEvent } from "../../../actions";
 import { createAVOrder } from "../../../av-orders/actions";
@@ -52,7 +51,7 @@ export default async function NewAVOrderPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-6">
         <Link
           href={cancelPath}
@@ -76,6 +75,7 @@ export default async function NewAVOrderPage({
         cancelPath={cancelPath}
         availableVendors={flattenResponsiblePartyOptions(responsiblePartyVendors).map((v) => ({ id: v.id, label: v.name }))}
       />
-    </PageWrapper>
+    </>
   );
+
 }

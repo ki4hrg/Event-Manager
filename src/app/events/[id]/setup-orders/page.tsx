@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
 import { getSetupOrders, deleteSetupOrder, deleteSetupOrders, bulkUpdateSetupOrders } from "../../setup-orders/actions";
@@ -8,7 +7,6 @@ import { getSubstatusOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { SetupOrderList } from "../../setup-orders/SetupOrderList";
-import { EventTabs } from "../EventTabs";
 import type { EntityStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +51,7 @@ export default async function SetupOrdersPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-4">
         <Breadcrumbs
           items={[
@@ -67,7 +65,6 @@ export default async function SetupOrdersPage({
         </h1>
       </div>
 
-      <EventTabs eventId={eventId} />
 
       <SetupOrderList
         setupOrders={setupOrders}
@@ -79,6 +76,7 @@ export default async function SetupOrdersPage({
         deleteSetupOrders={deleteSetupOrdersAction}
         bulkUpdateSetupOrders={bulkUpdateSetupOrdersAction}
       />
-    </PageWrapper>
+    </>
   );
+
 }

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { createCateringOrder } from "../../../catering-orders/actions";
 import { getOptions } from "../../../../settings/actions";
@@ -38,7 +37,7 @@ export default async function NewCateringOrderPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-6">
         <Link
           href={`/events/${eventId}/catering-orders`}
@@ -59,6 +58,7 @@ export default async function NewCateringOrderPage({
         createFunctions={eventFunctions.map((f) => ({ id: f.id, label: f.name }))}
         defaultFunctionId={functionId}
       />
-    </PageWrapper>
+    </>
   );
+
 }

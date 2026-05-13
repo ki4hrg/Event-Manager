@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
 import { getPrintOrders, deletePrintOrder, deletePrintOrders, bulkUpdatePrintOrders } from "../../print-orders/actions";
@@ -9,7 +8,6 @@ import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getFunctionOptions } from "../../functions/actions";
 import { PrintOrderList } from "../../print-orders/PrintOrderList";
-import { EventTabs } from "../EventTabs";
 import type { EntityStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +53,7 @@ export default async function PrintOrdersPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-4">
         <Breadcrumbs
           items={[
@@ -69,7 +67,6 @@ export default async function PrintOrdersPage({
         </h1>
       </div>
 
-      <EventTabs eventId={eventId} />
 
       <PrintOrderList
         printOrders={printOrders}
@@ -82,6 +79,7 @@ export default async function PrintOrdersPage({
         deletePrintOrders={deletePrintOrdersAction}
         bulkUpdatePrintOrders={bulkUpdatePrintOrdersAction}
       />
-    </PageWrapper>
+    </>
   );
+
 }

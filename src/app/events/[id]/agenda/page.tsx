@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PageWrapper } from "@/components/PageWrapper";
-import { EventTabs } from "../EventTabs";
 import { getFunctionsWithPresentations } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
 import { getOptions } from "@/app/settings/actions";
@@ -52,7 +50,7 @@ export default async function AgendaPage({
       : agendaData.days[0]?.dateKey ?? null;
 
   return (
-    <PageWrapper>
+    <>
       <div className="sticky top-0 z-30 bg-white dark:bg-gray-950 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex justify-between items-center pt-4 mb-4">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -79,7 +77,6 @@ export default async function AgendaPage({
             </a>
           </div>
         </div>
-        <EventTabs eventId={eventId} />
       </div>
 
       <AgendaGrid
@@ -89,6 +86,7 @@ export default async function AgendaPage({
         activeDate={activeDate}
         initialSettings={agendaViewSettings}
       />
-    </PageWrapper>
+    </>
   );
+
 }

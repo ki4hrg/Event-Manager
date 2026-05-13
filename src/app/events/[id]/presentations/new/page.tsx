@@ -4,7 +4,6 @@ import { getEvent } from "../../../actions";
 import { createPresentation, getTracks, searchContacts } from "../../../presentations/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
 import { getOptions } from "@/app/settings/actions";
-import { PageWrapper } from "@/components/PageWrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +35,7 @@ export default async function NewPresentationPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-6">
         <Link
           href={`/events/${eventId}/presentations`}
@@ -57,6 +56,7 @@ export default async function NewPresentationPage({
         action={createPresentationAction}
         searchContacts={searchContactsAction}
       />
-    </PageWrapper>
+    </>
   );
+
 }

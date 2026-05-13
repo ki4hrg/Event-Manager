@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
 import { getAVOrders, deleteAVOrder, deleteAVOrders, bulkUpdateAVOrders } from "../../av-orders/actions";
@@ -8,7 +7,6 @@ import { getSubstatusOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { AVOrderList } from "../../av-orders/AVOrderList";
-import { EventTabs } from "../EventTabs";
 import type { EntityStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +51,7 @@ export default async function AVOrdersPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-4">
         <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "AV Orders" }]} />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
@@ -61,7 +59,6 @@ export default async function AVOrdersPage({
         </h1>
       </div>
 
-      <EventTabs eventId={eventId} />
 
       <AVOrderList
         avOrders={avOrders}
@@ -73,6 +70,7 @@ export default async function AVOrdersPage({
         deleteAVOrders={deleteAVOrdersAction}
         bulkUpdateAVOrders={bulkUpdateAVOrdersAction}
       />
-    </PageWrapper>
+    </>
   );
+
 }

@@ -144,6 +144,15 @@ await prisma.xOrderVendor.deleteMany({ where: { xOrderId: { in: ids } } });
 await prisma.xOrderVendor.createMany({ data: ids.map(id => ({ xOrderId: id, vendorId })) });
 ```
 
+### Status filter — null sentinel
+Status filter selects include an `(blank)` option with `value="__blank__"` to filter rows where `status` is null. The filter logic pattern:
+```ts
+if (filters.status === "__blank__") {
+  if (o.status != null) return false;
+} else if (filters.status && o.status !== filters.status) return false;
+```
+Empty string (`""`) means "All / no filter". Never use `null` or `undefined` as a select option value — use the `__blank__` sentinel instead.
+
 ### ModelType values
 `"AV_ORDER"`, `"CATERING_ORDER"`, `"SETUP_ORDER"`, `"PRINT_ORDER"` — declared in `src/app/vendors/actions.ts`
 

@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
-import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
-import { EventTabs } from "../../EventTabs";
 import { ReportFilters } from "./ReportFilters";
 import { EquipmentResponsibilityReport } from "./EquipmentResponsibilityReport";
 
@@ -39,9 +37,8 @@ export default async function EquipmentResponsibilityPage({
   const vendorOptions = flattenResponsiblePartyOptions(responsiblePartyVendors);
 
   return (
-    <PageWrapper>
+    <>
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{event.name}</h1>
-      <EventTabs eventId={eventId} />
 
       <div className="max-w-5xl">
         <div className="flex items-center justify-between mb-4">
@@ -57,6 +54,7 @@ export default async function EquipmentResponsibilityPage({
 
         <EquipmentResponsibilityReport groups={groups} />
       </div>
-    </PageWrapper>
+    </>
   );
+
 }

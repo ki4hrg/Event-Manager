@@ -1,14 +1,12 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getEvent } from "../../actions";
 import { getOptions } from "@/app/settings/actions";
 import { prisma } from "@/lib/prisma";
-import { EventTabs } from "../EventTabs";
 import { formatFileSize } from "@/lib/uploads";
 import { getSetupOrderDisplayName } from "../../setup-orders/utils";
 
@@ -142,7 +140,7 @@ export default async function EventFilesPage({ params }: { params: Promise<{ id:
   }));
 
   return (
-    <PageWrapper>
+    <>
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
@@ -159,7 +157,6 @@ export default async function EventFilesPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      <EventTabs eventId={id} />
 
       <div className="space-y-6">
         <FileUploadPanel
@@ -189,6 +186,6 @@ export default async function EventFilesPage({ params }: { params: Promise<{ id:
           orderHref={(orderId) => `/events/${id}/setup-orders/${orderId}`}
         />
       </div>
-    </PageWrapper>
+    </>
   );
 }

@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { importPresentationsFromCSV, type ColumnMapping } from "../../../presentations/actions";
 import { ImportForm } from "./ImportForm";
@@ -26,7 +25,7 @@ export default async function ImportPresentationsPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-4">
         <Breadcrumbs
           items={[
@@ -41,6 +40,7 @@ export default async function ImportPresentationsPage({
         </h1>
       </div>
       <ImportForm eventId={eventId} importAction={importAction} />
-    </PageWrapper>
+    </>
   );
+
 }

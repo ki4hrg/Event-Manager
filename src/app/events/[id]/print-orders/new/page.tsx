@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { createPrintOrder } from "../../../print-orders/actions";
 import { PrintOrderForm } from "../../../print-orders/PrintOrderForm";
@@ -45,7 +44,7 @@ export default async function NewPrintOrderPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-6">
         <Link
           href={cancelPath}
@@ -65,6 +64,7 @@ export default async function NewPrintOrderPage({
         cancelPath={cancelPath}
         availableVendors={flattenResponsiblePartyOptions(responsiblePartyVendors).map((v) => ({ id: v.id, label: v.name }))}
       />
-    </PageWrapper>
+    </>
   );
+
 }

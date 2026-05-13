@@ -13,8 +13,6 @@ import {
 } from "../../presentations/actions";
 import { PresentationList } from "../../presentations/PresentationList";
 import { TrackPanel } from "../../presentations/TrackPanel";
-import { PageWrapper } from "@/components/PageWrapper";
-import { EventTabs } from "../EventTabs";
 import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +60,7 @@ export default async function PresentationsPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-4">
         <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "Presentations" }]} />
         <div className="flex items-center justify-between mt-1">
@@ -78,7 +76,6 @@ export default async function PresentationsPage({
         </div>
       </div>
 
-      <EventTabs eventId={eventId} />
 
       <TrackPanel
         tracks={tracks}
@@ -95,6 +92,7 @@ export default async function PresentationsPage({
         duplicatePresentation={duplicatePresentationAction}
         deletePresentation={deletePresentationAction}
       />
-    </PageWrapper>
+    </>
   );
+
 }

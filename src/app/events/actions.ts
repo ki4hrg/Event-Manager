@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -11,12 +12,12 @@ export async function getEvents() {
   });
 }
 
-export async function getEvent(id: string) {
+export const getEvent = cache(async (id: string) => {
   return prisma.event.findUnique({
     where: { id },
     include: { venue: true },
   });
-}
+});
 
 export async function createEvent(formData: FormData) {
   const name = formData.get("name") as string;

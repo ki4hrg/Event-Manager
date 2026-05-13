@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
@@ -17,7 +16,6 @@ import {
 } from "../actions";
 import { EventForm } from "../EventForm";
 import { KeyStaffList } from "../KeyStaffList";
-import { EventTabs } from "./EventTabs";
 import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
@@ -101,7 +99,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     stats.entityStatus.cancelled;
 
   return (
-    <PageWrapper>
+    <>
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
@@ -120,7 +118,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         />
       </div>
 
-      <EventTabs eventId={id} />
 
       <div className="space-y-4 mt-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -232,6 +229,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           createContact={createContactAction}
         />
       </div>
-    </PageWrapper>
+    </>
   );
 }

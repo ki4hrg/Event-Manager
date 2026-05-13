@@ -1,0 +1,385 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  getSidebarItems,
+  type SidebarSection,
+  type SidebarItem,
+} from "@/app/events/sidebar-actions";
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
+
+const HomeIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+  </svg>
+);
+const CalendarIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+  </svg>
+);
+const ListIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+  </svg>
+);
+const GridIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM13 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2h-2z" />
+  </svg>
+);
+const ChartIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11 4a1 1 0 10-2 0v4a1 1 0 102 0V7zm-3 1a1 1 0 10-2 0v3a1 1 0 102 0V8zM8 9a1 1 0 00-2 0v2a1 1 0 102 0V9z" clipRule="evenodd" />
+  </svg>
+);
+const VideoIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+  </svg>
+);
+const UtensilsIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v4.586l-1.707 1.707A1 1 0 003 10v7a1 1 0 102 0v-3h2v3a1 1 0 102 0v-7a1 1 0 00-.293-.707L7 7.586V3a1 1 0 00-1-1zm5 0a1 1 0 011 1v3a2 2 0 104 0V3a1 1 0 112 0v3a4 4 0 01-3 3.874V17a1 1 0 11-2 0V9.874A4 4 0 0111 6V3a1 1 0 011-1z" clipRule="evenodd" />
+  </svg>
+);
+const PrinterIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a1 1 0 001 1h6a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9H5v-1h1v1zm8-1h-1v1h1v-1zM7 14v2h6v-2H7z" clipRule="evenodd" />
+  </svg>
+);
+const WrenchIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+  </svg>
+);
+const BuildingIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+  </svg>
+);
+const FolderIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+  </svg>
+);
+const ClipboardIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+  </svg>
+);
+const HandoffIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+  </svg>
+);
+const ChevronLeftIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+  </svg>
+);
+const ChevronRightIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+  </svg>
+);
+export const HamburgerIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-5 h-5 shrink-0">
+    <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+  </svg>
+);
+
+// ─── Nav definition ───────────────────────────────────────────────────────────
+
+type NavLink = {
+  type: "link";
+  label: string;
+  segment: string | null;
+  icon: React.ReactNode;
+  sidebarSection?: SidebarSection;
+};
+type NavGroup = { type: "group"; label: string };
+type NavItem = NavLink | NavGroup;
+
+const NAV: NavItem[] = [
+  { type: "link",  label: "Overview",        segment: null,                              icon: <HomeIcon /> },
+  { type: "group", label: "Schedule" },
+  { type: "link",  label: "Agenda",           segment: "agenda",                          icon: <CalendarIcon /> },
+  { type: "link",  label: "Functions",        segment: "functions",                       icon: <ListIcon />,      sidebarSection: "functions" },
+  { type: "link",  label: "Breakouts",        segment: "breakout-schedule",               icon: <GridIcon /> },
+  { type: "group", label: "Content" },
+  { type: "link",  label: "Presentations",    segment: "presentations",                   icon: <ChartIcon />,     sidebarSection: "presentations" },
+  { type: "group", label: "Orders" },
+  { type: "link",  label: "AV Orders",        segment: "av-orders",                       icon: <VideoIcon />,     sidebarSection: "av-orders" },
+  { type: "link",  label: "Catering Orders",  segment: "catering-orders",                 icon: <UtensilsIcon />,  sidebarSection: "catering-orders" },
+  { type: "link",  label: "Print Orders",     segment: "print-orders",                    icon: <PrinterIcon />,   sidebarSection: "print-orders" },
+  { type: "link",  label: "Setup Orders",     segment: "setup-orders",                    icon: <WrenchIcon />,    sidebarSection: "setup-orders" },
+  { type: "group", label: "Resources" },
+  { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon /> },
+  { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon /> },
+  { type: "group", label: "Reports" },
+  { type: "link",  label: "Equipment",        segment: "reports/equipment-responsibility", icon: <ClipboardIcon /> },
+  { type: "link",  label: "Vendor Handoff",   segment: "reports/vendor-handoff",          icon: <HandoffIcon /> },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function isLinkActive(segment: string | null, pathname: string, basePath: string): boolean {
+  if (segment === null) return pathname === basePath;
+  const href = `${basePath}/${segment}`;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function getActiveSection(pathname: string, basePath: string): SidebarSection | null {
+  const sections: SidebarSection[] = [
+    "functions",
+    "av-orders",
+    "catering-orders",
+    "print-orders",
+    "setup-orders",
+    "presentations",
+  ];
+  for (const s of sections) {
+    const base = `${basePath}/${s}`;
+    if (pathname === base || pathname.startsWith(`${base}/`)) return s;
+  }
+  return null;
+}
+
+// ─── SidebarInner (pure rendering, no hooks) ──────────────────────────────────
+
+function SidebarInner({
+  eventName,
+  basePath,
+  pathname,
+  collapsed,
+  onToggleCollapse,
+  currentSection,
+  items,
+}: {
+  eventName: string;
+  basePath: string;
+  pathname: string;
+  collapsed: boolean;
+  onToggleCollapse?: () => void;
+  currentSection: SidebarSection | null;
+  items: SidebarItem[];
+}) {
+  const hasActiveItems = currentSection !== null && items.length > 0;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div
+        className={`flex items-center shrink-0 h-12 border-b border-gray-200 dark:border-gray-700 ${
+          collapsed ? "justify-center px-0" : "justify-between px-3"
+        }`}
+      >
+        {!collapsed && (
+          <span
+            className="text-sm font-semibold text-gray-900 dark:text-white truncate"
+            title={eventName}
+          >
+            {eventName}
+          </span>
+        )}
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </button>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-1.5">
+        {NAV.map((item, idx) => {
+          if (item.type === "group") {
+            if (collapsed) return null;
+            return (
+              <div
+                key={idx}
+                className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 select-none"
+              >
+                {item.label}
+              </div>
+            );
+          }
+
+          const active = isLinkActive(item.segment, pathname, basePath);
+          const href = item.segment ? `${basePath}/${item.segment}` : basePath;
+          const showItems =
+            !collapsed &&
+            !!item.sidebarSection &&
+            currentSection === item.sidebarSection &&
+            hasActiveItems;
+
+          return (
+            <div key={idx}>
+              <Link
+                href={href}
+                title={collapsed ? item.label : undefined}
+                className={`flex items-center gap-2.5 mx-1 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                  collapsed ? "justify-center" : ""
+                } ${
+                  active
+                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
+                }`}
+              >
+                {item.icon}
+                {!collapsed && (
+                  <span className="truncate leading-none">{item.label}</span>
+                )}
+              </Link>
+
+              {showItems && (
+                <div className="ml-3 mr-1 mt-0.5 mb-1 border-l-2 border-blue-200 dark:border-blue-800 pl-2">
+                  {items.map((si) => {
+                    const siActive =
+                      pathname === si.href || pathname.startsWith(`${si.href}/`);
+                    return (
+                      <Link
+                        key={si.id}
+                        href={si.href}
+                        title={si.label}
+                        className={`block px-2 py-1 text-xs rounded truncate transition-colors ${
+                          siActive
+                            ? "text-blue-700 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/20"
+                            : "text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {si.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+// ─── EventSidebar ─────────────────────────────────────────────────────────────
+
+type EventSidebarProps = {
+  eventId: string;
+  eventName: string;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+};
+
+export function EventSidebar({
+  eventId,
+  eventName,
+  mobileOpen,
+  onMobileClose,
+}: EventSidebarProps) {
+  const pathname = usePathname();
+  const basePath = `/events/${eventId}`;
+
+  const [collapsed, setCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [items, setItems] = useState<SidebarItem[]>([]);
+
+  const currentSection = getActiveSection(pathname, basePath);
+
+  // Hydrate collapse state from localStorage on mount
+  useEffect(() => {
+    setMounted(true);
+    if (localStorage.getItem("event-sidebar-collapsed") === "true") {
+      setCollapsed(true);
+    }
+  }, []);
+
+  // Fetch item list when active section changes
+  useEffect(() => {
+    if (!currentSection) {
+      setItems([]);
+      return;
+    }
+    let cancelled = false;
+    getSidebarItems(eventId, currentSection).then((data) => {
+      if (!cancelled) setItems(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSection, eventId]);
+
+  // Auto-close mobile drawer on route change
+  const onMobileCloseRef = useRef(onMobileClose);
+  useEffect(() => {
+    onMobileCloseRef.current = onMobileClose;
+  }, [onMobileClose]);
+  const prevPathname = useRef(pathname);
+  useEffect(() => {
+    if (pathname !== prevPathname.current) {
+      prevPathname.current = pathname;
+      onMobileCloseRef.current();
+    }
+  }, [pathname]);
+
+  const effectiveCollapsed = mounted && collapsed;
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("event-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
+  const innerProps = {
+    eventName,
+    basePath,
+    pathname,
+    currentSection,
+    items,
+  };
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside
+        className={`print:hidden hidden md:flex flex-col shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden transition-[width] duration-200 ease-in-out ${
+          effectiveCollapsed ? "w-12" : "w-56"
+        }`}
+      >
+        <SidebarInner
+          {...innerProps}
+          collapsed={effectiveCollapsed}
+          onToggleCollapse={toggleCollapsed}
+        />
+      </aside>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+            aria-hidden="true"
+            onClick={onMobileClose}
+          />
+          <aside className="print:hidden fixed inset-y-0 left-0 z-50 w-64 flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl md:hidden">
+            <SidebarInner
+              {...innerProps}
+              collapsed={false}
+              onToggleCollapse={undefined}
+            />
+          </aside>
+        </>
+      )}
+    </>
+  );
+}

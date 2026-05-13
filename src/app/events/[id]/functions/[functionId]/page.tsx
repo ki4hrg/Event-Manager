@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
@@ -229,7 +228,7 @@ export default async function FunctionPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
@@ -365,6 +364,7 @@ export default async function FunctionPage({
           />
         </div>
       </div>
-    </PageWrapper>
+    </>
   );
+
 }

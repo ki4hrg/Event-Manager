@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../actions";
 import {
   getEventVendors,
@@ -10,7 +9,6 @@ import {
   removeDefaultVendor,
   type ModelType,
 } from "@/app/vendors/actions";
-import { EventTabs } from "../EventTabs";
 import { EventVendorList } from "./EventVendorList";
 
 export const dynamic = "force-dynamic";
@@ -52,11 +50,10 @@ export default async function EventVendorsPage({ params }: { params: Promise<{ i
   };
 
   return (
-    <PageWrapper>
+    <>
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
         {event.name}
       </h1>
-      <EventTabs eventId={eventId} />
 
       <EventVendorList
         eventVendors={eventVendors}
@@ -66,6 +63,7 @@ export default async function EventVendorsPage({ params }: { params: Promise<{ i
         setDefault={setDefaultAction}
         removeDefault={removeDefaultAction}
       />
-    </PageWrapper>
+    </>
   );
+
 }

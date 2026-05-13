@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PageWrapper } from "@/components/PageWrapper";
-import { EventTabs } from "../EventTabs";
 import {
   getBreakoutGroups,
   getUngroupedBlocks,
@@ -51,8 +49,7 @@ export default async function BreakoutSchedulePage({
   const rooms = event.venue?.rooms ?? [];
 
   return (
-    <PageWrapper>
-      <EventTabs eventId={eventId} />
+    <>
 
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -134,6 +131,7 @@ export default async function BreakoutSchedulePage({
           await assignPresentationToGroup(presentationId, groupId, eventId);
         }}
       />
-    </PageWrapper>
+    </>
   );
+
 }

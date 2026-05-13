@@ -1,0 +1,42 @@
+"use client";
+
+import { useState } from "react";
+import { EventSidebar, HamburgerIcon } from "@/components/EventSidebar";
+
+type EventLayoutClientProps = {
+  eventId: string;
+  eventName: string;
+  children: React.ReactNode;
+};
+
+export function EventLayoutClient({ eventId, eventName, children }: EventLayoutClientProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <div className="flex flex-1 min-h-0">
+      <EventSidebar
+        eventId={eventId}
+        eventName={eventName}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
+      <div className="flex flex-col flex-1 min-w-0">
+        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 print:hidden">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            aria-label="Open navigation"
+          >
+            <HamburgerIcon />
+          </button>
+          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+            {eventName}
+          </span>
+        </div>
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 min-w-0">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}

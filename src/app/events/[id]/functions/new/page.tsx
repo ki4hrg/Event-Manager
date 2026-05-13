@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
 import { createFunction } from "../../../functions/actions";
@@ -41,7 +40,7 @@ export default async function NewFunctionPage({
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="mb-6">
         <Breadcrumbs items={[
           { label: "Events", href: "/events" },
@@ -72,6 +71,7 @@ export default async function NewFunctionPage({
         breakoutGroupId={breakoutGroupId}
         timezone={event.timezone}
       />
-    </PageWrapper>
+    </>
   );
+
 }

@@ -1,12 +1,10 @@
 import { notFound } from "next/navigation";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
 import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunctions, bulkUpdateFunctions } from "../../functions/actions";
 import { FunctionList } from "../../functions/FunctionList";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
-import { EventTabs } from "../EventTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +49,7 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
   };
 
   return (
-    <PageWrapper>
+    <>
       <div className="flex justify-between items-center mb-4">
         <div>
           <Breadcrumbs items={[
@@ -65,7 +63,6 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
         </div>
       </div>
 
-      <EventTabs eventId={id} />
 
       <FunctionList
         functions={functions}
@@ -79,6 +76,7 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
         deleteFunctions={deleteFunctionsAction}
         bulkUpdateFunctions={bulkUpdateFunctionsAction}
       />
-    </PageWrapper>
+    </>
   );
+
 }

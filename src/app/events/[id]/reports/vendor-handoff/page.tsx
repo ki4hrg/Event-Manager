@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
-import { PageWrapper } from "@/components/PageWrapper";
 import { getEvent } from "../../../actions";
 import { getOrderAssignedVendors, getVendorHandoffData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
-import { EventTabs } from "../../EventTabs";
 import { ReportFilters } from "./ReportFilters";
 import { VendorHandoffReport } from "./VendorHandoffReport";
 
@@ -29,9 +27,8 @@ export default async function VendorHandoffPage({
   if (!event) notFound();
 
   return (
-    <PageWrapper>
+    <>
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{event.name}</h1>
-      <EventTabs eventId={eventId} />
 
       <div className="max-w-5xl">
         <div className="flex items-center justify-between mb-4">
@@ -54,6 +51,7 @@ export default async function VendorHandoffPage({
           </p>
         )}
       </div>
-    </PageWrapper>
+    </>
   );
+
 }
