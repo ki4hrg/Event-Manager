@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import {
   getBreakoutGroups,
@@ -50,15 +51,21 @@ export default async function BreakoutSchedulePage({
 
   return (
     <>
-
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          {event.name}
-        </h1>
+      <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
+        <div>
+          <Breadcrumbs items={[
+            { label: "Events", href: "/events" },
+            { label: event.name, href: `/events/${eventId}` },
+            { label: "Breakouts" },
+          ]} />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+            {event.name}
+          </h1>
+        </div>
         <Link
           href={`/events/${eventId}/breakout-schedule/print`}
           target="_blank"
-          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+          className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 shrink-0"
         >
           Print view
         </Link>

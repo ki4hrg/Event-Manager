@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
@@ -38,7 +39,14 @@ export default async function EquipmentResponsibilityPage({
 
   return (
     <>
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{event.name}</h1>
+      <div className="mb-4">
+        <Breadcrumbs items={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "Equipment Responsibility" },
+        ]} />
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{event.name}</h1>
+      </div>
 
       <div className="max-w-5xl">
         <div className="flex items-center justify-between mb-4">

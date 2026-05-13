@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
 import {
   getEventVendors,
@@ -51,9 +52,16 @@ export default async function EventVendorsPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-        {event.name}
-      </h1>
+      <div className="mb-4">
+        <Breadcrumbs items={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "Vendors" },
+        ]} />
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+          {event.name}
+        </h1>
+      </div>
 
       <EventVendorList
         eventVendors={eventVendors}

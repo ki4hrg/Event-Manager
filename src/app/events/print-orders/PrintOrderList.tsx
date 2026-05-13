@@ -146,8 +146,8 @@ export function PrintOrderList({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {printOrders.length} print order{printOrders.length !== 1 ? "s" : ""}
           </p>
@@ -155,7 +155,7 @@ export function PrintOrderList({
         </div>
         <Link
           href={`/events/${eventId}/print-orders/new`}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 shrink-0"
         >
           Create Print Order
         </Link>

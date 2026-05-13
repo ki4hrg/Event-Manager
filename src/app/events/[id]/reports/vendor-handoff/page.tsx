@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
 import { getOrderAssignedVendors, getVendorHandoffData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
@@ -28,7 +29,14 @@ export default async function VendorHandoffPage({
 
   return (
     <>
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{event.name}</h1>
+      <div className="mb-4">
+        <Breadcrumbs items={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "Vendor Handoff" },
+        ]} />
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{event.name}</h1>
+      </div>
 
       <div className="max-w-5xl">
         <div className="flex items-center justify-between mb-4">

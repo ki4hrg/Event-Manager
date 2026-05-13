@@ -141,25 +141,25 @@ export function CateringOrderList({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {cateringOrders.length} Catering Order{cateringOrders.length !== 1 ? "s" : ""}
           </p>
           <ViewToggle view={view} onChange={setView} />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <a
             href={`/events/${eventId}/catering-orders/print`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Print All
           </a>
           <Link
             href={`/events/${eventId}/catering-orders/new`}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             Create Catering Order
           </Link>

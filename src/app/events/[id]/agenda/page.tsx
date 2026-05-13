@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { getFunctionsWithPresentations } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
@@ -51,31 +52,36 @@ export default async function AgendaPage({
 
   return (
     <>
-      <div className="sticky top-0 z-30 bg-white dark:bg-gray-950 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="flex justify-between items-center pt-4 mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+      <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
+        <div>
+          <Breadcrumbs items={[
+            { label: "Events", href: "/events" },
+            { label: event.name, href: `/events/${eventId}` },
+            { label: "Agenda" },
+          ]} />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
             {event.name}
           </h1>
-          <div className="flex gap-2">
-            {activeDate && (
-              <a
-                href={`/events/${eventId}/agenda/print?date=${activeDate}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Print Day
-              </a>
-            )}
+        </div>
+        <div className="flex gap-2 shrink-0">
+          {activeDate && (
             <a
-              href={`/events/${eventId}/agenda/print`}
+              href={`/events/${eventId}/agenda/print?date=${activeDate}`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
             >
-              Print All
+              Print Day
             </a>
-          </div>
+          )}
+          <a
+            href={`/events/${eventId}/agenda/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Print All
+          </a>
         </div>
       </div>
 
