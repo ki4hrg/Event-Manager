@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { colorClasses } from "@/lib/colors";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
+import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import type {
   Presentation,
   PresentationContact,
@@ -28,6 +30,7 @@ type PresentationListProps = {
   eventId: string;
   tracks: PresentationTrack[];
   presentationTypes: CustomOption[];
+  initialStatus?: string;
   duplicatePresentation: (id: string) => Promise<void>;
   deletePresentation: (id: string) => Promise<void>;
 };
@@ -38,31 +41,37 @@ export function PresentationList({
   eventId,
   tracks,
   presentationTypes,
+  initialStatus,
   duplicatePresentation,
   deletePresentation,
 }: PresentationListProps) {
-  // Group presentations by track
-  const grouped = presentations.reduce(
-    (acc, p) => {
-      const trackId = p.trackId || "_unassigned";
-      if (!acc[trackId]) {
-        acc[trackId] = [];
-      }
-      acc[trackId].push(p);
-      return acc;
-    },
-    {} as Record<string, PresentationWithRelations[]>
-  );
+  const [filterStatus, setFilterStatus] = useState(initialStatus ?? "");
 
-  // Sort tracks: defined tracks first (by sortOrder), then unassigned
-  const trackMap = new Map(tracks.map((t) => [t.id, t]));
-  const sortedTrackIds = Object.keys(grouped).sort((a, b) => {
-    if (a === "_unassigned") return 1;
-    if (b === "_unassigned") return -1;
-    const aTrack = trackMap.get(a);
-    const bTrack = trackMap.get(b);
-    return (aTrack?.sortOrder ?? 0) - (bTrack?.sortOrder ?? 0);
-  });
+  const filteredPresentations = useMemo(() => {
+    if (!filterStatus) return presentations;
+    if (filterStatus === "__blank__") return presentations.filter((p) => p.status == null);
+    return presentations.filter((p) => p.status === filterStatus);
+  }, [presentations, filterStatus]);
+
+  const trackMap = useMemo(() => new Map(tracks.map((t) => [t.id, t])), [tracks]);
+
+  const { grouped, sortedTrackIds } = useMemo(() => {
+    const grouped = filteredPresentations.reduce(
+      (acc, p) => {
+        const trackId = p.trackId || "_unassigned";
+        if (!acc[trackId]) acc[trackId] = [];
+        acc[trackId].push(p);
+        return acc;
+      },
+      {} as Record<string, PresentationWithRelations[]>
+    );
+    const sortedTrackIds = Object.keys(grouped).sort((a, b) => {
+      if (a === "_unassigned") return 1;
+      if (b === "_unassigned") return -1;
+      return (trackMap.get(a)?.sortOrder ?? 0) - (trackMap.get(b)?.sortOrder ?? 0);
+    });
+    return { grouped, sortedTrackIds };
+  }, [filteredPresentations, trackMap]);
 
   const getPrimarySpeaker = (speakers: (PresentationContact & { contact: Contact })[]) => {
     const primary = speakers.find((s) => s.isPrimary);
@@ -78,9 +87,20 @@ export function PresentationList({
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-          Presentations ({presentations.length})
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+            Presentations ({filteredPresentations.length}{filteredPresentations.length !== presentations.length ? ` of ${presentations.length}` : ""})
+          </h2>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          >
+            <option value="">All statuses</option>
+            <option value="__blank__">(blank)</option>
+            {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
         <Link
           href={`/events/${eventId}/presentations/new`}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"

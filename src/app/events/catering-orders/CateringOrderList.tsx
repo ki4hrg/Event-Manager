@@ -21,6 +21,7 @@ type Props = {
   workflowSummaries: Record<string, WorkflowBadgeSummary>;
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
+  initialStatus?: string;
   deleteCateringOrder: (formData: FormData) => Promise<void>;
   deleteCateringOrders: (ids: string[]) => Promise<void>;
   bulkUpdateCateringOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
@@ -36,6 +37,7 @@ export function CateringOrderList({
   workflowSummaries,
   substatuses,
   vendors,
+  initialStatus,
   deleteCateringOrder,
   deleteCateringOrders,
   bulkUpdateCateringOrders,
@@ -44,7 +46,7 @@ export function CateringOrderList({
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");

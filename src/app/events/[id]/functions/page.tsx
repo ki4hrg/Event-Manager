@@ -8,8 +8,15 @@ import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function EventFunctionsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EventFunctionsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ status?: string }>;
+}) {
   const { id } = await params;
+  const { status: initialStatus } = (await searchParams) ?? {};
   const [event, functions, functionTypes, substatuses] = await Promise.all([
     getEvent(id),
     getFunctionsForTable(id),
@@ -71,6 +78,7 @@ export default async function EventFunctionsPage({ params }: { params: Promise<{
         functionTypes={functionTypes}
         substatuses={substatuses}
         workflowSummaries={workflowSummaries}
+        initialStatus={initialStatus}
         duplicateFunction={duplicateFunctionAction}
         deleteFunction={deleteFunctionAction}
         deleteFunctions={deleteFunctionsAction}

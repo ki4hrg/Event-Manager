@@ -22,6 +22,7 @@ type Props = {
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
   functions: { id: string; name: string }[];
+  initialStatus?: string;
   deletePrintOrder: (formData: FormData) => Promise<void>;
   deletePrintOrders: (ids: string[]) => Promise<void>;
   bulkUpdatePrintOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string }) => Promise<void>;
@@ -38,6 +39,7 @@ export function PrintOrderList({
   substatuses,
   vendors,
   functions,
+  initialStatus,
   deletePrintOrder,
   deletePrintOrders,
   bulkUpdatePrintOrders,
@@ -46,7 +48,7 @@ export function PrintOrderList({
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");

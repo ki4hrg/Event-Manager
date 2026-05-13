@@ -19,21 +19,9 @@ import { KeyStaffList } from "../KeyStaffList";
 import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
-import { STATUS_CLASS, STATUS_LABEL } from "@/lib/statusConstants";
-import type { EntityStatus } from "@prisma/client";
+import { StatusSummaryCard } from "./StatusSummaryCard";
 
 export const dynamic = "force-dynamic";
-
-function StatusRow({ status, count }: { status: EntityStatus; count: number }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASS[status]}`}>
-        {STATUS_LABEL[status]}
-      </span>
-      <span className="font-medium text-gray-900 dark:text-white">{count}</span>
-    </div>
-  );
-}
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -91,12 +79,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     "use server";
     await createContactAndAddKeyStaff(id, formData);
   };
-
-  const totalEntityStatus =
-    stats.entityStatus.pending +
-    stats.entityStatus.inProgress +
-    stats.entityStatus.complete +
-    stats.entityStatus.cancelled;
 
   return (
     <>
@@ -197,26 +179,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
               Status
             </p>
-            {totalEntityStatus === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                No entities tracked
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {stats.entityStatus.pending > 0 && (
-                  <StatusRow status="PENDING" count={stats.entityStatus.pending} />
-                )}
-                {stats.entityStatus.inProgress > 0 && (
-                  <StatusRow status="IN_PROGRESS" count={stats.entityStatus.inProgress} />
-                )}
-                {stats.entityStatus.complete > 0 && (
-                  <StatusRow status="COMPLETE" count={stats.entityStatus.complete} />
-                )}
-                {stats.entityStatus.cancelled > 0 && (
-                  <StatusRow status="CANCELLED" count={stats.entityStatus.cancelled} />
-                )}
-              </div>
-            )}
+            <StatusSummaryCard groups={stats.entityGroups} />
           </div>
         </div>
 

@@ -22,6 +22,7 @@ type Props = {
   workflowSummaries: Record<string, WorkflowBadgeSummary>;
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
+  initialStatus?: string;
   deleteSetupOrder: (formData: FormData) => Promise<void>;
   deleteSetupOrders: (ids: string[]) => Promise<void>;
   bulkUpdateSetupOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
@@ -37,6 +38,7 @@ export function SetupOrderList({
   workflowSummaries,
   substatuses,
   vendors,
+  initialStatus,
   deleteSetupOrder,
   deleteSetupOrders,
   bulkUpdateSetupOrders,
@@ -45,7 +47,7 @@ export function SetupOrderList({
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");

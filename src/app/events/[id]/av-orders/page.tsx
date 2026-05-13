@@ -13,10 +13,13 @@ export const dynamic = "force-dynamic";
 
 export default async function AVOrdersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
   const { id: eventId } = await params;
+  const { status: initialStatus } = (await searchParams) ?? {};
   const [event, avOrders, substatuses, responsiblePartyVendors] = await Promise.all([
     getEvent(eventId),
     getAVOrders(eventId),
@@ -66,6 +69,7 @@ export default async function AVOrdersPage({
         workflowSummaries={workflowSummaries}
         substatuses={substatuses}
         vendors={vendors}
+        initialStatus={initialStatus}
         deleteAVOrder={deleteAVOrderAction}
         deleteAVOrders={deleteAVOrdersAction}
         bulkUpdateAVOrders={bulkUpdateAVOrdersAction}

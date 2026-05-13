@@ -44,6 +44,7 @@ type Props = {
   functionTypes: CustomOption[];
   substatuses: CustomOption[];
   workflowSummaries: Record<string, WorkflowBadgeSummary>;
+  initialStatus?: string;
   deleteFunctions: (ids: string[]) => Promise<void>;
   bulkUpdateFunctions: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; type?: string }) => Promise<void>;
 };
@@ -79,13 +80,14 @@ export function FunctionTableView({
   functionTypes,
   substatuses,
   workflowSummaries,
+  initialStatus,
   deleteFunctions,
   bulkUpdateFunctions,
 }: Props) {
   const router = useRouter();
   const [sortField, setSortField] = useState<SortField>("earliestStart");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");

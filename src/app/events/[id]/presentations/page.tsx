@@ -19,10 +19,13 @@ export const dynamic = "force-dynamic";
 
 export default async function PresentationsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
   const { id: eventId } = await params;
+  const { status: initialStatus } = (await searchParams) ?? {};
   const [event, presentations, tracks, presentationTypes] = await Promise.all([
     getEvent(eventId),
     getPresentations(eventId),
@@ -89,6 +92,7 @@ export default async function PresentationsPage({
         eventId={eventId}
         tracks={tracks}
         presentationTypes={presentationTypes}
+        initialStatus={initialStatus}
         duplicatePresentation={duplicatePresentationAction}
         deletePresentation={deletePresentationAction}
       />

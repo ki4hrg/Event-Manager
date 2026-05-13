@@ -22,6 +22,7 @@ type Props = {
   workflowSummaries: Record<string, WorkflowBadgeSummary>;
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
+  initialStatus?: string;
   deleteAVOrder: (formData: FormData) => Promise<void>;
   deleteAVOrders: (ids: string[]) => Promise<void>;
   bulkUpdateAVOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
@@ -38,6 +39,7 @@ export function AVOrderList({
   workflowSummaries,
   substatuses,
   vendors,
+  initialStatus,
   deleteAVOrder,
   deleteAVOrders,
   bulkUpdateAVOrders,
@@ -46,7 +48,7 @@ export function AVOrderList({
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");

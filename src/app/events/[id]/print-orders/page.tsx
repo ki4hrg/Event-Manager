@@ -14,10 +14,13 @@ export const dynamic = "force-dynamic";
 
 export default async function PrintOrdersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
   const { id: eventId } = await params;
+  const { status: initialStatus } = (await searchParams) ?? {};
   const [event, printOrders, substatuses, responsiblePartyVendors, functions] = await Promise.all([
     getEvent(eventId),
     getPrintOrders(eventId),
@@ -75,6 +78,7 @@ export default async function PrintOrdersPage({
         substatuses={substatuses}
         vendors={vendors}
         functions={functions}
+        initialStatus={initialStatus}
         deletePrintOrder={deletePrintOrderAction}
         deletePrintOrders={deletePrintOrdersAction}
         bulkUpdatePrintOrders={bulkUpdatePrintOrdersAction}

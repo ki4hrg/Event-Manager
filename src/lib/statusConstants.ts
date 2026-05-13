@@ -1,5 +1,13 @@
 import type { EntityStatus } from "@prisma/client";
 
+export type StatusCounts = {
+  PENDING: number;
+  IN_PROGRESS: number;
+  COMPLETE: number;
+  CANCELLED: number;
+  noStatus: number;
+};
+
 export const STATUS_LABEL: Record<EntityStatus, string> = {
   PENDING: "Pending",
   IN_PROGRESS: "In Progress",

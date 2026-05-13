@@ -13,10 +13,13 @@ export const dynamic = "force-dynamic";
 
 export default async function CateringOrdersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
   const { id: eventId } = await params;
+  const { status: initialStatus } = (await searchParams) ?? {};
   const [event, cateringOrders, substatuses, responsiblePartyVendors] = await Promise.all([
     getEvent(eventId),
     getCateringOrders(eventId),
@@ -66,6 +69,7 @@ export default async function CateringOrdersPage({
         workflowSummaries={workflowSummaries}
         substatuses={substatuses}
         vendors={vendors}
+        initialStatus={initialStatus}
         deleteCateringOrder={deleteCateringOrderAction}
         deleteCateringOrders={deleteCateringOrdersAction}
         bulkUpdateCateringOrders={bulkUpdateCateringOrdersAction}

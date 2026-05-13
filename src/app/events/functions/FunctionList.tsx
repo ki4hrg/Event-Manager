@@ -13,6 +13,7 @@ import { ViewToggle } from "@/components/ui/ViewToggle";
 import { FunctionTableView } from "./FunctionTableView";
 import { getEarliestStart, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
+import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 
 type FunctionListProps = {
   functions: FunctionForTable[];
@@ -21,6 +22,7 @@ type FunctionListProps = {
   functionTypes: CustomOption[];
   substatuses: CustomOption[];
   workflowSummaries?: Record<string, WorkflowBadgeSummary>;
+  initialStatus?: string;
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
   deleteFunctions: (ids: string[]) => Promise<void>;
@@ -63,16 +65,24 @@ export function FunctionList({
   functionTypes,
   substatuses,
   workflowSummaries = {},
+  initialStatus,
   duplicateFunction,
   deleteFunction,
   deleteFunctions,
   bulkUpdateFunctions,
 }: FunctionListProps) {
   const [view, setView] = useState<"list" | "table">("list");
+  const [filterStatus, setFilterStatus] = useState(initialStatus ?? "");
+
+  const filteredFunctions = useMemo(() => {
+    if (!filterStatus) return functions;
+    if (filterStatus === "__blank__") return functions.filter((fn) => fn.status == null);
+    return functions.filter((fn) => fn.status === filterStatus);
+  }, [functions, filterStatus]);
 
   const { dated, unscheduled } = useMemo(
-    () => groupByDate(functions, timezone),
-    [functions, timezone]
+    () => groupByDate(filteredFunctions, timezone),
+    [filteredFunctions, timezone]
   );
   const sortedDates = useMemo(() => Array.from(dated.keys()).sort(), [dated]);
 
@@ -149,9 +159,18 @@ export function FunctionList({
       <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-            Functions ({functions.length})
+            Functions ({filteredFunctions.length}{filteredFunctions.length !== functions.length ? ` of ${functions.length}` : ""})
           </h2>
           <ViewToggle view={view} onChange={setView} />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          >
+            <option value="">All statuses</option>
+            <option value="__blank__">(blank)</option>
+            {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </div>
         <div className="flex gap-2">
           <a
@@ -194,6 +213,7 @@ export function FunctionList({
           functionTypes={functionTypes}
           substatuses={substatuses}
           workflowSummaries={workflowSummaries}
+          initialStatus={initialStatus}
           deleteFunctions={deleteFunctions}
           bulkUpdateFunctions={bulkUpdateFunctions}
         />
