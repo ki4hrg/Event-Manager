@@ -8,6 +8,7 @@ import {
   DragOverlay,
   PointerSensor,
   pointerWithin,
+  closestCenter,
   useSensor,
   useSensors,
   useDraggable,
@@ -15,6 +16,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   type SerializedAgendaData,
@@ -602,70 +604,120 @@ function DraggableUnscheduledCard({
   );
 }
 
+function SortableRoomRow({
+  room,
+  isHidden,
+  onToggle,
+}: {
+  room: AgendaData["rooms"][number];
+  isHidden: boolean;
+  onToggle: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: room.id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className="flex items-center gap-2"
+    >
+      <button
+        {...listeners}
+        {...attributes}
+        tabIndex={-1}
+        className="touch-none cursor-grab active:cursor-grabbing px-1 text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400"
+        aria-label="Drag to reorder"
+      >
+        <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
+          <circle cx="2" cy="2.5" r="1.2" /><circle cx="8" cy="2.5" r="1.2" />
+          <circle cx="2" cy="7" r="1.2" /><circle cx="8" cy="7" r="1.2" />
+          <circle cx="2" cy="11.5" r="1.2" /><circle cx="8" cy="11.5" r="1.2" />
+        </svg>
+      </button>
+      <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          checked={!isHidden}
+          onChange={onToggle}
+          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+        />
+        <span className={isHidden ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300"}>
+          {room.name}
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function RoomPanel({
   orderedRooms,
   hiddenRoomIds,
   isDefault,
   onToggle,
-  onMoveUp,
-  onMoveDown,
+  onToggleAll,
+  onReorder,
   onReset,
 }: {
   orderedRooms: AgendaData["rooms"];
   hiddenRoomIds: Set<string>;
   isDefault: boolean;
   onToggle: (roomId: string) => void;
-  onMoveUp: (idx: number) => void;
-  onMoveDown: (idx: number) => void;
+  onToggleAll: (show: boolean) => void;
+  onReorder: (newIds: string[]) => void;
   onReset: () => void;
 }) {
+  const allVisible = hiddenRoomIds.size === 0;
+  const noneVisible = hiddenRoomIds.size === orderedRooms.length;
+  const checkAllRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (checkAllRef.current) {
+      checkAllRef.current.indeterminate = !allVisible && !noneVisible;
+    }
+  }, [allVisible, noneVisible]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = orderedRooms.findIndex((r) => r.id === active.id);
+    const newIdx = orderedRooms.findIndex((r) => r.id === over.id);
+    onReorder(arrayMove(orderedRooms.map((r) => r.id), oldIdx, newIdx));
+  }
+
   return (
     <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Room columns</span>
+        <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+          <input
+            ref={checkAllRef}
+            type="checkbox"
+            checked={allVisible}
+            onChange={(e) => onToggleAll(e.target.checked)}
+            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+          />
+          Room columns
+        </label>
         {!isDefault && (
-          <button
-            onClick={onReset}
-            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-          >
+          <button onClick={onReset} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
             Reset to default
           </button>
         )}
       </div>
-      <div className="space-y-1">
-        {orderedRooms.map((room, idx) => {
-          const isHidden = hiddenRoomIds.has(room.id);
-          return (
-            <div key={room.id} className="flex items-center gap-2">
-              <div className="flex gap-0.5">
-                <button
-                  onClick={() => onMoveUp(idx)}
-                  disabled={idx === 0}
-                  className="px-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-25 text-xs leading-none"
-                  title="Move up"
-                >▲</button>
-                <button
-                  onClick={() => onMoveDown(idx)}
-                  disabled={idx === orderedRooms.length - 1}
-                  className="px-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-25 text-xs leading-none"
-                  title="Move down"
-                >▼</button>
-              </div>
-              <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!isHidden}
-                  onChange={() => onToggle(room.id)}
-                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
-                />
-                <span className={isHidden ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300"}>
-                  {room.name}
-                </span>
-              </label>
-            </div>
-          );
-        })}
-      </div>
+      <DndContext id="room-panel-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={orderedRooms.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-1">
+            {orderedRooms.map((room) => (
+              <SortableRoomRow
+                key={room.id}
+                room={room}
+                isHidden={hiddenRoomIds.has(room.id)}
+                onToggle={() => onToggle(room.id)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
@@ -731,14 +783,15 @@ export function AgendaGrid({
     });
   }
 
-  function handleMoveRoom(idx: number, dir: -1 | 1) {
-    const currentIds = allOrderedRooms.map((r) => r.id);
-    const next = [...currentIds];
-    const target = idx + dir;
-    if (target < 0 || target >= next.length) return;
-    [next[idx], next[target]] = [next[target], next[idx]];
-    setRoomOrder(next);
-    persistRoomPrefs(hiddenRoomIds, next);
+  function handleReorderRooms(newIds: string[]) {
+    setRoomOrder(newIds);
+    persistRoomPrefs(hiddenRoomIds, newIds);
+  }
+
+  function handleToggleAllRooms(show: boolean) {
+    const next = show ? new Set<string>() : new Set(rooms.map((r) => r.id));
+    setHiddenRoomIds(next);
+    persistRoomPrefs(next, roomOrder);
   }
 
   function handleResetRooms() {
@@ -1081,8 +1134,8 @@ export function AgendaGrid({
                 hiddenRoomIds={hiddenRoomIds}
                 isDefault={hiddenRoomIds.size === 0 && roomOrder.length === 0}
                 onToggle={handleToggleRoom}
-                onMoveUp={(idx) => handleMoveRoom(idx, -1)}
-                onMoveDown={(idx) => handleMoveRoom(idx, 1)}
+                onToggleAll={handleToggleAllRooms}
+                onReorder={handleReorderRooms}
                 onReset={handleResetRooms}
               />
             )}
