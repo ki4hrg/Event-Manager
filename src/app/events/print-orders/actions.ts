@@ -201,13 +201,7 @@ export async function deletePrintItem(id: string, printOrderId: string, eventId:
 }
 
 export async function getPrintOrderPartyOptions(printOrderId: string) {
-  const [orderVendors, printOrder] = await Promise.all([
-    prisma.printOrderVendor.findMany({
-      where: { printOrderId },
-      select: { vendor: { select: { id: true, name: true } } },
-      orderBy: { vendor: { name: "asc" } },
-    }),
-    prisma.printOrder.findUnique({
+  const printOrder = await prisma.printOrder.findUnique({
       where: { id: printOrderId },
       select: {
         presentation: {
@@ -228,10 +222,7 @@ export async function getPrintOrderPartyOptions(printOrderId: string) {
           },
         },
       },
-    }),
-  ]);
-
-  const vendors = orderVendors.map((v) => v.vendor);
+    });
 
   const contactMap = new Map<string, { id: string; firstName: string; lastName: string; organization: string | null }>();
   for (const s of printOrder?.presentation?.speakers ?? []) {
@@ -253,5 +244,5 @@ export async function getPrintOrderPartyOptions(printOrderId: string) {
     }
   }
 
-  return { vendors, contacts: Array.from(contactMap.values()) };
+  return { contacts: Array.from(contactMap.values()) };
 }

@@ -31,7 +31,9 @@ import {
   updatePrintOrderVendor,
   removeVendorFromPrintOrder,
   searchAssignedEventVendors,
+  getResponsiblePartyVendors,
 } from "@/app/vendors/actions";
+import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -63,13 +65,13 @@ export default async function PrintOrderPage({
   if (!event || !printOrder) notFound();
 
   const [
-    printOrderVendors, fileTypeOptions, printOrderFiles, availableEventVendors, substatuses,
+    printOrderVendors, fileTypeOptions, printOrderFiles, responsiblePartyVendors, substatuses,
     distributionOptions, availableFunctions, availablePresentations, partyOptions,
   ] = await Promise.all([
     getPrintOrderVendors(printOrderId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { printOrderId }, orderBy: { createdAt: "asc" } }),
-    searchAssignedEventVendors("", eventId, "PRINT_ORDER"),
+    getResponsiblePartyVendors(eventId, "PRINT_ORDER"),
     getSubstatusOptions(),
     getOptions("print_distribution"),
     prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" } }),
@@ -161,6 +163,8 @@ export default async function PrintOrderPage({
     "use server";
     await deletePrintItem(id, printOrderId, eventId);
   };
+
+  const flatVendors = flattenResponsiblePartyOptions(responsiblePartyVendors);
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
@@ -261,7 +265,7 @@ export default async function PrintOrderPage({
                 action={updatePrintOrderAction}
                 vendorLink={{
                   assignedVendors: printOrderVendors,
-                  availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),
+                  availableVendors: flatVendors.map((v) => ({ id: v.id, label: v.name })),
                   addVendor: addVendorToFormAction,
                   removeVendor: removeVendorFromFormAction,
                 }}
@@ -307,7 +311,7 @@ export default async function PrintOrderPage({
             <PrintItemPanel
               items={printOrder.items}
               distributionOptions={distributionOptions}
-              vendors={partyOptions.vendors}
+              vendors={flatVendors}
               contacts={partyOptions.contacts}
               createItem={createItemAction}
               updateItem={updateItemAction}
