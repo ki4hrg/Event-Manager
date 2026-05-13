@@ -523,6 +523,18 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
       where: { eventId, vendors: { some: { vendorId } } },
       include: {
         functions: { include: functionInclude },
+        presentation: {
+          select: {
+            id: true,
+            title: true,
+            slots: {
+              include: {
+                function: { include: functionInclude },
+                room: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
         audioSection: {
           include: {
             inputGroups: {
@@ -561,6 +573,18 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
       include: {
         room: { select: { id: true, name: true } },
         functions: { include: functionInclude },
+        presentation: {
+          select: {
+            id: true,
+            title: true,
+            slots: {
+              include: {
+                function: { include: functionInclude },
+                room: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
         tables: { orderBy: { sortOrder: "asc" } },
         equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
       },

@@ -39,6 +39,21 @@ type FunctionGroup = {
   earliestStart: number;
 };
 
+type PresentationGroup = {
+  presentation: {
+    id: string;
+    title: string;
+    slots: {
+      id: string;
+      function: AnyFn;
+      room: { id: string; name: string } | null;
+    }[];
+  };
+  avOrders: AVOrder[];
+  setupOrders: SetupOrder[];
+  earliestStart: number;
+};
+
 type UnscheduledGroup = {
   cateringOrders: CateringOrder[];
   avOrders: AVOrder[];
@@ -154,8 +169,9 @@ function EquipmentTable({ items, vendorId }: { items: EquipmentItem[]; vendorId:
   );
 }
 
-function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; unscheduled: UnscheduledGroup } {
+function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; presentationGroups: PresentationGroup[]; unscheduled: UnscheduledGroup } {
   const groupMap = new Map<string, FunctionGroup>();
+  const presentationGroupMap = new Map<string, PresentationGroup>();
   const unscheduled: UnscheduledGroup = { cateringOrders: [], avOrders: [], setupOrders: [] };
 
   function getOrCreateGroup(fn: AnyFn): FunctionGroup {
@@ -170,21 +186,46 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; unsc
     return group;
   }
 
+  function getOrCreatePresentationGroup(presentation: PresentationGroup["presentation"]): PresentationGroup {
+    let pg = presentationGroupMap.get(presentation.id);
+    if (!pg) {
+      const earliest = presentation.slots.length > 0
+        ? Math.min(...presentation.slots.flatMap((slot) =>
+            slot.function.schedules.map((s) => s.startTime.getTime())
+          ))
+        : Infinity;
+      pg = { presentation, avOrders: [], setupOrders: [], earliestStart: earliest };
+      presentationGroupMap.set(presentation.id, pg);
+    }
+    return pg;
+  }
+
   for (const order of data.cateringOrders) {
     if (order.function) getOrCreateGroup(order.function).cateringOrders.push(order);
     else unscheduled.cateringOrders.push(order);
   }
   for (const order of data.avOrders) {
-    if (order.functions.length === 0) unscheduled.avOrders.push(order);
-    else for (const fn of order.functions) getOrCreateGroup(fn).avOrders.push(order);
+    if (order.functions.length > 0) {
+      for (const fn of order.functions) getOrCreateGroup(fn).avOrders.push(order);
+    } else if (order.presentation) {
+      getOrCreatePresentationGroup(order.presentation).avOrders.push(order);
+    } else {
+      unscheduled.avOrders.push(order);
+    }
   }
   for (const order of data.setupOrders) {
-    if (order.functions.length === 0) unscheduled.setupOrders.push(order);
-    else for (const fn of order.functions) getOrCreateGroup(fn).setupOrders.push(order);
+    if (order.functions.length > 0) {
+      for (const fn of order.functions) getOrCreateGroup(fn).setupOrders.push(order);
+    } else if (order.presentation) {
+      getOrCreatePresentationGroup(order.presentation).setupOrders.push(order);
+    } else {
+      unscheduled.setupOrders.push(order);
+    }
   }
 
   const groups = Array.from(groupMap.values()).sort((a, b) => a.earliestStart - b.earliestStart);
-  return { groups, unscheduled };
+  const presentationGroups = Array.from(presentationGroupMap.values()).sort((a, b) => a.earliestStart - b.earliestStart);
+  return { groups, presentationGroups, unscheduled };
 }
 
 type EquipmentSummaryRow = { itemName: string; category: string | null; quantity: number; providerName: string; role: string };
@@ -789,6 +830,99 @@ function FunctionSection({
   );
 }
 
+function PresentationSection({
+  group,
+  timezone,
+  vendorId,
+}: {
+  group: PresentationGroup;
+  timezone: string;
+  vendorId: string;
+}) {
+  const { presentation, avOrders, setupOrders } = group;
+  const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
+  const typeCount = [avOrders.length > 0, setupOrders.length > 0].filter(Boolean).length;
+
+  const slotsByDate = new Map<string, { slot: PresentationGroup["presentation"]["slots"][number]; schedule: AnyFn["schedules"][number] }[]>();
+  for (const slot of presentation.slots) {
+    for (const schedule of slot.function.schedules) {
+      const dateKey = dateFormatter.format(schedule.startTime);
+      if (!slotsByDate.has(dateKey)) slotsByDate.set(dateKey, []);
+      slotsByDate.get(dateKey)!.push({ slot, schedule });
+    }
+  }
+  for (const rows of Array.from(slotsByDate.values())) {
+    rows.sort((a, b) => a.schedule.startTime.getTime() - b.schedule.startTime.getTime());
+  }
+  const sortedDates = Array.from(slotsByDate.keys()).sort();
+  const hasSchedule = sortedDates.length > 0;
+
+  return (
+    <div className={`${sectionCard} print:break-before-page`}>
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
+          {presentation.title}
+        </h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">Presentation</p>
+      </div>
+
+      {hasSchedule && (
+        <div className="mb-4">
+          <SectionHeading>Schedule</SectionHeading>
+          {sortedDates.map((dateKey) => {
+            const rows = slotsByDate.get(dateKey)!;
+            return (
+              <div key={dateKey} className="mb-3">
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">
+                  {formatDateHeading(dateKey, timezone)}
+                </p>
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr>
+                      <th className={th}>Time</th>
+                      <th className={th}>Room</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(({ slot, schedule }) => {
+                      const timeStr = `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`;
+                      const roomName = slot.room?.name ?? (slot.function.rooms.map((r) => r.room.name).join(", ") || "—");
+                      return (
+                        <tr key={`${slot.id}-${schedule.startTime.getTime()}`}>
+                          <td className={`${td} whitespace-nowrap`}>{timeStr}</td>
+                          <td className={td}>{roomName}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {avOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Audio / Visual</SubHeading>}
+          {avOrders.map((order) => (
+            <AVOrderSection key={order.id} order={order} vendorId={vendorId} />
+          ))}
+        </>
+      )}
+
+      {setupOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Setup</SubHeading>}
+          {setupOrders.map((order) => (
+            <SetupOrderSection key={order.id} order={order} vendorId={vendorId} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 type VendorHandoffReportProps = {
   data: HandoffData;
   event: Event;
@@ -799,7 +933,13 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
   const { vendor, keyStaff } = data;
   const vendorId = vendor.id;
   const timezone = event.timezone ?? "America/Chicago";
-  const { groups, unscheduled } = buildFunctionGroups(data);
+  const { groups, presentationGroups, unscheduled } = buildFunctionGroups(data);
+
+  type AnyGroup = { type: "function"; group: FunctionGroup } | { type: "presentation"; group: PresentationGroup };
+  const allGroups: AnyGroup[] = [
+    ...groups.map((g) => ({ type: "function" as const, group: g })),
+    ...presentationGroups.map((g) => ({ type: "presentation" as const, group: g })),
+  ].sort((a, b) => a.group.earliestStart - b.group.earliestStart);
   const equipmentSummary = buildEquipmentSummary(data, vendorId);
   const equipmentByCategory: [string, EquipmentSummaryRow[]][] = (() => {
     const grouped = new Map<string, EquipmentSummaryRow[]>();
@@ -924,7 +1064,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
       )}
 
       {/* Function schedule overview */}
-      {groups.length > 0 && (
+      {allGroups.length > 0 && (
         <div className={sectionCard}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Function Schedule
@@ -967,16 +1107,25 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         </div>
       )}
 
-      {/* Per-function detail sections */}
-      {groups.map((group) => (
-        <FunctionSection
-          key={group.fn.id}
-          group={group}
-          functionTypes={functionTypes}
-          timezone={timezone}
-          vendorId={vendorId}
-        />
-      ))}
+      {/* Per-function and per-presentation detail sections */}
+      {allGroups.map((item) =>
+        item.type === "function" ? (
+          <FunctionSection
+            key={item.group.fn.id}
+            group={item.group}
+            functionTypes={functionTypes}
+            timezone={timezone}
+            vendorId={vendorId}
+          />
+        ) : (
+          <PresentationSection
+            key={item.group.presentation.id}
+            group={item.group}
+            timezone={timezone}
+            vendorId={vendorId}
+          />
+        )
+      )}
 
       {/* Unscheduled orders */}
       {hasUnscheduled && (
