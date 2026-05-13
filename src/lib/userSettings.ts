@@ -64,3 +64,26 @@ export async function getAgendaViewSettings(userId: string): Promise<AgendaViewS
     collapseEmptyHours: collapseHours === "true",
   };
 }
+
+export function agendaRoomPrefsKey(eventId: string): string {
+  return `agenda_room_prefs_${eventId}`;
+}
+
+export type AgendaRoomPrefs = {
+  hiddenRoomIds: string[];
+  roomOrder: string[];
+};
+
+export async function getAgendaRoomPrefs(userId: string, eventId: string): Promise<AgendaRoomPrefs> {
+  const value = await getUserSetting(userId, agendaRoomPrefsKey(eventId));
+  if (!value) return { hiddenRoomIds: [], roomOrder: [] };
+  try {
+    const parsed = JSON.parse(value);
+    return {
+      hiddenRoomIds: Array.isArray(parsed.hiddenRoomIds) ? parsed.hiddenRoomIds : [],
+      roomOrder: Array.isArray(parsed.roomOrder) ? parsed.roomOrder : [],
+    };
+  } catch {
+    return { hiddenRoomIds: [], roomOrder: [] };
+  }
+}

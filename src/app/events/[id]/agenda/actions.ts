@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAuth } from "@/lib/auth";
-import { setUserSetting, SETTING_KEYS, type AgendaViewSettings } from "@/lib/userSettings";
+import { setUserSetting, SETTING_KEYS, type AgendaViewSettings, agendaRoomPrefsKey, type AgendaRoomPrefs } from "@/lib/userSettings";
 
 export async function saveAgendaViewSettings(settings: AgendaViewSettings) {
   const session = await requireAuth();
@@ -10,4 +10,9 @@ export async function saveAgendaViewSettings(settings: AgendaViewSettings) {
     setUserSetting(session.user.id, SETTING_KEYS.AGENDA_SHOW_FULL_DAY_ROOMS, String(settings.showFullDayRooms)),
     setUserSetting(session.user.id, SETTING_KEYS.AGENDA_COLLAPSE_EMPTY_HOURS, String(settings.collapseEmptyHours)),
   ]);
+}
+
+export async function saveAgendaRoomPrefs(eventId: string, prefs: AgendaRoomPrefs): Promise<void> {
+  const session = await requireAuth();
+  await setUserSetting(session.user.id, agendaRoomPrefsKey(eventId), JSON.stringify(prefs));
 }

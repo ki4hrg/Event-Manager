@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -36,7 +36,8 @@ import { ConflictWarning } from "@/components/ConflictWarning";
 import { toTitleCase } from "@/lib/optionUtils";
 import { DateTabs } from "./DateTabs";
 import { AgendaViewOptions, type AgendaViewSettings } from "./AgendaViewOptions";
-import { DEFAULT_AGENDA_VIEW_SETTINGS } from "@/lib/userSettings";
+import { DEFAULT_AGENDA_VIEW_SETTINGS, type AgendaRoomPrefs } from "@/lib/userSettings";
+import { saveAgendaRoomPrefs } from "./actions";
 
 type AgendaGridProps = {
   eventId: string;
@@ -44,6 +45,7 @@ type AgendaGridProps = {
   timezone: string;
   activeDate: string | null;
   initialSettings?: AgendaViewSettings;
+  initialRoomPrefs?: AgendaRoomPrefs;
 };
 
 type ScheduledDragData = {
@@ -600,12 +602,81 @@ function DraggableUnscheduledCard({
   );
 }
 
+function RoomPanel({
+  orderedRooms,
+  hiddenRoomIds,
+  isDefault,
+  onToggle,
+  onMoveUp,
+  onMoveDown,
+  onReset,
+}: {
+  orderedRooms: AgendaData["rooms"];
+  hiddenRoomIds: Set<string>;
+  isDefault: boolean;
+  onToggle: (roomId: string) => void;
+  onMoveUp: (idx: number) => void;
+  onMoveDown: (idx: number) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Room columns</span>
+        {!isDefault && (
+          <button
+            onClick={onReset}
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Reset to default
+          </button>
+        )}
+      </div>
+      <div className="space-y-1">
+        {orderedRooms.map((room, idx) => {
+          const isHidden = hiddenRoomIds.has(room.id);
+          return (
+            <div key={room.id} className="flex items-center gap-2">
+              <div className="flex gap-0.5">
+                <button
+                  onClick={() => onMoveUp(idx)}
+                  disabled={idx === 0}
+                  className="px-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-25 text-xs leading-none"
+                  title="Move up"
+                >▲</button>
+                <button
+                  onClick={() => onMoveDown(idx)}
+                  disabled={idx === orderedRooms.length - 1}
+                  className="px-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-25 text-xs leading-none"
+                  title="Move down"
+                >▼</button>
+              </div>
+              <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!isHidden}
+                  onChange={() => onToggle(room.id)}
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                />
+                <span className={isHidden ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300"}>
+                  {room.name}
+                </span>
+              </label>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function AgendaGrid({
   eventId,
   agendaData: serializedData,
   timezone,
   activeDate,
   initialSettings,
+  initialRoomPrefs,
 }: AgendaGridProps) {
   const router = useRouter();
   const [agendaData, setAgendaData] = useState<AgendaData>(() => deserializeAgendaData(serializedData));
@@ -619,12 +690,62 @@ export function AgendaGrid({
     conflicts: RoomConflict[];
     onConfirm: () => Promise<void>;
   } | null>(null);
+  const [hiddenRoomIds, setHiddenRoomIds] = useState<Set<string>>(
+    () => new Set(initialRoomPrefs?.hiddenRoomIds ?? [])
+  );
+  const [roomOrder, setRoomOrder] = useState<string[]>(
+    () => initialRoomPrefs?.roomOrder ?? []
+  );
+  const [showRoomPanel, setShowRoomPanel] = useState(false);
 
   // Always-current ref so callbacks can snapshot state without stale closures
   const agendaDataRef = useRef(agendaData);
   agendaDataRef.current = agendaData;
 
   const { days, rooms, unscheduled } = agendaData;
+
+  const allOrderedRooms = useMemo<AgendaData["rooms"]>(() => {
+    if (roomOrder.length === 0) return rooms;
+    const roomMap = new Map(rooms.map((r) => [r.id, r]));
+    const inOrder = roomOrder.flatMap((id) => { const r = roomMap.get(id); return r ? [r] : []; });
+    const extra = rooms.filter((r) => !roomOrder.includes(r.id));
+    return [...inOrder, ...extra];
+  }, [rooms, roomOrder]);
+
+  const displayRooms = useMemo<AgendaData["rooms"]>(
+    () => allOrderedRooms.filter((r) => !hiddenRoomIds.has(r.id)),
+    [allOrderedRooms, hiddenRoomIds]
+  );
+
+  function persistRoomPrefs(hidden: Set<string>, order: string[]) {
+    saveAgendaRoomPrefs(eventId, { hiddenRoomIds: Array.from(hidden), roomOrder: order });
+  }
+
+  function handleToggleRoom(roomId: string) {
+    setHiddenRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) next.delete(roomId);
+      else next.add(roomId);
+      persistRoomPrefs(next, roomOrder);
+      return next;
+    });
+  }
+
+  function handleMoveRoom(idx: number, dir: -1 | 1) {
+    const currentIds = allOrderedRooms.map((r) => r.id);
+    const next = [...currentIds];
+    const target = idx + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setRoomOrder(next);
+    persistRoomPrefs(hiddenRoomIds, next);
+  }
+
+  function handleResetRooms() {
+    setHiddenRoomIds(new Set());
+    setRoomOrder([]);
+    persistRoomPrefs(new Set(), []);
+  }
   const resolvedDate = activeDate ?? days[0]?.dateKey ?? null;
   const activeDay = days.find((d) => d.dateKey === resolvedDate) ?? days[0];
 
@@ -937,12 +1058,33 @@ export function AgendaGrid({
         )}
 
         {days.length > 0 && (
-          <div className="flex items-center justify-between mb-4 gap-4">
-            <h2 className="text-base font-medium text-gray-700 dark:text-gray-300">
-              {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
-            </h2>
-            {rooms.length > 0 && (
-              <AgendaViewOptions settings={viewSettings} onChange={setViewSettings} />
+          <div>
+            <div className="flex items-center justify-between mb-4 gap-4">
+              <h2 className="text-base font-medium text-gray-700 dark:text-gray-300">
+                {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
+              </h2>
+              {rooms.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowRoomPanel((v) => !v)}
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  >
+                    Rooms{displayRooms.length < rooms.length ? ` (${displayRooms.length}/${rooms.length} shown)` : ""}
+                  </button>
+                  <AgendaViewOptions settings={viewSettings} onChange={setViewSettings} />
+                </div>
+              )}
+            </div>
+            {showRoomPanel && (
+              <RoomPanel
+                orderedRooms={allOrderedRooms}
+                hiddenRoomIds={hiddenRoomIds}
+                isDefault={hiddenRoomIds.size === 0 && roomOrder.length === 0}
+                onToggle={handleToggleRoom}
+                onMoveUp={(idx) => handleMoveRoom(idx, -1)}
+                onMoveDown={(idx) => handleMoveRoom(idx, 1)}
+                onReset={handleResetRooms}
+              />
             )}
           </div>
         )}
@@ -950,7 +1092,7 @@ export function AgendaGrid({
         {activeDay && (
           <DayGrid
             day={activeDay}
-            rooms={rooms}
+            rooms={displayRooms}
             eventId={eventId}
             timezone={timezone}
             viewSettings={viewSettings}

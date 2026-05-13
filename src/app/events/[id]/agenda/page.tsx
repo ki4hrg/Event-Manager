@@ -5,7 +5,7 @@ import { getFunctionsWithPresentations } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
 import { getOptions } from "@/app/settings/actions";
 import { requireAuth } from "@/lib/auth";
-import { getAgendaViewSettings } from "@/lib/userSettings";
+import { getAgendaViewSettings, getAgendaRoomPrefs } from "@/lib/userSettings";
 import dynamicImport from "next/dynamic";
 const AgendaGrid = dynamicImport(() => import("./AgendaGrid").then((m) => m.AgendaGrid), { ssr: false });
 
@@ -23,7 +23,7 @@ export default async function AgendaPage({
 
   const session = await requireAuth();
 
-  const [event, functions, scheduleTypes, agendaViewSettings] = await Promise.all([
+  const [event, functions, scheduleTypes, agendaViewSettings, agendaRoomPrefs] = await Promise.all([
     prisma.event.findUnique({
       where: { id: eventId },
       include: {
@@ -33,6 +33,7 @@ export default async function AgendaPage({
     getFunctionsWithPresentations(eventId),
     getOptions("schedule_type"),
     getAgendaViewSettings(session.user.id),
+    getAgendaRoomPrefs(session.user.id, eventId),
   ]);
 
   if (!event) {
@@ -91,6 +92,7 @@ export default async function AgendaPage({
         timezone={timezone}
         activeDate={activeDate}
         initialSettings={agendaViewSettings}
+        initialRoomPrefs={agendaRoomPrefs}
       />
     </>
   );
