@@ -1057,23 +1057,23 @@ export function AgendaGrid({
           />
         )}
 
-        {days.length > 0 && (
+        {rooms.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-4 gap-4">
-              <h2 className="text-base font-medium text-gray-700 dark:text-gray-300">
-                {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
-              </h2>
-              {rooms.length > 0 && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowRoomPanel((v) => !v)}
-                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  >
-                    Rooms{displayRooms.length < rooms.length ? ` (${displayRooms.length}/${rooms.length} shown)` : ""}
-                  </button>
-                  <AgendaViewOptions settings={viewSettings} onChange={setViewSettings} />
-                </div>
+              {days.length > 0 && (
+                <h2 className="text-base font-medium text-gray-700 dark:text-gray-300">
+                  {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
+                </h2>
               )}
+              <div className="flex items-center gap-3 ml-auto">
+                <button
+                  onClick={() => setShowRoomPanel((v) => !v)}
+                  className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Rooms{displayRooms.length < rooms.length ? ` (${displayRooms.length}/${rooms.length})` : ""}
+                </button>
+                <AgendaViewOptions settings={viewSettings} onChange={setViewSettings} />
+              </div>
             </div>
             {showRoomPanel && (
               <RoomPanel
