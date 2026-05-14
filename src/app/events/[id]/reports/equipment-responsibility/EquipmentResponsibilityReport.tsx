@@ -40,22 +40,22 @@ function PartyCard({ group }: { group: ResponsiblePartyGroup }) {
         <p className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">No equipment items.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-32">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-[18%]">
                   Category
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-[27%]">
                   Item
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-20">
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-[12%]">
                   Total Qty
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-28">
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 w-[15%]">
                   Peak Needed
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-[28%]">
                   Sources
                 </th>
               </tr>

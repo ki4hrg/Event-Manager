@@ -360,14 +360,14 @@ function FunctionScheduleSection({
         return (
           <div key={dateKey} className="mb-4">
             <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">{dateLabel}</p>
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full table-fixed text-sm border-collapse">
               <thead>
                 <tr>
-                  <th className={th}>Type</th>
-                  <th className={th}>Time</th>
-                  <th className={th}>Function</th>
-                  <th className={th}>Room(s)</th>
-                  <th className={th}>Notes</th>
+                  <th className={`${th} w-[10%]`}>Type</th>
+                  <th className={`${th} w-[20%]`}>Time</th>
+                  <th className={`${th} w-[30%]`}>Function</th>
+                  <th className={`${th} w-[28%]`}>Room(s)</th>
+                  <th className={`${th} w-[12%]`}>Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -876,11 +876,11 @@ function PresentationSection({
                 <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">
                   {formatDateHeading(dateKey, timezone)}
                 </p>
-                <table className="w-full text-sm border-collapse">
+                <table className="w-full table-fixed text-sm border-collapse">
                   <thead>
                     <tr>
-                      <th className={th}>Time</th>
-                      <th className={th}>Room</th>
+                      <th className={`${th} w-[35%]`}>Time</th>
+                      <th className={`${th} w-[65%]`}>Room</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1082,13 +1082,13 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
           {equipmentByCategory.map(([cat, rows]) => (
             <div key={cat}>
               {multiCategory && <SubHeading>{cat}</SubHeading>}
-              <table className="w-full text-sm border-collapse mb-4">
+              <table className="w-full table-fixed text-sm border-collapse mb-4">
                 <thead>
                   <tr>
-                    <th className={th}>Item</th>
-                    <th className={th}>Qty</th>
-                    <th className={th}>Role</th>
-                    <th className={th}>Provider</th>
+                    <th className={`${th} w-[35%]`}>Item</th>
+                    <th className={`${th} w-[10%]`}>Qty</th>
+                    <th className={`${th} w-[25%]`}>Role</th>
+                    <th className={`${th} w-[30%]`}>Provider</th>
                   </tr>
                 </thead>
                 <tbody>
