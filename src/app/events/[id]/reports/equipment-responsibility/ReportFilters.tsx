@@ -10,13 +10,14 @@ type ReportFiltersProps = {
   vendors: VendorOption[];
   selectedVendorIds: string[];
   selectedModelTypes: string[];
+  basePath?: string;
 };
 
 function toggleFilter(selected: string[], value: string): string[] {
   return selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value];
 }
 
-export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes }: ReportFiltersProps) {
+export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes, basePath = `/events/${eventId}/reports/equipment-responsibility` }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -28,7 +29,7 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
     } else {
       params.delete("vendors");
     }
-    router.push(`/events/${eventId}/reports/equipment-responsibility?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   function toggleModel(value: string) {
@@ -39,11 +40,11 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
     } else {
       params.delete("models");
     }
-    router.push(`/events/${eventId}/reports/equipment-responsibility?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   function clearFilters() {
-    router.push(`/events/${eventId}/reports/equipment-responsibility`);
+    router.push(basePath);
   }
 
   const hasFilters = selectedVendorIds.length > 0 || selectedModelTypes.length > 0;
@@ -106,7 +107,7 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
           </button>
         )}
         <a
-          href={`/events/${eventId}/reports/equipment-responsibility/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
+          href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
           className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
         >
           Print / Save PDF

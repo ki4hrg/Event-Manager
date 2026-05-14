@@ -14,9 +14,10 @@ model User {
   name      String?
   password  String
   role      String        @default("user")
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  settings  UserSetting[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  settings   UserSetting[]
+  shareLinks ShareLink[]
 }
 
 // Per-user key-value settings store
@@ -93,6 +94,7 @@ model Event {
   setupOrders        SetupOrder[]
   printOrders        PrintOrder[]
   vendors            EventVendor[]
+  shareLinks         ShareLink[]
   files              FileUpload[]
   keyStaff           EventKeyStaff[]
   createdAt          DateTime            @default(now())
@@ -1041,4 +1043,25 @@ model FileUpload {
   @@index([setupOrderId])
   @@index([printOrderId])
   @@index([venueId])
+}
+
+model ShareLink {
+  id             String    @id @default(cuid())
+  token          String    @unique
+  eventId        String
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  reportType     String
+  filters        Json      @default("{}")
+  filtersLocked  Boolean   @default(true)
+  label          String?
+  createdById    String?
+  createdBy      User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  lastAccessedAt DateTime?
+  accessCount    Int       @default(0)
+
+  @@index([eventId])
+  @@index([token])
 }

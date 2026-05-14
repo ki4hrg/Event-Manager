@@ -6,6 +6,7 @@ import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
 import { ReportFilters } from "./ReportFilters";
 import { EquipmentResponsibilityReport } from "./EquipmentResponsibilityReport";
+import { ShareReportButton } from "@/components/ShareReportButton";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,11 @@ export default async function EquipmentResponsibilityPage({
       <div className="max-w-5xl">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Equipment Responsibility</h2>
+          <ShareReportButton
+            eventId={eventId}
+            reportType="EQUIPMENT_RESPONSIBILITY"
+            currentFilters={{ vendorIds: selectedVendorIds, modelTypes: selectedModelTypes }}
+          />
         </div>
 
         <ReportFilters

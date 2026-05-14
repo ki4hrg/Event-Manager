@@ -8,9 +8,10 @@ type ReportFiltersProps = {
   eventId: string;
   vendors: VendorOption[];
   selectedVendorId: string | null;
+  basePath?: string;
 };
 
-export function ReportFilters({ eventId, vendors, selectedVendorId }: ReportFiltersProps) {
+export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `/events/${eventId}/reports/vendor-handoff` }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -21,7 +22,7 @@ export function ReportFilters({ eventId, vendors, selectedVendorId }: ReportFilt
     } else {
       params.delete("vendorId");
     }
-    router.push(`/events/${eventId}/reports/vendor-handoff?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   return (
@@ -47,7 +48,7 @@ export function ReportFilters({ eventId, vendors, selectedVendorId }: ReportFilt
       {selectedVendorId && (
         <div className="ml-auto">
           <a
-            href={`/events/${eventId}/reports/vendor-handoff/print?vendorId=${selectedVendorId}`}
+            href={`${basePath}/print?vendorId=${selectedVendorId}`}
             className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
           >
             Print / Save PDF

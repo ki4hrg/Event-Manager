@@ -5,6 +5,7 @@ import { getOrderAssignedVendors, getVendorHandoffData } from "@/app/events/repo
 import { getOptions } from "@/app/settings/actions";
 import { ReportFilters } from "./ReportFilters";
 import { VendorHandoffReport } from "./VendorHandoffReport";
+import { ShareReportButton } from "@/components/ShareReportButton";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,11 @@ export default async function VendorHandoffPage({
       <div className="max-w-5xl">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendor Handoff</h2>
+          <ShareReportButton
+            eventId={eventId}
+            reportType="VENDOR_HANDOFF"
+            currentFilters={{ vendorId: vendorId ?? undefined }}
+          />
         </div>
 
         <ReportFilters

@@ -1,0 +1,141 @@
+import { notFound } from "next/navigation";
+import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
+import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
+import { getVendorHandoffData, getOrderAssignedVendors } from "@/app/events/reports/actions";
+import { getOptions } from "@/app/settings/actions";
+import { getEvent } from "@/app/events/actions";
+import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
+import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
+import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equipment-responsibility/ReportFilters";
+import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
+import { ShareShell } from "./ShareShell";
+import type { ShareLinkFilters } from "@/lib/shareLinks";
+
+type PageProps = {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function getString(v: string | string[] | undefined): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
+export default async function SharePage({ params, searchParams }: PageProps) {
+  const { token } = await params;
+  const sp = await searchParams;
+
+  const link = await getActiveShareLink(token);
+  if (!link) notFound();
+
+  recordShareLinkAccess(link.id);
+
+  const storedFilters = (link.filters ?? {}) as ShareLinkFilters;
+  const printBase = `/share/${token}/print`;
+
+  if (link.reportType === "EQUIPMENT_RESPONSIBILITY") {
+    let effectiveVendorIds: string[] | undefined;
+    let effectiveModelTypes: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveVendorIds = storedFilters.vendorIds;
+      effectiveModelTypes = storedFilters.modelTypes;
+    } else {
+      const vendorsParam = getString(sp.vendors);
+      const modelsParam = getString(sp.models);
+      effectiveVendorIds = vendorsParam
+        ? vendorsParam.split(",").filter(Boolean)
+        : storedFilters.vendorIds;
+      effectiveModelTypes = modelsParam
+        ? modelsParam.split(",").filter(Boolean)
+        : storedFilters.modelTypes;
+    }
+
+    const [groups, vendors] = await Promise.all([
+      getEquipmentResponsibilityData(link.eventId, {
+        vendorIds: effectiveVendorIds,
+        modelTypes: effectiveModelTypes,
+      }),
+      link.filtersLocked ? Promise.resolve(null) : getOrderAssignedVendors(link.eventId),
+    ]);
+
+    const printParams = new URLSearchParams();
+    if (effectiveVendorIds?.length) printParams.set("vendors", effectiveVendorIds.join(","));
+    if (effectiveModelTypes?.length) printParams.set("models", effectiveModelTypes.join(","));
+    const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
+
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Equipment Responsibility"
+        label={link.label}
+        printHref={printHref}
+      >
+        {!link.filtersLocked && vendors && vendors.length > 0 && (
+          <EqReportFilters
+            eventId={link.eventId}
+            vendors={vendors}
+            selectedVendorIds={effectiveVendorIds ?? []}
+            selectedModelTypes={effectiveModelTypes ?? []}
+            basePath={`/share/${token}`}
+          />
+        )}
+        <EquipmentResponsibilityReport groups={groups} />
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "VENDOR_HANDOFF") {
+    let effectiveVendorId: string | null;
+
+    if (link.filtersLocked) {
+      effectiveVendorId = storedFilters.vendorId ?? null;
+    } else {
+      const vendorIdParam = getString(sp.vendorId);
+      effectiveVendorId = vendorIdParam ?? storedFilters.vendorId ?? null;
+    }
+
+    const [event, vendors, handoffData, functionTypes] = await Promise.all([
+      getEvent(link.eventId),
+      link.filtersLocked ? Promise.resolve(null) : getOrderAssignedVendors(link.eventId),
+      effectiveVendorId ? getVendorHandoffData(link.eventId, effectiveVendorId) : Promise.resolve(null),
+      getOptions("function_type"),
+    ]);
+
+    if (!event) notFound();
+
+    const printHref = effectiveVendorId
+      ? `${printBase}?vendorId=${effectiveVendorId}`
+      : printBase;
+
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Vendor Handoff"
+        label={link.label}
+        printHref={printHref}
+      >
+        {!link.filtersLocked && vendors && (
+          <VhReportFilters
+            eventId={link.eventId}
+            vendors={vendors}
+            selectedVendorId={effectiveVendorId}
+            basePath={`/share/${token}`}
+          />
+        )}
+        {handoffData ? (
+          <VendorHandoffReport
+            data={handoffData}
+            event={event}
+            functionTypes={functionTypes}
+          />
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {effectiveVendorId ? "No data found for this vendor." : "Select a vendor to view the handoff report."}
+          </p>
+        )}
+      </ShareShell>
+    );
+  }
+
+  notFound();
+}

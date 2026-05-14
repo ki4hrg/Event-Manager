@@ -72,6 +72,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (isAuthRoute) return true;
       if (isOnLoginPage) return true;
+      if (nextUrl.pathname.startsWith("/share/")) return true;
 
       return isLoggedIn;
     },
