@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import type { CustomOption } from "@prisma/client";
+import { useRouter } from "next/navigation";
+import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { FunctionForTable } from "./actions";
 import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
 import { colorClasses } from "@/lib/colors";
@@ -71,8 +72,52 @@ export function FunctionList({
   deleteFunctions,
   bulkUpdateFunctions,
 }: FunctionListProps) {
+  const router = useRouter();
   const [view, setView] = useState<"list" | "table">("list");
   const [filterStatus, setFilterStatus] = useState(initialStatus ?? "");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
+  const [bulkSubstatus, setBulkSubstatus] = useState("");
+  const [bulkType, setBulkType] = useState("");
+
+  function toggleRow(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selected);
+    if (!confirm(`Delete ${ids.length} function${ids.length !== 1 ? "s" : ""}?`)) return;
+    await deleteFunctions(ids);
+    setSelected(new Set());
+    router.refresh();
+  }
+
+  async function handleBulkApply() {
+    const ids = Array.from(selected);
+    const updates: { status?: EntityStatus; substatus?: string | null; type?: string } = {};
+    if (bulkStatus) updates.status = bulkStatus as EntityStatus;
+    if (bulkStatus && bulkSubstatus) updates.substatus = bulkSubstatus;
+    else if (bulkStatus) updates.substatus = null;
+    if (bulkType) updates.type = bulkType;
+    if (Object.keys(updates).length === 0) return;
+    await bulkUpdateFunctions(ids, updates);
+    setSelected(new Set());
+    setShowBulkEdit(false);
+    setBulkStatus("");
+    setBulkSubstatus("");
+    setBulkType("");
+    router.refresh();
+  }
+
+  const availableSubstatuses = useMemo(
+    () => substatuses.filter((s) => !s.group || s.group === bulkStatus),
+    [substatuses, bulkStatus]
+  );
 
   const filteredFunctions = useMemo(() => {
     if (!filterStatus) return functions;
@@ -87,8 +132,9 @@ export function FunctionList({
   const sortedDates = useMemo(() => Array.from(dated.keys()).sort(), [dated]);
 
   const renderFunction = (fn: FunctionForTable) => (
-    <div key={fn.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
-      <div className="flex items-start justify-between">
+    <div key={fn.id} className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-start gap-3 ${selected.has(fn.id) ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
+      <input type="checkbox" checked={selected.has(fn.id)} onChange={() => toggleRow(fn.id)} className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0" />
+      <div className="flex-1 min-w-0 flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <Link
@@ -200,6 +246,62 @@ export function FunctionList({
           </Link>
         </div>
       </div>
+
+      {selected.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-sm">
+          <span className="font-medium text-blue-700 dark:text-blue-300">{selected.size} selected</span>
+          <button
+            onClick={() => setShowBulkEdit((v) => !v)}
+            className="rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/40"
+          >
+            {showBulkEdit ? "Hide bulk edit" : "Bulk edit"}
+          </button>
+          <button
+            onClick={handleBulkDelete}
+            className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+          >
+            Delete selected
+          </button>
+          <button
+            onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}
+            className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+      {showBulkEdit && selected.size > 0 && (
+        <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
+            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <option value="">— no change —</option>
+              {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          {availableSubstatuses.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Substatus</label>
+              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+                <option value="">— no change —</option>
+                {availableSubstatuses.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
+              </select>
+            </div>
+          )}
+          {functionTypes.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
+              <select value={bulkType} onChange={(e) => setBulkType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+                <option value="">— no change —</option>
+                {functionTypes.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
+              </select>
+            </div>
+          )}
+          <button onClick={handleBulkApply} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+            Apply
+          </button>
+        </div>
+      )}
 
       {functions.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">

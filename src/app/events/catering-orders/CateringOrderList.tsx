@@ -180,6 +180,62 @@ export function CateringOrderList({
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-sm">
+          <span className="font-medium text-blue-700 dark:text-blue-300">{selected.size} selected</span>
+          <button
+            onClick={() => setShowBulkEdit((v) => !v)}
+            className="rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/40"
+          >
+            {showBulkEdit ? "Hide bulk edit" : "Bulk edit"}
+          </button>
+          <button
+            onClick={handleBulkDelete}
+            className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+          >
+            Delete selected
+          </button>
+          <button
+            onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}
+            className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+      {showBulkEdit && selected.size > 0 && (
+        <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
+            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <option value="">— no change —</option>
+              {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          {availableSubstatuses.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Substatus</label>
+              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+                <option value="">— no change —</option>
+                {availableSubstatuses.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
+              </select>
+            </div>
+          )}
+          {vendors.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assign Vendor</label>
+              <select value={bulkVendorId} onChange={(e) => setBulkVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+                <option value="">— no change —</option>
+                {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+            </div>
+          )}
+          <button onClick={handleBulkApply} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+            Apply
+          </button>
+        </div>
+      )}
+
       {cateringOrders.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
           <p className="text-gray-500 dark:text-gray-400">No Catering Orders yet. Create your first to get started.</p>
@@ -187,8 +243,9 @@ export function CateringOrderList({
       ) : view === "list" ? (
         <div className="space-y-2">
           {sorted.map((order) => (
-            <div key={order.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center justify-between">
-              <div>
+            <div key={order.id} className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-start gap-3 ${selected.has(order.id) ? "ring-2 ring-blue-200 dark:ring-blue-800" : ""}`}>
+              <input type="checkbox" checked={selected.has(order.id)} onChange={() => toggleRow(order.id)} className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0" />
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <Link href={`/events/${eventId}/catering-orders/${order.id}`} className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400">
                     {order.name}
@@ -210,48 +267,6 @@ export function CateringOrderList({
         </div>
       ) : (
         <div className="space-y-2">
-          {selected.size > 0 && (
-            <div className="flex flex-col gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-blue-700 dark:text-blue-300">{selected.size} selected</span>
-                <button onClick={() => setShowBulkEdit((v) => !v)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">Bulk edit</button>
-                <button onClick={handleBulkDelete} className="text-sm text-red-600 dark:text-red-400 hover:underline">Delete selected</button>
-                <button onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }} className="text-sm text-gray-500 dark:text-gray-400 hover:underline ml-auto">Clear selection</button>
-              </div>
-              {showBulkEdit && (
-                <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-blue-200 dark:border-blue-700">
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Status</label>
-                    <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 dark:text-white">
-                      <option value="">— no change —</option>
-                      {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  {availableSubstatuses.length > 0 && (
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Substatus</label>
-                      <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 dark:text-white">
-                        <option value="">— no change —</option>
-                        {availableSubstatuses.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  {vendors.length > 0 && (
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Assign Vendor</label>
-                      <select value={bulkVendorId} onChange={(e) => setBulkVendorId(e.target.value)} className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 dark:text-white">
-                        <option value="">— no change —</option>
-                        {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  <button onClick={handleBulkApply} className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Apply to {selected.size}</button>
-                  <button onClick={() => setShowBulkEdit(false)} className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800">Cancel</button>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
               <thead>

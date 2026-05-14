@@ -300,7 +300,7 @@ export function ScheduleItemList({
                     <p className="text-sm text-gray-700 dark:text-gray-300">{formatRange(item)}</p>
                     <Link
                       href={`/events/${eventId}/functions/${item.function.id}`}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       {functionLabel(item)}
                     </Link>
