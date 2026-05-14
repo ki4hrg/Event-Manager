@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getSetupOrderDisplayName } from "./setup-orders/utils";
 
 export type SidebarSection =
@@ -29,33 +30,30 @@ export async function getSidebarItems(
       }),
       prisma.customOption.findMany({
         where: { category: "function_type" },
-        select: { label: true, sortOrder: true },
-        orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+        select: { label: true },
       }),
     ]);
 
-    const typeOrder = new Map<string, number>();
-    typeOptions.forEach((t, i) => typeOrder.set(t.label, i));
-
-    const groups = new Map<string, { id: string; label: string }[]>();
+    const groups = new Map<string, { headerLabel: string; entries: { id: string; label: string }[] }>();
     for (const r of rows) {
-      const key = r.type || "(No type)";
-      const arr = groups.get(key) ?? [];
-      arr.push({ id: r.id, label: r.name || "Unnamed Function" });
-      groups.set(key, arr);
+      const key = r.type || "";
+      const headerLabel = key ? resolveOptionLabel(key, typeOptions) : "Other";
+      const group = groups.get(key) ?? { headerLabel, entries: [] };
+      group.entries.push({ id: r.id, label: r.name || "Unnamed Function" });
+      groups.set(key, group);
     }
 
     const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
-      const aIdx = typeOrder.get(a) ?? Number.POSITIVE_INFINITY;
-      const bIdx = typeOrder.get(b) ?? Number.POSITIVE_INFINITY;
-      if (aIdx !== bIdx) return aIdx - bIdx;
-      return a.localeCompare(b);
+      const aLabel = groups.get(a)!.headerLabel;
+      const bLabel = groups.get(b)!.headerLabel;
+      return aLabel.localeCompare(bLabel);
     });
 
     const items: SidebarItem[] = [];
     for (const key of sortedKeys) {
-      items.push({ kind: "header", id: `fn-group-${key}`, label: key });
-      const entries = groups.get(key)!.sort((a, b) => a.label.localeCompare(b.label));
+      const group = groups.get(key)!;
+      items.push({ kind: "header", id: `fn-group-${key || "untyped"}`, label: group.headerLabel });
+      const entries = group.entries.sort((a, b) => a.label.localeCompare(b.label));
       for (const e of entries) {
         items.push({
           kind: "link",

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { btnOutlinedSm } from "@/lib/buttonStyles";
 
 export type FunctionLinkProps = {
   linkedFunctionId: string | null | undefined;
@@ -104,9 +105,9 @@ export function FunctionLinkControl({
         <button
           type="button"
           onClick={() => setShowLinkForm(true)}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          className={btnOutlinedSm}
         >
-          Link to function
+          Link Function
         </button>
       )}
     </div>

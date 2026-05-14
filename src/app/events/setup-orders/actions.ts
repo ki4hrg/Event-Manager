@@ -14,13 +14,18 @@ export async function getSetupOrders(eventId: string) {
     include: {
       room: { select: { id: true, name: true } },
       functionLinks: { include: { function: { select: { id: true, name: true } } } },
+      presentationLinks: { include: { presentation: { select: { id: true, title: true } } } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
       vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
-  return rows.map((r) => ({ ...r, functions: r.functionLinks.map((l) => l.function) }));
+  return rows.map((r) => ({
+    ...r,
+    functions: r.functionLinks.map((l) => l.function),
+    presentations: r.presentationLinks.map((l) => l.presentation),
+  }));
 }
 
 export async function getSetupOrder(id: string) {

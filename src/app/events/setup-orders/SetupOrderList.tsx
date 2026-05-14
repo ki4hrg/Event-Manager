@@ -272,6 +272,23 @@ export function SetupOrderList({
                     {so.equipmentItems.length > 0 && (
                       <span>{so.equipmentItems.length} equipment item{so.equipmentItems.length !== 1 ? "s" : ""}</span>
                     )}
+                    {so.functions.length > 0 && (
+                      <span className="text-green-600 dark:text-green-400">
+                        {so.functions.length === 1
+                          ? `Linked to function: ${so.functions[0].name}`
+                          : `Linked to ${so.functions.length} functions`}
+                      </span>
+                    )}
+                    {so.presentations.length > 0 && (
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {so.presentations.length === 1
+                          ? `Linked to presentation: ${so.presentations[0].title}`
+                          : `Linked to ${so.presentations.length} presentations`}
+                      </span>
+                    )}
+                    {so.functions.length === 0 && so.presentations.length === 0 && (
+                      <span className="text-orange-600 dark:text-orange-400">Unlinked</span>
+                    )}
                   </div>
                 </div>
                 <InlineDeleteButton

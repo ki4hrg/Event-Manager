@@ -6,3 +6,6 @@ export const btnSecondary =
 
 export const btnDanger =
   "px-4 py-2 text-red-600 border border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20";
+
+export const btnOutlinedSm =
+  "px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300";
