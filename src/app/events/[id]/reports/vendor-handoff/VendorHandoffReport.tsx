@@ -134,10 +134,10 @@ function SubHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function EquipmentTable({ items, vendorId }: { items: EquipmentItem[]; vendorId: string }) {
-  const relevant = items.filter(
-    (item) => item.providerVendor?.id === vendorId || item.operatorVendor?.id === vendorId
-  );
+function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: EquipmentItem[]; vendorId: string; filterByVendor?: boolean }) {
+  const relevant = filterByVendor
+    ? items.filter((item) => item.providerVendor?.id === vendorId || item.operatorVendor?.id === vendorId)
+    : items;
   if (relevant.length === 0) return null;
   return (
     <div className="overflow-x-auto">
@@ -262,13 +262,16 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
     }
   };
 
-  const addItems = (items: EquipmentItem[]) => {
+  const orderVendor = { id: vendorId, name: data.vendor.name };
+
+  const addItems = (items: EquipmentItem[], fallbackVendor?: { id: string; name: string }) => {
     for (const item of items) {
-      addRow(item.equipment?.name ?? item.item, item.equipment?.category ?? null, item.quantity ?? 1, item.providerVendor, item.providerContact, item.operatorVendor);
+      const providerVendor = item.providerVendor ?? fallbackVendor ?? null;
+      addRow(item.equipment?.name ?? item.item, item.equipment?.category ?? null, item.quantity ?? 1, providerVendor, item.providerContact, item.operatorVendor);
     }
   };
 
-  for (const order of data.cateringOrders) addItems(order.equipmentItems);
+  for (const order of data.cateringOrders) addItems(order.equipmentItems, orderVendor);
   for (const order of data.avOrders) {
     addItems(order.equipmentItems);
     if (order.videoSection) addItems(order.videoSection.equipmentItems);
@@ -283,7 +286,20 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
       }
     }
   }
-  for (const order of data.setupOrders) addItems(order.equipmentItems);
+  for (const order of data.setupOrders) {
+    addItems(order.equipmentItems, orderVendor);
+    for (const table of order.tables) {
+      const tableVendor = table.providerVendor ?? orderVendor;
+      if (table.tableType && table.quantity > 0) {
+        addRow(table.tableType, "Tables", table.quantity, tableVendor, null, null);
+      }
+      if (table.chairCount && table.chairCount > 0) {
+        const chairLabel = table.chairType || "Chairs";
+        const totalChairs = table.quantity > 0 ? table.quantity * table.chairCount : table.chairCount;
+        addRow(chairLabel, "Chairs", totalChairs, tableVendor, null, null);
+      }
+    }
+  }
 
   const SORT_LAST = "￿";
   return Array.from(map.values())
@@ -551,7 +567,7 @@ function CateringOrderSection({
         <>
           <SectionHeading>Equipment</SectionHeading>
           <div className="mb-4">
-            <EquipmentTable items={order.equipmentItems} vendorId={vendorId} />
+            <EquipmentTable items={order.equipmentItems} vendorId={vendorId} filterByVendor={false} />
           </div>
         </>
       )}
@@ -736,6 +752,7 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
                   <th className={th}>Qty</th>
                   <th className={th}>Chairs</th>
                   <th className={th}>Chair Type</th>
+                  <th className={th}>Provider</th>
                   <th className={th}>Notes</th>
                 </tr>
               </thead>
@@ -746,6 +763,7 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
                     <td className={td}>{table.quantity}</td>
                     <td className={td}>{table.chairCount ?? "—"}</td>
                     <td className={td}>{table.chairType ?? "—"}</td>
+                    <td className={td}>{table.providerVendor?.name ?? "—"}</td>
                     <td className={td}>{table.notes ?? ""}</td>
                   </tr>
                 ))}
@@ -759,7 +777,7 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
         <>
           <SectionHeading>Equipment</SectionHeading>
           <div className="mb-4">
-            <EquipmentTable items={order.equipmentItems} vendorId={vendorId} />
+            <EquipmentTable items={order.equipmentItems} vendorId={vendorId} filterByVendor={false} />
           </div>
         </>
       )}

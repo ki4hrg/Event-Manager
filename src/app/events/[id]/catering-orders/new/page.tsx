@@ -6,7 +6,6 @@ import { createCateringOrder } from "../../../catering-orders/actions";
 import { getOptions } from "../../../../settings/actions";
 import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
-import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +53,7 @@ export default async function NewCateringOrderPage({
         eventId={eventId}
         action={createCateringOrderAction}
         serviceStyleOptions={serviceStyleOptions}
-        availableVendors={flattenResponsiblePartyOptions(responsiblePartyVendors).map((v) => ({ id: v.id, label: v.name }))}
+        responsiblePartyOptions={responsiblePartyVendors}
         createFunctions={eventFunctions.map((f) => ({ id: f.id, label: f.name }))}
         defaultFunctionId={functionId}
       />

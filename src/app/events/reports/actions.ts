@@ -63,6 +63,16 @@ function extractWindows(
 
 type FunctionRef = { name: string; schedules: { startTime: Date; endTime: Date }[] };
 
+type AvOrderRef = {
+  functions: FunctionRef[];
+  presentation?: { slots: Array<{ function: FunctionRef }> } | null;
+};
+
+function getAvOrderFns(avOrder: AvOrderRef): FunctionRef[] {
+  if (avOrder.functions.length > 0) return avOrder.functions;
+  return avOrder.presentation?.slots.map((s) => s.function) ?? [];
+}
+
 // Expands one item into one NormalizedItem per linked function.
 // When the same order is applied to N functions, each function is an independent
 // use of the equipment — contributing to both total qty and peak scheduling.
@@ -111,7 +121,7 @@ export async function getEquipmentResponsibilityData(
   eventId: string,
   filters?: EquipmentReportFilters
 ): Promise<VendorEquipmentGroup[]> {
-  const [equipmentItems, inputItems, monitorMixes] = await Promise.all([
+  const [equipmentItems, inputItems, monitorMixes, setupTables] = await Promise.all([
     prisma.equipmentItem.findMany({
       where: {
         OR: [
@@ -144,6 +154,7 @@ export async function getEquipmentResponsibilityData(
             id: true,
             name: true,
             functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
+            presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
           },
         },
         videoSection: {
@@ -153,6 +164,7 @@ export async function getEquipmentResponsibilityData(
                 id: true,
                 name: true,
                 functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
+                presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
               },
             },
           },
@@ -174,6 +186,7 @@ export async function getEquipmentResponsibilityData(
                     id: true,
                     name: true,
                     functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
+                    presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
                   },
                 },
               },
@@ -195,8 +208,22 @@ export async function getEquipmentResponsibilityData(
                 id: true,
                 name: true,
                 functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
+                presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
               },
             },
+          },
+        },
+      },
+    }),
+    prisma.setupTable.findMany({
+      where: { setupOrder: { eventId } },
+      include: {
+        providerVendor: { select: { id: true, name: true } },
+        setupOrder: {
+          select: {
+            id: true,
+            functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
+            presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
           },
         },
       },
@@ -223,11 +250,11 @@ export async function getEquipmentResponsibilityData(
     } else if (item.avOrder) {
       orderId = item.avOrder.id;
       modelType = "AV_ORDER";
-      fns = item.avOrder.functions;
+      fns = getAvOrderFns(item.avOrder);
     } else if (item.videoSection?.avOrder) {
       orderId = item.videoSection.avOrder.id;
       modelType = "AV_ORDER";
-      fns = item.videoSection.avOrder.functions;
+      fns = getAvOrderFns(item.videoSection.avOrder);
     } else {
       continue;
     }
@@ -265,7 +292,7 @@ export async function getEquipmentResponsibilityData(
       orderId: avOrder.id,
       modelType: "AV_ORDER" as const,
     };
-    normalized.push(...expandByFunction(base, avOrder.functions));
+    normalized.push(...expandByFunction(base, getAvOrderFns(avOrder)));
   }
 
   for (const item of monitorMixes) {
@@ -285,7 +312,46 @@ export async function getEquipmentResponsibilityData(
       orderId: avOrder.id,
       modelType: "AV_ORDER" as const,
     };
-    normalized.push(...expandByFunction(base, avOrder.functions));
+    normalized.push(...expandByFunction(base, getAvOrderFns(avOrder)));
+  }
+
+  for (const table of setupTables) {
+    const attrVendor = table.providerVendor;
+    const fns = getAvOrderFns(table.setupOrder);
+    const baseAttrs = {
+      attributionVendorId: attrVendor?.id ?? null,
+      attributionVendorName: attrVendor?.name ?? null,
+      attributionContactId: null,
+      attributionContactName: null,
+      orderId: table.setupOrderId,
+      modelType: "SETUP_ORDER" as const,
+    };
+
+    if (table.tableType && table.quantity > 0) {
+      const key = `table:${table.tableType.toLowerCase()}`;
+      normalized.push(...expandByFunction({
+        equipmentId: null,
+        equipmentKey: key,
+        itemName: table.tableType,
+        category: "Tables",
+        ...baseAttrs,
+        quantity: table.quantity,
+      }, fns));
+    }
+
+    if (table.chairCount && table.chairCount > 0) {
+      const chairLabel = table.chairType || "Chairs";
+      const key = `chair:${chairLabel.toLowerCase()}`;
+      const totalChairs = table.quantity > 0 ? table.quantity * table.chairCount : table.chairCount;
+      normalized.push(...expandByFunction({
+        equipmentId: null,
+        equipmentKey: key,
+        itemName: chairLabel,
+        category: "Chairs",
+        ...baseAttrs,
+        quantity: totalChairs,
+      }, fns));
+    }
   }
 
   let filtered = normalized;
@@ -585,7 +651,10 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
             },
           },
         },
-        tables: { orderBy: { sortOrder: "asc" } },
+        tables: {
+          include: { providerVendor: { select: { id: true, name: true } } },
+          orderBy: { sortOrder: "asc" },
+        },
         equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
       },
       orderBy: { createdAt: "asc" },

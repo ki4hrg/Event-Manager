@@ -5,6 +5,8 @@ import { useFormStatus } from "react-dom";
 import type { CateringOrder, CustomOption } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type AssignedVendor, type AvailableVendor } from "@/app/events/vendors/VendorLinkControl";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type CateringOrderFormProps = {
   cateringOrder?: CateringOrder | null;
@@ -18,6 +20,7 @@ type CateringOrderFormProps = {
   availableVendors?: AvailableVendor[];
   addVendor?: (vendorId: string) => Promise<void>;
   removeVendor?: (junctionId: string) => Promise<void>;
+  responsiblePartyOptions?: ResponsiblePartyOptions;
   noCard?: boolean;
 };
 
@@ -45,6 +48,7 @@ export function CateringOrderForm({
   availableVendors = [],
   addVendor,
   removeVendor,
+  responsiblePartyOptions,
   noCard = false,
 }: CateringOrderFormProps) {
   const isEdit = !!cateringOrder;
@@ -154,10 +158,12 @@ export function CateringOrderForm({
             </div>
           )}
           {!isEdit ? (
-            <VendorLinkControl
-              mode="create"
-              availableVendors={availableVendors}
-            />
+            responsiblePartyOptions ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vendor</label>
+                <ResponsiblePartyField options={responsiblePartyOptions} name="vendorId" />
+              </div>
+            ) : null
           ) : addVendor && removeVendor ? (
             <VendorLinkControl
               mode="edit"

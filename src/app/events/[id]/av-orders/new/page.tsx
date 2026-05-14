@@ -5,7 +5,6 @@ import { getEvent } from "../../../actions";
 import { createAVOrder } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
-import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +72,7 @@ export default async function NewAVOrderPage({
         lockedPresentationId={presentationId}
         defaultName={defaultName}
         cancelPath={cancelPath}
-        availableVendors={flattenResponsiblePartyOptions(responsiblePartyVendors).map((v) => ({ id: v.id, label: v.name }))}
+        responsiblePartyOptions={responsiblePartyVendors}
       />
     </>
   );

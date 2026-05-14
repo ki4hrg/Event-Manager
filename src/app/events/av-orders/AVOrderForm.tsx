@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { AVOrder } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
-import { VendorLinkControl, type AvailableVendor, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
+import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type AVOrderFormProps = {
   avOrder?: AVOrder | null;
@@ -19,7 +21,7 @@ type AVOrderFormProps = {
   defaultName?: string;
   cancelPath?: string;
   vendorLink?: VendorLinkEditProps;
-  availableVendors?: AvailableVendor[];
+  responsiblePartyOptions?: ResponsiblePartyOptions;
   noCard?: boolean;
 };
 
@@ -83,7 +85,7 @@ export function AVOrderForm({
   defaultName,
   cancelPath,
   vendorLink,
-  availableVendors = [],
+  responsiblePartyOptions,
   noCard = false,
 }: AVOrderFormProps) {
   const isEdit = !!avOrder;
@@ -189,8 +191,11 @@ export function AVOrderForm({
 
           {isEdit && vendorLink ? (
             <VendorLinkControl mode="edit" {...vendorLink} />
-          ) : !isEdit ? (
-            <VendorLinkControl mode="create" availableVendors={availableVendors} />
+          ) : !isEdit && responsiblePartyOptions ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vendor</label>
+              <ResponsiblePartyField options={responsiblePartyOptions} name="vendorId" />
+            </div>
           ) : null}
         </div>
       </div>

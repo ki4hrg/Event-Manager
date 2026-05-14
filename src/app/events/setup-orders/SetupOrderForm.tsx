@@ -5,6 +5,8 @@ import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 
 type SetupOrderData = {
   id: string;
@@ -21,7 +23,7 @@ type SetupOrderFormProps = {
   setupTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
   vendorLink?: VendorLinkEditProps;
-  availableVendors?: { id: string; label: string }[];
+  responsiblePartyOptions?: ResponsiblePartyOptions;
   rooms?: { id: string; name: string }[];
   functions?: { id: string; name: string; roomIds: string[] }[];
   initialRoomId?: string;
@@ -51,7 +53,7 @@ export function SetupOrderForm({
   setupTypes,
   action,
   vendorLink,
-  availableVendors = [],
+  responsiblePartyOptions,
   rooms = [],
   functions = [],
   initialRoomId,
@@ -226,8 +228,11 @@ export function SetupOrderForm({
 
           {isEdit && vendorLink ? (
             <VendorLinkControl mode="edit" {...vendorLink} />
-          ) : !isEdit ? (
-            <VendorLinkControl mode="create" availableVendors={availableVendors} />
+          ) : !isEdit && responsiblePartyOptions ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vendor</label>
+              <ResponsiblePartyField options={responsiblePartyOptions} name="vendorId" />
+            </div>
           ) : null}
         </div>
       </div>
