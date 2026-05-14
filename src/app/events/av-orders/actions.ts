@@ -544,43 +544,51 @@ export async function deleteAVEquipmentItem(id: string, avOrderId: string, event
 // Party options
 // ============================================================================
 
+async function getSpeakersForAVOrder(avOrderId: string) {
+  const presentations = await prisma.aVOrderPresentation.findMany({
+    where: { avOrderId },
+    select: {
+      presentation: {
+        select: {
+          speakers: {
+            include: { contact: true },
+            orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+          },
+        },
+      },
+    },
+  });
+  const seen = new Set<string>();
+  const contacts: { id: string; firstName: string; lastName: string; organization: string | null }[] = [];
+  for (const p of presentations) {
+    for (const s of p.presentation.speakers) {
+      if (seen.has(s.contact.id)) continue;
+      seen.add(s.contact.id);
+      contacts.push({
+        id: s.contact.id,
+        firstName: s.contact.firstName,
+        lastName: s.contact.lastName,
+        organization: s.contact.organization,
+      });
+    }
+  }
+  return contacts;
+}
+
 export async function getAVOrderPartyOptions(avOrderId: string, eventId: string) {
-  const [avOrderVendors, avOrder] = await Promise.all([
+  const [avOrderVendors, contacts] = await Promise.all([
     prisma.aVOrderVendor.findMany({
       where: { avOrderId },
       select: { vendor: { select: { id: true, name: true } } },
       orderBy: { vendor: { name: "asc" } },
     }),
-    prisma.aVOrder.findUnique({
-      where: { id: avOrderId },
-      select: {
-        presentation: {
-          select: {
-            speakers: {
-              include: { contact: true },
-              orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-            },
-          },
-        },
-      },
-    }),
+    getSpeakersForAVOrder(avOrderId),
   ]);
-
-  const vendors = avOrderVendors.map((av) => av.vendor);
-
-  const contacts =
-    avOrder?.presentation?.speakers.map((s) => ({
-      id: s.contact.id,
-      firstName: s.contact.firstName,
-      lastName: s.contact.lastName,
-      organization: s.contact.organization,
-    })) ?? [];
-
-  return { vendors, contacts };
+  return { vendors: avOrderVendors.map((av) => av.vendor), contacts };
 }
 
 export async function getAVOrderResponsiblePartyOptions(avOrderId: string, eventId: string): Promise<{ responsiblePartyVendors: ResponsiblePartyOptions; contacts: { id: string; firstName: string; lastName: string; organization: string | null }[] }> {
-  const [orderVendors, event, systemVendor, avOrder] = await Promise.all([
+  const [orderVendors, event, systemVendor, contacts] = await Promise.all([
     prisma.aVOrderVendor.findMany({
       where: { avOrderId },
       select: { vendor: { select: { id: true, name: true } } },
@@ -591,19 +599,7 @@ export async function getAVOrderResponsiblePartyOptions(avOrderId: string, event
       select: { venue: { select: { vendor: { select: { id: true, name: true } } } } },
     }),
     prisma.vendor.findFirst({ where: { isSystemVendor: true }, select: { id: true, name: true } }),
-    prisma.aVOrder.findUnique({
-      where: { id: avOrderId },
-      select: {
-        presentation: {
-          select: {
-            speakers: {
-              include: { contact: true },
-              orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-            },
-          },
-        },
-      },
-    }),
+    getSpeakersForAVOrder(avOrderId),
   ]);
 
   const venueVendor = event?.venue?.vendor ?? null;
@@ -612,13 +608,6 @@ export async function getAVOrderResponsiblePartyOptions(avOrderId: string, event
     ...(systemVendor ? [systemVendor.id] : []),
   ]);
   const vendors = orderVendors.map((av) => av.vendor).filter((v) => !excludeIds.has(v.id));
-
-  const contacts = avOrder?.presentation?.speakers.map((s) => ({
-    id: s.contact.id,
-    firstName: s.contact.firstName,
-    lastName: s.contact.lastName,
-    organization: s.contact.organization,
-  })) ?? [];
 
   return {
     responsiblePartyVendors: { vendors, venueVendor, systemVendor: systemVendor ?? null },

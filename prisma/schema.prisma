@@ -227,10 +227,6 @@ model Function {
   breakoutGroupId   String?
   event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   breakoutGroup     BreakoutGroup?     @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
-  avOrderId            String?
-  avOrder              AVOrder?           @relation(fields: [avOrderId], references: [id], onDelete: SetNull)
-  setupOrderId         String?
-  setupOrder           SetupOrder?        @relation(fields: [setupOrderId], references: [id], onDelete: SetNull)
   avOrderFunctions     AVOrderFunction[]
   setupOrderFunctions  SetupOrderFunction[]
   printOrderFunctions  PrintOrderFunction[]
@@ -246,7 +242,6 @@ model Function {
 
   @@index([eventId])
   @@index([breakoutGroupId])
-  @@index([setupOrderId])
 }
 
 // Schedule items for a function (setup, rehearsal, main event, etc.)
@@ -296,13 +291,10 @@ model AVOrder {
   substatus      String?
   eventId        String
   event          Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  presentationId String?       @unique
-  presentation   Presentation? @relation(fields: [presentationId], references: [id], onDelete: SetNull)
   copiedFromId   String?
   copiedFrom     AVOrder?      @relation("AVOrderCopies", fields: [copiedFromId], references: [id], onDelete: SetNull)
   copies         AVOrder[]     @relation("AVOrderCopies")
   notes          String?
-  functions      Function[]
   functionLinks  AVOrderFunction[]
   presentationLinks AVOrderPresentation[]
   audioSection   AudioSection?
@@ -441,10 +433,7 @@ model SetupOrder {
   event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   roomId         String?
   room           Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  functions      Function[]
   functionLinks  SetupOrderFunction[]
-  presentationId String?       @unique
-  presentation   Presentation? @relation(fields: [presentationId], references: [id], onDelete: SetNull)
   presentationLinks SetupOrderPresentation[]
   notes          String?
   tables         SetupTable[]
@@ -634,8 +623,6 @@ model Presentation {
   event           Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
   speakers        PresentationContact[]
   slots           PresentationSlot[]
-  avOrder         AVOrder?
-  setupOrder      SetupOrder?
   avOrderLinks    AVOrderPresentation[]
   setupOrderLinks SetupOrderPresentation[]
   printOrder      PrintOrder?
