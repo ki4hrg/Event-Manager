@@ -1103,15 +1103,18 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
   if (equipmentByCategory.length > 0) sectionLinks.push({ id: "equipment-summary", label: "Equipment" });
   if (hasUnscheduled) sectionLinks.push({ id: "unscheduled", label: "Unscheduled" });
 
-  const itemLinks: { id: string; label: string }[] = allGroups.map((item) =>
-    item.type === "function"
-      ? { id: `function-${item.group.fn.id}`, label: item.group.fn.name }
-      : { id: `presentation-${item.group.presentation.id}`, label: item.group.presentation.title }
-  );
+  const functionLinks = groups.map((g) => ({ id: `function-${g.fn.id}`, label: g.fn.name }));
+  const presentationLinks = presentationGroups.map((g) => ({ id: `presentation-${g.presentation.id}`, label: g.presentation.title }));
 
   return (
     <div className="space-y-6 print:space-y-0">
-      <ReportNav sections={sectionLinks} items={itemLinks} />
+      <ReportNav
+        sections={sectionLinks}
+        itemGroups={[
+          { label: "Functions", links: functionLinks },
+          { label: "Presentations", links: presentationLinks },
+        ]}
+      />
 
       <div className={sectionCard}>
         <div className="mb-4">

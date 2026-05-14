@@ -1,16 +1,24 @@
 type ReportNavLink = { id: string; label: string };
 
+export type ReportNavItemGroup = {
+  label: string;
+  links: ReportNavLink[];
+};
+
 type ReportNavProps = {
   links?: ReportNavLink[];
   sections?: ReportNavLink[];
   items?: ReportNavLink[];
   itemsLabel?: string;
+  itemGroups?: ReportNavItemGroup[];
 };
 
-export function ReportNav({ links, sections, items, itemsLabel = "Functions & Presentations" }: ReportNavProps) {
+export function ReportNav({ links, sections, items, itemsLabel = "Functions & Presentations", itemGroups }: ReportNavProps) {
   const sectionLinks = sections ?? links ?? [];
-  const itemLinks = items ?? [];
-  if (sectionLinks.length === 0 && itemLinks.length === 0) return null;
+  const groups: ReportNavItemGroup[] =
+    itemGroups ?? (items && items.length > 0 ? [{ label: itemsLabel, links: items }] : []);
+  const hasItems = groups.some((g) => g.links.length > 0);
+  if (sectionLinks.length === 0 && !hasItems) return null;
 
   return (
     <nav
@@ -24,19 +32,21 @@ export function ReportNav({ links, sections, items, itemsLabel = "Functions & Pr
             {link.label}
           </a>
         ))}
-        {itemLinks.length > 0 && (
-          <details className="group">
-            <summary className="cursor-pointer list-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 marker:hidden">
-              {itemsLabel} ({itemLinks.length}) <span className="inline-block transition-transform group-open:rotate-180">▾</span>
-            </summary>
-            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-baseline gap-x-3 gap-y-1 max-h-40 overflow-y-auto">
-              {itemLinks.map((link) => (
-                <a key={link.id} href={`#${link.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
-                  {link.label}
-                </a>
-              ))}
-            </div>
-          </details>
+        {groups.map((group) =>
+          group.links.length === 0 ? null : (
+            <details key={group.label} className="group">
+              <summary className="cursor-pointer list-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 marker:hidden">
+                {group.label} ({group.links.length}) <span className="inline-block transition-transform group-open:rotate-180">▾</span>
+              </summary>
+              <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-baseline gap-x-3 gap-y-1 max-h-40 overflow-y-auto">
+                {group.links.map((link) => (
+                  <a key={link.id} href={`#${link.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </details>
+          )
         )}
       </div>
     </nav>
