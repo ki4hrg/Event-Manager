@@ -212,7 +212,7 @@ function SidebarInner({
             return (
               <div
                 key={idx}
-                className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 select-none"
+                className="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 select-none"
               >
                 {item.label}
               </div>
