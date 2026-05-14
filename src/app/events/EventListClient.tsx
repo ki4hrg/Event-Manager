@@ -30,7 +30,7 @@ export function EventListClient({ events }: { events: EventItem[] }) {
               type="checkbox"
               checked={hideCompleted}
               onChange={(e) => setHideCompleted(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
             />
             Hide completed events ({completedCount})
           </label>
@@ -64,7 +64,7 @@ export function EventListClient({ events }: { events: EventItem[] }) {
                   <td className="px-6 py-4">
                     <Link
                       href={`/events/${event.id}`}
-                      className="text-blue-600 hover:underline font-medium"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
                       {event.name}
                     </Link>

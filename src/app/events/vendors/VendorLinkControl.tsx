@@ -141,7 +141,7 @@ export function VendorLinkControl(props: VendorLinkControlProps) {
         <button
           type="button"
           onClick={() => setShowLinkForm(true)}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
           {assignedVendors.length === 0 ? "Add vendor" : "Add another vendor"}
         </button>

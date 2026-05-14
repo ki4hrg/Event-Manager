@@ -25,7 +25,7 @@ export default async function EventsPage() {
       {events.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
           No events yet.{" "}
-          <Link href="/events/new" className="text-blue-600 hover:underline">
+          <Link href="/events/new" className="text-blue-600 dark:text-blue-400 hover:underline">
             Create your first event
           </Link>
         </p>

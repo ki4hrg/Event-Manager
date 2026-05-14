@@ -103,7 +103,7 @@ function ChecklistItemRow({
         <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
       </div>
       <div className="flex items-center gap-2">
-        <button onClick={() => setEditing(true)} className="text-blue-600 hover:underline text-xs">
+        <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
           Edit
         </button>
         <button
@@ -204,7 +204,7 @@ function StepRow({
               </button>
               <button
                 onClick={() => setEditing(true)}
-                className="text-blue-600 hover:underline text-sm"
+                className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
               >
                 Edit
               </button>
@@ -513,7 +513,7 @@ export function WorkflowEditor({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setEditingName(true)}
-                className="text-blue-600 hover:underline text-sm"
+                className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
               >
                 Edit
               </button>

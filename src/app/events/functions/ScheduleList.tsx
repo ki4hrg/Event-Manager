@@ -155,7 +155,7 @@ export function ScheduleList({
       {scheduleTypes.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           No schedule types defined.{" "}
-          <a href="/settings" className="text-blue-600 hover:underline">
+          <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
             Add types in Settings
           </a>
         </p>
@@ -245,7 +245,7 @@ export function ScheduleList({
                   type="checkbox"
                   name="isPublic"
                   value="true"
-                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Public</span>
               </label>
@@ -373,7 +373,7 @@ export function ScheduleList({
                         name="isPublic"
                         value="true"
                         defaultChecked={schedule.isPublic}
-                        className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                       />
                       <span className="text-sm text-gray-700 dark:text-gray-300">Public</span>
                     </label>
@@ -426,7 +426,7 @@ export function ScheduleList({
                   <div className="flex items-center gap-2 ml-2">
                     <button
                       onClick={() => setEditingId(schedule.id)}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                     >
                       Edit
                     </button>

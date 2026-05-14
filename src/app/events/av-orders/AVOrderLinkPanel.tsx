@@ -61,7 +61,7 @@ export function AVOrderLinkPanel({
         <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <Link
             href={linkedDetailPath!}
-            className="text-blue-600 hover:underline font-medium text-sm"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
           >
             {linkedName}
           </Link>

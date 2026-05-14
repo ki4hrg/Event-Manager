@@ -342,7 +342,7 @@ export function PresentationForm({
           {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               No contacts found.{" "}
-              <a href="/contacts/new" target="_blank" className="text-blue-600 hover:underline">
+              <a href="/contacts/new" target="_blank" className="text-blue-600 dark:text-blue-400 hover:underline">
                 Create a new contact
               </a>
             </p>
@@ -388,7 +388,7 @@ export function PresentationForm({
                     name="primarySpeakerUI"
                     checked={speaker.isPrimary}
                     onChange={() => handleSetPrimary(speaker.contact.id)}
-                    className="text-blue-600"
+                    className="text-blue-600 dark:text-blue-400"
                   />
                   <span className="text-gray-600 dark:text-gray-400">Primary</span>
                 </label>

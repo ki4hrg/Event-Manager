@@ -24,7 +24,7 @@ export default async function VenuesPage() {
       {venues.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
           No venues yet.{" "}
-          <Link href="/venues/new" className="text-blue-600 hover:underline">
+          <Link href="/venues/new" className="text-blue-600 dark:text-blue-400 hover:underline">
             Create your first venue
           </Link>
         </p>
@@ -50,7 +50,7 @@ export default async function VenuesPage() {
                   <td className="px-6 py-4">
                     <Link
                       href={`/venues/${venue.id}`}
-                      className="text-blue-600 hover:underline font-medium"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
                       {venue.name}
                     </Link>

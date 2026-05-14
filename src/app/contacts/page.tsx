@@ -25,7 +25,7 @@ export default async function ContactsPage() {
       {contacts.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
           No contacts yet.{" "}
-          <Link href="/contacts/new" className="text-blue-600 hover:underline">
+          <Link href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
             Create your first contact
           </Link>
         </p>
@@ -54,7 +54,7 @@ export default async function ContactsPage() {
                   <td className="px-6 py-4">
                     <Link
                       href={`/contacts/${contact.id}`}
-                      className="text-blue-600 hover:underline font-medium"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
                       {contact.lastName}, {contact.firstName}
                     </Link>

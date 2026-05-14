@@ -87,7 +87,7 @@ export function EventForm({ event, venues, action }: EventFormProps) {
         </div>
         <button
           onClick={() => setEditing(true)}
-          className="px-3 py-1.5 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-950 shrink-0 ml-4"
+          className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-950 shrink-0 ml-4"
         >
           Edit
         </button>

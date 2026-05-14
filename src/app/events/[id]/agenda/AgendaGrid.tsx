@@ -591,7 +591,7 @@ function DraggableUnscheduledCard({
       <div>
         <Link
           href={`/events/${eventId}/functions/${fn.id}`}
-          className="text-sm font-medium text-blue-600 hover:underline"
+          className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
           onClick={(e) => { if (isDragging) e.preventDefault(); }}
         >
           {fn.name}
@@ -638,7 +638,7 @@ function SortableRoomRow({
           type="checkbox"
           checked={!isHidden}
           onChange={onToggle}
-          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
         />
         <span className={isHidden ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300"}>
           {room.name}
@@ -694,7 +694,7 @@ function RoomPanel({
             type="checkbox"
             checked={allVisible}
             onChange={(e) => onToggleAll(e.target.checked)}
-            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
           />
           Room columns
         </label>

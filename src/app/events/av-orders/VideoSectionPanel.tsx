@@ -87,7 +87,7 @@ export function VideoSectionPanel({
           {!editingNotes && (
             <button
               onClick={() => setEditingNotes(true)}
-              className="text-sm text-blue-600 hover:underline"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Edit
             </button>
@@ -350,7 +350,7 @@ function EquipmentItemRow({
             </div>
           </div>
           <div className="flex gap-2 ml-2 shrink-0">
-            <button onClick={onEdit} className="text-blue-600 hover:underline text-sm">Edit</button>
+            <button onClick={onEdit} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
             <button
               onClick={async () => {
                 if (confirm("Delete this item?")) await onDelete(item.id);

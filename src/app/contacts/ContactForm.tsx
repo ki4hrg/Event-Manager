@@ -121,7 +121,7 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
         {contactRoles.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             No roles defined.{" "}
-            <a href="/settings" className="text-blue-600 hover:underline">
+            <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
               Add roles in Settings
             </a>
           </p>
@@ -134,7 +134,7 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
                   name="roles"
                   value={option.label}
                   defaultChecked={contact?.roles.includes(option.label)}
-                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   {option.label}

@@ -120,7 +120,7 @@ function RoomRow({
         </td>
       )}
       <td className="px-6 py-4 text-right space-x-3">
-        <button onClick={onEdit} className="text-blue-600 hover:underline text-sm">
+        <button onClick={onEdit} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
           Edit
         </button>
         <button
@@ -338,7 +338,7 @@ export function RoomList({
                       <div className="flex gap-3">
                         <button
                           onClick={() => setEditingGroupId(group.id)}
-                          className="text-blue-600 hover:underline text-sm"
+                          className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                         >
                           Edit
                         </button>

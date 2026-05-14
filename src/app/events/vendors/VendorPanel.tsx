@@ -138,7 +138,7 @@ export function VendorPanel({
               {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   No vendors found.{" "}
-                  <Link href={`/events/${eventId}/vendors`} className="text-blue-600 hover:underline">
+                  <Link href={`/events/${eventId}/vendors`} className="text-blue-600 dark:text-blue-400 hover:underline">
                     Manage event vendors
                   </Link>
                 </p>
@@ -251,7 +251,7 @@ export function VendorPanel({
                   <div className="flex items-center gap-2 ml-2 shrink-0">
                     <button
                       onClick={() => handleEditStart(item)}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                     >
                       Edit
                     </button>

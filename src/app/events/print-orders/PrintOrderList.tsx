@@ -335,7 +335,7 @@ export function PrintOrderList({
                     <tr key={o.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
                       <td className="px-3 py-3 w-8"><input type="checkbox" checked={isSelected} onChange={() => toggleRow(o.id)} className="rounded" /></td>
                       <td className="px-3 py-3 font-medium">
-                        <Link href={`/events/${eventId}/print-orders/${o.id}`} className="text-blue-600 hover:underline">{o.name}</Link>
+                        <Link href={`/events/${eventId}/print-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.name}</Link>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>
                       <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>
@@ -344,13 +344,13 @@ export function PrintOrderList({
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.functions.length > 0
                           ? o.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].function.id}`} className="text-blue-600 hover:underline">{o.functions[0].function.name}</Link>
+                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.functions[0].function.name}</Link>
                             : `${o.functions.length} functions`
                           : <span className="text-orange-500">Unlinked</span>}
                       </td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.presentation
-                          ? <Link href={`/events/${eventId}/presentations/${o.presentation.id}`} className="text-blue-600 hover:underline">{o.presentation.title}</Link>
+                          ? <Link href={`/events/${eventId}/presentations/${o.presentation.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.presentation.title}</Link>
                           : "—"}
                       </td>
                     </tr>

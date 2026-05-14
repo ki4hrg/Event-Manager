@@ -62,7 +62,7 @@ export function AVOrderFunctionList({
             >
               <Link
                 href={fn.detailPath}
-                className="text-blue-600 hover:underline font-medium text-sm"
+                className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
               >
                 {fn.name}
               </Link>

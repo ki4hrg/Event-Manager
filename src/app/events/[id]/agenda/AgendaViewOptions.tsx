@@ -25,7 +25,7 @@ export function AgendaViewOptions({
           type="checkbox"
           checked={settings.showUnusedRooms}
           onChange={() => toggle("showUnusedRooms")}
-          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
         />
         Show unused rooms
       </label>
@@ -34,7 +34,7 @@ export function AgendaViewOptions({
           type="checkbox"
           checked={settings.showFullDayRooms}
           onChange={() => toggle("showFullDayRooms")}
-          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
         />
         Show full-day rooms
       </label>
@@ -43,7 +43,7 @@ export function AgendaViewOptions({
           type="checkbox"
           checked={settings.collapseEmptyHours}
           onChange={() => toggle("collapseEmptyHours")}
-          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
         />
         Collapse empty hours
       </label>

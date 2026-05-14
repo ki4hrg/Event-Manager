@@ -44,7 +44,7 @@ function ModelCheckboxes({ defaultValues = [] }: { defaultValues?: string[] }) {
               name="models"
               value={value}
               defaultChecked={defaultValues.includes(value)}
-              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
             />
             {label}
           </label>
@@ -181,12 +181,12 @@ export function KeyStaffList({
                     <button
                       type="button"
                       onClick={() => setFormView("create")}
-                      className="text-blue-600 hover:underline"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       Create new contact
                     </button>
                   ) : (
-                    <a href="/contacts/new" className="text-blue-600 hover:underline">
+                    <a href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
                       Create a new contact
                     </a>
                   )}
@@ -383,7 +383,7 @@ export function KeyStaffList({
                   <div className="flex items-center gap-2 ml-2 shrink-0">
                     <button
                       onClick={() => setEditingId(entry.id)}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                     >
                       Edit
                     </button>

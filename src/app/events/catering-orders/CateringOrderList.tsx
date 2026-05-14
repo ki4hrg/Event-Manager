@@ -304,7 +304,7 @@ export function CateringOrderList({
                     <tr key={o.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
                       <td className="px-3 py-3 w-8"><input type="checkbox" checked={isSelected} onChange={() => toggleRow(o.id)} className="rounded" /></td>
                       <td className="px-3 py-3 font-medium">
-                        <Link href={`/events/${eventId}/catering-orders/${o.id}`} className="text-blue-600 hover:underline">{o.name}</Link>
+                        <Link href={`/events/${eventId}/catering-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.name}</Link>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>
                       <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>
@@ -313,7 +313,7 @@ export function CateringOrderList({
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.guaranteeCount ?? "—"}</td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.function
-                          ? <Link href={`/events/${eventId}/functions/${o.function.id}`} className="text-blue-600 hover:underline">{o.function.name}</Link>
+                          ? <Link href={`/events/${eventId}/functions/${o.function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.function.name}</Link>
                           : <span className="text-orange-500">Unlinked</span>}
                       </td>
                     </tr>

@@ -95,7 +95,7 @@ export function PrintOrderLinkPanel({
           )}
           {linkedFunctions.map((f) => (
             <div key={f.id} className="flex items-center gap-3">
-              <Link href={f.path} className="text-sm text-blue-600 hover:underline">
+              <Link href={f.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
                 {f.name}
               </Link>
               <button
@@ -148,7 +148,7 @@ export function PrintOrderLinkPanel({
           <button
             type="button"
             onClick={() => setShowFunctionForm(true)}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
             Link to function
           </button>
@@ -161,7 +161,7 @@ export function PrintOrderLinkPanel({
 
         {linkedPresentation ? (
           <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <Link href={linkedPresentation.path} className="text-sm text-blue-600 hover:underline font-medium">
+            <Link href={linkedPresentation.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
               {linkedPresentation.title}
             </Link>
             <button
@@ -217,7 +217,7 @@ export function PrintOrderLinkPanel({
               <button
                 type="button"
                 onClick={() => setShowPresentationForm(true)}
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Link to presentation
               </button>

@@ -170,7 +170,7 @@ export function MenuSectionTable({
                       {section.responsiblePartyVendor?.name ?? "—"}
                     </span>
                     <div className="flex gap-2 ml-2 shrink-0">
-                      <button onClick={() => setEditingId(section.id)} className="text-blue-600 hover:underline text-sm">Edit</button>
+                      <button onClick={() => setEditingId(section.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                       <button
                         onClick={async () => {
                           if (confirm("Delete this menu section?")) await deleteSection(section.id);

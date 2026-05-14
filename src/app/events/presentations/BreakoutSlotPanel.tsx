@@ -218,7 +218,7 @@ export function BreakoutSlotPanel({
                 className="w-14 px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               />
               <span className="text-xs text-gray-500 dark:text-gray-400">instances</span>
-              <button type="submit" disabled={isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">Save</button>
+              <button type="submit" disabled={isPending} className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50">Save</button>
               <button type="button" onClick={() => { setEditingCount(false); setCountValue(String(instanceCount)); }} className="text-xs text-gray-500 hover:underline">Cancel</button>
             </form>
           ) : (
@@ -316,7 +316,7 @@ export function BreakoutSlotPanel({
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
                     <Link
                       href={`/events/${eventId}/functions/${slot.functionId}`}
-                      className="hover:text-blue-600 hover:underline"
+                      className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
                     >
                       {slot.function.name}
                     </Link>
@@ -333,7 +333,7 @@ export function BreakoutSlotPanel({
                 <button
                   onClick={() => startEdit(slot)}
                   disabled={isPending}
-                  className="text-blue-600 hover:underline text-sm disabled:opacity-50 shrink-0 ml-3"
+                  className="text-blue-600 dark:text-blue-400 hover:underline text-sm disabled:opacity-50 shrink-0 ml-3"
                 >
                   Edit
                 </button>
@@ -353,7 +353,7 @@ export function BreakoutSlotPanel({
             {groups.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 No breakout groups. Create groups on the{" "}
-                <Link href={`/events/${eventId}/breakout-schedule`} className="text-blue-600 hover:underline">
+                <Link href={`/events/${eventId}/breakout-schedule`} className="text-blue-600 dark:text-blue-400 hover:underline">
                   Breakout tab
                 </Link>
                 .

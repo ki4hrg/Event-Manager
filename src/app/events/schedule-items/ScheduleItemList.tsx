@@ -278,7 +278,7 @@ export function ScheduleItemList({
                     type="checkbox"
                     checked={selected.has(item.id)}
                     onChange={() => toggleRow(item.id)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0"
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 shrink-0"
                   />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -329,7 +329,7 @@ export function ScheduleItemList({
                       type="checkbox"
                       checked={allSelected}
                       onChange={toggleSelectAll}
-                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600"
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
                     />
                   </th>
                   <th className={thSortable} onClick={() => handleSort("startTime")}>
@@ -410,7 +410,7 @@ export function ScheduleItemList({
                             type="checkbox"
                             checked={selected.has(item.id)}
                             onChange={() => toggleRow(item.id)}
-                            className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600"
+                            className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
                           />
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">

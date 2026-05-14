@@ -171,7 +171,7 @@ export function EquipmentList({
                       <div className="flex gap-3">
                         <button
                           onClick={() => setEditingId(item.id)}
-                          className="text-blue-600 hover:underline text-xs"
+                          className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
                         >
                           Edit
                         </button>

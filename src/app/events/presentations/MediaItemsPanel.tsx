@@ -263,7 +263,7 @@ export function MediaItemsPanel({
                   <div className="flex gap-2 ml-2 shrink-0">
                     <button
                       onClick={() => setEditingId(item.id)}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                     >
                       Edit
                     </button>
