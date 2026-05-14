@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -74,6 +74,10 @@ export default async function FunctionPage({
 
   if (!event || !fn) {
     notFound();
+  }
+
+  if (fn.type === "BREAKOUT_BLOCK") {
+    redirect(`/events/${eventId}/breakout-schedule`);
   }
 
   // Get rooms from the event's venue

@@ -131,14 +131,18 @@ export function FunctionList({
   );
   const sortedDates = useMemo(() => Array.from(dated.keys()).sort(), [dated]);
 
-  const renderFunction = (fn: FunctionForTable) => (
+  const renderFunction = (fn: FunctionForTable) => {
+    const fnHref = fn.type === "BREAKOUT_BLOCK"
+      ? `/events/${eventId}/breakout-schedule`
+      : `/events/${eventId}/functions/${fn.id}`;
+    return (
     <div key={fn.id} className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-start gap-3 ${selected.has(fn.id) ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
       <input type="checkbox" checked={selected.has(fn.id)} onChange={() => toggleRow(fn.id)} className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0" />
       <div className="flex-1 min-w-0 flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <Link
-              href={`/events/${eventId}/functions/${fn.id}`}
+              href={fnHref}
               className="text-blue-600 dark:text-blue-400 hover:underline font-medium truncate"
             >
               {fn.name}
@@ -184,7 +188,7 @@ export function FunctionList({
           >
             Copy
           </button>
-          <Link href={`/events/${eventId}/functions/${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
+          <Link href={fnHref} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
             Edit
           </Link>
           <button
@@ -199,6 +203,7 @@ export function FunctionList({
       </div>
     </div>
   );
+  };
 
   return (
     <div>
