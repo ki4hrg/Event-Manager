@@ -10,6 +10,7 @@ export type EquipmentReportFilters = {
 
 export type EquipmentSourceRef = {
   orderId: string;
+  orderName: string;
   functionNames: string[];
   modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
   quantity: number;
@@ -48,6 +49,7 @@ type NormalizedItem = {
   attributionContactName: string | null;
   quantity: number;
   orderId: string;
+  orderName: string;
   functionNames: string[];
   modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
   scheduleWindows: { start: Date; end: Date }[];
@@ -222,6 +224,7 @@ export async function getEquipmentResponsibilityData(
         setupOrder: {
           select: {
             id: true,
+            name: true,
             functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
             presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
           },
@@ -236,23 +239,28 @@ export async function getEquipmentResponsibilityData(
     const attrVendor = item.providerVendor;
     const attrContact = item.providerContact;
     let orderId: string;
+    let orderName: string;
     let modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
     let fns: FunctionRef[];
 
     if (item.cateringOrder) {
       orderId = item.cateringOrder.id;
+      orderName = item.cateringOrder.name;
       modelType = "CATERING_ORDER";
       fns = item.cateringOrder.function ? [item.cateringOrder.function] : [];
     } else if (item.setupOrder) {
       orderId = item.setupOrder.id;
+      orderName = item.setupOrder.name ?? "";
       modelType = "SETUP_ORDER";
       fns = item.setupOrder.functions;
     } else if (item.avOrder) {
       orderId = item.avOrder.id;
+      orderName = item.avOrder.name ?? "";
       modelType = "AV_ORDER";
       fns = getAvOrderFns(item.avOrder);
     } else if (item.videoSection?.avOrder) {
       orderId = item.videoSection.avOrder.id;
+      orderName = item.videoSection.avOrder.name ?? "";
       modelType = "AV_ORDER";
       fns = getAvOrderFns(item.videoSection.avOrder);
     } else {
@@ -270,6 +278,7 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: item.quantity ?? 1,
       orderId,
+      orderName,
       modelType,
     };
     normalized.push(...expandByFunction(base, fns));
@@ -290,6 +299,7 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: item.quantity,
       orderId: avOrder.id,
+      orderName: avOrder.name ?? "",
       modelType: "AV_ORDER" as const,
     };
     normalized.push(...expandByFunction(base, getAvOrderFns(avOrder)));
@@ -310,6 +320,7 @@ export async function getEquipmentResponsibilityData(
       attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
       quantity: 1,
       orderId: avOrder.id,
+      orderName: avOrder.name ?? "",
       modelType: "AV_ORDER" as const,
     };
     normalized.push(...expandByFunction(base, getAvOrderFns(avOrder)));
@@ -324,6 +335,7 @@ export async function getEquipmentResponsibilityData(
       attributionContactId: null,
       attributionContactName: null,
       orderId: table.setupOrderId,
+      orderName: table.setupOrder.name ?? "",
       modelType: "SETUP_ORDER" as const,
     };
 
@@ -415,6 +427,7 @@ export async function getEquipmentResponsibilityData(
       windows: item.scheduleWindows,
       source: {
         orderId: item.orderId,
+        orderName: item.orderName,
         functionNames: item.functionNames,
         modelType: item.modelType,
         quantity: item.quantity,

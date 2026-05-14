@@ -9,7 +9,7 @@ function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
         <span key={`${s.orderId}-${i}`}>
           {i > 0 && ", "}
           <span className="inline-flex items-center gap-1">
-            {s.functionNames.length > 0 ? s.functionNames.join(", ") : "—"}
+            {s.orderName || "—"}
             {" "}({s.quantity}){!s.isScheduled && <span className="text-amber-600 dark:text-amber-400">†</span>}
           </span>
         </span>
