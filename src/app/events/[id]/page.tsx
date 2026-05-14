@@ -120,24 +120,26 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               {stats.functions.total}
             </p>
             <div className="space-y-1 text-sm">
-              <p
-                className={
-                  stats.functions.missingSchedule > 0
-                    ? "text-amber-600 dark:text-amber-500"
-                    : "text-gray-400 dark:text-gray-500"
-                }
-              >
-                {stats.functions.missingSchedule} missing schedule
-              </p>
-              <p
-                className={
-                  stats.functions.missingRoom > 0
-                    ? "text-amber-600 dark:text-amber-500"
-                    : "text-gray-400 dark:text-gray-500"
-                }
-              >
-                {stats.functions.missingRoom} missing room
-              </p>
+              {stats.functions.missingSchedule > 0 ? (
+                <a
+                  href={`/events/${id}/functions?schedule=none`}
+                  className="block text-amber-600 dark:text-amber-500 hover:underline"
+                >
+                  {stats.functions.missingSchedule} missing schedule
+                </a>
+              ) : (
+                <p className="text-gray-400 dark:text-gray-500">0 missing schedule</p>
+              )}
+              {stats.functions.missingRoom > 0 ? (
+                <a
+                  href={`/events/${id}/functions?room=none`}
+                  className="block text-amber-600 dark:text-amber-500 hover:underline"
+                >
+                  {stats.functions.missingRoom} missing room
+                </a>
+              ) : (
+                <p className="text-gray-400 dark:text-gray-500">0 missing room</p>
+              )}
             </div>
             <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
               <a

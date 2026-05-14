@@ -21,6 +21,7 @@ type SortField = "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 type FilterState = {
   name: string;
   status: string;
+  schedule: "" | "yes" | "no";
   dateFrom: string;
   dateTo: string;
   type: string;
@@ -33,7 +34,7 @@ type FilterState = {
 };
 
 const DEFAULT_FILTERS: FilterState = {
-  name: "", status: "", dateFrom: "", dateTo: "", type: "", room: "", contacts: "",
+  name: "", status: "", schedule: "", dateFrom: "", dateTo: "", type: "", room: "", contacts: "",
   av: "", setup: "", catering: "", workflow: "",
 };
 
@@ -45,6 +46,8 @@ type Props = {
   substatuses: CustomOption[];
   workflowSummaries: Record<string, WorkflowBadgeSummary>;
   initialStatus?: string;
+  initialSchedule?: string;
+  initialRoom?: string;
   deleteFunctions: (ids: string[]) => Promise<void>;
   bulkUpdateFunctions: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; type?: string }) => Promise<void>;
 };
@@ -81,13 +84,20 @@ export function FunctionTableView({
   substatuses,
   workflowSummaries,
   initialStatus,
+  initialSchedule,
+  initialRoom,
   deleteFunctions,
   bulkUpdateFunctions,
 }: Props) {
   const router = useRouter();
   const [sortField, setSortField] = useState<SortField>("earliestStart");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
+  const [filters, setFilters] = useState<FilterState>({
+    ...DEFAULT_FILTERS,
+    status: initialStatus ?? "",
+    schedule: initialSchedule === "yes" ? "yes" : initialSchedule === "none" ? "no" : "",
+    room: initialRoom === "none" ? "__none__" : "",
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
@@ -120,6 +130,9 @@ export function FunctionTableView({
         if (fn.status != null) return false;
       } else if (filters.status && fn.status !== filters.status) return false;
 
+      if (filters.schedule === "yes" && fn.schedules.length === 0) return false;
+      if (filters.schedule === "no" && fn.schedules.length > 0) return false;
+
       const { earliest } = scheduleBounds.get(fn.id)!;
       if (filters.dateFrom) {
         const from = new Date(filters.dateFrom + "T00:00:00");
@@ -132,7 +145,9 @@ export function FunctionTableView({
 
       if (filters.type && fn.type !== filters.type) return false;
 
-      if (filters.room && !fn.rooms.some((r) => r.room.name === filters.room)) return false;
+      if (filters.room === "__none__") {
+        if (fn.rooms.length > 0) return false;
+      } else if (filters.room && !fn.rooms.some((r) => r.room.name === filters.room)) return false;
 
       if (filters.contacts) {
         const query = filters.contacts.toLowerCase();
@@ -389,13 +404,16 @@ export function FunctionTableView({
                 </select>
               </td>
               <td className={filterCell}>
-                <input
-                  type="date"
-                  value={filters.dateFrom}
-                  onChange={(e) => setFilter("dateFrom", e.target.value)}
-                  className={filterInput}
-                  title="From date"
-                />
+                <div className="flex flex-col gap-1">
+                  <OrderFilter value={filters.schedule} onChange={(v) => setFilter("schedule", v)} className={filterInput} />
+                  <input
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(e) => setFilter("dateFrom", e.target.value)}
+                    className={filterInput}
+                    title="From date"
+                  />
+                </div>
               </td>
               <td className={filterCell}>
                 <input
@@ -426,6 +444,7 @@ export function FunctionTableView({
                   className={filterInput}
                 >
                   <option value="">All</option>
+                  <option value="__none__">(none)</option>
                   {allRooms.map((r) => (
                     <option key={r} value={r}>{r}</option>
                   ))}

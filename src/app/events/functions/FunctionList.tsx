@@ -24,6 +24,8 @@ type FunctionListProps = {
   substatuses: CustomOption[];
   workflowSummaries?: Record<string, WorkflowBadgeSummary>;
   initialStatus?: string;
+  initialSchedule?: string;
+  initialRoom?: string;
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
   deleteFunctions: (ids: string[]) => Promise<void>;
@@ -67,6 +69,8 @@ export function FunctionList({
   substatuses,
   workflowSummaries = {},
   initialStatus,
+  initialSchedule,
+  initialRoom,
   duplicateFunction,
   deleteFunction,
   deleteFunctions,
@@ -75,6 +79,12 @@ export function FunctionList({
   const router = useRouter();
   const [view, setView] = useState<"list" | "table">("list");
   const [filterStatus, setFilterStatus] = useState(initialStatus ?? "");
+  const [filterSchedule, setFilterSchedule] = useState<"" | "yes" | "none">(
+    initialSchedule === "yes" || initialSchedule === "none" ? initialSchedule : ""
+  );
+  const [filterRoom, setFilterRoom] = useState<"" | "yes" | "none">(
+    initialRoom === "yes" || initialRoom === "none" ? initialRoom : ""
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
@@ -120,10 +130,20 @@ export function FunctionList({
   );
 
   const filteredFunctions = useMemo(() => {
-    if (!filterStatus) return functions;
-    if (filterStatus === "__blank__") return functions.filter((fn) => fn.status == null);
-    return functions.filter((fn) => fn.status === filterStatus);
-  }, [functions, filterStatus]);
+    return functions.filter((fn) => {
+      if (filterStatus === "__blank__") {
+        if (fn.status != null) return false;
+      } else if (filterStatus && fn.status !== filterStatus) return false;
+
+      if (filterSchedule === "yes" && fn.schedules.length === 0) return false;
+      if (filterSchedule === "none" && fn.schedules.length > 0) return false;
+
+      if (filterRoom === "yes" && fn.rooms.length === 0) return false;
+      if (filterRoom === "none" && fn.rooms.length > 0) return false;
+
+      return true;
+    });
+  }, [functions, filterStatus, filterSchedule, filterRoom]);
 
   const { dated, unscheduled } = useMemo(
     () => groupByDate(filteredFunctions, timezone),
@@ -221,6 +241,30 @@ export function FunctionList({
               <option value="">All</option>
               <option value="__blank__">(blank)</option>
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Schedule:</span>
+            <select
+              value={filterSchedule}
+              onChange={(e) => setFilterSchedule(e.target.value as "" | "yes" | "none")}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="">All</option>
+              <option value="yes">Has</option>
+              <option value="none">Missing</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Rooms:</span>
+            <select
+              value={filterRoom}
+              onChange={(e) => setFilterRoom(e.target.value as "" | "yes" | "none")}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="">All</option>
+              <option value="yes">Has</option>
+              <option value="none">Missing</option>
             </select>
           </div>
         </div>
@@ -322,6 +366,8 @@ export function FunctionList({
           substatuses={substatuses}
           workflowSummaries={workflowSummaries}
           initialStatus={initialStatus}
+          initialSchedule={initialSchedule}
+          initialRoom={initialRoom}
           deleteFunctions={deleteFunctions}
           bulkUpdateFunctions={bulkUpdateFunctions}
         />

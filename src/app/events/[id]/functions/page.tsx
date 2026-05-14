@@ -13,10 +13,10 @@ export default async function EventFunctionsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ status?: string; schedule?: string; room?: string }>;
 }) {
   const { id } = await params;
-  const { status: initialStatus } = (await searchParams) ?? {};
+  const { status: initialStatus, schedule: initialSchedule, room: initialRoom } = (await searchParams) ?? {};
   const [event, functions, functionTypes, substatuses] = await Promise.all([
     getEvent(id),
     getFunctionsForTable(id),
@@ -79,6 +79,8 @@ export default async function EventFunctionsPage({
         substatuses={substatuses}
         workflowSummaries={workflowSummaries}
         initialStatus={initialStatus}
+        initialSchedule={initialSchedule}
+        initialRoom={initialRoom}
         duplicateFunction={duplicateFunctionAction}
         deleteFunction={deleteFunctionAction}
         deleteFunctions={deleteFunctionsAction}
