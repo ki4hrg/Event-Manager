@@ -1097,22 +1097,21 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
     ? [venue.address, ...addressParts].join(", ")
     : addressParts.join(", ");
 
-  const navLinks: { id: string; label: string }[] = [];
-  if (keyStaff.length > 0) navLinks.push({ id: "key-contacts", label: "Key Contacts" });
-  if (allGroups.length > 0) navLinks.push({ id: "function-schedule", label: "Schedule" });
-  if (equipmentByCategory.length > 0) navLinks.push({ id: "equipment-summary", label: "Equipment" });
-  for (const item of allGroups) {
-    if (item.type === "function") {
-      navLinks.push({ id: `function-${item.group.fn.id}`, label: item.group.fn.name });
-    } else {
-      navLinks.push({ id: `presentation-${item.group.presentation.id}`, label: item.group.presentation.title });
-    }
-  }
-  if (hasUnscheduled) navLinks.push({ id: "unscheduled", label: "Unscheduled" });
+  const sectionLinks: { id: string; label: string }[] = [];
+  if (keyStaff.length > 0) sectionLinks.push({ id: "key-contacts", label: "Key Contacts" });
+  if (allGroups.length > 0) sectionLinks.push({ id: "function-schedule", label: "Schedule" });
+  if (equipmentByCategory.length > 0) sectionLinks.push({ id: "equipment-summary", label: "Equipment" });
+  if (hasUnscheduled) sectionLinks.push({ id: "unscheduled", label: "Unscheduled" });
+
+  const itemLinks: { id: string; label: string }[] = allGroups.map((item) =>
+    item.type === "function"
+      ? { id: `function-${item.group.fn.id}`, label: item.group.fn.name }
+      : { id: `presentation-${item.group.presentation.id}`, label: item.group.presentation.title }
+  );
 
   return (
     <div className="space-y-6 print:space-y-0">
-      <ReportNav links={navLinks} />
+      <ReportNav sections={sectionLinks} items={itemLinks} />
 
       <div className={sectionCard}>
         <div className="mb-4">

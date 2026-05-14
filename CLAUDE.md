@@ -186,7 +186,10 @@ Every table in a report renders BOTH a mobile card layout and a desktop/print ta
 Tables with ≤ 2 simple columns (e.g. presentation time/room) may skip the mobile card if they fit naturally at 360 px. A `table-fixed` table without a mobile card variant is wrong on mobile — `overflow-x-auto` does nothing because the table never exceeds the viewport width.
 
 ### Required: nav, anchors, section dividers
-- Render `<ReportNav links={...} />` from `src/components/ReportNav.tsx` as the first child of the report body. It's `sticky top-2 z-10` with `id="top"`, so every section divider can link back to it
+- Render `<ReportNav sections={[...]} items={[...]} />` from `src/components/ReportNav.tsx` as the first child of the report body. It's `sticky top-2 z-10` with `id="top"`, so every section divider can link back to it
+- `sections` are top-level anchors (Key Contacts, Schedule, Equipment, Unscheduled) — always visible inline
+- `items` are per-entity anchors (per-function, per-presentation, per-vendor) — collapsed by default behind a `<details>` toggle so the nav stays compact when entity count is high. Pass `itemsLabel` to customize the toggle text (defaults to "Functions & Presentations")
+- The legacy `links={[...]}` prop is still accepted and behaves as `sections` for reports without per-entity anchors
 - Use `<SectionDivider id="..." title="..." />` from `src/components/SectionDivider.tsx` to group logical regions (Summary, Details, Unscheduled, etc.). Each divider includes a `↑ Top` link automatically
 - Every anchored card must include `scroll-mt-24` so jumped-to sections land below the sticky nav rather than under it
 

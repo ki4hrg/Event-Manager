@@ -258,20 +258,45 @@ export async function getEventVendorsForPicker(eventId: string) {
 
 // Search among vendors assigned to the event (for entity-level vendor pickers).
 // When modelType is provided, only returns vendors with that model or no models (general-purpose).
+// Also includes the venue vendor and system (event team) vendor when they match the query,
+// since those are valid order vendors even when not registered via EventVendor.
 export async function searchAssignedEventVendors(query: string, eventId: string, modelType?: ModelType) {
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
-  const rows = await prisma.eventVendor.findMany({
-    where: {
-      eventId,
-      vendor: { name: { contains: query, mode: "insensitive" }, ...modelFilter },
-    },
-    include: { vendor: true },
-    orderBy: { vendor: { name: "asc" } },
-    take: 20,
-  });
-  return rows.map((r) => r.vendor);
+  const [rows, event, systemVendor] = await Promise.all([
+    prisma.eventVendor.findMany({
+      where: {
+        eventId,
+        vendor: { name: { contains: query, mode: "insensitive" }, ...modelFilter },
+      },
+      include: { vendor: true },
+      orderBy: { vendor: { name: "asc" } },
+      take: 20,
+    }),
+    prisma.event.findUnique({
+      where: { id: eventId },
+      select: { venue: { select: { vendor: true } } },
+    }),
+    prisma.vendor.findFirst({ where: { isSystemVendor: true } }),
+  ]);
+
+  const results = rows.map((r) => r.vendor);
+  const seen = new Set(results.map((v) => v.id));
+  const q = query.toLowerCase();
+  const matchesQuery = (v: { name: string } | null | undefined) =>
+    !!v && (q === "" || v.name.toLowerCase().includes(q));
+
+  const venueVendor = event?.venue?.vendor;
+  if (venueVendor && !seen.has(venueVendor.id) && matchesQuery(venueVendor)) {
+    results.push(venueVendor);
+    seen.add(venueVendor.id);
+  }
+  if (systemVendor && !seen.has(systemVendor.id) && matchesQuery(systemVendor)) {
+    results.push(systemVendor);
+  }
+
+  return results.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // AV Order vendors

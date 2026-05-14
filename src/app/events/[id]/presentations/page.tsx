@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import type { EntityStatus } from "@prisma/client";
 import { getEvent } from "../../actions";
 import {
   getPresentations,
@@ -10,10 +10,12 @@ import {
   deleteTrack,
   duplicatePresentation,
   deletePresentation,
+  deletePresentations,
+  bulkUpdatePresentations,
 } from "../../presentations/actions";
 import { PresentationList } from "../../presentations/PresentationList";
 import { TrackPanel } from "../../presentations/TrackPanel";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +28,12 @@ export default async function PresentationsPage({
 }) {
   const { id: eventId } = await params;
   const { status: initialStatus } = (await searchParams) ?? {};
-  const [event, presentations, tracks, presentationTypes] = await Promise.all([
+  const [event, presentations, tracks, presentationTypes, substatuses] = await Promise.all([
     getEvent(eventId),
     getPresentations(eventId),
     getTracks(eventId),
     getOptions("presentation_type"),
+    getSubstatusOptions(),
   ]);
 
   if (!event) {
@@ -62,21 +65,26 @@ export default async function PresentationsPage({
     await deletePresentation(presentationId, eventId);
   };
 
+  const deletePresentationsAction = async (ids: string[]) => {
+    "use server";
+    await deletePresentations(ids, eventId);
+  };
+
+  const bulkUpdatePresentationsAction = async (
+    ids: string[],
+    updates: { status?: EntityStatus; substatus?: string | null; trackId?: string | null; type?: string }
+  ) => {
+    "use server";
+    await bulkUpdatePresentations(ids, eventId, updates);
+  };
+
   return (
     <>
       <div className="mb-4">
         <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "Presentations" }]} />
-        <div className="flex items-center justify-between mt-1">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            {event.name}
-          </h1>
-          <Link
-            href={`/events/${eventId}/presentations/import`}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Import from CSV
-          </Link>
-        </div>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+          {event.name}
+        </h1>
       </div>
 
 
@@ -92,9 +100,12 @@ export default async function PresentationsPage({
         eventId={eventId}
         tracks={tracks}
         presentationTypes={presentationTypes}
+        substatuses={substatuses}
         initialStatus={initialStatus}
         duplicatePresentation={duplicatePresentationAction}
         deletePresentation={deletePresentationAction}
+        deletePresentations={deletePresentationsAction}
+        bulkUpdatePresentations={bulkUpdatePresentationsAction}
       />
     </>
   );

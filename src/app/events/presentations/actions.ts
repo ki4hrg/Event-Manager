@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { EntityStatus } from "@prisma/client";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
@@ -209,6 +210,29 @@ export async function deletePresentation(id: string, eventId: string) {
   await prisma.presentation.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations`);
+}
+
+export async function deletePresentations(ids: string[], eventId: string) {
+  await prisma.presentation.deleteMany({ where: { id: { in: ids }, eventId } });
+  revalidatePath(`/events/${eventId}/presentations`);
+}
+
+export async function bulkUpdatePresentations(
+  ids: string[],
+  eventId: string,
+  updates: { status?: EntityStatus; substatus?: string | null; trackId?: string | null; type?: string }
+) {
+  const { status, substatus, trackId, type } = updates;
+  await prisma.presentation.updateMany({
+    where: { id: { in: ids }, eventId },
+    data: {
+      ...(status !== undefined ? { status } : {}),
+      ...(substatus !== undefined ? { substatus } : {}),
+      ...(trackId !== undefined ? { trackId } : {}),
+      ...(type !== undefined ? { type } : {}),
+    },
+  });
+  revalidatePath(`/events/${eventId}/presentations`);
 }
 
 export async function duplicatePresentation(id: string, eventId: string) {

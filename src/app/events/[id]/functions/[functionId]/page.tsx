@@ -241,6 +241,7 @@ export default async function FunctionPage({
           <Breadcrumbs items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
+            { label: "Functions", href: `/events/${eventId}/functions` },
             { label: fn.name },
           ]} />
           <div className="flex items-center gap-3 mt-1">

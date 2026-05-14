@@ -62,7 +62,7 @@ export default async function EventFunctionsPage({
           <Breadcrumbs items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${id}` },
-            { label: "Function List" },
+            { label: "Functions" },
           ]} />
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
             {event.name}
