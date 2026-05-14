@@ -4,17 +4,14 @@ import { EmptyState } from "@/components/EmptyState";
 
 function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
   return (
-    <span className="text-gray-600 dark:text-gray-400 text-sm">
+    <div className="text-gray-600 dark:text-gray-400 text-sm space-y-0.5">
       {sources.map((s, i) => (
-        <span key={`${s.orderId}-${i}`}>
-          {i > 0 && ", "}
-          <span className="inline-flex items-center gap-1">
-            {s.orderName || "—"}
-            {" "}({s.quantity}){!s.isScheduled && <span className="text-amber-600 dark:text-amber-400">†</span>}
-          </span>
-        </span>
+        <div key={`${s.orderId}-${i}`} className="flex items-baseline gap-1">
+          <span>{s.orderName || "—"} ({s.quantity})</span>
+          {!s.isScheduled && <span className="text-amber-600 dark:text-amber-400">†</span>}
+        </div>
       ))}
-    </span>
+    </div>
   );
 }
 
