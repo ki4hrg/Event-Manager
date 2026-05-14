@@ -26,6 +26,14 @@ const STATUS_ROWS: { key: StatusKey; label: string; badgeClass: string; urlParam
   },
 ];
 
+const ACCENT_BORDER: Record<StatusKey, string> = {
+  PENDING: "border-red-200 dark:border-red-900",
+  IN_PROGRESS: "border-yellow-200 dark:border-yellow-900",
+  COMPLETE: "border-green-200 dark:border-green-900",
+  CANCELLED: "border-gray-200 dark:border-gray-700",
+  noStatus: "border-gray-200 dark:border-gray-700",
+};
+
 export function StatusSummaryCard({ groups }: { groups: EntityGroup[] }) {
   const [expanded, setExpanded] = useState<StatusKey | null>(null);
 
@@ -36,7 +44,7 @@ export function StatusSummaryCard({ groups }: { groups: EntityGroup[] }) {
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {STATUS_ROWS.map(({ key, label, badgeClass, urlParam }) => {
         const total = groups.reduce((sum, g) => sum + g.counts[key], 0);
         if (total === 0) return null;
@@ -45,41 +53,51 @@ export function StatusSummaryCard({ groups }: { groups: EntityGroup[] }) {
         const typeRows = groups.filter((g) => g.counts[key] > 0);
 
         return (
-          <div key={key}>
+          <div
+            key={key}
+            className={`rounded-md transition-colors duration-150 ${isExpanded ? "bg-gray-50 dark:bg-gray-800/50" : ""}`}
+          >
             <button
               onClick={() => setExpanded(isExpanded ? null : key)}
-              className="w-full flex items-center justify-between text-sm hover:bg-gray-50 dark:hover:bg-gray-700 rounded px-1 py-0.5 -mx-1"
+              className={`w-full flex items-center justify-between text-sm px-2 py-1.5 rounded-md transition-colors duration-150 ${!isExpanded ? "hover:bg-gray-50 dark:hover:bg-gray-800/50" : ""}`}
             >
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${badgeClass}`}>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
                 {label}
               </span>
-              <div className="flex items-center gap-1">
-                <span className="font-medium text-gray-900 dark:text-white">{total}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-900 dark:text-white tabular-nums">{total}</span>
                 <svg
-                  className={`w-3 h-3 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
+                  strokeWidth={2.5}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
             </button>
-            {isExpanded && (
-              <div className="mt-1 ml-2 mb-1 space-y-1">
-                {typeRows.map((g) => (
-                  <div key={g.label} className="flex items-center justify-between text-xs">
-                    <a
-                      href={`${g.basePath}?status=${urlParam}`}
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      {g.label}
-                    </a>
-                    <span className="text-gray-600 dark:text-gray-400">{g.counts[key]}</span>
-                  </div>
-                ))}
+            <div
+              className={`grid transition-all duration-200 ease-in-out ${isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+            >
+              <div className="overflow-hidden">
+                <div className={`mx-2 mb-2 pl-3 border-l-2 ${ACCENT_BORDER[key]} space-y-0.5`}>
+                  {typeRows.map((g) => (
+                    <div key={g.label} className="flex items-center justify-between py-0.5">
+                      <a
+                        href={`${g.basePath}?status=${urlParam}`}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
+                      >
+                        {g.label}
+                      </a>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums font-medium">
+                        {g.counts[key]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            )}
+            </div>
           </div>
         );
       })}

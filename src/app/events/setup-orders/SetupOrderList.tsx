@@ -150,9 +150,21 @@ export function SetupOrderList({
       <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
         <div className="flex items-center gap-3 min-w-0">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {setupOrders.length} setup order{setupOrders.length !== 1 ? "s" : ""}
+            {sorted.length}{sorted.length !== setupOrders.length ? ` of ${setupOrders.length}` : ""} setup order{setupOrders.length !== 1 ? "s" : ""}
           </p>
           <ViewToggle view={view} onChange={setView} />
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Status:</span>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilter("status", e.target.value)}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="">All</option>
+              <option value="__blank__">(blank)</option>
+              {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
         </div>
         <div className="flex gap-2 shrink-0">
           <a
@@ -180,7 +192,7 @@ export function SetupOrderList({
         </div>
       ) : view === "list" ? (
         <div className="space-y-2">
-          {setupOrders.map((so) => {
+          {sorted.map((so) => {
             const displayName = getSetupOrderDisplayName(so);
             return (
               <div

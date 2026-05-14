@@ -162,15 +162,18 @@ export function FunctionList({
             Functions ({filteredFunctions.length}{filteredFunctions.length !== functions.length ? ` of ${functions.length}` : ""})
           </h2>
           <ViewToggle view={view} onChange={setView} />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
-            <option value="">All statuses</option>
-            <option value="__blank__">(blank)</option>
-            {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Status:</span>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="">All</option>
+              <option value="__blank__">(blank)</option>
+              {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
         </div>
         <div className="flex gap-2">
           <a
