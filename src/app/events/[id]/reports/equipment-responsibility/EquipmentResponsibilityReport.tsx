@@ -2,12 +2,19 @@ import type { ResponsiblePartyGroup, EquipmentReportRow, EquipmentSourceRef } fr
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { EmptyState } from "@/components/EmptyState";
 
+function sourceLabel(s: EquipmentSourceRef): string {
+  if (s.functionType === "BREAKOUT_BLOCK") {
+    return s.functionGroupName ? `Breakout: ${s.functionGroupName}` : "Breakout";
+  }
+  return s.functionType || s.orderName || "—";
+}
+
 function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
   return (
     <div className="text-gray-600 dark:text-gray-400 text-sm space-y-0.5">
       {sources.map((s, i) => (
         <div key={`${s.orderId}-${i}`} className="flex items-baseline gap-1">
-          <span>{s.orderName || "—"} ({s.quantity})</span>
+          <span>{sourceLabel(s)} ({s.quantity})</span>
           {!s.isScheduled && <span className="text-amber-600 dark:text-amber-400">†</span>}
         </div>
       ))}

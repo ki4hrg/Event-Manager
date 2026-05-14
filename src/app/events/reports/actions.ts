@@ -11,6 +11,8 @@ export type EquipmentReportFilters = {
 export type EquipmentSourceRef = {
   orderId: string;
   orderName: string;
+  functionType: string;
+  functionGroupName: string | null;
   functionNames: string[];
   modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
   quantity: number;
@@ -50,6 +52,8 @@ type NormalizedItem = {
   quantity: number;
   orderId: string;
   orderName: string;
+  functionType: string;
+  functionGroupName: string | null;
   functionNames: string[];
   modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
   scheduleWindows: { start: Date; end: Date }[];
@@ -63,7 +67,12 @@ function extractWindows(
   );
 }
 
-type FunctionRef = { name: string; schedules: { startTime: Date; endTime: Date }[] };
+type FunctionRef = {
+  name: string;
+  type: string;
+  breakoutGroup: { name: string } | null;
+  schedules: { startTime: Date; endTime: Date }[];
+};
 
 type AvOrderRef = {
   functions: FunctionRef[];
@@ -80,11 +89,17 @@ function getAvOrderFns(avOrder: AvOrderRef): FunctionRef[] {
 // use of the equipment — contributing to both total qty and peak scheduling.
 // If no functions are linked, falls back to one unscheduled item.
 function expandByFunction(
-  base: Omit<NormalizedItem, "functionNames" | "scheduleWindows">,
+  base: Omit<NormalizedItem, "functionType" | "functionGroupName" | "functionNames" | "scheduleWindows">,
   fns: FunctionRef[]
 ): NormalizedItem[] {
-  if (fns.length === 0) return [{ ...base, functionNames: [], scheduleWindows: [] }];
-  return fns.map((fn) => ({ ...base, functionNames: [fn.name], scheduleWindows: extractWindows([fn]) }));
+  if (fns.length === 0) return [{ ...base, functionType: "", functionGroupName: null, functionNames: [], scheduleWindows: [] }];
+  return fns.map((fn) => ({
+    ...base,
+    functionType: fn.type,
+    functionGroupName: fn.breakoutGroup?.name ?? null,
+    functionNames: [fn.name],
+    scheduleWindows: extractWindows([fn]),
+  }));
 }
 
 function calculatePeak(
@@ -141,22 +156,22 @@ export async function getEquipmentResponsibilityData(
           select: {
             id: true,
             name: true,
-            function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
+            function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
           },
         },
         setupOrder: {
           select: {
             id: true,
             name: true,
-            functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
+            functions: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
           },
         },
         avOrder: {
           select: {
             id: true,
             name: true,
-            functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
-            presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
+            functions: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
+            presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } },
           },
         },
         videoSection: {
@@ -165,8 +180,8 @@ export async function getEquipmentResponsibilityData(
               select: {
                 id: true,
                 name: true,
-                functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
-                presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
+                functions: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
+                presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } },
               },
             },
           },
@@ -187,8 +202,8 @@ export async function getEquipmentResponsibilityData(
                   select: {
                     id: true,
                     name: true,
-                    functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
-                    presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
+                    functions: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
+                    presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } },
                   },
                 },
               },
@@ -209,8 +224,8 @@ export async function getEquipmentResponsibilityData(
               select: {
                 id: true,
                 name: true,
-                functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
-                presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
+                functions: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
+                presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } },
               },
             },
           },
@@ -225,8 +240,8 @@ export async function getEquipmentResponsibilityData(
           select: {
             id: true,
             name: true,
-            functions: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } },
-            presentation: { select: { slots: { select: { function: { select: { name: true, schedules: { select: { startTime: true, endTime: true } } } } } } } },
+            functions: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
+            presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } },
           },
         },
       },
@@ -428,6 +443,8 @@ export async function getEquipmentResponsibilityData(
       source: {
         orderId: item.orderId,
         orderName: item.orderName,
+        functionType: item.functionType,
+        functionGroupName: item.functionGroupName,
         functionNames: item.functionNames,
         modelType: item.modelType,
         quantity: item.quantity,
@@ -442,7 +459,7 @@ export async function getEquipmentResponsibilityData(
 
     for (const eqData of Array.from(partyData.equipmentMap.values())) {
       // Two groupings from the same pass:
-      // - displayMap (by orderId): sum qty for display, merge function names
+      // - displayMap (by function type+group): sum qty per type/track for display
       // - peakMap (by orderId+functionSlot): sum concurrent items within the same
       //   order+function (e.g. Secretary Mic + Bishop Mic both active at Plenary 1),
       //   then sweep-line across slots for true peak
@@ -461,10 +478,15 @@ export async function getEquipmentResponsibilityData(
       for (const s of eqData.sources) {
         totalQuantity += s.quantity;
 
-        // Display grouping by orderId
-        const disp = displayMap.get(s.source.orderId);
+        // Display grouping by function type + breakout group; fall back to orderId for untyped functions
+        const displayKey = s.source.functionType === "BREAKOUT_BLOCK"
+          ? `breakout::${s.source.functionGroupName ?? ""}`
+          : s.source.functionType
+            ? `type::${s.source.functionType}`
+            : `order::${s.source.orderId}`;
+        const disp = displayMap.get(displayKey);
         if (!disp) {
-          displayMap.set(s.source.orderId, {
+          displayMap.set(displayKey, {
             displayQty: s.quantity,
             isScheduled: s.source.isScheduled,
             source: { ...s.source },
@@ -472,11 +494,6 @@ export async function getEquipmentResponsibilityData(
         } else {
           disp.displayQty += s.quantity;
           disp.isScheduled = disp.isScheduled || s.source.isScheduled;
-          for (const fn of s.source.functionNames) {
-            if (!disp.source.functionNames.includes(fn)) {
-              disp.source.functionNames.push(fn);
-            }
-          }
         }
 
         // Peak grouping by (orderId, functionSlot): items from the same order running
