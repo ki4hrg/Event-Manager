@@ -401,7 +401,6 @@ export default async function AVOrderPage({
             cancel={cancelAction}
             restore={restoreAction}
             deleteAction={deleteAVOrderAction}
-            confirmMessage="Are you sure you want to delete this AV Order?"
           />
         </div>
       </div>

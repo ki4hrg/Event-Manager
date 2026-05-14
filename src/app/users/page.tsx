@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { getUsers } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -9,17 +11,14 @@ export default async function UsersPage() {
 
   return (
     <PageWrapper>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          Users
-        </h1>
-        <Link
-          href="/users/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          New User
-        </Link>
-      </div>
+      <PageHeader
+        title="Users"
+        actions={
+          <Link href="/users/new" className={btnPrimary}>
+            New User
+          </Link>
+        }
+      />
 
       {users.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">

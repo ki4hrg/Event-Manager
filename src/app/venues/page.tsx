@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { getVenues } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -9,17 +11,14 @@ export default async function VenuesPage() {
 
   return (
     <PageWrapper>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          Venues
-        </h1>
-        <Link
-          href="/venues/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          New Venue
-        </Link>
-      </div>
+      <PageHeader
+        title="Venues"
+        actions={
+          <Link href="/venues/new" className={btnPrimary}>
+            New Venue
+          </Link>
+        }
+      />
 
       {venues.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">

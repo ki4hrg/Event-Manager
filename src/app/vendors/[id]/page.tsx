@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageWrapper } from "@/components/PageWrapper";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import {
@@ -73,32 +73,23 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
         <Toast />
       </Suspense>
 
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <Breadcrumbs items={[{ label: "Vendors", href: "/vendors" }, { label: vendor.name }]} />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {vendor.name}
-          </h1>
-          {vendor.models.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {vendor.models.map((model) => (
-                <span
-                  key={model}
-                  className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
-                >
-                  {MODEL_LABELS[model] || model}
-                </span>
-              ))}
-            </div>
-          )}
+      <PageHeader
+        breadcrumbs={[{ label: "Vendors", href: "/vendors" }, { label: vendor.name }]}
+        title={vendor.name}
+        actions={!vendor.isSystemVendor ? <DeleteButton action={deleteVendorAction} /> : undefined}
+      />
+      {vendor.models.length > 0 && (
+        <div className="flex flex-wrap gap-1 -mt-4 mb-6">
+          {vendor.models.map((model) => (
+            <span
+              key={model}
+              className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
+            >
+              {MODEL_LABELS[model] || model}
+            </span>
+          ))}
         </div>
-        {!vendor.isSystemVendor && (
-          <DeleteButton
-            action={deleteVendorAction}
-            confirmMessage="Are you sure you want to delete this vendor?"
-          />
-        )}
-      </div>
+      )}
 
       {vendor.isSystemVendor ? (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 max-w-lg">

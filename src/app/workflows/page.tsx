@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { requireAdmin } from "@/lib/auth";
 import { getWorkflowTemplates } from "./actions";
 
@@ -11,25 +14,18 @@ export default async function WorkflowsPage() {
 
   return (
     <PageWrapper>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Workflows</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Define reusable workflow templates with sequential steps and checklist items
-          </p>
-        </div>
-        <Link
-          href="/workflows/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Create Workflow
-        </Link>
-      </div>
+      <PageHeader
+        title="Workflows"
+        description="Define reusable workflow templates with sequential steps and checklist items"
+        actions={
+          <Link href="/workflows/new" className={btnPrimary}>
+            Create Workflow
+          </Link>
+        }
+      />
 
       {templates.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">No workflow templates yet.</p>
-        </div>
+        <EmptyState message="No workflow templates yet." />
       ) : (
         <div className="space-y-3">
           {templates.map((template) => (

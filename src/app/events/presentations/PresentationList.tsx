@@ -5,6 +5,7 @@ import Link from "next/link";
 import { colorClasses } from "@/lib/colors";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
+import { EmptyState } from "@/components/EmptyState";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import type {
   Presentation,
@@ -110,11 +111,7 @@ export function PresentationList({
       </div>
 
       {presentations.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">
-            No presentations yet. Add your first presentation to get started.
-          </p>
-        </div>
+        <EmptyState message="No presentations yet. Add your first presentation to get started." />
       ) : (
         <div className="space-y-8">
           {sortedTrackIds.map((trackId) => {

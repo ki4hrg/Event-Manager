@@ -235,7 +235,6 @@ export default async function PrintOrderPage({
           cancel={cancelAction}
           restore={restoreAction}
           deleteAction={deletePrintOrderAction}
-          confirmMessage="Are you sure you want to delete this Print Order?"
         />
       </div>
 

@@ -297,7 +297,6 @@ export default async function SetupOrderPage({
             cancel={cancelAction}
             restore={restoreAction}
             deleteAction={deleteSetupOrderAction}
-            confirmMessage="Are you sure you want to delete this Setup Order?"
           />
         </div>
       </div>

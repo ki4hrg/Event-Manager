@@ -83,7 +83,6 @@ export function UserForm({ user, saveAction, deleteAction, currentUserId }: User
             {deleteAction && !isSelf && (
               <DeleteButton
                 action={deleteAction}
-                confirmMessage="Are you sure you want to delete this user?"
               />
             )}
           </div>

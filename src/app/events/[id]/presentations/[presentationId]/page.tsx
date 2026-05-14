@@ -310,7 +310,6 @@ export default async function PresentationPage({
             cancel={cancelAction}
             restore={restoreAction}
             deleteAction={deletePresentationAction}
-            confirmMessage="Are you sure you want to delete this presentation?"
           />
         </div>
       </div>

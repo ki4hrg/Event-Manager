@@ -356,7 +356,6 @@ export default async function CateringOrderPage({
             cancel={cancelAction}
             restore={restoreAction}
             deleteAction={deleteCateringOrderAction}
-            confirmMessage="Are you sure you want to delete this Catering Order?"
           />
         </div>
       </div>

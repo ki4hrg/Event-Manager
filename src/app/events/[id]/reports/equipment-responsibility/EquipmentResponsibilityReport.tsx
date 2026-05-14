@@ -1,5 +1,6 @@
 import type { ResponsiblePartyGroup, EquipmentReportRow, EquipmentSourceRef } from "@/app/events/reports/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
+import { EmptyState } from "@/components/EmptyState";
 
 function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
   return (
@@ -95,9 +96,7 @@ type EquipmentResponsibilityReportProps = {
 export function EquipmentResponsibilityReport({ groups }: EquipmentResponsibilityReportProps) {
   if (groups.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center text-gray-500 dark:text-gray-400">
-        No equipment items found for the selected filters.
-      </div>
+      <EmptyState message="No equipment items found for the selected filters." />
     );
   }
 

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { getContacts } from "./actions";
 import { formatPhone } from "@/lib/format-phone";
 
@@ -10,17 +12,14 @@ export default async function ContactsPage() {
 
   return (
     <PageWrapper>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          Contacts
-        </h1>
-        <Link
-          href="/contacts/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          New Contact
-        </Link>
-      </div>
+      <PageHeader
+        title="Contacts"
+        actions={
+          <Link href="/contacts/new" className={btnPrimary}>
+            New Contact
+          </Link>
+        }
+      />
 
       {contacts.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">

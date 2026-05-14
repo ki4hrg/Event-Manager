@@ -7,6 +7,7 @@ import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { getCateringOrders } from "./actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
+import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
@@ -237,9 +238,7 @@ export function CateringOrderList({
       )}
 
       {cateringOrders.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">No Catering Orders yet. Create your first to get started.</p>
-        </div>
+        <EmptyState message="No Catering Orders yet. Create your first to get started." />
       ) : view === "list" ? (
         <div className="space-y-2">
           {sorted.map((order) => (
@@ -261,7 +260,6 @@ export function CateringOrderList({
                     : <span className="text-orange-600 dark:text-orange-400">Unlinked</span>}
                 </div>
               </div>
-              <InlineDeleteButton action={deleteCateringOrder} hiddenInputs={{ cateringOrderId: order.id }} confirmMessage="Delete this Catering Order?" />
             </div>
           ))}
         </div>

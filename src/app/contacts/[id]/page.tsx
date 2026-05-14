@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageWrapper } from "@/components/PageWrapper";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import { getContact, updateContact, deleteContact } from "../actions";
@@ -36,18 +36,11 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <Breadcrumbs items={[{ label: "Contacts", href: "/contacts" }, { label: `${contact.firstName} ${contact.lastName}` }]} />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {contact.firstName} {contact.lastName}
-          </h1>
-        </div>
-        <DeleteButton
-          action={deleteContactAction}
-          confirmMessage="Are you sure you want to delete this contact?"
-        />
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: "Contacts", href: "/contacts" }, { label: `${contact.firstName} ${contact.lastName}` }]}
+        title={`${contact.firstName} ${contact.lastName}`}
+        actions={<DeleteButton action={deleteContactAction} />}
+      />
 
       <ContactForm contact={contact} contactRoles={contactRoles} action={updateContactWithId} />
     </PageWrapper>

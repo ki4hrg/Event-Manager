@@ -7,6 +7,7 @@ import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { getSetupOrders } from "./actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
+import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
@@ -241,11 +242,7 @@ export function SetupOrderList({
       )}
 
       {setupOrders.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">
-            No setup orders yet. Create your first setup order to get started.
-          </p>
-        </div>
+        <EmptyState message="No setup orders yet. Create your first setup order to get started." />
       ) : view === "list" ? (
         <div className="space-y-2">
           {sorted.map((so) => {
@@ -280,7 +277,6 @@ export function SetupOrderList({
                 <InlineDeleteButton
                   action={deleteSetupOrder}
                   hiddenInputs={{ setupOrderId: so.id }}
-                  confirmMessage="Delete this Setup Order?"
                 />
               </div>
             );

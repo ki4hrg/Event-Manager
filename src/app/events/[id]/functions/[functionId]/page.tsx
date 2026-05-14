@@ -269,7 +269,6 @@ export default async function FunctionPage({
             cancel={cancelAction}
             restore={restoreAction}
             deleteAction={deleteFunctionAction}
-            confirmMessage="Are you sure you want to delete this function?"
           />
         </div>
       </div>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { CustomOption } from "@prisma/client";
 import type { getScheduleItems } from "./actions";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
+import { EmptyState } from "@/components/EmptyState";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { colorClasses } from "@/lib/colors";
@@ -258,11 +259,7 @@ export function ScheduleItemList({
       )}
 
       {items.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400">
-            No schedule items yet. Add schedule items to functions to see them here.
-          </p>
-        </div>
+        <EmptyState message="No schedule items yet. Add schedule items to functions to see them here." />
       ) : view === "list" ? (
         <div className="space-y-2">
           {sorted.map((item) => {
@@ -312,7 +309,6 @@ export function ScheduleItemList({
                 <InlineDeleteButton
                   action={deleteScheduleItem}
                   hiddenInputs={{ scheduleItemId: item.id }}
-                  confirmMessage="Delete this schedule item?"
                 />
               </div>
             );
@@ -453,7 +449,6 @@ export function ScheduleItemList({
                           <InlineDeleteButton
                             action={deleteScheduleItem}
                             hiddenInputs={{ scheduleItemId: item.id }}
-                            confirmMessage="Delete this schedule item?"
                           />
                         </td>
                       </tr>

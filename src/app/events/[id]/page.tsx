@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/DeleteButton";
 import { Toast } from "@/components/Toast";
 import {
@@ -85,31 +85,33 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <Breadcrumbs
-            items={[{ label: "Events", href: "/events" }, { label: event.name }]}
+      <PageHeader
+        breadcrumbs={[{ label: "Events", href: "/events" }, { label: event.name }]}
+        title={event.name}
+        actions={<DeleteButton action={deleteEventAction} />}
+      />
+
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+              Event Details
+            </p>
+            <EventForm venues={venues} event={event} action={updateEventWithId} />
+          </div>
+
+          <KeyStaffList
+            keyStaff={keyStaff}
+            addKeyStaff={addKeyStaffAction}
+            updateKeyStaff={updateKeyStaffAction}
+            removeKeyStaff={removeKeyStaffAction}
+            searchContacts={searchContactsAction}
+            createContact={createContactAction}
           />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-            {event.name}
-          </h1>
-        </div>
-        <DeleteButton
-          action={deleteEventAction}
-          confirmMessage="Are you sure you want to delete this event? All functions will also be deleted."
-        />
-      </div>
-
-
-      <div className="space-y-4 mt-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-            Event Details
-          </p>
-          <EventForm venues={venues} event={event} action={updateEventWithId} />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 content-start">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
               Functions
@@ -182,15 +184,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             <StatusSummaryCard groups={stats.entityGroups} />
           </div>
         </div>
-
-        <KeyStaffList
-          keyStaff={keyStaff}
-          addKeyStaff={addKeyStaffAction}
-          updateKeyStaff={updateKeyStaffAction}
-          removeKeyStaff={removeKeyStaffAction}
-          searchContacts={searchContactsAction}
-          createContact={createContactAction}
-        />
       </div>
     </>
   );

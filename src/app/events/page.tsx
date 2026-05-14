@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { getEvents } from "./actions";
 import { EventListClient } from "./EventListClient";
 
@@ -10,17 +12,14 @@ export default async function EventsPage() {
 
   return (
     <PageWrapper>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          Events
-        </h1>
-        <Link
-          href="/events/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          New Event
-        </Link>
-      </div>
+      <PageHeader
+        title="Events"
+        actions={
+          <Link href="/events/new" className={btnPrimary}>
+            New Event
+          </Link>
+        }
+      />
 
       {events.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">

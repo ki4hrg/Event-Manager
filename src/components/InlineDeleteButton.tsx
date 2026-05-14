@@ -1,38 +1,57 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 
 type InlineDeleteButtonProps = {
   action: (formData: FormData) => Promise<void>;
   hiddenInputs: Record<string, string>;
-  confirmMessage?: string;
   label?: string;
 };
 
 export function InlineDeleteButton({
   action,
   hiddenInputs,
-  confirmMessage = "Are you sure you want to delete this?",
   label = "Delete",
 }: InlineDeleteButtonProps) {
-  const formRef = useRef<HTMLFormElement>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  async function handleConfirm() {
+    const formData = new FormData();
+    for (const [name, value] of Object.entries(hiddenInputs)) {
+      formData.append(name, value);
+    }
+    await action(formData);
+  }
+
+  if (confirming) {
+    return (
+      <span className="inline-flex items-center gap-2 text-sm">
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className="text-red-600 dark:text-red-400 hover:underline"
+        >
+          Confirm
+        </button>
+        <span className="text-gray-300 dark:text-gray-600">·</span>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="text-gray-500 dark:text-gray-400 hover:underline"
+        >
+          Cancel
+        </button>
+      </span>
+    );
+  }
 
   return (
-    <form
-      ref={formRef}
-      action={action}
-      onSubmit={(e) => {
-        if (!confirm(confirmMessage)) {
-          e.preventDefault();
-        }
-      }}
+    <button
+      type="button"
+      onClick={() => setConfirming(true)}
+      className="text-red-600 dark:text-red-400 hover:underline text-sm"
     >
-      {Object.entries(hiddenInputs).map(([name, value]) => (
-        <input key={name} type="hidden" name={name} value={value} />
-      ))}
-      <button type="submit" className="text-red-600 hover:underline text-sm">
-        {label}
-      </button>
-    </form>
+      {label}
+    </button>
   );
 }

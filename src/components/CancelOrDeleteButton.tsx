@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { EntityStatus } from "@prisma/client";
+import { btnDanger, btnSecondary } from "@/lib/buttonStyles";
 
 type SubstatusOption = { id: string; label: string; group: string | null };
 
@@ -11,7 +12,6 @@ type Props = {
   cancel: (substatus: string) => Promise<void>;
   restore: () => Promise<void>;
   deleteAction: () => Promise<void>;
-  confirmMessage: string;
 };
 
 export function CancelOrDeleteButton({
@@ -20,9 +20,9 @@ export function CancelOrDeleteButton({
   cancel,
   restore,
   deleteAction,
-  confirmMessage,
 }: Props) {
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [cancelSubstatus, setCancelSubstatus] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -30,11 +30,9 @@ export function CancelOrDeleteButton({
   const cancelledSubstatuses = substatuses.filter((s) => s.group === "CANCELLED");
 
   function handleDelete() {
-    if (confirm(confirmMessage)) {
-      startTransition(async () => {
-        await deleteAction();
-      });
-    }
+    startTransition(async () => {
+      await deleteAction();
+    });
   }
 
   function handleRestore() {
@@ -58,18 +56,39 @@ export function CancelOrDeleteButton({
           type="button"
           onClick={handleRestore}
           disabled={isPending}
-          className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+          className={`${btnSecondary} disabled:opacity-50`}
         >
           Restore
         </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={isPending}
-          className="px-4 py-2 text-red-600 border border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
-        >
-          Delete
-        </button>
+        {confirmingDelete ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Are you sure?</span>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isPending}
+              className="px-3 py-1.5 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(false)}
+              className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmingDelete(true)}
+            disabled={isPending}
+            className={`${btnDanger} disabled:opacity-50`}
+          >
+            Delete
+          </button>
+        )}
       </>
     );
   }
@@ -79,7 +98,7 @@ export function CancelOrDeleteButton({
       <button
         type="button"
         onClick={() => { setCancelSubstatus(""); setShowCancelModal(true); }}
-        className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+        className={btnSecondary}
       >
         Cancel
       </button>
