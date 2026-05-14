@@ -357,57 +357,80 @@ function FunctionScheduleSection({
           month: "long",
           day: "numeric",
         });
+        const rowData = rows.map(({ fn, schedule }) => ({
+          key: `${fn.id}-${schedule.startTime.getTime()}`,
+          type: schedule.type,
+          timeStr: `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`,
+          name: fn.name,
+          rooms: fn.rooms.map((r) => r.room.name).join(", ") || "—",
+          notes: schedule.notes ?? "",
+        }));
         return (
           <div key={dateKey} className="mb-4">
             <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">{dateLabel}</p>
-            <table className="w-full table-fixed text-sm border-collapse">
-              <thead>
-                <tr>
-                  <th className={`${th} w-[10%]`}>Type</th>
-                  <th className={`${th} w-[20%]`}>Time</th>
-                  <th className={`${th} w-[30%]`}>Function</th>
-                  <th className={`${th} w-[28%]`}>Room(s)</th>
-                  <th className={`${th} w-[12%]`}>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(({ fn, schedule }) => {
-                  const timeStr = `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`;
-                  const rooms = fn.rooms.map((r) => r.room.name).join(", ") || "—";
-                  return (
-                    <tr key={`${fn.id}-${schedule.startTime.getTime()}`}>
-                      <td className={`${td} whitespace-nowrap`}>{schedule.type}</td>
-                      <td className={`${td} whitespace-nowrap`}>{timeStr}</td>
-                      <td className={td}>{fn.name}</td>
-                      <td className={td}>{rooms}</td>
-                      <td className={td}>{schedule.notes ?? ""}</td>
+            {/* Mobile card layout */}
+            <div className="sm:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700">
+              {rowData.map((row) => (
+                <div key={row.key} className="p-2 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{row.name}</span>
+                    <span className="shrink-0 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{row.type}</span>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 mt-0.5">{row.timeStr}</p>
+                  <p className="text-gray-500 dark:text-gray-500">{row.rooms}</p>
+                  {row.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-0.5">{row.notes}</p>}
+                </div>
+              ))}
+            </div>
+            {/* Desktop/print table */}
+            <div className="hidden sm:block print:block overflow-x-auto">
+              <table className="w-full table-fixed text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th className={`${th} w-[10%]`}>Type</th>
+                    <th className={`${th} w-[20%]`}>Time</th>
+                    <th className={`${th} w-[30%]`}>Function</th>
+                    <th className={`${th} w-[28%]`}>Room(s)</th>
+                    <th className={`${th} w-[12%]`}>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rowData.map((row) => (
+                    <tr key={row.key}>
+                      <td className={`${td} whitespace-nowrap`}>{row.type}</td>
+                      <td className={`${td} whitespace-nowrap`}>{row.timeStr}</td>
+                      <td className={td}>{row.name}</td>
+                      <td className={td}>{row.rooms}</td>
+                      <td className={td}>{row.notes}</td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })}
       {unscheduled.length > 0 && (
         <div className="mb-4">
           <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">Unscheduled</p>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr>
-                <th className={th}>Function</th>
-                <th className={th}>Room(s)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {unscheduled.map((fn) => (
-                <tr key={fn.id}>
-                  <td className={td}>{fn.name}</td>
-                  <td className={td}>{fn.rooms.map((r) => r.room.name).join(", ") || "—"}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Function</th>
+                  <th className={th}>Room(s)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {unscheduled.map((fn) => (
+                  <tr key={fn.id}>
+                    <td className={td}>{fn.name}</td>
+                    <td className={td}>{fn.rooms.map((r) => r.room.name).join(", ") || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
@@ -466,57 +489,61 @@ function CateringOrderSection({
       {order.menuSections.length > 0 && (
         <>
           <SectionHeading>Menu / Responsibility</SectionHeading>
-          <table className="w-full text-sm border-collapse mb-4">
-            <thead>
-              <tr>
-                <th className={th}>Menu Content</th>
-                <th className={th}>Responsible Party</th>
-                <th className={th}>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.menuSections.map((section) => (
-                <tr key={section.id}>
-                  <td className={td}>
-                    <div
-                      className="[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-                      dangerouslySetInnerHTML={{ __html: section.menuContent }}
-                    />
-                  </td>
-                  <td className={td}>{section.responsiblePartyVendor?.name ?? "—"}</td>
-                  <td className={td}>{section.notes ?? ""}</td>
+          <div className="overflow-x-auto mb-4">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Menu Content</th>
+                  <th className={th}>Responsible Party</th>
+                  <th className={th}>Notes</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {order.menuSections.map((section) => (
+                  <tr key={section.id}>
+                    <td className={td}>
+                      <div
+                        className="[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                        dangerouslySetInnerHTML={{ __html: section.menuContent }}
+                      />
+                    </td>
+                    <td className={td}>{section.responsiblePartyVendor?.name ?? "—"}</td>
+                    <td className={td}>{section.notes ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 
       {order.timelineItems.length > 0 && (
         <>
           <SectionHeading>Day-of Timeline</SectionHeading>
-          <table className="w-full text-sm border-collapse mb-4">
-            <thead>
-              <tr>
-                <th className={th}>Time</th>
-                <th className={th}>Activity</th>
-                <th className={th}>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.timelineItems.map((item) => {
-                const start = formatTime(item.startTime, timezone);
-                const end = item.endTime ? ` – ${formatTime(item.endTime, timezone)}` : "";
-                return (
-                  <tr key={item.id}>
-                    <td className={`${td} whitespace-nowrap`}>{start}{end}</td>
-                    <td className={td}>{item.label}</td>
-                    <td className={td}>{item.notes ?? ""}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto mb-4">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Time</th>
+                  <th className={th}>Activity</th>
+                  <th className={th}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.timelineItems.map((item) => {
+                  const start = formatTime(item.startTime, timezone);
+                  const end = item.endTime ? ` – ${formatTime(item.endTime, timezone)}` : "";
+                  return (
+                    <tr key={item.id}>
+                      <td className={`${td} whitespace-nowrap`}>{start}{end}</td>
+                      <td className={td}>{item.label}</td>
+                      <td className={td}>{item.notes ?? ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 
@@ -589,30 +616,32 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
                 {group.notes && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mb-1">{group.notes}</p>
                 )}
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr>
-                      <th className={th}>Input</th>
-                      <th className={th}>Qty</th>
-                      <th className={th}>Role</th>
-                      <th className={th}>Provider</th>
-                      <th className={th}>Operator</th>
-                      <th className={th}>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rolledUp.map((row, i) => (
-                      <tr key={i}>
-                        <td className={td}>{row.displayName}</td>
-                        <td className={td}>{row.quantity}</td>
-                        <td className={td}>{vendorRole(row.providerVendor, row.operatorVendor, vendorId)}</td>
-                        <td className={td}>{partyName(row.providerVendor, row.providerContact)}</td>
-                        <td className={td}>{partyName(row.operatorVendor, row.operatorContact)}</td>
-                        <td className={td}>{row.notes}</td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr>
+                        <th className={th}>Input</th>
+                        <th className={th}>Qty</th>
+                        <th className={th}>Role</th>
+                        <th className={th}>Provider</th>
+                        <th className={th}>Operator</th>
+                        <th className={th}>Notes</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {rolledUp.map((row, i) => (
+                        <tr key={i}>
+                          <td className={td}>{row.displayName}</td>
+                          <td className={td}>{row.quantity}</td>
+                          <td className={td}>{vendorRole(row.providerVendor, row.operatorVendor, vendorId)}</td>
+                          <td className={td}>{partyName(row.providerVendor, row.providerContact)}</td>
+                          <td className={td}>{partyName(row.operatorVendor, row.operatorContact)}</td>
+                          <td className={td}>{row.notes}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             );
           })}
@@ -620,30 +649,32 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
           {relevantMixes.length > 0 && (
             <>
               <SubHeading>Monitor Mixes</SubHeading>
-              <table className="w-full text-sm border-collapse mb-4">
-                <thead>
-                  <tr>
-                    <th className={th}>Description</th>
-                    <th className={th}>Equipment</th>
-                    <th className={th}>Role</th>
-                    <th className={th}>Provider</th>
-                    <th className={th}>Operator</th>
-                    <th className={th}>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {relevantMixes.map((mix) => (
-                    <tr key={mix.id}>
-                      <td className={td}>{mix.description}</td>
-                      <td className={td}>{mix.equipment?.name ?? "—"}</td>
-                      <td className={td}>{vendorRole(mix.providerVendor, mix.operatorVendor, vendorId)}</td>
-                      <td className={td}>{partyName(mix.providerVendor, mix.providerContact)}</td>
-                      <td className={td}>{partyName(mix.operatorVendor, mix.operatorContact)}</td>
-                      <td className={td}>{mix.notes ?? ""}</td>
+              <div className="overflow-x-auto mb-4">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr>
+                      <th className={th}>Description</th>
+                      <th className={th}>Equipment</th>
+                      <th className={th}>Role</th>
+                      <th className={th}>Provider</th>
+                      <th className={th}>Operator</th>
+                      <th className={th}>Notes</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {relevantMixes.map((mix) => (
+                      <tr key={mix.id}>
+                        <td className={td}>{mix.description}</td>
+                        <td className={td}>{mix.equipment?.name ?? "—"}</td>
+                        <td className={td}>{vendorRole(mix.providerVendor, mix.operatorVendor, vendorId)}</td>
+                        <td className={td}>{partyName(mix.providerVendor, mix.providerContact)}</td>
+                        <td className={td}>{partyName(mix.operatorVendor, mix.operatorContact)}</td>
+                        <td className={td}>{mix.notes ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </>
@@ -697,28 +728,30 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
       {order.tables.length > 0 && (
         <>
           <SectionHeading>Table Configuration</SectionHeading>
-          <table className="w-full text-sm border-collapse mb-4">
-            <thead>
-              <tr>
-                <th className={th}>Table Type</th>
-                <th className={th}>Qty</th>
-                <th className={th}>Chairs</th>
-                <th className={th}>Chair Type</th>
-                <th className={th}>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.tables.map((table) => (
-                <tr key={table.id}>
-                  <td className={td}>{table.tableType ?? "—"}</td>
-                  <td className={td}>{table.quantity}</td>
-                  <td className={td}>{table.chairCount ?? "—"}</td>
-                  <td className={td}>{table.chairType ?? "—"}</td>
-                  <td className={td}>{table.notes ?? ""}</td>
+          <div className="overflow-x-auto mb-4">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Table Type</th>
+                  <th className={th}>Qty</th>
+                  <th className={th}>Chairs</th>
+                  <th className={th}>Chair Type</th>
+                  <th className={th}>Notes</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {order.tables.map((table) => (
+                  <tr key={table.id}>
+                    <td className={td}>{table.tableType ?? "—"}</td>
+                    <td className={td}>{table.quantity}</td>
+                    <td className={td}>{table.chairCount ?? "—"}</td>
+                    <td className={td}>{table.chairType ?? "—"}</td>
+                    <td className={td}>{table.notes ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 
@@ -774,29 +807,31 @@ function FunctionSection({
       {sortedSchedules.length > 0 && (
         <div className="mb-4">
           <SectionHeading>Schedule</SectionHeading>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr>
-                <th className={th}>Date</th>
-                <th className={th}>Time</th>
-                <th className={th}>Type</th>
-                <th className={th}>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedSchedules.map((schedule) => {
-                const dateKey = dateFormatter.format(schedule.startTime);
-                return (
-                  <tr key={`${fn.id}-${schedule.startTime.getTime()}`}>
-                    <td className={`${td} whitespace-nowrap`}>{formatDateHeading(dateKey, timezone)}</td>
-                    <td className={`${td} whitespace-nowrap`}>{`${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`}</td>
-                    <td className={td}>{schedule.type ?? ""}</td>
-                    <td className={td}>{schedule.notes ?? ""}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Date</th>
+                  <th className={th}>Time</th>
+                  <th className={th}>Type</th>
+                  <th className={th}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedSchedules.map((schedule) => {
+                  const dateKey = dateFormatter.format(schedule.startTime);
+                  return (
+                    <tr key={`${fn.id}-${schedule.startTime.getTime()}`}>
+                      <td className={`${td} whitespace-nowrap`}>{formatDateHeading(dateKey, timezone)}</td>
+                      <td className={`${td} whitespace-nowrap`}>{`${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`}</td>
+                      <td className={td}>{schedule.type ?? ""}</td>
+                      <td className={td}>{schedule.notes ?? ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -876,26 +911,28 @@ function PresentationSection({
                 <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">
                   {formatDateHeading(dateKey, timezone)}
                 </p>
-                <table className="w-full table-fixed text-sm border-collapse">
-                  <thead>
-                    <tr>
-                      <th className={`${th} w-[35%]`}>Time</th>
-                      <th className={`${th} w-[65%]`}>Room</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map(({ slot, schedule }) => {
-                      const timeStr = `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`;
-                      const roomName = slot.room?.name ?? (slot.function.rooms.map((r) => r.room.name).join(", ") || "—");
-                      return (
-                        <tr key={`${slot.id}-${schedule.startTime.getTime()}`}>
-                          <td className={`${td} whitespace-nowrap`}>{timeStr}</td>
-                          <td className={td}>{roomName}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                  <table className="w-full table-fixed text-sm border-collapse">
+                    <thead>
+                      <tr>
+                        <th className={`${th} w-[35%]`}>Time</th>
+                        <th className={`${th} w-[65%]`}>Room</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(({ slot, schedule }) => {
+                        const timeStr = `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`;
+                        const roomName = slot.room?.name ?? (slot.function.rooms.map((r) => r.room.name).join(", ") || "—");
+                        return (
+                          <tr key={`${slot.id}-${schedule.startTime.getTime()}`}>
+                            <td className={`${td} whitespace-nowrap`}>{timeStr}</td>
+                            <td className={td}>{roomName}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             );
           })}
@@ -1005,29 +1042,44 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 print:text-gray-700 uppercase tracking-wide mb-2">
               Vendor Contacts
             </p>
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr>
-                  <th className={th}>Name</th>
-                  <th className={th}>Role</th>
-                  <th className={th}>Email</th>
-                  <th className={th}>Phone</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vendor.contacts.map(({ id, contact, contactType, isPrimary }) => (
-                  <tr key={id}>
-                    <td className={td}>
-                      {contact.firstName} {contact.lastName}
-                      {isPrimary && <span className="ml-1 text-gray-400 dark:text-gray-500 print:text-gray-500">(Primary)</span>}
-                    </td>
-                    <td className={td}>{contactType ?? "—"}</td>
-                    <td className={td}>{contact.email ?? "—"}</td>
-                    <td className={td}>{contact.phone ? formatPhone(contact.phone) : "—"}</td>
+            <div className="sm:hidden divide-y divide-gray-200 dark:divide-gray-700">
+              {vendor.contacts.map(({ id, contact, contactType, isPrimary }) => (
+                <div key={id} className="py-2 first:pt-0 last:pb-0 text-xs">
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {contact.firstName} {contact.lastName}
+                    {isPrimary && <span className="ml-1 font-normal text-gray-400 dark:text-gray-500">(Primary)</span>}
+                  </p>
+                  {contactType && <p className="text-gray-600 dark:text-gray-400">{contactType}</p>}
+                  {contact.email && <p className="text-gray-600 dark:text-gray-400">{contact.email}</p>}
+                  {contact.phone && <p className="text-gray-600 dark:text-gray-400">{formatPhone(contact.phone)}</p>}
+                </div>
+              ))}
+            </div>
+            <div className="hidden sm:block print:block overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th className={th}>Name</th>
+                    <th className={th}>Role</th>
+                    <th className={th}>Email</th>
+                    <th className={th}>Phone</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {vendor.contacts.map(({ id, contact, contactType, isPrimary }) => (
+                    <tr key={id}>
+                      <td className={td}>
+                        {contact.firstName} {contact.lastName}
+                        {isPrimary && <span className="ml-1 text-gray-400 dark:text-gray-500 print:text-gray-500">(Primary)</span>}
+                      </td>
+                      <td className={td}>{contactType ?? "—"}</td>
+                      <td className={td}>{contact.email ?? "—"}</td>
+                      <td className={td}>{contact.phone ? formatPhone(contact.phone) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -1038,28 +1090,42 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Key Event Contacts
           </h2>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr>
-                <th className={th}>Name</th>
-                <th className={th}>Title</th>
-                <th className={th}>Email</th>
-                <th className={th}>Phone</th>
-              </tr>
-            </thead>
-            <tbody>
-              {keyStaff.map((staff) => (
-                <tr key={staff.id}>
-                  <td className={td}>
-                    {staff.contact.firstName} {staff.contact.lastName}
-                  </td>
-                  <td className={td}>{staff.title ?? "—"}</td>
-                  <td className={td}>{staff.contact.email ?? "—"}</td>
-                  <td className={td}>{staff.contact.phone ? formatPhone(staff.contact.phone) : "—"}</td>
+          <div className="sm:hidden divide-y divide-gray-200 dark:divide-gray-700">
+            {keyStaff.map((staff) => (
+              <div key={staff.id} className="py-2 first:pt-0 last:pb-0 text-xs">
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {staff.contact.firstName} {staff.contact.lastName}
+                </p>
+                {staff.title && <p className="text-gray-600 dark:text-gray-400">{staff.title}</p>}
+                {staff.contact.email && <p className="text-gray-600 dark:text-gray-400">{staff.contact.email}</p>}
+                {staff.contact.phone && <p className="text-gray-600 dark:text-gray-400">{formatPhone(staff.contact.phone)}</p>}
+              </div>
+            ))}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Name</th>
+                  <th className={th}>Title</th>
+                  <th className={th}>Email</th>
+                  <th className={th}>Phone</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {keyStaff.map((staff) => (
+                  <tr key={staff.id}>
+                    <td className={td}>
+                      {staff.contact.firstName} {staff.contact.lastName}
+                    </td>
+                    <td className={td}>{staff.title ?? "—"}</td>
+                    <td className={td}>{staff.contact.email ?? "—"}</td>
+                    <td className={td}>{staff.contact.phone ? formatPhone(staff.contact.phone) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -1082,26 +1148,28 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
           {equipmentByCategory.map(([cat, rows]) => (
             <div key={cat}>
               {multiCategory && <SubHeading>{cat}</SubHeading>}
-              <table className="w-full table-fixed text-sm border-collapse mb-4">
-                <thead>
-                  <tr>
-                    <th className={`${th} w-[35%]`}>Item</th>
-                    <th className={`${th} w-[10%]`}>Qty</th>
-                    <th className={`${th} w-[25%]`}>Role</th>
-                    <th className={`${th} w-[30%]`}>Provider</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.itemName}>
-                      <td className={td}>{row.itemName}</td>
-                      <td className={td}>{row.quantity}</td>
-                      <td className={td}>{row.role}</td>
-                      <td className={td}>{row.providerName}</td>
+              <div className="overflow-x-auto mb-4">
+                <table className="w-full table-fixed text-sm border-collapse">
+                  <thead>
+                    <tr>
+                      <th className={`${th} w-[35%]`}>Item</th>
+                      <th className={`${th} w-[10%]`}>Qty</th>
+                      <th className={`${th} w-[25%]`}>Role</th>
+                      <th className={`${th} w-[30%]`}>Provider</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr key={row.itemName}>
+                        <td className={td}>{row.itemName}</td>
+                        <td className={td}>{row.quantity}</td>
+                        <td className={td}>{row.role}</td>
+                        <td className={td}>{row.providerName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ))}
         </div>
