@@ -1,6 +1,7 @@
 import type { ResponsiblePartyGroup, EquipmentReportRow, EquipmentSourceRef } from "@/app/events/reports/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { EmptyState } from "@/components/EmptyState";
+import { ReportNav } from "@/components/ReportNav";
 
 function sourceLabel(s: EquipmentSourceRef): string {
   if (s.functionType === "BREAKOUT_BLOCK") {
@@ -27,11 +28,11 @@ function PeakCell({ row }: { row: EquipmentReportRow }) {
   return <span>{row.peakNeeded}</span>;
 }
 
-function PartyCard({ group }: { group: ResponsiblePartyGroup }) {
+function PartyCard({ group, anchorId }: { group: ResponsiblePartyGroup; anchorId: string }) {
   const hasUnscheduled = group.rows.some((r) => r.sources.some((s) => !s.isScheduled));
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden print:break-inside-avoid">
+    <div id={anchorId} className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden print:break-inside-avoid scroll-mt-4">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
           {group.partyName}
@@ -128,10 +129,17 @@ export function EquipmentResponsibilityReport({ groups }: EquipmentResponsibilit
     );
   }
 
+  const anchored = groups.map((group) => {
+    const key = partyGroupKey(group);
+    const anchorId = `party-${group.partyType === "unassigned" ? "unassigned" : group.partyId}`;
+    return { group, key, anchorId };
+  });
+
   return (
     <div className="space-y-6">
-      {groups.map((group) => (
-        <PartyCard key={partyGroupKey(group)} group={group} />
+      <ReportNav links={anchored.map(({ group, anchorId }) => ({ id: anchorId, label: group.partyName }))} />
+      {anchored.map(({ group, key, anchorId }) => (
+        <PartyCard key={key} anchorId={anchorId} group={group} />
       ))}
     </div>
   );

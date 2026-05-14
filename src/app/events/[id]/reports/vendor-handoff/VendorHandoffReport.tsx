@@ -9,6 +9,8 @@ import {
   reportSectionCard as sectionCard,
   reportOrderCard as orderCard,
 } from "@/lib/reportStyles";
+import { ReportNav } from "@/components/ReportNav";
+import { SectionDivider } from "@/components/SectionDivider";
 
 type HandoffData = NonNullable<Awaited<ReturnType<typeof getVendorHandoffData>>>;
 type Event = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
@@ -140,32 +142,50 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
     : items;
   if (relevant.length === 0) return null;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr>
-            <th className={th}>Item</th>
-            <th className={th}>Qty</th>
-            <th className={th}>Role</th>
-            <th className={th}>Provider</th>
-            <th className={th}>Operator</th>
-            <th className={th}>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {relevant.map((item) => (
-            <tr key={item.id}>
-              <td className={td}>{item.equipment?.name ?? item.item}</td>
-              <td className={td}>{item.quantity ?? 1}</td>
-              <td className={td}>{vendorRole(item.providerVendor, item.operatorVendor, vendorId)}</td>
-              <td className={td}>{partyName(item.providerVendor, item.providerContact)}</td>
-              <td className={td}>{partyName(item.operatorVendor, item.operatorContact)}</td>
-              <td className={td}>{item.notes ?? ""}</td>
+    <>
+      <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+        {relevant.map((item) => (
+          <div key={item.id} className="p-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-medium text-gray-900 dark:text-white">{item.equipment?.name ?? item.item}</span>
+              <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {item.quantity ?? 1}</span>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 mt-0.5">{vendorRole(item.providerVendor, item.operatorVendor, vendorId)}</p>
+            <div className="mt-1 text-gray-500 dark:text-gray-400 space-y-0.5">
+              <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyName(item.providerVendor, item.providerContact)}</span></p>
+              <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyName(item.operatorVendor, item.operatorContact)}</span></p>
+            </div>
+            {item.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-1">{item.notes}</p>}
+          </div>
+        ))}
+      </div>
+      <div className="hidden sm:block print:block overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              <th className={th}>Item</th>
+              <th className={th}>Qty</th>
+              <th className={th}>Role</th>
+              <th className={th}>Provider</th>
+              <th className={th}>Operator</th>
+              <th className={th}>Notes</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {relevant.map((item) => (
+              <tr key={item.id}>
+                <td className={td}>{item.equipment?.name ?? item.item}</td>
+                <td className={td}>{item.quantity ?? 1}</td>
+                <td className={td}>{vendorRole(item.providerVendor, item.operatorVendor, vendorId)}</td>
+                <td className={td}>{partyName(item.providerVendor, item.providerContact)}</td>
+                <td className={td}>{partyName(item.operatorVendor, item.operatorContact)}</td>
+                <td className={td}>{item.notes ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -632,7 +652,23 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
                 {group.notes && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mb-1">{group.notes}</p>
                 )}
-                <div className="overflow-x-auto">
+                <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+                  {rolledUp.map((row, i) => (
+                    <div key={i} className="p-2">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="font-medium text-gray-900 dark:text-white">{row.displayName}</span>
+                        <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {row.quantity}</span>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400 mt-0.5">{vendorRole(row.providerVendor, row.operatorVendor, vendorId)}</p>
+                      <div className="mt-1 text-gray-500 dark:text-gray-400 space-y-0.5">
+                        <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyName(row.providerVendor, row.providerContact)}</span></p>
+                        <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyName(row.operatorVendor, row.operatorContact)}</span></p>
+                      </div>
+                      {row.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-1">{row.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden sm:block print:block overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr>
@@ -665,7 +701,23 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
           {relevantMixes.length > 0 && (
             <>
               <SubHeading>Monitor Mixes</SubHeading>
-              <div className="overflow-x-auto mb-4">
+              <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs mb-4">
+                {relevantMixes.map((mix) => (
+                  <div key={mix.id} className="p-2">
+                    <p className="font-medium text-gray-900 dark:text-white">{mix.description}</p>
+                    {mix.equipment?.name && (
+                      <p className="text-gray-600 dark:text-gray-400 mt-0.5">{mix.equipment.name}</p>
+                    )}
+                    <p className="text-gray-600 dark:text-gray-400 mt-0.5">{vendorRole(mix.providerVendor, mix.operatorVendor, vendorId)}</p>
+                    <div className="mt-1 text-gray-500 dark:text-gray-400 space-y-0.5">
+                      <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyName(mix.providerVendor, mix.providerContact)}</span></p>
+                      <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyName(mix.operatorVendor, mix.operatorContact)}</span></p>
+                    </div>
+                    {mix.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-1">{mix.notes}</p>}
+                  </div>
+                ))}
+              </div>
+              <div className="hidden sm:block print:block overflow-x-auto mb-4">
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr>
@@ -797,11 +849,13 @@ function FunctionSection({
   functionTypes,
   timezone,
   vendorId,
+  anchorId,
 }: {
   group: FunctionGroup;
   functionTypes: { label: string }[];
   timezone: string;
   vendorId: string;
+  anchorId?: string;
 }) {
   const { fn, cateringOrders, avOrders, setupOrders } = group;
   const typeLabel = fn.type ? resolveOptionLabel(fn.type, functionTypes) : null;
@@ -811,7 +865,7 @@ function FunctionSection({
   const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0].filter(Boolean).length;
 
   return (
-    <div className={`${sectionCard} print:break-before-page`}>
+    <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-4`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
           {fn.name}
@@ -825,7 +879,26 @@ function FunctionSection({
       {sortedSchedules.length > 0 && (
         <div className="mb-4">
           <SectionHeading>Schedule</SectionHeading>
-          <div className="overflow-x-auto">
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+            {sortedSchedules.map((schedule) => {
+              const dateKey = dateFormatter.format(schedule.startTime);
+              return (
+                <div key={`${fn.id}-${schedule.startTime.getTime()}`} className="p-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-medium text-gray-900 dark:text-white">{formatDateHeading(dateKey, timezone)}</span>
+                    {schedule.type && (
+                      <span className="shrink-0 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{schedule.type}</span>
+                    )}
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 mt-0.5">
+                    {`${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`}
+                  </p>
+                  {schedule.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-0.5">{schedule.notes}</p>}
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr>
@@ -887,10 +960,12 @@ function PresentationSection({
   group,
   timezone,
   vendorId,
+  anchorId,
 }: {
   group: PresentationGroup;
   timezone: string;
   vendorId: string;
+  anchorId?: string;
 }) {
   const { presentation, avOrders, setupOrders } = group;
   const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
@@ -911,7 +986,7 @@ function PresentationSection({
   const hasSchedule = sortedDates.length > 0;
 
   return (
-    <div className={`${sectionCard} print:break-before-page`}>
+    <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-4`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
           {presentation.title}
@@ -1033,9 +1108,23 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
     ? [venue.address, ...addressParts].join(", ")
     : addressParts.join(", ");
 
+  const navLinks: { id: string; label: string }[] = [];
+  if (keyStaff.length > 0) navLinks.push({ id: "key-contacts", label: "Key Contacts" });
+  if (allGroups.length > 0) navLinks.push({ id: "function-schedule", label: "Schedule" });
+  if (equipmentByCategory.length > 0) navLinks.push({ id: "equipment-summary", label: "Equipment" });
+  for (const item of allGroups) {
+    if (item.type === "function") {
+      navLinks.push({ id: `function-${item.group.fn.id}`, label: item.group.fn.name });
+    } else {
+      navLinks.push({ id: `presentation-${item.group.presentation.id}`, label: item.group.presentation.title });
+    }
+  }
+  if (hasUnscheduled) navLinks.push({ id: "unscheduled", label: "Unscheduled" });
+
   return (
     <div className="space-y-6 print:space-y-0">
-      {/* Header: event details + vendor */}
+      <ReportNav links={navLinks} />
+
       <div className={sectionCard}>
         <div className="mb-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black">
@@ -1102,9 +1191,12 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         )}
       </div>
 
-      {/* Key event contacts */}
+      {(keyStaff.length > 0 || allGroups.length > 0 || equipmentByCategory.length > 0) && (
+        <SectionDivider id="summary" title="Summary" />
+      )}
+
       {keyStaff.length > 0 && (
-        <div className={sectionCard}>
+        <div id="key-contacts" className={`${sectionCard} scroll-mt-4`}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Key Event Contacts
           </h2>
@@ -1147,9 +1239,8 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         </div>
       )}
 
-      {/* Function schedule overview */}
       {allGroups.length > 0 && (
-        <div className={sectionCard}>
+        <div id="function-schedule" className={`${sectionCard} scroll-mt-4`}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Function Schedule
           </h2>
@@ -1157,16 +1248,27 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         </div>
       )}
 
-      {/* Master equipment summary */}
       {equipmentByCategory.length > 0 && (
-        <div className={sectionCard}>
+        <div id="equipment-summary" className={`${sectionCard} scroll-mt-4`}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Equipment Summary
           </h2>
           {equipmentByCategory.map(([cat, rows]) => (
             <div key={cat}>
               {multiCategory && <SubHeading>{cat}</SubHeading>}
-              <div className="overflow-x-auto mb-4">
+              <div className="sm:hidden print:hidden mb-4 divide-y divide-gray-200 dark:divide-gray-700">
+                {rows.map((row) => (
+                  <div key={row.itemName} className="py-2 text-xs">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white">{row.itemName}</span>
+                      <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {row.quantity}</span>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 mt-0.5">{row.role}</p>
+                    <p className="text-gray-700 dark:text-gray-300 mt-0.5">{row.providerName}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden sm:block print:block overflow-x-auto mb-4">
                 <table className="w-full table-fixed text-sm border-collapse">
                   <thead>
                     <tr>
@@ -1193,11 +1295,14 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         </div>
       )}
 
-      {/* Per-function and per-presentation detail sections */}
+      {allGroups.length > 0 && (
+        <SectionDivider id="details" title="Function & Presentation Details" />
+      )}
       {allGroups.map((item) =>
         item.type === "function" ? (
           <FunctionSection
             key={item.group.fn.id}
+            anchorId={`function-${item.group.fn.id}`}
             group={item.group}
             functionTypes={functionTypes}
             timezone={timezone}
@@ -1206,6 +1311,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         ) : (
           <PresentationSection
             key={item.group.presentation.id}
+            anchorId={`presentation-${item.group.presentation.id}`}
             group={item.group}
             timezone={timezone}
             vendorId={vendorId}
@@ -1213,37 +1319,36 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         )
       )}
 
-      {/* Unscheduled orders */}
       {hasUnscheduled && (
-        <div className={`${sectionCard} print:break-before-page`}>
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
-            Unscheduled Orders
-          </h2>
-          {unscheduled.cateringOrders.length > 0 && (
-            <>
-              {unscheduledTypeCount > 1 && <SubHeading>Catering</SubHeading>}
-              {unscheduled.cateringOrders.map((order) => (
-                <CateringOrderSection key={order.id} order={order} timezone={timezone} vendorId={vendorId} />
-              ))}
-            </>
-          )}
-          {unscheduled.avOrders.length > 0 && (
-            <>
-              {unscheduledTypeCount > 1 && <SubHeading>Audio / Visual</SubHeading>}
-              {unscheduled.avOrders.map((order) => (
-                <AVOrderSection key={order.id} order={order} vendorId={vendorId} />
-              ))}
-            </>
-          )}
-          {unscheduled.setupOrders.length > 0 && (
-            <>
-              {unscheduledTypeCount > 1 && <SubHeading>Setup</SubHeading>}
-              {unscheduled.setupOrders.map((order) => (
-                <SetupOrderSection key={order.id} order={order} vendorId={vendorId} />
-              ))}
-            </>
-          )}
-        </div>
+        <>
+          <SectionDivider id="unscheduled" title="Unscheduled Orders" />
+          <div className={`${sectionCard} print:break-before-page scroll-mt-4`}>
+            {unscheduled.cateringOrders.length > 0 && (
+              <>
+                {unscheduledTypeCount > 1 && <SubHeading>Catering</SubHeading>}
+                {unscheduled.cateringOrders.map((order) => (
+                  <CateringOrderSection key={order.id} order={order} timezone={timezone} vendorId={vendorId} />
+                ))}
+              </>
+            )}
+            {unscheduled.avOrders.length > 0 && (
+              <>
+                {unscheduledTypeCount > 1 && <SubHeading>Audio / Visual</SubHeading>}
+                {unscheduled.avOrders.map((order) => (
+                  <AVOrderSection key={order.id} order={order} vendorId={vendorId} />
+                ))}
+              </>
+            )}
+            {unscheduled.setupOrders.length > 0 && (
+              <>
+                {unscheduledTypeCount > 1 && <SubHeading>Setup</SubHeading>}
+                {unscheduled.setupOrders.map((order) => (
+                  <SetupOrderSection key={order.id} order={order} vendorId={vendorId} />
+                ))}
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
