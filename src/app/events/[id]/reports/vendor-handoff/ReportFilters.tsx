@@ -9,9 +9,10 @@ type ReportFiltersProps = {
   vendors: VendorOption[];
   selectedVendorId: string | null;
   basePath?: string;
+  shareButton?: React.ReactNode;
 };
 
-export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `/events/${eventId}/reports/vendor-handoff` }: ReportFiltersProps) {
+export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `/events/${eventId}/reports/vendor-handoff`, shareButton }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -45,14 +46,17 @@ export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `
         </select>
       </div>
 
-      {selectedVendorId && (
-        <div className="ml-auto">
-          <a
-            href={`${basePath}/print?vendorId=${selectedVendorId}`}
-            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-          >
-            Print / Save PDF
-          </a>
+      {(shareButton || selectedVendorId) && (
+        <div className="ml-auto flex items-center gap-3">
+          {shareButton}
+          {selectedVendorId && (
+            <a
+              href={`${basePath}/print?vendorId=${selectedVendorId}`}
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            >
+              Print / Save PDF
+            </a>
+          )}
         </div>
       )}
     </div>

@@ -11,13 +11,14 @@ type ReportFiltersProps = {
   selectedVendorIds: string[];
   selectedModelTypes: string[];
   basePath?: string;
+  shareButton?: React.ReactNode;
 };
 
 function toggleFilter(selected: string[], value: string): string[] {
   return selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value];
 }
 
-export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes, basePath = `/events/${eventId}/reports/equipment-responsibility` }: ReportFiltersProps) {
+export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes, basePath = `/events/${eventId}/reports/equipment-responsibility`, shareButton }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -106,6 +107,7 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
             Clear filters
           </button>
         )}
+        {shareButton}
         <a
           href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
           className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"

@@ -50,20 +50,20 @@ export default async function EquipmentResponsibilityPage({
       </div>
 
       <div className="max-w-5xl">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Equipment Responsibility</h2>
-          <ShareReportButton
-            eventId={eventId}
-            reportType="EQUIPMENT_RESPONSIBILITY"
-            currentFilters={{ vendorIds: selectedVendorIds, modelTypes: selectedModelTypes }}
-          />
-        </div>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Equipment Responsibility</h2>
 
         <ReportFilters
           eventId={eventId}
           vendors={vendorOptions}
           selectedVendorIds={selectedVendorIds}
           selectedModelTypes={selectedModelTypes}
+          shareButton={
+            <ShareReportButton
+              eventId={eventId}
+              reportType="EQUIPMENT_RESPONSIBILITY"
+              currentFilters={{ vendorIds: selectedVendorIds, modelTypes: selectedModelTypes }}
+            />
+          }
         />
 
         <EquipmentResponsibilityReport groups={groups} />
