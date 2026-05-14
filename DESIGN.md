@@ -10,7 +10,7 @@ The Event Manager app is intended to collect and synthesize large amounts of inf
 ## Standard Page Layout
 
 ### Page Header
-Every detail page includes a breadcrumb trail, the record name as the page title, and a workflow status badge. The status badge is the most prominent visual signal on the page and should appear directly alongside the title.
+Every page uses a shared `PageHeader` component. Detail pages include a breadcrumb trail and the record name as the page title. List pages show just the title. Pages that benefit from a short explanatory subtitle (e.g., Workflows) may include an optional description line below the title. The workflow status badge is the most prominent visual signal on detail pages and should appear directly alongside the title. Action buttons (e.g., Create, Delete) are placed in the header's actions slot on the right.
 
 ### Two-Column Layout
 The standard layout for Overview tabs is a two-column design with a 33%/67% split left-right. Additional tabs may use more flexible layouts appropriate to their content (e.g., full-width tables, form layouts).
@@ -81,9 +81,15 @@ Cards are the primary grouping unit within a column. Conventions:
 
 Detail pages load in read-only mode. An Edit button in the relevant card or section reveals an inline edit form. This applies to most fields. Dedicated edit pages are acceptable only when the edit form is complex enough that inline presentation would be unwieldy.
 
+## Destructive Actions
+
+Delete and other irreversible actions use an inline two-step confirmation: clicking the initial button replaces it in-place with an "Are you sure?" prompt alongside Confirm and Cancel buttons. Do not use browser `confirm()` dialogs. This keeps the interaction in context and avoids interrupting the user with a modal overlay for routine deletions.
+
 ## List Pages
 
 Clicking a row navigates to the detail page for that record. Separate detail links are not needed.
+
+When a list has no items, display a card-wrapped empty state (white/gray-800 card, centered text) rather than blank space. This confirms to the user that no data exists, as opposed to a loading failure.
 
 ## Workflow Status
 
