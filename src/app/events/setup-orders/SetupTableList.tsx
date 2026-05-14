@@ -84,6 +84,7 @@ function RowForm({
   defaultTableType = "",
   defaultChairCount = "",
   defaultChairType = "",
+  defaultProvider = "",
   defaultNotes = "",
   tableOptions,
   chairOptions,
@@ -95,6 +96,7 @@ function RowForm({
   defaultTableType?: string;
   defaultChairCount?: number | string;
   defaultChairType?: string;
+  defaultProvider?: string;
   defaultNotes?: string;
   tableOptions: Equipment[];
   chairOptions: Equipment[];
@@ -172,6 +174,16 @@ function RowForm({
           Total chairs: <span className="font-medium text-gray-700 dark:text-gray-200">{totalChairs}</span>
         </p>
       )}
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+        <input
+          type="text"
+          name="provider"
+          defaultValue={defaultProvider}
+          placeholder="e.g., venue, rental company"
+          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+        />
+      </div>
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
         <input
@@ -256,6 +268,7 @@ export function SetupTableList({
                   defaultTableType={row.tableType ?? ""}
                   defaultChairCount={row.chairCount ?? ""}
                   defaultChairType={row.chairType ?? ""}
+                  defaultProvider={row.provider ?? ""}
                   defaultNotes={row.notes ?? ""}
                   tableOptions={tableOptions}
                   chairOptions={chairOptions}
@@ -284,6 +297,9 @@ export function SetupTableList({
                     )}
                     {!row.tableType && (!row.chairCount || row.chairCount === 0) && (
                       <span className="text-gray-900 dark:text-white font-medium">{row.quantity} items</span>
+                    )}
+                    {row.provider && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Provider: {row.provider}</p>
                     )}
                     {row.notes && (
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{row.notes}</p>

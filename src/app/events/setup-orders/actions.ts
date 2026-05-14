@@ -230,6 +230,7 @@ export async function createSetupTable(setupOrderId: string, eventId: string, fo
       tableType: (formData.get("tableType") as string) || null,
       chairCount: formData.get("chairCount") ? parseInt(formData.get("chairCount") as string) : null,
       chairType: (formData.get("chairType") as string) || null,
+      provider: (formData.get("provider") as string) || null,
       notes: (formData.get("notes") as string) || null,
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
@@ -246,6 +247,7 @@ export async function updateSetupTable(id: string, setupOrderId: string, eventId
       tableType: (formData.get("tableType") as string) || null,
       chairCount: formData.get("chairCount") ? parseInt(formData.get("chairCount") as string) : null,
       chairType: (formData.get("chairType") as string) || null,
+      provider: (formData.get("provider") as string) || null,
       notes: (formData.get("notes") as string) || null,
     },
   });

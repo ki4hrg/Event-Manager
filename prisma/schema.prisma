@@ -436,6 +436,7 @@ model SetupTable {
   tableType    String?
   chairCount   Int?
   chairType    String?
+  provider     String?
   notes        String?
   sortOrder    Int        @default(0)
   createdAt    DateTime   @default(now())
