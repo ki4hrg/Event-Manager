@@ -10,23 +10,28 @@ import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 export async function getAVOrders(eventId: string) {
-  return prisma.aVOrder.findMany({
+  const rows = await prisma.aVOrder.findMany({
     where: { eventId },
     include: {
-      functions: true,
-      presentation: { select: { id: true, title: true } },
+      functionLinks: { include: { function: true } },
+      presentationLinks: { include: { presentation: { select: { id: true, title: true } } } },
       vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },
     orderBy: { name: "asc" },
   });
+  return rows.map((r) => ({
+    ...r,
+    functions: r.functionLinks.map((l) => l.function),
+    presentations: r.presentationLinks.map((l) => l.presentation),
+  }));
 }
 
 export async function getAVOrder(id: string) {
-  return prisma.aVOrder.findUnique({
+  const row = await prisma.aVOrder.findUnique({
     where: { id },
     include: {
-      functions: { include: { schedules: { orderBy: { startTime: "asc" } } } },
-      presentation: true,
+      functionLinks: { include: { function: { include: { schedules: { orderBy: { startTime: "asc" } } } } } },
+      presentationLinks: { include: { presentation: true } },
       audioSection: {
         include: {
           inputGroups: {
@@ -90,13 +95,19 @@ export async function getAVOrder(id: string) {
       },
     },
   });
+  if (!row) return null;
+  return {
+    ...row,
+    functions: row.functionLinks.map((l) => l.function),
+    presentations: row.presentationLinks.map((l) => l.presentation),
+  };
 }
 
 export async function createAVOrder(eventId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const notes = formData.get("notes") as string;
-  const presentationId = formData.get("presentationId") as string;
-  const functionId = formData.get("functionId") as string;
+  const presentationId = (formData.get("presentationId") as string) || null;
+  const functionId = (formData.get("functionId") as string) || null;
   const selectedVendorId = (formData.get("vendorId") as string) || null;
 
   const avOrder = await prisma.aVOrder.create({
@@ -104,7 +115,6 @@ export async function createAVOrder(eventId: string, formData: FormData) {
       name,
       eventId,
       notes: notes || null,
-      presentationId: presentationId || null,
     },
   });
 
@@ -118,13 +128,14 @@ export async function createAVOrder(eventId: string, formData: FormData) {
     prisma.videoSection.create({ data: { avOrderId: avOrder.id } }),
   ]);
 
-  // Link to function if provided (FK is on Function)
   if (functionId) {
-    await prisma.function.update({
-      where: { id: functionId },
-      data: { avOrderId: avOrder.id },
-    });
+    await prisma.aVOrderFunction.create({ data: { avOrderId: avOrder.id, functionId } });
     revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  }
+
+  if (presentationId) {
+    await prisma.aVOrderPresentation.create({ data: { avOrderId: avOrder.id, presentationId } });
+    revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
   }
 
   const vendorIdToAssign = selectedVendorId ?? (await getDefaultVendorForModel(eventId, "AV_ORDER"))?.vendorId ?? null;
@@ -161,23 +172,21 @@ export async function deleteAVOrder(id: string, eventId: string) {
 }
 
 // ============================================================================
-// Function linking (FK is on Function.avOrderId)
+// Function / Presentation linking (M:N via AVOrderFunction / AVOrderPresentation)
 // ============================================================================
 
 export async function linkAVOrderToFunction(avOrderId: string, functionId: string, eventId: string) {
-  await prisma.function.update({
-    where: { id: functionId },
-    data: { avOrderId },
+  await prisma.aVOrderFunction.upsert({
+    where: { avOrderId_functionId: { avOrderId, functionId } },
+    create: { avOrderId, functionId },
+    update: {},
   });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function unlinkAVOrderFromFunction(avOrderId: string, functionId: string, eventId: string) {
-  await prisma.function.update({
-    where: { id: functionId },
-    data: { avOrderId: null },
-  });
+  await prisma.aVOrderFunction.deleteMany({ where: { avOrderId, functionId } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -187,85 +196,66 @@ export async function linkAVOrderToPresentation(
   presentationId: string,
   eventId: string
 ) {
-  await prisma.aVOrder.update({
-    where: { id: avOrderId },
-    data: { presentationId },
+  await prisma.aVOrderPresentation.upsert({
+    where: { avOrderId_presentationId: { avOrderId, presentationId } },
+    create: { avOrderId, presentationId },
+    update: {},
   });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
-export async function unlinkAVOrderFromPresentation(avOrderId: string, eventId: string) {
-  const avOrder = await prisma.aVOrder.findUnique({
-    where: { id: avOrderId },
-    select: { presentationId: true },
-  });
-  await prisma.aVOrder.update({
-    where: { id: avOrderId },
-    data: { presentationId: null },
-  });
+export async function unlinkAVOrderFromPresentation(avOrderId: string, presentationId: string, eventId: string) {
+  await prisma.aVOrderPresentation.deleteMany({ where: { avOrderId, presentationId } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
-  if (avOrder?.presentationId) {
-    revalidatePath(`/events/${eventId}/presentations/${avOrder.presentationId}`);
-  }
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
-// AVOrders with no linked functions (for a given event)
-export async function getAvailableAVOrdersForFunction(eventId: string) {
+// AVOrders not yet linked to this function (for the function detail panel)
+export async function getAvailableAVOrdersForFunction(eventId: string, functionId?: string) {
   return prisma.aVOrder.findMany({
-    where: { eventId },
+    where: {
+      eventId,
+      ...(functionId ? { NOT: { functionLinks: { some: { functionId } } } } : {}),
+    },
     orderBy: { name: "asc" },
   });
 }
 
-// AVOrders not yet linked to a presentation (for a given event)
-export async function getAvailableAVOrdersForPresentation(eventId: string) {
+// AVOrders not yet linked to this presentation (for the presentation detail panel)
+export async function getAvailableAVOrdersForPresentation(eventId: string, presentationId?: string) {
   return prisma.aVOrder.findMany({
-    where: { eventId, presentationId: null },
+    where: {
+      eventId,
+      ...(presentationId ? { NOT: { presentationLinks: { some: { presentationId } } } } : {}),
+    },
     orderBy: { name: "asc" },
   });
 }
 
-// Link/unlink actions for the Function detail page panel
+// Aliases for callers from Function / Presentation detail pages
 export async function linkAVOrderToFunctionFromFunction(
   avOrderId: string,
   functionId: string,
   eventId: string
 ) {
-  await prisma.function.update({
-    where: { id: functionId },
-    data: { avOrderId },
-  });
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return linkAVOrderToFunction(avOrderId, functionId, eventId);
 }
 
-export async function unlinkAVOrderFromFunctionPage(functionId: string, eventId: string) {
-  await prisma.function.update({
-    where: { id: functionId },
-    data: { avOrderId: null },
-  });
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+export async function unlinkAVOrderFromFunctionPage(avOrderId: string, functionId: string, eventId: string) {
+  return unlinkAVOrderFromFunction(avOrderId, functionId, eventId);
 }
 
-// Link/unlink actions for the Presentation detail page panel
 export async function linkAVOrderToPresentationFromPresentation(
   avOrderId: string,
   presentationId: string,
   eventId: string
 ) {
-  await prisma.aVOrder.update({
-    where: { id: avOrderId },
-    data: { presentationId },
-  });
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  return linkAVOrderToPresentation(avOrderId, presentationId, eventId);
 }
 
-export async function unlinkAVOrderFromPresentationPage(presentationId: string, eventId: string) {
-  await prisma.aVOrder.updateMany({
-    where: { presentationId },
-    data: { presentationId: null },
-  });
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+export async function unlinkAVOrderFromPresentationPage(avOrderId: string, presentationId: string, eventId: string) {
+  return unlinkAVOrderFromPresentation(avOrderId, presentationId, eventId);
 }
 
 // ============================================================================

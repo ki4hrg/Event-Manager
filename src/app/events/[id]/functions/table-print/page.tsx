@@ -108,9 +108,9 @@ export default async function FunctionTablePrintPage({
                     ? fn.contacts.map((c) => `${c.contact.firstName} ${c.contact.lastName}`).join(", ")
                     : "—"}
                 </td>
-                <td className={`${td} whitespace-nowrap`}>{fn.avOrder?.name || "—"}</td>
+                <td className={`${td} whitespace-nowrap`}>{fn.avOrders.length > 0 ? fn.avOrders.map((o) => o.name).join(", ") : "—"}</td>
                 <td className={`${td} whitespace-nowrap`}>
-                  {fn.setupOrder ? getSetupOrderDisplayName(fn.setupOrder) : "—"}
+                  {fn.setupOrders.length > 0 ? fn.setupOrders.map((o) => getSetupOrderDisplayName(o)).join(", ") : "—"}
                 </td>
                 <td className={`${td} whitespace-nowrap`}>{fn.cateringOrder?.name || "—"}</td>
                 <td className={`${td} whitespace-nowrap`}>{workflowLabel(workflowSummaries[fn.id])}</td>

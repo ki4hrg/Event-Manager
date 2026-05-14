@@ -231,6 +231,8 @@ model Function {
   avOrder              AVOrder?           @relation(fields: [avOrderId], references: [id], onDelete: SetNull)
   setupOrderId         String?
   setupOrder           SetupOrder?        @relation(fields: [setupOrderId], references: [id], onDelete: SetNull)
+  avOrderFunctions     AVOrderFunction[]
+  setupOrderFunctions  SetupOrderFunction[]
   printOrderFunctions  PrintOrderFunction[]
   rooms                FunctionRoom[]
   contacts             FunctionContact[]
@@ -301,6 +303,8 @@ model AVOrder {
   copies         AVOrder[]     @relation("AVOrderCopies")
   notes          String?
   functions      Function[]
+  functionLinks  AVOrderFunction[]
+  presentationLinks AVOrderPresentation[]
   audioSection   AudioSection?
   videoSection   VideoSection?
   equipmentItems EquipmentItem[]
@@ -311,6 +315,28 @@ model AVOrder {
 
   @@index([eventId])
   @@index([copiedFromId])
+}
+
+model AVOrderFunction {
+  id         String   @id @default(cuid())
+  avOrderId  String
+  functionId String
+  avOrder    AVOrder  @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+
+  @@unique([avOrderId, functionId])
+  @@index([functionId])
+}
+
+model AVOrderPresentation {
+  id             String       @id @default(cuid())
+  avOrderId      String
+  presentationId String
+  avOrder        AVOrder      @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+
+  @@unique([avOrderId, presentationId])
+  @@index([presentationId])
 }
 
 model CateringOrder {
@@ -416,8 +442,10 @@ model SetupOrder {
   roomId         String?
   room           Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
   functions      Function[]
+  functionLinks  SetupOrderFunction[]
   presentationId String?       @unique
   presentation   Presentation? @relation(fields: [presentationId], references: [id], onDelete: SetNull)
+  presentationLinks SetupOrderPresentation[]
   notes          String?
   tables         SetupTable[]
   equipmentItems EquipmentItem[]
@@ -428,6 +456,28 @@ model SetupOrder {
 
   @@index([eventId])
   @@index([roomId])
+}
+
+model SetupOrderFunction {
+  id           String     @id @default(cuid())
+  setupOrderId String
+  functionId   String
+  setupOrder   SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  function     Function   @relation(fields: [functionId], references: [id], onDelete: Cascade)
+
+  @@unique([setupOrderId, functionId])
+  @@index([functionId])
+}
+
+model SetupOrderPresentation {
+  id             String       @id @default(cuid())
+  setupOrderId   String
+  presentationId String
+  setupOrder     SetupOrder   @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+
+  @@unique([setupOrderId, presentationId])
+  @@index([presentationId])
 }
 
 model SetupTable {
@@ -586,6 +636,8 @@ model Presentation {
   slots           PresentationSlot[]
   avOrder         AVOrder?
   setupOrder      SetupOrder?
+  avOrderLinks    AVOrderPresentation[]
+  setupOrderLinks SetupOrderPresentation[]
   printOrder      PrintOrder?
   mediaItems      MediaItem[]
   createdAt       DateTime              @default(now())

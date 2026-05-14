@@ -142,11 +142,11 @@ export function FunctionTableView({
         if (!hasContact) return false;
       }
 
-      if (filters.av === "yes" && !fn.avOrder) return false;
-      if (filters.av === "no" && fn.avOrder) return false;
+      if (filters.av === "yes" && fn.avOrders.length === 0) return false;
+      if (filters.av === "no" && fn.avOrders.length > 0) return false;
 
-      if (filters.setup === "yes" && !fn.setupOrder) return false;
-      if (filters.setup === "no" && fn.setupOrder) return false;
+      if (filters.setup === "yes" && fn.setupOrders.length === 0) return false;
+      if (filters.setup === "no" && fn.setupOrders.length > 0) return false;
 
       if (filters.catering === "yes" && !fn.cateringOrder) return false;
       if (filters.catering === "no" && fn.cateringOrder) return false;
@@ -516,17 +516,27 @@ export function FunctionTableView({
                       : "—"}
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
-                    {fn.avOrder ? (
-                      <Link href={`/events/${eventId}/av-orders/${fn.avOrder.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
-                        {fn.avOrder.name}
-                      </Link>
+                    {fn.avOrders.length > 0 ? (
+                      <span className="text-sm">
+                        {fn.avOrders.map((o, i) => (
+                          <span key={o.id}>
+                            {i > 0 && ", "}
+                            <Link href={`/events/${eventId}/av-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.name}</Link>
+                          </span>
+                        ))}
+                      </span>
                     ) : <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>}
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
-                    {fn.setupOrder ? (
-                      <Link href={`/events/${eventId}/setup-orders/${fn.setupOrder.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
-                        {getSetupOrderDisplayName(fn.setupOrder)}
-                      </Link>
+                    {fn.setupOrders.length > 0 ? (
+                      <span className="text-sm">
+                        {fn.setupOrders.map((o, i) => (
+                          <span key={o.id}>
+                            {i > 0 && ", "}
+                            <Link href={`/events/${eventId}/setup-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{getSetupOrderDisplayName(o)}</Link>
+                          </span>
+                        ))}
+                      </span>
                     ) : <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>}
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">

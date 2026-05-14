@@ -107,12 +107,8 @@ export default async function PresentationPage({
       },
       orderBy: { sortOrder: "asc" },
     }),
-    presentation.avOrder
-      ? Promise.resolve([])
-      : getAvailableAVOrdersForPresentation(eventId),
-    presentation.setupOrder
-      ? Promise.resolve([])
-      : getAvailableSetupOrdersForPresentation(eventId),
+    getAvailableAVOrdersForPresentation(eventId, presentationId),
+    getAvailableSetupOrdersForPresentation(eventId, presentationId),
     presentation.printOrder
       ? Promise.resolve([])
       : getAvailablePrintOrdersForPresentation(eventId),
@@ -171,9 +167,9 @@ export default async function PresentationPage({
     await linkAVOrderToPresentationFromPresentation(avOrderId, presentationId, eventId);
   };
 
-  const unlinkAVOrderAction = async () => {
+  const unlinkAVOrderAction = async (avOrderId: string) => {
     "use server";
-    await unlinkAVOrderFromPresentationPage(presentationId, eventId);
+    await unlinkAVOrderFromPresentationPage(avOrderId, presentationId, eventId);
   };
 
   const linkSetupOrderAction = async (setupOrderId: string) => {
@@ -181,9 +177,9 @@ export default async function PresentationPage({
     await linkSetupOrderToPresentationFromPresentation(setupOrderId, presentationId, eventId);
   };
 
-  const unlinkSetupOrderAction = async () => {
+  const unlinkSetupOrderAction = async (setupOrderId: string) => {
     "use server";
-    await unlinkSetupOrderFromPresentationPage(presentationId, eventId);
+    await unlinkSetupOrderFromPresentationPage(setupOrderId, presentationId, eventId);
   };
 
   const linkPrintOrderAction = async (printOrderId: string) => {
@@ -379,8 +375,8 @@ export default async function PresentationPage({
           />
 
           <AVOrderPanel
-            title="AV Order"
-            avOrder={presentation.avOrder}
+            title="AV Orders"
+            avOrders={presentation.avOrders}
             eventId={eventId}
             availableAVOrders={availableAVOrders}
             newAVOrderPath={`/events/${eventId}/av-orders/new?presentationId=${presentationId}`}
@@ -388,7 +384,7 @@ export default async function PresentationPage({
             unlinkAVOrder={unlinkAVOrderAction}
           />
           <SetupOrderPanel
-            setupOrder={presentation.setupOrder}
+            setupOrders={presentation.setupOrders}
             eventId={eventId}
             availableSetupOrders={availableSetupOrders}
             newSetupOrderPath={`/events/${eventId}/setup-orders/new?presentationId=${presentationId}`}

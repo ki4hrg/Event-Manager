@@ -89,9 +89,9 @@ export default async function FunctionPage({
     : [];
 
   const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, workflowInstances, allTemplates, substatuses] = await Promise.all([
-    fn.avOrder ? [] : getAvailableAVOrdersForFunction(eventId),
+    getAvailableAVOrdersForFunction(eventId, functionId),
     fn.cateringOrder ? [] : getAvailableCateringOrders(eventId),
-    fn.setupOrder ? [] : getAvailableSetupOrdersForFunction(eventId),
+    getAvailableSetupOrdersForFunction(eventId, functionId),
     getAvailablePrintOrdersForFunction(eventId, functionId),
     getWorkflowInstances("function", functionId),
     getWorkflowTemplateOptions(),
@@ -161,9 +161,9 @@ export default async function FunctionPage({
     await linkAVOrderToFunctionFromFunction(avOrderId, functionId, eventId);
   };
 
-  const unlinkAVOrderAction = async () => {
+  const unlinkAVOrderAction = async (avOrderId: string) => {
     "use server";
-    await unlinkAVOrderFromFunctionPage(functionId, eventId);
+    await unlinkAVOrderFromFunctionPage(avOrderId, functionId, eventId);
   };
 
   const linkCateringOrderAction = async (cateringOrderId: string) => {
@@ -181,9 +181,9 @@ export default async function FunctionPage({
     await linkSetupOrderToFunctionFromFunction(setupOrderId, functionId, eventId);
   };
 
-  const unlinkSetupOrderAction = async () => {
+  const unlinkSetupOrderAction = async (setupOrderId: string) => {
     "use server";
-    await unlinkSetupOrderFromFunctionPage(functionId, eventId);
+    await unlinkSetupOrderFromFunctionPage(setupOrderId, functionId, eventId);
   };
 
   const linkPrintOrderAction = async (printOrderId: string) => {
@@ -324,8 +324,8 @@ export default async function FunctionPage({
             createContact={createContactAction}
           />
           <AVOrderPanel
-            title="AV Order"
-            avOrder={fn.avOrder}
+            title="AV Orders"
+            avOrders={fn.avOrders}
             eventId={eventId}
             availableAVOrders={availableAVOrders}
             newAVOrderPath={`/events/${eventId}/av-orders/new?functionId=${functionId}`}
@@ -341,7 +341,7 @@ export default async function FunctionPage({
             unlinkCateringOrder={unlinkCateringOrderAction}
           />
           <SetupOrderPanel
-            setupOrder={fn.setupOrder ?? null}
+            setupOrders={fn.setupOrders}
             eventId={eventId}
             availableSetupOrders={availableSetupOrders}
             newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}

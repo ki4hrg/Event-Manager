@@ -68,19 +68,24 @@ export async function getFunctions(eventId: string) {
 }
 
 export async function getFunctionsForTable(eventId: string) {
-  return prisma.function.findMany({
+  const rows = await prisma.function.findMany({
     where: { eventId },
     include: {
       rooms: { include: { room: true } },
       schedules: { orderBy: { startTime: "asc" } },
       breakoutGroup: true,
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
-      avOrder: true,
+      avOrderFunctions: { include: { avOrder: true } },
       cateringOrder: true,
-      setupOrder: true,
+      setupOrderFunctions: { include: { setupOrder: { include: { room: true } } } },
     },
     orderBy: { name: "asc" },
   });
+  return rows.map((r) => ({
+    ...r,
+    avOrders: r.avOrderFunctions.map((l) => l.avOrder),
+    setupOrders: r.setupOrderFunctions.map((l) => l.setupOrder),
+  }));
 }
 
 export type FunctionForTable = Awaited<ReturnType<typeof getFunctionsForTable>>[number];
@@ -100,19 +105,25 @@ export async function getFunctionsWithPresentations(eventId: string) {
 }
 
 export async function getFunction(id: string) {
-  return prisma.function.findUnique({
+  const row = await prisma.function.findUnique({
     where: { id },
     include: {
       rooms: { include: { room: true } },
       schedules: { orderBy: { sortOrder: "asc" } },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
-      avOrder: true,
+      avOrderFunctions: { include: { avOrder: true } },
       cateringOrder: true,
-      setupOrder: { include: { room: true } },
+      setupOrderFunctions: { include: { setupOrder: { include: { room: true } } } },
       printOrderFunctions: { include: { printOrder: { select: { id: true, name: true } } } },
       breakoutGroup: true,
     },
   });
+  if (!row) return null;
+  return {
+    ...row,
+    avOrders: row.avOrderFunctions.map((l) => l.avOrder),
+    setupOrders: row.setupOrderFunctions.map((l) => l.setupOrder),
+  };
 }
 
 export async function createFunction(eventId: string, formData: FormData) {

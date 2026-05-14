@@ -9,30 +9,40 @@ import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 export async function getSetupOrders(eventId: string) {
-  return prisma.setupOrder.findMany({
+  const rows = await prisma.setupOrder.findMany({
     where: { eventId },
     include: {
       room: { select: { id: true, name: true } },
-      functions: { select: { id: true, name: true } },
+      functionLinks: { include: { function: { select: { id: true, name: true } } } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
       vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
+  return rows.map((r) => ({ ...r, functions: r.functionLinks.map((l) => l.function) }));
 }
 
 export async function getSetupOrder(id: string) {
-  return prisma.setupOrder.findUnique({
+  const row = await prisma.setupOrder.findUnique({
     where: { id },
     include: {
       room: true,
-      functions: { include: { schedules: { orderBy: { startTime: "asc" } } }, orderBy: { name: "asc" } },
-      presentation: { select: { id: true, title: true, eventId: true } },
+      functionLinks: {
+        include: { function: { include: { schedules: { orderBy: { startTime: "asc" } } } } },
+      },
+      presentationLinks: { include: { presentation: { select: { id: true, title: true, eventId: true } } } },
       tables: { include: { providerVendor: { select: { id: true, name: true } } }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { include: { equipment: true, providerVendor: true, providerContact: true, operatorVendor: true, operatorContact: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
     },
   });
+  if (!row) return null;
+  const functions = row.functionLinks.map((l) => l.function).sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    ...row,
+    functions,
+    presentations: row.presentationLinks.map((l) => l.presentation),
+  };
 }
 
 export async function createSetupOrder(eventId: string, formData: FormData) {
@@ -51,12 +61,17 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
       setupType: setupType || null,
       notes: notes || null,
       roomId,
-      presentationId,
     },
   });
 
   if (functionId) {
-    await prisma.function.update({ where: { id: functionId }, data: { setupOrderId: setupOrder.id } });
+    await prisma.setupOrderFunction.create({ data: { setupOrderId: setupOrder.id, functionId } });
+    revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  }
+
+  if (presentationId) {
+    await prisma.setupOrderPresentation.create({ data: { setupOrderId: setupOrder.id, presentationId } });
+    revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
   }
 
   const vendorIdToAssign = selectedVendorId ?? (await getDefaultVendorForModel(eventId, "SETUP_ORDER"))?.vendorId ?? null;
@@ -145,79 +160,83 @@ export async function duplicateSetupOrder(id: string, eventId: string) {
   redirect(`/events/${eventId}/setup-orders/${duplicate.id}`);
 }
 
-// Link/unlink from Setup Order detail page
+// Link/unlink (M:N via SetupOrderFunction / SetupOrderPresentation)
 export async function linkSetupOrderToFunction(setupOrderId: string, functionId: string, eventId: string) {
-  await prisma.function.update({ where: { id: functionId }, data: { setupOrderId } });
+  await prisma.setupOrderFunction.upsert({
+    where: { setupOrderId_functionId: { setupOrderId, functionId } },
+    create: { setupOrderId, functionId },
+    update: {},
+  });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function unlinkSetupOrderFromFunction(setupOrderId: string, functionId: string, eventId: string) {
-  await prisma.function.update({ where: { id: functionId }, data: { setupOrderId: null } });
+  await prisma.setupOrderFunction.deleteMany({ where: { setupOrderId, functionId } });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
-export async function getAvailableSetupOrdersForFunction(eventId: string) {
+export async function getAvailableSetupOrdersForFunction(eventId: string, functionId?: string) {
   return prisma.setupOrder.findMany({
-    where: { eventId },
+    where: {
+      eventId,
+      ...(functionId ? { NOT: { functionLinks: { some: { functionId } } } } : {}),
+    },
     include: { room: true },
     orderBy: { createdAt: "asc" },
   });
 }
 
-// Link/unlink from Function detail page
 export async function linkSetupOrderToFunctionFromFunction(
   setupOrderId: string,
   functionId: string,
   eventId: string
 ) {
-  await prisma.function.update({ where: { id: functionId }, data: { setupOrderId } });
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  return linkSetupOrderToFunction(setupOrderId, functionId, eventId);
 }
 
-export async function unlinkSetupOrderFromFunctionPage(functionId: string, eventId: string) {
-  await prisma.function.update({ where: { id: functionId }, data: { setupOrderId: null } });
-  revalidatePath(`/events/${eventId}/functions/${functionId}`);
+export async function unlinkSetupOrderFromFunctionPage(setupOrderId: string, functionId: string, eventId: string) {
+  return unlinkSetupOrderFromFunction(setupOrderId, functionId, eventId);
 }
 
-// Link/unlink from Setup Order detail page (Presentation)
 export async function linkSetupOrderToPresentation(setupOrderId: string, presentationId: string, eventId: string) {
-  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { presentationId } });
+  await prisma.setupOrderPresentation.upsert({
+    where: { setupOrderId_presentationId: { setupOrderId, presentationId } },
+    create: { setupOrderId, presentationId },
+    update: {},
+  });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
-export async function unlinkSetupOrderFromPresentation(setupOrderId: string, eventId: string) {
-  const setupOrder = await prisma.setupOrder.findUnique({ where: { id: setupOrderId }, select: { presentationId: true } });
-  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { presentationId: null } });
+export async function unlinkSetupOrderFromPresentation(setupOrderId: string, presentationId: string, eventId: string) {
+  await prisma.setupOrderPresentation.deleteMany({ where: { setupOrderId, presentationId } });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
-  if (setupOrder?.presentationId) {
-    revalidatePath(`/events/${eventId}/presentations/${setupOrder.presentationId}`);
-  }
+  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
-export async function getAvailableSetupOrdersForPresentation(eventId: string) {
+export async function getAvailableSetupOrdersForPresentation(eventId: string, presentationId?: string) {
   return prisma.setupOrder.findMany({
-    where: { eventId, presentationId: null },
+    where: {
+      eventId,
+      ...(presentationId ? { NOT: { presentationLinks: { some: { presentationId } } } } : {}),
+    },
     include: { room: true },
     orderBy: { createdAt: "asc" },
   });
 }
 
-// Link/unlink from Presentation detail page
 export async function linkSetupOrderToPresentationFromPresentation(
   setupOrderId: string,
   presentationId: string,
   eventId: string
 ) {
-  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { presentationId } });
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  return linkSetupOrderToPresentation(setupOrderId, presentationId, eventId);
 }
 
-export async function unlinkSetupOrderFromPresentationPage(presentationId: string, eventId: string) {
-  await prisma.setupOrder.updateMany({ where: { presentationId }, data: { presentationId: null } });
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+export async function unlinkSetupOrderFromPresentationPage(setupOrderId: string, presentationId: string, eventId: string) {
+  return unlinkSetupOrderFromPresentation(setupOrderId, presentationId, eventId);
 }
 
 // SetupTable CRUD

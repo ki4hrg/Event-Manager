@@ -36,8 +36,8 @@ export default async function NewAVOrderPage({
   const [availableFunctions, availablePresentations] = isFromSource
     ? [undefined, undefined]
     : await Promise.all([
-        prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
-        prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
+        prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" } }),
+        prisma.presentation.findMany({ where: { eventId }, orderBy: { title: "asc" } }),
       ]);
 
   const cancelPath = getSourceCancelPath(eventId, functionId, presentationId, `/events/${eventId}/av-orders`);

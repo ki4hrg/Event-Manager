@@ -38,8 +38,11 @@ export function AVOrderDetails({
             value={order.functions.map((f) => f.name).join(", ")}
           />
         )}
-        {order.presentation && (
-          <Field label="Linked Presentation" value={order.presentation.title} />
+        {order.presentations.length > 0 && (
+          <Field
+            label={`Linked Presentation${order.presentations.length > 1 ? "s" : ""}`}
+            value={order.presentations.map((p) => p.title).join(", ")}
+          />
         )}
         <Field label="Notes" value={order.notes} />
       </Section>

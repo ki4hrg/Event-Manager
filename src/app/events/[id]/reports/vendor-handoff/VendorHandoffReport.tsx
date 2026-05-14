@@ -227,8 +227,8 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
   for (const order of data.avOrders) {
     if (order.functions.length > 0) {
       for (const fn of order.functions) getOrCreateGroup(fn).avOrders.push(order);
-    } else if (order.presentation) {
-      getOrCreatePresentationGroup(order.presentation).avOrders.push(order);
+    } else if (order.presentations.length > 0) {
+      for (const p of order.presentations) getOrCreatePresentationGroup(p).avOrders.push(order);
     } else {
       unscheduled.avOrders.push(order);
     }
@@ -236,8 +236,8 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
   for (const order of data.setupOrders) {
     if (order.functions.length > 0) {
       for (const fn of order.functions) getOrCreateGroup(fn).setupOrders.push(order);
-    } else if (order.presentation) {
-      getOrCreatePresentationGroup(order.presentation).setupOrders.push(order);
+    } else if (order.presentations.length > 0) {
+      for (const p of order.presentations) getOrCreatePresentationGroup(p).setupOrders.push(order);
     } else {
       unscheduled.setupOrders.push(order);
     }

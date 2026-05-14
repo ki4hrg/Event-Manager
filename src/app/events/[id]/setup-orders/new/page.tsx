@@ -45,7 +45,7 @@ export default async function NewSetupOrderPage({
     isFromSource
       ? Promise.resolve([])
       : prisma.function.findMany({
-          where: { eventId, setupOrderId: null },
+          where: { eventId },
           include: { rooms: true },
           orderBy: { name: "asc" },
         }),

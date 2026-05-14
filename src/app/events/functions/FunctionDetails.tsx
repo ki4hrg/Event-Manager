@@ -109,12 +109,14 @@ export function FunctionDetails({
       )}
 
       {/* Linked Orders */}
-      {(fn.avOrder || fn.cateringOrder || fn.setupOrder) && (
+      {(fn.avOrders.length > 0 || fn.cateringOrder || fn.setupOrders.length > 0) && (
         <Section title="Linked Orders">
-          {fn.avOrder && (
+          {fn.avOrders.length > 0 && (
             <div className="text-sm mb-1">
-              <span className="font-medium text-gray-500 print:text-gray-600">AV Order: </span>
-              <span className="text-gray-900 print:text-black">{fn.avOrder.name}</span>
+              <span className="font-medium text-gray-500 print:text-gray-600">
+                AV Order{fn.avOrders.length > 1 ? "s" : ""}:{" "}
+              </span>
+              <span className="text-gray-900 print:text-black">{fn.avOrders.map((o) => o.name).join(", ")}</span>
             </div>
           )}
           {fn.cateringOrder && (
@@ -123,11 +125,13 @@ export function FunctionDetails({
               <span className="text-gray-900 print:text-black">{fn.cateringOrder.name}</span>
             </div>
           )}
-          {fn.setupOrder && (
+          {fn.setupOrders.length > 0 && (
             <div className="text-sm mb-1">
-              <span className="font-medium text-gray-500 print:text-gray-600">Setup Order: </span>
+              <span className="font-medium text-gray-500 print:text-gray-600">
+                Setup Order{fn.setupOrders.length > 1 ? "s" : ""}:{" "}
+              </span>
               <span className="text-gray-900 print:text-black">
-                {getSetupOrderDisplayName(fn.setupOrder)}
+                {fn.setupOrders.map((o) => getSetupOrderDisplayName(o)).join(", ")}
               </span>
             </div>
           )}

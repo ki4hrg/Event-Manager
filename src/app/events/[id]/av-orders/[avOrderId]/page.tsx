@@ -46,7 +46,7 @@ import {
 import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
-import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
+import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { AVOrderFunctionList } from "../../../av-orders/AVOrderFunctionList";
 import { AVOrderTabs, AV_ORDER_TABS } from "../../../av-orders/AVOrderTabs";
 import { AudioSectionPanel } from "../../../av-orders/AudioSectionPanel";
@@ -99,10 +99,14 @@ export default async function AVOrderPage({
   let avOrderPartyOptions: Awaited<ReturnType<typeof getAVOrderResponsiblePartyOptions>> = { responsiblePartyVendors: { vendors: [], venueVendor: null, systemVendor: null }, contacts: [] };
   if (activeTab === "overview") {
     [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories, avOrderPartyOptions] = await Promise.all([
-      prisma.function.findMany({ where: { eventId, avOrderId: null }, orderBy: { name: "asc" } }),
-      avOrder.presentationId
-        ? []
-        : prisma.presentation.findMany({ where: { eventId, avOrder: null }, orderBy: { title: "asc" } }),
+      prisma.function.findMany({
+        where: { eventId, NOT: { avOrderFunctions: { some: { avOrderId } } } },
+        orderBy: { name: "asc" },
+      }),
+      prisma.presentation.findMany({
+        where: { eventId, NOT: { avOrderLinks: { some: { avOrderId } } } },
+        orderBy: { title: "asc" },
+      }),
       getEquipment(),
       getOptions("equipment_category"),
       getAVOrderResponsiblePartyOptions(avOrderId, eventId),
@@ -167,9 +171,9 @@ export default async function AVOrderPage({
     await linkAVOrderToPresentation(avOrderId, presentationId, eventId);
   };
 
-  const unlinkFromPresentationAction = async () => {
+  const unlinkFromPresentationAction = async (presentationId: string) => {
     "use server";
-    await unlinkAVOrderFromPresentation(avOrderId, eventId);
+    await unlinkAVOrderFromPresentation(avOrderId, presentationId, eventId);
   };
 
   const searchEventVendorsAction = async (query: string) => {
@@ -446,20 +450,18 @@ export default async function AVOrderPage({
               linkFunction={linkToFunctionAction}
               unlinkFunction={unlinkFromFunctionAction}
             />
-            <AVOrderLinkPanel
-              title="Linked Presentation"
-              linkedId={avOrder.presentationId}
-              linkedName={avOrder.presentation?.title ?? null}
-              linkedDetailPath={
-                avOrder.presentationId
-                  ? `/events/${eventId}/presentations/${avOrder.presentationId}`
-                  : null
-              }
+            <LinkedItemsPanel
+              title="Linked Presentations"
+              items={avOrder.presentations.map((p) => ({
+                id: p.id,
+                label: p.title,
+                detailPath: `/events/${eventId}/presentations/${p.id}`,
+              }))}
               availableItems={availablePresentations.map((p) => ({ id: p.id, label: p.title }))}
-              newItemPath={`/events/${eventId}/av-orders/new?presentationId=placeholder`}
+              linkLabel="Link Presentation"
+              emptyMessage="Not linked to a presentation."
               linkItem={linkToPresentationAction}
               unlinkItem={unlinkFromPresentationAction}
-              entityLabel="presentation"
             />
             <WorkflowPanel
               instances={workflowInstances}

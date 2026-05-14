@@ -38,7 +38,7 @@ import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { FunctionMultiLinkControl } from "../../../functions/FunctionMultiLinkControl";
-import { AVOrderLinkPanel } from "../../../av-orders/AVOrderLinkPanel";
+import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
@@ -95,18 +95,16 @@ export default async function SetupOrderPage({
     prisma.function.findMany({
       where: {
         eventId,
-        setupOrderId: null,
+        NOT: { setupOrderFunctions: { some: { setupOrderId } } },
         ...(setupOrder.roomId ? { rooms: { some: { roomId: setupOrder.roomId } } } : {}),
       },
       orderBy: { name: "asc" },
     }),
-    setupOrder.presentation
-      ? Promise.resolve([])
-      : prisma.presentation.findMany({
-          where: { eventId, setupOrder: { is: null } },
-          select: { id: true, title: true },
-          orderBy: { title: "asc" },
-        }),
+    prisma.presentation.findMany({
+      where: { eventId, NOT: { setupOrderLinks: { some: { setupOrderId } } } },
+      select: { id: true, title: true },
+      orderBy: { title: "asc" },
+    }),
   ]);
 
   const searchEventVendorsAction = async (query: string) => {
@@ -175,9 +173,9 @@ export default async function SetupOrderPage({
     await linkSetupOrderToPresentation(setupOrderId, presentationId, eventId);
   };
 
-  const unlinkFromPresentationAction = async () => {
+  const unlinkFromPresentationAction = async (presentationId: string) => {
     "use server";
-    await unlinkSetupOrderFromPresentation(setupOrderId, eventId);
+    await unlinkSetupOrderFromPresentation(setupOrderId, presentationId, eventId);
   };
 
   const createTableAction = async (formData: FormData) => {
@@ -349,16 +347,18 @@ export default async function SetupOrderPage({
               />
             </div>
 
-            <AVOrderLinkPanel
-              title="Linked Presentation"
-              linkedId={setupOrder.presentation?.id ?? null}
-              linkedName={setupOrder.presentation?.title ?? null}
-              linkedDetailPath={setupOrder.presentation ? `/events/${eventId}/presentations/${setupOrder.presentation.id}` : null}
+            <LinkedItemsPanel
+              title="Linked Presentations"
+              items={setupOrder.presentations.map((p) => ({
+                id: p.id,
+                label: p.title,
+                detailPath: `/events/${eventId}/presentations/${p.id}`,
+              }))}
               availableItems={availablePresentations.map((p) => ({ id: p.id, label: p.title }))}
-              newItemPath={`/events/${eventId}/presentations/new`}
+              linkLabel="Link Presentation"
+              emptyMessage="Not linked to a presentation."
               linkItem={linkToPresentationAction}
               unlinkItem={unlinkFromPresentationAction}
-              entityLabel="Presentation"
             />
 
             <WorkflowPanel

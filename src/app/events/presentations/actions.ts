@@ -88,7 +88,7 @@ export async function getPresentations(eventId: string) {
 }
 
 export async function getPresentation(id: string) {
-  return prisma.presentation.findUnique({
+  const row = await prisma.presentation.findUnique({
     where: { id },
     include: {
       track: true,
@@ -108,8 +108,8 @@ export async function getPresentation(id: string) {
           room: true,
         },
       },
-      avOrder: true,
-      setupOrder: { select: { id: true, name: true, setupType: true, room: { select: { name: true } } } },
+      avOrderLinks: { include: { avOrder: { select: { id: true, name: true } } } },
+      setupOrderLinks: { include: { setupOrder: { select: { id: true, name: true, setupType: true, room: { select: { name: true } } } } } },
       printOrder: { select: { id: true, name: true } },
       event: true,
       mediaItems: {
@@ -118,6 +118,12 @@ export async function getPresentation(id: string) {
       },
     },
   });
+  if (!row) return null;
+  return {
+    ...row,
+    avOrders: row.avOrderLinks.map((l) => l.avOrder),
+    setupOrders: row.setupOrderLinks.map((l) => l.setupOrder),
+  };
 }
 
 export async function createPresentation(eventId: string, formData: FormData) {

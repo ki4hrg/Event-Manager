@@ -77,7 +77,7 @@ export function AVOrderList({
         case "status": return compareValues(a.status, b.status, sortDir);
         case "vendors": return compareValues(a.vendors.map((v) => v.vendor.name).join(", "), b.vendors.map((v) => v.vendor.name).join(", "), sortDir);
         case "functions": return compareValues(a.functions.length, b.functions.length, sortDir);
-        case "presentation": return compareValues(a.presentation?.title ?? "", b.presentation?.title ?? "", sortDir);
+        case "presentation": return compareValues(a.presentations.map((p) => p.title).join(", "), b.presentations.map((p) => p.title).join(", "), sortDir);
         default: return 0;
       }
     });
@@ -267,12 +267,14 @@ export function AVOrderList({
                         : `Linked to ${avOrder.functions.length} functions`}
                     </span>
                   )}
-                  {avOrder.presentation && (
+                  {avOrder.presentations.length > 0 && (
                     <span className="text-blue-600 dark:text-blue-400">
-                      Linked to presentation: {avOrder.presentation.title}
+                      {avOrder.presentations.length === 1
+                        ? `Linked to presentation: ${avOrder.presentations[0].title}`
+                        : `Linked to ${avOrder.presentations.length} presentations`}
                     </span>
                   )}
-                  {avOrder.functions.length === 0 && !avOrder.presentation && (
+                  {avOrder.functions.length === 0 && avOrder.presentations.length === 0 && (
                     <span className="text-orange-600 dark:text-orange-400">Unlinked</span>
                   )}
                 </div>
@@ -348,8 +350,10 @@ export function AVOrderList({
                           : <span className="text-orange-500">Unlinked</span>}
                       </td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {o.presentation
-                          ? <Link href={`/events/${eventId}/presentations/${o.presentation.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.presentation.title}</Link>
+                        {o.presentations.length > 0
+                          ? o.presentations.length === 1
+                            ? <Link href={`/events/${eventId}/presentations/${o.presentations[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.presentations[0].title}</Link>
+                            : `${o.presentations.length} presentations`
                           : "—"}
                       </td>
                     </tr>
