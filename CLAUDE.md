@@ -156,6 +156,77 @@ Empty string (`""`) means "All / no filter". Never use `null` or `undefined` as 
 ### ModelType values
 `"AV_ORDER"`, `"CATERING_ORDER"`, `"SETUP_ORDER"`, `"PRINT_ORDER"` — declared in `src/app/vendors/actions.ts`
 
+## Report Layout Pattern
+
+Every report under `/events/[id]/reports/[name]/` must render cleanly on mobile, print without UI chrome, and work in the unauthenticated `/share/[token]/` view. Equipment Responsibility and Vendor Handoff are the reference implementations — replicate their structure.
+
+### File layout
+- `src/app/events/reports/actions.ts` — shared server actions for all reports. Report data actions must **NOT** call `requireAuth()` (the share route is unauthenticated)
+- `src/app/events/[id]/reports/[name]/page.tsx` — server component; fetches data and renders the filter bar + report
+- `src/app/events/[id]/reports/[name]/ReportFilters.tsx` — `"use client"`; accepts `shareButton?`, `hidePrint?`, `basePath?` props for share-view reuse
+- `src/app/events/[id]/reports/[name]/[Name]Report.tsx` — report body component; consumed by both `/events/[id]/reports/...` and `/share/[token]/` so changes apply everywhere automatically
+- `src/app/events/[id]/reports/[name]/print/page.tsx` — dedicated PDF route using `PrintHeader`
+
+### Required: mobile-friendly tables
+Every table in a report renders BOTH a mobile card layout and a desktop/print table:
+```tsx
+<>
+  <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+    {rows.map((row) => (
+      <div key={...} className="p-2">
+        {/* bold item name, qty right-aligned, role/provider/operator stacked muted, italic notes */}
+      </div>
+    ))}
+  </div>
+  <div className="hidden sm:block print:block overflow-x-auto">
+    <table className="w-full text-sm border-collapse">{/* same data */}</table>
+  </div>
+</>
+```
+Tables with ≤ 2 simple columns (e.g. presentation time/room) may skip the mobile card if they fit naturally at 360 px. A `table-fixed` table without a mobile card variant is wrong on mobile — `overflow-x-auto` does nothing because the table never exceeds the viewport width.
+
+### Required: nav, anchors, section dividers
+- Render `<ReportNav links={...} />` from `src/components/ReportNav.tsx` as the first child of the report body. It's `sticky top-2 z-10` with `id="top"`, so every section divider can link back to it
+- Use `<SectionDivider id="..." title="..." />` from `src/components/SectionDivider.tsx` to group logical regions (Summary, Details, Unscheduled, etc.). Each divider includes a `↑ Top` link automatically
+- Every anchored card must include `scroll-mt-24` so jumped-to sections land below the sticky nav rather than under it
+
+### Anchor ID conventions
+- Top-level sections: kebab-case (`top`, `summary`, `key-contacts`, `function-schedule`, `equipment-summary`, `details`, `unscheduled`)
+- Per-entity: `${kind}-${id}` (`function-${fn.id}`, `presentation-${presentation.id}`, `party-${partyId}`)
+- Never use raw composite keys containing `:` or other CSS-unfriendly characters as HTML IDs — compute a clean anchor id separately from the React `key`
+
+### Filter bar conventions
+- `ReportFilters` accepts `hidePrint?: boolean` — pass `hidePrint` from `src/app/share/[token]/page.tsx` so only the `ShareShell` header Print button shows
+- On mobile (`sm:hidden`), filter chips collapse behind a "Show filters / X active" toggle button. Actions (Clear, Share, Print) remain always visible. Desktop layout unchanged (`hidden sm:flex`)
+- Filter state lives in URL search params (bookmarkable, share-friendly, server-rendered)
+
+### Aggregation conventions
+- When summarizing items across multiple sources, **never** use `"Multiple"` rollups in the display. Split rows along the dimension that produced the ambiguity (e.g. by `(item, role, provider)`) so each row is concrete
+- Sort order: category → item name → role priority (Provider & Operator > Provider > Operator) → provider name
+
+### Print/PDF conventions
+- Dedicated print route (`/print`); do NOT print the interactive screen directly
+- Use `PrintHeader` (`src/components/print/PrintHeader.tsx`) with `eventName`, `title`, `backHref`
+- Filter controls are not rendered on print pages — the URL carries them in
+- "Print / Save PDF" button in `ReportFilters` is an `<a href="${basePath}/print?...">`, never `window.print()`
+- Use Tailwind class strings from `src/lib/reportStyles.ts` (`reportTh`, `reportTd`, `reportSectionCard`, `reportOrderCard`, `reportGroupRow`, `reportFooterText`) — do not re-declare inline
+
+### Share-view integration
+For the full share-link wiring checklist (new `reportType` value, share route branch, `ShareReportButton` prop, etc.), see the existing implementations in `src/app/share/[token]/page.tsx`. Key points:
+- Report data actions must be auth-free (no `requireAuth()` calls)
+- `basePath={`/share/${token}`}` passed to `ReportFilters` in the share branch
+- `hidePrint` passed in the share branch — `ShareShell` already provides Print
+
+### Shared components reference
+| Component | Location | Purpose |
+|---|---|---|
+| `ReportNav` | `src/components/ReportNav.tsx` | Sticky jump-to nav with `id="top"` |
+| `SectionDivider` | `src/components/SectionDivider.tsx` | Labeled section ruler with back-to-top link |
+| `PrintHeader` | `src/components/print/PrintHeader.tsx` | Print page header (event name, title, back link) |
+| `ShareReportButton` | `src/components/ShareReportButton.tsx` | Create/manage share links from a report page |
+| `ShareShell` | `src/app/share/[token]/ShareShell.tsx` | Layout shell for the share route (header, Print button, footer) |
+| Report style classes | `src/lib/reportStyles.ts` | `reportTh`, `reportTd`, etc. |
+
 ## Code Conventions
 - Use named exports for components
 - Colocate component-specific logic
