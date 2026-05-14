@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { ModelType } from "@/app/vendors/actions";
+import { resolveOptionLabel } from "@/lib/optionUtils";
 
 export type EquipmentReportFilters = {
   vendorIds?: string[];
@@ -12,6 +13,7 @@ export type EquipmentSourceRef = {
   orderId: string;
   orderName: string;
   functionType: string;
+  functionTypeLabel: string | null;
   functionGroupName: string | null;
   functionNames: string[];
   modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
@@ -74,14 +76,14 @@ type FunctionRef = {
   schedules: { startTime: Date; endTime: Date }[];
 };
 
-type AvOrderRef = {
+type OrderRef = {
   functions: FunctionRef[];
   presentation?: { slots: Array<{ function: FunctionRef }> } | null;
 };
 
-function getAvOrderFns(avOrder: AvOrderRef): FunctionRef[] {
-  if (avOrder.functions.length > 0) return avOrder.functions;
-  return avOrder.presentation?.slots.map((s) => s.function) ?? [];
+function getOrderFns(order: OrderRef): FunctionRef[] {
+  if (order.functions.length > 0) return order.functions;
+  return order.presentation?.slots.map((s) => s.function) ?? [];
 }
 
 // Expands one item into one NormalizedItem per linked function.
@@ -138,7 +140,7 @@ export async function getEquipmentResponsibilityData(
   eventId: string,
   filters?: EquipmentReportFilters
 ): Promise<VendorEquipmentGroup[]> {
-  const [equipmentItems, inputItems, monitorMixes, setupTables] = await Promise.all([
+  const [equipmentItems, inputItems, monitorMixes, setupTables, functionTypeOptions] = await Promise.all([
     prisma.equipmentItem.findMany({
       where: {
         OR: [
@@ -164,6 +166,7 @@ export async function getEquipmentResponsibilityData(
             id: true,
             name: true,
             functions: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
+            presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } },
           },
         },
         avOrder: {
@@ -246,6 +249,7 @@ export async function getEquipmentResponsibilityData(
         },
       },
     }),
+    prisma.customOption.findMany({ where: { category: "function_type" }, select: { label: true } }),
   ]);
 
   const normalized: NormalizedItem[] = [];
@@ -267,17 +271,17 @@ export async function getEquipmentResponsibilityData(
       orderId = item.setupOrder.id;
       orderName = item.setupOrder.name ?? "";
       modelType = "SETUP_ORDER";
-      fns = item.setupOrder.functions;
+      fns = getOrderFns(item.setupOrder);
     } else if (item.avOrder) {
       orderId = item.avOrder.id;
       orderName = item.avOrder.name ?? "";
       modelType = "AV_ORDER";
-      fns = getAvOrderFns(item.avOrder);
+      fns = getOrderFns(item.avOrder);
     } else if (item.videoSection?.avOrder) {
       orderId = item.videoSection.avOrder.id;
       orderName = item.videoSection.avOrder.name ?? "";
       modelType = "AV_ORDER";
-      fns = getAvOrderFns(item.videoSection.avOrder);
+      fns = getOrderFns(item.videoSection.avOrder);
     } else {
       continue;
     }
@@ -317,7 +321,7 @@ export async function getEquipmentResponsibilityData(
       orderName: avOrder.name ?? "",
       modelType: "AV_ORDER" as const,
     };
-    normalized.push(...expandByFunction(base, getAvOrderFns(avOrder)));
+    normalized.push(...expandByFunction(base, getOrderFns(avOrder)));
   }
 
   for (const item of monitorMixes) {
@@ -338,12 +342,12 @@ export async function getEquipmentResponsibilityData(
       orderName: avOrder.name ?? "",
       modelType: "AV_ORDER" as const,
     };
-    normalized.push(...expandByFunction(base, getAvOrderFns(avOrder)));
+    normalized.push(...expandByFunction(base, getOrderFns(avOrder)));
   }
 
   for (const table of setupTables) {
     const attrVendor = table.providerVendor;
-    const fns = getAvOrderFns(table.setupOrder);
+    const fns = getOrderFns(table.setupOrder);
     const baseAttrs = {
       attributionVendorId: attrVendor?.id ?? null,
       attributionVendorName: attrVendor?.name ?? null,
@@ -444,6 +448,7 @@ export async function getEquipmentResponsibilityData(
         orderId: item.orderId,
         orderName: item.orderName,
         functionType: item.functionType,
+        functionTypeLabel: null,
         functionGroupName: item.functionGroupName,
         functionNames: item.functionNames,
         modelType: item.modelType,
@@ -527,7 +532,14 @@ export async function getEquipmentResponsibilityData(
         totalQuantity,
         peakNeeded: peak,
         peakIsExact: isExact,
-        sources: Array.from(displayMap.values()).map((d) => ({ ...d.source, quantity: d.displayQty, isScheduled: d.isScheduled })),
+        sources: Array.from(displayMap.values()).map((d) => ({
+          ...d.source,
+          quantity: d.displayQty,
+          isScheduled: d.isScheduled,
+          functionTypeLabel: d.source.functionType === "BREAKOUT_BLOCK"
+            ? null
+            : (resolveOptionLabel(d.source.functionType, functionTypeOptions) || null),
+        })),
       });
     }
 

@@ -6,7 +6,7 @@ function sourceLabel(s: EquipmentSourceRef): string {
   if (s.functionType === "BREAKOUT_BLOCK") {
     return s.functionGroupName ? `Breakout: ${s.functionGroupName}` : "Breakout";
   }
-  return s.functionType || s.orderName || "—";
+  return s.functionTypeLabel || s.orderName || "—";
 }
 
 function SourceList({ sources }: { sources: EquipmentSourceRef[] }) {
