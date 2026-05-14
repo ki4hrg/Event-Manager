@@ -3,10 +3,15 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { SetupTable, Equipment } from "@prisma/client";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import { aggregateSetupTables } from "./utils";
 
+type TableRow = SetupTable & { providerVendor: { id: string; name: string } | null };
+
 type SetupTableListProps = {
-  tables: SetupTable[];
+  tables: TableRow[];
+  vendorOptions: ResponsiblePartyOptions;
   tableOptions: Equipment[];
   chairOptions: Equipment[];
   createTable: (formData: FormData) => Promise<void>;
@@ -84,10 +89,11 @@ function RowForm({
   defaultTableType = "",
   defaultChairCount = "",
   defaultChairType = "",
-  defaultProvider = "",
+  defaultProviderVendorId = "",
   defaultNotes = "",
   tableOptions,
   chairOptions,
+  vendorOptions,
   onSubmit,
   onCancel,
   submitLabel,
@@ -96,10 +102,11 @@ function RowForm({
   defaultTableType?: string;
   defaultChairCount?: number | string;
   defaultChairType?: string;
-  defaultProvider?: string;
+  defaultProviderVendorId?: string;
   defaultNotes?: string;
   tableOptions: Equipment[];
   chairOptions: Equipment[];
+  vendorOptions: ResponsiblePartyOptions;
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
@@ -176,13 +183,7 @@ function RowForm({
       )}
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
-        <input
-          type="text"
-          name="provider"
-          defaultValue={defaultProvider}
-          placeholder="e.g., venue, rental company"
-          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-        />
+        <ResponsiblePartyField options={vendorOptions} defaultValue={defaultProviderVendorId} name="providerVendorId" />
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
@@ -211,6 +212,7 @@ function RowForm({
 
 export function SetupTableList({
   tables,
+  vendorOptions,
   tableOptions,
   chairOptions,
   createTable,
@@ -247,6 +249,7 @@ export function SetupTableList({
           <RowForm
             tableOptions={tableOptions}
             chairOptions={chairOptions}
+            vendorOptions={vendorOptions}
             onSubmit={handleCreate}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Add"
@@ -268,10 +271,11 @@ export function SetupTableList({
                   defaultTableType={row.tableType ?? ""}
                   defaultChairCount={row.chairCount ?? ""}
                   defaultChairType={row.chairType ?? ""}
-                  defaultProvider={row.provider ?? ""}
+                  defaultProviderVendorId={row.providerVendorId ?? ""}
                   defaultNotes={row.notes ?? ""}
                   tableOptions={tableOptions}
                   chairOptions={chairOptions}
+                  vendorOptions={vendorOptions}
                   onSubmit={(fd) => handleUpdate(row.id, fd)}
                   onCancel={() => setEditingId(null)}
                   submitLabel="Save"
@@ -298,8 +302,8 @@ export function SetupTableList({
                     {!row.tableType && (!row.chairCount || row.chairCount === 0) && (
                       <span className="text-gray-900 dark:text-white font-medium">{row.quantity} items</span>
                     )}
-                    {row.provider && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Provider: {row.provider}</p>
+                    {row.providerVendor && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Provider: {row.providerVendor.name}</p>
                     )}
                     {row.notes && (
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{row.notes}</p>

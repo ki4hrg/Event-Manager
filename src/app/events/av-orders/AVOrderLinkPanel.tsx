@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type AVOrderLinkPanelProps = {
@@ -26,18 +27,24 @@ export function AVOrderLinkPanel({
   unlinkItem,
   entityLabel,
 }: AVOrderLinkPanelProps) {
+  const router = useRouter();
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLink = async () => {
     if (!selectedId) return;
     setIsLinking(true);
+    setError(null);
     try {
       await linkItem(selectedId);
       setShowLinkForm(false);
       setSelectedId("");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to link");
     } finally {
       setIsLinking(false);
     }
@@ -46,8 +53,12 @@ export function AVOrderLinkPanel({
   const handleUnlink = async () => {
     if (!confirm(`Unlink this ${entityLabel}?`)) return;
     setIsUnlinking(true);
+    setError(null);
     try {
       await unlinkItem();
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to unlink");
     } finally {
       setIsUnlinking(false);
     }
@@ -56,6 +67,8 @@ export function AVOrderLinkPanel({
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{title}</h2>
+
+      {error && <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error}</p>}
 
       {linkedId && linkedName ? (
         <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">

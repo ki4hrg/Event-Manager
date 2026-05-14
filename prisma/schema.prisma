@@ -435,14 +435,16 @@ model SetupTable {
   quantity     Int
   tableType    String?
   chairCount   Int?
-  chairType    String?
-  provider     String?
-  notes        String?
-  sortOrder    Int        @default(0)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  chairType        String?
+  providerVendorId String?
+  providerVendor   Vendor?    @relation("SetupTableProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  notes            String?
+  sortOrder        Int        @default(0)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   @@index([setupOrderId])
+  @@index([providerVendorId])
 }
 
 model CateringOrderLineItem {
@@ -726,6 +728,7 @@ model Vendor {
   monitorMixesAsOperator      MonitorMix[]               @relation("MonitorMixOperatorVendor")
   monitorOutputsAsProvider    MonitorOutput[]            @relation("MonitorOutputProviderVendor")
   monitorOutputsAsOperator    MonitorOutput[]            @relation("MonitorOutputOperatorVendor")
+  setupTablesAsProvider     SetupTable[]               @relation("SetupTableProviderVendor")
   mediaItemsAsAdvancer      MediaItem[]                @relation("MediaItemAdvancerVendor")
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt

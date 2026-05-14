@@ -375,6 +375,7 @@ export default async function SetupOrderPage({
           <div className="lg:col-span-2 space-y-8">
             <SetupTableList
               tables={setupOrder.tables}
+              vendorOptions={responsiblePartyVendors}
               tableOptions={tableOptions}
               chairOptions={chairOptions}
               createTable={createTableAction}
