@@ -54,7 +54,7 @@ export function FunctionMultiLinkControl({
       <div className="space-y-1">
         {linkedFunctions.map((f) => (
           <div key={f.id} className="flex items-center gap-3">
-            <Link href={f.path} className="text-sm text-blue-600 hover:underline">
+            <Link href={f.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
               {f.name}
             </Link>
             <button
@@ -107,7 +107,7 @@ export function FunctionMultiLinkControl({
         <button
           type="button"
           onClick={() => setShowLinkForm(true)}
-          className="text-sm text-blue-600 hover:underline mt-1"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-1"
         >
           Link to function
         </button>

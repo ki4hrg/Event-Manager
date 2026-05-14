@@ -59,7 +59,7 @@ export function CateringOrderPanel({
           <div>
             <Link
               href={`/events/${eventId}/catering-orders/${cateringOrder.id}`}
-              className="text-blue-600 hover:underline font-medium text-sm"
+              className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
             >
               {cateringOrder.name}
             </Link>
@@ -113,7 +113,7 @@ export function CateringOrderPanel({
                 </div>
               )}
               <div className="flex items-center gap-3 text-sm">
-                <Link href={newCateringOrderPath} className="text-blue-600 hover:underline">
+                <Link href={newCateringOrderPath} className="text-blue-600 dark:text-blue-400 hover:underline">
                   Create new Catering Order
                 </Link>
                 <button

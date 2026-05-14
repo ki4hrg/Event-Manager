@@ -332,7 +332,7 @@ export function SetupOrderList({
                     <tr key={o.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
                       <td className="px-3 py-3 w-8"><input type="checkbox" checked={isSelected} onChange={() => toggleRow(o.id)} className="rounded" /></td>
                       <td className="px-3 py-3 font-medium">
-                        <Link href={`/events/${eventId}/setup-orders/${o.id}`} className="text-blue-600 hover:underline">{displayName}</Link>
+                        <Link href={`/events/${eventId}/setup-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{displayName}</Link>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>
                       <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>
@@ -340,7 +340,7 @@ export function SetupOrderList({
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.setupType || "—"}</td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.room
-                          ? <Link href={`/events/${eventId}/rooms/${o.room.id}`} className="text-blue-600 hover:underline">{o.room.name}</Link>
+                          ? <Link href={`/events/${eventId}/rooms/${o.room.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.room.name}</Link>
                           : "—"}
                       </td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.tables.length > 0 ? o.tables.length : "—"}</td>
@@ -348,7 +348,7 @@ export function SetupOrderList({
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.functions.length > 0
                           ? o.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 hover:underline">{o.functions[0].name}</Link>
+                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.functions[0].name}</Link>
                             : `${o.functions.length} functions`
                           : <span className="text-orange-500">Unlinked</span>}
                       </td>

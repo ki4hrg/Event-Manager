@@ -245,7 +245,7 @@ function SortableOptionRow({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setEditingId(option.id)}
-                className="text-blue-600 hover:underline text-sm"
+                className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
               >
                 Edit
               </button>
@@ -324,7 +324,7 @@ export function OptionList({
                 onClick={() => setReordering(!reordering)}
                 className={`px-3 py-1.5 text-sm rounded border ${
                   reordering
-                    ? "border-blue-600 text-blue-600 bg-blue-50 dark:bg-blue-950"
+                    ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950"
                     : "border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
                 }`}
               >

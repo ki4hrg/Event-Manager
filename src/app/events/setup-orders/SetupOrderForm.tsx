@@ -189,7 +189,7 @@ export function SetupOrderForm({
             {setupTypes.length === 0 ? (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 No setup types defined.{" "}
-                <a href="/settings" className="text-blue-600 hover:underline">
+                <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
                   Add setup types in Settings
                 </a>
               </p>

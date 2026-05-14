@@ -64,7 +64,7 @@ export function SetupOrderPanel({
           <div>
             <Link
               href={`/events/${eventId}/setup-orders/${setupOrder.id}`}
-              className="text-blue-600 hover:underline font-medium text-sm"
+              className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
             >
               {getSetupOrderDisplayName(setupOrder)}
             </Link>
@@ -114,7 +114,7 @@ export function SetupOrderPanel({
                 </div>
               )}
               <div className="flex items-center gap-3 text-sm">
-                <Link href={newSetupOrderPath} className="text-blue-600 hover:underline">
+                <Link href={newSetupOrderPath} className="text-blue-600 dark:text-blue-400 hover:underline">
                   Create new Setup Order
                 </Link>
                 <button

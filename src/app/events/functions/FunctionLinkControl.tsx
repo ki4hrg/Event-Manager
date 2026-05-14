@@ -54,7 +54,7 @@ export function FunctionLinkControl({
       </label>
       {linkedFunctionId && linkedFunctionName ? (
         <div className="flex items-center gap-3">
-          <Link href={linkedFunctionPath!} className="text-sm text-blue-600 hover:underline">
+          <Link href={linkedFunctionPath!} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
             {linkedFunctionName}
           </Link>
           <button
@@ -104,7 +104,7 @@ export function FunctionLinkControl({
         <button
           type="button"
           onClick={() => setShowLinkForm(true)}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
           Link to function
         </button>

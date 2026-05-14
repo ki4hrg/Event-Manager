@@ -86,7 +86,7 @@ function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: Room[
               name="roomIds"
               value={room.id}
               defaultChecked={selectedRoomIds.includes(room.id)}
-              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
             />
             <span className="text-gray-900 dark:text-white">{room.name}</span>
             {room.capacity && (
@@ -144,7 +144,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
             </h2>
             <button
               onClick={() => setEditing(true)}
-              className="px-3 py-1.5 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-950"
+              className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-950"
             >
               Edit
             </button>
@@ -251,7 +251,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
               {functionTypes.length === 0 ? (
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   No function types defined.{" "}
-                  <a href="/settings" className="text-blue-600 hover:underline">
+                  <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
                     Add types in Settings
                   </a>
                 </p>

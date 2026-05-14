@@ -25,7 +25,7 @@ export default async function VendorsPage() {
       {vendors.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
           No vendors yet.{" "}
-          <Link href="/vendors/new" className="text-blue-600 hover:underline">
+          <Link href="/vendors/new" className="text-blue-600 dark:text-blue-400 hover:underline">
             Create your first vendor
           </Link>
         </p>
@@ -51,7 +51,7 @@ export default async function VendorsPage() {
                   <td className="px-6 py-4">
                     <Link
                       href={`/vendors/${vendor.id}`}
-                      className="text-blue-600 hover:underline font-medium"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
                       {vendor.name}
                     </Link>

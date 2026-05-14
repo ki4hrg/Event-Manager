@@ -60,7 +60,7 @@ export function AVOrderPanel({
             <div>
               <Link
                 href={`/events/${eventId}/av-orders/${avOrder.id}`}
-                className="text-blue-600 hover:underline font-medium text-sm"
+                className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
               >
                 {avOrder.name}
               </Link>
@@ -110,7 +110,7 @@ export function AVOrderPanel({
                 </div>
               )}
               <div className="flex items-center gap-3 text-sm">
-                <Link href={newAVOrderPath} className="text-blue-600 hover:underline">
+                <Link href={newAVOrderPath} className="text-blue-600 dark:text-blue-400 hover:underline">
                   Create new AV Order
                 </Link>
                 <button

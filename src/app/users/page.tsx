@@ -24,7 +24,7 @@ export default async function UsersPage() {
       {users.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
           No users yet.{" "}
-          <Link href="/users/new" className="text-blue-600 hover:underline">
+          <Link href="/users/new" className="text-blue-600 dark:text-blue-400 hover:underline">
             Create your first user
           </Link>
         </p>
@@ -53,7 +53,7 @@ export default async function UsersPage() {
                   <td className="px-6 py-4">
                     <Link
                       href={`/users/${user.id}`}
-                      className="text-blue-600 hover:underline font-medium"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
                       {user.name || user.email}
                     </Link>

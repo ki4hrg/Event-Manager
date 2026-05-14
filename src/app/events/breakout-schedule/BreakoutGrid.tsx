@@ -287,7 +287,7 @@ function SessionManager({
       ) : (
         <button
           onClick={() => setShowAdd(true)}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
           + Add Session
         </button>
@@ -367,7 +367,7 @@ function PresentationManager({
                       )}
                       <Link
                         href={`/events/${eventId}/presentations/${p.id}`}
-                        className="text-blue-600 hover:underline grow"
+                        className="text-blue-600 dark:text-blue-400 hover:underline grow"
                       >
                         {p.title}
                       </Link>
@@ -395,7 +395,7 @@ function PresentationManager({
         <button
           onClick={openPicker}
           disabled={isPending}
-          className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
         >
           {isPending ? "Loading..." : "+ Add Presentation"}
         </button>
@@ -406,7 +406,7 @@ function PresentationManager({
           {available !== null && available.length === 0 ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
               No unassigned presentations.{" "}
-              <Link href={`/events/${eventId}/presentations/new`} className="text-blue-600 hover:underline">
+              <Link href={`/events/${eventId}/presentations/new`} className="text-blue-600 dark:text-blue-400 hover:underline">
                 Create one
               </Link>{" "}
               first.
@@ -1234,7 +1234,7 @@ export function BreakoutGrid({
               <div key={block.id} className="flex items-center gap-2 text-sm">
                 <Link
                   href={`/events/${eventId}/functions/${block.id}`}
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {block.name}
                 </Link>

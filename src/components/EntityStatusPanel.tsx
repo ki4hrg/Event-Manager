@@ -125,7 +125,7 @@ export function EntityStatusPanel({
           <button
             type="button"
             onClick={handleEditOpen}
-            className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
             Edit
           </button>
@@ -142,7 +142,7 @@ export function EntityStatusPanel({
           <button
             type="button"
             onClick={handleEditOpen}
-            className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
             Edit
           </button>

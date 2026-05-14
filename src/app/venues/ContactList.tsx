@@ -164,12 +164,12 @@ export function ContactList({
                       <button
                         type="button"
                         onClick={() => setFormView("create")}
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         Create new contact
                       </button>
                     ) : (
-                      <a href="/contacts/new" className="text-blue-600 hover:underline">
+                      <a href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
                         Create a new contact
                       </a>
                     )}
@@ -372,7 +372,7 @@ export function ContactList({
                   <div className="flex items-center gap-2 ml-2">
                     <button
                       onClick={() => setEditingId(item.id)}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                     >
                       Edit
                     </button>

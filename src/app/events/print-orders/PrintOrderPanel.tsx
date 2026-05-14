@@ -88,7 +88,7 @@ function LinkForm({
         </div>
       )}
       <div className="flex items-center gap-3 text-sm">
-        <Link href={newPath} className="text-blue-600 hover:underline">
+        <Link href={newPath} className="text-blue-600 dark:text-blue-400 hover:underline">
           {label}
         </Link>
         <button
@@ -126,7 +126,7 @@ export function PrintOrderPanel(props: Props) {
               >
                 <Link
                   href={`/events/${eventId}/print-orders/${po.id}`}
-                  className="text-blue-600 hover:underline font-medium text-sm"
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
                 >
                   {po.name}
                 </Link>
@@ -189,7 +189,7 @@ export function PrintOrderPanel(props: Props) {
         <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <Link
             href={`/events/${eventId}/print-orders/${printOrder.id}`}
-            className="text-blue-600 hover:underline font-medium text-sm"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
           >
             {printOrder.name}
           </Link>

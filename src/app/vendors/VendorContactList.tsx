@@ -196,12 +196,12 @@ export function VendorContactList({
                       <button
                         type="button"
                         onClick={() => setFormView("create")}
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         Create new contact
                       </button>
                     ) : (
-                      <a href="/contacts/new" className="text-blue-600 hover:underline">
+                      <a href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
                         Create a new contact
                       </a>
                     )}
@@ -238,7 +238,7 @@ export function VendorContactList({
               <ContactTypeField contactTypes={contactTypes} />
             </div>
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-              <input type="checkbox" name="isPrimary" value="true" className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" />
+              <input type="checkbox" name="isPrimary" value="true" className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500" />
               Primary contact
             </label>
           </div>
@@ -306,7 +306,7 @@ export function VendorContactList({
               <ContactTypeField contactTypes={contactTypes} />
             </div>
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-              <input type="checkbox" name="isPrimary" value="true" className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" />
+              <input type="checkbox" name="isPrimary" value="true" className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500" />
               Primary contact
             </label>
           </div>
@@ -350,7 +350,7 @@ export function VendorContactList({
                       name="isPrimary"
                       value="true"
                       defaultChecked={item.isPrimary}
-                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                     />
                     Primary contact
                   </label>
@@ -390,7 +390,7 @@ export function VendorContactList({
                   <div className="flex items-center gap-2 ml-2">
                     <button
                       onClick={() => setEditingId(item.id)}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                     >
                       Edit
                     </button>

@@ -130,7 +130,7 @@ export function EventVendorList({
           {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               No vendors found.{" "}
-              <Link href="/vendors/new" className="text-blue-600 hover:underline">
+              <Link href="/vendors/new" className="text-blue-600 dark:text-blue-400 hover:underline">
                 Create a new vendor
               </Link>
             </p>
@@ -173,7 +173,7 @@ export function EventVendorList({
                   <td className="px-6 py-4">
                     <Link
                       href={`/vendors/${ev.vendorId}`}
-                      className="text-blue-600 hover:underline font-medium text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
                     >
                       {ev.vendor.name}
                     </Link>
@@ -206,7 +206,7 @@ export function EventVendorList({
                               checked={isChecked}
                               disabled={isPending}
                               onChange={() => handleToggleDefault(ev, value)}
-                              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 disabled:opacity-50"
                             />
                             {label}
                           </label>

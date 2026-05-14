@@ -331,7 +331,7 @@ export function AVOrderList({
                         <input type="checkbox" checked={isSelected} onChange={() => toggleRow(o.id)} className="rounded" />
                       </td>
                       <td className="px-3 py-3 font-medium">
-                        <Link href={`/events/${eventId}/av-orders/${o.id}`} className="text-blue-600 hover:underline">
+                        <Link href={`/events/${eventId}/av-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                           {o.name}
                         </Link>
                       </td>
@@ -347,13 +347,13 @@ export function AVOrderList({
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.functions.length > 0
                           ? o.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 hover:underline">{o.functions[0].name}</Link>
+                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.functions[0].name}</Link>
                             : `${o.functions.length} functions`
                           : <span className="text-orange-500">Unlinked</span>}
                       </td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.presentation
-                          ? <Link href={`/events/${eventId}/presentations/${o.presentation.id}`} className="text-blue-600 hover:underline">{o.presentation.title}</Link>
+                          ? <Link href={`/events/${eventId}/presentations/${o.presentation.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.presentation.title}</Link>
                           : "—"}
                       </td>
                     </tr>

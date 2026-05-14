@@ -483,7 +483,7 @@ export function FunctionTableView({
                   <td className="px-3 py-3 font-medium">
                     <Link
                       href={`/events/${eventId}/functions/${fn.id}`}
-                      className="text-blue-600 hover:underline"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       {fn.name}
                     </Link>
@@ -517,21 +517,21 @@ export function FunctionTableView({
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     {fn.avOrder ? (
-                      <Link href={`/events/${eventId}/av-orders/${fn.avOrder.id}`} className="text-blue-600 hover:underline text-sm">
+                      <Link href={`/events/${eventId}/av-orders/${fn.avOrder.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
                         {fn.avOrder.name}
                       </Link>
                     ) : <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>}
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     {fn.setupOrder ? (
-                      <Link href={`/events/${eventId}/setup-orders/${fn.setupOrder.id}`} className="text-blue-600 hover:underline text-sm">
+                      <Link href={`/events/${eventId}/setup-orders/${fn.setupOrder.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
                         {getSetupOrderDisplayName(fn.setupOrder)}
                       </Link>
                     ) : <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>}
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     {fn.cateringOrder ? (
-                      <Link href={`/events/${eventId}/catering-orders/${fn.cateringOrder.id}`} className="text-blue-600 hover:underline text-sm">
+                      <Link href={`/events/${eventId}/catering-orders/${fn.cateringOrder.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
                         {fn.cateringOrder.name}
                       </Link>
                     ) : <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>}

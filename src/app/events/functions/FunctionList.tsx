@@ -139,7 +139,7 @@ export function FunctionList({
           <div className="flex items-center gap-2 mb-1">
             <Link
               href={`/events/${eventId}/functions/${fn.id}`}
-              className="text-blue-600 hover:underline font-medium truncate"
+              className="text-blue-600 dark:text-blue-400 hover:underline font-medium truncate"
             >
               {fn.name}
             </Link>
@@ -184,7 +184,7 @@ export function FunctionList({
           >
             Copy
           </button>
-          <Link href={`/events/${eventId}/functions/${fn.id}`} className="text-blue-600 hover:underline text-sm">
+          <Link href={`/events/${eventId}/functions/${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
             Edit
           </Link>
           <button
@@ -306,7 +306,7 @@ export function FunctionList({
       {functions.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
           No functions yet.{" "}
-          <Link href={`/events/${eventId}/functions/new`} className="text-blue-600 hover:underline">
+          <Link href={`/events/${eventId}/functions/new`} className="text-blue-600 dark:text-blue-400 hover:underline">
             Add your first function
           </Link>
         </p>
