@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MODEL_TYPES } from "@/app/vendors/model-types";
 
@@ -22,6 +23,7 @@ function toggleFilter(selected: string[], value: string): string[] {
 export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes, basePath = `/events/${eventId}/reports/equipment-responsibility`, shareButton, hidePrint = false }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   function toggleVendor(vendorId: string) {
     const next = toggleFilter(selectedVendorIds, vendorId);
@@ -50,9 +52,32 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
   }
 
   const hasFilters = selectedVendorIds.length > 0 || selectedModelTypes.length > 0;
+  const filterCount = selectedVendorIds.length + selectedModelTypes.length;
 
-  return (
-    <div className="print:hidden mb-6 flex flex-wrap items-start gap-6">
+  const actions = (
+    <>
+      {hasFilters && (
+        <button
+          onClick={clearFilters}
+          className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          Clear filters
+        </button>
+      )}
+      {shareButton}
+      {!hidePrint && (
+        <a
+          href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
+          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+        >
+          Print / Save PDF
+        </a>
+      )}
+    </>
+  );
+
+  const filterChips = (
+    <>
       {vendors.length > 0 && (
         <div>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Vendor</p>
@@ -98,25 +123,35 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
           })}
         </div>
       </div>
+    </>
+  );
 
-      <div className="flex items-end gap-3 ml-auto">
-        {hasFilters && (
+  return (
+    <div className="print:hidden mb-6">
+      <div className="sm:hidden">
+        <div className="flex items-center gap-3 mb-3">
           <button
-            onClick={clearFilters}
-            className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={() => setFiltersOpen((open) => !open)}
+            className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300"
           >
-            Clear filters
+            <span aria-hidden>{filtersOpen ? "▾" : "▸"}</span>
+            <span>{filtersOpen ? "Hide filters" : "Show filters"}</span>
+            {filterCount > 0 && (
+              <span className="ml-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
+                {filterCount}
+              </span>
+            )}
           </button>
+          <div className="ml-auto flex items-center gap-3">{actions}</div>
+        </div>
+        {filtersOpen && (
+          <div className="flex flex-wrap items-start gap-6">{filterChips}</div>
         )}
-        {shareButton}
-        {!hidePrint && (
-          <a
-            href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-          >
-            Print / Save PDF
-          </a>
-        )}
+      </div>
+
+      <div className="hidden sm:flex flex-wrap items-start gap-6">
+        {filterChips}
+        <div className="flex items-end gap-3 ml-auto">{actions}</div>
       </div>
     </div>
   );

@@ -251,8 +251,7 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
 type EquipmentSummaryRow = { itemName: string; category: string | null; quantity: number; providerName: string; role: string };
 
 function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSummaryRow[] {
-  type Bucket = { itemName: string; category: string | null; quantity: number; providers: Set<string>; isProvider: boolean; isOperator: boolean };
-  const map = new Map<string, Bucket>();
+  const map = new Map<string, EquipmentSummaryRow>();
 
   const addRow = (
     itemName: string,
@@ -265,20 +264,16 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
     const isProvider = providerVendor?.id === vendorId;
     const isOperator = operatorVendor?.id === vendorId;
     if (!isProvider && !isOperator) return;
-    const key = itemName.toLowerCase();
-    const provider = providerVendor?.name
-      ?? (providerContact ? `${providerContact.firstName} ${providerContact.lastName}` : null);
+    const role = isProvider && isOperator ? "Provider & Operator" : isProvider ? "Provider" : "Operator";
+    const providerName = providerVendor?.name
+      ?? (providerContact ? `${providerContact.firstName} ${providerContact.lastName}` : "—");
+    const key = `${itemName.toLowerCase()}\0${role}\0${providerName.toLowerCase()}`;
     const existing = map.get(key);
     if (existing) {
       existing.quantity += qty;
-      if (provider) existing.providers.add(provider);
-      if (isProvider) existing.isProvider = true;
-      if (isOperator) existing.isOperator = true;
       if (category !== null && existing.category === null) existing.category = category;
     } else {
-      const providers = new Set<string>();
-      if (provider) providers.add(provider);
-      map.set(key, { itemName, category, quantity: qty, providers, isProvider, isOperator });
+      map.set(key, { itemName, category, quantity: qty, providerName, role });
     }
   };
 
@@ -322,20 +317,15 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
   }
 
   const SORT_LAST = "￿";
-  return Array.from(map.values())
-    .map(({ itemName, category, quantity, providers, isProvider, isOperator }) => ({
-      itemName,
-      category,
-      quantity,
-      providerName: providers.size === 0 ? "—" : providers.size === 1 ? Array.from(providers)[0] : "Multiple",
-      role: isProvider && isOperator ? "Provider & Operator" : isProvider ? "Provider" : "Operator",
-    }))
-    .sort((a, b) => {
-      const catA = a.category ?? SORT_LAST;
-      const catB = b.category ?? SORT_LAST;
-      if (catA !== catB) return catA.localeCompare(catB);
-      return a.itemName.localeCompare(b.itemName);
-    });
+  const ROLE_ORDER: Record<string, number> = { "Provider & Operator": 0, "Provider": 1, "Operator": 2 };
+  return Array.from(map.values()).sort((a, b) => {
+    const catA = a.category ?? SORT_LAST;
+    const catB = b.category ?? SORT_LAST;
+    if (catA !== catB) return catA.localeCompare(catB);
+    if (a.itemName !== b.itemName) return a.itemName.localeCompare(b.itemName);
+    if (a.role !== b.role) return ROLE_ORDER[a.role] - ROLE_ORDER[b.role];
+    return a.providerName.localeCompare(b.providerName);
+  });
 }
 
 function FunctionScheduleSection({
@@ -395,6 +385,7 @@ function FunctionScheduleSection({
         });
         const rowData = rows.map(({ fn, schedule }) => ({
           key: `${fn.id}-${schedule.startTime.getTime()}`,
+          fnId: fn.id,
           type: schedule.type,
           timeStr: `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`,
           name: fn.name,
@@ -404,12 +395,11 @@ function FunctionScheduleSection({
         return (
           <div key={dateKey} className="mb-4">
             <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">{dateLabel}</p>
-            {/* Mobile card layout */}
             <div className="sm:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700">
               {rowData.map((row) => (
                 <div key={row.key} className="p-2 text-xs">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{row.name}</span>
+                    <a href={`#function-${row.fnId}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{row.name}</a>
                     <span className="shrink-0 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{row.type}</span>
                   </div>
                   <p className="text-gray-600 dark:text-gray-400 mt-0.5">{row.timeStr}</p>
@@ -418,7 +408,6 @@ function FunctionScheduleSection({
                 </div>
               ))}
             </div>
-            {/* Desktop/print table */}
             <div className="hidden sm:block print:block overflow-x-auto">
               <table className="w-full table-fixed text-sm border-collapse">
                 <thead>
@@ -435,7 +424,7 @@ function FunctionScheduleSection({
                     <tr key={row.key}>
                       <td className={`${td} whitespace-nowrap`}>{row.type}</td>
                       <td className={`${td} whitespace-nowrap`}>{row.timeStr}</td>
-                      <td className={td}>{row.name}</td>
+                      <td className={td}><a href={`#function-${row.fnId}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{row.name}</a></td>
                       <td className={td}>{row.rooms}</td>
                       <td className={td}>{row.notes}</td>
                     </tr>
@@ -460,7 +449,7 @@ function FunctionScheduleSection({
               <tbody>
                 {unscheduled.map((fn) => (
                   <tr key={fn.id}>
-                    <td className={td}>{fn.name}</td>
+                    <td className={td}><a href={`#function-${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{fn.name}</a></td>
                     <td className={td}>{fn.rooms.map((r) => r.room.name).join(", ") || "—"}</td>
                   </tr>
                 ))}
@@ -865,7 +854,7 @@ function FunctionSection({
   const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0].filter(Boolean).length;
 
   return (
-    <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-4`}>
+    <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-24`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
           {fn.name}
@@ -986,7 +975,7 @@ function PresentationSection({
   const hasSchedule = sortedDates.length > 0;
 
   return (
-    <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-4`}>
+    <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-24`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
           {presentation.title}
@@ -1196,7 +1185,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
       )}
 
       {keyStaff.length > 0 && (
-        <div id="key-contacts" className={`${sectionCard} scroll-mt-4`}>
+        <div id="key-contacts" className={`${sectionCard} scroll-mt-24`}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Key Event Contacts
           </h2>
@@ -1240,7 +1229,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
       )}
 
       {allGroups.length > 0 && (
-        <div id="function-schedule" className={`${sectionCard} scroll-mt-4`}>
+        <div id="function-schedule" className={`${sectionCard} scroll-mt-24`}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Function Schedule
           </h2>
@@ -1249,7 +1238,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
       )}
 
       {equipmentByCategory.length > 0 && (
-        <div id="equipment-summary" className={`${sectionCard} scroll-mt-4`}>
+        <div id="equipment-summary" className={`${sectionCard} scroll-mt-24`}>
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Equipment Summary
           </h2>
@@ -1258,13 +1247,14 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
               {multiCategory && <SubHeading>{cat}</SubHeading>}
               <div className="sm:hidden print:hidden mb-4 divide-y divide-gray-200 dark:divide-gray-700">
                 {rows.map((row) => (
-                  <div key={row.itemName} className="py-2 text-xs">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white">{row.itemName}</span>
-                      <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {row.quantity}</span>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-400 mt-0.5">{row.role}</p>
-                    <p className="text-gray-700 dark:text-gray-300 mt-0.5">{row.providerName}</p>
+                  <div key={`${row.itemName}\0${row.role}\0${row.providerName}`} className="py-2 text-xs">
+                    <p className="font-medium text-gray-900 dark:text-white">{row.itemName}</p>
+                    <p className="text-gray-600 dark:text-gray-400 mt-0.5">
+                      {row.role}: <span className="text-gray-900 dark:text-white">{row.quantity}</span>
+                    </p>
+                    {row.role === "Operator" && row.providerName !== "—" && (
+                      <p className="text-gray-500 dark:text-gray-500 mt-0.5">via {row.providerName}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1280,7 +1270,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
                   </thead>
                   <tbody>
                     {rows.map((row) => (
-                      <tr key={row.itemName}>
+                      <tr key={`${row.itemName}\0${row.role}\0${row.providerName}`}>
                         <td className={td}>{row.itemName}</td>
                         <td className={td}>{row.quantity}</td>
                         <td className={td}>{row.role}</td>
@@ -1322,7 +1312,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
       {hasUnscheduled && (
         <>
           <SectionDivider id="unscheduled" title="Unscheduled Orders" />
-          <div className={`${sectionCard} print:break-before-page scroll-mt-4`}>
+          <div className={`${sectionCard} print:break-before-page scroll-mt-24`}>
             {unscheduled.cateringOrders.length > 0 && (
               <>
                 {unscheduledTypeCount > 1 && <SubHeading>Catering</SubHeading>}

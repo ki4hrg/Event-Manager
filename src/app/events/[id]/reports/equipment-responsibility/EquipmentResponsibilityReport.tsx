@@ -32,7 +32,7 @@ function PartyCard({ group, anchorId }: { group: ResponsiblePartyGroup; anchorId
   const hasUnscheduled = group.rows.some((r) => r.sources.some((s) => !s.isScheduled));
 
   return (
-    <div id={anchorId} className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden print:break-inside-avoid scroll-mt-4">
+    <div id={anchorId} className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden print:break-inside-avoid scroll-mt-24">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
           {group.partyName}
