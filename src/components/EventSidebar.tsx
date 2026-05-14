@@ -255,6 +255,16 @@ function SidebarInner({
               {showItems && (
                 <div className="ml-3 mr-1 mt-0.5 mb-1 border-l-2 border-blue-200 dark:border-blue-800 pl-2">
                   {items.map((si) => {
+                    if (si.kind === "header") {
+                      return (
+                        <div
+                          key={si.id}
+                          className="px-2 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate"
+                        >
+                          {si.label}
+                        </div>
+                      );
+                    }
                     const siActive =
                       pathname === si.href || pathname.startsWith(`${si.href}/`);
                     return (

@@ -284,14 +284,8 @@ export function ScheduleItemList({
                       >
                         {label || item.type}
                       </span>
-                      {item.isPublic ? (
-                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
-                          Public
-                        </span>
-                      ) : (
-                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                          Private
-                        </span>
+                      {item.isPublic && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Public</span>
                       )}
                     </div>
                     <p className="text-sm text-gray-700 dark:text-gray-300">{formatRange(item)}</p>
@@ -432,14 +426,8 @@ export function ScheduleItemList({
                           </Link>
                         </td>
                         <td className="px-3 py-2">
-                          {item.isPublic ? (
-                            <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
-                              Public
-                            </span>
-                          ) : (
-                            <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                              Private
-                            </span>
+                          {item.isPublic && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Public</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">

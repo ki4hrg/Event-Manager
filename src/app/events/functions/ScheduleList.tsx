@@ -418,9 +418,7 @@ export function ScheduleList({
                       </span>
                     )}
                     {schedule.isPublic && (
-                      <span className="px-1.5 py-0.5 text-xs rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
-                        Public
-                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Public</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-2">

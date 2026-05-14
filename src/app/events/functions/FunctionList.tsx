@@ -147,20 +147,18 @@ export function FunctionList({
             >
               {fn.name}
             </Link>
+            <WorkflowBadge summary={workflowSummaries[fn.id]} />
+            <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 flex-wrap">
             {fn.type && (
-              <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[resolveOptionColor(fn.type, functionTypes)] || colorClasses.gray}`}>
+              <span className={`px-1.5 py-0.5 text-xs rounded ${colorClasses[resolveOptionColor(fn.type, functionTypes)] || colorClasses.gray}`}>
                 {resolveOptionLabel(fn.type, functionTypes)}
               </span>
             )}
             {fn.breakoutGroup && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {fn.breakoutGroup.name}
-              </span>
+              <span className="text-xs">{fn.breakoutGroup.name}</span>
             )}
-            <WorkflowBadge summary={workflowSummaries[fn.id]} />
-            <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
             {fn.schedules.length > 0 ? (
               <span>
                 {fn.schedules.length === 1
@@ -171,9 +169,9 @@ export function FunctionList({
               <span className="text-yellow-600 dark:text-yellow-400">No schedule</span>
             )}
             {fn.rooms.length > 0 ? (
-              <span className="ml-2">| {fn.rooms.map((r) => r.room.name).join(", ")}</span>
+              <span>· {fn.rooms.map((r) => r.room.name).join(", ")}</span>
             ) : fn.offSiteLocation ? (
-              <span className="ml-2">| Off-site: {fn.offSiteLocation}</span>
+              <span>· Off-site: {fn.offSiteLocation}</span>
             ) : null}
           </div>
           {fn.description && (
