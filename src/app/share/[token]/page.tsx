@@ -77,6 +77,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
             selectedVendorIds={effectiveVendorIds ?? []}
             selectedModelTypes={effectiveModelTypes ?? []}
             basePath={`/share/${token}`}
+            hidePrint
           />
         )}
         <EquipmentResponsibilityReport groups={groups} />
@@ -120,6 +121,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
             vendors={vendors}
             selectedVendorId={effectiveVendorId}
             basePath={`/share/${token}`}
+            hidePrint
           />
         )}
         {handoffData ? (

@@ -12,13 +12,14 @@ type ReportFiltersProps = {
   selectedModelTypes: string[];
   basePath?: string;
   shareButton?: React.ReactNode;
+  hidePrint?: boolean;
 };
 
 function toggleFilter(selected: string[], value: string): string[] {
   return selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value];
 }
 
-export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes, basePath = `/events/${eventId}/reports/equipment-responsibility`, shareButton }: ReportFiltersProps) {
+export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes, basePath = `/events/${eventId}/reports/equipment-responsibility`, shareButton, hidePrint = false }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -108,12 +109,14 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
           </button>
         )}
         {shareButton}
-        <a
-          href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-        >
-          Print / Save PDF
-        </a>
+        {!hidePrint && (
+          <a
+            href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
+            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+          >
+            Print / Save PDF
+          </a>
+        )}
       </div>
     </div>
   );

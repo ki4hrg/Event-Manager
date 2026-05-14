@@ -10,9 +10,10 @@ type ReportFiltersProps = {
   selectedVendorId: string | null;
   basePath?: string;
   shareButton?: React.ReactNode;
+  hidePrint?: boolean;
 };
 
-export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `/events/${eventId}/reports/vendor-handoff`, shareButton }: ReportFiltersProps) {
+export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `/events/${eventId}/reports/vendor-handoff`, shareButton, hidePrint = false }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -25,6 +26,8 @@ export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `
     }
     router.push(`${basePath}?${params.toString()}`);
   }
+
+  const showPrint = !!selectedVendorId && !hidePrint;
 
   return (
     <div className="print:hidden mb-6 flex flex-wrap items-end gap-4">
@@ -46,10 +49,10 @@ export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `
         </select>
       </div>
 
-      {(shareButton || selectedVendorId) && (
+      {(shareButton || showPrint) && (
         <div className="ml-auto flex items-center gap-3">
           {shareButton}
-          {selectedVendorId && (
+          {showPrint && (
             <a
               href={`${basePath}/print?vendorId=${selectedVendorId}`}
               className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
