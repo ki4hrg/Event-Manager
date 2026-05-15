@@ -10,6 +10,7 @@ export type SidebarSection =
   | "catering-orders"
   | "print-orders"
   | "setup-orders"
+  | "media-orders"
   | "presentations";
 
 export type SidebarItem =
@@ -121,6 +122,20 @@ export async function getSidebarItems(
         href: `${base}/setup-orders/${r.id}`,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  if (section === "media-orders") {
+    const rows = await prisma.mediaOrder.findMany({
+      where: { eventId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+    return rows.map((r) => ({
+      kind: "link",
+      id: r.id,
+      label: r.name || "Unnamed Media Order",
+      href: `${base}/media-orders/${r.id}`,
+    }));
   }
 
   if (section === "presentations") {

@@ -39,6 +39,8 @@ const ENTITY_TYPE_OPTIONS = [
   { value: "catering_order", label: "Catering Order" },
   { value: "av_order", label: "AV Order" },
   { value: "setup_order", label: "Setup Order" },
+  { value: "print_order", label: "Print Order" },
+  { value: "media_order", label: "Media Order" },
   { value: "presentation", label: "Presentation" },
 ];
 

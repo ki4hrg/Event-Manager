@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { EntityStatus } from "@prisma/client";
 
-export type WorkflowEntityType = "function" | "catering_order" | "av_order" | "print_order" | "presentation" | "setup_order";
+export type WorkflowEntityType = "function" | "catering_order" | "av_order" | "print_order" | "presentation" | "setup_order" | "media_order";
 
 function revalidateEntity(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   switch (entityType) {
@@ -26,6 +26,9 @@ function revalidateEntity(entityType: WorkflowEntityType, entityId: string, even
       break;
     case "setup_order":
       revalidatePath(`/events/${eventId}/setup-orders/${entityId}`);
+      break;
+    case "media_order":
+      revalidatePath(`/events/${eventId}/media-orders/${entityId}`);
       break;
   }
 }
@@ -55,6 +58,9 @@ async function updateEntityStatus(
       break;
     case "setup_order":
       await prisma.setupOrder.update({ where: { id: entityId }, data });
+      break;
+    case "media_order":
+      await prisma.mediaOrder.update({ where: { id: entityId }, data });
       break;
   }
 }

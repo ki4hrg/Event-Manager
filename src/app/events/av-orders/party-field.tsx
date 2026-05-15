@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { Vendor, Contact } from "@prisma/client";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 
 export type PartyOptions = { id: string; name: string }[];
@@ -53,8 +52,8 @@ export function mergeAndSortVendors(
 }
 
 export function partyLabel(
-  vendorObj: Vendor | null,
-  contactObj: Contact | null
+  vendorObj: { name: string } | null | undefined,
+  contactObj: { firstName: string; lastName: string } | null | undefined
 ): string | null {
   if (vendorObj) return vendorObj.name;
   if (contactObj)

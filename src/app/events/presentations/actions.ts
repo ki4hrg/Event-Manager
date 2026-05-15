@@ -5,8 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
-import { getResponsiblePartyVendors } from "@/app/vendors/actions";
-import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 // ============================================================================
@@ -117,12 +115,9 @@ export async function getPresentation(id: string) {
       },
       avOrderLinks: { include: { avOrder: { select: { id: true, name: true } } } },
       setupOrderLinks: { include: { setupOrder: { select: { id: true, name: true, setupType: true, room: { select: { name: true } } } } } },
+      mediaOrderLinks: { include: { mediaOrder: { select: { id: true, name: true } } } },
       printOrder: { select: { id: true, name: true } },
       event: true,
-      mediaItems: {
-        include: { advancerVendor: true, advancerContact: true },
-        orderBy: { sortOrder: "asc" },
-      },
     },
   });
   if (!row) return null;
@@ -130,6 +125,7 @@ export async function getPresentation(id: string) {
     ...row,
     avOrders: row.avOrderLinks.map((l) => l.avOrder),
     setupOrders: row.setupOrderLinks.map((l) => l.setupOrder),
+    mediaOrders: row.mediaOrderLinks.map((l) => l.mediaOrder),
   };
 }
 
@@ -439,76 +435,6 @@ export async function reorderSpeakers(
 // ============================================================================
 // Contact Search (for speaker selection)
 // ============================================================================
-
-// ============================================================================
-// MediaItem CRUD
-// ============================================================================
-
-export async function createMediaItem(presentationId: string, eventId: string, formData: FormData) {
-  await requireAuth();
-  const { _max } = await prisma.mediaItem.aggregate({ where: { presentationId }, _max: { sortOrder: true } });
-  await prisma.mediaItem.create({
-    data: {
-      presentationId,
-      description: formData.get("description") as string,
-      delivery: (formData.get("delivery") as string) || null,
-      advancerVendorId: (formData.get("advancerVendorId") as string) || null,
-      advancerContactId: (formData.get("advancerContactId") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      sortOrder: (_max.sortOrder ?? -1) + 1,
-    },
-  });
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-}
-
-export async function updateMediaItem(id: string, presentationId: string, eventId: string, formData: FormData) {
-  await requireAuth();
-  await prisma.mediaItem.update({
-    where: { id },
-    data: {
-      description: formData.get("description") as string,
-      delivery: (formData.get("delivery") as string) || null,
-      advancerVendorId: (formData.get("advancerVendorId") as string) || null,
-      advancerContactId: (formData.get("advancerContactId") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-    },
-  });
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-}
-
-export async function deleteMediaItem(id: string, presentationId: string, eventId: string) {
-  await requireAuth();
-  await prisma.mediaItem.delete({ where: { id } });
-  revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-}
-
-export async function getMediaItemPartyOptions(presentationId: string, eventId: string) {
-  await requireAuth();
-  const [options, presentation] = await Promise.all([
-    getResponsiblePartyVendors(eventId),
-    prisma.presentation.findUnique({
-      where: { id: presentationId },
-      select: {
-        speakers: {
-          include: { contact: true },
-          orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-        },
-      },
-    }),
-  ]);
-
-  const vendors = flattenResponsiblePartyOptions(options);
-
-  const contacts =
-    presentation?.speakers.map((s) => ({
-      id: s.contact.id,
-      firstName: s.contact.firstName,
-      lastName: s.contact.lastName,
-      organization: s.contact.organization,
-    })) ?? [];
-
-  return { vendors, contacts };
-}
 
 // ============================================================================
 // Contact Search (for speaker selection)

@@ -31,6 +31,7 @@ export async function getEventOverviewStats(eventId: string) {
     setupOrders,
     presentations,
     printOrders,
+    mediaOrders,
   ] = await Promise.all([
     prisma.function.count({ where: { eventId, schedules: { none: {} } } }),
     prisma.function.count({ where: { eventId, rooms: { none: {} }, type: { not: "BREAKOUT_BLOCK" } } }),
@@ -43,6 +44,7 @@ export async function getEventOverviewStats(eventId: string) {
     prisma.setupOrder.findMany({ where: { eventId }, select: { status: true } }),
     prisma.presentation.findMany({ where: { eventId }, select: { status: true } }),
     prisma.printOrder.findMany({ where: { eventId }, select: { status: true } }),
+    prisma.mediaOrder.findMany({ where: { eventId }, select: { status: true } }),
   ]);
 
   const entityGroups = [
@@ -52,6 +54,7 @@ export async function getEventOverviewStats(eventId: string) {
     { label: "Setup Orders", basePath: `/events/${eventId}/setup-orders`, counts: toCounts(setupOrders) },
     { label: "Presentations", basePath: `/events/${eventId}/presentations`, counts: toCounts(presentations) },
     { label: "Print Orders", basePath: `/events/${eventId}/print-orders`, counts: toCounts(printOrders) },
+    { label: "Media Orders", basePath: `/events/${eventId}/media-orders`, counts: toCounts(mediaOrders) },
   ];
 
   return {

@@ -9,11 +9,11 @@ datasource db {
 
 // Authentication
 model User {
-  id        String        @id @default(cuid())
-  email     String        @unique
-  name      String?
-  password  String
-  role      String        @default("user")
+  id         String        @id @default(cuid())
+  email      String        @unique
+  name       String?
+  password   String
+  role       String        @default("user")
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
   settings   UserSetting[]
@@ -44,10 +44,10 @@ enum EntityStatus {
 // Customizable options for dropdowns
 model CustomOption {
   id        String   @id @default(cuid())
-  category  String   // "function_type", "contact_role", "av_equipment", "equipment_category", "setup_type", "substatus"
-  label     String   // The display label and stored value (e.g., "Meal / BEO", "Speaker")
-  color     String?  // Optional color for badges (e.g., "orange", "blue")
-  group     String?  // Optional grouping key; used by "substatus" category to tie options to an EntityStatus value
+  category  String // "function_type", "contact_role", "av_equipment", "equipment_category", "setup_type", "substatus"
+  label     String // The display label and stored value (e.g., "Meal / BEO", "Speaker")
+  color     String? // Optional color for badges (e.g., "orange", "blue")
+  group     String? // Optional grouping key; used by "substatus" category to tie options to an EntityStatus value
   isSystem  Boolean  @default(false) // System entries cannot be deleted from the UI
   sortOrder Int      @default(0)
   models    String[] @default([])
@@ -60,14 +60,14 @@ model CustomOption {
 
 // Equipment catalog with category grouping
 model Equipment {
-  id           String       @id @default(cuid())
-  name         String
-  category     String       // references equipment_category CustomOption label
-  sortOrder    Int          @default(0)
-  inputItems      InputItem[]      @relation("InputItemEquipment")
-  monitorMixes    MonitorMix[]     @relation("MonitorMixEquipment")
-  monitorOutputs  MonitorOutput[]  @relation("MonitorOutputEquipment")
-  equipmentItems  EquipmentItem[]
+  id             String          @id @default(cuid())
+  name           String
+  category       String // references equipment_category CustomOption label
+  sortOrder      Int             @default(0)
+  inputItems     InputItem[]     @relation("InputItemEquipment")
+  monitorMixes   MonitorMix[]    @relation("MonitorMixEquipment")
+  monitorOutputs MonitorOutput[] @relation("MonitorOutputEquipment")
+  equipmentItems EquipmentItem[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -93,6 +93,7 @@ model Event {
   cateringOrders     CateringOrder[]
   setupOrders        SetupOrder[]
   printOrders        PrintOrder[]
+  mediaOrders        MediaOrder[]
   vendors            EventVendor[]
   shareLinks         ShareLink[]
   files              FileUpload[]
@@ -155,35 +156,35 @@ model Room {
 
 // Flexible contact model with roles
 model Contact {
-  id            String                @id @default(cuid())
-  firstName     String
-  lastName      String
-  email         String?
-  phone         String?
-  organization  String?
-  notes         String?
-  roles                  String[]              @default([])
-  functions              FunctionContact[]
-  venues                 VenueContact[]
-  presentations          PresentationContact[]
-  cateringOrders         CateringOrderContact[]
-  vendorContacts         VendorContact[]
-  printItemsAsDesigner        PrintItem[]           @relation("PrintItemDesignerContact")
-  printItemsAsPrinter         PrintItem[]           @relation("PrintItemPrinterContact")
-  inputGroupsAsProvider  InputGroup[]          @relation("InputGroupProviderContact")
-  inputGroupsAsOperator  InputGroup[]          @relation("InputGroupOperatorContact")
-  inputItemsAsProvider   InputItem[]           @relation("InputItemProviderContact")
-  inputItemsAsOperator   InputItem[]           @relation("InputItemOperatorContact")
-  monitorMixesAsProvider    MonitorMix[]          @relation("MonitorMixProviderContact")
-  monitorMixesAsOperator    MonitorMix[]          @relation("MonitorMixOperatorContact")
-  monitorOutputsAsProvider  MonitorOutput[]       @relation("MonitorOutputProviderContact")
-  monitorOutputsAsOperator  MonitorOutput[]       @relation("MonitorOutputOperatorContact")
-  mediaItemsAsAdvancer        MediaItem[]           @relation("MediaItemAdvancerContact")
-  equipmentItemsAsProvider    EquipmentItem[]       @relation("EquipmentItemProviderContact")
-  equipmentItemsAsOperator    EquipmentItem[]       @relation("EquipmentItemOperatorContact")
-  eventKeyStaff               EventKeyStaff[]
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
+  id                       String                 @id @default(cuid())
+  firstName                String
+  lastName                 String
+  email                    String?
+  phone                    String?
+  organization             String?
+  notes                    String?
+  roles                    String[]               @default([])
+  functions                FunctionContact[]
+  venues                   VenueContact[]
+  presentations            PresentationContact[]
+  cateringOrders           CateringOrderContact[]
+  vendorContacts           VendorContact[]
+  printItemsAsDesigner     PrintItem[]            @relation("PrintItemDesignerContact")
+  printItemsAsPrinter      PrintItem[]            @relation("PrintItemPrinterContact")
+  inputGroupsAsProvider    InputGroup[]           @relation("InputGroupProviderContact")
+  inputGroupsAsOperator    InputGroup[]           @relation("InputGroupOperatorContact")
+  inputItemsAsProvider     InputItem[]            @relation("InputItemProviderContact")
+  inputItemsAsOperator     InputItem[]            @relation("InputItemOperatorContact")
+  monitorMixesAsProvider   MonitorMix[]           @relation("MonitorMixProviderContact")
+  monitorMixesAsOperator   MonitorMix[]           @relation("MonitorMixOperatorContact")
+  monitorOutputsAsProvider MonitorOutput[]        @relation("MonitorOutputProviderContact")
+  monitorOutputsAsOperator MonitorOutput[]        @relation("MonitorOutputOperatorContact")
+  mediaItemsAsAdvancer     MediaItem[]            @relation("MediaItemAdvancerContact")
+  equipmentItemsAsProvider EquipmentItem[]        @relation("EquipmentItemProviderContact")
+  equipmentItemsAsOperator EquipmentItem[]        @relation("EquipmentItemOperatorContact")
+  eventKeyStaff            EventKeyStaff[]
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
 }
 
 // Junction table for Venue <-> Contact
@@ -215,21 +216,22 @@ model EventKeyStaff {
 
 // Function is the core scheduling unit
 model Function {
-  id                String             @id @default(cuid())
-  name              String
-  description       String?
-  type              String             @default("")
-  notes             String?
-  offSiteLocation   String?
-  status            EntityStatus?
-  substatus         String?
-  eventId           String
-  breakoutGroupId   String?
-  event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  breakoutGroup     BreakoutGroup?     @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
+  id                   String                        @id @default(cuid())
+  name                 String
+  description          String?
+  type                 String                        @default("")
+  notes                String?
+  offSiteLocation      String?
+  status               EntityStatus?
+  substatus            String?
+  eventId              String
+  breakoutGroupId      String?
+  event                Event                         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  breakoutGroup        BreakoutGroup?                @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
   avOrderFunctions     AVOrderFunction[]
   setupOrderFunctions  SetupOrderFunction[]
   printOrderFunctions  PrintOrderFunction[]
+  mediaOrderFunctions  MediaOrderFunction[]
   rooms                FunctionRoom[]
   contacts             FunctionContact[]
   schedules            FunctionSchedule[]
@@ -237,8 +239,8 @@ model Function {
   sessionRoomOverrides BreakoutSessionRoomOverride[]
   cateringOrder        CateringOrder?
   timelineItems        TimelineItem[]
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
 
   @@index([eventId])
   @@index([breakoutGroupId])
@@ -249,7 +251,7 @@ model FunctionSchedule {
   id         String   @id @default(cuid())
   functionId String
   function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
-  type       String   // From CustomOption category "schedule_type"
+  type       String // From CustomOption category "schedule_type"
   startTime  DateTime
   endTime    DateTime
   notes      String?
@@ -285,25 +287,25 @@ model FunctionContact {
 }
 
 model AVOrder {
-  id             String        @id @default(cuid())
-  name           String
-  status         EntityStatus?
-  substatus      String?
-  eventId        String
-  event          Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  copiedFromId   String?
-  copiedFrom     AVOrder?      @relation("AVOrderCopies", fields: [copiedFromId], references: [id], onDelete: SetNull)
-  copies         AVOrder[]     @relation("AVOrderCopies")
-  notes          String?
-  functionLinks  AVOrderFunction[]
+  id                String                @id @default(cuid())
+  name              String
+  status            EntityStatus?
+  substatus         String?
+  eventId           String
+  event             Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  copiedFromId      String?
+  copiedFrom        AVOrder?              @relation("AVOrderCopies", fields: [copiedFromId], references: [id], onDelete: SetNull)
+  copies            AVOrder[]             @relation("AVOrderCopies")
+  notes             String?
+  functionLinks     AVOrderFunction[]
   presentationLinks AVOrderPresentation[]
-  audioSection   AudioSection?
-  videoSection   VideoSection?
-  equipmentItems EquipmentItem[]
-  vendors        AVOrderVendor[]
-  files          FileUpload[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  audioSection      AudioSection?
+  videoSection      VideoSection?
+  equipmentItems    EquipmentItem[]
+  vendors           AVOrderVendor[]
+  files             FileUpload[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   @@index([eventId])
   @@index([copiedFromId])
@@ -332,85 +334,85 @@ model AVOrderPresentation {
 }
 
 model CateringOrder {
-  id                 String                    @id @default(cuid())
-  name               String
-  status             EntityStatus?
-  substatus          String?
-  eventId            String
-  event              Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  functionId         String?                   @unique
-  function           Function?                 @relation(fields: [functionId], references: [id], onDelete: SetNull)
-  serviceStyle       String?
-  expectedCount      Int?
-  confirmedCount     Int?
-  guaranteeCount     Int?
-  staffingNotes      String?
-  rentalMinimum      Decimal?
-  fbMinimum          Decimal?
-  depositDeadline    DateTime?
-  guaranteeDeadline  DateTime?
-  paymentDeadline    DateTime?
-  cancellationTerms  String?
-  dietaryNotes       String?
-  notes              String?
-  timelineItems      TimelineItem[]
-  equipmentItems     EquipmentItem[]
-  lineItems          CateringOrderLineItem[]
-  menuSections       CateringOrderMenuSection[]
-  contacts           CateringOrderContact[]
-  vendors            CateringOrderVendor[]
-  files              FileUpload[]
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
+  id                String                     @id @default(cuid())
+  name              String
+  status            EntityStatus?
+  substatus         String?
+  eventId           String
+  event             Event                      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId        String?                    @unique
+  function          Function?                  @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  serviceStyle      String?
+  expectedCount     Int?
+  confirmedCount    Int?
+  guaranteeCount    Int?
+  staffingNotes     String?
+  rentalMinimum     Decimal?
+  fbMinimum         Decimal?
+  depositDeadline   DateTime?
+  guaranteeDeadline DateTime?
+  paymentDeadline   DateTime?
+  cancellationTerms String?
+  dietaryNotes      String?
+  notes             String?
+  timelineItems     TimelineItem[]
+  equipmentItems    EquipmentItem[]
+  lineItems         CateringOrderLineItem[]
+  menuSections      CateringOrderMenuSection[]
+  contacts          CateringOrderContact[]
+  vendors           CateringOrderVendor[]
+  files             FileUpload[]
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
 
-  @@map("BEO")
   @@index([eventId])
+  @@map("BEO")
 }
 
 model TimelineItem {
-  id         String    @id @default(cuid())
+  id              String         @id @default(cuid())
   cateringOrderId String?
   functionId      String?
   cateringOrder   CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   function        Function?      @relation(fields: [functionId], references: [id], onDelete: Cascade)
-  label      String
-  startTime  DateTime
-  endTime    DateTime?
-  notes      String?
-  sortOrder  Int       @default(0)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  label           String
+  startTime       DateTime
+  endTime         DateTime?
+  notes           String?
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([cateringOrderId])
   @@index([functionId])
 }
 
 model EquipmentItem {
-  id                       String        @id @default(cuid())
-  cateringOrderId          String?
-  setupOrderId             String?
-  videoSectionId           String?
-  avOrderId                String?
-  cateringOrder            CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
-  setupOrder               SetupOrder?   @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
-  videoSection             VideoSection? @relation(fields: [videoSectionId], references: [id], onDelete: Cascade)
-  avOrder                  AVOrder?      @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
-  equipmentId              String?
-  equipment                Equipment?    @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
-  item                     String
-  quantity                 Int?
-  providerVendorId         String?
-  providerVendor           Vendor?       @relation("EquipmentItemProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
-  providerContactId        String?
-  providerContact          Contact?      @relation("EquipmentItemProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
-  operatorVendorId         String?
-  operatorVendor           Vendor?       @relation("EquipmentItemOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
-  operatorContactId        String?
-  operatorContact          Contact?      @relation("EquipmentItemOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
-  notes                    String?
-  sortOrder                Int           @default(0)
-  createdAt                DateTime      @default(now())
-  updatedAt                DateTime      @updatedAt
+  id                String         @id @default(cuid())
+  cateringOrderId   String?
+  setupOrderId      String?
+  videoSectionId    String?
+  avOrderId         String?
+  cateringOrder     CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  setupOrder        SetupOrder?    @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  videoSection      VideoSection?  @relation(fields: [videoSectionId], references: [id], onDelete: Cascade)
+  avOrder           AVOrder?       @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  equipmentId       String?
+  equipment         Equipment?     @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  item              String
+  quantity          Int?
+  providerVendorId  String?
+  providerVendor    Vendor?        @relation("EquipmentItemProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  providerContactId String?
+  providerContact   Contact?       @relation("EquipmentItemProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
+  operatorVendorId  String?
+  operatorVendor    Vendor?        @relation("EquipmentItemOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
+  operatorContactId String?
+  operatorContact   Contact?       @relation("EquipmentItemOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
+  notes             String?
+  sortOrder         Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@index([cateringOrderId])
   @@index([setupOrderId])
@@ -424,24 +426,24 @@ model EquipmentItem {
 }
 
 model SetupOrder {
-  id             String          @id @default(cuid())
-  name           String?
-  setupType      String?
-  status         EntityStatus?
-  substatus      String?
-  eventId        String
-  event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  roomId         String?
-  room           Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  functionLinks  SetupOrderFunction[]
+  id                String                   @id @default(cuid())
+  name              String?
+  setupType         String?
+  status            EntityStatus?
+  substatus         String?
+  eventId           String
+  event             Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  roomId            String?
+  room              Room?                    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  functionLinks     SetupOrderFunction[]
   presentationLinks SetupOrderPresentation[]
-  notes          String?
-  tables         SetupTable[]
-  equipmentItems EquipmentItem[]
-  vendors        SetupOrderVendor[]
-  files          FileUpload[]
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  notes             String?
+  tables            SetupTable[]
+  equipmentItems    EquipmentItem[]
+  vendors           SetupOrderVendor[]
+  files             FileUpload[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
   @@index([eventId])
   @@index([roomId])
@@ -470,12 +472,12 @@ model SetupOrderPresentation {
 }
 
 model SetupTable {
-  id           String     @id @default(cuid())
-  setupOrderId String
-  setupOrder   SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
-  quantity     Int
-  tableType    String?
-  chairCount   Int?
+  id               String     @id @default(cuid())
+  setupOrderId     String
+  setupOrder       SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  quantity         Int
+  tableType        String?
+  chairCount       Int?
   chairType        String?
   providerVendorId String?
   providerVendor   Vendor?    @relation("SetupTableProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
@@ -501,8 +503,8 @@ model CateringOrderLineItem {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  @@map("BEOLineItem")
   @@index([cateringOrderId])
+  @@map("BEOLineItem")
 }
 
 model CateringOrderMenuSection {
@@ -517,9 +519,9 @@ model CateringOrderMenuSection {
   createdAt                DateTime      @default(now())
   updatedAt                DateTime      @updatedAt
 
-  @@map("BEOMenuSection")
   @@index([cateringOrderId])
   @@index([responsiblePartyVendorId])
+  @@map("BEOMenuSection")
 }
 
 model CateringOrderContact {
@@ -530,8 +532,8 @@ model CateringOrderContact {
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
-  @@map("BEOContact")
   @@unique([cateringOrderId, contactId])
+  @@map("BEOContact")
 }
 
 // Presentation tracks (scoped per event)
@@ -582,7 +584,7 @@ model BreakoutSessionRoomOverride {
   id         String   @id @default(cuid())
   functionId String
   roomId     String
-  type       String   // "exclude" or "include"
+  type       String // "exclude" or "include"
   function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
   room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
@@ -606,29 +608,29 @@ model PresentationSlot {
 
 // Presentation models for breakout sessions
 model Presentation {
-  id              String                @id @default(cuid())
+  id              String                   @id @default(cuid())
   title           String
-  type            String                @default("")
+  type            String                   @default("")
   status          EntityStatus?
   substatus       String?
   description     String?
-  schedulingNotes String?               @map("notes")
+  schedulingNotes String?                  @map("notes")
   internalNotes   String?
-  instanceCount   Int                   @default(1)
+  instanceCount   Int                      @default(1)
   trackId         String?
-  track           PresentationTrack?    @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  track           PresentationTrack?       @relation(fields: [trackId], references: [id], onDelete: SetNull)
   breakoutGroupId String?
-  breakoutGroup   BreakoutGroup?        @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
+  breakoutGroup   BreakoutGroup?           @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
   eventId         String
-  event           Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event           Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   speakers        PresentationContact[]
   slots           PresentationSlot[]
   avOrderLinks    AVOrderPresentation[]
   setupOrderLinks SetupOrderPresentation[]
   printOrder      PrintOrder?
-  mediaItems      MediaItem[]
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  mediaOrderLinks MediaOrderPresentation[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 
   @@index([eventId])
   @@index([trackId])
@@ -639,7 +641,7 @@ model PresentationContact {
   id             String       @id @default(cuid())
   presentationId String
   contactId      String
-  role           String?      // "Presenter", "Co-Presenter", "Moderator", "Panelist"
+  role           String? // "Presenter", "Co-Presenter", "Moderator", "Panelist"
   isPrimary      Boolean      @default(false)
   sortOrder      Int          @default(0)
   presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
@@ -657,9 +659,9 @@ model WorkflowTemplate {
   description              String?
   sortOrder                Int                @default(0)
   defaultForEntityTypes    String[]           @default([])
-  pendingStatusValue       EntityStatus?      // status applied when assigned but no steps completed yet
+  pendingStatusValue       EntityStatus? // status applied when assigned but no steps completed yet
   pendingSubstatusValue    String?
-  completionStatusValue    EntityStatus?      // status applied when all steps in this workflow are complete
+  completionStatusValue    EntityStatus? // status applied when all steps in this workflow are complete
   completionSubstatusValue String?
   steps                    WorkflowStep[]
   instances                WorkflowInstance[]
@@ -673,8 +675,8 @@ model WorkflowStep {
   template              WorkflowTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
   label                 String
   sortOrder             Int                      @default(0)
-  computedKey           String?                  // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
-  pendingStatusValue    EntityStatus?            // status applied while this step is the current (first incomplete) step
+  computedKey           String? // reserved for future auto-derived checks (e.g., "HAS_ROOMS")
+  pendingStatusValue    EntityStatus? // status applied while this step is the current (first incomplete) step
   pendingSubstatusValue String?
   items                 WorkflowChecklistItem[]
   completions           WorkflowStepCompletion[]
@@ -685,30 +687,30 @@ model WorkflowStep {
 }
 
 model WorkflowChecklistItem {
-  id          String                       @id @default(cuid())
+  id          String                        @id @default(cuid())
   stepId      String
-  step        WorkflowStep                 @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  step        WorkflowStep                  @relation(fields: [stepId], references: [id], onDelete: Cascade)
   label       String
-  sortOrder   Int                          @default(0)
-  computedKey String?                      // reserved for future auto-derived checks
+  sortOrder   Int                           @default(0)
+  computedKey String? // reserved for future auto-derived checks
   completions WorkflowChecklistCompletion[]
-  createdAt   DateTime                     @default(now())
-  updatedAt   DateTime                     @updatedAt
+  createdAt   DateTime                      @default(now())
+  updatedAt   DateTime                      @updatedAt
 
   @@index([stepId])
 }
 
 // Links a workflow template to a specific entity (CateringOrder, Function, AVOrder, etc.)
 model WorkflowInstance {
-  id              String                       @id @default(cuid())
+  id              String                        @id @default(cuid())
   templateId      String
-  template        WorkflowTemplate             @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  entityType      String                       // "function", "catering_order", "av_order", "presentation"
+  template        WorkflowTemplate              @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  entityType      String // "function", "catering_order", "av_order", "presentation"
   entityId        String
   stepCompletions WorkflowStepCompletion[]
   itemCompletions WorkflowChecklistCompletion[]
-  createdAt       DateTime                     @default(now())
-  updatedAt       DateTime                     @updatedAt
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
 
   @@unique([templateId, entityType, entityId])
   @@index([entityType, entityId])
@@ -743,36 +745,37 @@ model WorkflowChecklistCompletion {
 // Vendor management
 
 model Vendor {
-  id                        String                     @id @default(cuid())
-  name                      String
-  models                    String[]                   @default([]) // references ModelType values: CATERING_ORDER, AV_ORDER, SETUP_ORDER
-  notes                     String?
-  isSystemVendor            Boolean                    @default(false)
-  venueId                   String?                    @unique
-  venue                     Venue?                     @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  contacts                  VendorContact[]
-  eventVendors              EventVendor[]
-  avOrderVendors            AVOrderVendor[]
-  cateringOrderVendors      CateringOrderVendor[]
-  setupOrderVendors         SetupOrderVendor[]
-  printOrderVendors         PrintOrderVendor[]
-  printItemsAsDesigner      PrintItem[]                @relation("PrintItemDesignerVendor")
-  printItemsAsPrinter       PrintItem[]                @relation("PrintItemPrinterVendor")
-  equipmentItemsAsProvider  EquipmentItem[]            @relation("EquipmentItemProviderVendor")
-  equipmentItemsAsOperator  EquipmentItem[]            @relation("EquipmentItemOperatorVendor")
-  responsibleMenuSections   CateringOrderMenuSection[] @relation("MenuSectionResponsibleVendor")
-  inputGroupsAsProvider     InputGroup[]               @relation("InputGroupProviderVendor")
-  inputGroupsAsOperator     InputGroup[]               @relation("InputGroupOperatorVendor")
-  inputItemsAsProvider      InputItem[]                @relation("InputItemProviderVendor")
-  inputItemsAsOperator      InputItem[]                @relation("InputItemOperatorVendor")
-  monitorMixesAsProvider      MonitorMix[]               @relation("MonitorMixProviderVendor")
-  monitorMixesAsOperator      MonitorMix[]               @relation("MonitorMixOperatorVendor")
-  monitorOutputsAsProvider    MonitorOutput[]            @relation("MonitorOutputProviderVendor")
-  monitorOutputsAsOperator    MonitorOutput[]            @relation("MonitorOutputOperatorVendor")
-  setupTablesAsProvider     SetupTable[]               @relation("SetupTableProviderVendor")
-  mediaItemsAsAdvancer      MediaItem[]                @relation("MediaItemAdvancerVendor")
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
+  id                       String                     @id @default(cuid())
+  name                     String
+  models                   String[]                   @default([]) // references ModelType values: CATERING_ORDER, AV_ORDER, SETUP_ORDER
+  notes                    String?
+  isSystemVendor           Boolean                    @default(false)
+  venueId                  String?                    @unique
+  venue                    Venue?                     @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  contacts                 VendorContact[]
+  eventVendors             EventVendor[]
+  avOrderVendors           AVOrderVendor[]
+  cateringOrderVendors     CateringOrderVendor[]
+  setupOrderVendors        SetupOrderVendor[]
+  printOrderVendors        PrintOrderVendor[]
+  mediaOrderVendors        MediaOrderVendor[]
+  printItemsAsDesigner     PrintItem[]                @relation("PrintItemDesignerVendor")
+  printItemsAsPrinter      PrintItem[]                @relation("PrintItemPrinterVendor")
+  equipmentItemsAsProvider EquipmentItem[]            @relation("EquipmentItemProviderVendor")
+  equipmentItemsAsOperator EquipmentItem[]            @relation("EquipmentItemOperatorVendor")
+  responsibleMenuSections  CateringOrderMenuSection[] @relation("MenuSectionResponsibleVendor")
+  inputGroupsAsProvider    InputGroup[]               @relation("InputGroupProviderVendor")
+  inputGroupsAsOperator    InputGroup[]               @relation("InputGroupOperatorVendor")
+  inputItemsAsProvider     InputItem[]                @relation("InputItemProviderVendor")
+  inputItemsAsOperator     InputItem[]                @relation("InputItemOperatorVendor")
+  monitorMixesAsProvider   MonitorMix[]               @relation("MonitorMixProviderVendor")
+  monitorMixesAsOperator   MonitorMix[]               @relation("MonitorMixOperatorVendor")
+  monitorOutputsAsProvider MonitorOutput[]            @relation("MonitorOutputProviderVendor")
+  monitorOutputsAsOperator MonitorOutput[]            @relation("MonitorOutputOperatorVendor")
+  setupTablesAsProvider    SetupTable[]               @relation("SetupTableProviderVendor")
+  mediaItemsAsAdvancer     MediaItem[]                @relation("MediaItemAdvancerVendor")
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
 }
 
 // Junction: Vendor <-> Contact
@@ -826,9 +829,9 @@ model CateringOrderVendor {
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   vendor          Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
-  @@map("BEOVendor")
   @@unique([cateringOrderId, vendorId])
   @@index([cateringOrderId])
+  @@map("BEOVendor")
 }
 
 // Junction: SetupOrder <-> Vendor
@@ -930,24 +933,24 @@ model MonitorMix {
 }
 
 model MonitorOutput {
-  id                String       @id @default(cuid())
+  id                String     @id @default(cuid())
   monitorMixId      String
-  monitorMix        MonitorMix   @relation(fields: [monitorMixId], references: [id], onDelete: Cascade)
+  monitorMix        MonitorMix @relation(fields: [monitorMixId], references: [id], onDelete: Cascade)
   equipmentId       String?
-  equipment         Equipment?   @relation("MonitorOutputEquipment", fields: [equipmentId], references: [id], onDelete: SetNull)
-  quantity          Int          @default(1)
+  equipment         Equipment? @relation("MonitorOutputEquipment", fields: [equipmentId], references: [id], onDelete: SetNull)
+  quantity          Int        @default(1)
   providerVendorId  String?
-  providerVendor    Vendor?      @relation("MonitorOutputProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  providerVendor    Vendor?    @relation("MonitorOutputProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
   providerContactId String?
-  providerContact   Contact?     @relation("MonitorOutputProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
+  providerContact   Contact?   @relation("MonitorOutputProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
   operatorVendorId  String?
-  operatorVendor    Vendor?      @relation("MonitorOutputOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
+  operatorVendor    Vendor?    @relation("MonitorOutputOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
   operatorContactId String?
-  operatorContact   Contact?     @relation("MonitorOutputOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
+  operatorContact   Contact?   @relation("MonitorOutputOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
   notes             String?
-  sortOrder         Int          @default(0)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  sortOrder         Int        @default(0)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   @@index([monitorMixId])
   @@index([equipmentId])
@@ -963,22 +966,79 @@ model VideoSection {
   updatedAt      DateTime        @updatedAt
 }
 
-model MediaItem {
-  id                String       @id @default(cuid())
-  presentationId    String
-  presentation      Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
-  description       String
-  delivery          String?      // references delivery_method CustomOption
-  advancerVendorId  String?
-  advancerVendor    Vendor?      @relation("MediaItemAdvancerVendor", fields: [advancerVendorId], references: [id], onDelete: SetNull)
-  advancerContactId String?
-  advancerContact   Contact?     @relation("MediaItemAdvancerContact", fields: [advancerContactId], references: [id], onDelete: SetNull)
+model MediaOrder {
+  id                String                   @id @default(cuid())
+  name              String
+  status            EntityStatus?
+  substatus         String?
+  eventId           String
+  event             Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  copiedFromId      String?
+  copiedFrom        MediaOrder?              @relation("MediaOrderCopies", fields: [copiedFromId], references: [id], onDelete: SetNull)
+  copies            MediaOrder[]             @relation("MediaOrderCopies")
   notes             String?
-  sortOrder         Int          @default(0)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  functionLinks     MediaOrderFunction[]
+  presentationLinks MediaOrderPresentation[]
+  items             MediaItem[]
+  vendors           MediaOrderVendor[]
+  files             FileUpload[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
+  @@index([eventId])
+  @@index([copiedFromId])
+}
+
+model MediaOrderFunction {
+  id           String     @id @default(cuid())
+  mediaOrderId String
+  functionId   String
+  mediaOrder   MediaOrder @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
+  function     Function   @relation(fields: [functionId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaOrderId, functionId])
+  @@index([functionId])
+}
+
+model MediaOrderPresentation {
+  id             String       @id @default(cuid())
+  mediaOrderId   String
+  presentationId String
+  mediaOrder     MediaOrder   @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaOrderId, presentationId])
   @@index([presentationId])
+}
+
+model MediaOrderVendor {
+  id           String     @id @default(cuid())
+  mediaOrderId String
+  vendorId     String
+  notes        String?
+  mediaOrder   MediaOrder @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
+  vendor       Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaOrderId, vendorId])
+  @@index([mediaOrderId])
+}
+
+model MediaItem {
+  id                String     @id @default(cuid())
+  mediaOrderId      String
+  mediaOrder        MediaOrder @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
+  description       String
+  delivery          String? // references delivery_method CustomOption
+  advancerVendorId  String?
+  advancerVendor    Vendor?    @relation("MediaItemAdvancerVendor", fields: [advancerVendorId], references: [id], onDelete: SetNull)
+  advancerContactId String?
+  advancerContact   Contact?   @relation("MediaItemAdvancerContact", fields: [advancerContactId], references: [id], onDelete: SetNull)
+  notes             String?
+  sortOrder         Int        @default(0)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([mediaOrderId])
 }
 
 model PrintOrder {
@@ -1054,12 +1114,12 @@ model PrintOrderVendor {
 }
 
 model FileUpload {
-  id              String         @id @default(cuid())
-  fileName        String
-  storedName      String
-  mimeType        String
-  fileSize        Int
-  fileType        String?
+  id         String  @id @default(cuid())
+  fileName   String
+  storedName String
+  mimeType   String
+  fileSize   Int
+  fileType   String?
 
   eventId         String?
   event           Event?         @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -1071,16 +1131,19 @@ model FileUpload {
   setupOrder      SetupOrder?    @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   printOrderId    String?
   printOrder      PrintOrder?    @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
+  mediaOrderId    String?
+  mediaOrder      MediaOrder?    @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
   venueId         String?
   venue           Venue?         @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime       @default(now())
+  createdAt DateTime @default(now())
 
   @@index([eventId])
   @@index([cateringOrderId])
   @@index([avOrderId])
   @@index([setupOrderId])
   @@index([printOrderId])
+  @@index([mediaOrderId])
   @@index([venueId])
 }
 

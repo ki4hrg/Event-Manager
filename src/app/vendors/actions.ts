@@ -240,7 +240,7 @@ export async function removeVendorFromEvent(eventVendorId: string, eventId: stri
 }
 
 // Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
-export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER";
+export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER" | "MEDIA_ORDER";
 
 // Assigns a vendor as the default for a model type on this event.
 // Transfers the designation away from any other vendor that held it.
@@ -459,4 +459,36 @@ export async function removeVendorFromPrintOrder(id: string, printOrderId: strin
   await requireAuth();
   await prisma.printOrderVendor.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+}
+
+export async function getMediaOrderVendors(mediaOrderId: string) {
+  await requireAuth();
+  return prisma.mediaOrderVendor.findMany({
+    where: { mediaOrderId },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+  });
+}
+
+export async function addVendorToMediaOrder(mediaOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await requireAuth();
+  await prisma.mediaOrderVendor.create({
+    data: { mediaOrderId, vendorId, notes: notes || null },
+  });
+  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
+}
+
+export async function updateMediaOrderVendor(id: string, mediaOrderId: string, eventId: string, notes: string) {
+  await requireAuth();
+  await prisma.mediaOrderVendor.update({
+    where: { id },
+    data: { notes: notes || null },
+  });
+  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
+}
+
+export async function removeVendorFromMediaOrder(id: string, mediaOrderId: string, eventId: string) {
+  await requireAuth();
+  await prisma.mediaOrderVendor.delete({ where: { id } });
+  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }

@@ -147,6 +147,7 @@ async function propagateLabelRename(
         tx.cateringOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
         tx.setupOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
         tx.printOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
+        tx.mediaOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
       ]);
       break;
     case "contact_role":

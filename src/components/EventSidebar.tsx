@@ -129,6 +129,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Catering Orders",  segment: "catering-orders",                 icon: <UtensilsIcon />,  sidebarSection: "catering-orders" },
   { type: "link",  label: "Print Orders",     segment: "print-orders",                    icon: <PrinterIcon />,   sidebarSection: "print-orders" },
   { type: "link",  label: "Setup Orders",     segment: "setup-orders",                    icon: <WrenchIcon />,    sidebarSection: "setup-orders" },
+  { type: "link",  label: "Media Orders",     segment: "media-orders",                    icon: <VideoIcon />,     sidebarSection: "media-orders" },
   { type: "group", label: "Resources" },
   { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon /> },
   { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon /> },
@@ -155,6 +156,7 @@ function getActiveSection(pathname: string, basePath: string): SidebarSection | 
     "catering-orders",
     "print-orders",
     "setup-orders",
+    "media-orders",
     "presentations",
   ];
   for (const s of sections) {

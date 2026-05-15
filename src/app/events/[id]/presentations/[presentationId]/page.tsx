@@ -20,11 +20,12 @@ import {
   removeSpeaker,
   searchContacts,
   createAndAddPresentationSpeaker,
-  createMediaItem,
-  updateMediaItem,
-  deleteMediaItem,
-  getMediaItemPartyOptions,
 } from "../../../presentations/actions";
+import {
+  getAvailableMediaOrdersForPresentation,
+  linkMediaOrderToPresentationFromPresentation,
+  unlinkMediaOrderFromPresentationPage,
+} from "../../../media-orders/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
@@ -55,7 +56,7 @@ import { PresentationForm } from "../../../presentations/PresentationForm";
 import { BreakoutSlotPanel } from "../../../presentations/BreakoutSlotPanel";
 import { SpeakerList } from "../../../presentations/SpeakerList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
-import { MediaItemsPanel } from "../../../presentations/MediaItemsPanel";
+import { MediaOrderPanel } from "../../../media-orders/MediaOrderPanel";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +67,7 @@ export default async function PresentationPage({
   params: Promise<{ id: string; presentationId: string }>;
 }) {
   const { id: eventId, presentationId } = await params;
-  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates, deliveryOptions, substatuses] = await Promise.all([
+  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates, substatuses] = await Promise.all([
     getEvent(eventId),
     getPresentation(presentationId),
     getTracks(eventId),
@@ -74,7 +75,6 @@ export default async function PresentationPage({
     getOptions("presentation_type"),
     getWorkflowInstances("presentation", presentationId),
     getWorkflowTemplateOptions(),
-    getOptions("delivery_method"),
     getSubstatusOptions(),
   ]);
 
@@ -82,7 +82,7 @@ export default async function PresentationPage({
     notFound();
   }
 
-  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, mediaItemPartyOptions] = await Promise.all([
+  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, availableMediaOrders] = await Promise.all([
     prisma.breakoutGroup.findMany({
       where: { eventId },
       select: {
@@ -120,7 +120,7 @@ export default async function PresentationPage({
     presentation.printOrder
       ? Promise.resolve([])
       : getAvailablePrintOrdersForPresentation(eventId),
-    getMediaItemPartyOptions(presentationId, eventId),
+    getAvailableMediaOrdersForPresentation(eventId, presentationId),
   ]);
 
   const breakoutGroupsFull = breakoutGroups.map((g) => ({
@@ -225,19 +225,14 @@ export default async function PresentationPage({
     await updatePresentationInstanceCount(presentationId, eventId, count);
   };
 
-  const createMediaItemAction = async (formData: FormData) => {
+  const linkMediaOrderAction = async (mediaOrderId: string) => {
     "use server";
-    await createMediaItem(presentationId, eventId, formData);
+    await linkMediaOrderToPresentationFromPresentation(mediaOrderId, presentationId, eventId);
   };
 
-  const updateMediaItemAction = async (id: string, formData: FormData) => {
+  const unlinkMediaOrderAction = async (mediaOrderId: string) => {
     "use server";
-    await updateMediaItem(id, presentationId, eventId, formData);
-  };
-
-  const deleteMediaItemAction = async (id: string) => {
-    "use server";
-    await deleteMediaItem(id, presentationId, eventId);
+    await unlinkMediaOrderFromPresentationPage(mediaOrderId, presentationId, eventId);
   };
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
@@ -407,14 +402,14 @@ export default async function PresentationPage({
             linkPrintOrder={linkPrintOrderAction}
             unlinkPrintOrder={unlinkPrintOrderAction}
           />
-          <MediaItemsPanel
-            mediaItems={presentation.mediaItems}
-            deliveryOptions={deliveryOptions}
-            vendorOptions={mediaItemPartyOptions.vendors}
-            contactOptions={mediaItemPartyOptions.contacts}
-            createItem={createMediaItemAction}
-            updateItem={updateMediaItemAction}
-            deleteItem={deleteMediaItemAction}
+          <MediaOrderPanel
+            title="Media Orders"
+            mediaOrders={presentation.mediaOrders}
+            eventId={eventId}
+            availableMediaOrders={availableMediaOrders}
+            newMediaOrderPath={`/events/${eventId}/media-orders/new?presentationId=${presentationId}`}
+            linkMediaOrder={linkMediaOrderAction}
+            unlinkMediaOrder={unlinkMediaOrderAction}
           />
         </div>
       </div>
