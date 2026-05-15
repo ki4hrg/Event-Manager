@@ -1,15 +1,17 @@
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
-import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData } from "@/app/events/reports/actions";
+import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getRoomScheduleData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
+import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equipment-responsibility/ReportFilters";
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
+import { ReportFilters as RsReportFilters } from "@/app/events/[id]/reports/room-schedule/ReportFilters";
 import { enumerateEventDays } from "@/app/events/[id]/reports/event-profile/days";
 import { ShareShell } from "./ShareShell";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
@@ -205,6 +207,74 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           functionTypes={functionTypes}
           serviceStyles={serviceStyles}
           selectedSections={validSections}
+        />
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "ROOM_SCHEDULE") {
+    let effectiveDays: string[] | undefined;
+    let effectiveRoomIds: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveDays = storedFilters.days;
+      effectiveRoomIds = storedFilters.rooms;
+    } else {
+      const daysParam = getString(sp.days);
+      const roomsParam = getString(sp.rooms);
+      effectiveDays = daysParam
+        ? daysParam.split(",").filter(Boolean)
+        : storedFilters.days;
+      effectiveRoomIds = roomsParam
+        ? roomsParam.split(",").filter(Boolean)
+        : storedFilters.rooms;
+    }
+
+    const [event, data, functionTypes, scheduleTypes] = await Promise.all([
+      getEvent(link.eventId),
+      getRoomScheduleData(link.eventId, {
+        days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
+        roomIds: effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
+      }),
+      getOptions("function_type"),
+      getOptions("schedule_type"),
+    ]);
+
+    if (!event || !data) notFound();
+
+    const printParams = new URLSearchParams();
+    if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
+    if (effectiveRoomIds?.length) printParams.set("rooms", effectiveRoomIds.join(","));
+    const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
+
+    const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
+    const roomOptions = data.rooms.map((r) => ({
+      value: r.id,
+      label: r.venue?.name ? `${r.name} · ${r.venue.name}` : r.name,
+    }));
+
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Room Schedule"
+        label={link.label}
+        printHref={printHref}
+      >
+        {!link.filtersLocked && (
+          <RsReportFilters
+            eventId={link.eventId}
+            days={dayOptions}
+            rooms={roomOptions}
+            selectedDays={effectiveDays ?? []}
+            selectedRoomIds={effectiveRoomIds ?? []}
+            basePath={`/share/${token}`}
+            hidePrint
+          />
+        )}
+        <RoomScheduleReport
+          data={data}
+          functionTypes={functionTypes}
+          scheduleTypes={scheduleTypes}
         />
       </ShareShell>
     );

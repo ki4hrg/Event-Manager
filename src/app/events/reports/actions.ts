@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import type { ModelType } from "@/app/vendors/actions";
 import { resolveOptionLabel } from "@/lib/optionUtils";
+import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 
 export type EquipmentReportFilters = {
   vendorIds?: string[];
@@ -575,22 +576,13 @@ export type EventProfileFilters = {
   days?: string[]; // YYYY-MM-DD keys in event timezone
 };
 
-function getDateKey(date: Date, timezone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
 function functionMatchesDays(
   schedules: { startTime: Date }[],
   dayKeys: Set<string>,
   timezone: string
 ): boolean {
   if (schedules.length === 0) return false;
-  return schedules.some((s) => dayKeys.has(getDateKey(s.startTime, timezone)));
+  return schedules.some((s) => dayKeys.has(getDateKeyInTimezone(s.startTime, timezone)));
 }
 
 export async function getEventProfileData(
@@ -916,3 +908,96 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
     keyStaff,
   };
 }
+
+// ── Room Schedule report ──────────────────────────────────────────────────────
+
+export type RoomScheduleFilters = {
+  roomIds?: string[];
+  days?: string[];
+};
+
+export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFilters = {}) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, timezone: true },
+  });
+  if (!event) return null;
+
+  const timezone = event.timezone;
+  const dayKeys = opts.days && opts.days.length > 0 ? new Set(opts.days) : null;
+  const roomIdFilter = opts.roomIds && opts.roomIds.length > 0 ? new Set(opts.roomIds) : null;
+
+  const [rooms, allFunctions] = await Promise.all([
+    prisma.room.findMany({
+      where: {
+        OR: [
+          { functions: { some: { function: { eventId } } } },
+          { presentationSlots: { some: { function: { eventId } } } },
+        ],
+      },
+      include: {
+        venue: { select: { id: true, name: true } },
+        group: { select: { id: true, name: true, sortOrder: true } },
+      },
+      orderBy: [{ venue: { name: "asc" } }, { name: "asc" }],
+    }),
+    prisma.function.findMany({
+      where: { eventId },
+      include: {
+        schedules: { orderBy: { sortOrder: "asc" } },
+        rooms: { include: { room: { select: { id: true, name: true } } } },
+        contacts: {
+          include: {
+            contact: { select: { id: true, firstName: true, lastName: true } },
+          },
+          orderBy: { id: "asc" },
+        },
+        presentationSlots: {
+          include: {
+            presentation: {
+              include: {
+                speakers: {
+                  include: {
+                    contact: { select: { id: true, firstName: true, lastName: true } },
+                  },
+                  orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+                },
+              },
+            },
+            room: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const functions = dayKeys
+    ? allFunctions.filter((fn) => functionMatchesDays(fn.schedules, dayKeys, timezone))
+    : allFunctions;
+
+  const filteredRooms = roomIdFilter ? rooms.filter((r) => roomIdFilter.has(r.id)) : rooms;
+
+  const roomBuckets = filteredRooms.map((room) => {
+    const regularFunctions = functions.filter(
+      (fn) => fn.type !== "BREAKOUT_BLOCK" && fn.rooms.some((r) => r.roomId === room.id)
+    );
+
+    const breakoutEntries = functions
+      .filter((fn) => fn.type === "BREAKOUT_BLOCK")
+      .flatMap((block) =>
+        block.presentationSlots
+          .filter((slot) => slot.roomId === room.id)
+          .map((slot) => ({ block, slot }))
+      );
+
+    return { room, regularFunctions, breakoutEntries };
+  });
+
+  return {
+    timezone,
+    rooms,
+    roomBuckets,
+  };
+}
+
+export type RoomScheduleData = NonNullable<Awaited<ReturnType<typeof getRoomScheduleData>>>;

@@ -7,6 +7,7 @@ export type ShareLinkFilters = {
   vendorId?: string;
   days?: string[];
   sections?: string[];
+  rooms?: string[];
 };
 
 export function generateShareToken(): string {

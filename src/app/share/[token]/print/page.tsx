@@ -1,13 +1,14 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
-import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData } from "@/app/events/reports/actions";
+import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getRoomScheduleData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
+import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 
@@ -213,6 +214,48 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
           functionTypes={functionTypes}
           serviceStyles={serviceStyles}
           selectedSections={validSections}
+        />
+      </div>
+    );
+  }
+
+  if (link.reportType === "ROOM_SCHEDULE") {
+    let effectiveDays: string[] | undefined;
+    let effectiveRoomIds: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveDays = storedFilters.days;
+      effectiveRoomIds = storedFilters.rooms;
+    } else {
+      const daysParam = getString(sp.days);
+      const roomsParam = getString(sp.rooms);
+      effectiveDays = daysParam
+        ? daysParam.split(",").filter(Boolean)
+        : storedFilters.days;
+      effectiveRoomIds = roomsParam
+        ? roomsParam.split(",").filter(Boolean)
+        : storedFilters.rooms;
+    }
+
+    const [event, data, functionTypes, scheduleTypes] = await Promise.all([
+      getEvent(link.eventId),
+      getRoomScheduleData(link.eventId, {
+        days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
+        roomIds: effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
+      }),
+      getOptions("function_type"),
+      getOptions("schedule_type"),
+    ]);
+
+    if (!event || !data) notFound();
+
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <PrintHeader eventName={link.event.name} title="Room Schedule" backHref={backHref} />
+        <RoomScheduleReport
+          data={data}
+          functionTypes={functionTypes}
+          scheduleTypes={scheduleTypes}
         />
       </div>
     );
