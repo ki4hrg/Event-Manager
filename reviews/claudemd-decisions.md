@@ -50,12 +50,26 @@ rules come before style/process rules.
 **Rationale:** Combined with Row 60 (every admin Server Action calls `requireAdmin()` internally), the layout protects page rendering and the action protects mutations. Defense in depth without per-page boilerplate. One file per segment enforces auth so a new admin page can't accidentally skip the check.
 **Migration:** Add `src/app/users/layout.tsx` and `src/app/workflows/layout.tsx` that each call `requireAdmin()`. Remove the 5 per-page `requireAdmin()` calls in `src/app/users/page.tsx`, `src/app/users/[userId]/page.tsx`, `src/app/workflows/page.tsx`, `src/app/workflows/new/page.tsx`, `src/app/workflows/[id]/page.tsx`. `src/app/settings/layout.tsx` already conforms.
 
-### Row 55 — `?success=` toast redirect convention
-**Rule:** After a successful update, redirect to `?success=<message>` so `<Toast>` renders the confirmation.
-**Classification:** Undocumented convention.
-**Recommended decision:** Decide it.
-**Rationale:** Roughly 53% adoption — 10 update redirects include `?success=`, while equivalent create flows (`src/app/events/actions.ts:42`, `src/app/contacts/actions.ts:42`) redirect without it. The current CLAUDE.md rule "After updating, stay on detail view with success toast" implies it but doesn't pin the URL convention.
-**Open question for humans:** Make `?success=` mandatory on every update redirect (uniform UX) or document it as optional? Either is fine — just pick.
+### Row 55 — `?success=` toast redirect convention (and create-vs-update redirect target)  **decided 2026-05-15**
+**Rule (decided, two parts):**
+
+> *Redirect target after create:*
+> - Thin top-level entities (User, Event, Venue, Contact) → redirect to the list view.
+> - Entities that need further setup on their detail page (Vendor, every order type, Presentation, Function) → redirect to the detail view.
+> - Duplicates always redirect to the detail view of the new copy.
+>
+> *Success toasts:*
+> Every successful mutation redirects with `?success=<short message>`. Pages that are valid redirect destinations must mount `<Toast>` wrapped in `<Suspense fallback={null}>`.
+> After updating, the redirect target is the detail view (already universal in current code).
+
+**Classification:** Was Undocumented; also corrects the earlier Row 3 finding (the "create → list view" line in current CLAUDE.md is contradicted by 7 of 11 create actions — should have been a Conflict, not Consistent).
+**Decision:** Adopt the rewrite. Apply `?success=` to creates too (uniform UX); mount `<Toast>` on the four list pages that lack it.
+**Rationale:** Current code redirects 4 simple entities to list and 7 multi-step entities to detail — the existing rule "create → list view" is just outdated. Uniform `?success=` is cheap once `<Toast>` is mounted on the list destinations, and the same `<Toast>` will be useful for other flows (bulk delete confirmations, link-action confirmations, etc.).
+**Migration:**
+- Add `<Toast>` (inside `<Suspense fallback={null}>`) to `src/app/users/page.tsx`, `src/app/events/page.tsx`, `src/app/venues/page.tsx`, `src/app/contacts/page.tsx`.
+- Append `?success=<message>` to `createUser` (`src/app/users/actions.ts:109` area), `createEvent` (`src/app/events/actions.ts:42`), `createVenue` (`src/app/venues/actions.ts`), `createContact` (`src/app/contacts/actions.ts:42`).
+- Audit other create/duplicate actions for `?success=` consistency on the detail redirects (most update redirects already have it).
+**Knock-on:** Update the existing CLAUDE.md "Code Conventions" line that says "After creating a new record, redirect to list view (not detail view)" — replace with the split rule above. (This is the Row 3 correction.)
 
 ### Row 75 — `cache()` from React for shared readers
 **Rule:** Wrap readers consumed by both a layout and a page in `cache(...)` so the request is deduped.
