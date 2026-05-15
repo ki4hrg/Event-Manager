@@ -27,12 +27,21 @@ rules come before style/process rules.
 **Decision:** Replace the "REST conventions" line in CLAUDE.md with the inferred wording.
 **Rationale:** Server-Actions-everywhere is the committed model. Only 3 route handlers exist (`src/app/api/auth/[...nextauth]/route.ts`, `src/app/api/upload/route.ts`, `src/app/api/files/[fileId]/route.ts`); none are REST CRUD. If an external API is needed in the future, that's a deliberate refactor at the time, not a default to design around now.
 
-### Row 1 — `/components/features` subdirectory
-**Rule:** Feature-specific components live in `/components/features`.
-**Classification:** Conflict.
-**Recommended decision:** Decide it.
-**Rationale:** The directory doesn't exist. Feature-specific components are colocated under `src/app/<feature>/` (e.g. `src/app/events/EventForm.tsx`, `src/app/events/setup-orders/SetupOrderList.tsx`). The two extant `src/components/` subfolders are `ui/` and `print/`.
-**Open question for humans:** (a) Drop `/components/features` from the project tree and document the colocation rule (recommended — matches every existing list/form pair), or (b) introduce the `features/` directory and migrate feature components into it.
+### Row 1 — `/components/features` subdirectory  **decided 2026-05-15**
+**Rule (decided):** Document the actual tree and the colocation principle.
+**Classification:** Was Conflict; resolved.
+**Decision:** Rewrite the Project Structure block in CLAUDE.md as:
+
+> ```
+> /components       # Cross-feature shared components
+>   /ui             # Generic UI primitives (ViewToggle, etc.)
+>   /print          # Print/PDF layout helpers (PrintHeader, PrintButton, ...)
+> ```
+> Feature-specific components colocate with their `actions.ts` under
+> `src/app/<feature>/`. `src/components/` is reserved for components
+> reused across two or more features.
+
+**Rationale:** Current CLAUDE.md lists a nonexistent `/components/features` directory and omits the real `print/` subfolder. Colocation under `src/app/<feature>/` is the universal pattern for feature components (`src/app/events/EventForm.tsx`, `src/app/events/setup-orders/SetupOrderList.tsx`, etc.). `ui/` stays documented as a home for future shared primitives even though it has one file today.
 
 ### Row 59 — `requireAdmin()` in segment `layout.tsx` for admin routes  ⚠️ **needs human review (auth)**
 **Rule:** For admin-only routes, call `requireAdmin()` once in the segment's `layout.tsx`.
