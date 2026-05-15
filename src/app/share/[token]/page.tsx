@@ -1,17 +1,19 @@
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
-import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getRoomScheduleData } from "@/app/events/reports/actions";
+import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
+import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equipment-responsibility/ReportFilters";
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
 import { ReportFilters as RsReportFilters } from "@/app/events/[id]/reports/room-schedule/ReportFilters";
+import { ReportFilters as FdReportFilters } from "@/app/events/[id]/reports/function-detail/ReportFilters";
 import { enumerateEventDays } from "@/app/events/[id]/reports/event-profile/days";
 import { MODEL_TYPES } from "@/app/vendors/model-types";
 import { ShareShell } from "./ShareShell";
@@ -309,6 +311,76 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           data={data}
           functionTypes={functionTypes}
           scheduleTypes={scheduleTypes}
+        />
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "FUNCTION_DETAIL") {
+    let effectiveFunctionIds: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveFunctionIds = storedFilters.functionIds;
+    } else {
+      const functionsParam = getString(sp.functions);
+      effectiveFunctionIds = functionsParam
+        ? functionsParam.split(",").filter(Boolean)
+        : storedFilters.functionIds;
+    }
+
+    const [event, pickerOptions, functionTypes, scheduleTypes, serviceStyles, setupTypes] =
+      await Promise.all([
+        getEvent(link.eventId),
+        link.filtersLocked ? Promise.resolve(null) : getFunctionPickerOptions(link.eventId),
+        getOptions("function_type"),
+        getOptions("schedule_type"),
+        getOptions("service_style"),
+        getOptions("setup_type"),
+      ]);
+
+    if (!event) notFound();
+
+    if (!link.filtersLocked && pickerOptions) {
+      effectiveFunctionIds = intersect(
+        effectiveFunctionIds,
+        new Set(pickerOptions.map((o) => o.value)),
+      );
+    }
+
+    const data = await getFunctionDetailData(link.eventId, {
+      functionIds: effectiveFunctionIds,
+    });
+
+    if (!data) notFound();
+
+    const printParams = new URLSearchParams();
+    if (effectiveFunctionIds?.length) {
+      printParams.set("functions", effectiveFunctionIds.join(","));
+    }
+    const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
+
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Function Detail"
+        label={link.label}
+        printHref={printHref}
+      >
+        {!link.filtersLocked && pickerOptions && (
+          <FdReportFilters
+            eventId={link.eventId}
+            functions={pickerOptions}
+            selectedFunctionIds={effectiveFunctionIds ?? []}
+            basePath={`/share/${token}`}
+            hidePrint
+          />
+        )}
+        <FunctionDetailReport
+          data={data}
+          functionTypes={functionTypes}
+          scheduleTypes={scheduleTypes}
+          serviceStyles={serviceStyles}
+          setupTypes={setupTypes}
         />
       </ShareShell>
     );

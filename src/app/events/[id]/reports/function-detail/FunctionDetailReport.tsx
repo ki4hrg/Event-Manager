@@ -1,0 +1,1575 @@
+import type {
+  FunctionDetailData,
+  FunctionDetailFunction,
+} from "@/app/events/reports/actions";
+import { ReportNav } from "@/components/ReportNav";
+import { SectionDivider } from "@/components/SectionDivider";
+import { EmptyState } from "@/components/EmptyState";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatPhone } from "@/lib/format-phone";
+import { resolveOptionLabel } from "@/lib/optionUtils";
+import { STATUS_LABEL, STATUS_CLASS } from "@/lib/statusConstants";
+import { formatTime } from "@/lib/agendaUtils";
+
+type OptionList = { label: string; color?: string | null }[];
+
+type Props = {
+  data: FunctionDetailData;
+  functionTypes: OptionList;
+  scheduleTypes: OptionList;
+  serviceStyles: OptionList;
+  setupTypes: OptionList;
+};
+
+type Fn = FunctionDetailFunction;
+type AvOrder = Fn["avOrderFunctions"][number]["avOrder"];
+type SetupOrder = Fn["setupOrderFunctions"][number]["setupOrder"];
+type PrintOrder = Fn["printOrderFunctions"][number]["printOrder"];
+type MediaOrder = Fn["mediaOrderFunctions"][number]["mediaOrder"];
+type CateringOrder = NonNullable<Fn["cateringOrder"]>;
+type EquipmentItem = AvOrder["equipmentItems"][number];
+type InputGroupT = NonNullable<AvOrder["audioSection"]>["inputGroups"][number];
+type MonitorMixT = NonNullable<AvOrder["audioSection"]>["monitorMixes"][number];
+type PresentationSlot = Fn["presentationSlots"][number];
+
+function formatDateTime(date: Date, timezone: string): string {
+  return new Date(date).toLocaleString("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function partyKindLabel(kind: RollupEntry["partyKind"]): string {
+  if (kind === "VENDOR") return "Vendor";
+  if (kind === "CONTACT") return "Contact";
+  return "Unassigned";
+}
+
+function vendorOrContactName(
+  vendor?: { name: string } | null,
+  contact?: { firstName: string; lastName: string } | null,
+): string | null {
+  if (vendor) return vendor.name;
+  if (contact) return `${contact.firstName} ${contact.lastName}`;
+  return null;
+}
+
+function StatusBadge({ status }: { status: Fn["status"] }) {
+  if (!status) return null;
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_CLASS[status]}`}
+    >
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+function VendorPills({
+  vendors,
+}: {
+  vendors: { vendor: { id: string; name: string } }[];
+}) {
+  if (vendors.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {vendors.map((v) => (
+        <span
+          key={v.vendor.id}
+          className="px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+        >
+          {v.vendor.name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function SubSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-4">
+      <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+        {title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+function EquipmentTable({ items }: { items: EquipmentItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <>
+      <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+        {items.map((it) => (
+          <div key={it.id} className="p-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                {it.equipment?.name ?? it.item}
+              </span>
+              <span className="text-gray-500 dark:text-gray-400">
+                Qty {it.quantity ?? 1}
+              </span>
+            </div>
+            <div className="text-gray-500 dark:text-gray-400 mt-0.5">
+              {it.equipment?.category && <span>{it.equipment.category}</span>}
+              {vendorOrContactName(it.providerVendor, it.providerContact) && (
+                <span>
+                  {" "}· Provider:{" "}
+                  {vendorOrContactName(it.providerVendor, it.providerContact)}
+                </span>
+              )}
+              {vendorOrContactName(it.operatorVendor, it.operatorContact) && (
+                <span>
+                  {" "}· Operator:{" "}
+                  {vendorOrContactName(it.operatorVendor, it.operatorContact)}
+                </span>
+              )}
+            </div>
+            {it.notes && (
+              <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
+                {it.notes}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden sm:block print:block overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+              <th className="py-1.5 pr-3 text-xs font-medium">Item</th>
+              <th className="py-1.5 pr-3 text-xs font-medium">Category</th>
+              <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">Qty</th>
+              <th className="py-1.5 pr-3 text-xs font-medium">Provider</th>
+              <th className="py-1.5 pr-3 text-xs font-medium">Operator</th>
+              <th className="py-1.5 text-xs font-medium">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((it) => (
+              <tr
+                key={it.id}
+                className="border-b border-gray-100 dark:border-gray-800 align-top"
+              >
+                <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
+                  {it.equipment?.name ?? it.item}
+                </td>
+                <td className="py-1.5 pr-3 text-gray-500 dark:text-gray-400">
+                  {it.equipment?.category ?? "—"}
+                </td>
+                <td className="py-1.5 pr-3 text-right text-gray-900 dark:text-gray-100">
+                  {it.quantity ?? 1}
+                </td>
+                <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                  {vendorOrContactName(it.providerVendor, it.providerContact) ?? "—"}
+                </td>
+                <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                  {vendorOrContactName(it.operatorVendor, it.operatorContact) ?? "—"}
+                </td>
+                <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
+                  {it.notes ?? ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function InputGroupBlock({ group }: { group: InputGroupT }) {
+  return (
+    <div className="border-l-2 border-gray-200 dark:border-gray-700 pl-3 mb-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          {group.name}
+        </span>
+        {vendorOrContactName(group.providerVendor, group.providerContact) && (
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Provider:{" "}
+            {vendorOrContactName(group.providerVendor, group.providerContact)}
+          </span>
+        )}
+      </div>
+      {group.notes && (
+        <p className="text-xs italic text-gray-500 dark:text-gray-400 mt-0.5">
+          {group.notes}
+        </p>
+      )}
+      {group.inputItems.length > 0 && (
+        <ul className="text-xs text-gray-700 dark:text-gray-300 mt-1 space-y-0.5">
+          {group.inputItems.map((it) => {
+            const provider = vendorOrContactName(
+              it.providerVendor,
+              it.providerContact,
+            );
+            return (
+              <li key={it.id}>
+                <span className="text-gray-900 dark:text-gray-100">
+                  {it.quantity > 1 ? `${it.quantity}× ` : ""}
+                  {it.equipment?.name ?? it.description}
+                </span>
+                {provider && (
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {" "}· {provider}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function MonitorMixBlock({ mix }: { mix: MonitorMixT }) {
+  return (
+    <div className="border-l-2 border-gray-200 dark:border-gray-700 pl-3 mb-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          {mix.description}
+        </span>
+        {vendorOrContactName(mix.providerVendor, mix.providerContact) && (
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Provider:{" "}
+            {vendorOrContactName(mix.providerVendor, mix.providerContact)}
+          </span>
+        )}
+      </div>
+      {mix.equipment?.name && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          {mix.equipment.name}
+        </p>
+      )}
+      {mix.monitorOutputs.length > 0 && (
+        <ul className="text-xs text-gray-700 dark:text-gray-300 mt-1 space-y-0.5">
+          {mix.monitorOutputs.map((out) => {
+            const provider = vendorOrContactName(
+              out.providerVendor,
+              out.providerContact,
+            );
+            return (
+              <li key={out.id}>
+                <span className="text-gray-900 dark:text-gray-100">
+                  {out.quantity > 1 ? `${out.quantity}× ` : ""}
+                  {out.equipment?.name ?? "Output"}
+                </span>
+                {provider && (
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {" "}· {provider}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function AVOrderCard({ order }: { order: AvOrder }) {
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <div className="flex items-baseline gap-2">
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {order.name}
+          </span>
+          <StatusBadge status={order.status} />
+        </div>
+        <VendorPills vendors={order.vendors} />
+      </div>
+      {order.notes && (
+        <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
+          {order.notes}
+        </p>
+      )}
+
+      {order.audioSection &&
+        (order.audioSection.inputGroups.length > 0 ||
+          order.audioSection.monitorMixes.length > 0) && (
+          <SubSection title="Audio">
+            {order.audioSection.inputGroups.map((g) => (
+              <InputGroupBlock key={g.id} group={g} />
+            ))}
+            {order.audioSection.monitorMixes.map((m) => (
+              <MonitorMixBlock key={m.id} mix={m} />
+            ))}
+          </SubSection>
+        )}
+
+      {order.videoSection && order.videoSection.equipmentItems.length > 0 && (
+        <SubSection title="Video">
+          <EquipmentTable items={order.videoSection.equipmentItems} />
+        </SubSection>
+      )}
+
+      {order.equipmentItems.length > 0 && (
+        <SubSection title="Equipment">
+          <EquipmentTable items={order.equipmentItems} />
+        </SubSection>
+      )}
+    </div>
+  );
+}
+
+function SetupOrderCard({
+  order,
+  setupTypes,
+}: {
+  order: SetupOrder;
+  setupTypes: OptionList;
+}) {
+  const setupTypeLabel = order.setupType
+    ? resolveOptionLabel(order.setupType, setupTypes)
+    : null;
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {order.name ?? "Setup Order"}
+          </span>
+          <StatusBadge status={order.status} />
+          {setupTypeLabel && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {setupTypeLabel}
+            </span>
+          )}
+          {order.room && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              Room: {order.room.name}
+            </span>
+          )}
+        </div>
+        <VendorPills vendors={order.vendors} />
+      </div>
+      {order.notes && (
+        <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
+          {order.notes}
+        </p>
+      )}
+
+      {order.tables.length > 0 && (
+        <SubSection title="Tables">
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+            {order.tables.map((t) => (
+              <div key={t.id} className="p-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {t.quantity}× {t.tableType ?? "Table"}
+                  </span>
+                  {t.providerVendor && (
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {t.providerVendor.name}
+                    </span>
+                  )}
+                </div>
+                {(t.chairCount || t.chairType) && (
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t.chairCount ? `${t.chairCount} ` : ""}
+                    {t.chairType ?? "Chairs"}
+                  </p>
+                )}
+                {t.notes && (
+                  <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t.notes}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">
+                    Qty
+                  </th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Type</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Chairs</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Provider</th>
+                  <th className="py-1.5 text-xs font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.tables.map((t) => (
+                  <tr
+                    key={t.id}
+                    className="border-b border-gray-100 dark:border-gray-800 align-top"
+                  >
+                    <td className="py-1.5 pr-3 text-right text-gray-900 dark:text-gray-100">
+                      {t.quantity}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
+                      {t.tableType ?? "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {t.chairCount ? `${t.chairCount} ${t.chairType ?? ""}`.trim() : "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {t.providerVendor?.name ?? "—"}
+                    </td>
+                    <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
+                      {t.notes ?? ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SubSection>
+      )}
+
+      {order.equipmentItems.length > 0 && (
+        <SubSection title="Equipment">
+          <EquipmentTable items={order.equipmentItems} />
+        </SubSection>
+      )}
+    </div>
+  );
+}
+
+function PrintOrderCard({ order }: { order: PrintOrder }) {
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <div className="flex items-baseline gap-2">
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {order.name}
+          </span>
+          <StatusBadge status={order.status} />
+        </div>
+        <VendorPills vendors={order.vendors} />
+      </div>
+      {order.notes && (
+        <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
+          {order.notes}
+        </p>
+      )}
+
+      {order.items.length > 0 && (
+        <>
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+            {order.items.map((it) => (
+              <div key={it.id} className="p-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {it.description}
+                  </span>
+                  {it.quantity != null && (
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Qty {it.quantity}
+                    </span>
+                  )}
+                </div>
+                {vendorOrContactName(it.designerVendor, it.designerContact) && (
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    Designer:{" "}
+                    {vendorOrContactName(it.designerVendor, it.designerContact)}
+                  </p>
+                )}
+                {vendorOrContactName(it.printerVendor, it.printerContact) && (
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    Printer:{" "}
+                    {vendorOrContactName(it.printerVendor, it.printerContact)}
+                  </p>
+                )}
+                {it.distributionMethod && (
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    Distribution: {it.distributionMethod}
+                  </p>
+                )}
+                {it.notes && (
+                  <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
+                    {it.notes}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden sm:block print:block overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-1.5 pr-3 text-xs font-medium">Item</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">
+                    Qty
+                  </th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Designer</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Printer</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Distribution</th>
+                  <th className="py-1.5 text-xs font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.items.map((it) => (
+                  <tr
+                    key={it.id}
+                    className="border-b border-gray-100 dark:border-gray-800 align-top"
+                  >
+                    <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
+                      {it.description}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right text-gray-900 dark:text-gray-100">
+                      {it.quantity ?? "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {vendorOrContactName(it.designerVendor, it.designerContact) ?? "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {vendorOrContactName(it.printerVendor, it.printerContact) ?? "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {it.distributionMethod ?? "—"}
+                    </td>
+                    <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
+                      {it.notes ?? ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MediaOrderCard({ order }: { order: MediaOrder }) {
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <div className="flex items-baseline gap-2">
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {order.name}
+          </span>
+          <StatusBadge status={order.status} />
+        </div>
+        <VendorPills vendors={order.vendors} />
+      </div>
+      {order.notes && (
+        <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
+          {order.notes}
+        </p>
+      )}
+
+      {order.items.length > 0 && (
+        <>
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+            {order.items.map((it) => (
+              <div key={it.id} className="p-2">
+                <p className="font-medium text-gray-900 dark:text-gray-100">
+                  {it.description}
+                </p>
+                {it.delivery && (
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    Delivery: {it.delivery}
+                  </p>
+                )}
+                {vendorOrContactName(it.advancerVendor, it.advancerContact) && (
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    Advancer:{" "}
+                    {vendorOrContactName(it.advancerVendor, it.advancerContact)}
+                  </p>
+                )}
+                {it.notes && (
+                  <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
+                    {it.notes}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden sm:block print:block overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-1.5 pr-3 text-xs font-medium">Item</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Delivery</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Advancer</th>
+                  <th className="py-1.5 text-xs font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.items.map((it) => (
+                  <tr
+                    key={it.id}
+                    className="border-b border-gray-100 dark:border-gray-800 align-top"
+                  >
+                    <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
+                      {it.description}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {it.delivery ?? "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {vendorOrContactName(it.advancerVendor, it.advancerContact) ?? "—"}
+                    </td>
+                    <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
+                      {it.notes ?? ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function CateringSection({
+  catering,
+  timezone,
+  serviceStyles,
+}: {
+  catering: CateringOrder;
+  timezone: string;
+  serviceStyles: OptionList;
+}) {
+  const serviceStyleLabel = catering.serviceStyle
+    ? resolveOptionLabel(catering.serviceStyle, serviceStyles)
+    : null;
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {catering.name}
+          </span>
+          <StatusBadge status={catering.status} />
+          {serviceStyleLabel && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {serviceStyleLabel}
+            </span>
+          )}
+        </div>
+        <VendorPills vendors={catering.vendors} />
+      </div>
+
+      <div className="text-xs text-gray-600 dark:text-gray-400 flex flex-wrap gap-x-4 gap-y-1 mb-2">
+        {catering.expectedCount != null && (
+          <span>
+            Expected:{" "}
+            <span className="text-gray-900 dark:text-gray-100">
+              {catering.expectedCount}
+            </span>
+          </span>
+        )}
+        {catering.confirmedCount != null && (
+          <span>
+            Confirmed:{" "}
+            <span className="text-gray-900 dark:text-gray-100">
+              {catering.confirmedCount}
+            </span>
+          </span>
+        )}
+        {catering.guaranteeCount != null && (
+          <span>
+            Guarantee:{" "}
+            <span className="text-gray-900 dark:text-gray-100">
+              {catering.guaranteeCount}
+            </span>
+          </span>
+        )}
+      </div>
+
+      {catering.notes && (
+        <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
+          {catering.notes}
+        </p>
+      )}
+      {catering.dietaryNotes && (
+        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">
+          <span className="font-medium">Dietary notes:</span>{" "}
+          {catering.dietaryNotes}
+        </p>
+      )}
+      {catering.staffingNotes && (
+        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">
+          <span className="font-medium">Staffing:</span> {catering.staffingNotes}
+        </p>
+      )}
+
+      {catering.lineItems.length > 0 && (
+        <SubSection title="Line Items">
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+            {catering.lineItems.map((li) => (
+              <div key={li.id} className="p-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {li.description}
+                  </span>
+                  {li.quantity != null && (
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Qty {li.quantity} {li.unitType ?? ""}
+                    </span>
+                  )}
+                </div>
+                {li.notes && (
+                  <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
+                    {li.notes}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-1.5 pr-3 text-xs font-medium">Item</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">
+                    Qty
+                  </th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Unit</th>
+                  <th className="py-1.5 text-xs font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {catering.lineItems.map((li) => (
+                  <tr
+                    key={li.id}
+                    className="border-b border-gray-100 dark:border-gray-800 align-top"
+                  >
+                    <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
+                      {li.description}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right text-gray-900 dark:text-gray-100">
+                      {li.quantity ?? "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {li.unitType ?? "—"}
+                    </td>
+                    <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
+                      {li.notes ?? ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SubSection>
+      )}
+
+      {catering.menuSections.length > 0 && (
+        <SubSection title="Menu">
+          <div className="space-y-3">
+            {catering.menuSections.map((ms) => (
+              <div
+                key={ms.id}
+                className="border border-gray-200 dark:border-gray-700 rounded p-3 print:break-inside-avoid"
+              >
+                {ms.responsiblePartyVendor && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Responsible: {ms.responsiblePartyVendor.name}
+                  </p>
+                )}
+                {/* menuContent is produced by RichTextEditor (tiptap) — see src/components/RichTextEditor.tsx */}
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: ms.menuContent }}
+                />
+                {ms.notes && (
+                  <p className="text-xs italic text-gray-500 dark:text-gray-400 mt-1">
+                    {ms.notes}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </SubSection>
+      )}
+
+      {catering.equipmentItems.length > 0 && (
+        <SubSection title="Equipment & Rentals">
+          <EquipmentTable items={catering.equipmentItems} />
+        </SubSection>
+      )}
+
+      {catering.timelineItems.length > 0 && (
+        <SubSection title="Timeline">
+          <div className="text-xs text-gray-700 dark:text-gray-300 space-y-0.5">
+            {catering.timelineItems.map((ti) => (
+              <div key={ti.id} className="flex gap-3">
+                <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                  {formatTime(ti.startTime, timezone)}
+                  {ti.endTime
+                    ? ` – ${formatTime(ti.endTime, timezone)}`
+                    : ""}
+                </span>
+                <span className="text-gray-900 dark:text-gray-100">
+                  {ti.label}
+                </span>
+                {ti.notes && (
+                  <span className="italic text-gray-500 dark:text-gray-400">
+                    {ti.notes}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </SubSection>
+      )}
+    </div>
+  );
+}
+
+function PresentationCard({
+  slot,
+  setupTypes,
+}: {
+  slot: PresentationSlot;
+  setupTypes: OptionList;
+}) {
+  const p = slot.presentation;
+  const anchorId = `presentation-${p.id}`;
+  const avOrders = p.avOrderLinks.map((l) => l.avOrder);
+  const setupOrders = p.setupOrderLinks.map((l) => l.setupOrder);
+  const mediaOrders = p.mediaOrderLinks.map((l) => l.mediaOrder);
+  return (
+    <div
+      id={anchorId}
+      className="border border-gray-300 dark:border-gray-600 rounded p-3 mb-3 print:break-inside-avoid scroll-mt-24"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <div>
+          <p className="font-medium text-gray-900 dark:text-gray-100">
+            {p.title}
+          </p>
+          {p.speakers.length > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {p.speakers
+                .map((s) => `${s.contact.firstName} ${s.contact.lastName}`)
+                .join(", ")}
+            </p>
+          )}
+        </div>
+        <div className="flex items-baseline gap-2 flex-wrap text-xs text-gray-500 dark:text-gray-400">
+          <StatusBadge status={p.status} />
+          {slot.room && <span>Room: {slot.room.name}</span>}
+          {p.track && <span>Track: {p.track.name}</span>}
+        </div>
+      </div>
+      {p.description && (
+        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+          {p.description}
+        </p>
+      )}
+
+      {avOrders.length > 0 && (
+        <SubSection title="AV">
+          {avOrders.map((o) => (
+            <AVOrderCard key={o.id} order={o} />
+          ))}
+        </SubSection>
+      )}
+      {setupOrders.length > 0 && (
+        <SubSection title="Setup">
+          {setupOrders.map((o) => (
+            <SetupOrderCard key={o.id} order={o} setupTypes={setupTypes} />
+          ))}
+        </SubSection>
+      )}
+      {p.printOrder && (
+        <SubSection title="Print">
+          <PrintOrderCard order={p.printOrder} />
+        </SubSection>
+      )}
+      {mediaOrders.length > 0 && (
+        <SubSection title="Media">
+          {mediaOrders.map((o) => (
+            <MediaOrderCard key={o.id} order={o} />
+          ))}
+        </SubSection>
+      )}
+    </div>
+  );
+}
+
+function WorkflowBlock({ instances }: { instances: Fn["workflowInstances"] }) {
+  if (instances.length === 0) return null;
+  return (
+    <div className="space-y-3">
+      {instances.map((inst) => {
+        const stepIds = new Set(inst.stepCompletions.map((c) => c.stepId));
+        const itemIds = new Set(inst.itemCompletions.map((c) => c.itemId));
+        return (
+          <div
+            key={inst.id}
+            className="border border-gray-200 dark:border-gray-700 rounded p-3 print:break-inside-avoid"
+          >
+            <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
+              {inst.template.name}
+            </p>
+            {inst.template.description && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                {inst.template.description}
+              </p>
+            )}
+            <ul className="text-sm space-y-0.5">
+              {inst.template.steps
+                ?.sort((a, b) => a.sortOrder - b.sortOrder)
+                .map((s) => (
+                  <li
+                    key={s.id}
+                    className="text-gray-700 dark:text-gray-300 flex items-baseline gap-2"
+                  >
+                    <span
+                      className={
+                        stepIds.has(s.id)
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-gray-400"
+                      }
+                    >
+                      {stepIds.has(s.id) ? "✓" : "○"}
+                    </span>
+                    <span
+                      className={
+                        stepIds.has(s.id)
+                          ? "text-gray-900 dark:text-gray-100"
+                          : ""
+                      }
+                    >
+                      {s.label}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+            {itemIds.size > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {itemIds.size} checklist item{itemIds.size === 1 ? "" : "s"} complete
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type RollupEntry = {
+  partyId: string;
+  partyKind: "VENDOR" | "CONTACT" | "UNASSIGNED";
+  partyName: string;
+  role: string;
+  sourceLabel: string;
+  anchorId: string;
+};
+
+function collectRollup(data: FunctionDetailData): RollupEntry[] {
+  const entries: RollupEntry[] = [];
+
+  function pushParty(
+    vendor: { id: string; name: string } | null | undefined,
+    contact: { id: string; firstName: string; lastName: string } | null | undefined,
+    role: string,
+    sourceLabel: string,
+    anchorId: string,
+  ) {
+    if (vendor) {
+      entries.push({
+        partyId: vendor.id,
+        partyKind: "VENDOR",
+        partyName: vendor.name,
+        role,
+        sourceLabel,
+        anchorId,
+      });
+    } else if (contact) {
+      entries.push({
+        partyId: contact.id,
+        partyKind: "CONTACT",
+        partyName: `${contact.firstName} ${contact.lastName}`,
+        role,
+        sourceLabel,
+        anchorId,
+      });
+    } else {
+      entries.push({
+        partyId: "__unassigned__",
+        partyKind: "UNASSIGNED",
+        partyName: "Unassigned",
+        role,
+        sourceLabel,
+        anchorId,
+      });
+    }
+  }
+
+  function pushAVOrder(order: AvOrder, sourcePrefix: string, anchorId: string) {
+    const label = `${sourcePrefix} · AV Order: ${order.name}`;
+    for (const v of order.vendors) {
+      pushParty(v.vendor, null, "AV Vendor", label, anchorId);
+    }
+    for (const item of order.equipmentItems) {
+      pushParty(item.providerVendor, item.providerContact, "AV Provider", label, anchorId);
+      if (item.operatorVendor || item.operatorContact) {
+        pushParty(item.operatorVendor, item.operatorContact, "AV Operator", label, anchorId);
+      }
+    }
+    if (order.audioSection) {
+      for (const g of order.audioSection.inputGroups) {
+        pushParty(g.providerVendor, g.providerContact, "Audio Input Provider", label, anchorId);
+        if (g.operatorVendor || g.operatorContact) {
+          pushParty(g.operatorVendor, g.operatorContact, "Audio Input Operator", label, anchorId);
+        }
+        for (const it of g.inputItems) {
+          if (it.providerVendor || it.providerContact) {
+            pushParty(it.providerVendor, it.providerContact, "Audio Input Provider", label, anchorId);
+          }
+        }
+      }
+      for (const m of order.audioSection.monitorMixes) {
+        pushParty(m.providerVendor, m.providerContact, "Monitor Provider", label, anchorId);
+      }
+    }
+    if (order.videoSection) {
+      for (const item of order.videoSection.equipmentItems) {
+        pushParty(item.providerVendor, item.providerContact, "Video Provider", label, anchorId);
+        if (item.operatorVendor || item.operatorContact) {
+          pushParty(item.operatorVendor, item.operatorContact, "Video Operator", label, anchorId);
+        }
+      }
+    }
+  }
+
+  function pushSetupOrder(order: SetupOrder, sourcePrefix: string, anchorId: string) {
+    const label = `${sourcePrefix} · Setup Order: ${order.name ?? "Setup"}`;
+    for (const v of order.vendors) {
+      pushParty(v.vendor, null, "Setup Vendor", label, anchorId);
+    }
+    for (const t of order.tables) {
+      if (t.providerVendor) {
+        pushParty(t.providerVendor, null, "Table Provider", label, anchorId);
+      }
+    }
+    for (const item of order.equipmentItems) {
+      pushParty(item.providerVendor, item.providerContact, "Equipment Provider", label, anchorId);
+      if (item.operatorVendor || item.operatorContact) {
+        pushParty(item.operatorVendor, item.operatorContact, "Equipment Operator", label, anchorId);
+      }
+    }
+  }
+
+  function pushPrintOrder(order: PrintOrder, sourcePrefix: string, anchorId: string) {
+    const label = `${sourcePrefix} · Print Order: ${order.name}`;
+    for (const v of order.vendors) {
+      pushParty(v.vendor, null, "Print Vendor", label, anchorId);
+    }
+    for (const item of order.items) {
+      if (item.designerVendor || item.designerContact) {
+        pushParty(item.designerVendor, item.designerContact, "Designer", label, anchorId);
+      }
+      if (item.printerVendor || item.printerContact) {
+        pushParty(item.printerVendor, item.printerContact, "Printer", label, anchorId);
+      }
+    }
+  }
+
+  function pushMediaOrder(order: MediaOrder, sourcePrefix: string, anchorId: string) {
+    const label = `${sourcePrefix} · Media Order: ${order.name}`;
+    for (const v of order.vendors) {
+      pushParty(v.vendor, null, "Media Vendor", label, anchorId);
+    }
+    for (const item of order.items) {
+      if (item.advancerVendor || item.advancerContact) {
+        pushParty(item.advancerVendor, item.advancerContact, "Advancer", label, anchorId);
+      }
+    }
+  }
+
+  for (const fn of data.functions) {
+    const fnLabel = `Function: ${formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}`;
+    const fnAnchor = `function-${fn.id}`;
+
+    if (fn.cateringOrder) {
+      const cLabel = `${fnLabel} · Catering: ${fn.cateringOrder.name}`;
+      for (const v of fn.cateringOrder.vendors) {
+        pushParty(v.vendor, null, "Catering Vendor", cLabel, fnAnchor);
+      }
+      for (const ms of fn.cateringOrder.menuSections) {
+        if (ms.responsiblePartyVendor) {
+          pushParty(ms.responsiblePartyVendor, null, "Menu Section Vendor", cLabel, fnAnchor);
+        }
+      }
+      for (const item of fn.cateringOrder.equipmentItems) {
+        pushParty(item.providerVendor, item.providerContact, "Catering Equipment Provider", cLabel, fnAnchor);
+        if (item.operatorVendor || item.operatorContact) {
+          pushParty(item.operatorVendor, item.operatorContact, "Catering Equipment Operator", cLabel, fnAnchor);
+        }
+      }
+    }
+
+    for (const link of fn.avOrderFunctions) {
+      pushAVOrder(link.avOrder, fnLabel, fnAnchor);
+    }
+    for (const link of fn.setupOrderFunctions) {
+      pushSetupOrder(link.setupOrder, fnLabel, fnAnchor);
+    }
+    for (const link of fn.printOrderFunctions) {
+      pushPrintOrder(link.printOrder, fnLabel, fnAnchor);
+    }
+    for (const link of fn.mediaOrderFunctions) {
+      pushMediaOrder(link.mediaOrder, fnLabel, fnAnchor);
+    }
+
+    for (const slot of fn.presentationSlots) {
+      const p = slot.presentation;
+      const pLabel = `${fnLabel} · Presentation: ${p.title}`;
+      const pAnchor = `presentation-${p.id}`;
+      for (const link of p.avOrderLinks) {
+        pushAVOrder(link.avOrder, pLabel, pAnchor);
+      }
+      for (const link of p.setupOrderLinks) {
+        pushSetupOrder(link.setupOrder, pLabel, pAnchor);
+      }
+      if (p.printOrder) {
+        pushPrintOrder(p.printOrder, pLabel, pAnchor);
+      }
+      for (const link of p.mediaOrderLinks) {
+        pushMediaOrder(link.mediaOrder, pLabel, pAnchor);
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  const deduped = entries.filter((e) => {
+    const key = `${e.partyKind}::${e.partyId}::${e.role}::${e.sourceLabel}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  deduped.sort((a, b) => {
+    const kindOrder = { VENDOR: 0, CONTACT: 1, UNASSIGNED: 2 } as const;
+    if (kindOrder[a.partyKind] !== kindOrder[b.partyKind]) {
+      return kindOrder[a.partyKind] - kindOrder[b.partyKind];
+    }
+    if (a.partyName !== b.partyName) return a.partyName.localeCompare(b.partyName);
+    if (a.role !== b.role) return a.role.localeCompare(b.role);
+    return a.sourceLabel.localeCompare(b.sourceLabel);
+  });
+
+  return deduped;
+}
+
+function ResponsiblePartiesSection({ rollup }: { rollup: RollupEntry[] }) {
+  if (rollup.length === 0) return null;
+  type Group = {
+    partyId: string;
+    partyKind: RollupEntry["partyKind"];
+    partyName: string;
+    rows: RollupEntry[];
+  };
+  const groups: Group[] = [];
+  let current: Group | null = null;
+  for (const e of rollup) {
+    if (!current || current.partyId !== e.partyId || current.partyKind !== e.partyKind) {
+      current = { partyId: e.partyId, partyKind: e.partyKind, partyName: e.partyName, rows: [] };
+      groups.push(current);
+    }
+    current.rows.push(e);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="sm:hidden print:hidden space-y-3">
+        {groups.map((g) => (
+          <div
+            key={`${g.partyKind}-${g.partyId}`}
+            className="border border-gray-200 dark:border-gray-700 rounded p-3"
+          >
+            <p className="font-medium text-gray-900 dark:text-gray-100">
+              {g.partyName}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              {partyKindLabel(g.partyKind)}
+            </p>
+            <ul className="text-xs space-y-1">
+              {g.rows.map((r, i) => (
+                <li key={i} className="text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">{r.role}</span> —{" "}
+                  <a
+                    href={`#${r.anchorId}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline print:text-black"
+                  >
+                    {r.sourceLabel}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden sm:block print:block overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-600">
+              <th className="py-2 pr-3 text-xs font-semibold">Party</th>
+              <th className="py-2 pr-3 text-xs font-semibold">Role</th>
+              <th className="py-2 text-xs font-semibold">Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) =>
+              g.rows.map((r, i) => (
+                <tr
+                  key={`${g.partyId}-${i}`}
+                  className="border-b border-gray-100 dark:border-gray-800 align-top"
+                >
+                  <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
+                    {i === 0 ? (
+                      <>
+                        <div>{g.partyName}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {partyKindLabel(g.partyKind)}
+                        </div>
+                      </>
+                    ) : null}
+                  </td>
+                  <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                    {r.role}
+                  </td>
+                  <td className="py-1.5">
+                    <a
+                      href={`#${r.anchorId}`}
+                      className="text-blue-600 dark:text-blue-400 hover:underline print:text-black"
+                    >
+                      {r.sourceLabel}
+                    </a>
+                  </td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FunctionBlock({
+  fn,
+  timezone,
+  functionTypes,
+  scheduleTypes,
+  serviceStyles,
+  setupTypes,
+}: {
+  fn: Fn;
+  timezone: string;
+  functionTypes: OptionList;
+  scheduleTypes: OptionList;
+  serviceStyles: OptionList;
+  setupTypes: OptionList;
+}) {
+  const displayName = formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name);
+  const typeLabel = fn.type ? resolveOptionLabel(fn.type, functionTypes) : "";
+  const anchorId = `function-${fn.id}`;
+  const avOrders = fn.avOrderFunctions.map((l) => l.avOrder);
+  const setupOrders = fn.setupOrderFunctions.map((l) => l.setupOrder);
+  const printOrders = fn.printOrderFunctions.map((l) => l.printOrder);
+  const mediaOrders = fn.mediaOrderFunctions.map((l) => l.mediaOrder);
+
+  return (
+    <div id={anchorId} className="scroll-mt-24">
+      <SectionDivider id={`${anchorId}-divider`} title={displayName} />
+
+      <div className="mt-4 space-y-4">
+        <div>
+          <div className="flex flex-wrap items-baseline gap-2 mb-2">
+            {typeLabel && (
+              <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {typeLabel}
+              </span>
+            )}
+            <StatusBadge status={fn.status} />
+            {fn.substatus && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {fn.substatus}
+              </span>
+            )}
+          </div>
+          {fn.description && (
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+              {fn.description}
+            </p>
+          )}
+          {fn.notes && (
+            <p className="text-sm italic text-gray-600 dark:text-gray-400 mb-1">
+              {fn.notes}
+            </p>
+          )}
+          {fn.rooms.length > 0 ? (
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              <span className="font-medium">Rooms:</span>{" "}
+              {fn.rooms.map((r) => r.room.name).join(", ")}
+            </p>
+          ) : fn.offSiteLocation ? (
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              <span className="font-medium">Off-site:</span> {fn.offSiteLocation}
+            </p>
+          ) : null}
+        </div>
+
+        {fn.schedules.length > 0 && (
+          <SubSection title="Schedule">
+            <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+              {fn.schedules.map((s) => (
+                <div key={s.id} className="p-2">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    {resolveOptionLabel(s.type, scheduleTypes) || s.type || "—"}
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {formatDateTime(s.startTime, timezone)} –{" "}
+                    {formatTime(s.endTime, timezone)}
+                  </p>
+                  {s.notes && (
+                    <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
+                      {s.notes}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="hidden sm:block print:block overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                    <th className="py-1.5 pr-3 text-xs font-medium">Type</th>
+                    <th className="py-1.5 pr-3 text-xs font-medium">Start</th>
+                    <th className="py-1.5 pr-3 text-xs font-medium">End</th>
+                    <th className="py-1.5 text-xs font-medium">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fn.schedules.map((s) => (
+                    <tr
+                      key={s.id}
+                      className="border-b border-gray-100 dark:border-gray-800 align-top"
+                    >
+                      <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
+                        {resolveOptionLabel(s.type, scheduleTypes) || s.type || "—"}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                        {formatDateTime(s.startTime, timezone)}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                        {formatDateTime(s.endTime, timezone)}
+                      </td>
+                      <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
+                        {s.notes ?? ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SubSection>
+        )}
+
+        {fn.contacts.length > 0 && (
+          <SubSection title="Contacts">
+            <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+              {fn.contacts.map((fc) => (
+                <div key={fc.id} className="p-2">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    {fc.contact.firstName} {fc.contact.lastName}
+                  </p>
+                  {fc.role && (
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {fc.role}
+                    </p>
+                  )}
+                  {(fc.contact.email || fc.contact.phone) && (
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                      {fc.contact.email}
+                      {fc.contact.email && fc.contact.phone ? " · " : ""}
+                      {fc.contact.phone ? formatPhone(fc.contact.phone) : ""}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="hidden sm:block print:block overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                    <th className="py-1.5 pr-3 text-xs font-medium">Name</th>
+                    <th className="py-1.5 pr-3 text-xs font-medium">Role</th>
+                    <th className="py-1.5 pr-3 text-xs font-medium">Email</th>
+                    <th className="py-1.5 text-xs font-medium">Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fn.contacts.map((fc) => (
+                    <tr
+                      key={fc.id}
+                      className="border-b border-gray-100 dark:border-gray-800 align-top"
+                    >
+                      <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
+                        {fc.contact.firstName} {fc.contact.lastName}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                        {fc.role ?? "—"}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                        {fc.contact.email ?? "—"}
+                      </td>
+                      <td className="py-1.5 text-gray-700 dark:text-gray-300">
+                        {fc.contact.phone ? formatPhone(fc.contact.phone) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SubSection>
+        )}
+
+        {fn.cateringOrder && (
+          <SubSection title="Catering">
+            <CateringSection
+              catering={fn.cateringOrder}
+              timezone={timezone}
+              serviceStyles={serviceStyles}
+            />
+          </SubSection>
+        )}
+
+        {avOrders.length > 0 && (
+          <SubSection title="AV">
+            {avOrders.map((o) => (
+              <AVOrderCard key={o.id} order={o} />
+            ))}
+          </SubSection>
+        )}
+
+        {setupOrders.length > 0 && (
+          <SubSection title="Setup">
+            {setupOrders.map((o) => (
+              <SetupOrderCard key={o.id} order={o} setupTypes={setupTypes} />
+            ))}
+          </SubSection>
+        )}
+
+        {printOrders.length > 0 && (
+          <SubSection title="Print">
+            {printOrders.map((o) => (
+              <PrintOrderCard key={o.id} order={o} />
+            ))}
+          </SubSection>
+        )}
+
+        {mediaOrders.length > 0 && (
+          <SubSection title="Media">
+            {mediaOrders.map((o) => (
+              <MediaOrderCard key={o.id} order={o} />
+            ))}
+          </SubSection>
+        )}
+
+        {fn.presentationSlots.length > 0 && (
+          <SubSection title="Presentations">
+            {fn.presentationSlots.map((slot) => (
+              <PresentationCard
+                key={slot.id}
+                slot={slot}
+                setupTypes={setupTypes}
+              />
+            ))}
+          </SubSection>
+        )}
+
+        {fn.workflowInstances.length > 0 && (
+          <SubSection title="Workflow">
+            <WorkflowBlock instances={fn.workflowInstances} />
+          </SubSection>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function FunctionDetailReport({
+  data,
+  functionTypes,
+  scheduleTypes,
+  serviceStyles,
+  setupTypes,
+}: Props) {
+  const { event, functions } = data;
+  if (functions.length === 0) {
+    return (
+      <EmptyState message="No functions match the selected filters." />
+    );
+  }
+
+  const rollup = collectRollup(data);
+  const functionLinks = functions.map((fn) => ({
+    id: `function-${fn.id}`,
+    label: formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name),
+  }));
+  const sections = [
+    ...(rollup.length > 0
+      ? [{ id: "responsible-parties", label: "Responsible Parties" }]
+      : []),
+  ];
+
+  return (
+    <div className="space-y-6">
+      <ReportNav
+        sections={sections}
+        itemGroups={[{ label: "Functions", links: functionLinks }]}
+      />
+
+      <div className="space-y-8">
+        {functions.map((fn) => (
+          <FunctionBlock
+            key={fn.id}
+            fn={fn}
+            timezone={event.timezone}
+            functionTypes={functionTypes}
+            scheduleTypes={scheduleTypes}
+            serviceStyles={serviceStyles}
+            setupTypes={setupTypes}
+          />
+        ))}
+      </div>
+
+      {rollup.length > 0 && (
+        <div id="responsible-parties" className="scroll-mt-24">
+          <SectionDivider
+            id="responsible-parties-divider"
+            title="Responsible Parties"
+          />
+          <div className="mt-4">
+            <ResponsiblePartiesSection rollup={rollup} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

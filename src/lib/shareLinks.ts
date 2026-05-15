@@ -8,6 +8,7 @@ export type ShareLinkFilters = {
   days?: string[];
   sections?: string[];
   rooms?: string[];
+  functionIds?: string[];
 };
 
 export function generateShareToken(): string {

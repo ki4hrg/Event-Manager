@@ -1,10 +1,12 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type { ModelType } from "@/app/vendors/actions";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { compareRoomsByGroup } from "@/lib/roomGroups";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 
 export type EquipmentReportFilters = {
   vendorIds?: string[];
@@ -1011,3 +1013,289 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
 }
 
 export type RoomScheduleData = NonNullable<Awaited<ReturnType<typeof getRoomScheduleData>>>;
+
+// ── Function Detail report ───────────────────────────────────────────────────
+
+export type FunctionDetailFilters = {
+  functionIds?: string[];
+};
+
+const fdVendorSelect = { select: { id: true, name: true } } satisfies Prisma.VendorDefaultArgs;
+const fdContactSelect = { select: { id: true, firstName: true, lastName: true } } satisfies Prisma.ContactDefaultArgs;
+
+const fdPartyInclude = {
+  providerVendor: fdVendorSelect,
+  providerContact: fdContactSelect,
+  operatorVendor: fdVendorSelect,
+  operatorContact: fdContactSelect,
+};
+
+const fdEquipmentItemInclude = {
+  equipment: { select: { id: true, name: true, category: true } },
+  ...fdPartyInclude,
+} satisfies Prisma.EquipmentItemInclude;
+
+const fdAVOrderInclude = {
+  vendors: { include: { vendor: fdVendorSelect } },
+  audioSection: {
+    include: {
+      inputGroups: {
+        include: {
+          ...fdPartyInclude,
+          inputItems: {
+            include: {
+              equipment: { select: { id: true, name: true, category: true } },
+              ...fdPartyInclude,
+            },
+            orderBy: { sortOrder: "asc" },
+          },
+        },
+        orderBy: { sortOrder: "asc" },
+      },
+      monitorMixes: {
+        include: {
+          equipment: { select: { id: true, name: true, category: true } },
+          ...fdPartyInclude,
+          monitorOutputs: {
+            include: {
+              equipment: { select: { id: true, name: true, category: true } },
+              ...fdPartyInclude,
+            },
+            orderBy: { sortOrder: "asc" },
+          },
+        },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  },
+  videoSection: {
+    include: {
+      equipmentItems: { include: fdEquipmentItemInclude, orderBy: { sortOrder: "asc" } },
+    },
+  },
+  equipmentItems: { include: fdEquipmentItemInclude, orderBy: { sortOrder: "asc" } },
+} satisfies Prisma.AVOrderInclude;
+
+const fdSetupOrderInclude = {
+  room: { select: { id: true, name: true } },
+  vendors: { include: { vendor: fdVendorSelect } },
+  tables: {
+    include: { providerVendor: fdVendorSelect },
+    orderBy: { sortOrder: "asc" },
+  },
+  equipmentItems: { include: fdEquipmentItemInclude, orderBy: { sortOrder: "asc" } },
+} satisfies Prisma.SetupOrderInclude;
+
+const fdPrintOrderInclude = {
+  vendors: { include: { vendor: fdVendorSelect } },
+  items: {
+    include: {
+      designerVendor: fdVendorSelect,
+      designerContact: fdContactSelect,
+      printerVendor: fdVendorSelect,
+      printerContact: fdContactSelect,
+    },
+    orderBy: { sortOrder: "asc" },
+  },
+} satisfies Prisma.PrintOrderInclude;
+
+const fdMediaOrderInclude = {
+  vendors: { include: { vendor: fdVendorSelect } },
+  items: {
+    include: {
+      advancerVendor: fdVendorSelect,
+      advancerContact: fdContactSelect,
+    },
+    orderBy: { sortOrder: "asc" },
+  },
+} satisfies Prisma.MediaOrderInclude;
+
+const fdCateringOrderInclude = {
+  vendors: { include: { vendor: fdVendorSelect } },
+  lineItems: { orderBy: { sortOrder: "asc" } },
+  menuSections: {
+    include: { responsiblePartyVendor: fdVendorSelect },
+    orderBy: { sortOrder: "asc" },
+  },
+  equipmentItems: { include: fdEquipmentItemInclude, orderBy: { sortOrder: "asc" } },
+  timelineItems: { orderBy: { sortOrder: "asc" } },
+  contacts: {
+    include: {
+      contact: {
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, organization: true },
+      },
+    },
+    orderBy: { id: "asc" },
+  },
+} satisfies Prisma.CateringOrderInclude;
+
+const fdFunctionInclude = {
+  breakoutGroup: { select: { id: true, name: true } },
+  rooms: {
+    include: {
+      room: {
+        select: {
+          id: true,
+          name: true,
+          group: { select: { id: true, name: true, sortOrder: true } },
+        },
+      },
+    },
+  },
+  schedules: { orderBy: { sortOrder: "asc" } },
+  contacts: {
+    include: {
+      contact: {
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, organization: true },
+      },
+    },
+    orderBy: { id: "asc" },
+  },
+  cateringOrder: { include: fdCateringOrderInclude },
+  avOrderFunctions: { include: { avOrder: { include: fdAVOrderInclude } } },
+  setupOrderFunctions: { include: { setupOrder: { include: fdSetupOrderInclude } } },
+  printOrderFunctions: { include: { printOrder: { include: fdPrintOrderInclude } } },
+  mediaOrderFunctions: { include: { mediaOrder: { include: fdMediaOrderInclude } } },
+  presentationSlots: {
+    include: {
+      room: { select: { id: true, name: true } },
+      presentation: {
+        include: {
+          track: { select: { id: true, name: true, color: true } },
+          speakers: {
+            include: {
+              contact: {
+                select: { id: true, firstName: true, lastName: true, email: true, phone: true, organization: true },
+              },
+            },
+            orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+          },
+          avOrderLinks: { include: { avOrder: { include: fdAVOrderInclude } } },
+          setupOrderLinks: { include: { setupOrder: { include: fdSetupOrderInclude } } },
+          printOrder: { include: fdPrintOrderInclude },
+          mediaOrderLinks: { include: { mediaOrder: { include: fdMediaOrderInclude } } },
+        },
+      },
+    },
+    orderBy: { id: "asc" },
+  },
+} satisfies Prisma.FunctionInclude;
+
+function earliestScheduleTime(schedules: { startTime: Date }[]): number {
+  if (schedules.length === 0) return Number.MAX_SAFE_INTEGER;
+  return Math.min(...schedules.map((s) => s.startTime.getTime()));
+}
+
+export async function getFunctionDetailData(
+  eventId: string,
+  filters?: FunctionDetailFilters
+) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, name: true, timezone: true },
+  });
+  if (!event) return null;
+
+  const idFilter = filters?.functionIds?.length ? { id: { in: filters.functionIds } } : {};
+
+  const functions = await prisma.function.findMany({
+    where: { eventId, ...idFilter },
+    include: fdFunctionInclude,
+  });
+
+  functions.sort((a, b) => {
+    const ea = earliestScheduleTime(a.schedules);
+    const eb = earliestScheduleTime(b.schedules);
+    if (ea !== eb) return ea - eb;
+    return a.name.localeCompare(b.name);
+  });
+
+  const functionIds = functions.map((f) => f.id);
+  const workflowInstances =
+    functionIds.length > 0
+      ? await prisma.workflowInstance.findMany({
+          where: { entityType: "function", entityId: { in: functionIds } },
+          include: {
+            template: {
+              include: { steps: { orderBy: { sortOrder: "asc" } } },
+            },
+            stepCompletions: { include: { step: true } },
+            itemCompletions: { include: { item: true } },
+          },
+        })
+      : [];
+
+  const workflowsByFunctionId = new Map<string, typeof workflowInstances>();
+  for (const wi of workflowInstances) {
+    const list = workflowsByFunctionId.get(wi.entityId) ?? [];
+    list.push(wi);
+    workflowsByFunctionId.set(wi.entityId, list);
+  }
+
+  type FunctionWithWorkflows = (typeof functions)[number] & {
+    workflowInstances: typeof workflowInstances;
+  };
+
+  const functionsWithWorkflows: FunctionWithWorkflows[] = functions.map((fn) => ({
+    ...fn,
+    workflowInstances: workflowsByFunctionId.get(fn.id) ?? [],
+  }));
+
+  return { event, functions: functionsWithWorkflows };
+}
+
+export type FunctionDetailData = NonNullable<Awaited<ReturnType<typeof getFunctionDetailData>>>;
+export type FunctionDetailFunction = FunctionDetailData["functions"][number];
+
+export type FunctionPickerOption = {
+  value: string;
+  label: string;
+  typeValue: string | null;
+  typeLabel: string;
+  typeSortOrder: number;
+  firstStart: Date | null;
+};
+
+export async function getFunctionPickerOptions(eventId: string): Promise<FunctionPickerOption[]> {
+  const [functions, typeOptions] = await Promise.all([
+    prisma.function.findMany({
+      where: { eventId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        breakoutGroup: { select: { name: true } },
+        schedules: { select: { startTime: true }, orderBy: { startTime: "asc" }, take: 1 },
+      },
+    }),
+    prisma.customOption.findMany({
+      where: { category: "function_type" },
+      select: { label: true, sortOrder: true },
+    }),
+  ]);
+
+  const typeMap = new Map(typeOptions.map((o) => [o.label, o]));
+
+  const options = functions.map((fn) => {
+    const typeValue = fn.type || null;
+    const typeMeta = typeValue ? typeMap.get(typeValue) : null;
+    const typeLabel = typeValue ? resolveOptionLabel(typeValue, typeOptions) || typeValue : "Untyped";
+    return {
+      value: fn.id,
+      label: formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name),
+      typeValue,
+      typeLabel,
+      typeSortOrder: typeMeta?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+      firstStart: fn.schedules[0]?.startTime ?? null,
+    };
+  });
+
+  options.sort((a, b) => {
+    const sa = a.firstStart?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const sb = b.firstStart?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    if (sa !== sb) return sa - sb;
+    return a.label.localeCompare(b.label);
+  });
+
+  return options;
+}

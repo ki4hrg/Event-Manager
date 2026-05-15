@@ -1,7 +1,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
-import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getRoomScheduleData } from "@/app/events/reports/actions";
+import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getRoomScheduleData, getFunctionDetailData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
@@ -9,6 +9,7 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
+import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 
@@ -263,6 +264,48 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
           />
         </div>
       </>
+    );
+  }
+
+  if (link.reportType === "FUNCTION_DETAIL") {
+    let effectiveFunctionIds: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveFunctionIds = storedFilters.functionIds;
+    } else {
+      const functionsParam = getString(sp.functions);
+      effectiveFunctionIds = functionsParam
+        ? functionsParam.split(",").filter(Boolean)
+        : storedFilters.functionIds;
+    }
+
+    const [event, data, functionTypes, scheduleTypes, serviceStyles, setupTypes] =
+      await Promise.all([
+        getEvent(link.eventId),
+        getFunctionDetailData(link.eventId, { functionIds: effectiveFunctionIds }),
+        getOptions("function_type"),
+        getOptions("schedule_type"),
+        getOptions("service_style"),
+        getOptions("setup_type"),
+      ]);
+
+    if (!event || !data) notFound();
+
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <PrintHeader
+          eventName={link.event.name}
+          title="Function Detail"
+          backHref={backHref}
+        />
+        <FunctionDetailReport
+          data={data}
+          functionTypes={functionTypes}
+          scheduleTypes={scheduleTypes}
+          serviceStyles={serviceStyles}
+          setupTypes={setupTypes}
+        />
+      </div>
     );
   }
 

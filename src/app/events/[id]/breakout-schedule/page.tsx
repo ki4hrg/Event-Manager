@@ -70,13 +70,21 @@ export default async function BreakoutSchedulePage({
             {event.name}
           </h1>
         </div>
-        <Link
-          href={`/events/${eventId}/breakout-schedule/print`}
-          target="_blank"
-          className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 shrink-0"
-        >
-          Print view
-        </Link>
+        <div className="flex gap-2 shrink-0">
+          <Link
+            href={`/events/${eventId}/reports/function-detail`}
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Detail Report
+          </Link>
+          <Link
+            href={`/events/${eventId}/breakout-schedule/print`}
+            target="_blank"
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Print view
+          </Link>
+        </div>
       </div>
 
       <BreakoutGrid
