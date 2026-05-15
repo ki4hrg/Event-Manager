@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { ModelType } from "@/app/vendors/actions";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
+import { compareRoomsByGroup } from "@/lib/roomGroups";
 
 export type EquipmentReportFilters = {
   vendorIds?: string[];
@@ -940,7 +941,7 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
         venue: { select: { id: true, name: true } },
         group: { select: { id: true, name: true, sortOrder: true } },
       },
-      orderBy: [{ venue: { name: "asc" } }, { name: "asc" }],
+      orderBy: { name: "asc" },
     }),
     prisma.function.findMany({
       where: { eventId },
@@ -976,6 +977,13 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
   const functions = dayKeys
     ? allFunctions.filter((fn) => functionMatchesDays(fn.schedules, dayKeys, timezone))
     : allFunctions;
+
+  rooms.sort((a, b) => {
+    const va = a.venue?.name ?? "";
+    const vb = b.venue?.name ?? "";
+    if (va !== vb) return va.localeCompare(vb);
+    return compareRoomsByGroup(a, b);
+  });
 
   const filteredRooms = roomIdFilter ? rooms.filter((r) => roomIdFilter.has(r.id)) : rooms;
 

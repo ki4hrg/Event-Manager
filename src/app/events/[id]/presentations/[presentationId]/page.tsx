@@ -89,7 +89,15 @@ export default async function PresentationPage({
         id: true,
         name: true,
         rooms: {
-          select: { room: { select: { id: true, name: true } } },
+          select: {
+            room: {
+              select: {
+                id: true,
+                name: true,
+                group: { select: { id: true, name: true, sortOrder: true } },
+              },
+            },
+          },
           orderBy: { id: "asc" },
         },
         functions: {
@@ -118,7 +126,7 @@ export default async function PresentationPage({
   const breakoutGroupsFull = breakoutGroups.map((g) => ({
     id: g.id,
     name: g.name,
-    rooms: g.rooms.map((r) => ({ id: r.room.id, name: r.room.name })),
+    rooms: g.rooms.map((r) => ({ id: r.room.id, name: r.room.name, group: r.room.group })),
     sessions: g.functions,
   }));
 

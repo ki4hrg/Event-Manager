@@ -42,6 +42,7 @@ import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
+import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -327,7 +328,7 @@ export default async function SetupOrderPage({
                 eventId={eventId}
                 setupTypes={setupTypes}
                 action={updateSetupOrderAction}
-                rooms={venueRooms}
+                rooms={sortRoomsByGroupThenName(venueRooms)}
                 vendorLink={{
                   assignedVendors: setupOrderVendors,
                   availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),

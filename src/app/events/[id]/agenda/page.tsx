@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { getFunctionsWithPresentations } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
+import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 import { getOptions } from "@/app/settings/actions";
 import { requireAuth } from "@/lib/auth";
 import { getAgendaViewSettings, getAgendaRoomPrefs } from "@/lib/userSettings";
@@ -48,7 +49,7 @@ export default async function AgendaPage({
   }
 
   const timezone = event.timezone || "America/Chicago";
-  const rooms = event.venue?.rooms ?? [];
+  const rooms = sortRoomsByGroupThenName(event.venue?.rooms ?? []);
 
   const scheduleTypeAttrs = new Map(scheduleTypes.map((t) => [t.label, { label: t.label, color: t.color }]));
   const agendaData = buildAgendaData(functions, rooms, timezone, scheduleTypeAttrs);

@@ -52,6 +52,7 @@ import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
+import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
 
@@ -80,14 +81,16 @@ export default async function FunctionPage({
     redirect(`/events/${eventId}/breakout-schedule`);
   }
 
-  // Get rooms from the event's venue
-  const rooms = event.venueId
-    ? await prisma.room.findMany({
-        where: { venueId: event.venueId },
-        include: { group: { select: { id: true, name: true, sortOrder: true } } },
-        orderBy: { name: "asc" },
-      })
-    : [];
+  // Get rooms from the event's venue (sorted to keep groups adjacent)
+  const rooms = sortRoomsByGroupThenName(
+    event.venueId
+      ? await prisma.room.findMany({
+          where: { venueId: event.venueId },
+          include: { group: { select: { id: true, name: true, sortOrder: true } } },
+          orderBy: { name: "asc" },
+        })
+      : []
+  );
 
   const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, workflowInstances, allTemplates, substatuses] = await Promise.all([
     getAvailableAVOrdersForFunction(eventId, functionId),

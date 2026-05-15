@@ -22,6 +22,7 @@ import {
   getAvailablePresentationsForGroup,
 } from "../../breakout-schedule/actions";
 import { BreakoutGrid } from "../../breakout-schedule/BreakoutGrid";
+import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,7 @@ export default async function BreakoutSchedulePage({
     notFound();
   }
 
-  const rooms = event.venue?.rooms ?? [];
+  const rooms = sortRoomsByGroupThenName(event.venue?.rooms ?? []);
 
   return (
     <>

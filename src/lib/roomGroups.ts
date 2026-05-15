@@ -2,6 +2,25 @@ type RoomGroupRef = { id: string; name: string; sortOrder: number } | null;
 
 export const UNGROUPED_LABEL = "Ungrouped";
 
+export function compareRoomsByGroup(
+  a: { name: string; group?: RoomGroupRef },
+  b: { name: string; group?: RoomGroupRef }
+): number {
+  const aOrder = a.group?.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  const bOrder = b.group?.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  const aGroupName = a.group?.name ?? "";
+  const bGroupName = b.group?.name ?? "";
+  if (aGroupName !== bGroupName) return aGroupName.localeCompare(bGroupName);
+  return a.name.localeCompare(b.name);
+}
+
+export function sortRoomsByGroupThenName<TRoom extends { name: string; group?: RoomGroupRef }>(
+  rooms: TRoom[]
+): TRoom[] {
+  return [...rooms].sort(compareRoomsByGroup);
+}
+
 export type GroupedRooms<TRoom> = {
   key: string;
   label: string;
