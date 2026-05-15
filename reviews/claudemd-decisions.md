@@ -21,13 +21,11 @@ rules come before style/process rules.
 **Migration:** Add `await requireAuth()` to every exported action in the 13 currently-unchecked files (`events`, `vendors`, `contacts`, `venues`, the six order-type files, `presentations`, `functions`, `breakout-schedule`, `schedule-items`, `events/workflows`). Admin-only actions in admin-only files use `requireAdmin()` instead.
 **Knock-on:** Row 58's wording about "pages don't re-check" still stands for pages — the new rule is about Server Actions only. Row 59 (admin checks at layout vs page level) is now lower-stakes since every admin action will also self-protect.
 
-### Row 2 / Row 72 — Route handlers' purpose
-**Rule (current):** "API routes in /app/api following REST conventions."
-**Rule (inferred):** Route handlers are reserved for things Server Actions can't express (NextAuth callbacks, multipart upload, binary download); no JSON CRUD route handlers.
-**Classification:** Conflict.
-**Recommended decision:** Decide it — but the inferred version is far more defensible.
-**Rationale:** Only 3 route handlers exist (`src/app/api/auth/[...nextauth]/route.ts`, `src/app/api/upload/route.ts`, `src/app/api/files/[fileId]/route.ts`); none are REST CRUD. Server Actions handle every other mutation. The "REST conventions" line predates the team's choice to standardize on Server Actions and reads as drift.
-**Open question for humans:** Confirm we're committing to the Server-Actions-everywhere model. If yes, replace row 2 with row 72's wording.
+### Row 2 / Row 72 — Route handlers' purpose  **decided 2026-05-15**
+**Rule (decided):** Route handlers are reserved for cases Server Actions can't express: NextAuth callbacks, `multipart/form-data` uploads, and binary file streaming. Don't add JSON CRUD route handlers — use Server Actions instead.
+**Classification:** Was Conflict; resolved.
+**Decision:** Replace the "REST conventions" line in CLAUDE.md with the inferred wording.
+**Rationale:** Server-Actions-everywhere is the committed model. Only 3 route handlers exist (`src/app/api/auth/[...nextauth]/route.ts`, `src/app/api/upload/route.ts`, `src/app/api/files/[fileId]/route.ts`); none are REST CRUD. If an external API is needed in the future, that's a deliberate refactor at the time, not a default to design around now.
 
 ### Row 1 — `/components/features` subdirectory
 **Rule:** Feature-specific components live in `/components/features`.
