@@ -1,6 +1,6 @@
 ## CLAUDE.md.proposed — changelog from validation pass
 
-Each entry references a finding in `reviews/claudemd-validation.md` (Synthesis → Must-fix / Should-fix). Where the validation provided a suggested rewrite, that wording was used directly; where it asked for consolidation, the canonical source was picked and the duplicates were collapsed to references.
+Each entry references a finding in `reviews/claudemd/validation.md` (Synthesis → Must-fix / Should-fix). Where the validation provided a suggested rewrite, that wording was used directly; where it asked for consolidation, the canonical source was picked and the duplicates were collapsed to references.
 
 ---
 
@@ -190,7 +190,7 @@ No findings were skipped to `claudemd-open-questions.md`; every Must-fix / Shoul
 
 # Second validation pass (after re-run against five commits)
 
-The second validation pass (`reviews/claudemd-validation.md`, "second pass") surfaced three new must-fix items and eight should-fix items. One must-fix is a team-intent decision and was parked in `reviews/claudemd-open-questions.md` (OQ-1). Two must-fix and all eight should-fix items were applied here.
+The second validation pass (`reviews/claudemd/validation.md`, "second pass") surfaced three new must-fix items and eight should-fix items. One must-fix is a team-intent decision and was parked in `reviews/claudemd/open-questions.md` (OQ-1). Two must-fix and all eight should-fix items were applied here.
 
 ---
 
@@ -380,7 +380,7 @@ The project intentionally ships without a test suite or structured logger. Don't
 
 # Third validation pass (after re-run against five new commits)
 
-The third validation pass (`reviews/claudemd-validation.md`, "third pass") surfaced three must-fix items and four should-fix items. All seven target the doc and could be applied without a judgment call — the validation's suggested rewrites gave direct guidance, and the two items that named a code-vs-doc choice (MF3-2 retrofit PrintOrder vs. soften the rule; MF3-3 enforce SF-7 in code vs. drop it) collapsed to the doc-resolution path under this task's doc-only scope.
+The third validation pass (`reviews/claudemd/validation.md`, "third pass") surfaced three must-fix items and four should-fix items. All seven target the doc and could be applied without a judgment call — the validation's suggested rewrites gave direct guidance, and the two items that named a code-vs-doc choice (MF3-2 retrofit PrintOrder vs. soften the rule; MF3-3 enforce SF-7 in code vs. drop it) collapsed to the doc-resolution path under this task's doc-only scope.
 
 ---
 

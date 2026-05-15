@@ -8,8 +8,8 @@
 # Rewrite CLAUDE.md based on resolved decisions
 
 Inputs:
-- `reviews/conventions-observed.md` (the descriptive reverse-engineering output)
-- `reviews/claudemd-decisions.md`, **annotated by humans** with final decisions per row. Treat the human annotations as authoritative — override your earlier recommendations if they differ.
+- `reviews/claudemd/conventions-observed.md` (the descriptive reverse-engineering output)
+- `reviews/claudemd/decisions.md`, **annotated by humans** with final decisions per row. Treat the human annotations as authoritative — override your earlier recommendations if they differ.
 - The current `CLAUDE.md`
 
 Write the new version to `CLAUDE.md.proposed` (don't overwrite the existing file).
@@ -65,7 +65,7 @@ If you're under 150 lines, you're probably missing something — re-check the de
 ## Process
 
 1. First, draft the new CLAUDE.md following the structure above.
-2. Then, produce a short changelog at the end of the file (or in a sibling `reviews/claudemd-changelog.md`) summarizing what changed from the current version: rules added, removed, sharpened, or moved. This makes the review for humans much faster.
+2. Then, produce a short changelog at the end of the file (or in a sibling `reviews/claudemd/changelog.md`) summarizing what changed from the current version: rules added, removed, sharpened, or moved. This makes the review for humans much faster.
 3. Flag anywhere you made a judgment call the decisions doc didn't fully resolve.
 
 ## Rules for this task

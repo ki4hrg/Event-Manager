@@ -1,6 +1,6 @@
 # CLAUDE.md decisions — recommendations per divergence
 
-For every non-Consistent row in `reviews/claudemd-diff.md`, this doc
+For every non-Consistent row in `reviews/claudemd/diff.md`, this doc
 proposes a bucket and rationale. **A human must override anything that
 touches auth or data integrity** (flagged inline).
 

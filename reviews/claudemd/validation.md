@@ -1,6 +1,6 @@
 # CLAUDE.md.proposed — validation (third pass)
 
-Fresh validation against the current `CLAUDE.md.proposed` after pass 2's must-fix and should-fix items were applied (`reviews/claudemd-changelog.md` second-pass section). Five new commits reviewed from `main` — different files than passes 1 and 2 so we exercise the rubric on fresh diffs.
+Fresh validation against the current `CLAUDE.md.proposed` after pass 2's must-fix and should-fix items were applied (`reviews/claudemd/changelog.md` second-pass section). Five new commits reviewed from `main` — different files than passes 1 and 2 so we exercise the rubric on fresh diffs.
 
 The two prior passes are preserved in git history (`116845d`, `dae79c6`) for reference.
 

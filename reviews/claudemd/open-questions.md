@@ -1,6 +1,6 @@
 # CLAUDE.md.proposed — open questions for human resolution
 
-Two findings from `reviews/claudemd-validation.md` (second pass) that couldn't be settled without team input. Each follows the prompt 4 structure (Question / Context / Options / Recommended / Open for humans). Both have now been resolved — see the **Resolutions** section directly below.
+Two findings from `reviews/claudemd/validation.md` (second pass) that couldn't be settled without team input. Each follows the prompt 4 structure (Question / Context / Options / Recommended / Open for humans). Both have now been resolved — see the **Resolutions** section directly below.
 
 ---
 
@@ -22,7 +22,7 @@ The validation's second pass observed that `CLAUDE.md.proposed` asserts the rule
 - **5 files actually follow it** — `account/actions.ts`, `events/[id]/agenda/actions.ts`, `events/share-links/actions.ts`, `settings/actions.ts`, `users/actions.ts`, `workflows/actions.ts` (admin segments + auth-sensitive subsystems).
 - **16 files don't** — `events/actions.ts`, `events/[id]/actions.ts`, `events/{av-orders, catering-orders, setup-orders, print-orders, functions, presentations, breakout-schedule, schedule-items, workflows, reports}/actions.ts`, `vendors/actions.ts`, `venues/actions.ts`, `contacts/actions.ts`, `files/actions.ts`. ~272 of ~277 exported actions skip the check and rely on middleware.
 
-Important: the prior decisions doc (`reviews/claudemd-decisions.md`, Row 60, decided 2026-05-15 — same day) already settled on the strict version with an explicit migration plan ("Add `await requireAuth()` to every exported action in the 13 currently-unchecked files"). The migration appears to have stalled — only 5 files were retrofitted, leaving the rubric and the bulk of the code out of sync.
+Important: the prior decisions doc (`reviews/claudemd/decisions.md`, Row 60, decided 2026-05-15 — same day) already settled on the strict version with an explicit migration plan ("Add `await requireAuth()` to every exported action in the 13 currently-unchecked files"). The migration appears to have stalled — only 5 files were retrofitted, leaving the rubric and the bulk of the code out of sync.
 
 So this isn't a fresh "what should the rule be?" question. It's "do we still stand by Row 60, and if so, when does the retrofit ship?"
 

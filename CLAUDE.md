@@ -366,7 +366,7 @@ Functions include high-level AV needs (projector, screen, microphone, etc.) as c
 
 ## CLAUDE.md candidates
 
-When you encounter any of the following during a task, append a one-line entry to `reviews/claudemd-candidates.md`:
+When you encounter any of the following during a task, append a one-line entry to `reviews/claudemd/candidates.md`:
 
 - An explicit decision between two approaches ("we picked X over Y because Z")
 - A new utility, helper, or pattern that should become canonical
@@ -383,6 +383,6 @@ Don't update CLAUDE.md directly. Don't ask whether to add an entry — just add 
 - `prisma/schema.prisma` — full data model.
 - `src/lib/auth.ts` — `authorized` callback, `requireAuth`, `requireAdmin`, cookie config.
 - `src/lib/conflicts.ts`, `src/app/events/breakout-schedule/actions.ts` — the riskiest logic in the codebase (time-zone math, scheduling conflicts).
-- `reviews/conventions-observed.md` — the descriptive convention audit this file is derived from.
-- `reviews/claudemd-decisions.md` — recorded decisions per row, with rationale.
+- `reviews/claudemd/conventions-observed.md` — the descriptive convention audit this file is derived from.
+- `reviews/claudemd/decisions.md` — recorded decisions per row, with rationale.
 

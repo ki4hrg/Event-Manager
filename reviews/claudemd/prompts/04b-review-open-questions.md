@@ -7,9 +7,9 @@
 ```
 # Resolve open questions from validation
 
-Input: `reviews/claudemd-open-questions.md` (newly created during the fix pass)
+Input: `reviews/claudemd/open-questions.md` (newly created during the fix pass)
 
-For each open question, produce the same output structure as `reviews/claudemd-decisions.md`:
+For each open question, produce the same output structure as `reviews/claudemd/decisions.md`:
 
 > **Question:** [restate]
 > **Context:** what the validation pass observed
