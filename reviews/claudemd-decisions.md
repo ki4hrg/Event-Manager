@@ -77,13 +77,11 @@ rules come before style/process rules.
 **Decision:** Document the principle. Current code is already correct.
 **Rationale:** `getEvent` is the only reader wrapped because `/events/[id]/*` is the only segment with a layout (`src/app/events/[id]/layout.tsx:14`) that fetches the entity for the sidebar — every page beneath it also calls `getEvent(id)` for breadcrumbs/titles, so the wrapper dedupes a real layout+page double-fetch. Vendor/Venue/Contact don't have a layout, so a single call per request means no duplication and no need for `cache()`. If a future segment grows a layout (e.g. `/vendors/[id]/layout.tsx`), the convention prompts a refactor to wrap that reader in `cache()` at the same time.
 
-### Row 39 — Print button vs `window.print()`
-**Rule:** "Print / Save PDF" button is an `<a href="${basePath}/print?...">`, never `window.print()`.
-**Classification:** Partial conflict.
-**Recommended decision:** Decide it — really a sharpening exercise.
-**Rationale:** The interactive report page links to a dedicated `/print` route (correct), but `src/components/print/PrintButton.tsx:5` *does* call `window.print()` — and it's rendered inside `PrintHeader.tsx` on the print page itself. That's consistent with the rule's intent (don't print the filter UI), just not its letter.
-**If sharpening:** "On report pages, the Print button is a link to the dedicated `/print/` route. On the `/print/` route itself, `PrintButton` invokes `window.print()`."
-**Open question for humans:** Confirm the sharpened wording, or restructure the rule.
+### Row 39 — Print button vs `window.print()`  **decided 2026-05-15**
+**Rule (decided):** On interactive report pages (under `/events/[id]/reports/...`), the "Print / Save PDF" button is a link to the dedicated `/print` route, never `window.print()`. On the `/print` route itself, `PrintButton` (`src/components/print/PrintButton.tsx:5`) calls `window.print()` — that's the correct trigger for a chrome-free PDF export.
+**Classification:** Was Partial conflict; resolved.
+**Decision:** Adopt the sharpened wording.
+**Rationale:** Two distinct layers: the interactive-route link swaps the user into print formatting via the dedicated route; the print route then invokes the browser print dialog. Both are intentional. Current code already follows this; the previous CLAUDE.md wording just didn't acknowledge the second layer.
 
 ---
 
