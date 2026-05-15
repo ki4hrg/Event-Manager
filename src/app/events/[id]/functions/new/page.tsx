@@ -5,6 +5,7 @@ import { getEvent } from "../../../actions";
 import { createFunction } from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
 import { getOptions } from "@/app/settings/actions";
+import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +27,16 @@ export default async function NewFunctionPage({
     notFound();
   }
 
-  // Get rooms from the event's venue
-  const rooms = event.venueId
-    ? await prisma.room.findMany({
-        where: { venueId: event.venueId },
-        orderBy: { name: "asc" },
-      })
-    : [];
+  // Get rooms from the event's venue (sorted to keep groups adjacent)
+  const rooms = sortRoomsByGroupThenName(
+    event.venueId
+      ? await prisma.room.findMany({
+          where: { venueId: event.venueId },
+          include: { group: { select: { id: true, name: true, sortOrder: true } } },
+          orderBy: { name: "asc" },
+        })
+      : []
+  );
 
   const createFunctionWithEventId = async (formData: FormData) => {
     "use server";

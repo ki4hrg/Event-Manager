@@ -7,6 +7,7 @@ import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { getOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
+import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,11 @@ export default async function NewSetupOrderPage({
 
   const [venueRooms, eventFunctions] = await Promise.all([
     !presentationId && event.venueId
-      ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
+      ? prisma.room.findMany({
+          where: { venueId: event.venueId },
+          include: { group: { select: { id: true, name: true, sortOrder: true } } },
+          orderBy: { name: "asc" },
+        })
       : Promise.resolve([]),
     isFromSource
       ? Promise.resolve([])
@@ -81,7 +86,7 @@ export default async function NewSetupOrderPage({
         eventId={eventId}
         setupTypes={setupTypes}
         action={createSetupOrderAction}
-        rooms={venueRooms}
+        rooms={sortRoomsByGroupThenName(venueRooms)}
         functions={eventFunctions.map((f) => ({
           id: f.id,
           name: f.name,

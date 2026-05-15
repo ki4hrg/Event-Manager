@@ -4,8 +4,13 @@ import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import type { PresentationSlot, Function as PrismaFunction, FunctionSchedule, Room, BreakoutGroup } from "@prisma/client";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { groupRoomsByGroup } from "@/lib/roomGroups";
 
-type RoomBasic = { id: string; name: string };
+type RoomBasic = {
+  id: string;
+  name: string;
+  group?: { id: string; name: string; sortOrder: number } | null;
+};
 
 type SessionBasic = {
   id: string;
@@ -41,6 +46,31 @@ type BreakoutSlotPanelProps = {
   assignToGroup: (groupId: string) => Promise<void>;
   updateInstanceCount: (count: number) => Promise<void>;
 };
+
+function RoomOptions({ rooms }: { rooms: RoomBasic[] }) {
+  const buckets = groupRoomsByGroup(rooms);
+  const hasGroups = buckets.some((b) => b.groupId !== null);
+  if (!hasGroups) {
+    return (
+      <>
+        {rooms.map((r) => (
+          <option key={r.id} value={r.id}>{r.name}</option>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      {buckets.map((bucket) => (
+        <optgroup key={bucket.key} label={bucket.label}>
+          {bucket.rooms.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
 
 function formatSessionTime(
   schedules: { startTime: Date; endTime: Date }[],
@@ -287,9 +317,7 @@ export function BreakoutSlotPanel({
                       className={selectClass}
                     >
                       <option value="">Unassigned</option>
-                      {(currentGroup?.rooms ?? []).map((r) => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
+                      <RoomOptions rooms={currentGroup?.rooms ?? []} />
                     </select>
                   </div>
                 )}
@@ -399,9 +427,7 @@ export function BreakoutSlotPanel({
               ) : (
                 <select value={addRoomId} onChange={(e) => setAddRoomId(e.target.value)} className={selectClass}>
                   <option value="">Unassigned</option>
-                  {addGroupRooms.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
+                  <RoomOptions rooms={addGroupRooms} />
                 </select>
               )}
             </div>
