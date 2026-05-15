@@ -254,11 +254,11 @@ rules come before style/process rules.
 
 ## Sharpen it (Vague rules)
 
-### Row 12 — "Colocate component-specific logic"
-**Classification:** Vague.
-**Recommended decision:** Sharpen it.
-**If sharpening:** "Feature components live next to their `actions.ts` under `src/app/<feature>/`. Shared components live in `src/components/`. Pages remain thin: fetch + delegate."
-**Rationale:** The principle is real, but the current wording isn't checkable. The sharpened version is verifiable in a PR review by glancing at the file location.
+### Row 12 — "Colocate component-specific logic"  **decided 2026-05-15**
+**Rule (decided):** Merge into Row 1's Project Structure section. The vague "Colocate component-specific logic" line gets dropped from "Code Conventions"; the colocation rule already added to Project Structure ("Feature-specific components colocate with their `actions.ts` under `src/app/<feature>/`") covers the same ground in checkable form.
+**Classification:** Was Vague; resolved.
+**Decision:** Merge + drop the original line. Add one sentence to the Project Structure block: "Pages remain thin — fetch + delegate to the colocated client component."
+**Rationale:** Keeps CLAUDE.md tight; one canonical statement about where new code goes. Avoids overlap between "Project Structure" and "Code Conventions".
 
 ### Row 13 — "Mobile-first responsive design"
 **Classification:** Vague.
