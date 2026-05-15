@@ -32,6 +32,7 @@ import {
   findSlotKeyForEntry,
   SLOT_INTERVAL_MS,
 } from "@/lib/agendaUtils";
+import { groupRoomsByGroup } from "@/lib/roomGroups";
 import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from "@/app/events/functions/actions";
 import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
@@ -607,10 +608,12 @@ function DraggableUnscheduledCard({
 function SortableRoomRow({
   room,
   isHidden,
+  groupLabel,
   onToggle,
 }: {
   room: AgendaData["rooms"][number];
   isHidden: boolean;
+  groupLabel: string | null;
   onToggle: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: room.id });
@@ -633,16 +636,21 @@ function SortableRoomRow({
           <circle cx="2" cy="11.5" r="1.2" /><circle cx="8" cy="11.5" r="1.2" />
         </svg>
       </button>
-      <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+      <label className="flex items-center gap-1.5 text-sm cursor-pointer flex-1 min-w-0">
         <input
           type="checkbox"
           checked={!isHidden}
           onChange={onToggle}
           className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
         />
-        <span className={isHidden ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300"}>
+        <span className={`truncate ${isHidden ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300"}`}>
           {room.name}
         </span>
+        {groupLabel && (
+          <span className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 shrink-0">
+            {groupLabel}
+          </span>
+        )}
       </label>
     </div>
   );
@@ -654,6 +662,7 @@ function RoomPanel({
   isDefault,
   onToggle,
   onToggleAll,
+  onSetGroupVisible,
   onReorder,
   onReset,
 }: {
@@ -662,6 +671,7 @@ function RoomPanel({
   isDefault: boolean;
   onToggle: (roomId: string) => void;
   onToggleAll: (show: boolean) => void;
+  onSetGroupVisible: (roomIds: string[], show: boolean) => void;
   onReorder: (newIds: string[]) => void;
   onReset: () => void;
 }) {
@@ -674,6 +684,12 @@ function RoomPanel({
       checkAllRef.current.indeterminate = !allVisible && !noneVisible;
     }
   }, [allVisible, noneVisible]);
+
+  const roomBuckets = useMemo(
+    () => groupRoomsByGroup(orderedRooms.filter((r) => r.id !== "__offsite__")),
+    [orderedRooms]
+  );
+  const groupBuckets = roomBuckets.filter((b) => b.groupId !== null && b.rooms.length > 1);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -704,17 +720,51 @@ function RoomPanel({
           </button>
         )}
       </div>
+      {groupBuckets.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5 pb-2 border-b border-gray-200 dark:border-gray-700">
+          <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 self-center mr-1">
+            Groups:
+          </span>
+          {groupBuckets.map((bucket) => {
+            const ids = bucket.rooms.map((r) => r.id);
+            const allShown = ids.every((id) => !hiddenRoomIds.has(id));
+            const someShown = ids.some((id) => !hiddenRoomIds.has(id));
+            const state: "all" | "some" | "none" = allShown ? "all" : someShown ? "some" : "none";
+            return (
+              <button
+                key={bucket.key}
+                type="button"
+                onClick={() => onSetGroupVisible(ids, !allShown)}
+                className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                  state === "all"
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : state === "some"
+                      ? "border-blue-400 dark:border-blue-500 text-blue-700 dark:text-blue-300"
+                      : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400"
+                }`}
+                title={allShown ? `Hide all in ${bucket.label}` : `Show all in ${bucket.label}`}
+              >
+                {bucket.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <DndContext id="room-panel-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={orderedRooms.map((r) => r.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-1">
-            {orderedRooms.map((room) => (
-              <SortableRoomRow
-                key={room.id}
-                room={room}
-                isHidden={hiddenRoomIds.has(room.id)}
-                onToggle={() => onToggle(room.id)}
-              />
-            ))}
+            {orderedRooms.map((room) => {
+              const groupName = (room as AgendaData["rooms"][number] & { group?: { name: string } | null }).group?.name ?? null;
+              return (
+                <SortableRoomRow
+                  key={room.id}
+                  room={room}
+                  isHidden={hiddenRoomIds.has(room.id)}
+                  groupLabel={groupName}
+                  onToggle={() => onToggle(room.id)}
+                />
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>
@@ -792,6 +842,18 @@ export function AgendaGrid({
     const next = show ? new Set<string>() : new Set(rooms.map((r) => r.id));
     setHiddenRoomIds(next);
     persistRoomPrefs(next, roomOrder);
+  }
+
+  function handleSetGroupVisible(roomIds: string[], show: boolean) {
+    setHiddenRoomIds((prev) => {
+      const next = new Set(prev);
+      for (const id of roomIds) {
+        if (show) next.delete(id);
+        else next.add(id);
+      }
+      persistRoomPrefs(next, roomOrder);
+      return next;
+    });
   }
 
   function handleResetRooms() {
@@ -1135,6 +1197,7 @@ export function AgendaGrid({
                 isDefault={hiddenRoomIds.size === 0 && roomOrder.length === 0}
                 onToggle={handleToggleRoom}
                 onToggleAll={handleToggleAllRooms}
+                onSetGroupVisible={handleSetGroupVisible}
                 onReorder={handleReorderRooms}
                 onReset={handleResetRooms}
               />

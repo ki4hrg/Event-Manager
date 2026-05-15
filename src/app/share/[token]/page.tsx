@@ -251,6 +251,9 @@ export default async function SharePage({ params, searchParams }: PageProps) {
     const roomOptions = data.rooms.map((r) => ({
       value: r.id,
       label: r.venue?.name ? `${r.name} · ${r.venue.name}` : r.name,
+      groupId: r.group?.id ?? null,
+      groupName: r.group?.name ?? null,
+      groupSortOrder: r.group?.sortOrder ?? Number.MAX_SAFE_INTEGER,
     }));
 
     return (

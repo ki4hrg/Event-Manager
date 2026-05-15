@@ -36,7 +36,14 @@ export default async function BreakoutSchedulePage({
     prisma.event.findUnique({
       where: { id: eventId },
       include: {
-        venue: { include: { rooms: { orderBy: { name: "asc" } } } },
+        venue: {
+          include: {
+            rooms: {
+              include: { group: { select: { id: true, name: true, sortOrder: true } } },
+              orderBy: { name: "asc" },
+            },
+          },
+        },
       },
     }),
     getBreakoutGroups(eventId),

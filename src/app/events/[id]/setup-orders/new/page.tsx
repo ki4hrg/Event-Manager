@@ -40,7 +40,11 @@ export default async function NewSetupOrderPage({
 
   const [venueRooms, eventFunctions] = await Promise.all([
     !presentationId && event.venueId
-      ? prisma.room.findMany({ where: { venueId: event.venueId }, orderBy: { name: "asc" } })
+      ? prisma.room.findMany({
+          where: { venueId: event.venueId },
+          include: { group: { select: { id: true, name: true, sortOrder: true } } },
+          orderBy: { name: "asc" },
+        })
       : Promise.resolve([]),
     isFromSource
       ? Promise.resolve([])

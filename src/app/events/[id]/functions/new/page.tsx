@@ -30,6 +30,7 @@ export default async function NewFunctionPage({
   const rooms = event.venueId
     ? await prisma.room.findMany({
         where: { venueId: event.venueId },
+        include: { group: { select: { id: true, name: true, sortOrder: true } } },
         orderBy: { name: "asc" },
       })
     : [];

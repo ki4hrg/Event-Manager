@@ -1,17 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Function, Room, FunctionRoom, CustomOption, BreakoutGroup } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
+import { groupRoomsByGroup } from "@/lib/roomGroups";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
 };
 
+type RoomWithGroup = Room & {
+  group?: { id: string; name: string; sortOrder: number } | null;
+};
+
 type FunctionFormProps = {
   fn?: FunctionWithRelations;
-  rooms: Room[];
+  rooms: RoomWithGroup[];
   eventId: string;
   functionTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
@@ -37,19 +42,41 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
 }
 
 
-function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: Room[]; selectedRoomIds: string[]; noCard?: boolean }) {
+function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: RoomWithGroup[]; selectedRoomIds: string[]; noCard?: boolean }) {
   const [roomFilter, setRoomFilter] = useState("");
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(selectedRoomIds));
   const SHOW_FILTER_THRESHOLD = 8;
   const showFilter = rooms.length > SHOW_FILTER_THRESHOLD;
 
   const filteredRooms = showFilter && roomFilter
-    ? rooms.filter((r) =>
-        r.name.toLowerCase().includes(roomFilter.toLowerCase())
-      )
+    ? rooms.filter((r) => r.name.toLowerCase().includes(roomFilter.toLowerCase()))
     : rooms;
+
+  const groupedRooms = useMemo(() => groupRoomsByGroup(filteredRooms), [filteredRooms]);
+  const hasGroups = groupedRooms.some((g) => g.groupId !== null);
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
   const dividerClass = noCard ? "border-t border-gray-200 dark:border-gray-700 mt-0 pt-4" : "";
+
+  function toggleRoom(roomId: string, isChecked: boolean) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (isChecked) next.add(roomId);
+      else next.delete(roomId);
+      return next;
+    });
+  }
+
+  function setGroupChecked(groupRoomIds: string[], isChecked: boolean) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const id of groupRoomIds) {
+        if (isChecked) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  }
 
   if (rooms.length === 0) {
     return (
@@ -78,24 +105,61 @@ function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: Room[
           className="mb-3 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       )}
-      <div className={`space-y-2 ${rooms.length > SHOW_FILTER_THRESHOLD ? "max-h-64 overflow-y-auto" : ""}`}>
-        {filteredRooms.map((room) => (
-          <label key={room.id} className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              name="roomIds"
-              value={room.id}
-              defaultChecked={selectedRoomIds.includes(room.id)}
-              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
-            />
-            <span className="text-gray-900 dark:text-white">{room.name}</span>
-            {room.capacity && (
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                (capacity: {room.capacity})
-              </span>
-            )}
-          </label>
-        ))}
+      <div className={`space-y-4 ${rooms.length > SHOW_FILTER_THRESHOLD ? "max-h-64 overflow-y-auto" : ""}`}>
+        {Array.from(checked)
+          .filter((id) => !filteredRooms.some((r) => r.id === id))
+          .map((id) => (
+            <input key={`hidden-${id}`} type="hidden" name="roomIds" value={id} />
+          ))}
+        {groupedRooms.map((bucket) => {
+          const bucketIds = bucket.rooms.map((r) => r.id);
+          const allSelected = bucketIds.length > 0 && bucketIds.every((id) => checked.has(id));
+          const someSelected = bucketIds.some((id) => checked.has(id));
+          const showHeader = hasGroups;
+          return (
+            <div key={bucket.key}>
+              {showHeader && (
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    {bucket.label}
+                  </h3>
+                  {bucket.rooms.length > 1 && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setGroupChecked(bucketIds, !allSelected)}
+                        className="text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                        disabled={allSelected && !someSelected}
+                      >
+                        {allSelected ? "Clear all" : "Select all"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="space-y-2">
+                {bucket.rooms.map((room) => (
+                  <label key={room.id} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      name="roomIds"
+                      value={room.id}
+                      checked={checked.has(room.id)}
+                      onChange={(e) => toggleRoom(room.id, e.target.checked)}
+                      className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-900 dark:text-white">{room.name}</span>
+                    {room.capacity && (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        (capacity: {room.capacity})
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          );
+        })}
         {showFilter && roomFilter && filteredRooms.length === 0 && (
           <p className="text-sm text-gray-500 dark:text-gray-400">No rooms match &quot;{roomFilter}&quot;</p>
         )}

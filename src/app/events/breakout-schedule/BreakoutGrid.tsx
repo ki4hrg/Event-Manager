@@ -4,6 +4,7 @@ import { useState, useTransition, useRef, useMemo } from "react";
 import Link from "next/link";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "./utils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { groupRoomsByGroup } from "@/lib/roomGroups";
 import {
   DndContext,
   DragOverlay,
@@ -67,11 +68,15 @@ type AvailablePresentation = {
   speakers: { isPrimary: boolean; contact: { firstName: string; lastName: string } }[];
 };
 
+type RoomWithGroup = Room & {
+  group?: { id: string; name: string; sortOrder: number } | null;
+};
+
 type BreakoutGridProps = {
   eventId: string;
   groups: GroupData[];
   ungroupedBlocks: SessionFunction[];
-  venueRooms: Room[];
+  venueRooms: RoomWithGroup[];
   timezone: string;
   createGroup: (formData: FormData) => Promise<void>;
   updateGroup: (groupId: string, formData: FormData) => Promise<void>;
@@ -128,13 +133,21 @@ function GroupRoomManager({
   removeRoom,
 }: {
   group: GroupData;
-  venueRooms: Room[];
+  venueRooms: RoomWithGroup[];
   addRoom: (groupId: string, roomId: string) => Promise<void>;
   removeRoom: (groupId: string, roomId: string) => Promise<void>;
 }) {
   const [isPending, startTransition] = useTransition();
   const assignedRoomIds = new Set(group.rooms.map((r) => r.roomId));
   const availableRooms = venueRooms.filter((r) => !assignedRoomIds.has(r.id));
+  const availableBuckets = useMemo(() => groupRoomsByGroup(availableRooms), [availableRooms]);
+  const hasRoomGroups = availableBuckets.some((b) => b.groupId !== null);
+
+  const addAllInBucket = (roomIds: string[]) => {
+    startTransition(async () => {
+      for (const id of roomIds) await addRoom(group.id, id);
+    });
+  };
 
   return (
     <div className="mb-4">
@@ -163,21 +176,46 @@ function GroupRoomManager({
         )}
       </div>
       {availableRooms.length > 0 && (
-        <select
-          value=""
-          onChange={(e) => {
-            if (e.target.value) {
-              startTransition(() => addRoom(group.id, e.target.value));
-            }
-          }}
-          disabled={isPending}
-          className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
-        >
-          <option value="">+ Add room...</option>
-          {availableRooms.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) {
+                startTransition(() => addRoom(group.id, e.target.value));
+              }
+            }}
+            disabled={isPending}
+            className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
+          >
+            <option value="">+ Add room...</option>
+            {hasRoomGroups
+              ? availableBuckets.map((bucket) => (
+                  <optgroup key={bucket.key} label={bucket.label}>
+                    {bucket.rooms.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </optgroup>
+                ))
+              : availableRooms.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+          </select>
+          {hasRoomGroups &&
+            availableBuckets
+              .filter((b) => b.groupId !== null && b.rooms.length > 1)
+              .map((bucket) => (
+                <button
+                  key={bucket.key}
+                  type="button"
+                  onClick={() => addAllInBucket(bucket.rooms.map((r) => r.id))}
+                  disabled={isPending}
+                  className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                  title={`Add all rooms in ${bucket.label}`}
+                >
+                  + Add all in {bucket.label}
+                </button>
+              ))}
+        </div>
       )}
     </div>
   );
@@ -1063,7 +1101,7 @@ function GroupPanel({
 }: {
   group: GroupData;
   eventId: string;
-  venueRooms: Room[];
+  venueRooms: RoomWithGroup[];
   timezone: string;
   updateGroup: (groupId: string, formData: FormData) => Promise<void>;
   deleteGroup: (groupId: string) => Promise<void>;

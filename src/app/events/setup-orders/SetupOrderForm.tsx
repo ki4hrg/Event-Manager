@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
+import { groupRoomsByGroup } from "@/lib/roomGroups";
 
 type SetupOrderData = {
   id: string;
@@ -24,7 +25,7 @@ type SetupOrderFormProps = {
   action: (formData: FormData) => Promise<void>;
   vendorLink?: VendorLinkEditProps;
   responsiblePartyOptions?: ResponsiblePartyOptions;
-  rooms?: { id: string; name: string }[];
+  rooms?: { id: string; name: string; group?: { id: string; name: string; sortOrder: number } | null }[];
   functions?: { id: string; name: string; roomIds: string[] }[];
   initialRoomId?: string;
   lockedFunctionId?: string;
@@ -72,6 +73,9 @@ export function SetupOrderForm({
   const filteredFunctions = selectedRoomId
     ? functions.filter((f) => f.roomIds.includes(selectedRoomId))
     : functions;
+
+  const roomBuckets = useMemo(() => groupRoomsByGroup(rooms), [rooms]);
+  const hasRoomGroups = roomBuckets.some((b) => b.groupId !== null);
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
@@ -145,9 +149,17 @@ export function SetupOrderForm({
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">— Select room —</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
+                  {hasRoomGroups
+                    ? roomBuckets.map((bucket) => (
+                        <optgroup key={bucket.key} label={bucket.label}>
+                          {bucket.rooms.map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </optgroup>
+                      ))
+                    : rooms.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
                 </select>
               )}
             </div>

@@ -355,6 +355,34 @@ function RoomSection({
   );
 }
 
+type GroupedRoomBuckets = {
+  groupId: string | null;
+  label: string;
+  sortOrder: number;
+  buckets: RoomBucket[];
+};
+
+function bucketsByGroup(roomBuckets: RoomBucket[]): GroupedRoomBuckets[] {
+  const out = new Map<string, GroupedRoomBuckets>();
+  for (const bucket of roomBuckets) {
+    const group = bucket.room.group ?? null;
+    const key = group?.id ?? "__ungrouped__";
+    if (!out.has(key)) {
+      out.set(key, {
+        groupId: group?.id ?? null,
+        label: group?.name ?? "Ungrouped",
+        sortOrder: group?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+        buckets: [],
+      });
+    }
+    out.get(key)!.buckets.push(bucket);
+  }
+  return Array.from(out.values()).sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.label.localeCompare(b.label);
+  });
+}
+
 export function RoomScheduleReport({ data, functionTypes, scheduleTypes }: Props) {
   const { roomBuckets, timezone } = data;
 
@@ -362,13 +390,21 @@ export function RoomScheduleReport({ data, functionTypes, scheduleTypes }: Props
     return <EmptyState message="No rooms match the selected filters." />;
   }
 
+  const grouped = bucketsByGroup(roomBuckets);
+  const hasGroups = grouped.some((g) => g.groupId !== null);
+
   const navSections = [{ id: "top", label: "Top" }];
-  const itemGroups = [
-    {
-      label: "Rooms",
-      links: roomBuckets.map((b) => ({ id: `room-${b.room.id}`, label: b.room.name })),
-    },
-  ];
+  const itemGroups = hasGroups
+    ? grouped.map((g) => ({
+        label: g.label,
+        links: g.buckets.map((b) => ({ id: `room-${b.room.id}`, label: b.room.name })),
+      }))
+    : [
+        {
+          label: "Rooms",
+          links: roomBuckets.map((b) => ({ id: `room-${b.room.id}`, label: b.room.name })),
+        },
+      ];
 
   return (
     <div className="space-y-6">
@@ -376,17 +412,43 @@ export function RoomScheduleReport({ data, functionTypes, scheduleTypes }: Props
       <div className="print:hidden">
         <SectionDivider id="rooms" title="Room Schedules" />
       </div>
-      <div className="space-y-6">
-        {roomBuckets.map((bucket) => (
-          <RoomSection
-            key={bucket.room.id}
-            bucket={bucket}
-            timezone={timezone}
-            functionTypes={functionTypes}
-            scheduleTypes={scheduleTypes}
-          />
-        ))}
-      </div>
+      {hasGroups ? (
+        <div className="space-y-8">
+          {grouped.map((g) => (
+            <div key={g.groupId ?? "__ungrouped__"} className="space-y-4">
+              <h2
+                id={`room-group-${g.groupId ?? "ungrouped"}`}
+                className="scroll-mt-24 text-xs font-semibold text-gray-500 dark:text-gray-400 print:text-gray-700 uppercase tracking-wide border-b border-gray-200 dark:border-gray-700 pb-1"
+              >
+                {g.label}
+              </h2>
+              <div className="space-y-6">
+                {g.buckets.map((bucket) => (
+                  <RoomSection
+                    key={bucket.room.id}
+                    bucket={bucket}
+                    timezone={timezone}
+                    functionTypes={functionTypes}
+                    scheduleTypes={scheduleTypes}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {roomBuckets.map((bucket) => (
+            <RoomSection
+              key={bucket.room.id}
+              bucket={bucket}
+              timezone={timezone}
+              functionTypes={functionTypes}
+              scheduleTypes={scheduleTypes}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
