@@ -840,12 +840,14 @@ function FunctionSection({
   timezone,
   vendorId,
   anchorId,
+  isFirst,
 }: {
   group: FunctionGroup;
   functionTypes: { label: string }[];
   timezone: string;
   vendorId: string;
   anchorId?: string;
+  isFirst?: boolean;
 }) {
   const { fn, cateringOrders, avOrders, setupOrders } = group;
   const typeLabel = fn.type ? resolveOptionLabel(fn.type, functionTypes) : null;
@@ -855,7 +857,7 @@ function FunctionSection({
   const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0].filter(Boolean).length;
 
   return (
-    <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-24`}>
+    <div id={anchorId} className={`${sectionCard} ${isFirst ? "" : "print:break-before-page"} scroll-mt-24`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
           {formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}
@@ -951,11 +953,13 @@ function PresentationSection({
   timezone,
   vendorId,
   anchorId,
+  isFirst,
 }: {
   group: PresentationGroup;
   timezone: string;
   vendorId: string;
   anchorId?: string;
+  isFirst?: boolean;
 }) {
   const { presentation, avOrders, setupOrders } = group;
   const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
@@ -976,7 +980,7 @@ function PresentationSection({
   const hasSchedule = sortedDates.length > 0;
 
   return (
-    <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-24`}>
+    <div id={anchorId} className={`${sectionCard} ${isFirst ? "" : "print:break-before-page"} scroll-mt-24`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
           {presentation.title}
@@ -1291,7 +1295,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
       {allGroups.length > 0 && (
         <SectionDivider id="details" title="Function & Presentation Details" />
       )}
-      {allGroups.map((item) =>
+      {allGroups.map((item, idx) =>
         item.type === "function" ? (
           <FunctionSection
             key={item.group.fn.id}
@@ -1300,6 +1304,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
             functionTypes={functionTypes}
             timezone={timezone}
             vendorId={vendorId}
+            isFirst={idx === 0}
           />
         ) : (
           <PresentationSection
@@ -1308,6 +1313,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
             group={item.group}
             timezone={timezone}
             vendorId={vendorId}
+            isFirst={idx === 0}
           />
         )
       )}
@@ -1315,7 +1321,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
       {hasUnscheduled && (
         <>
           <SectionDivider id="unscheduled" title="Unscheduled Orders" />
-          <div className={`${sectionCard} print:break-before-page scroll-mt-24`}>
+          <div className={`${sectionCard} scroll-mt-24`}>
             {unscheduled.cateringOrders.length > 0 && (
               <>
                 {unscheduledTypeCount > 1 && <SubHeading>Catering</SubHeading>}
