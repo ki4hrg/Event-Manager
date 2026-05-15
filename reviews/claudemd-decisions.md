@@ -71,12 +71,11 @@ rules come before style/process rules.
 - Audit other create/duplicate actions for `?success=` consistency on the detail redirects (most update redirects already have it).
 **Knock-on:** Update the existing CLAUDE.md "Code Conventions" line that says "After creating a new record, redirect to list view (not detail view)" — replace with the split rule above. (This is the Row 3 correction.)
 
-### Row 75 — `cache()` from React for shared readers
-**Rule:** Wrap readers consumed by both a layout and a page in `cache(...)` so the request is deduped.
-**Classification:** Undocumented convention.
-**Recommended decision:** Decide it (alternative: Drop it).
-**Rationale:** Only `getEvent` is wrapped (`src/app/events/actions.ts:15`). `getVenue`, `getVendor`, `getContact` are not, even though some are called from both a parent and child page. This is either an active convention (apply broadly) or a vestige (drop the lone wrapper).
-**Open question for humans:** Audit which readers are called from both a layout and a child page; either wrap them or remove the `getEvent` wrapper.
+### Row 75 — `cache()` from React for shared readers  **decided 2026-05-15**
+**Rule (decided):** Wrap a Server Action reader in `cache()` from `react` only when the same reader is called more than once in the same request — typically because a `layout.tsx` and its child `page.tsx` both need the same entity. Don't wrap readers used in a single place.
+**Classification:** Was Undocumented; resolved.
+**Decision:** Document the principle. Current code is already correct.
+**Rationale:** `getEvent` is the only reader wrapped because `/events/[id]/*` is the only segment with a layout (`src/app/events/[id]/layout.tsx:14`) that fetches the entity for the sidebar — every page beneath it also calls `getEvent(id)` for breadcrumbs/titles, so the wrapper dedupes a real layout+page double-fetch. Vendor/Venue/Contact don't have a layout, so a single call per request means no duplication and no need for `cache()`. If a future segment grows a layout (e.g. `/vendors/[id]/layout.tsx`), the convention prompts a refactor to wrap that reader in `cache()` at the same time.
 
 ### Row 39 — Print button vs `window.print()`
 **Rule:** "Print / Save PDF" button is an `<a href="${basePath}/print?...">`, never `window.print()`.
