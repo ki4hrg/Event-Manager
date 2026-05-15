@@ -43,12 +43,12 @@ rules come before style/process rules.
 
 **Rationale:** Current CLAUDE.md lists a nonexistent `/components/features` directory and omits the real `print/` subfolder. Colocation under `src/app/<feature>/` is the universal pattern for feature components (`src/app/events/EventForm.tsx`, `src/app/events/setup-orders/SetupOrderList.tsx`, etc.). `ui/` stays documented as a home for future shared primitives even though it has one file today.
 
-### Row 59 — `requireAdmin()` in segment `layout.tsx` for admin routes  ⚠️ **needs human review (auth)**
-**Rule:** For admin-only routes, call `requireAdmin()` once in the segment's `layout.tsx`.
-**Classification:** Undocumented convention.
-**Recommended decision:** Decide it.
-**Rationale:** Only `src/app/settings/layout.tsx:7` follows this. `/workflows` has no layout file — each page (`page.tsx`, `new/page.tsx`, `[id]/page.tsx`) re-asserts `requireAdmin()` individually. `/users` does the same. Two valid patterns coexist.
-**Open question for humans:** Standardize on the layout-level check (and add a `workflows/layout.tsx` + `users/layout.tsx`), or keep per-page checks for admin? Layout-level is fewer lines but easier to miss on a new admin route.
+### Row 59 — `requireAdmin()` in segment `layout.tsx` for admin routes  ⚠️ **decided 2026-05-15**
+**Rule (decided):** Admin-only route segments must have a `layout.tsx` that calls `requireAdmin()`. Child pages do not re-check.
+**Classification:** Was Undocumented; resolved.
+**Decision:** Standardize on Pattern A (layout-level check).
+**Rationale:** Combined with Row 60 (every admin Server Action calls `requireAdmin()` internally), the layout protects page rendering and the action protects mutations. Defense in depth without per-page boilerplate. One file per segment enforces auth so a new admin page can't accidentally skip the check.
+**Migration:** Add `src/app/users/layout.tsx` and `src/app/workflows/layout.tsx` that each call `requireAdmin()`. Remove the 5 per-page `requireAdmin()` calls in `src/app/users/page.tsx`, `src/app/users/[userId]/page.tsx`, `src/app/workflows/page.tsx`, `src/app/workflows/new/page.tsx`, `src/app/workflows/[id]/page.tsx`. `src/app/settings/layout.tsx` already conforms.
 
 ### Row 55 — `?success=` toast redirect convention
 **Rule:** After a successful update, redirect to `?success=<message>` so `<Toast>` renders the confirmation.
