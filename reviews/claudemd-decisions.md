@@ -111,11 +111,11 @@ rules come before style/process rules.
 **Recommended decision:** Document it (after row 60 is decided).
 **Rationale:** This is the dominant pattern. Flagged for human review because misdocumenting auth posture is a security hazard — confirm middleware coverage is truly complete (the `authorized` callback at `src/lib/auth.ts:74-85` exempts `/login`, `/api/auth/*`, `/share/*`).
 
-### Row 47 — `export const dynamic = "force-dynamic"` on authenticated pages
-**Rule:** Add `export const dynamic = "force-dynamic"` to every authenticated `page.tsx`.
-**Classification:** Undocumented convention.
-**Recommended decision:** Document it.
-**Rationale:** 71 of 76 pages (93%). The five exceptions are `settings/page.tsx` (pure redirect), `login/page.tsx`, `users/new/page.tsx`, `share/[token]/page.tsx`, `workflows/new/page.tsx` — three of which are creating-record forms that could have it added without harm.
+### Row 47 — `export const dynamic = "force-dynamic"` on authenticated pages  **decided 2026-05-15**
+**Rule (decided):** Every authenticated `page.tsx` declares `export const dynamic = "force-dynamic"`. No carve-outs except `src/app/login/page.tsx`, `src/app/share/[token]/page.tsx` (unauthenticated), and `src/app/settings/page.tsx` (pure redirect, no body).
+**Classification:** Was Undocumented; resolved.
+**Decision:** Document the uniform rule.
+**Migration:** Add the line to `src/app/users/new/page.tsx` and `src/app/workflows/new/page.tsx`.
 
 ### Row 48 — Async `params` / `searchParams` typing
 **Rule:** Type page props as `params: Promise<{...}>` and `searchParams: Promise<{...}>`, then `await` them.
@@ -171,11 +171,11 @@ rules come before style/process rules.
 **Recommended decision:** Document it.
 **Rationale:** `tsconfig.json:23` configures it; all sample-checked cross-feature imports use it.
 
-### Row 62 — No runtime schema validation; manual `throw new Error`
-**Rule:** No zod/yup/valibot. Trust TypeScript types for FormData shape; use `throw new Error(...)` only for inputs that must be checked at runtime.
-**Classification:** Undocumented convention.
-**Recommended decision:** Document it.
-**Rationale:** 0 zod imports; manual throws live at `src/app/users/actions.ts:46-55`, `src/app/account/actions.ts:11-13`. **Human caveat:** if the team plans to add zod later, mark this as "current state, not aspirational."
+### Row 62 — No runtime schema validation; manual `throw new Error`  **decided 2026-05-15**
+**Rule (decided):** No zod/yup/valibot. Trust TypeScript types for FormData shape; use `throw new Error(...)` only for inputs that must be checked at runtime (e.g. uniqueness preview, cross-field invariants).
+**Classification:** Was Undocumented; resolved.
+**Decision:** Document as the long-term position for this codebase.
+**Rationale:** Internal single-tenant tool with credentials auth and trusted contributors. The current pattern (`formData.get() as string` + Prisma constraints + occasional manual checks) covers the realistic threat model. The one scenario that would force revisiting: if forms need to return field-level error messages to the user instead of erroring out, some validation layer becomes necessary — not necessarily zod.
 
 ### Row 63 — No client state library
 **Rule:** No Zustand/Jotai/Redux/SWR/React Query. Use React built-ins.
@@ -231,11 +231,11 @@ rules come before style/process rules.
 **Recommended decision:** Document it.
 **Rationale:** 3 touchpoints, 0 `NEXT_PUBLIC_*`. Documenting forces new env vars to be funneled through a small surface.
 
-### Row 71 — No tests, no logger (current state)
-**Rule:** The project has no test suite and no structured logger. Don't add ad-hoc tests or `console.error` calls for "logging"; if the team wants observability, introduce a logger project-wide rather than peppering call sites.
-**Classification:** Undocumented convention.
-**Recommended decision:** Document it (as "current state").
-**Rationale:** Honest description of where the project is. **Human caveat:** if testing is on the roadmap, frame this as transitional.
+### Row 71 — No tests, no logger  **decided 2026-05-15**
+**Rule (decided):** The project intentionally ships without a test suite or structured logger. Don't add ad-hoc tests or `console.error` calls for "logging"; if observability is needed in the future, introduce a logger project-wide rather than peppering call sites.
+**Classification:** Was Undocumented; resolved.
+**Decision:** Document as the long-term position.
+**Rationale:** Internal single-tenant tool, stable codebase, lean velocity has worked. Noted for future reference: if tests are ever introduced, the highest-leverage targets are the time-zone math in `src/app/events/breakout-schedule/actions.ts:9-50` and the conflict detection in `src/lib/conflicts.ts` — those are the riskiest logic in the codebase. Not a CLAUDE.md decision today.
 
 ### Row 74 — `Promise.all` for fan-out in pages
 **Rule:** In server pages that fetch multiple independent resources, batch with `Promise.all([...])` rather than awaiting sequentially.
