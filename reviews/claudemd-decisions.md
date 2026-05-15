@@ -13,12 +13,13 @@ rules come before style/process rules.
 
 ## Decide it (Conflicts and split-adoption)
 
-### Row 60 — Per-action `requireAuth()` in Server Actions  ⚠️ **needs human review (auth)**
-**Rule:** Server Actions that need `session.user.id` call `requireAuth()` inside the action.
-**Classification:** Undocumented convention (with caveat).
-**Recommended decision:** Decide it.
-**Rationale:** Genuinely inconsistent — 6 action files re-check (`users`, `workflows`, `settings`, `account`, `share-links`, `agenda`), 13 do not (`events`, `vendors` (37 fns), `setup-orders`, `av-orders`, `catering-orders`, `print-orders`, `presentations`, `functions`, `breakout-schedule`, `schedule-items`, `events/workflows`, `contacts`, `venues`). Middleware-level auth covers everything either way, so this is a defense-in-depth question, not a correctness question. Auth code shouldn't be settled by adoption-counting.
-**Open question for humans:** Do we want every mutating action to re-assert `requireAuth()` (defense in depth), or is the middleware-only model sufficient? If the former, the order-type action files need a migration.
+### Row 60 — Per-action `requireAuth()` in Server Actions  ⚠️ **decided 2026-05-15**
+**Rule (decided):** Every Server Action starts with `await requireAuth()` (or `await requireAdmin()` for admin-gated actions). Defense in depth + uniform legibility for reviewers.
+**Classification:** Was Undocumented; now becomes a documented rule.
+**Decision:** Document the stricter version.
+**Rationale:** Cost is small (~one JWT decode per call, no DB hit; ~150-300 lines of boilerplate across ~13 files). Benefit is that every action is visibly self-protecting at a glance and the codebase doesn't depend on middleware coverage staying perfect. The previous "only when you need `session.user.id`" pattern was principled but implicit, and required readers to know about middleware coverage to verify safety.
+**Migration:** Add `await requireAuth()` to every exported action in the 13 currently-unchecked files (`events`, `vendors`, `contacts`, `venues`, the six order-type files, `presentations`, `functions`, `breakout-schedule`, `schedule-items`, `events/workflows`). Admin-only actions in admin-only files use `requireAdmin()` instead.
+**Knock-on:** Row 58's wording about "pages don't re-check" still stands for pages — the new rule is about Server Actions only. Row 59 (admin checks at layout vs page level) is now lower-stakes since every admin action will also self-protect.
 
 ### Row 2 / Row 72 — Route handlers' purpose
 **Rule (current):** "API routes in /app/api following REST conventions."
