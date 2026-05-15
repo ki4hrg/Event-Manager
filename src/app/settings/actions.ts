@@ -7,8 +7,8 @@ import type { Prisma } from "@prisma/client";
 
 export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "substatus" | "print_distribution";
 
+// No requireAuth() — reused by /share/[token] (see CLAUDE.md share-link carve-out).
 export async function getOptions(category: OptionCategory) {
-  await requireAuth();
   return prisma.customOption.findMany({
     where: { category },
     orderBy: { sortOrder: "asc" },

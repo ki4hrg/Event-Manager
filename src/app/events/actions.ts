@@ -14,8 +14,8 @@ export async function getEvents() {
   });
 }
 
+// No requireAuth() — reused by /share/[token] (see CLAUDE.md share-link carve-out).
 export const getEvent = cache(async (id: string) => {
-  await requireAuth();
   return prisma.event.findUnique({
     where: { id },
     include: { venue: true },
