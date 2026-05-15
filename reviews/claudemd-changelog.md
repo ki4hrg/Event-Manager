@@ -375,3 +375,136 @@ The project intentionally ships without a test suite or structured logger. Don't
 - Check 1 "Suggested CLAUDE.md changes" that didn't roll up into Synthesis (e.g. "Note on transitional schema columns" from commit 1) — out of scope per the prompt.
 - Check 2 Structural notes that are observations rather than findings (long Reports section flagged for future `docs/` extraction, repetition of the auth invariant which depends on OQ-1).
 - "Notes for next iteration" — by definition deferred.
+
+---
+
+# Third validation pass (after re-run against five new commits)
+
+The third validation pass (`reviews/claudemd-validation.md`, "third pass") surfaced three must-fix items and four should-fix items. All seven target the doc and could be applied without a judgment call — the validation's suggested rewrites gave direct guidance, and the two items that named a code-vs-doc choice (MF3-2 retrofit PrintOrder vs. soften the rule; MF3-3 enforce SF-7 in code vs. drop it) collapsed to the doc-resolution path under this task's doc-only scope.
+
+---
+
+### MF3-1 · Compound anchor ID order (Synthesis → Must-fix #1)
+
+**Source finding:** MF-2 wrote the convention as `${kind}-${parentId}-${childId}`. The Room Schedule report (`f868125`, `RoomScheduleReport.tsx:200`) writes `${kind}-${childId}-${parentId}` (entity first, parent second). Validation recommended updating the rule to match the codebase, since the entity-first form reads more naturally on a jump-link.
+
+**Before (Reports → Anchor ID conventions):**
+```
+- When an entity appears under multiple parents within the same report (e.g. a presentation rendered once per breakout block in RoomScheduleReport.tsx), compound IDs are permitted: ${kind}-${parentId}-${childId}. The constraint is uniqueness on the page — kebab-case, no : / / / spaces.
+```
+
+**After:**
+```
+- When an entity appears under multiple parents within the same report (e.g. a presentation rendered once per breakout block), compound IDs are permitted: ${kind}-${id}-${parentId} — the rendered entity first, then the disambiguating parent. See presentation-${item.entry.slot.presentation.id}-${item.entry.block.id} in src/app/events/[id]/reports/room-schedule/RoomScheduleReport.tsx:200. The constraint is uniqueness on the page — kebab-case, no : / / / spaces.
+```
+
+---
+
+### MF3-2 · "Replicate it exactly" softened to match the lean PrintOrder variant (Synthesis → Must-fix #2)
+
+**Source finding:** Order list and bulk edit pattern's *"replicate it exactly"* mis-describes PrintOrder (`d79fbee`), which ships without `*ListClient`, multi-select, or `bulkUpdate*`. Validation gave two options: retrofit PrintOrder (code), or soften the rule (doc). This task is doc-only, so the soften path is the only available resolution.
+
+**Before (Order list and bulk edit pattern, intro):**
+```
+Every order type follows this structure. When adding a new order type, replicate it exactly.
+```
+
+**After:**
+```
+Order types that ship with bulk-edit follow this structure exactly. New order types may ship lean (no *ListClient, no multi-select, no bulk actions) — see src/app/events/[id]/print-orders/page.tsx for the lean variant. When bulk-edit is added later, replicate the structure below.
+```
+
+---
+
+### MF3-3 · Drop the redundant-Top entry rule (Synthesis → Must-fix #3)
+
+**Source finding:** SF-7's "explicit `{ id: 'top', label: 'Top' }` is redundant" rule was added in pass 1, then immediately violated in fresh code (`f868125`, `RoomScheduleReport.tsx:341`) without anyone catching it. Validation framed two options: enforce the rule in `ReportNav` (code), or drop it as a no-op style nit (doc). Doc-only scope picks drop.
+
+**Before (Reports → Required: nav, anchors, section dividers):**
+```
+- sections are the top-level anchors users jump to (e.g. Key Contacts, Schedule, Equipment, Unscheduled) — always visible inline. ReportNav does not auto-render a "Top" entry; an explicit { id: "top", label: "Top" } in sections is redundant (the back-to-top affordance already lives on every SectionDivider) and should be omitted unless the report has no other section links.
+```
+
+**After:**
+```
+- sections are the top-level anchors users jump to (e.g. Key Contacts, Schedule, Equipment, Unscheduled) — always visible inline.
+```
+
+---
+
+### SF3-A · Lib helper filename casing (Synthesis → Should-fix)
+
+**Source finding:** Two new helpers in the same window picked two conventions — `format-phone.ts` kebab-case (`5b8dc1e`) vs. `breakoutLabels.ts` camelCase (`65f3c6b`). The rest of `src/lib/` is camelCase. Add a one-line rule to lock the convention.
+
+**Before:** (no equivalent rule existed)
+
+**After (new paragraph appended after the Project structure colocation paragraph):**
+```
+Helper files under src/lib/ use camelCase (breakoutLabels.ts, agendaUtils.ts, optionUtils.ts, userSettings.ts, shareLinks.ts, roomGroups.ts), not kebab-case.
+```
+
+---
+
+### SF3-B · Archetype A — card rows are also acceptable (Synthesis → Should-fix)
+
+**Source finding:** Archetype A read as "inline `<table>` OR `*ListClient`" — but `events/[id]/print-orders/page.tsx` ships an inline `<div>`-per-row card list with no client state, which is neither. Validation gave a three-way rewrite naming both inline shapes and the lift trigger.
+
+**Before:**
+```
+### A. Authenticated CRUD list — src/app/<entity>/page.tsx
+Server component, export const dynamic = "force-dynamic", awaits get<Entity>() from sibling actions.ts, renders <PageWrapper> + <PageHeader>. Inline the <table> directly in the server page when there is no client-side state (sort / select / filter / bulk edit). Lift to a *ListClient ("use client") the moment any one of those is needed. New action is a link to /<entity>/new. Example: src/app/events/page.tsx.
+```
+
+**After:**
+```
+### A. Authenticated CRUD list — src/app/<entity>/page.tsx
+Server component, export const dynamic = "force-dynamic", awaits get<Entity>() from sibling actions.ts, renders <PageWrapper> + <PageHeader>. For lists with no client-side state, render rows inline — either a <table> when columns aid comparison (src/app/events/page.tsx) or a <div>-per-row card list for one-detail-per-row layouts (src/app/events/[id]/print-orders/page.tsx). Lift to a *ListClient ("use client") the moment any of sort / select / filter / bulk edit is needed. New action is a link to /<entity>/new.
+```
+
+---
+
+### SF3-C · Controlled-input carve-out in Forms section (Synthesis → Should-fix)
+
+**Source finding:** `FunctionForm` RoomSelector (`b74a362`) switched from `defaultChecked` to `checked` + `onChange` + hidden inputs to preserve selection across text filtering. The rubric's `<form action={serverAction}>` rule reads as endorsing uncontrolled by default, leaving a reviewer with no guidance on the controlled-input case.
+
+**Before (Forms and mutations):**
+```
+- Use native <form action={serverAction}>. The submit button uses useFormStatus() inside a SubmitButton subcomponent (see src/app/events/EventForm.tsx:11-24).
+- For non-form mutations (delete, status toggle, vendor swap), call the Server Action from inside useTransition and disable the trigger while pending (see src/components/CancelOrDeleteButton.tsx, EntityStatusPanel.tsx).
+```
+
+**After:**
+```
+- Use native <form action={serverAction}>. The submit button uses useFormStatus() inside a SubmitButton subcomponent (see src/app/events/EventForm.tsx:11-24).
+- Default to uncontrolled inputs (defaultChecked / defaultValue). Lift to controlled state (checked + onChange) only when the form mediates selection across UI transitions like text-filtering a long list, multi-select with bulk actions, or undo. When you do, also emit a hidden <input type="hidden" name="..." /> for any selected value that the filtered view hides, so the submitted payload still carries it. See RoomSelector in src/app/events/functions/FunctionForm.tsx:45-160 for the pattern.
+- For non-form mutations (delete, status toggle, vendor swap), call the Server Action from inside useTransition and disable the trigger while pending (see src/components/CancelOrDeleteButton.tsx, EntityStatusPanel.tsx).
+```
+
+---
+
+### SF3-D · Pages-calling-Prisma-directly nuance (Synthesis → Should-fix)
+
+**Source finding:** The Data Layer rule ("direct prisma calls are expected in pages, actions, and src/lib/ helpers") is true but doesn't say *when* to reach for an inline `prisma.x.findUnique` vs. a sibling `get*` action. Validation gave a sharper rewrite.
+
+**Before (Data layer):**
+```
+- Use the singleton prisma from @/lib/prisma. Direct prisma.<model>.<op>() calls are expected in pages, actions, and src/lib/ helpers — there is no repository or query layer.
+```
+
+**After:**
+```
+- Use the singleton prisma from @/lib/prisma. Pages, Server Actions, and src/lib/ helpers may call prisma.<model>.<op>() directly — there is no repository or query layer. Prefer fetching via a sibling get* action when the same query lands in two or more places; one-off lookups (e.g. resolving a ?functionId= source param in src/app/events/[id]/print-orders/new/page.tsx) may stay inline in the page.
+```
+
+---
+
+## Items intentionally not applied (third pass)
+
+- Check 1 "Missed (would be caught by a thoughtful human reviewer)" findings that didn't roll up into Synthesis — out of scope per this prompt's rules ("Don't make changes the validation doc didn't call for"). Specifically:
+  - `formatPhone(null)` returning `""` vs. `"—"` — judgment call about helper return-shape idioms; flagged in "Notes for next iteration" rather than added as a rule.
+  - Duplicate "contact name + organization" header between `events/functions/ContactList.tsx` and `venues/ContactList.tsx` — first-copy / second-use timing question; the rubric's existing "promote on second use" stance covers it.
+  - `getRoomScheduleData`'s implicit "rooms-with-activity-only" filter, `pickMainRow`'s isPublic preference, and other one-off code observations — code-level, not rule-level.
+- Check 2 Unverifiable findings that depend on OQ-1 (strict `requireAuth()` rule status) — that question was resolved 2026-05-15 and reopening it isn't in scope for this pass.
+- "Notes for next iteration" — by definition deferred to the next pass.
+
+No findings were skipped to `claudemd-open-questions.md` this pass — every must-fix and should-fix item collapsed to a single doc-applicable resolution under the doc-only scope.

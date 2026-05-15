@@ -35,7 +35,7 @@ These are the load-bearing rules. Breaking one breaks the model the rest of the 
 Every page belongs to one of these. When adding a new feature, find the closest archetype and replicate it.
 
 ### A. Authenticated CRUD list — `src/app/<entity>/page.tsx`
-Server component, `export const dynamic = "force-dynamic"`, awaits `get<Entity>()` from sibling `actions.ts`, renders `<PageWrapper>` + `<PageHeader>`. Inline the `<table>` directly in the server page when there is no client-side state (sort / select / filter / bulk edit). Lift to a `*ListClient` (`"use client"`) the moment any one of those is needed. New action is a link to `/<entity>/new`. Example: `src/app/events/page.tsx`.
+Server component, `export const dynamic = "force-dynamic"`, awaits `get<Entity>()` from sibling `actions.ts`, renders `<PageWrapper>` + `<PageHeader>`. For lists with no client-side state, render rows inline — either a `<table>` when columns aid comparison (`src/app/events/page.tsx`) or a `<div>`-per-row card list for one-detail-per-row layouts (`src/app/events/[id]/print-orders/page.tsx`). Lift to a `*ListClient` (`"use client"`) the moment any of sort / select / filter / bulk edit is needed. New action is a link to `/<entity>/new`.
 
 ### B. Form with Server Action — `src/app/<entity>/new/page.tsx`, `src/app/<entity>/[id]/page.tsx`
 Server page fetches lookup data, then passes Server Actions as props to a client `*Form`. Pass the raw imported action when its signature already matches what the client component expects. Wrap it in an inline `"use server"` arrow closure when you need to bind context the client shouldn't have to supply (e.g. an `eventId` from `params`, or a sub-entity id) — see Archetype C. The `*Form` is `"use client"`, uses `useState` for edit/view toggle, and `useFormStatus()` for the pending submit button. The action calls `revalidatePath(...)` then `redirect(...)`. Example: `src/app/events/EventForm.tsx`, `src/app/events/[id]/page.tsx`.
@@ -73,6 +73,8 @@ scripts/            One-off CLI scripts (run outside Next).
 
 Feature-specific components colocate with their `actions.ts` under `src/app/<feature>/` (e.g. `src/app/events/EventForm.tsx`, `src/app/events/setup-orders/SetupOrderList.tsx`). `src/components/` is reserved for components reused across two or more features. Pages remain thin — fetch + delegate to the colocated client component.
 
+Helper files under `src/lib/` use camelCase (`breakoutLabels.ts`, `agendaUtils.ts`, `optionUtils.ts`, `userSettings.ts`, `shareLinks.ts`, `roomGroups.ts`), not kebab-case.
+
 ### Pages and routing
 
 - Every authenticated `page.tsx` declares `export const dynamic = "force-dynamic"`. The only carve-outs are `src/app/login/page.tsx`, `src/app/share/[token]/page.tsx` (both unauthenticated), and `src/app/settings/page.tsx` (pure redirect, no body).
@@ -99,6 +101,7 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 ### Forms and mutations
 
 - Use native `<form action={serverAction}>`. The submit button uses `useFormStatus()` inside a `SubmitButton` subcomponent (see `src/app/events/EventForm.tsx:11-24`).
+- Default to uncontrolled inputs (`defaultChecked` / `defaultValue`). Lift to controlled state (`checked` + `onChange`) only when the form mediates selection across UI transitions like text-filtering a long list, multi-select with bulk actions, or undo. When you do, also emit a hidden `<input type="hidden" name="..." />` for any selected value that the filtered view hides, so the submitted payload still carries it. See `RoomSelector` in `src/app/events/functions/FunctionForm.tsx:45-160` for the pattern.
 - For non-form mutations (delete, status toggle, vendor swap), call the Server Action from inside `useTransition` and disable the trigger while pending (see `src/components/CancelOrDeleteButton.tsx`, `EntityStatusPanel.tsx`).
 - Confirmation steps (delete, cancel) use inline state on the trigger, not modal dialogs (`src/components/DeleteButton.tsx`, `InlineDeleteButton.tsx`).
 - After a mutation, the pattern is `await action()` then `router.refresh()`. No `useOptimistic`.
@@ -111,7 +114,7 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 
 ### Data layer
 
-- Use the singleton `prisma` from `@/lib/prisma`. Direct `prisma.<model>.<op>()` calls are expected in pages, actions, and `src/lib/` helpers — there is no repository or query layer.
+- Use the singleton `prisma` from `@/lib/prisma`. Pages, Server Actions, and `src/lib/` helpers may call `prisma.<model>.<op>()` directly — there is no repository or query layer. Prefer fetching via a sibling `get*` action when the same query lands in two or more places; one-off lookups (e.g. resolving a `?functionId=` source param in `src/app/events/[id]/print-orders/new/page.tsx`) may stay inline in the page.
 - Domain types come from `@prisma/client`. For derived list/detail payloads, alias with `Awaited<ReturnType<typeof getX>>[number]` (e.g. `src/app/events/setup-orders/SetupOrderList.tsx:18`).
 - Persist per-user preferences via `setUserSetting` / `getUserSetting` from `@/lib/userSettings` (backed by the `UserSetting` table). Don't add cookies or localStorage for the same need.
 - When discriminating on a TypeScript union or Prisma enum, close the chain with an exhaustiveness check: `default: { const _exhaustive: never = value; throw new Error(\`Unhandled: ${value}\`); }` on a `switch`, or `const _exhaustive: never = link.reportType; throw new Error(...);` after the last `if` branch. Adding a member to the union then fails the build instead of silently falling through. Applies to the `OptionCategory` cascade switch in `src/app/settings/actions.ts` and the `ShareLink.reportType` if-chain in `src/app/share/[token]/page.tsx:40-215`.
@@ -176,7 +179,7 @@ A 2-column table may skip the mobile card only when both columns fit in 360 px �
 
 ### Required: nav, anchors, section dividers
 - Render `<ReportNav sections={[...]} itemGroups={[...]} />` from `src/components/ReportNav.tsx` as the first child of the report body. It's `sticky top-2 z-10` with `id="top"`, so every section divider's `↑ Top` link targets it automatically.
-- `sections` are the top-level anchors users jump to (e.g. Key Contacts, Schedule, Equipment, Unscheduled) — always visible inline. `ReportNav` does not auto-render a "Top" entry; an explicit `{ id: "top", label: "Top" }` in `sections` is redundant (the back-to-top affordance already lives on every `SectionDivider`) and should be omitted unless the report has no other section links.
+- `sections` are the top-level anchors users jump to (e.g. Key Contacts, Schedule, Equipment, Unscheduled) — always visible inline.
 - `itemGroups` is `{ label, links }[]` — each renders as its own `<details>` toggle so long lists stay collapsed.
 - Legacy props still work: `links={[...]}` behaves as `sections`; `items={[...]}` with optional `itemsLabel` renders as a single item group.
 - Use `<SectionDivider id="..." title="..." />` from `src/components/SectionDivider.tsx` to group logical regions. Each divider includes a `↑ Top` link automatically.
@@ -185,7 +188,7 @@ A 2-column table may skip the mobile card only when both columns fit in 360 px �
 ### Anchor ID conventions
 - Top-level sections: kebab-case (`top`, `summary`, `key-contacts`, `function-schedule`, `equipment-summary`, `details`, `unscheduled`).
 - Per-entity: `${kind}-${id}` (`function-${fn.id}`, `presentation-${presentation.id}`, `party-${partyId}`).
-- When an entity appears under multiple parents within the same report (e.g. a presentation rendered once per breakout block in `RoomScheduleReport.tsx`), compound IDs are permitted: `${kind}-${parentId}-${childId}`. The constraint is uniqueness on the page — kebab-case, no `:` / `/` / spaces.
+- When an entity appears under multiple parents within the same report (e.g. a presentation rendered once per breakout block), compound IDs are permitted: `${kind}-${id}-${parentId}` — the rendered entity first, then the disambiguating parent. See `presentation-${item.entry.slot.presentation.id}-${item.entry.block.id}` in `src/app/events/[id]/reports/room-schedule/RoomScheduleReport.tsx:200`. The constraint is uniqueness on the page — kebab-case, no `:` / `/` / spaces.
 - Never use raw composite keys containing `:` or other CSS-unfriendly characters as HTML IDs — compute a clean anchor id separately from the React `key`.
 
 ### Filter bar conventions
@@ -259,7 +262,7 @@ Vendors with an empty `models` array are treated as general-purpose and appear i
 
 ## Order list and bulk edit pattern
 
-Every order type follows this structure. When adding a new order type, replicate it exactly.
+Order types that ship with bulk-edit follow this structure exactly. New order types may ship lean (no `*ListClient`, no multi-select, no bulk actions) — see `src/app/events/[id]/print-orders/page.tsx` for the lean variant. When bulk-edit is added later, replicate the structure below.
 
 ### File layout
 - `src/app/events/[order-type]/[OrderType]List.tsx` — `"use client"` component with list view, table view, selection, and bulk edit.
