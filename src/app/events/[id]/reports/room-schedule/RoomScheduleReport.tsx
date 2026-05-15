@@ -23,88 +23,120 @@ type BreakoutEntry = RoomBucket["breakoutEntries"][number];
 
 type ScheduleRow = RegularFn["schedules"][number];
 
-type AgendaItem =
-  | {
-      kind: "function";
-      fn: RegularFn;
-      mainRow: ScheduleRow;
-      subRows: ScheduleRow[];
-      start: Date;
-      end: Date;
-    }
-  | {
-      kind: "breakout";
-      entry: BreakoutEntry;
-      mainRow: ScheduleRow;
-      subRows: ScheduleRow[];
-      start: Date;
-      end: Date;
-    };
+type AgendaItem = (
+  | { kind: "function"; fn: RegularFn }
+  | { kind: "breakout"; entry: BreakoutEntry }
+) & {
+  mainRow: ScheduleRow;
+  subRows: ScheduleRow[];
+  start: Date;
+  end: Date;
+  dayKey: string;
+  allDay: boolean;
+};
 
-function pickMainRow(schedules: ScheduleRow[]): {
-  main: ScheduleRow | null;
-  subs: ScheduleRow[];
-} {
-  if (schedules.length === 0) return { main: null, subs: [] };
+function pickMainsAndSubs(
+  schedules: ScheduleRow[]
+): { main: ScheduleRow; subs: ScheduleRow[] }[] {
+  if (schedules.length === 0) return [];
   const publicRows = schedules.filter((s) => s.isPublic);
-  const pool = publicRows.length > 0 ? publicRows : schedules;
-  const main = pool.reduce((longest, s) => {
-    const dur = s.endTime.getTime() - s.startTime.getTime();
-    const longestDur = longest.endTime.getTime() - longest.startTime.getTime();
-    return dur > longestDur ? s : longest;
-  }, pool[0]);
-  const subs = schedules
-    .filter((s) => s.id !== main.id)
-    .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-  return { main, subs };
+  let mains: ScheduleRow[];
+  let others: ScheduleRow[];
+  if (publicRows.length > 0) {
+    mains = [...publicRows].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+    others = schedules.filter((s) => !s.isPublic);
+  } else {
+    const longest = schedules.reduce((longest, s) => {
+      const dur = s.endTime.getTime() - s.startTime.getTime();
+      const longestDur = longest.endTime.getTime() - longest.startTime.getTime();
+      return dur > longestDur ? s : longest;
+    }, schedules[0]);
+    mains = [longest];
+    others = schedules.filter((s) => s.id !== longest.id);
+  }
+
+  const subsByMain = new Map<string, ScheduleRow[]>(mains.map((m) => [m.id, []]));
+  for (const sub of others) {
+    const nearest = mains.reduce((best, m) => {
+      const dBest = Math.abs(sub.startTime.getTime() - best.startTime.getTime());
+      const dM = Math.abs(sub.startTime.getTime() - m.startTime.getTime());
+      return dM < dBest ? m : best;
+    }, mains[0]);
+    subsByMain.get(nearest.id)!.push(sub);
+  }
+
+  return mains.map((main) => ({
+    main,
+    subs: subsByMain
+      .get(main.id)!
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime()),
+  }));
 }
 
-function buildAgendaItems(bucket: RoomBucket): AgendaItem[] {
+function enumerateDayKeys(start: Date, end: Date, timezone: string): string[] {
+  const startKey = getDateKeyInTimezone(start, timezone);
+  const endKey = getDateKeyInTimezone(end, timezone);
+  if (startKey >= endKey) return [startKey];
+  const keys: string[] = [startKey];
+  let cursor = startKey;
+  for (let i = 0; i < 60 && cursor < endKey; i++) {
+    const d = new Date(`${cursor}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    cursor = d.toISOString().slice(0, 10);
+    keys.push(cursor);
+  }
+  return keys;
+}
+
+function buildAgendaItems(bucket: RoomBucket, timezone: string): AgendaItem[] {
   const items: AgendaItem[] = [];
 
-  for (const fn of bucket.regularFunctions) {
-    const { main, subs } = pickMainRow(fn.schedules);
-    if (!main) continue;
-    items.push({
-      kind: "function",
-      fn,
-      mainRow: main,
-      subRows: subs,
-      start: main.startTime,
-      end: main.endTime,
-    });
-  }
+  const emit = (
+    base: { kind: "function"; fn: RegularFn } | { kind: "breakout"; entry: BreakoutEntry },
+    schedules: ScheduleRow[]
+  ) => {
+    for (const { main, subs } of pickMainsAndSubs(schedules)) {
+      const dayKeys = enumerateDayKeys(main.startTime, main.endTime, timezone);
+      const multiDay = dayKeys.length > 1;
+      for (const dayKey of dayKeys) {
+        const subsForDay = multiDay
+          ? subs.filter((s) => getDateKeyInTimezone(s.startTime, timezone) === dayKey)
+          : subs;
+        items.push({
+          ...base,
+          mainRow: main,
+          subRows: subsForDay,
+          start: main.startTime,
+          end: main.endTime,
+          dayKey,
+          allDay: multiDay,
+        });
+      }
+    }
+  };
 
-  for (const entry of bucket.breakoutEntries) {
-    const { main, subs } = pickMainRow(entry.block.schedules);
-    if (!main) continue;
-    items.push({
-      kind: "breakout",
-      entry,
-      mainRow: main,
-      subRows: subs,
-      start: main.startTime,
-      end: main.endTime,
-    });
-  }
+  for (const fn of bucket.regularFunctions) emit({ kind: "function", fn }, fn.schedules);
+  for (const entry of bucket.breakoutEntries) emit({ kind: "breakout", entry }, entry.block.schedules);
 
-  items.sort((a, b) => a.start.getTime() - b.start.getTime());
   return items;
 }
 
-function groupByDay(
-  items: AgendaItem[],
-  timezone: string
-): { dateKey: string; items: AgendaItem[] }[] {
+function groupByDay(items: AgendaItem[]): { dateKey: string; items: AgendaItem[] }[] {
   const dated = new Map<string, AgendaItem[]>();
   for (const item of items) {
-    const key = getDateKeyInTimezone(item.start, timezone);
-    if (!dated.has(key)) dated.set(key, []);
-    dated.get(key)!.push(item);
+    if (!dated.has(item.dayKey)) dated.set(item.dayKey, []);
+    dated.get(item.dayKey)!.push(item);
   }
   return Array.from(dated.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateKey, items]) => ({ dateKey, items }));
+    .map(([dateKey, items]) => ({
+      dateKey,
+      items: items.sort((a, b) => a.start.getTime() - b.start.getTime()),
+    }));
+}
+
+function timeLabel(item: AgendaItem, timezone: string): string {
+  return item.allDay ? "All day" : timeRange(item.start, item.end, timezone);
 }
 
 function speakerNames(entry: BreakoutEntry): string {
@@ -152,10 +184,12 @@ function itemNotes(item: AgendaItem): string[] {
   return notes;
 }
 
-function anchorIdFor(item: AgendaItem): string {
-  return item.kind === "function"
-    ? `function-${item.fn.id}`
-    : `presentation-${item.entry.slot.presentation.id}-${item.entry.block.id}`;
+function rowKey(item: AgendaItem): string {
+  const base =
+    item.kind === "function"
+      ? `function-${item.fn.id}`
+      : `presentation-${item.entry.slot.presentation.id}-${item.entry.block.id}`;
+  return `${base}-${item.mainRow.id}-${item.dayKey}`;
 }
 
 function RoomDayTable({
@@ -175,11 +209,11 @@ function RoomDayTable({
         {items.map((item) => {
           const notes = itemNotes(item);
           return (
-            <div key={anchorIdFor(item)} id={anchorIdFor(item)} className="p-2 scroll-mt-24">
+            <div key={rowKey(item)} className="p-2">
               <div className="flex justify-between gap-2">
                 <p className="font-semibold text-gray-900 dark:text-white">{itemTitle(item)}</p>
                 <p className="shrink-0 text-gray-700 dark:text-gray-300">
-                  {timeRange(item.start, item.end, timezone)}
+                  {timeLabel(item, timezone)}
                 </p>
               </div>
               <p className="text-gray-500 dark:text-gray-400 mt-0.5">
@@ -217,9 +251,9 @@ function RoomDayTable({
             {items.map((item) => {
               const notes = itemNotes(item);
               return (
-                <tr key={anchorIdFor(item)} id={anchorIdFor(item)} className="scroll-mt-24">
+                <tr key={rowKey(item)}>
                   <td className={`${td} whitespace-nowrap font-medium`}>
-                    {timeRange(item.start, item.end, timezone)}
+                    {timeLabel(item, timezone)}
                     {item.subRows.length > 0 && (
                       <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 print:text-gray-600 font-normal">
                         {item.subRows.map((row) => (
@@ -267,8 +301,8 @@ function RoomSection({
   functionTypes: CustomOption[];
   scheduleTypes: CustomOption[];
 }) {
-  const items = buildAgendaItems(bucket);
-  const dayGroups = groupByDay(items, timezone);
+  const items = buildAgendaItems(bucket, timezone);
+  const dayGroups = groupByDay(items);
   const venueName = bucket.room.venue?.name;
   const capacity = bucket.room.capacity;
 

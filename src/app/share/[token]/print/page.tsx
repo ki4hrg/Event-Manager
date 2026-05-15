@@ -250,14 +250,19 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
     if (!event || !data) notFound();
 
     return (
-      <div className="p-6 max-w-5xl mx-auto">
-        <PrintHeader eventName={link.event.name} title="Room Schedule" backHref={backHref} />
-        <RoomScheduleReport
-          data={data}
-          functionTypes={functionTypes}
-          scheduleTypes={scheduleTypes}
-        />
-      </div>
+      <>
+        <style>{`@page { margin: 0.5in; }`}</style>
+        <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
+          <div className="print:hidden">
+            <PrintHeader eventName={link.event.name} title="Room Schedule" backHref={backHref} />
+          </div>
+          <RoomScheduleReport
+            data={data}
+            functionTypes={functionTypes}
+            scheduleTypes={scheduleTypes}
+          />
+        </div>
+      </>
     );
   }
 
