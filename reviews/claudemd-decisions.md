@@ -260,11 +260,11 @@ rules come before style/process rules.
 **Decision:** Merge + drop the original line. Add one sentence to the Project Structure block: "Pages remain thin — fetch + delegate to the colocated client component."
 **Rationale:** Keeps CLAUDE.md tight; one canonical statement about where new code goes. Avoids overlap between "Project Structure" and "Code Conventions".
 
-### Row 13 — "Mobile-first responsive design"
-**Classification:** Vague.
-**Recommended decision:** Sharpen it.
-**If sharpening:** "Every report table must render BOTH a mobile-card layout (`sm:hidden`) and a desktop/print table (`hidden sm:block print:block`). Other lists may rely on horizontal scroll, but new full-page layouts should be functional at 360 px width."
-**Rationale:** The codebase only systematically applies mobile-first thinking to reports (already in `CLAUDE.md:154-167`). Pulling that into the general rule makes the principle reviewable.
+### Row 13 — "Mobile-first responsive design"  **decided 2026-05-15**
+**Rule (decided):** Reports must render dual layouts: a mobile card view (`sm:hidden`) and a desktop/print table (`hidden sm:block print:block`). Other tables may rely on horizontal scroll inside `overflow-x-auto`, but every new full-page layout (sidebars, filter bars, forms) must remain functional at 360 px width.
+**Classification:** Was Vague; resolved.
+**Decision:** Adopt the two-tier wording (Option A).
+**Rationale:** Describes the actual posture today — reports are the highly mobile-optimized surface; order lists and most other tables rely on horizontal scroll and work fine at narrow widths. Migrating order lists to dual-render would be a separate, larger decision; conflating it with CLAUDE.md cleanup would either misrepresent the codebase or trigger work nobody scheduled.
 
 ---
 
