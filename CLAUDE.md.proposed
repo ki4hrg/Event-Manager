@@ -26,7 +26,7 @@ These are the load-bearing rules. Breaking one breaks the model the rest of the 
 - **App Router only.** Routes live under `src/app/`. Do not create a `pages/` directory.
 - **Server Actions are the mutation channel.** Route handlers (`route.ts`) are reserved for cases Server Actions can't express: NextAuth callbacks (`src/app/api/auth/[...nextauth]/route.ts`), `multipart/form-data` uploads (`src/app/api/upload/route.ts`), and binary file streaming (`src/app/api/files/[fileId]/route.ts`). Do not add JSON CRUD route handlers — use Server Actions instead.
 - **No repository / DAL.** Pages, Server Actions, and `src/lib/` helpers all call Prisma directly via the singleton from `@/lib/prisma`. Never `new PrismaClient()` at runtime (`prisma/seed.mjs` and `scripts/*.ts` are the only exceptions — they run outside the Next runtime).
-- **Auth is defense-in-depth.** Middleware (`src/middleware.ts`) gates every request except `/login`, `/api/auth/*`, and `/share/*`. Admin route segments add a `layout.tsx` that calls `requireAdmin()`. Every Server Action also self-protects with `await requireAuth()` (or `await requireAdmin()` for admin-only actions) as its first line. See "Security and validation".
+- **Auth is defense-in-depth.** Middleware (`src/middleware.ts`) gates every request except `/login`, `/api/auth/*`, and `/share/*`. Admin route segments add a `layout.tsx` that calls `requireAdmin()`. Every Server Action also self-protects with `await requireAuth()` (or `await requireAdmin()`) as its first line — with one carve-out for report data actions, documented in "Server Actions" below. See "Security and validation".
 - **No global client state.** No Zustand / Jotai / Redux / SWR / React Query. Use React built-ins (`useState`, `useTransition`, `useRef`). Cross-request preferences go in the `UserSetting` table.
 - **Single-tenant.** No organization / workspace model exists in `prisma/schema.prisma`. Don't introduce multi-org access controls.
 
@@ -35,10 +35,10 @@ These are the load-bearing rules. Breaking one breaks the model the rest of the 
 Every page belongs to one of these. When adding a new feature, find the closest archetype and replicate it.
 
 ### A. Authenticated CRUD list — `src/app/<entity>/page.tsx`
-Server component, `export const dynamic = "force-dynamic"`, awaits `get<Entity>()` from sibling `actions.ts`, renders `<PageWrapper>` + `<PageHeader>` and either an inline `<table>` or a `*ListClient`. New action is a link to `/<entity>/new`. Example: `src/app/events/page.tsx`.
+Server component, `export const dynamic = "force-dynamic"`, awaits `get<Entity>()` from sibling `actions.ts`, renders `<PageWrapper>` + `<PageHeader>`. Inline the `<table>` directly in the server page when there is no client-side state (sort / select / filter / bulk edit). Lift to a `*ListClient` (`"use client"`) the moment any one of those is needed. New action is a link to `/<entity>/new`. Example: `src/app/events/page.tsx`.
 
 ### B. Form with Server Action — `src/app/<entity>/new/page.tsx`, `src/app/<entity>/[id]/page.tsx`
-Server page fetches lookup data, then passes raw Server Actions (or inline `"use server"` wrapper closures) as props to a client `*Form`. The `*Form` is `"use client"`, uses `useState` for edit/view toggle, and `useFormStatus()` for the pending submit button. The action calls `revalidatePath(...)` then `redirect(...)`. Example: `src/app/events/EventForm.tsx`, `src/app/events/[id]/page.tsx`.
+Server page fetches lookup data, then passes Server Actions as props to a client `*Form`. Pass the raw imported action when its signature already matches what the client component expects. Wrap it in an inline `"use server"` arrow closure when you need to bind context the client shouldn't have to supply (e.g. an `eventId` from `params`, or a sub-entity id) — see Archetype C. The `*Form` is `"use client"`, uses `useState` for edit/view toggle, and `useFormStatus()` for the pending submit button. The action calls `revalidatePath(...)` then `redirect(...)`. Example: `src/app/events/EventForm.tsx`, `src/app/events/[id]/page.tsx`.
 
 ### C. Event-scoped subresource — `src/app/events/[id]/<order-type>/[<id>]/page.tsx`
 Awaits `params: Promise<{ id: string; ... }>`, loads dependencies in parallel via `Promise.all([...])`, calls `notFound()` when missing, and wraps remote Server Actions in inline `"use server"` arrow closures that bind `eventId` / sub-id before passing them to the client component. Example: `src/app/events/[id]/setup-orders/[setupOrderId]/page.tsx:62-200`.
@@ -79,7 +79,8 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 - Type page props as `params: Promise<{...}>` and `searchParams: Promise<{...}>`, then `await` them. Same applies to new route handlers.
 - Use `Promise.all([...])` to fan out independent fetches inside a page.
 - Missing records call `notFound()`. Do not add `error.tsx`, `not-found.tsx`, or `loading.tsx` files — rely on Next's defaults.
-- Import via `@/...` (`@/* → ./src/*`) rather than relative paths across feature boundaries.
+- Filter state on list and table pages lives in URL search params (same reasoning as Reports — bookmarkable, share-friendly, survives refresh and back-button). On filter change, push to `router.replace(url)` so the URL stays in sync. Don't park filter state in `useState` alone.
+- Import via `@/...` (`@/* → ./src/*`) across feature boundaries. A "feature" is a directory under `src/app/<feature>/` (e.g. all of `src/app/events/setup-orders/`); sibling imports inside one feature may stay relative. Anything crossing out of a feature dir — into `src/lib/`, `src/components/`, another `src/app/<other-feature>/`, or `src/types/` — uses `@/...`.
 
 ### Server Actions
 
@@ -135,7 +136,7 @@ The project intentionally ships without a test suite or structured logger. Don't
 ## Security and validation
 
 - **Authentication.** Enforced first at middleware (`src/middleware.ts` re-exports the NextAuth `auth` callback as middleware). The `authorized` callback in `src/lib/auth.ts:74-85` exempts `/login`, `/api/auth/*`, and `/share/*`. Every authenticated page can assume `session.user` exists; it does not need to re-check.
-- **Server Actions self-protect.** Every exported action starts with `await requireAuth()` or `await requireAdmin()`. Reasoning: defense in depth, and a reviewer can see the protection at the top of the file without auditing middleware coverage. Exception: report data actions in `src/app/events/reports/actions.ts` are deliberately auth-free so `/share/[token]/` can reuse them.
+- **Server Actions self-protect.** Every exported action starts with `await requireAuth()` or `await requireAdmin()`. Reasoning: defense in depth, and a reviewer can see the protection at the top of the file without auditing middleware coverage. The report-actions carve-out is stated once in "Server Actions" above.
 - **Admin authorization.** Admin-only route segments (`/settings`, `/users`, `/workflows`) have a `layout.tsx` that calls `requireAdmin()`. Pages inside don't re-check; Server Actions still call `requireAdmin()` themselves.
 - **Input handling.** No runtime schema library (no zod / yup / valibot). Trust the TypeScript types for FormData shape. Use `throw new Error(...)` for the cases that must be checked at runtime (uniqueness preview, cross-field invariants — see `src/app/users/actions.ts:46-55`, `src/app/account/actions.ts:11-13`). Empty strings are normalized to `null` with `|| null`.
 - **Share links.** Tokens are validated by `getActiveShareLink` (`src/lib/shareLinks.ts:18-26`), which checks `revokedAt` and `expiresAt`. The share branch in `src/app/share/[token]/page.tsx` is the only public surface that reads event data.
@@ -167,11 +168,11 @@ Every table renders BOTH a mobile card layout and a desktop/print table:
   </div>
 </>
 ```
-Tables with ≤ 2 simple columns (e.g. presentation time/room) may skip the mobile card if they fit naturally at 360 px. A `table-fixed` table without a mobile card variant is wrong on mobile — `overflow-x-auto` does nothing because the table never exceeds the viewport width.
+A 2-column table may skip the mobile card only when both columns fit in 360 px — concretely: ≤ 2 columns and the longest realistic cell is ≤ ~24 characters (e.g. a `HH:MM – HH:MM` time paired with a short room name). Anything wider — three columns, long item names, role/provider stacks — must dual-render. A `table-fixed` table without a mobile card variant is wrong on mobile: `overflow-x-auto` does nothing because the table never exceeds the viewport width.
 
 ### Required: nav, anchors, section dividers
-- Render `<ReportNav sections={[...]} itemGroups={[...]} />` from `src/components/ReportNav.tsx` as the first child of the report body. It's `sticky top-2 z-10` with `id="top"`, so every section divider can link back to it.
-- `sections` are top-level anchors (Key Contacts, Schedule, Equipment, Unscheduled) — always visible inline.
+- Render `<ReportNav sections={[...]} itemGroups={[...]} />` from `src/components/ReportNav.tsx` as the first child of the report body. It's `sticky top-2 z-10` with `id="top"`, so every section divider's `↑ Top` link targets it automatically.
+- `sections` are the top-level anchors users jump to (e.g. Key Contacts, Schedule, Equipment, Unscheduled) — always visible inline. `ReportNav` does not auto-render a "Top" entry; an explicit `{ id: "top", label: "Top" }` in `sections` is redundant (the back-to-top affordance already lives on every `SectionDivider`) and should be omitted unless the report has no other section links.
 - `itemGroups` is `{ label, links }[]` — each renders as its own `<details>` toggle so long lists stay collapsed.
 - Legacy props still work: `links={[...]}` behaves as `sections`; `items={[...]}` with optional `itemsLabel` renders as a single item group.
 - Use `<SectionDivider id="..." title="..." />` from `src/components/SectionDivider.tsx` to group logical regions. Each divider includes a `↑ Top` link automatically.
@@ -180,6 +181,7 @@ Tables with ≤ 2 simple columns (e.g. presentation time/room) may skip the mobi
 ### Anchor ID conventions
 - Top-level sections: kebab-case (`top`, `summary`, `key-contacts`, `function-schedule`, `equipment-summary`, `details`, `unscheduled`).
 - Per-entity: `${kind}-${id}` (`function-${fn.id}`, `presentation-${presentation.id}`, `party-${partyId}`).
+- When an entity appears under multiple parents within the same report (e.g. a presentation rendered once per breakout block in `RoomScheduleReport.tsx`), compound IDs are permitted: `${kind}-${parentId}-${childId}`. The constraint is uniqueness on the page — kebab-case, no `:` / `/` / spaces.
 - Never use raw composite keys containing `:` or other CSS-unfriendly characters as HTML IDs — compute a clean anchor id separately from the React `key`.
 
 ### Filter bar conventions
@@ -195,7 +197,7 @@ Tables with ≤ 2 simple columns (e.g. presentation time/room) may skip the mobi
 - Dedicated print route (`/print`); do NOT print the interactive screen directly.
 - Use `PrintHeader` (`src/components/print/PrintHeader.tsx`) with `eventName`, `title`, `backHref`.
 - Filter controls are not rendered on print pages — the URL carries them in.
-- "Print / Save PDF" button in `ReportFilters` is an `<a href="${basePath}/print?...">`, never `window.print()`.
+- The "Print / Save PDF" button follows the two-layer rule documented under "Mobile and print" — link on the interactive page, `window.print()` only on the dedicated `/print` route.
 - Use Tailwind class strings from `src/lib/reportStyles.ts` — do not re-declare inline.
 
 ### Share-view integration
@@ -287,6 +289,9 @@ if (filters.status === "__blank__") {
 } else if (filters.status && o.status !== filters.status) return false;
 ```
 Empty string (`""`) means "All / no filter". Never use `null` or `undefined` as a select option value — use the `__blank__` sentinel instead.
+
+### Absence sentinels across the stack
+Use the same sentinel string for "no value" across `<select>` options, internal component state, and URL params. Prefer `__blank__` for `<select>` values; if a URL param has to be human-readable (`?room=none`, `?schedule=none`), translate at the page boundary once and use `__blank__` internally. Never invent a third string (e.g. mixing `none` / `no` / `__none__` / `__blank__` inside one feature) — pick one and convert at the edge.
 
 ## Breakout session labels
 
