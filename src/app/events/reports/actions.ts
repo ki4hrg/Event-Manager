@@ -758,6 +758,7 @@ const equipmentItemInclude = {
 const functionInclude = {
   schedules: { orderBy: { sortOrder: "asc" as const } },
   rooms: { include: { room: { select: { id: true, name: true } } } },
+  breakoutGroup: { select: { name: true } },
 } as const;
 
 export async function getVendorHandoffData(eventId: string, vendorId: string) {
@@ -946,6 +947,7 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
       include: {
         schedules: { orderBy: { sortOrder: "asc" } },
         rooms: { include: { room: { select: { id: true, name: true } } } },
+        breakoutGroup: { select: { name: true } },
         contacts: {
           include: {
             contact: { select: { id: true, firstName: true, lastName: true } },

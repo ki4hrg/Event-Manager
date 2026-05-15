@@ -13,6 +13,7 @@ import { colorClasses } from "@/lib/colors";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { getEarliestStart, getLatestEnd, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { getSetupOrderDisplayName } from "../setup-orders/utils";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 
@@ -124,7 +125,7 @@ export function FunctionTableView({
 
   const filtered = useMemo(() => {
     return functions.filter((fn) => {
-      if (filters.name && !fn.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
+      if (filters.name && !formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name).toLowerCase().includes(filters.name.toLowerCase())) return false;
 
       if (filters.status === "__blank__") {
         if (fn.status != null) return false;
@@ -178,7 +179,11 @@ export function FunctionTableView({
     return [...filtered].sort((a, b) => {
       switch (sortField) {
         case "name":
-          return compareValues(a.name, b.name, sortDir);
+          return compareValues(
+            formatBreakoutSessionName(a.name, a.breakoutGroup?.name),
+            formatBreakoutSessionName(b.name, b.breakoutGroup?.name),
+            sortDir
+          );
         case "earliestStart":
           return compareValues(scheduleBounds.get(a.id)!.earliest, scheduleBounds.get(b.id)!.earliest, sortDir);
         case "latestEnd":
@@ -504,7 +509,7 @@ export function FunctionTableView({
                       href={`/events/${eventId}/functions/${fn.id}`}
                       className="text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      {fn.name}
+                      {formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}
                     </Link>
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">

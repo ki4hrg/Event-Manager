@@ -2,6 +2,7 @@ import type { getVendorHandoffData } from "@/app/events/reports/actions";
 import type { getEvent } from "@/app/events/actions";
 import { formatTime, formatDateHeading } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { formatPhone } from "@/lib/format-phone";
 import {
   reportTh as th,
@@ -388,7 +389,7 @@ function FunctionScheduleSection({
           fnId: fn.id,
           type: schedule.type,
           timeStr: `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`,
-          name: fn.name,
+          name: formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name),
           rooms: fn.rooms.map((r) => r.room.name).join(", ") || "—",
           notes: schedule.notes ?? "",
         }));
@@ -449,7 +450,7 @@ function FunctionScheduleSection({
               <tbody>
                 {unscheduled.map((fn) => (
                   <tr key={fn.id}>
-                    <td className={td}><a href={`#function-${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{fn.name}</a></td>
+                    <td className={td}><a href={`#function-${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}</a></td>
                     <td className={td}>{fn.rooms.map((r) => r.room.name).join(", ") || "—"}</td>
                   </tr>
                 ))}
@@ -857,7 +858,7 @@ function FunctionSection({
     <div id={anchorId} className={`${sectionCard} print:break-before-page scroll-mt-24`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
-          {fn.name}
+          {formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}
         </h2>
         <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
           {typeLabel && <span>{typeLabel}</span>}
@@ -1103,7 +1104,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
   if (equipmentByCategory.length > 0) sectionLinks.push({ id: "equipment-summary", label: "Equipment" });
   if (hasUnscheduled) sectionLinks.push({ id: "unscheduled", label: "Unscheduled" });
 
-  const functionLinks = groups.map((g) => ({ id: `function-${g.fn.id}`, label: g.fn.name }));
+  const functionLinks = groups.map((g) => ({ id: `function-${g.fn.id}`, label: formatBreakoutSessionName(g.fn.name, g.fn.breakoutGroup?.name) }));
   const presentationLinks = presentationGroups.map((g) => ({ id: `presentation-${g.presentation.id}`, label: g.presentation.title }));
 
   return (

@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useMemo } from "react";
 import Link from "next/link";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "./utils";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import {
   DndContext,
   DragOverlay,
@@ -211,14 +212,14 @@ function SessionManager({
               className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded text-sm"
             >
               <div>
-                <span className="font-medium text-gray-900 dark:text-white">{session.name}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{formatBreakoutSessionName(session.name, group.name)}</span>
                 <span className="text-gray-500 dark:text-gray-400 ml-2">
                   {formatSessionTime(session.schedules, timezone)}
                 </span>
               </div>
               <button
                 onClick={() => {
-                  if (confirm(`Delete session "${session.name}"?`))
+                  if (confirm(`Delete session "${formatBreakoutSessionName(session.name, group.name)}"?`))
                     startTransition(() => deleteSession(session.id));
                 }}
                 disabled={isPending}
@@ -959,7 +960,7 @@ function AssignmentGrid({
                 return (
                   <tr key={session.id}>
                     <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap align-top">
-                      <div className="text-gray-900 dark:text-white">{session.name}</div>
+                      <div className="text-gray-900 dark:text-white">{formatBreakoutSessionName(session.name, group.name)}</div>
                       <div className="text-gray-500 dark:text-gray-400 font-normal">
                         {formatSessionTime(session.schedules, timezone)}
                       </div>

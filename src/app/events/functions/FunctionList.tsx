@@ -14,6 +14,7 @@ import { ViewToggle } from "@/components/ui/ViewToggle";
 import { FunctionTableView } from "./FunctionTableView";
 import { getEarliestStart, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 
 type FunctionListProps = {
@@ -165,7 +166,7 @@ export function FunctionList({
               href={fnHref}
               className="text-blue-600 dark:text-blue-400 hover:underline font-medium truncate"
             >
-              {fn.name}
+              {formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}
             </Link>
             <WorkflowBadge summary={workflowSummaries[fn.id]} />
             <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
@@ -175,9 +176,6 @@ export function FunctionList({
               <span className={`px-1.5 py-0.5 text-xs rounded ${colorClasses[resolveOptionColor(fn.type, functionTypes)] || colorClasses.gray}`}>
                 {resolveOptionLabel(fn.type, functionTypes)}
               </span>
-            )}
-            {fn.breakoutGroup && (
-              <span className="text-xs">{fn.breakoutGroup.name}</span>
             )}
             {fn.schedules.length > 0 ? (
               <span>

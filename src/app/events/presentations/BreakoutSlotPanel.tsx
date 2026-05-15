@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import type { PresentationSlot, Function as PrismaFunction, FunctionSchedule, Room, BreakoutGroup } from "@prisma/client";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 
 type RoomBasic = { id: string; name: string };
 
@@ -272,7 +273,7 @@ export function BreakoutSlotPanel({
                     <option value="">Select session...</option>
                     {getEditSessions(slot.functionId).map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}{s.schedules[0] ? ` — ${formatSessionTime(s.schedules, timezone)}` : ""}
+                        {formatBreakoutSessionName(s.name, currentGroup?.name)}{s.schedules[0] ? ` — ${formatSessionTime(s.schedules, timezone)}` : ""}
                       </option>
                     ))}
                   </select>
@@ -318,7 +319,7 @@ export function BreakoutSlotPanel({
                       href={`/events/${eventId}/functions/${slot.functionId}`}
                       className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
                     >
-                      {slot.function.name}
+                      {formatBreakoutSessionName(slot.function.name, slot.function.breakoutGroup?.name)}
                     </Link>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -380,7 +381,7 @@ export function BreakoutSlotPanel({
                   <option value="">No session</option>
                   {availableAddSessions.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name}{s.schedules[0] ? ` — ${formatSessionTime(s.schedules, timezone)}` : ""}
+                      {formatBreakoutSessionName(s.name, addGroup?.name)}{s.schedules[0] ? ` — ${formatSessionTime(s.schedules, timezone)}` : ""}
                     </option>
                   ))}
                 </select>

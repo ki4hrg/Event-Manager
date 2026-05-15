@@ -2,6 +2,7 @@ import type { CustomOption } from "@prisma/client";
 import type { RoomScheduleData } from "@/app/events/reports/actions";
 import { getDateKeyInTimezone, formatDateHeading, formatTime } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
@@ -160,7 +161,7 @@ function itemContext(item: AgendaItem, functionTypes: CustomOption[]): string {
     return resolveOptionLabel(item.fn.type, functionTypes) || item.fn.type || "";
   }
   // breakout: show block name + presentation type (or "Breakout")
-  const blockName = item.entry.block.name;
+  const blockName = formatBreakoutSessionName(item.entry.block.name, item.entry.block.breakoutGroup?.name);
   const presType = resolveOptionLabel(item.entry.slot.presentation.type, []) || "Breakout";
   return `${presType} · in ${blockName}`;
 }
