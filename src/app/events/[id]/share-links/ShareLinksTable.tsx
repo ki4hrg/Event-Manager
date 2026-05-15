@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 const REPORT_LABELS: Record<string, string> = {
   EQUIPMENT_RESPONSIBILITY: "Equipment Responsibility",
   VENDOR_HANDOFF: "Vendor Handoff",
+  EVENT_PROFILE: "Event Profile",
 };
 
 type Link = {

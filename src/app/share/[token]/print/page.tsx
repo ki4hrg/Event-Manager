@@ -1,12 +1,13 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
-import { getEquipmentResponsibilityData, getVendorHandoffData, getOrderAssignedVendors } from "@/app/events/reports/actions";
+import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
+import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 
@@ -166,6 +167,53 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
           backHref={backHref}
         />
         <VendorHandoffReport data={handoffData} event={event} functionTypes={functionTypes} />
+      </div>
+    );
+  }
+
+  if (link.reportType === "EVENT_PROFILE") {
+    let effectiveDays: string[] | undefined;
+    let effectiveSections: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveDays = storedFilters.days;
+      effectiveSections = storedFilters.sections;
+    } else {
+      const daysParam = getString(sp.days);
+      const sectionsParam = getString(sp.sections);
+      effectiveDays = daysParam
+        ? daysParam.split(",").filter(Boolean)
+        : storedFilters.days;
+      effectiveSections = sectionsParam
+        ? sectionsParam.split(",").filter(Boolean)
+        : storedFilters.sections;
+    }
+
+    const [event, data, functionTypes, serviceStyles] = await Promise.all([
+      getEvent(link.eventId),
+      getEventProfileData(link.eventId, {
+        days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
+      }),
+      getOptions("function_type"),
+      getOptions("service_style"),
+    ]);
+
+    if (!event || !data) notFound();
+
+    const validSectionValues = new Set(PROFILE_SECTIONS.map((s) => s.value));
+    const validSections = (effectiveSections ?? []).filter((s) =>
+      validSectionValues.has(s as ProfileSection)
+    ) as ProfileSection[];
+
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <PrintHeader eventName={link.event.name} title="Event Profile" backHref={backHref} />
+        <EventProfileReport
+          data={data}
+          functionTypes={functionTypes}
+          serviceStyles={serviceStyles}
+          selectedSections={validSections}
+        />
       </div>
     );
   }

@@ -569,6 +569,172 @@ export async function getEquipmentResponsibilityData(
   return groups;
 }
 
+// ─── Event Profile Report ─────────────────────────────────────────────────────
+
+export type EventProfileFilters = {
+  days?: string[]; // YYYY-MM-DD keys in event timezone
+};
+
+function getDateKey(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function functionMatchesDays(
+  schedules: { startTime: Date }[],
+  dayKeys: Set<string>,
+  timezone: string
+): boolean {
+  if (schedules.length === 0) return false;
+  return schedules.some((s) => dayKeys.has(getDateKey(s.startTime, timezone)));
+}
+
+export async function getEventProfileData(
+  eventId: string,
+  opts: EventProfileFilters = {}
+) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: {
+      venue: {
+        include: {
+          contacts: {
+            include: {
+              contact: {
+                select: { id: true, firstName: true, lastName: true, email: true, phone: true, organization: true },
+              },
+            },
+            orderBy: { id: "asc" },
+          },
+        },
+      },
+    },
+  });
+  if (!event) return null;
+
+  const timezone = event.timezone;
+  const dayKeys = opts.days && opts.days.length > 0 ? new Set(opts.days) : null;
+
+  const functionScheduleInclude = {
+    schedules: { orderBy: { sortOrder: "asc" as const } },
+    rooms: { include: { room: { select: { id: true, name: true } } } },
+    contacts: {
+      include: {
+        contact: {
+          select: { id: true, firstName: true, lastName: true, email: true, phone: true, organization: true },
+        },
+      },
+      orderBy: { id: "asc" as const },
+    },
+  };
+
+  const [keyStaff, allFunctions, breakoutGroups, cateringOrders, printOrders] = await Promise.all([
+    prisma.eventKeyStaff.findMany({
+      where: { eventId },
+      include: {
+        contact: {
+          select: { id: true, firstName: true, lastName: true, email: true, phone: true, organization: true },
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    }),
+    prisma.function.findMany({
+      where: { eventId, type: { not: "BREAKOUT_BLOCK" } },
+      include: functionScheduleInclude,
+    }),
+    prisma.breakoutGroup.findMany({
+      where: { eventId },
+      include: {
+        rooms: { include: { room: { select: { id: true, name: true } } } },
+        functions: {
+          where: { type: "BREAKOUT_BLOCK" },
+          include: {
+            schedules: { orderBy: { sortOrder: "asc" } },
+            sessionRoomOverrides: true,
+            presentationSlots: {
+              include: {
+                presentation: {
+                  include: {
+                    speakers: {
+                      include: {
+                        contact: {
+                          select: { id: true, firstName: true, lastName: true },
+                        },
+                      },
+                      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+                    },
+                  },
+                },
+                room: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    prisma.cateringOrder.findMany({
+      where: { eventId },
+      include: {
+        function: { include: functionScheduleInclude },
+        menuSections: {
+          include: { responsiblePartyVendor: { select: { id: true, name: true } } },
+          orderBy: { sortOrder: "asc" },
+        },
+        vendors: {
+          include: { vendor: { select: { id: true, name: true } } },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.printOrder.findMany({
+      where: { eventId },
+      include: {
+        vendors: { include: { vendor: { select: { id: true, name: true } } } },
+        functions: { include: { function: { select: { id: true, name: true } } } },
+        presentation: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+
+  const filteredFunctions = dayKeys
+    ? allFunctions.filter((fn) => functionMatchesDays(fn.schedules, dayKeys, timezone))
+    : allFunctions;
+
+  const filteredBreakoutGroups = dayKeys
+    ? breakoutGroups
+        .map((g) => ({
+          ...g,
+          functions: g.functions.filter((fn) => functionMatchesDays(fn.schedules, dayKeys, timezone)),
+        }))
+        .filter((g) => g.functions.length > 0)
+    : breakoutGroups.filter((g) => g.functions.length > 0);
+
+  const filteredCateringOrders = dayKeys
+    ? cateringOrders.filter((c) =>
+        c.function ? functionMatchesDays(c.function.schedules, dayKeys, timezone) : false
+      )
+    : cateringOrders;
+
+  return {
+    event,
+    venue: event.venue,
+    keyStaff,
+    functions: filteredFunctions,
+    breakoutGroups: filteredBreakoutGroups,
+    cateringOrders: filteredCateringOrders,
+    printOrders,
+    timezone,
+  };
+}
+
+export type EventProfileData = NonNullable<Awaited<ReturnType<typeof getEventProfileData>>>;
+
 export async function getOrderAssignedVendors(eventId: string) {
   const vendors = await prisma.vendor.findMany({
     where: {
