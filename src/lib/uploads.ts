@@ -3,6 +3,29 @@ import type { FileUpload } from "@prisma/client";
 
 export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/data/uploads";
 
+const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+const parsedMax = process.env.MAX_UPLOAD_BYTES ? parseInt(process.env.MAX_UPLOAD_BYTES, 10) : NaN;
+export const MAX_UPLOAD_BYTES = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : DEFAULT_MAX_UPLOAD_BYTES;
+
+export const ALLOWED_UPLOAD_MIME_TYPES = new Set<string>([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+
+const SAFE_ENTITY_ID = /^[a-zA-Z0-9_-]+$/;
+export function isValidEntityId(value: string): boolean {
+  return SAFE_ENTITY_ID.test(value);
+}
+
 const ENTITY_DIRS = {
   event: "events",
   cateringOrder: "catering-orders",

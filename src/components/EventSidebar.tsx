@@ -333,9 +333,13 @@ export function EventSidebar({
       return;
     }
     let cancelled = false;
-    getSidebarItems(eventId, currentSection).then((data) => {
-      if (!cancelled) setItems(data);
-    });
+    getSidebarItems(eventId, currentSection)
+      .then((data) => {
+        if (!cancelled) setItems(data);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      });
     return () => {
       cancelled = true;
     };

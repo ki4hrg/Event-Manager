@@ -3,6 +3,8 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { createUser } from "../actions";
 import { UserForm } from "../UserForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function NewUserPage() {
   return (
     <PageWrapper>

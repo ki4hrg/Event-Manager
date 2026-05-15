@@ -14,6 +14,7 @@ import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { getEarliestStart, getLatestEnd, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { getSetupOrderDisplayName } from "../setup-orders/utils";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 
@@ -136,11 +137,11 @@ export function FunctionTableView({
 
       const { earliest } = scheduleBounds.get(fn.id)!;
       if (filters.dateFrom) {
-        const from = new Date(filters.dateFrom + "T00:00:00");
+        const from = parseDateTimeInTimezone(filters.dateFrom + "T00:00:00", timezone);
         if (!earliest || earliest < from) return false;
       }
       if (filters.dateTo) {
-        const to = new Date(filters.dateTo + "T23:59:59");
+        const to = parseDateTimeInTimezone(filters.dateTo + "T23:59:59", timezone);
         if (!earliest || earliest > to) return false;
       }
 
@@ -173,7 +174,7 @@ export function FunctionTableView({
 
       return true;
     });
-  }, [functions, filters, scheduleBounds, workflowSummaries]);
+  }, [functions, filters, scheduleBounds, workflowSummaries, timezone]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {

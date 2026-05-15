@@ -1,9 +1,11 @@
 "use server";
 
+import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function getScheduleItems(eventId: string) {
+  await requireAuth();
   return prisma.functionSchedule.findMany({
     where: { function: { eventId } },
     include: {
@@ -14,6 +16,7 @@ export async function getScheduleItems(eventId: string) {
 }
 
 export async function getScheduleTypes() {
+  await requireAuth();
   return prisma.customOption.findMany({
     where: { category: "schedule_type" },
     orderBy: { sortOrder: "asc" },
@@ -21,11 +24,13 @@ export async function getScheduleTypes() {
 }
 
 export async function deleteScheduleItem(id: string, eventId: string) {
+  await requireAuth();
   await prisma.functionSchedule.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/schedule-items`);
 }
 
 export async function deleteScheduleItems(ids: string[], eventId: string) {
+  await requireAuth();
   await prisma.functionSchedule.deleteMany({ where: { id: { in: ids } } });
   revalidatePath(`/events/${eventId}/schedule-items`);
 }
@@ -35,6 +40,7 @@ export async function bulkUpdateScheduleItems(
   eventId: string,
   updates: { type?: string; isPublic?: boolean }
 ) {
+  await requireAuth();
   const data: { type?: string; isPublic?: boolean } = {};
   if (updates.type !== undefined) data.type = updates.type;
   if (updates.isPublic !== undefined) data.isPublic = updates.isPublic;

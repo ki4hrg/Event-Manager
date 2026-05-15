@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import type { EntityStatus } from "@prisma/client";
 import type { StatusCounts } from "@/lib/statusConstants";
 
@@ -17,6 +18,7 @@ function toCounts(items: { status: EntityStatus | null }[]): StatusCounts {
 }
 
 export async function getEventOverviewStats(eventId: string) {
+  await requireAuth();
   const [
     functionsWithoutSchedule,
     functionsWithoutRoom,

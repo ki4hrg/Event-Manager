@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -11,6 +12,7 @@ export type ResponsiblePartyOptions = {
 };
 
 export async function getResponsiblePartyVendors(eventId: string, modelType?: string): Promise<ResponsiblePartyOptions> {
+  await requireAuth();
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
@@ -37,6 +39,7 @@ export async function getResponsiblePartyVendors(eventId: string, modelType?: st
 }
 
 export async function getVendors() {
+  await requireAuth();
   return prisma.vendor.findMany({
     where: { isSystemVendor: false, venueId: null },
     include: {
@@ -47,6 +50,7 @@ export async function getVendors() {
 }
 
 export async function getVendor(id: string) {
+  await requireAuth();
   return prisma.vendor.findUnique({
     where: { id },
     include: {
@@ -56,6 +60,7 @@ export async function getVendor(id: string) {
 }
 
 export async function searchVendors(query: string) {
+  await requireAuth();
   return prisma.vendor.findMany({
     where: {
       name: { contains: query, mode: "insensitive" },
@@ -66,6 +71,7 @@ export async function searchVendors(query: string) {
 }
 
 export async function createVendor(formData: FormData) {
+  await requireAuth();
   const name = (formData.get("name") as string).trim();
   const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
@@ -79,6 +85,7 @@ export async function createVendor(formData: FormData) {
 }
 
 export async function updateVendor(id: string, formData: FormData) {
+  await requireAuth();
   const name = (formData.get("name") as string).trim();
   const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
@@ -93,6 +100,7 @@ export async function updateVendor(id: string, formData: FormData) {
 }
 
 export async function deleteVendor(id: string) {
+  await requireAuth();
   await prisma.vendor.delete({ where: { id } });
   revalidatePath("/vendors");
   redirect("/vendors");
@@ -101,6 +109,7 @@ export async function deleteVendor(id: string) {
 // Vendor contact management
 
 export async function searchContactsForVendor(query: string) {
+  await requireAuth();
   return prisma.contact.findMany({
     where: {
       OR: [
@@ -123,6 +132,7 @@ async function clearOtherPrimaries(vendorId: string, excludeId?: string) {
 }
 
 export async function createAndAddVendorContact(vendorId: string, formData: FormData) {
+  await requireAuth();
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -149,6 +159,7 @@ export async function createAndAddVendorContact(vendorId: string, formData: Form
 }
 
 export async function addVendorContact(vendorId: string, formData: FormData) {
+  await requireAuth();
   const contactId = formData.get("contactId") as string;
   const contactType = (formData.get("contactType") as string) || null;
   const isPrimary = formData.get("isPrimary") === "true";
@@ -163,6 +174,7 @@ export async function addVendorContact(vendorId: string, formData: FormData) {
 }
 
 export async function updateVendorContact(contactId: string, vendorId: string, formData: FormData) {
+  await requireAuth();
   const contactType = (formData.get("contactType") as string) || null;
   const isPrimary = formData.get("isPrimary") === "true";
 
@@ -177,6 +189,7 @@ export async function updateVendorContact(contactId: string, vendorId: string, f
 }
 
 export async function removeVendorContact(contactId: string, vendorId: string) {
+  await requireAuth();
   await prisma.vendorContact.delete({ where: { id: contactId } });
   revalidatePath(`/vendors/${vendorId}`);
 }
@@ -184,6 +197,7 @@ export async function removeVendorContact(contactId: string, vendorId: string) {
 // Event vendor management
 
 export async function getEventVendors(eventId: string) {
+  await requireAuth();
   return prisma.eventVendor.findMany({
     where: { eventId },
     include: { vendor: true },
@@ -192,6 +206,7 @@ export async function getEventVendors(eventId: string) {
 }
 
 export async function searchVendorsForEvent(query: string, eventId: string) {
+  await requireAuth();
   // Returns vendors not already assigned to this event
   const assigned = await prisma.eventVendor.findMany({
     where: { eventId },
@@ -210,6 +225,7 @@ export async function searchVendorsForEvent(query: string, eventId: string) {
 }
 
 export async function addVendorToEvent(eventId: string, vendorId: string) {
+  await requireAuth();
   await prisma.eventVendor.create({
     data: { eventId, vendorId },
   });
@@ -218,6 +234,7 @@ export async function addVendorToEvent(eventId: string, vendorId: string) {
 }
 
 export async function removeVendorFromEvent(eventVendorId: string, eventId: string) {
+  await requireAuth();
   await prisma.eventVendor.delete({ where: { id: eventVendorId } });
   revalidatePath(`/events/${eventId}/vendors`);
 }
@@ -228,6 +245,7 @@ export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_O
 // Assigns a vendor as the default for a model type on this event.
 // Transfers the designation away from any other vendor that held it.
 export async function setDefaultVendor(eventVendorId: string, modelType: ModelType, eventId: string) {
+  await requireAuth();
   await prisma.$transaction([
     prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE "eventId" = ${eventId} AND id != ${eventVendorId}`,
     prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_append(array_remove("defaultFor", ${modelType}), ${modelType}) WHERE id = ${eventVendorId}`,
@@ -236,11 +254,13 @@ export async function setDefaultVendor(eventVendorId: string, modelType: ModelTy
 }
 
 export async function removeDefaultVendor(eventVendorId: string, modelType: ModelType, eventId: string) {
+  await requireAuth();
   await prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE id = ${eventVendorId}`;
   revalidatePath(`/events/${eventId}/vendors`);
 }
 
 export async function getDefaultVendorForModel(eventId: string, modelType: ModelType) {
+  await requireAuth();
   return prisma.eventVendor.findFirst({
     where: { eventId, defaultFor: { has: modelType } },
   });
@@ -249,6 +269,7 @@ export async function getDefaultVendorForModel(eventId: string, modelType: Model
 // Entity vendor management helpers
 
 export async function getEventVendorsForPicker(eventId: string) {
+  await requireAuth();
   return prisma.eventVendor.findMany({
     where: { eventId },
     include: { vendor: true },
@@ -261,6 +282,7 @@ export async function getEventVendorsForPicker(eventId: string) {
 // Also includes the venue vendor and system (event team) vendor when they match the query,
 // since those are valid order vendors even when not registered via EventVendor.
 export async function searchAssignedEventVendors(query: string, eventId: string, modelType?: ModelType) {
+  await requireAuth();
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
@@ -302,6 +324,7 @@ export async function searchAssignedEventVendors(query: string, eventId: string,
 // AV Order vendors
 
 export async function getAVOrderVendors(avOrderId: string) {
+  await requireAuth();
   return prisma.aVOrderVendor.findMany({
     where: { avOrderId },
     include: { vendor: true },
@@ -310,6 +333,7 @@ export async function getAVOrderVendors(avOrderId: string) {
 }
 
 export async function addVendorToAVOrder(avOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await requireAuth();
   await prisma.aVOrderVendor.create({
     data: { avOrderId, vendorId, notes: notes || null },
   });
@@ -318,6 +342,7 @@ export async function addVendorToAVOrder(avOrderId: string, vendorId: string, ev
 }
 
 export async function updateAVOrderVendor(id: string, avOrderId: string, eventId: string, notes: string) {
+  await requireAuth();
   await prisma.aVOrderVendor.update({
     where: { id },
     data: { notes: notes || null },
@@ -327,6 +352,7 @@ export async function updateAVOrderVendor(id: string, avOrderId: string, eventId
 }
 
 export async function removeVendorFromAVOrder(id: string, avOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.aVOrderVendor.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
@@ -334,6 +360,7 @@ export async function removeVendorFromAVOrder(id: string, avOrderId: string, eve
 // Catering Order vendors
 
 export async function getCateringOrderVendors(cateringOrderId: string) {
+  await requireAuth();
   return prisma.cateringOrderVendor.findMany({
     where: { cateringOrderId },
     include: { vendor: true },
@@ -342,6 +369,7 @@ export async function getCateringOrderVendors(cateringOrderId: string) {
 }
 
 export async function addVendorToCateringOrder(cateringOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await requireAuth();
   await prisma.cateringOrderVendor.create({
     data: { cateringOrderId, vendorId, notes: notes || null },
   });
@@ -350,6 +378,7 @@ export async function addVendorToCateringOrder(cateringOrderId: string, vendorId
 }
 
 export async function updateCateringOrderVendor(id: string, cateringOrderId: string, eventId: string, notes: string) {
+  await requireAuth();
   await prisma.cateringOrderVendor.update({
     where: { id },
     data: { notes: notes || null },
@@ -359,6 +388,7 @@ export async function updateCateringOrderVendor(id: string, cateringOrderId: str
 }
 
 export async function removeVendorFromCateringOrder(id: string, cateringOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.cateringOrderVendor.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
@@ -366,6 +396,7 @@ export async function removeVendorFromCateringOrder(id: string, cateringOrderId:
 // Setup Order vendors
 
 export async function getSetupOrderVendors(setupOrderId: string) {
+  await requireAuth();
   return prisma.setupOrderVendor.findMany({
     where: { setupOrderId },
     include: { vendor: true },
@@ -374,6 +405,7 @@ export async function getSetupOrderVendors(setupOrderId: string) {
 }
 
 export async function addVendorToSetupOrder(setupOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await requireAuth();
   await prisma.setupOrderVendor.create({
     data: { setupOrderId, vendorId, notes: notes || null },
   });
@@ -382,6 +414,7 @@ export async function addVendorToSetupOrder(setupOrderId: string, vendorId: stri
 }
 
 export async function updateSetupOrderVendor(id: string, setupOrderId: string, eventId: string, notes: string) {
+  await requireAuth();
   await prisma.setupOrderVendor.update({
     where: { id },
     data: { notes: notes || null },
@@ -391,11 +424,13 @@ export async function updateSetupOrderVendor(id: string, setupOrderId: string, e
 }
 
 export async function removeVendorFromSetupOrder(id: string, setupOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.setupOrderVendor.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function getPrintOrderVendors(printOrderId: string) {
+  await requireAuth();
   return prisma.printOrderVendor.findMany({
     where: { printOrderId },
     include: { vendor: true },
@@ -404,6 +439,7 @@ export async function getPrintOrderVendors(printOrderId: string) {
 }
 
 export async function addVendorToPrintOrder(printOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  await requireAuth();
   await prisma.printOrderVendor.create({
     data: { printOrderId, vendorId, notes: notes || null },
   });
@@ -411,6 +447,7 @@ export async function addVendorToPrintOrder(printOrderId: string, vendorId: stri
 }
 
 export async function updatePrintOrderVendor(id: string, printOrderId: string, eventId: string, notes: string) {
+  await requireAuth();
   await prisma.printOrderVendor.update({
     where: { id },
     data: { notes: notes || null },
@@ -419,6 +456,7 @@ export async function updatePrintOrderVendor(id: string, printOrderId: string, e
 }
 
 export async function removeVendorFromPrintOrder(id: string, printOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.printOrderVendor.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }

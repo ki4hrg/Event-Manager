@@ -1,14 +1,18 @@
 import { readFileSync } from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord } from "@/lib/uploads";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { fileId: string } }
+  { params }: { params: Promise<{ fileId: string }> }
 ) {
+  await requireAuth();
+  const { fileId } = await params;
+
   const record = await prisma.fileUpload.findUnique({
-    where: { id: params.fileId },
+    where: { id: fileId },
   });
 
   if (!record) {
