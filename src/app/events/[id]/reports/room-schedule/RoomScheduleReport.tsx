@@ -181,7 +181,15 @@ function itemNotes(item: AgendaItem): string[] {
       notes.push(item.entry.slot.presentation.description);
     }
   }
+  if (item.mainRow.notes) notes.push(item.mainRow.notes);
   return notes;
+}
+
+function subRowLabel(row: ScheduleRow, scheduleTypes: CustomOption[], timezone: string): string {
+  const type = resolveOptionLabel(row.type, scheduleTypes) || row.type;
+  const time = timeRange(row.startTime, row.endTime, timezone);
+  const base = `${type}: ${time}`;
+  return row.notes ? `${base} · ${row.notes}` : base;
 }
 
 function rowKey(item: AgendaItem): string {
@@ -227,9 +235,7 @@ function RoomDayTable({
               {item.subRows.length > 0 && (
                 <ul className="mt-1 space-y-0.5 text-gray-500 dark:text-gray-400">
                   {item.subRows.map((row) => (
-                    <li key={row.id}>
-                      {resolveOptionLabel(row.type, scheduleTypes) || row.type}: {timeRange(row.startTime, row.endTime, timezone)}
-                    </li>
+                    <li key={row.id}>{subRowLabel(row, scheduleTypes, timezone)}</li>
                   ))}
                 </ul>
               )}
@@ -257,10 +263,7 @@ function RoomDayTable({
                     {item.subRows.length > 0 && (
                       <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 print:text-gray-600 font-normal">
                         {item.subRows.map((row) => (
-                          <div key={row.id}>
-                            {resolveOptionLabel(row.type, scheduleTypes) || row.type}:{" "}
-                            {timeRange(row.startTime, row.endTime, timezone)}
-                          </div>
+                          <div key={row.id}>{subRowLabel(row, scheduleTypes, timezone)}</div>
                         ))}
                       </div>
                     )}
@@ -369,7 +372,9 @@ export function RoomScheduleReport({ data, functionTypes, scheduleTypes }: Props
   return (
     <div className="space-y-6">
       <ReportNav sections={navSections} itemGroups={itemGroups} />
-      <SectionDivider id="rooms" title="Room Schedules" />
+      <div className="print:hidden">
+        <SectionDivider id="rooms" title="Room Schedules" />
+      </div>
       <div className="space-y-6">
         {roomBuckets.map((bucket) => (
           <RoomSection
