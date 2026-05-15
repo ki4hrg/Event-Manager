@@ -347,10 +347,28 @@ The second validation pass (`reviews/claudemd-validation.md`, "second pass") sur
 
 ---
 
-## Items parked in claudemd-open-questions.md
+### SF2-I · Drop "highest-leverage test targets" parenthetical (resolution of OQ-2)
 
-- **OQ-1 (MF2-1 in this pass): `requireAuth()` invariant vs. codebase reality.** The validation's rewrite branches on team intent — descriptively downgrade ("middleware-only is fine") or aspirationally retrofit (~272 actions across 16 files). Both viable; pick one.
-- **OQ-2: tests stance.** The parenthetical "highest-leverage test targets" contradicts the "no tests" rule; pass-2 (like pass-1) declined to pick. Same wording either way once decided.
+**Source finding:** open question OQ-2 (tests stance). Resolved 2026-05-15 — option (a), absolute no-tests. The parenthetical naming `breakout-schedule/actions.ts` and `lib/conflicts.ts` contradicted the rule and was wishful for a codebase the team has explicitly said doesn't need tests.
+
+**Before (Tests and observability):**
+```
+The project intentionally ships without a test suite or structured logger. Don't add ad-hoc tests or `console.error` calls for "logging". If observability is needed, introduce a logger project-wide rather than peppering call sites. (If tests are ever introduced, the highest-leverage targets are the time-zone math in `src/app/events/breakout-schedule/actions.ts` and conflict detection in `src/lib/conflicts.ts`.)
+```
+
+**After:**
+```
+The project intentionally ships without a test suite or structured logger. Don't add ad-hoc tests, a test runner config, or `console.error` calls for "logging". If observability is ever needed, introduce a logger project-wide rather than peppering call sites.
+```
+
+(Also tightened "ad-hoc tests" → "ad-hoc tests, a test runner config" so the rule covers the most likely sneaky-introduction vector — someone adding `vitest.config.ts` because they want to write one test.)
+
+---
+
+## Items resolved in claudemd-open-questions.md
+
+- **OQ-1 (MF2-1 in this pass): `requireAuth()` invariant vs. codebase reality.** Resolved 2026-05-15 — keep the strict rule. This branch is documentation-only; the rubric encodes target state and the upcoming review/update pass will retrofit the 16 unchecked action files. No CLAUDE.md edit needed. Row 60 in `claudemd-decisions.md` stands.
+- **OQ-2: tests stance.** Resolved 2026-05-15 — option (a), absolute no-tests. Applied as SF2-I above.
 
 ## Items intentionally not applied (second pass)
 

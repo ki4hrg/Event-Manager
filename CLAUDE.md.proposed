@@ -135,7 +135,7 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 
 ### Tests and observability
 
-The project intentionally ships without a test suite or structured logger. Don't add ad-hoc tests or `console.error` calls for "logging". If observability is needed, introduce a logger project-wide rather than peppering call sites. (If tests are ever introduced, the highest-leverage targets are the time-zone math in `src/app/events/breakout-schedule/actions.ts` and conflict detection in `src/lib/conflicts.ts`.)
+The project intentionally ships without a test suite or structured logger. Don't add ad-hoc tests, a test runner config, or `console.error` calls for "logging". If observability is ever needed, introduce a logger project-wide rather than peppering call sites.
 
 ## Security and validation
 

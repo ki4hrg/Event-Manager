@@ -1,6 +1,14 @@
 # CLAUDE.md.proposed — open questions for human resolution
 
-Two findings from `reviews/claudemd-validation.md` (second pass) that can't be settled without team input. Each follows the prompt 4 structure (Question / Context / Options / Recommended / Open for humans). Once annotated, the resolutions feed back into a targeted pass of prompt 3 limited to the affected rules.
+Two findings from `reviews/claudemd-validation.md` (second pass) that couldn't be settled without team input. Each follows the prompt 4 structure (Question / Context / Options / Recommended / Open for humans). Both have now been resolved — see the **Resolutions** section directly below.
+
+---
+
+## Resolutions (2026-05-15)
+
+- **OQ-1 — requireAuth() retrofit:** keep the strict rule as written in `CLAUDE.md.proposed`. This branch is documentation-only; the rubric encodes the target state. The upcoming review/update pass against the codebase will catch and add `await requireAuth()` to the 16 unchecked action files. No CLAUDE.md edit needed. Row 60 in `claudemd-decisions.md` stands as-is.
+- **OQ-2 — tests stance:** option (a) — absolute no-tests. The parenthetical naming "highest-leverage test targets" is removed from `CLAUDE.md.proposed`. Honest with the rest of the rubric and consistent with the team's stated view that the codebase doesn't need tests. See changelog entry SF2-I for the exact edit.
+- **Middleware-stability sub-question (my Q2 pushback):** confirmed stable. The `authorized` callback exemption list (`/login`, `/api/auth/*`, `/share/*`) hasn't been changing, and further exemptions will be added as needed. This means even if OQ-1 had resolved the other way, "rely on middleware" would have been a safe stance.
 
 ---
 
