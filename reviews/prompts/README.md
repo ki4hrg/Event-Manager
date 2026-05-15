@@ -6,6 +6,7 @@ A repeatable, multi-pass review for keeping `CLAUDE.md` aligned with the codebas
 
 | File | Purpose |
 |---|---|
+| `00-apply-candidates.md` | Bake any resolved items from `reviews/claudemd-candidates.md` into `CLAUDE.md` before the audit starts. Skipped if the file doesn't exist or has no resolved items. |
 | `01-reverse-engineer.md` | Produce `reviews/conventions-observed.md` — a descriptive audit of what the code actually does, with `file:line` citations. |
 | `02a-two-way-diff.md` | Produce `reviews/claudemd-diff.md` — every rule in current vs. inferred CLAUDE.md, classified Consistent / Documented-but-absent / Undocumented / Conflict / Vague. |
 | `02b-decision-drafts.md` | Produce `reviews/claudemd-decisions.md` — recommended bucket (Document / Fix / Decide / Drop / Sharpen) for each non-consistent row. **Human review required** before continuing. |
@@ -16,6 +17,7 @@ A repeatable, multi-pass review for keeping `CLAUDE.md` aligned with the codebas
 
 ## Orchestration
 
+0. Run **0** to apply between-review candidates. Skip if `reviews/claudemd-candidates.md` doesn't exist or contains no resolved items.
 1. Run **1**, **2a**, **2b** in order.
 2. **Human review** of `claudemd-decisions.md` (output from 2b).
 3. Run **2c**.

@@ -364,6 +364,20 @@ Functions include high-level AV needs (projector, screen, microphone, etc.) as c
 | Adding a state library (Zustand / Jotai / Redux / SWR / React Query) | React built-ins + URL search params + `UserSetting` | Zero global client state today. |
 | Building a modal `<Dialog>` for delete/cancel confirmation | Inline confirm state on the trigger | See `DeleteButton.tsx` / `InlineDeleteButton.tsx`. |
 
+## CLAUDE.md candidates
+
+When you encounter any of the following during a task, append a one-line entry to `reviews/claudemd-candidates.md`:
+
+- An explicit decision between two approaches ("we picked X over Y because Z")
+- A new utility, helper, or pattern that should become canonical
+- A constraint discovered through debugging or investigation ("can't do X because Y")
+- A convention you inferred from existing code that isn't in CLAUDE.md
+- A rule in CLAUDE.md that turned out to be wrong, ambiguous, or missing an exception
+
+Format: `- [area] one-line description (PR/file reference if relevant)`
+
+Don't update CLAUDE.md directly. Don't ask whether to add an entry — just add it. The parking lot is processed during periodic reviews.
+
 ## Further reading
 
 - `prisma/schema.prisma` — full data model.
