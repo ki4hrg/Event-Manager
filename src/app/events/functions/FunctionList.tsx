@@ -138,8 +138,8 @@ export function FunctionList({
       if (filterSchedule === "yes" && fn.schedules.length === 0) return false;
       if (filterSchedule === "none" && fn.schedules.length > 0) return false;
 
-      if (filterRoom === "yes" && fn.rooms.length === 0) return false;
-      if (filterRoom === "none" && fn.rooms.length > 0) return false;
+      if (filterRoom === "yes" && (fn.type === "BREAKOUT_BLOCK" || fn.rooms.length === 0)) return false;
+      if (filterRoom === "none" && (fn.type === "BREAKOUT_BLOCK" || fn.rooms.length > 0)) return false;
 
       return true;
     });

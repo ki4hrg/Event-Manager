@@ -31,7 +31,7 @@ export async function getEventOverviewStats(eventId: string) {
     printOrders,
   ] = await Promise.all([
     prisma.function.count({ where: { eventId, schedules: { none: {} } } }),
-    prisma.function.count({ where: { eventId, rooms: { none: {} } } }),
+    prisma.function.count({ where: { eventId, rooms: { none: {} }, type: { not: "BREAKOUT_BLOCK" } } }),
     prisma.function.count({ where: { eventId } }),
     prisma.presentation.count({ where: { eventId } }),
     prisma.presentation.count({ where: { eventId, slots: { none: {} } } }),
