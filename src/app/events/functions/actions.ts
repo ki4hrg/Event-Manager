@@ -1,61 +1,16 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
+import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
-/**
- * Parse a datetime-local input value (YYYY-MM-DDTHH:MM) as if it's in the given timezone
- * and return a UTC Date object.
- */
-function parseDateTimeInTimezone(dateTimeLocal: string, timezone: string): Date {
-  // Parse the input components
-  const [datePart, timePart] = dateTimeLocal.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-
-  // Start with a guess - treat the input as UTC
-  let guess = new Date(Date.UTC(year, month - 1, day, hour, minute));
-
-  // Formatter to check what our guess looks like in the target timezone
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  // Iterate to converge (handles DST edge cases)
-  for (let i = 0; i < 3; i++) {
-    const formatted = formatter.format(guess);
-    // formatted is like "2024-03-15, 03:00" - parse it
-    const parts = formatted.replace(/, /, "T").split(/[-T:]/);
-    const guessYear = parseInt(parts[0]);
-    const guessMonth = parseInt(parts[1]);
-    const guessDay = parseInt(parts[2]);
-    const guessHour = parseInt(parts[3]);
-    const guessMinute = parseInt(parts[4]);
-
-    // Calculate difference between what we want and what we got
-    const targetMs = Date.UTC(year, month - 1, day, hour, minute);
-    const guessLocalMs = Date.UTC(guessYear, guessMonth - 1, guessDay, guessHour, guessMinute);
-    const diffMs = targetMs - guessLocalMs;
-
-    if (diffMs === 0) break;
-
-    guess = new Date(guess.getTime() + diffMs);
-  }
-
-  return guess;
-}
-
 export async function getFunctions(eventId: string) {
+  await requireAuth();
   return prisma.function.findMany({
     where: { eventId },
     include: {
@@ -68,6 +23,7 @@ export async function getFunctions(eventId: string) {
 }
 
 export async function getFunctionsForTable(eventId: string) {
+  await requireAuth();
   const rows = await prisma.function.findMany({
     where: { eventId },
     include: {
@@ -91,6 +47,7 @@ export async function getFunctionsForTable(eventId: string) {
 export type FunctionForTable = Awaited<ReturnType<typeof getFunctionsForTable>>[number];
 
 export async function getFunctionsWithPresentations(eventId: string) {
+  await requireAuth();
   return prisma.function.findMany({
     where: { eventId },
     include: {
@@ -105,6 +62,7 @@ export async function getFunctionsWithPresentations(eventId: string) {
 }
 
 export async function getFunction(id: string) {
+  await requireAuth();
   const row = await prisma.function.findUnique({
     where: { id },
     include: {
@@ -127,6 +85,7 @@ export async function getFunction(id: string) {
 }
 
 export async function createFunction(eventId: string, formData: FormData) {
+  await requireAuth();
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
@@ -182,6 +141,7 @@ export async function createFunction(eventId: string, formData: FormData) {
 }
 
 export async function updateFunction(id: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
@@ -218,6 +178,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
 }
 
 export async function deleteFunction(id: string, eventId: string) {
+  await requireAuth();
   await prisma.function.delete({ where: { id } });
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/agenda`);
@@ -225,6 +186,7 @@ export async function deleteFunction(id: string, eventId: string) {
 }
 
 export async function deleteFunctions(ids: string[], eventId: string) {
+  await requireAuth();
   await prisma.function.deleteMany({ where: { id: { in: ids } } });
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/functions`);
@@ -232,6 +194,7 @@ export async function deleteFunctions(ids: string[], eventId: string) {
 }
 
 export async function getFunctionOptions(eventId: string) {
+  await requireAuth();
   return prisma.function.findMany({
     where: { eventId },
     select: { id: true, name: true },
@@ -244,11 +207,13 @@ export async function bulkUpdateFunctions(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; type?: string }
 ) {
+  await requireAuth();
   await prisma.function.updateMany({ where: { id: { in: ids }, eventId }, data: updates });
   revalidatePath(`/events/${eventId}/functions`);
 }
 
 export async function duplicateFunction(id: string, eventId: string) {
+  await requireAuth();
   const original = await prisma.function.findUnique({
     where: { id },
     include: {
@@ -307,6 +272,7 @@ export async function createSchedule(
   eventId: string,
   formData: FormData
 ): Promise<{ conflicts: RoomConflict[] } | undefined> {
+  await requireAuth();
   const type = formData.get("type") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -356,6 +322,7 @@ export async function updateSchedule(
   eventId: string,
   formData: FormData
 ): Promise<{ conflicts: RoomConflict[] } | undefined> {
+  await requireAuth();
   const type = formData.get("type") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -392,6 +359,7 @@ export async function updateSchedule(
 }
 
 export async function deleteSchedule(scheduleId: string, functionId: string, eventId: string) {
+  await requireAuth();
   await prisma.functionSchedule.delete({ where: { id: scheduleId } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -401,6 +369,7 @@ export async function deleteSchedule(scheduleId: string, functionId: string, eve
 // ============================================================================
 
 export async function searchContacts(query: string) {
+  await requireAuth();
   if (!query || query.length < 2) {
     return [];
   }
@@ -420,6 +389,7 @@ export async function searchContacts(query: string) {
 }
 
 export async function addFunctionContact(functionId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
 
@@ -440,6 +410,7 @@ export async function updateFunctionContact(
   eventId: string,
   formData: FormData
 ) {
+  await requireAuth();
   const role = formData.get("role") as string;
 
   await prisma.functionContact.update({
@@ -451,6 +422,7 @@ export async function updateFunctionContact(
 }
 
 export async function removeFunctionContact(contactId: string, functionId: string, eventId: string) {
+  await requireAuth();
   await prisma.functionContact.delete({ where: { id: contactId } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -460,6 +432,7 @@ export async function createAndAddFunctionContact(
   eventId: string,
   formData: FormData
 ) {
+  await requireAuth();
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -494,6 +467,7 @@ export async function updateFunctionRoom(
   newRoomId: string,
   eventId: string
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAuth();
   if (oldRoomId === newRoomId) return { success: true };
 
   const existing = await prisma.functionRoom.findUnique({
@@ -523,6 +497,7 @@ export async function scheduleUnscheduledFunction(
   eventId: string,
   force = false
 ): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
+  await requireAuth();
   const start = new Date(startTime);
   const end = new Date(endTime);
   if (end <= start) return { success: false, error: "End time must be after start time" };
@@ -563,6 +538,7 @@ export async function rescheduleEntry(
   eventId: string,
   force = false
 ): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
+  await requireAuth();
   const startTime = new Date(newStartTime);
   const endTime = new Date(newEndTime);
 

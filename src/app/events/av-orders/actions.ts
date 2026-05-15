@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -10,6 +11,7 @@ import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
 export async function getAVOrders(eventId: string) {
+  await requireAuth();
   const rows = await prisma.aVOrder.findMany({
     where: { eventId },
     include: {
@@ -27,6 +29,7 @@ export async function getAVOrders(eventId: string) {
 }
 
 export async function getAVOrder(id: string) {
+  await requireAuth();
   const row = await prisma.aVOrder.findUnique({
     where: { id },
     include: {
@@ -104,6 +107,7 @@ export async function getAVOrder(id: string) {
 }
 
 export async function createAVOrder(eventId: string, formData: FormData) {
+  await requireAuth();
   const name = formData.get("name") as string;
   const notes = formData.get("notes") as string;
   const presentationId = (formData.get("presentationId") as string) || null;
@@ -149,6 +153,7 @@ export async function createAVOrder(eventId: string, formData: FormData) {
 }
 
 export async function updateAVOrder(id: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const name = formData.get("name") as string;
   const notes = formData.get("notes") as string;
 
@@ -166,6 +171,7 @@ export async function updateAVOrder(id: string, eventId: string, formData: FormD
 }
 
 export async function deleteAVOrder(id: string, eventId: string) {
+  await requireAuth();
   await prisma.aVOrder.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders`);
   redirect(`/events/${eventId}/av-orders`);
@@ -176,6 +182,7 @@ export async function deleteAVOrder(id: string, eventId: string) {
 // ============================================================================
 
 export async function linkAVOrderToFunction(avOrderId: string, functionId: string, eventId: string) {
+  await requireAuth();
   await prisma.aVOrderFunction.upsert({
     where: { avOrderId_functionId: { avOrderId, functionId } },
     create: { avOrderId, functionId },
@@ -186,6 +193,7 @@ export async function linkAVOrderToFunction(avOrderId: string, functionId: strin
 }
 
 export async function unlinkAVOrderFromFunction(avOrderId: string, functionId: string, eventId: string) {
+  await requireAuth();
   await prisma.aVOrderFunction.deleteMany({ where: { avOrderId, functionId } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
@@ -196,6 +204,7 @@ export async function linkAVOrderToPresentation(
   presentationId: string,
   eventId: string
 ) {
+  await requireAuth();
   await prisma.aVOrderPresentation.upsert({
     where: { avOrderId_presentationId: { avOrderId, presentationId } },
     create: { avOrderId, presentationId },
@@ -206,6 +215,7 @@ export async function linkAVOrderToPresentation(
 }
 
 export async function unlinkAVOrderFromPresentation(avOrderId: string, presentationId: string, eventId: string) {
+  await requireAuth();
   await prisma.aVOrderPresentation.deleteMany({ where: { avOrderId, presentationId } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
@@ -213,6 +223,7 @@ export async function unlinkAVOrderFromPresentation(avOrderId: string, presentat
 
 // AVOrders not yet linked to this function (for the function detail panel)
 export async function getAvailableAVOrdersForFunction(eventId: string, functionId?: string) {
+  await requireAuth();
   return prisma.aVOrder.findMany({
     where: {
       eventId,
@@ -224,6 +235,7 @@ export async function getAvailableAVOrdersForFunction(eventId: string, functionI
 
 // AVOrders not yet linked to this presentation (for the presentation detail panel)
 export async function getAvailableAVOrdersForPresentation(eventId: string, presentationId?: string) {
+  await requireAuth();
   return prisma.aVOrder.findMany({
     where: {
       eventId,
@@ -239,10 +251,12 @@ export async function linkAVOrderToFunctionFromFunction(
   functionId: string,
   eventId: string
 ) {
+  await requireAuth();
   return linkAVOrderToFunction(avOrderId, functionId, eventId);
 }
 
 export async function unlinkAVOrderFromFunctionPage(avOrderId: string, functionId: string, eventId: string) {
+  await requireAuth();
   return unlinkAVOrderFromFunction(avOrderId, functionId, eventId);
 }
 
@@ -251,10 +265,12 @@ export async function linkAVOrderToPresentationFromPresentation(
   presentationId: string,
   eventId: string
 ) {
+  await requireAuth();
   return linkAVOrderToPresentation(avOrderId, presentationId, eventId);
 }
 
 export async function unlinkAVOrderFromPresentationPage(avOrderId: string, presentationId: string, eventId: string) {
+  await requireAuth();
   return unlinkAVOrderFromPresentation(avOrderId, presentationId, eventId);
 }
 
@@ -263,6 +279,7 @@ export async function unlinkAVOrderFromPresentationPage(avOrderId: string, prese
 // ============================================================================
 
 export async function updateAudioSection(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.audioSection.update({
     where: { id },
     data: { notes: (formData.get("notes") as string) || null },
@@ -275,6 +292,7 @@ export async function updateAudioSection(id: string, avOrderId: string, eventId:
 // ============================================================================
 
 export async function createInputGroup(audioSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.inputGroup.aggregate({ where: { audioSectionId }, _max: { sortOrder: true } });
   await prisma.inputGroup.create({
     data: {
@@ -288,6 +306,7 @@ export async function createInputGroup(audioSectionId: string, avOrderId: string
 }
 
 export async function updateInputGroup(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.inputGroup.update({
     where: { id },
     data: {
@@ -303,6 +322,7 @@ export async function updateInputGroup(id: string, avOrderId: string, eventId: s
 }
 
 export async function deleteInputGroup(id: string, avOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.inputGroup.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
@@ -312,6 +332,7 @@ export async function deleteInputGroup(id: string, avOrderId: string, eventId: s
 // ============================================================================
 
 export async function createInputItem(inputGroupId: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.inputItem.aggregate({ where: { inputGroupId }, _max: { sortOrder: true } });
   await prisma.inputItem.create({
     data: {
@@ -331,6 +352,7 @@ export async function createInputItem(inputGroupId: string, avOrderId: string, e
 }
 
 export async function updateInputItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.inputItem.update({
     where: { id },
     data: {
@@ -348,6 +370,7 @@ export async function updateInputItem(id: string, avOrderId: string, eventId: st
 }
 
 export async function deleteInputItem(id: string, avOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.inputItem.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
@@ -357,6 +380,7 @@ export async function deleteInputItem(id: string, avOrderId: string, eventId: st
 // ============================================================================
 
 export async function createMonitorMix(audioSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.monitorMix.aggregate({ where: { audioSectionId }, _max: { sortOrder: true } });
   await prisma.monitorMix.create({
     data: {
@@ -375,6 +399,7 @@ export async function createMonitorMix(audioSectionId: string, avOrderId: string
 }
 
 export async function updateMonitorMix(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.monitorMix.update({
     where: { id },
     data: {
@@ -391,17 +416,20 @@ export async function updateMonitorMix(id: string, avOrderId: string, eventId: s
 }
 
 export async function deleteMonitorMix(id: string, avOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.monitorMix.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function createMonitorOutput(monitorMixId: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.monitorOutput.aggregate({ where: { monitorMixId }, _max: { sortOrder: true } });
+  const quantityRaw = formData.get("quantity") as string;
   await prisma.monitorOutput.create({
     data: {
       monitorMixId,
       equipmentId: (formData.get("equipmentId") as string) || null,
-      quantity: parseInt(formData.get("quantity") as string) || 1,
+      quantity: quantityRaw ? parseInt(quantityRaw) : 1,
       providerVendorId: (formData.get("providerVendorId") as string) || null,
       providerContactId: (formData.get("providerContactId") as string) || null,
       operatorVendorId: (formData.get("operatorVendorId") as string) || null,
@@ -414,11 +442,13 @@ export async function createMonitorOutput(monitorMixId: string, avOrderId: strin
 }
 
 export async function updateMonitorOutput(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
+  const quantityRaw = formData.get("quantity") as string;
   await prisma.monitorOutput.update({
     where: { id },
     data: {
       equipmentId: (formData.get("equipmentId") as string) || null,
-      quantity: parseInt(formData.get("quantity") as string) || 1,
+      quantity: quantityRaw ? parseInt(quantityRaw) : 1,
       providerVendorId: (formData.get("providerVendorId") as string) || null,
       providerContactId: (formData.get("providerContactId") as string) || null,
       operatorVendorId: (formData.get("operatorVendorId") as string) || null,
@@ -430,6 +460,7 @@ export async function updateMonitorOutput(id: string, avOrderId: string, eventId
 }
 
 export async function deleteMonitorOutput(id: string, avOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.monitorOutput.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
@@ -439,6 +470,7 @@ export async function deleteMonitorOutput(id: string, avOrderId: string, eventId
 // ============================================================================
 
 export async function updateVideoSection(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.videoSection.update({
     where: { id },
     data: { notes: (formData.get("notes") as string) || null },
@@ -447,6 +479,7 @@ export async function updateVideoSection(id: string, avOrderId: string, eventId:
 }
 
 export async function createVideoEquipmentItem(videoSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.equipmentItem.aggregate({ where: { videoSectionId }, _max: { sortOrder: true } });
   const equipmentId = (formData.get("equipmentId") as string) || null;
   const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
@@ -468,6 +501,7 @@ export async function createVideoEquipmentItem(videoSectionId: string, avOrderId
 }
 
 export async function updateVideoEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const equipmentId = (formData.get("equipmentId") as string) || null;
   const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
   await prisma.equipmentItem.update({
@@ -487,6 +521,7 @@ export async function updateVideoEquipmentItem(id: string, avOrderId: string, ev
 }
 
 export async function deleteVideoEquipmentItem(id: string, avOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.equipmentItem.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
@@ -496,6 +531,7 @@ export async function deleteVideoEquipmentItem(id: string, avOrderId: string, ev
 // ============================================================================
 
 export async function createAVEquipmentItem(avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.equipmentItem.aggregate({ where: { avOrderId }, _max: { sortOrder: true } });
   const equipmentId = (formData.get("equipmentId") as string) || null;
   const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
@@ -517,6 +553,7 @@ export async function createAVEquipmentItem(avOrderId: string, eventId: string, 
 }
 
 export async function updateAVEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const equipmentId = (formData.get("equipmentId") as string) || null;
   const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
   await prisma.equipmentItem.update({
@@ -536,6 +573,7 @@ export async function updateAVEquipmentItem(id: string, avOrderId: string, event
 }
 
 export async function deleteAVEquipmentItem(id: string, avOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.equipmentItem.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
@@ -576,6 +614,7 @@ async function getSpeakersForAVOrder(avOrderId: string) {
 }
 
 export async function getAVOrderPartyOptions(avOrderId: string, eventId: string) {
+  await requireAuth();
   const [avOrderVendors, contacts] = await Promise.all([
     prisma.aVOrderVendor.findMany({
       where: { avOrderId },
@@ -588,6 +627,7 @@ export async function getAVOrderPartyOptions(avOrderId: string, eventId: string)
 }
 
 export async function getAVOrderResponsiblePartyOptions(avOrderId: string, eventId: string): Promise<{ responsiblePartyVendors: ResponsiblePartyOptions; contacts: { id: string; firstName: string; lastName: string; organization: string | null }[] }> {
+  await requireAuth();
   const [orderVendors, event, systemVendor, contacts] = await Promise.all([
     prisma.aVOrderVendor.findMany({
       where: { avOrderId },
@@ -616,6 +656,7 @@ export async function getAVOrderResponsiblePartyOptions(avOrderId: string, event
 }
 
 export async function deleteAVOrders(ids: string[], eventId: string) {
+  await requireAuth();
   await prisma.aVOrder.deleteMany({ where: { id: { in: ids }, eventId } });
   revalidatePath(`/events/${eventId}/av-orders`);
 }
@@ -625,6 +666,7 @@ export async function bulkUpdateAVOrders(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }
 ) {
+  await requireAuth();
   const { status, substatus, vendorId } = updates;
 
   if (status !== undefined || substatus !== undefined) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAuth, requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
@@ -9,6 +9,7 @@ import type { EntityStatus } from "@prisma/client";
 // --- Templates ---
 
 export async function getWorkflowTemplates() {
+  await requireAuth();
   return prisma.workflowTemplate.findMany({
     orderBy: { sortOrder: "asc" },
     include: {
@@ -25,6 +26,7 @@ export async function getWorkflowTemplates() {
 
 // Lightweight query for assignment dropdowns — only id and name
 export async function getWorkflowTemplateOptions() {
+  await requireAuth();
   return prisma.workflowTemplate.findMany({
     orderBy: { sortOrder: "asc" },
     select: { id: true, name: true },
@@ -32,6 +34,7 @@ export async function getWorkflowTemplateOptions() {
 }
 
 export async function getWorkflowTemplate(id: string) {
+  await requireAuth();
   return prisma.workflowTemplate.findUnique({
     where: { id },
     include: {

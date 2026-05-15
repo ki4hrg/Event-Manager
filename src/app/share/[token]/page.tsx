@@ -13,8 +13,15 @@ import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vend
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
 import { ReportFilters as RsReportFilters } from "@/app/events/[id]/reports/room-schedule/ReportFilters";
 import { enumerateEventDays } from "@/app/events/[id]/reports/event-profile/days";
+import { MODEL_TYPES } from "@/app/vendors/model-types";
 import { ShareShell } from "./ShareShell";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
+
+function intersect(input: string[] | undefined, valid: Set<string>): string[] | undefined {
+  if (!input) return undefined;
+  const filtered = input.filter((id) => valid.has(id));
+  return filtered.length > 0 ? filtered : undefined;
+}
 
 type PageProps = {
   params: Promise<{ token: string }>;
@@ -55,13 +62,16 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         : storedFilters.modelTypes;
     }
 
-    const [groups, vendors] = await Promise.all([
-      getEquipmentResponsibilityData(link.eventId, {
-        vendorIds: effectiveVendorIds,
-        modelTypes: effectiveModelTypes,
-      }),
-      link.filtersLocked ? Promise.resolve(null) : getOrderAssignedVendors(link.eventId),
-    ]);
+    const vendors = link.filtersLocked ? null : await getOrderAssignedVendors(link.eventId);
+    if (!link.filtersLocked && vendors) {
+      effectiveVendorIds = intersect(effectiveVendorIds, new Set(vendors.map((v) => v.id)));
+      effectiveModelTypes = intersect(effectiveModelTypes, new Set(MODEL_TYPES.map((m) => m.value)));
+    }
+
+    const groups = await getEquipmentResponsibilityData(link.eventId, {
+      vendorIds: effectiveVendorIds,
+      modelTypes: effectiveModelTypes,
+    });
 
     const printParams = new URLSearchParams();
     if (effectiveVendorIds?.length) printParams.set("vendors", effectiveVendorIds.join(","));
@@ -100,14 +110,20 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       effectiveVendorId = vendorIdParam ?? storedFilters.vendorId ?? null;
     }
 
-    const [event, vendors, handoffData, functionTypes] = await Promise.all([
+    const [event, vendors, functionTypes] = await Promise.all([
       getEvent(link.eventId),
       link.filtersLocked ? Promise.resolve(null) : getOrderAssignedVendors(link.eventId),
-      effectiveVendorId ? getVendorHandoffData(link.eventId, effectiveVendorId) : Promise.resolve(null),
       getOptions("function_type"),
     ]);
 
     if (!event) notFound();
+
+    if (!link.filtersLocked && vendors && effectiveVendorId) {
+      const validIds = new Set(vendors.map((v) => v.id));
+      if (!validIds.has(effectiveVendorId)) effectiveVendorId = null;
+    }
+
+    const handoffData = effectiveVendorId ? await getVendorHandoffData(link.eventId, effectiveVendorId) : null;
 
     const printHref = effectiveVendorId
       ? `${printBase}?vendorId=${effectiveVendorId}`
@@ -162,8 +178,15 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         : storedFilters.sections;
     }
 
-    const [event, data, functionTypes, serviceStyles] = await Promise.all([
-      getEvent(link.eventId),
+    const event = await getEvent(link.eventId);
+    if (!event) notFound();
+
+    const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
+    if (!link.filtersLocked) {
+      effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
+    }
+
+    const [data, functionTypes, serviceStyles] = await Promise.all([
       getEventProfileData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
       }),
@@ -171,7 +194,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       getOptions("service_style"),
     ]);
 
-    if (!event || !data) notFound();
+    if (!data) notFound();
 
     const validSectionValues = new Set(PROFILE_SECTIONS.map((s) => s.value));
     const validSections = (effectiveSections ?? []).filter((s) =>
@@ -182,8 +205,6 @@ export default async function SharePage({ params, searchParams }: PageProps) {
     if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
     if (effectiveSections?.length) printParams.set("sections", effectiveSections.join(","));
     const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
-
-    const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
 
     return (
       <ShareShell
@@ -230,8 +251,15 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         : storedFilters.rooms;
     }
 
-    const [event, data, functionTypes, scheduleTypes] = await Promise.all([
-      getEvent(link.eventId),
+    const event = await getEvent(link.eventId);
+    if (!event) notFound();
+
+    const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
+    if (!link.filtersLocked) {
+      effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
+    }
+
+    const [data, functionTypes, scheduleTypes] = await Promise.all([
       getRoomScheduleData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         roomIds: effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
@@ -240,14 +268,17 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       getOptions("schedule_type"),
     ]);
 
-    if (!event || !data) notFound();
+    if (!data) notFound();
+
+    if (!link.filtersLocked) {
+      effectiveRoomIds = intersect(effectiveRoomIds, new Set(data.rooms.map((r) => r.id)));
+    }
 
     const printParams = new URLSearchParams();
     if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
     if (effectiveRoomIds?.length) printParams.set("rooms", effectiveRoomIds.join(","));
     const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
 
-    const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
     const roomOptions = data.rooms.map((r) => ({
       value: r.id,
       label: r.venue?.name ? `${r.name} · ${r.venue.name}` : r.name,

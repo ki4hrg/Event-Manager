@@ -1,13 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAuth, requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 
 export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "substatus" | "print_distribution";
 
 export async function getOptions(category: OptionCategory) {
+  await requireAuth();
   return prisma.customOption.findMany({
     where: { category },
     orderBy: { sortOrder: "asc" },
@@ -15,6 +16,7 @@ export async function getOptions(category: OptionCategory) {
 }
 
 export async function getAllOptions() {
+  await requireAuth();
   const options = await prisma.customOption.findMany({
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
   });
@@ -155,6 +157,7 @@ async function propagateLabelRename(
 }
 
 export async function getSubstatusOptions(group?: string) {
+  await requireAuth();
   return prisma.customOption.findMany({
     where: { category: "substatus", ...(group ? { group } : {}) },
     orderBy: { sortOrder: "asc" },
@@ -171,6 +174,7 @@ export async function deleteOption(id: string) {
 
 // Equipment catalog actions
 export async function getEquipment() {
+  await requireAuth();
   return prisma.equipment.findMany({
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
   });

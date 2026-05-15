@@ -46,12 +46,21 @@ export function ShareReportButton({ eventId, reportType, currentFilters }: Share
   const [existingLinks, setExistingLinks] = useState<ExistingLink[]>([]);
   const [isPending, startTransition] = useTransition();
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    listShareLinksForReport(eventId, reportType).then((links) =>
-      setExistingLinks(links as ExistingLink[])
-    );
+    let cancelled = false;
+    listShareLinksForReport(eventId, reportType)
+      .then((links) => {
+        if (!cancelled) setExistingLinks(links as ExistingLink[]);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Couldn't load existing share links.");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, eventId, reportType]);
 
   function handleOpen() {
@@ -60,32 +69,44 @@ export function ShareReportButton({ eventId, reportType, currentFilters }: Share
     setFiltersLocked(true);
     setCreatedToken(null);
     setCopied(false);
+    setError(null);
     setOpen(true);
   }
 
   function handleCreate() {
+    setError(null);
     startTransition(async () => {
-      const filters = filtersLocked ? currentFilters : {};
-      const link = await createShareLink({
-        eventId,
-        reportType,
-        filters: filters as ShareLinkFilters,
-        filtersLocked,
-        label: label || undefined,
-        expiresAt: expiresAt || null,
-      });
-      setCreatedToken(link.token);
-      const updated = await listShareLinksForReport(eventId, reportType);
-      setExistingLinks(updated as ExistingLink[]);
+      try {
+        const filters = filtersLocked ? currentFilters : {};
+        const link = await createShareLink({
+          eventId,
+          reportType,
+          filters: filters as ShareLinkFilters,
+          filtersLocked,
+          label: label || undefined,
+          expiresAt: expiresAt || null,
+        });
+        setCreatedToken(link.token);
+        const updated = await listShareLinksForReport(eventId, reportType);
+        setExistingLinks(updated as ExistingLink[]);
+      } catch {
+        setError("Couldn't create share link. Please try again.");
+      }
     });
   }
 
   async function handleRevoke(id: string) {
     setRevoking(id);
-    await revokeShareLink(id);
-    const updated = await listShareLinksForReport(eventId, reportType);
-    setExistingLinks(updated as ExistingLink[]);
-    setRevoking(null);
+    setError(null);
+    try {
+      await revokeShareLink(id);
+      const updated = await listShareLinksForReport(eventId, reportType);
+      setExistingLinks(updated as ExistingLink[]);
+    } catch {
+      setError("Couldn't revoke share link. Please try again.");
+    } finally {
+      setRevoking(null);
+    }
   }
 
   function handleCopy(token: string) {
@@ -123,6 +144,11 @@ export function ShareReportButton({ eventId, reportType, currentFilters }: Share
             </div>
 
             <div className="px-5 py-4 space-y-4">
+              {error && (
+                <div className="rounded border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                  {error}
+                </div>
+              )}
               {!createdToken ? (
                 <>
                   <div>

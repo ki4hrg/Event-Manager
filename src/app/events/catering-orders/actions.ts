@@ -1,14 +1,23 @@
 "use server";
 
+import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
+import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 
+async function eventTimezone(eventId: string): Promise<string> {
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true } });
+  if (!event) throw new Error("Event not found");
+  return event.timezone;
+}
+
 export async function getCateringOrders(eventId: string) {
+  await requireAuth();
   return prisma.cateringOrder.findMany({
     where: { eventId },
     include: {
@@ -20,6 +29,7 @@ export async function getCateringOrders(eventId: string) {
 }
 
 export async function getCateringOrder(id: string) {
+  await requireAuth();
   return prisma.cateringOrder.findUnique({
     where: { id },
     include: {
@@ -40,6 +50,7 @@ function parseDateField(value: string | null): Date | null {
 }
 
 export async function createCateringOrder(eventId: string, formData: FormData) {
+  await requireAuth();
   const name = formData.get("name") as string;
   const functionId = formData.get("functionId") as string;
 
@@ -76,6 +87,7 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
 }
 
 export async function updateCateringOrderDetails(id: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.cateringOrder.update({
     where: { id },
     data: {
@@ -89,6 +101,7 @@ export async function updateCateringOrderDetails(id: string, eventId: string, fo
 }
 
 export async function updateCateringOrderGuestCounts(id: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.cateringOrder.update({
     where: { id },
     data: {
@@ -102,6 +115,7 @@ export async function updateCateringOrderGuestCounts(id: string, eventId: string
 }
 
 export async function updateCateringOrderService(id: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.cateringOrder.update({
     where: { id },
     data: {
@@ -114,6 +128,7 @@ export async function updateCateringOrderService(id: string, eventId: string, fo
 }
 
 export async function updateCateringOrderContract(id: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.cateringOrder.update({
     where: { id },
     data: {
@@ -131,12 +146,14 @@ export async function updateCateringOrderContract(id: string, eventId: string, f
 }
 
 export async function deleteCateringOrder(id: string, eventId: string) {
+  await requireAuth();
   await prisma.cateringOrder.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/catering-orders`);
   redirect(`/events/${eventId}/catering-orders`);
 }
 
 export async function linkCateringOrderToFunction(cateringOrderId: string, functionId: string, eventId: string) {
+  await requireAuth();
   await prisma.cateringOrder.update({
     where: { id: cateringOrderId },
     data: { functionId },
@@ -146,6 +163,7 @@ export async function linkCateringOrderToFunction(cateringOrderId: string, funct
 }
 
 export async function unlinkCateringOrderFromFunction(cateringOrderId: string, eventId: string) {
+  await requireAuth();
   const cateringOrder = await prisma.cateringOrder.findUnique({
     where: { id: cateringOrderId },
     select: { functionId: true },
@@ -161,6 +179,7 @@ export async function unlinkCateringOrderFromFunction(cateringOrderId: string, e
 }
 
 export async function getAvailableCateringOrders(eventId: string) {
+  await requireAuth();
   return prisma.cateringOrder.findMany({
     where: { eventId, functionId: null },
     orderBy: { name: "asc" },
@@ -172,6 +191,7 @@ export async function linkCateringOrderToFunctionFromFunction(
   functionId: string,
   eventId: string
 ) {
+  await requireAuth();
   await prisma.cateringOrder.update({
     where: { id: cateringOrderId },
     data: { functionId },
@@ -180,6 +200,7 @@ export async function linkCateringOrderToFunctionFromFunction(
 }
 
 export async function unlinkCateringOrderFromFunctionPage(functionId: string, eventId: string) {
+  await requireAuth();
   await prisma.cateringOrder.updateMany({
     where: { functionId },
     data: { functionId: null },
@@ -188,8 +209,10 @@ export async function unlinkCateringOrderFromFunctionPage(functionId: string, ev
 }
 
 export async function createTimelineItem(cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
+  const timezone = await eventTimezone(eventId);
   const label = formData.get("label") as string;
-  const startTime = new Date(formData.get("startTime") as string);
+  const startTime = parseDateTimeInTimezone(formData.get("startTime") as string, timezone);
   const endTimeStr = formData.get("endTime") as string;
   const notes = formData.get("notes") as string;
 
@@ -200,7 +223,7 @@ export async function createTimelineItem(cateringOrderId: string, eventId: strin
       cateringOrderId,
       label,
       startTime,
-      endTime: endTimeStr ? new Date(endTimeStr) : null,
+      endTime: endTimeStr ? parseDateTimeInTimezone(endTimeStr, timezone) : null,
       notes: notes || null,
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
@@ -210,7 +233,9 @@ export async function createTimelineItem(cateringOrderId: string, eventId: strin
 }
 
 export async function updateTimelineItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
-  const startTime = new Date(formData.get("startTime") as string);
+  await requireAuth();
+  const timezone = await eventTimezone(eventId);
+  const startTime = parseDateTimeInTimezone(formData.get("startTime") as string, timezone);
   const endTimeStr = formData.get("endTime") as string;
 
   await prisma.timelineItem.update({
@@ -218,7 +243,7 @@ export async function updateTimelineItem(id: string, cateringOrderId: string, ev
     data: {
       label: formData.get("label") as string,
       startTime,
-      endTime: endTimeStr ? new Date(endTimeStr) : null,
+      endTime: endTimeStr ? parseDateTimeInTimezone(endTimeStr, timezone) : null,
       notes: (formData.get("notes") as string) || null,
     },
   });
@@ -227,11 +252,13 @@ export async function updateTimelineItem(id: string, cateringOrderId: string, ev
 }
 
 export async function deleteTimelineItem(id: string, cateringOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.timelineItem.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
 export async function createEquipmentItem(cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.equipmentItem.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
   const equipmentId = (formData.get("equipmentId") as string) || null;
   const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
@@ -255,6 +282,7 @@ export async function createEquipmentItem(cateringOrderId: string, eventId: stri
 }
 
 export async function updateEquipmentItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const equipmentId = (formData.get("equipmentId") as string) || null;
   const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
 
@@ -276,11 +304,13 @@ export async function updateEquipmentItem(id: string, cateringOrderId: string, e
 }
 
 export async function deleteEquipmentItem(id: string, cateringOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.equipmentItem.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
 export async function createCateringOrderLineItem(cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.cateringOrderLineItem.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
 
   await prisma.cateringOrderLineItem.create({
@@ -299,6 +329,7 @@ export async function createCateringOrderLineItem(cateringOrderId: string, event
 }
 
 export async function updateCateringOrderLineItem(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.cateringOrderLineItem.update({
     where: { id },
     data: {
@@ -314,11 +345,13 @@ export async function updateCateringOrderLineItem(id: string, cateringOrderId: s
 }
 
 export async function deleteCateringOrderLineItem(id: string, cateringOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.cateringOrderLineItem.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
 export async function createCateringOrderMenuSection(cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const { _max } = await prisma.cateringOrderMenuSection.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
 
   await prisma.cateringOrderMenuSection.create({
@@ -335,6 +368,7 @@ export async function createCateringOrderMenuSection(cateringOrderId: string, ev
 }
 
 export async function updateCateringOrderMenuSection(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.cateringOrderMenuSection.update({
     where: { id },
     data: {
@@ -348,11 +382,13 @@ export async function updateCateringOrderMenuSection(id: string, cateringOrderId
 }
 
 export async function deleteCateringOrderMenuSection(id: string, cateringOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.cateringOrderMenuSection.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
 export async function addCateringOrderContact(cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
 
@@ -368,6 +404,7 @@ export async function addCateringOrderContact(cateringOrderId: string, eventId: 
 }
 
 export async function updateCateringOrderContact(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   await prisma.cateringOrderContact.update({
     where: { id },
     data: { role: (formData.get("role") as string) || null },
@@ -377,11 +414,13 @@ export async function updateCateringOrderContact(id: string, cateringOrderId: st
 }
 
 export async function removeCateringOrderContact(id: string, cateringOrderId: string, eventId: string) {
+  await requireAuth();
   await prisma.cateringOrderContact.delete({ where: { id } });
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
 export async function createAndAddCateringOrderContact(cateringOrderId: string, eventId: string, formData: FormData) {
+  await requireAuth();
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -405,6 +444,7 @@ export async function createAndAddCateringOrderContact(cateringOrderId: string, 
 }
 
 export async function searchContactsForCateringOrder(query: string) {
+  await requireAuth();
   return prisma.contact.findMany({
     where: {
       OR: [
@@ -420,6 +460,7 @@ export async function searchContactsForCateringOrder(query: string) {
 }
 
 export async function deleteCateringOrders(ids: string[], eventId: string) {
+  await requireAuth();
   await prisma.cateringOrder.deleteMany({ where: { id: { in: ids }, eventId } });
   revalidatePath(`/events/${eventId}/catering-orders`);
 }
@@ -429,6 +470,7 @@ export async function bulkUpdateCateringOrders(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }
 ) {
+  await requireAuth();
   const { status, substatus, vendorId } = updates;
 
   if (status !== undefined || substatus !== undefined) {

@@ -2,10 +2,12 @@
 
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getEvents() {
+  await requireAuth();
   return prisma.event.findMany({
     include: { venue: true },
     orderBy: { startDate: "desc" },
@@ -13,6 +15,7 @@ export async function getEvents() {
 }
 
 export const getEvent = cache(async (id: string) => {
+  await requireAuth();
   return prisma.event.findUnique({
     where: { id },
     include: { venue: true },
@@ -20,6 +23,7 @@ export const getEvent = cache(async (id: string) => {
 });
 
 export async function createEvent(formData: FormData) {
+  await requireAuth();
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const startDate = formData.get("startDate") as string;
@@ -43,6 +47,7 @@ export async function createEvent(formData: FormData) {
 }
 
 export async function updateEvent(id: string, formData: FormData) {
+  await requireAuth();
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const startDate = formData.get("startDate") as string;
@@ -68,12 +73,14 @@ export async function updateEvent(id: string, formData: FormData) {
 }
 
 export async function deleteEvent(id: string) {
+  await requireAuth();
   await prisma.event.delete({ where: { id } });
   revalidatePath("/events");
   redirect("/events");
 }
 
 export async function searchContactsForKeyStaff(query: string) {
+  await requireAuth();
   if (!query || query.length < 2) return [];
   return prisma.contact.findMany({
     where: {
@@ -90,6 +97,7 @@ export async function searchContactsForKeyStaff(query: string) {
 }
 
 export async function addEventKeyStaff(eventId: string, formData: FormData) {
+  await requireAuth();
   const contactId = formData.get("contactId") as string;
   const title = (formData.get("title") as string) || null;
   const models = formData.getAll("models") as string[];
@@ -105,6 +113,7 @@ export async function updateEventKeyStaff(
   eventId: string,
   formData: FormData
 ) {
+  await requireAuth();
   const title = (formData.get("title") as string) || null;
   const models = formData.getAll("models") as string[];
 
@@ -116,11 +125,13 @@ export async function updateEventKeyStaff(
 }
 
 export async function removeEventKeyStaff(keyStaffId: string, eventId: string) {
+  await requireAuth();
   await prisma.eventKeyStaff.delete({ where: { id: keyStaffId } });
   revalidatePath(`/events/${eventId}`);
 }
 
 export async function createContactAndAddKeyStaff(eventId: string, formData: FormData) {
+  await requireAuth();
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;

@@ -3,9 +3,12 @@
 import { unlinkSync } from "fs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord } from "@/lib/uploads";
 
 export async function deleteFile(fileId: string, revalidateTarget: string) {
+  await requireAuth();
+
   const record = await prisma.fileUpload.findUnique({
     where: { id: fileId },
   });

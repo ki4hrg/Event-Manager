@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { EntityStatus } from "@prisma/client";
@@ -158,6 +159,7 @@ async function recomputeEntityStatus(entityType: WorkflowEntityType, entityId: s
 }
 
 export async function getWorkflowInstances(entityType: WorkflowEntityType, entityId: string) {
+  await requireAuth();
   return prisma.workflowInstance.findMany({
     where: { entityType, entityId },
     include: {
@@ -184,6 +186,7 @@ export async function assignWorkflow(
   entityId: string,
   eventId: string
 ) {
+  await requireAuth();
   await prisma.workflowInstance.create({
     data: { templateId, entityType, entityId },
   });
@@ -197,6 +200,7 @@ export async function removeWorkflow(
   entityId: string,
   eventId: string
 ) {
+  await requireAuth();
   await prisma.workflowInstance.delete({ where: { id: instanceId } });
   // Recompute status since a workflow was removed
   await recomputeEntityStatus(entityType, entityId);
@@ -210,6 +214,7 @@ export async function toggleStepCompletion(
   entityId: string,
   eventId: string
 ) {
+  await requireAuth();
   const existing = await prisma.workflowStepCompletion.findUnique({
     where: { instanceId_stepId: { instanceId, stepId } },
   });
@@ -263,6 +268,7 @@ export async function getWorkflowBadgeSummaries(
   entityType: WorkflowEntityType,
   entityIds: string[]
 ): Promise<Record<string, WorkflowBadgeSummary>> {
+  await requireAuth();
   if (entityIds.length === 0) return {};
 
   const instances = await prisma.workflowInstance.findMany({
@@ -314,6 +320,7 @@ export async function toggleItemCompletion(
   entityId: string,
   eventId: string
 ) {
+  await requireAuth();
   const existing = await prisma.workflowChecklistCompletion.findUnique({
     where: { instanceId_itemId: { instanceId, itemId } },
   });
@@ -398,6 +405,7 @@ export async function setEntityStatus(
   eventId: string,
   formData: FormData
 ) {
+  await requireAuth();
   const status = (formData.get("status") as EntityStatus | null) || null;
   const substatus = (formData.get("substatus") as string | null) || null;
   await updateEntityStatus(entityType, entityId, status, substatus);
@@ -410,6 +418,7 @@ export async function cancelEntity(
   substatus: string,
   eventId: string
 ) {
+  await requireAuth();
   await updateEntityStatus(entityType, entityId, "CANCELLED", substatus);
   revalidateEntity(entityType, entityId, eventId);
 }
@@ -419,6 +428,7 @@ export async function restoreEntity(
   entityId: string,
   eventId: string
 ) {
+  await requireAuth();
   await recomputeEntityStatus(entityType, entityId);
   revalidateEntity(entityType, entityId, eventId);
 }
@@ -427,6 +437,7 @@ export async function autoAssignDefaultWorkflows(
   entityType: WorkflowEntityType,
   entityId: string
 ) {
+  await requireAuth();
   const templates = await prisma.workflowTemplate.findMany({
     where: { defaultForEntityTypes: { has: entityType } },
     select: { id: true },
