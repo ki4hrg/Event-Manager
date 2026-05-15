@@ -413,17 +413,17 @@ function FunctionScheduleSection({
               <table className="w-full table-fixed text-sm border-collapse">
                 <thead>
                   <tr>
-                    <th className={`${th} w-[10%]`}>Type</th>
+                    <th className={`${th} w-[14%]`}>Type</th>
                     <th className={`${th} w-[20%]`}>Time</th>
-                    <th className={`${th} w-[30%]`}>Function</th>
-                    <th className={`${th} w-[28%]`}>Room(s)</th>
+                    <th className={`${th} w-[28%]`}>Function</th>
+                    <th className={`${th} w-[26%]`}>Room(s)</th>
                     <th className={`${th} w-[12%]`}>Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rowData.map((row) => (
                     <tr key={row.key}>
-                      <td className={`${td} whitespace-nowrap`}>{row.type}</td>
+                      <td className={td}>{row.type}</td>
                       <td className={`${td} whitespace-nowrap`}>{row.timeStr}</td>
                       <td className={td}><a href={`#function-${row.fnId}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{row.name}</a></td>
                       <td className={td}>{row.rooms}</td>
