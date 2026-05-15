@@ -11,7 +11,7 @@ You are performing a **descriptive** review of this Next.js codebase. Your goal 
 
 ## Output
 
-Write your findings to `reviews/conventions-observed.md`. Use the structure below. Every claim must include `file:line` citations. Patterns without at least 3 cited examples should be flagged as "tentative" or omitted.
+Write your findings to `reviews/claudemd/conventions-observed.md`. Use the structure below. Every claim must include `file:line` citations. Patterns without at least 3 cited examples should be flagged as "tentative" or omitted.
 
 ## Phase 1: Framework inventory
 

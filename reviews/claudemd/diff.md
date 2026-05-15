@@ -1,14 +1,14 @@
 # CLAUDE.md diff — current vs inferred
 
 Compares the rules in `CLAUDE.md` (repo root) against the inferred CLAUDE.md
-in `reviews/conventions-observed.md` Phase 7.
+in `reviews/claudemd/conventions-observed.md` Phase 7.
 
 Sort: **Conflict → Documented-but-absent → Undocumented → Vague → Consistent**.
 
 | # | Rule | In current CLAUDE.md? | In inferred CLAUDE.md? | Classification | Evidence |
 |---|------|------------------------|-------------------------|----------------|----------|
-| 1 | Project tree includes `/components/features` for feature-specific components | Yes | No | **Conflict** | Current: "Project Structure" section, `/components/features` listed. Inferred: lists only `src/components/ui/` and `src/components/print/` (`reviews/conventions-observed.md` Phase 1). No `features/` directory exists. |
-| 2 | API routes live in `/app/api` following REST conventions | Yes | No | **Conflict** | Current: "Code Conventions" — "API routes in /app/api following REST conventions". Inferred: only 3 route handlers exist and none are REST CRUD — they cover NextAuth, multipart upload, and binary download (`reviews/conventions-observed.md` Phase 3 §4). |
+| 1 | Project tree includes `/components/features` for feature-specific components | Yes | No | **Conflict** | Current: "Project Structure" section, `/components/features` listed. Inferred: lists only `src/components/ui/` and `src/components/print/` (`reviews/claudemd/conventions-observed.md` Phase 1). No `features/` directory exists. |
+| 2 | API routes live in `/app/api` following REST conventions | Yes | No | **Conflict** | Current: "Code Conventions" — "API routes in /app/api following REST conventions". Inferred: only 3 route handlers exist and none are REST CRUD — they cover NextAuth, multipart upload, and binary download (`reviews/claudemd/conventions-observed.md` Phase 3 §4). |
 | 3 | After creating a record, redirect to list view (not detail view) | Yes | Yes | **Consistent** | Current: "Code Conventions". Inferred: same — `src/app/events/actions.ts:42` redirects to `/events`. |
 | 4 | After updating a record, stay on detail view with success toast | Yes | Yes | **Consistent** | Current: "Code Conventions". Inferred: same — `src/app/events/actions.ts:67` redirects to `/events/:id?success=...`. |
 | 5 | Project layout: `/app`, `/components`, `/lib`, `/prisma`, `/types` | Yes | Yes (under `src/`) | **Consistent** | Current: "Project Structure" lists these without the `src/` prefix. Inferred: same dirs, all under `src/` (Phase 1). The `src/` prefix is undocumented in current CLAUDE.md but the dir names match. |

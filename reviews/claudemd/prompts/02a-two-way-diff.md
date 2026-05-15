@@ -9,9 +9,9 @@
 
 You have two inputs:
 - The current `CLAUDE.md` at the repo root
-- The reverse-engineering output at `reviews/conventions-observed.md`, which includes an inferred CLAUDE.md in its Phase 7 section
+- The reverse-engineering output at `reviews/claudemd/conventions-observed.md`, which includes an inferred CLAUDE.md in its Phase 7 section
 
-Your job is to produce a structured diff between them. Write output to `reviews/claudemd-diff.md`.
+Your job is to produce a structured diff between them. Write output to `reviews/claudemd/diff.md`.
 
 ## How to extract rules
 
@@ -41,7 +41,7 @@ Classifications (pick exactly one):
 
 The Evidence column should cite:
 - For current CLAUDE.md: the line or section
-- For inferred: the `file:line` citations from `reviews/conventions-observed.md` that established the pattern
+- For inferred: the `file:line` citations from `reviews/claudemd/conventions-observed.md` that established the pattern
 
 ## Rules for this task
 

@@ -9,7 +9,7 @@
 
 Input: `CLAUDE.md.proposed`.
 
-Run two independent checks and write results to `reviews/claudemd-validation.md`.
+Run two independent checks and write results to `reviews/claudemd/validation.md`.
 
 ## Check 1: Agent review test
 

@@ -9,11 +9,11 @@
 ```
 # Draft decisions for each divergence
 
-Input: `reviews/claudemd-diff.md` from the previous step.
+Input: `reviews/claudemd/diff.md` from the previous step.
 
 For every row that isn't classified "Consistent," draft a recommended decision. A human will review and override — your job is to give them a defensible starting point, not to decide unilaterally.
 
-Write output to `reviews/claudemd-decisions.md`.
+Write output to `reviews/claudemd/decisions.md`.
 
 ## Decision buckets
 

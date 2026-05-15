@@ -7,7 +7,7 @@
 ```
 # Apply between-review candidates to CLAUDE.md
 
-Input: `reviews/claudemd-candidates.md` (optional — skip this step if the file doesn't exist or contains no resolved items).
+Input: `reviews/claudemd/candidates.md` (optional — skip this step if the file doesn't exist or contains no resolved items).
 
 The candidates file is where humans jot rule additions, sharpenings, or removals that came up between formal reviews. Items in it may be **resolved** (with a decision written next to them) or **open** (still under discussion). Only resolved items get applied here.
 
@@ -16,10 +16,10 @@ The candidates file is where humans jot rule additions, sharpenings, or removals
 For each resolved item:
 
 1. Apply the change directly to `CLAUDE.md`.
-2. Log the change in `reviews/claudemd-changelog.md` under a new "Between-review candidates applied" heading, with: candidate text, resolution, before/after snippet, and the date applied.
-3. Remove the resolved item from `reviews/claudemd-candidates.md`. Open items stay.
+2. Log the change in `reviews/claudemd/changelog.md` under a new "Between-review candidates applied" heading, with: candidate text, resolution, before/after snippet, and the date applied.
+3. Remove the resolved item from `reviews/claudemd/candidates.md`. Open items stay.
 
-If `reviews/claudemd-candidates.md` becomes empty, delete it.
+If `reviews/claudemd/candidates.md` becomes empty, delete it.
 
 ## Rules for this task
 
