@@ -230,6 +230,18 @@ For the full share-link wiring checklist (new `reportType` value, share route br
 | `ShareShell` | `src/app/share/[token]/ShareShell.tsx` | Layout shell for the share route (header, Print button, footer) |
 | Report style classes | `src/lib/reportStyles.ts` | `reportTh`, `reportTd`, etc. |
 
+## Breakout Session Labels
+
+Anywhere a breakout session (a `Function` with `type === "BREAKOUT_BLOCK"`) is displayed by name, prepend its `BreakoutGroup.name` so "Session 1" reads as "Learn & Lead Session 1". Use the helper:
+
+```ts
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+
+formatBreakoutSessionName(session.name, session.breakoutGroup?.name)
+```
+
+The helper falls back to just the session name when no group is provided (ungrouped blocks), so it's safe to use on any `Function` whose name might be rendered — list rows, headings, dropdown options, report rows, print headers. When adding a new view that shows a function name and the function could be a breakout block, include `breakoutGroup: { select: { name: true } }` in the Prisma query and apply the helper. Apply it to name-based filtering/sorting too, since users see and search the prepended form.
+
 ## Code Conventions
 - Use named exports for components
 - Colocate component-specific logic
