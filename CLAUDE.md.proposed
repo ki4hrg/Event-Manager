@@ -79,18 +79,20 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 - Type page props as `params: Promise<{...}>` and `searchParams: Promise<{...}>`, then `await` them. Same applies to new route handlers.
 - Use `Promise.all([...])` to fan out independent fetches inside a page.
 - Missing records call `notFound()`. Do not add `error.tsx`, `not-found.tsx`, or `loading.tsx` files — rely on Next's defaults.
-- Filter state on list and table pages lives in URL search params (same reasoning as Reports — bookmarkable, share-friendly, survives refresh and back-button). On filter change, push to `router.replace(url)` so the URL stays in sync. Don't park filter state in `useState` alone.
+- Filter state on list and table pages lives in URL search params (same reasoning as Reports — bookmarkable, share-friendly, survives refresh and back-button). On filter change, call `router.push(\`${basePath}?${params.toString()}\`)` so the URL stays in sync (see `src/app/events/[id]/reports/event-profile/ReportFilters.tsx:36-44`). Reserve `router.replace` for URL changes that should NOT add a history entry (e.g. `Toast` clearing `?success=` in `src/components/Toast.tsx:21`). Don't park filter state in `useState` alone.
+- Validate URL list params against an allowed set before passing them into a `Set.has` lookup or downstream filter. See the `selectedSections.filter((s) => validSectionValues.has(s as ProfileSection))` pattern in `src/app/events/[id]/reports/event-profile/page.tsx:28-31`. Un-validated list params (`?days=banana`) silently empty the result and look like a backend bug.
+- **Breadcrumbs.** Every entity detail page renders `<Breadcrumbs items={[...]} />` with this shape: (1) top-level section (`{ label: "Events", href: "/events" }`), (2) parent entity (`{ label: event.name, href: \`/events/${eventId}\` }`), (3) immediate parent list (`{ label: "Presentations", href: \`/events/${eventId}/presentations\` }`), (4) the entity's own name with no `href`. See `src/app/events/[id]/presentations/[presentationId]/page.tsx:288-293`. Use the plural list label (`Functions`, `Presentations`, `Setup Orders`) — not the page title (`Function List`).
 - Import via `@/...` (`@/* → ./src/*`) across feature boundaries. A "feature" is a directory under `src/app/<feature>/` (e.g. all of `src/app/events/setup-orders/`); sibling imports inside one feature may stay relative. Anything crossing out of a feature dir — into `src/lib/`, `src/components/`, another `src/app/<other-feature>/`, or `src/types/` — uses `@/...`.
 
 ### Server Actions
 
 - Co-locate in a sibling `actions.ts` whose first directive is `"use server"`.
 - Start every exported action with `await requireAuth()` (or `await requireAdmin()` for admin-gated actions). Read-only **report** actions in `src/app/events/reports/actions.ts` are the deliberate exception — the unauthenticated share route reuses them, so they must remain auth-free.
-- Read inputs with `formData.get("field") as string`. Normalize empty strings to `null` via `|| null` before writing to Prisma.
-- After a mutation, call `revalidatePath(...)` for affected list + detail routes, then `redirect(...)`. Do not use `revalidateTag` — the project doesn't tag fetches.
+- Read inputs by type. Strings: `(formData.get("field") as string) || null` before writing to Prisma. Numbers: `parseInt(formData.get("field") as string)` for required ints, or `formData.get("field") ? parseInt(formData.get("field") as string) : null` for nullable ints (see `src/app/events/setup-orders/actions.ts:254-256`) — don't blanket-apply `|| null` to numerics, it turns the string `"0"` into `null`. Booleans: `formData.get("field") === "true"` (see `src/app/vendors/actions.ts:131`). Multi-value fields: `formData.getAll("field") as string[]` (see `src/app/settings/actions.ts:68`).
+- After a mutation, call `revalidatePath(...)` for the entity's own list + detail routes, then `redirect(...)`. Example: `updateSetupOrder(id, eventId, ...)` revalidates `/events/${eventId}/setup-orders` (list) and `/events/${eventId}/setup-orders/${id}` (detail). Cross-cutting changes (e.g. a settings label rename in `updateOption` propagating across dozens of consumers) rely on `force-dynamic` on the affected pages — don't try to enumerate every consumer. Do not use `revalidateTag` — the project doesn't tag fetches.
 - **Redirect target.** Thin top-level entities (User, Event, Venue, Contact) redirect to the list view after create. Entities that need further setup on their detail page (Vendor, every order type, Presentation, Function) redirect to the detail view after create. Duplicates always redirect to the detail view of the new copy. Updates always stay on the detail view.
 - **Toasts.** Every successful mutation appends `?success=<short message>` to the redirect URL. The destination page mounts `<Toast />` wrapped in `<Suspense fallback={null}>` so `useSearchParams()` inside doesn't bail.
-- Return shape: either `void` (after `redirect`) or the raw Prisma model. Do not introduce a `{ success, error }` envelope. Do not use `useActionState`.
+- Return shape: three forms. (a) `void` after `redirect()` for create/update from a `<form>`. (b) `void` without redirect for bulk operations called from a client list (the client calls `router.refresh()` — see "Order list and bulk edit pattern" and `bulkUpdatePresentations` in `src/app/events/presentations/actions.ts:226-242`). (c) The raw Prisma model for read actions consumed by server components. Do not introduce a `{ success, error }` envelope. Do not use `useActionState`.
 - For event-scoped detail pages, wrap remote Server Actions in inline `"use server"` arrow closures that bind `eventId` / sub-id before passing them to client components (see Archetype C example).
 - Cache shared readers with `cache()` from `react` **only** when the same reader is called more than once per request — typically because a `layout.tsx` and its child `page.tsx` both fetch the same entity. `getEvent` is the current example (`src/app/events/actions.ts:15`); don't wrap readers used in a single place.
 
@@ -105,17 +107,19 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 
 - Named exports for components, **except** where Next requires `export default` (page, layout, error, loading, not-found, route).
 - Add `"use client"` only when the file needs local React state, an effect, a router hook, `useFormStatus`, `useTransition`, or a third-party client library (tiptap, @dnd-kit). Otherwise stay on the server.
+- `dangerouslySetInnerHTML` is allowed only for HTML produced by `RichTextEditor` (`src/components/RichTextEditor.tsx`, tiptap-backed) — currently the four `menuContent` call sites in catering reports and `MenuSectionTable`. Render everything else as text. When you add a new call site, drop a one-line comment naming the editor source so a reviewer can see the chain at a glance.
 
 ### Data layer
 
 - Use the singleton `prisma` from `@/lib/prisma`. Direct `prisma.<model>.<op>()` calls are expected in pages, actions, and `src/lib/` helpers — there is no repository or query layer.
 - Domain types come from `@prisma/client`. For derived list/detail payloads, alias with `Awaited<ReturnType<typeof getX>>[number]` (e.g. `src/app/events/setup-orders/SetupOrderList.tsx:18`).
 - Persist per-user preferences via `setUserSetting` / `getUserSetting` from `@/lib/userSettings` (backed by the `UserSetting` table). Don't add cookies or localStorage for the same need.
+- When discriminating on a TypeScript union or Prisma enum, close the chain with an exhaustiveness check: `default: { const _exhaustive: never = value; throw new Error(\`Unhandled: ${value}\`); }` on a `switch`, or `const _exhaustive: never = link.reportType; throw new Error(...);` after the last `if` branch. Adding a member to the union then fails the build instead of silently falling through. Applies to the `OptionCategory` cascade switch in `src/app/settings/actions.ts` and the `ShareLink.reportType` if-chain in `src/app/share/[token]/page.tsx:40-215`.
 
 ### Styling
 
 - Tailwind v4 utility classes everywhere. Concatenate with template literals. Do not introduce a `cn()` / `clsx` / `tailwind-merge` helper.
-- Apply `dark:` variants on every styled element. Print formatting uses `print:` utility variants plus the rules in `src/app/globals.css:35-44`.
+- Apply `dark:` variants on every element with a color-bearing class (`text-`, `bg-`, `border-`, `divide-`, `ring-`, `placeholder:`). Layout-only classes (`flex`, `gap-2`, `mt-4`, `w-full`) don't need a dark counterpart. Print formatting uses `print:` utility variants plus the rules in `src/app/globals.css:35-44`.
 - Reuse the class-string libs in `src/lib/` instead of redeclaring strings inline: `buttonStyles` (`btnPrimary`, `btnSecondary`, `btnDanger`, `btnOutlinedSm`), `reportStyles` (`reportTh`, `reportTd`, etc.), `statusConstants`, and `colors`.
 
 ### Mobile and print
@@ -271,8 +275,8 @@ Every order type follows this structure. When adding a new order type, replicate
 - Status: `EDIT_STATUS_OPTIONS` from `src/lib/statusConstants.ts`.
 - Substatus: `getSubstatusOptions()` from `src/app/settings/actions.ts` → `CustomOption[]`, filtered by selected status via `group` field.
 - Vendor: `getResponsiblePartyVendors(eventId, "X_ORDER")` + `flattenResponsiblePartyOptions()` — vendor replace pattern: `deleteMany` then `createMany` on the junction table.
-- Function link: `getFunctionOptions(eventId)` — for many:many junctions (PrintOrder, SetupOrder), bulk-add is safe (skip existing). For 1:1 FK (CateringOrder), bulk-replace the FK directly.
-- Presentation link: same 1:1 FK pattern (AVOrder, PrintOrder via FK).
+- Function link: `getFunctionOptions(eventId)` — for many:many junctions (AVOrder, SetupOrder, PrintOrder via `*OrderFunction`), bulk-add is safe (skip existing on the unique constraint). For 1:1 FK (CateringOrder via `CateringOrder.functionId`), bulk-replace the FK directly.
+- Presentation link: many:many for AVOrder and SetupOrder (via `AVOrderPresentation` / `SetupOrderPresentation`) — bulk-add with skip-existing. 1:1 FK for PrintOrder (`PrintOrder.presentationId`) — bulk-replace the FK directly. CateringOrder doesn't link to presentations.
 - After apply: call server action, reset state, `router.refresh()`.
 
 ### Vendor replace pattern (many:many)

@@ -185,3 +185,175 @@ Server page fetches lookup data, then passes Server Actions as props to a client
 Items elsewhere in the validation doc (Check 1 "Suggested CLAUDE.md changes", Check 2 ambiguous-rule rewrites that don't appear in the Must-fix / Should-fix synthesis, "Notes for next iteration") were not applied — the prompt scopes this pass to the Synthesis section. They remain on record in `claudemd-validation.md` for a future pass.
 
 No findings were skipped to `claudemd-open-questions.md`; every Must-fix / Should-fix item had a clear path (either a suggested rewrite, or "pick one canonical source" where the canonical pick was determined by which section already carried the fullest statement of the rule).
+
+---
+
+# Second validation pass (after re-run against five commits)
+
+The second validation pass (`reviews/claudemd-validation.md`, "second pass") surfaced three new must-fix items and eight should-fix items. One must-fix is a team-intent decision and was parked in `reviews/claudemd-open-questions.md` (OQ-1). Two must-fix and all eight should-fix items were applied here.
+
+---
+
+### MF2-2 · `router.replace(url)` → `router.push(...)` (Synthesis → Must-fix #2)
+
+**Source finding:** All four existing report filter components use `router.push`; the SF-6 rule from pass 1 prescribed `router.replace`, which the codebase contradicts.
+
+**Before (Pages and routing):**
+```
+- Filter state on list and table pages lives in URL search params (same reasoning as Reports — bookmarkable, share-friendly, survives refresh and back-button). On filter change, push to router.replace(url) so the URL stays in sync. Don't park filter state in useState alone.
+```
+
+**After:**
+```
+- Filter state on list and table pages lives in URL search params (same reasoning as Reports — bookmarkable, share-friendly, survives refresh and back-button). On filter change, call router.push(`${basePath}?${params.toString()}`) so the URL stays in sync (see src/app/events/[id]/reports/event-profile/ReportFilters.tsx:36-44). Reserve router.replace for URL changes that should NOT add a history entry (e.g. Toast clearing ?success= in src/components/Toast.tsx:21). Don't park filter state in useState alone.
+```
+
+---
+
+### MF2-3 · Correct AVOrder linkage cardinality (Synthesis → Must-fix #3)
+
+**Source finding:** After `86042e3` the AVOrder ↔ Function and AVOrder ↔ Presentation relations are M:N (via `AVOrderFunction` / `AVOrderPresentation`). The "Order list and bulk edit pattern" section still described both as 1:1 FK.
+
+**Before (Order list and bulk edit pattern → Bulk edit panel):**
+```
+- Function link: getFunctionOptions(eventId) — for many:many junctions (PrintOrder, SetupOrder), bulk-add is safe (skip existing). For 1:1 FK (CateringOrder), bulk-replace the FK directly.
+- Presentation link: same 1:1 FK pattern (AVOrder, PrintOrder via FK).
+```
+
+**After:**
+```
+- Function link: getFunctionOptions(eventId) — for many:many junctions (AVOrder, SetupOrder, PrintOrder via *OrderFunction), bulk-add is safe (skip existing on the unique constraint). For 1:1 FK (CateringOrder via CateringOrder.functionId), bulk-replace the FK directly.
+- Presentation link: many:many for AVOrder and SetupOrder (via AVOrderPresentation / SetupOrderPresentation) — bulk-add with skip-existing. 1:1 FK for PrintOrder (PrintOrder.presentationId) — bulk-replace the FK directly. CateringOrder doesn't link to presentations.
+```
+
+---
+
+### SF2-A · Bulk-update return shape (third void shape)
+
+**Source finding:** Server Actions return-shape rule had two slots (`void` after redirect, raw model) but the Order list bulk-edit pattern uses a third (`void` without redirect, client `router.refresh()`).
+
+**Before (Server Actions):**
+```
+- Return shape: either void (after redirect) or the raw Prisma model. Do not introduce a { success, error } envelope. Do not use useActionState.
+```
+
+**After:**
+```
+- Return shape: three forms. (a) void after redirect() for create/update from a <form>. (b) void without redirect for bulk operations called from a client list (the client calls router.refresh() — see "Order list and bulk edit pattern" and bulkUpdatePresentations in src/app/events/presentations/actions.ts:226-242). (c) The raw Prisma model for read actions consumed by server components. Do not introduce a { success, error } envelope. Do not use useActionState.
+```
+
+---
+
+### SF2-B · Sharpen `revalidatePath` "affected" language
+
+**Source finding:** "affected list + detail routes" reads as ambiguous for cross-cutting renames like `updateOption` in `ff85297` that propagate across dozens of consumers.
+
+**Before (Server Actions):**
+```
+- After a mutation, call revalidatePath(...) for affected list + detail routes, then redirect(...). Do not use revalidateTag — the project doesn't tag fetches.
+```
+
+**After:**
+```
+- After a mutation, call revalidatePath(...) for the entity's own list + detail routes, then redirect(...). Example: updateSetupOrder(id, eventId, ...) revalidates /events/${eventId}/setup-orders (list) and /events/${eventId}/setup-orders/${id} (detail). Cross-cutting changes (e.g. a settings label rename in updateOption propagating across dozens of consumers) rely on force-dynamic on the affected pages — don't try to enumerate every consumer. Do not use revalidateTag — the project doesn't tag fetches.
+```
+
+---
+
+### SF2-C · Exhaustive switch over discriminated unions
+
+**Source finding:** `propagateLabelRename` in `settings/actions.ts` and the `reportType` switch in `share/[token]/page.tsx` both lack exhaustive defaults; adding a union member silently fails.
+
+**Before (Data layer):**
+```
+(no equivalent bullet existed)
+```
+
+**After (appended after the UserSetting bullet):**
+```
+- When discriminating on a TypeScript union or Prisma enum, close the chain with an exhaustiveness check: default: { const _exhaustive: never = value; throw new Error(`Unhandled: ${value}`); } on a switch, or const _exhaustive: never = link.reportType; throw new Error(...); after the last if branch. Adding a member to the union then fails the build instead of silently falling through. Applies to the OptionCategory cascade switch in src/app/settings/actions.ts and the ShareLink.reportType if-chain in src/app/share/[token]/page.tsx:40-215.
+```
+
+---
+
+### SF2-D · `dark:` variant scope — color-bearing classes only
+
+**Source finding:** "Apply `dark:` variants on every styled element" reads as "every element"; the codebase actually only puts dark variants on color-bearing classes.
+
+**Before (Styling):**
+```
+- Apply dark: variants on every styled element. Print formatting uses print: utility variants plus the rules in src/app/globals.css:35-44.
+```
+
+**After:**
+```
+- Apply dark: variants on every element with a color-bearing class (text-, bg-, border-, divide-, ring-, placeholder:). Layout-only classes (flex, gap-2, mt-4, w-full) don't need a dark counterpart. Print formatting uses print: utility variants plus the rules in src/app/globals.css:35-44.
+```
+
+---
+
+### SF2-E · Validate URL list params before `Set.has` lookups
+
+**Source finding:** The `?days=banana` example in Event Profile silently empties the result. The codebase has the right pattern but no rule pointed at it.
+
+**Before:** (no equivalent bullet existed)
+
+**After (new bullet inserted in Pages and routing, after the filter-URL rule):**
+```
+- Validate URL list params against an allowed set before passing them into a Set.has lookup or downstream filter. See the selectedSections.filter((s) => validSectionValues.has(s as ProfileSection)) pattern in src/app/events/[id]/reports/event-profile/page.tsx:28-31. Un-validated list params (?days=banana) silently empty the result and look like a backend bug.
+```
+
+---
+
+### SF2-F · FormData input handling — per-type recipes
+
+**Source finding:** The `as string` + `|| null` recipe doesn't extend to numbers (turns "0" into null), booleans, or arrays. The codebase has stable per-type patterns but the rubric only documented strings.
+
+**Before (Server Actions):**
+```
+- Read inputs with formData.get("field") as string. Normalize empty strings to null via || null before writing to Prisma.
+```
+
+**After:**
+```
+- Read inputs by type. Strings: (formData.get("field") as string) || null before writing to Prisma. Numbers: parseInt(formData.get("field") as string) for required ints, or formData.get("field") ? parseInt(formData.get("field") as string) : null for nullable ints (see src/app/events/setup-orders/actions.ts:254-256) — don't blanket-apply || null to numerics, it turns the string "0" into null. Booleans: formData.get("field") === "true" (see src/app/vendors/actions.ts:131). Multi-value fields: formData.getAll("field") as string[] (see src/app/settings/actions.ts:68).
+```
+
+---
+
+### SF2-G · Breadcrumb convention
+
+**Source finding:** `352c784` was a coordination commit normalizing breadcrumb labels and adding a missing intermediate link; the rubric had no breadcrumb rule.
+
+**Before:** (no equivalent bullet existed)
+
+**After (new bullet inserted in Pages and routing, after the URL-list-validation rule):**
+```
+- Breadcrumbs. Every entity detail page renders <Breadcrumbs items={[...]} /> with this shape: (1) top-level section ({ label: "Events", href: "/events" }), (2) parent entity ({ label: event.name, href: `/events/${eventId}` }), (3) immediate parent list ({ label: "Presentations", href: `/events/${eventId}/presentations` }), (4) the entity's own name with no href. See src/app/events/[id]/presentations/[presentationId]/page.tsx:288-293. Use the plural list label (Functions, Presentations, Setup Orders) — not the page title (Function List).
+```
+
+---
+
+### SF2-H · `dangerouslySetInnerHTML` allowed only for editor content
+
+**Source finding:** Four `dangerouslySetInnerHTML` call sites all render `RichTextEditor` output (tiptap), but the rubric has no rule on raw HTML.
+
+**Before:** (no equivalent bullet existed)
+
+**After (new bullet appended to Components, after the `"use client"` bullet):**
+```
+- dangerouslySetInnerHTML is allowed only for HTML produced by RichTextEditor (src/components/RichTextEditor.tsx, tiptap-backed) — currently the four menuContent call sites in catering reports and MenuSectionTable. Render everything else as text. When you add a new call site, drop a one-line comment naming the editor source so a reviewer can see the chain at a glance.
+```
+
+---
+
+## Items parked in claudemd-open-questions.md
+
+- **OQ-1 (MF2-1 in this pass): `requireAuth()` invariant vs. codebase reality.** The validation's rewrite branches on team intent — descriptively downgrade ("middleware-only is fine") or aspirationally retrofit (~272 actions across 16 files). Both viable; pick one.
+- **OQ-2: tests stance.** The parenthetical "highest-leverage test targets" contradicts the "no tests" rule; pass-2 (like pass-1) declined to pick. Same wording either way once decided.
+
+## Items intentionally not applied (second pass)
+
+- Check 1 "Suggested CLAUDE.md changes" that didn't roll up into Synthesis (e.g. "Note on transitional schema columns" from commit 1) — out of scope per the prompt.
+- Check 2 Structural notes that are observations rather than findings (long Reports section flagged for future `docs/` extraction, repetition of the auth invariant which depends on OQ-1).
+- "Notes for next iteration" — by definition deferred.
