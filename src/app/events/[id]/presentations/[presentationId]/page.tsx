@@ -278,15 +278,15 @@ export default async function PresentationPage({
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex justify-between items-center mb-6">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
+        <div className="min-w-0">
           <Breadcrumbs items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
             { label: "Presentations", href: `/events/${eventId}/presentations` },
             { label: presentation.title },
           ]} />
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex flex-wrap items-center gap-3 mt-1">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               {presentation.title}
             </h1>
@@ -294,7 +294,7 @@ export default async function PresentationPage({
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           <form action={duplicatePresentationAction}>
             <button
               type="submit"
