@@ -8,6 +8,7 @@ import { enumerateEventDays } from "../event-profile/days";
 import { ReportFilters } from "./ReportFilters";
 import { RoomScheduleReport } from "./RoomScheduleReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
+import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,9 @@ export default async function RoomSchedulePage({
   if (!event || !data) notFound();
 
   const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
+  const targetDashboard = addToDashboard
+    ? dashboardChoices.find((d) => d.id === addToDashboard)
+    : undefined;
   const roomOptions = data.rooms.map((r) => ({
     value: r.id,
     label: r.venue?.name ? `${r.name} · ${r.venue.name}` : r.name,
@@ -65,6 +69,14 @@ export default async function RoomSchedulePage({
 
       <div className="max-w-5xl">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Room Schedule</h2>
+
+        {targetDashboard && (
+          <AddToDashboardBanner
+            eventId={eventId}
+            dashboardId={targetDashboard.id}
+            dashboardLabel={targetDashboard.label}
+          />
+        )}
 
         <ReportFilters
           eventId={eventId}

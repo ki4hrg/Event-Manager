@@ -8,6 +8,7 @@ import { enumerateEventDays } from "./days";
 import { ReportFilters } from "./ReportFilters";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "./EventProfileReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
+import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,9 @@ export default async function EventProfilePage({
   if (!event || !data) notFound();
 
   const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
+  const targetDashboard = addToDashboard
+    ? dashboardChoices.find((d) => d.id === addToDashboard)
+    : undefined;
 
   return (
     <>
@@ -58,6 +62,14 @@ export default async function EventProfilePage({
 
       <div className="max-w-5xl">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Event Profile</h2>
+
+        {targetDashboard && (
+          <AddToDashboardBanner
+            eventId={eventId}
+            dashboardId={targetDashboard.id}
+            dashboardLabel={targetDashboard.label}
+          />
+        )}
 
         <ReportFilters
           eventId={eventId}

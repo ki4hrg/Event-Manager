@@ -7,6 +7,7 @@ import { getOptions } from "@/app/settings/actions";
 import { ReportFilters } from "./ReportFilters";
 import { VendorHandoffReport } from "./VendorHandoffReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
+import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,10 @@ export default async function VendorHandoffPage({
 
   if (!event) notFound();
 
+  const targetDashboard = addToDashboard
+    ? dashboardChoices.find((d) => d.id === addToDashboard)
+    : undefined;
+
   return (
     <>
       <div className="mb-4">
@@ -43,6 +48,14 @@ export default async function VendorHandoffPage({
 
       <div className="max-w-5xl">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Vendor Handoff</h2>
+
+        {targetDashboard && (
+          <AddToDashboardBanner
+            eventId={eventId}
+            dashboardId={targetDashboard.id}
+            dashboardLabel={targetDashboard.label}
+          />
+        )}
 
         <ReportFilters
           eventId={eventId}

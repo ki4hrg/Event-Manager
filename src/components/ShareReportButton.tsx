@@ -51,6 +51,11 @@ type Mode = "single" | "dashboard";
 export function ShareReportButton({ eventId, reportType, currentFilters, dashboardChoices, addToDashboardId }: ShareReportButtonProps) {
   const router = useRouter();
   const hasDashboards = !!dashboardChoices;
+  const isAddingToDashboard = !!addToDashboardId;
+  const targetDashboard = isAddingToDashboard
+    ? dashboardChoices?.find((d) => d.id === addToDashboardId)
+    : undefined;
+  const targetDashboardName = targetDashboard?.label || "dashboard";
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>(addToDashboardId ? "dashboard" : "single");
   const [label, setLabel] = useState("");
@@ -170,9 +175,13 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
     <>
       <button
         onClick={handleOpen}
-        className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+        className={
+          isAddingToDashboard
+            ? "px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+            : "px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+        }
       >
-        Share
+        {isAddingToDashboard ? `Add to ${targetDashboardName}` : "Share"}
       </button>
 
       {open && (
@@ -182,7 +191,9 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Share Report</h2>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                {isAddingToDashboard ? `Add to ${targetDashboardName}` : "Share Report"}
+              </h2>
               <button
                 onClick={() => setOpen(false)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none"
@@ -197,7 +208,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                   {error}
                 </div>
               )}
-              {hasDashboards && !createdToken && (
+              {hasDashboards && !createdToken && !isAddingToDashboard && (
                 <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded text-xs">
                   <button
                     onClick={() => setMode("single")}
@@ -281,24 +292,26 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                 </>
               ) : !createdToken && mode === "dashboard" ? (
                 <>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Dashboard
-                    </label>
-                    <select
-                      value={dashboardId}
-                      onChange={(e) => setDashboardId(e.target.value)}
-                      className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {dashboardChoices?.length === 0 && <option value="">(none yet)</option>}
-                      {dashboardChoices?.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.label || "Untitled dashboard"} ({d.itemCount} {d.itemCount === 1 ? "report" : "reports"})
-                        </option>
-                      ))}
-                      <option value="__new__">+ New dashboard…</option>
-                    </select>
-                  </div>
+                  {!isAddingToDashboard && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Dashboard
+                      </label>
+                      <select
+                        value={dashboardId}
+                        onChange={(e) => setDashboardId(e.target.value)}
+                        className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {dashboardChoices?.length === 0 && <option value="">(none yet)</option>}
+                        {dashboardChoices?.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.label || "Untitled dashboard"} ({d.itemCount} {d.itemCount === 1 ? "report" : "reports"})
+                          </option>
+                        ))}
+                        <option value="__new__">+ New dashboard…</option>
+                      </select>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -340,7 +353,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                       disabled={isPending || !dashboardId}
                       className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
                     >
-                      {isPending ? "Adding..." : "Add to dashboard"}
+                      {isPending ? "Adding..." : isAddingToDashboard ? `Add to ${targetDashboardName}` : "Add to dashboard"}
                     </button>
                   </div>
                 </>
@@ -369,7 +382,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                 </div>
               )}
 
-              {existingLinks.length > 0 && (
+              {!isAddingToDashboard && existingLinks.length > 0 && (
                 <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
                     Existing links ({activeLinks.length} active)
