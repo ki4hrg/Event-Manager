@@ -14,7 +14,8 @@ export async function getUsers() {
       id: true,
       email: true,
       name: true,
-      role: true,
+      roleId: true,
+      roleRef: { select: { id: true, name: true, isSystem: true } },
       createdAt: true,
     },
     orderBy: { email: "asc" },
@@ -29,10 +30,17 @@ export async function getUser(id: string) {
       id: true,
       email: true,
       name: true,
-      role: true,
+      roleId: true,
+      roleRef: { select: { id: true, name: true } },
       createdAt: true,
     },
   });
+}
+
+// Maps a Role to the legacy `User.role` string column. Kept in sync until PR6
+// removes the column. Admin role → "admin"; everything else → "user".
+function legacyRoleString(roleName: string | null | undefined) {
+  return roleName === "Admin" ? "admin" : "user";
 }
 
 export async function createUser(formData: FormData) {
@@ -40,11 +48,17 @@ export async function createUser(formData: FormData) {
 
   const email = ((formData.get("email") as string) || "").trim().toLowerCase();
   const name = (formData.get("name") as string) || null;
-  const role = formData.get("role") as string;
+  const roleId = (formData.get("roleId") as string) || "";
 
   if (!email) {
     throw new Error("Email is required");
   }
+  if (!roleId) {
+    throw new Error("Role is required");
+  }
+
+  const role = await prisma.role.findUnique({ where: { id: roleId }, select: { name: true } });
+  if (!role) throw new Error("Selected role no longer exists");
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -56,7 +70,8 @@ export async function createUser(formData: FormData) {
       email,
       name,
       password: null,
-      role: role === "admin" ? "admin" : "user",
+      roleId,
+      role: legacyRoleString(role.name),
     },
     select: { id: true, email: true, name: true },
   });
@@ -84,13 +99,16 @@ export async function updateUser(id: string, formData: FormData) {
 
   const email = ((formData.get("email") as string) || "").trim().toLowerCase();
   const name = (formData.get("name") as string) || null;
-  const role = formData.get("role") as string;
+  const submittedRoleId = (formData.get("roleId") as string) || "";
 
   if (!email) {
     throw new Error("Email is required");
   }
 
-  const current = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+  const current = await prisma.user.findUnique({
+    where: { id },
+    select: { roleId: true, role: true },
+  });
   if (!current) throw new Error("User not found");
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -100,12 +118,27 @@ export async function updateUser(id: string, formData: FormData) {
 
   const isSelf = session.user.id === id;
 
+  // Self-edit can't change role; otherwise resolve the submitted role.
+  let nextRoleId: string | null = current.roleId;
+  let nextLegacyRole = current.role;
+  if (!isSelf) {
+    if (!submittedRoleId) throw new Error("Role is required");
+    const role = await prisma.role.findUnique({
+      where: { id: submittedRoleId },
+      select: { name: true },
+    });
+    if (!role) throw new Error("Selected role no longer exists");
+    nextRoleId = submittedRoleId;
+    nextLegacyRole = legacyRoleString(role.name);
+  }
+
   await prisma.user.update({
     where: { id },
     data: {
       email,
       name,
-      role: isSelf ? current.role : role === "admin" ? "admin" : "user",
+      roleId: nextRoleId,
+      role: nextLegacyRole,
     },
   });
 

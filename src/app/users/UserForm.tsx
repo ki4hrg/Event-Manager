@@ -4,6 +4,8 @@ import { useFormStatus } from "react-dom";
 import { useState } from "react";
 import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
+import { roleBadgeClass } from "@/lib/roleStyles";
+import { DEFAULT_ROLE_NAME } from "@/app/settings/roles/resources";
 
 function SubmitButton({ isCreate }: { isCreate: boolean }) {
   const { pending } = useFormStatus();
@@ -18,26 +20,23 @@ function SubmitButton({ isCreate }: { isCreate: boolean }) {
   );
 }
 
-const roleBadgeClass = (role: string) =>
-  `px-2 py-0.5 text-xs rounded ${
-    role === "admin"
-      ? "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300"
-      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-  }`;
+type RoleOption = { id: string; name: string; isSystem: boolean };
 
 interface UserFormProps {
   user?: {
     id: string;
     email: string;
     name: string | null;
-    role: string;
+    roleId: string | null;
+    roleRef: { id: string; name: string } | null;
   };
+  roles: RoleOption[];
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: () => Promise<void>;
   currentUserId?: string;
 }
 
-export function UserForm({ user, saveAction, deleteAction, currentUserId }: UserFormProps) {
+export function UserForm({ user, roles, saveAction, deleteAction, currentUserId }: UserFormProps) {
   const isCreate = !user;
   const [editing, setEditing] = useState(isCreate);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +50,9 @@ export function UserForm({ user, saveAction, deleteAction, currentUserId }: User
       setError(e instanceof Error ? e.message : "An error occurred");
     }
   }
+
+  const defaultRoleId =
+    user?.roleId ?? roles.find((r) => r.name === DEFAULT_ROLE_NAME)?.id ?? roles[0]?.id ?? "";
 
   if (!editing && user) {
     return (
@@ -69,7 +71,9 @@ export function UserForm({ user, saveAction, deleteAction, currentUserId }: User
             <div>
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Role</dt>
               <dd className="mt-1">
-                <span className={roleBadgeClass(user.role)}>{user.role === "admin" ? "Admin" : "User"}</span>
+                <span className={roleBadgeClass(user.roleRef?.name ?? null)}>
+                  {user.roleRef?.name ?? "—"}
+                </span>
               </dd>
             </div>
           </dl>
@@ -127,18 +131,23 @@ export function UserForm({ user, saveAction, deleteAction, currentUserId }: User
         </div>
 
         <div>
-          <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="roleId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Role *
           </label>
           <select
-            id="role"
-            name="role"
-            defaultValue={user?.role || "user"}
+            id="roleId"
+            name="roleId"
+            required
+            defaultValue={defaultRoleId}
             disabled={isSelf}
             className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
           >
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+                {role.isSystem ? " (system)" : ""}
+              </option>
+            ))}
           </select>
           {isSelf && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

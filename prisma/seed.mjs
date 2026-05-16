@@ -141,6 +141,9 @@ const defaultEquipment = [
   { name: "Recording Deck / Encoder", category: "Video Outputs", sortOrder: 4 },
 ];
 
+// Mirrored by src/app/settings/roles/resources.ts PERMISSION_GROUPS. The seed
+// runs outside the Next runtime so it can't import the TS module — when a new
+// PermissionResource lands in schema.prisma, update both files.
 const NON_EVENT_RESOURCES = [
   "ROLES",
   "USERS",

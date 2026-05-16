@@ -1,0 +1,17 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { createRole } from "../actions";
+import { RoleForm } from "../RoleForm";
+
+export const dynamic = "force-dynamic";
+
+export default async function NewRolePage() {
+  return (
+    <div>
+      <div className="mb-4">
+        <Breadcrumbs items={[{ label: "Roles", href: "/settings/roles" }, { label: "New Role" }]} />
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mt-2">New Role</h2>
+      </div>
+      <RoleForm saveAction={createRole} />
+    </div>
+  );
+}

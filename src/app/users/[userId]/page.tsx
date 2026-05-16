@@ -3,6 +3,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { requirePermission } from "@/lib/permissions";
 import { getUser, updateUser, deleteUser, resendPasswordResetEmail } from "../actions";
+import { getRoleOptions } from "@/app/settings/roles/actions";
 import { UserForm } from "../UserForm";
 import { ResendInviteButton } from "../ResendInviteButton";
 import { notFound } from "next/navigation";
@@ -19,7 +20,7 @@ export default async function UserDetailPage({
   const session = await requirePermission(PermissionResource.USERS, "VIEW");
   const { userId } = await params;
   const { error } = await searchParams;
-  const user = await getUser(userId);
+  const [user, roles] = await Promise.all([getUser(userId), getRoleOptions()]);
 
   if (!user) {
     notFound();
@@ -55,6 +56,7 @@ export default async function UserDetailPage({
       )}
       <UserForm
         user={user}
+        roles={roles}
         saveAction={updateAction}
         deleteAction={deleteAction}
         currentUserId={session.user.id}

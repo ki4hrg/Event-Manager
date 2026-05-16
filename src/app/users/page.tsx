@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { btnPrimary } from "@/lib/buttonStyles";
+import { roleBadgeClass } from "@/lib/roleStyles";
 import { getUsers } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -61,14 +62,8 @@ export default async function UsersPage() {
                     {user.email}
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded ${
-                        user.role === "admin"
-                          ? "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      {user.role === "admin" ? "Admin" : "User"}
+                    <span className={roleBadgeClass(user.roleRef?.name)}>
+                      {user.roleRef?.name ?? "—"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">

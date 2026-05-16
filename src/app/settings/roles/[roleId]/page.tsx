@@ -1,0 +1,43 @@
+import { Suspense } from "react";
+import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { Toast } from "@/components/Toast";
+import { deleteRole, getRole, updateRole } from "../actions";
+import { RoleForm } from "../RoleForm";
+
+export const dynamic = "force-dynamic";
+
+export default async function EditRolePage({
+  params,
+}: {
+  params: Promise<{ roleId: string }>;
+}) {
+  const { roleId } = await params;
+  const role = await getRole(roleId);
+  if (!role) notFound();
+
+  const saveAction = async (formData: FormData) => {
+    "use server";
+    await updateRole(roleId, formData);
+  };
+
+  const deleteAction = role.isSystem
+    ? undefined
+    : async () => {
+        "use server";
+        await deleteRole(roleId);
+      };
+
+  return (
+    <div>
+      <Suspense fallback={null}>
+        <Toast />
+      </Suspense>
+      <div className="mb-4">
+        <Breadcrumbs items={[{ label: "Roles", href: "/settings/roles" }, { label: role.name }]} />
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mt-2">{role.name}</h2>
+      </div>
+      <RoleForm role={role} saveAction={saveAction} deleteAction={deleteAction} />
+    </div>
+  );
+}
