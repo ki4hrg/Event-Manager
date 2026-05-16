@@ -146,6 +146,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Vendor Handoff",   segment: "reports/vendor-handoff",          icon: <HandoffIcon /> },
   { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon /> },
   { type: "group", label: "Configuration" },
+  { type: "link",  label: "Staff",            segment: "staff",                           icon: <ClipboardIcon /> },
   { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon /> },
 ];
 

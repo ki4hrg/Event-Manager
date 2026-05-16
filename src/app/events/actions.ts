@@ -23,7 +23,7 @@ export const getEvent = cache(async (id: string) => {
 });
 
 export async function createEvent(formData: FormData) {
-  await requirePermission("EVENTS", "WRITE");
+  const session = await requirePermission("EVENTS", "WRITE");
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const startDate = formData.get("startDate") as string;
@@ -31,7 +31,9 @@ export async function createEvent(formData: FormData) {
   const timezone = formData.get("timezone") as string;
   const venueId = formData.get("venueId") as string;
 
-  const event = await prisma.event.create({
+  // Auto-assign creator as event staff so any role with EVENTS:UNASSIGNED:NONE
+  // doesn't lose access to events they just created.
+  await prisma.event.create({
     data: {
       name,
       description: description || null,
@@ -39,6 +41,7 @@ export async function createEvent(formData: FormData) {
       endDate: new Date(endDate),
       timezone: timezone || "America/Chicago",
       venueId: venueId || null,
+      staff: { create: { userId: session.user.id } },
     },
   });
 
