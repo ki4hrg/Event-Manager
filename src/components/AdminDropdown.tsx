@@ -4,10 +4,23 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useClickOutside } from "@/lib/useClickOutside";
 
-export function AdminDropdown() {
+type AdminDropdownProps = {
+  canViewUsers: boolean;
+  canViewSettings: boolean;
+  canViewWorkflows: boolean;
+};
+
+export function AdminDropdown({
+  canViewUsers,
+  canViewSettings,
+  canViewWorkflows,
+}: AdminDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useClickOutside(ref, () => setOpen(false));
+
+  const linkClass =
+    "block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700";
 
   return (
     <div ref={ref} className="relative">
@@ -22,27 +35,21 @@ export function AdminDropdown() {
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg z-50">
-          <Link
-            href="/users"
-            onClick={() => setOpen(false)}
-            className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            Users
-          </Link>
-          <Link
-            href="/settings"
-            onClick={() => setOpen(false)}
-            className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            Settings
-          </Link>
-          <Link
-            href="/workflows"
-            onClick={() => setOpen(false)}
-            className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            Workflows
-          </Link>
+          {canViewUsers && (
+            <Link href="/users" onClick={() => setOpen(false)} className={linkClass}>
+              Users
+            </Link>
+          )}
+          {canViewSettings && (
+            <Link href="/settings" onClick={() => setOpen(false)} className={linkClass}>
+              Settings
+            </Link>
+          )}
+          {canViewWorkflows && (
+            <Link href="/workflows" onClick={() => setOpen(false)} className={linkClass}>
+              Workflows
+            </Link>
+          )}
         </div>
       )}
     </div>

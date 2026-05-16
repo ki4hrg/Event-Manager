@@ -14,9 +14,7 @@ model User {
   name       String?
   // Nullable: new users start without a password until they consume an invite token.
   password   String?
-  // Legacy string column. Kept through PR3 for safe rollback; the source of truth for permissions is roleRef.
-  role       String        @default("user")
-  // FK to the RBAC Role table. Backfilled by prisma/seed.mjs from the legacy `role` column.
+  // FK to the RBAC Role table. Source of truth for permissions.
   roleId     String?
   roleRef    Role?         @relation(fields: [roleId], references: [id])
   createdAt  DateTime      @default(now())

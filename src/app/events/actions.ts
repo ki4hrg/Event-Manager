@@ -2,13 +2,20 @@
 
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+import { loadPermissions, requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getEvents() {
-  await requirePermission("EVENTS", "VIEW");
+  const session = await requirePermission("EVENTS", "VIEW");
+  const { permissions } = await loadPermissions(session.user.id);
+  const unassigned = permissions.find(
+    (p) => p.resource === "EVENTS" && p.scope === "UNASSIGNED",
+  );
+  const canSeeUnassigned = unassigned && unassigned.level !== "NONE";
+
   return prisma.event.findMany({
+    where: canSeeUnassigned ? undefined : { staff: { some: { userId: session.user.id } } },
     include: { venue: true },
     orderBy: { startDate: "desc" },
   });

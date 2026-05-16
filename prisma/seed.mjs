@@ -201,45 +201,33 @@ async function syncSystemRole(name, description, level, { adminOnly }) {
 }
 
 async function seedRoles() {
-  const adminRole = await syncSystemRole(
+  await syncSystemRole(
     "Admin",
     "Full access to all resources and events.",
     "DELETE",
     { adminOnly: true },
   );
-  const userRole = await syncSystemRole(
+  await syncSystemRole(
     "User",
     "Default role: edit access on all events; no access to admin settings, roles, or user management.",
     "WRITE",
     { adminOnly: false },
   );
-
-  // Backfill: link each user to the appropriate Role based on the legacy string column.
-  // Only touches users where roleId is still null; safe to re-run after migrations.
-  const admins = await prisma.user.updateMany({
-    where: { roleId: null, role: "admin" },
-    data: { roleId: adminRole.id },
-  });
-  const users = await prisma.user.updateMany({
-    where: { roleId: null, role: { not: "admin" } },
-    data: { roleId: userRole.id },
-  });
-  if (admins.count > 0 || users.count > 0) {
-    console.log(`Linked ${admins.count} admin(s) and ${users.count} user(s) to default roles.`);
-  }
 }
 
 async function seedUsers() {
+  const adminRole = await prisma.role.findUnique({ where: { name: "Admin" } });
+  if (!adminRole) throw new Error("Admin role missing — seedRoles must run before seedUsers.");
+
   const userCount = await prisma.user.count();
 
   if (userCount > 0) {
-    // Ensure admin@example.com has admin role
     const updated = await prisma.user.updateMany({
-      where: { email: "admin@example.com", role: { not: "admin" } },
-      data: { role: "admin" },
+      where: { email: "admin@example.com", roleId: { not: adminRole.id } },
+      data: { roleId: adminRole.id },
     });
     if (updated.count > 0) {
-      console.log("Promoted admin@example.com to admin role.");
+      console.log("Promoted admin@example.com to Admin role.");
     }
     console.log("Users already exist, skipping user seed.");
     return;
@@ -252,7 +240,7 @@ async function seedUsers() {
       email: "admin@example.com",
       name: "Admin",
       password: hashedPassword,
-      role: "admin",
+      roleId: adminRole.id,
     },
   });
 
@@ -326,8 +314,8 @@ async function backfillVenueVendors() {
 }
 
 async function main() {
-  await seedUsers();
   await seedRoles();
+  await seedUsers();
   await seedOptions();
   await seedEquipment();
   await seedSystemVendors();

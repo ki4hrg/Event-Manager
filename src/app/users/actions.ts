@@ -37,12 +37,6 @@ export async function getUser(id: string) {
   });
 }
 
-// Maps a Role to the legacy `User.role` string column. Kept in sync until PR6
-// removes the column. Admin role → "admin"; everything else → "user".
-function legacyRoleString(roleName: string | null | undefined) {
-  return roleName === "Admin" ? "admin" : "user";
-}
-
 export async function createUser(formData: FormData) {
   await requirePermission(PermissionResource.USERS, "WRITE");
 
@@ -57,7 +51,7 @@ export async function createUser(formData: FormData) {
     throw new Error("Role is required");
   }
 
-  const role = await prisma.role.findUnique({ where: { id: roleId }, select: { name: true } });
+  const role = await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } });
   if (!role) throw new Error("Selected role no longer exists");
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -71,7 +65,6 @@ export async function createUser(formData: FormData) {
       name,
       password: null,
       roleId,
-      role: legacyRoleString(role.name),
     },
     select: { id: true, email: true, name: true },
   });
@@ -107,7 +100,7 @@ export async function updateUser(id: string, formData: FormData) {
 
   const current = await prisma.user.findUnique({
     where: { id },
-    select: { roleId: true, role: true },
+    select: { roleId: true },
   });
   if (!current) throw new Error("User not found");
 
@@ -120,16 +113,14 @@ export async function updateUser(id: string, formData: FormData) {
 
   // Self-edit can't change role; otherwise resolve the submitted role.
   let nextRoleId: string | null = current.roleId;
-  let nextLegacyRole = current.role;
   if (!isSelf) {
     if (!submittedRoleId) throw new Error("Role is required");
     const role = await prisma.role.findUnique({
       where: { id: submittedRoleId },
-      select: { name: true },
+      select: { id: true },
     });
     if (!role) throw new Error("Selected role no longer exists");
     nextRoleId = submittedRoleId;
-    nextLegacyRole = legacyRoleString(role.name);
   }
 
   await prisma.user.update({
@@ -138,7 +129,6 @@ export async function updateUser(id: string, formData: FormData) {
       email,
       name,
       roleId: nextRoleId,
-      role: nextLegacyRole,
     },
   });
 

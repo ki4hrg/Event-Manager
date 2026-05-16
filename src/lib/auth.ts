@@ -52,7 +52,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
           roleId: user.roleId,
         };
       },
@@ -82,7 +81,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
         token.roleId = user.roleId;
       }
       return token;
@@ -90,7 +88,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as string;
         session.user.roleId = (token.roleId as string | null) ?? null;
       }
       return session;
@@ -102,14 +99,6 @@ export async function requireAuth() {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
-  }
-  return session;
-}
-
-export async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "admin") {
-    redirect("/");
   }
   return session;
 }

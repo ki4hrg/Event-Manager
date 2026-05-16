@@ -1,9 +1,27 @@
 import { auth, signOut } from "@/lib/auth";
 import Link from "next/link";
+import { PermissionResource } from "@prisma/client";
+import { loadPermissions } from "@/lib/permissions";
 import { AdminDropdown } from "./AdminDropdown";
+
+function hasGlobalView(
+  perms: Awaited<ReturnType<typeof loadPermissions>>["permissions"],
+  resource: PermissionResource,
+) {
+  const match = perms.find((p) => p.resource === resource && p.scope === "GLOBAL");
+  return !!match && match.level !== "NONE";
+}
 
 export async function Header() {
   const session = await auth();
+  const { permissions } = session?.user?.id
+    ? await loadPermissions(session.user.id)
+    : { permissions: [] };
+
+  const canViewUsers = hasGlobalView(permissions, PermissionResource.USERS);
+  const canViewSettings = hasGlobalView(permissions, PermissionResource.SETTINGS);
+  const canViewWorkflows = hasGlobalView(permissions, PermissionResource.WORKFLOWS);
+  const showAdminDropdown = canViewUsers || canViewSettings || canViewWorkflows;
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow">
@@ -37,7 +55,13 @@ export async function Header() {
             >
               Vendors
             </Link>
-            {session?.user?.role === "admin" && <AdminDropdown />}
+            {showAdminDropdown && (
+              <AdminDropdown
+                canViewUsers={canViewUsers}
+                canViewSettings={canViewSettings}
+                canViewWorkflows={canViewWorkflows}
+              />
+            )}
           </nav>
         </div>
         <div className="flex items-center gap-4">
