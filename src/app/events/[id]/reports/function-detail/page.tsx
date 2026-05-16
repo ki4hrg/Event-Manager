@@ -10,6 +10,7 @@ import { getOptions } from "@/app/settings/actions";
 import { ReportFilters } from "./ReportFilters";
 import { FunctionDetailReport } from "./FunctionDetailReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
+import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,12 @@ export default async function FunctionDetailPage({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Function Detail
         </h2>
+
+        <AddToDashboardBanner
+          eventId={eventId}
+          addToDashboardId={addToDashboard}
+          dashboardChoices={dashboardChoices}
+        />
 
         <ReportFilters
           eventId={eventId}

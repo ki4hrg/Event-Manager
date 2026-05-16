@@ -8,6 +8,7 @@ import { enumerateEventDays } from "./days";
 import { ReportFilters } from "./ReportFilters";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "./EventProfileReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
+import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,12 @@ export default async function EventProfilePage({
 
       <div className="max-w-5xl">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Event Profile</h2>
+
+        <AddToDashboardBanner
+          eventId={eventId}
+          addToDashboardId={addToDashboard}
+          dashboardChoices={dashboardChoices}
+        />
 
         <ReportFilters
           eventId={eventId}

@@ -33,6 +33,17 @@ textarea {
   transition-duration: 150ms;
 }
 
+/* iOS Safari auto-zooms when a focused input's font-size is below 16px.
+   Force form fields to 16px on phone-width viewports to prevent the zoom
+   without disabling user-controlled pinch zoom. */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 @media print {
   @page {
     margin: 0.5in;
