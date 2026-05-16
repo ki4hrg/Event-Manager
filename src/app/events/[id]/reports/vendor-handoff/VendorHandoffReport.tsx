@@ -789,16 +789,20 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
           <div className="space-y-3 mb-4">
             {order.details.map((detail) => (
               <div key={detail.id}>
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 print:text-black uppercase tracking-wide">
-                    {detail.headline}
-                  </p>
-                  {detail.responsiblePartyVendor && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
-                      By: {detail.responsiblePartyVendor.name}
-                    </p>
-                  )}
-                </div>
+                {(detail.headline || detail.responsiblePartyVendor) && (
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    {detail.headline && (
+                      <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 print:text-black uppercase tracking-wide">
+                        {detail.headline}
+                      </p>
+                    )}
+                    {detail.responsiblePartyVendor && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+                        By: {detail.responsiblePartyVendor.name}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {/* RichTextEditor output — chain: SetupOrderDetailTable → RichTextEditor */}
                 <div
                   className="text-xs text-gray-700 dark:text-gray-300 print:text-gray-900 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"

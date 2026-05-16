@@ -41,16 +41,20 @@ export function SetupOrderDetails({
         <Section title="Setup Details">
           {setupOrder.details.map((detail) => (
             <div key={detail.id} className="mb-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-sm font-semibold text-gray-900 print:text-black uppercase tracking-wide">
-                  {detail.headline}
-                </p>
-                {detail.responsiblePartyVendor && (
-                  <p className="text-xs text-gray-500 print:text-gray-600">
-                    By: {detail.responsiblePartyVendor.name}
-                  </p>
-                )}
-              </div>
+              {(detail.headline || detail.responsiblePartyVendor) && (
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  {detail.headline && (
+                    <p className="text-sm font-semibold text-gray-900 print:text-black uppercase tracking-wide">
+                      {detail.headline}
+                    </p>
+                  )}
+                  {detail.responsiblePartyVendor && (
+                    <p className="text-xs text-gray-500 print:text-gray-600">
+                      By: {detail.responsiblePartyVendor.name}
+                    </p>
+                  )}
+                </div>
+              )}
               {/* RichTextEditor output — chain: SetupOrderDetailTable → RichTextEditor */}
               <div
                 className="text-sm text-gray-700 print:text-black prose prose-sm max-w-none"

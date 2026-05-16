@@ -342,13 +342,10 @@ export async function createSetupOrderDetail(setupOrderId: string, eventId: stri
   await assertSetupOrderInEvent(setupOrderId, eventId);
   const { _max } = await prisma.setupOrderDetail.aggregate({ where: { setupOrderId }, _max: { sortOrder: true } });
 
-  const headline = (formData.get("headline") as string).trim();
-  if (!headline) throw new Error("Headline is required");
-
   await prisma.setupOrderDetail.create({
     data: {
       setupOrderId,
-      headline,
+      headline: (formData.get("headline") as string)?.trim() || null,
       description: formData.get("description") as string,
       responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
       sortOrder: (_max.sortOrder ?? -1) + 1,
@@ -360,13 +357,10 @@ export async function createSetupOrderDetail(setupOrderId: string, eventId: stri
 
 export async function updateSetupOrderDetail(id: string, setupOrderId: string, eventId: string, formData: FormData) {
   await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  const headline = (formData.get("headline") as string).trim();
-  if (!headline) throw new Error("Headline is required");
-
   await prisma.setupOrderDetail.update({
     where: { id, setupOrder: { eventId } },
     data: {
-      headline,
+      headline: (formData.get("headline") as string)?.trim() || null,
       description: formData.get("description") as string,
       responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
     },

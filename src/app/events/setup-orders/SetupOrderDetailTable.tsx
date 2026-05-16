@@ -43,28 +43,16 @@ export function SetupOrderDetailTable({
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState(false);
-  const [headlineError, setHeadlineError] = useState(false);
-
-  const validate = (form: HTMLFormElement): boolean => {
-    const headlineInput = form.querySelector('input[name="headline"]') as HTMLInputElement | null;
-    const headlineEmpty = !headlineInput?.value.trim();
-    const descEmpty = isRichTextEmpty(form, "description");
-    setHeadlineError(headlineEmpty);
-    setDescriptionError(descEmpty);
-    return !headlineEmpty && !descEmpty;
-  };
 
   const handleCreate = async (formData: FormData) => {
     await createDetail(formData);
     setShowAddForm(false);
-    setHeadlineError(false);
     setDescriptionError(false);
   };
 
   const handleUpdate = async (id: string, formData: FormData) => {
     await updateDetail(id, formData);
     setEditingId(null);
-    setHeadlineError(false);
     setDescriptionError(false);
   };
 
@@ -84,19 +72,23 @@ export function SetupOrderDetailTable({
         <form
           action={handleCreate}
           onSubmit={(e) => {
-            if (!validate(e.currentTarget)) e.preventDefault();
+            if (isRichTextEmpty(e.currentTarget, "description")) {
+              e.preventDefault();
+              setDescriptionError(true);
+            } else {
+              setDescriptionError(false);
+            }
           }}
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3"
         >
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Headline *</label>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Headline</label>
             <input
               type="text"
               name="headline"
               placeholder="e.g. Stage, Registration Table, Green Room"
               className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             />
-            {headlineError && <p className="text-xs text-red-600 mt-1">Headline is required.</p>}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
@@ -113,7 +105,6 @@ export function SetupOrderDetailTable({
               type="button"
               onClick={() => {
                 setShowAddForm(false);
-                setHeadlineError(false);
                 setDescriptionError(false);
               }}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
@@ -134,19 +125,23 @@ export function SetupOrderDetailTable({
                 <form
                   action={(fd) => handleUpdate(detail.id, fd)}
                   onSubmit={(e) => {
-                    if (!validate(e.currentTarget)) e.preventDefault();
+                    if (isRichTextEmpty(e.currentTarget, "description")) {
+                      e.preventDefault();
+                      setDescriptionError(true);
+                    } else {
+                      setDescriptionError(false);
+                    }
                   }}
                   className="space-y-3"
                 >
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Headline *</label>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Headline</label>
                     <input
                       type="text"
                       name="headline"
-                      defaultValue={detail.headline}
+                      defaultValue={detail.headline ?? ""}
                       className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                     />
-                    {headlineError && <p className="text-xs text-red-600 mt-1">Headline is required.</p>}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsible Party</label>
@@ -163,7 +158,6 @@ export function SetupOrderDetailTable({
                       type="button"
                       onClick={() => {
                         setEditingId(null);
-                        setHeadlineError(false);
                         setDescriptionError(false);
                       }}
                       className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
@@ -176,9 +170,11 @@ export function SetupOrderDetailTable({
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                        {detail.headline}
-                      </h3>
+                      {detail.headline && (
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                          {detail.headline}
+                        </h3>
+                      )}
                       {detail.responsiblePartyVendor && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           By: {detail.responsiblePartyVendor.name}

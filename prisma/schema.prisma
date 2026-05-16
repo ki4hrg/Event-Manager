@@ -528,7 +528,7 @@ model SetupOrderDetail {
   id                       String     @id @default(cuid())
   setupOrderId             String
   setupOrder               SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
-  headline                 String
+  headline                 String?
   description              String
   responsiblePartyVendorId String?
   responsiblePartyVendor   Vendor?    @relation("SetupOrderDetailResponsibleVendor", fields: [responsiblePartyVendorId], references: [id], onDelete: SetNull)
