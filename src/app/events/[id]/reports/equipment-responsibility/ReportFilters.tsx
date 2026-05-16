@@ -12,6 +12,7 @@ type ReportFiltersProps = {
   selectedVendorIds: string[];
   selectedModelTypes: string[];
   basePath?: string;
+  paramPrefix?: string;
   shareButton?: React.ReactNode;
   hidePrint?: boolean;
 };
@@ -20,35 +21,46 @@ function toggleFilter(selected: string[], value: string): string[] {
   return selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value];
 }
 
-export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes, basePath = `/events/${eventId}/reports/equipment-responsibility`, shareButton, hidePrint = false }: ReportFiltersProps) {
+export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedModelTypes, basePath = `/events/${eventId}/reports/equipment-responsibility`, paramPrefix = "", shareButton, hidePrint = false }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const vendorsKey = `${paramPrefix}vendors`;
+  const modelsKey = `${paramPrefix}models`;
+
+  function pushParams(params: URLSearchParams) {
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
+  }
 
   function toggleVendor(vendorId: string) {
     const next = toggleFilter(selectedVendorIds, vendorId);
     const params = new URLSearchParams(searchParams.toString());
     if (next.length > 0) {
-      params.set("vendors", next.join(","));
+      params.set(vendorsKey, next.join(","));
     } else {
-      params.delete("vendors");
+      params.delete(vendorsKey);
     }
-    router.push(`${basePath}?${params.toString()}`);
+    pushParams(params);
   }
 
   function toggleModel(value: string) {
     const next = toggleFilter(selectedModelTypes, value);
     const params = new URLSearchParams(searchParams.toString());
     if (next.length > 0) {
-      params.set("models", next.join(","));
+      params.set(modelsKey, next.join(","));
     } else {
-      params.delete("models");
+      params.delete(modelsKey);
     }
-    router.push(`${basePath}?${params.toString()}`);
+    pushParams(params);
   }
 
   function clearFilters() {
-    router.push(basePath);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(vendorsKey);
+    params.delete(modelsKey);
+    pushParams(params);
   }
 
   const hasFilters = selectedVendorIds.length > 0 || selectedModelTypes.length > 0;

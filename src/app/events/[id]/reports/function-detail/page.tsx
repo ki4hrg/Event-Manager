@@ -5,6 +5,7 @@ import {
   getFunctionDetailData,
   getFunctionPickerOptions,
 } from "@/app/events/reports/actions";
+import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { getOptions } from "@/app/settings/actions";
 import { ReportFilters } from "./ReportFilters";
 import { FunctionDetailReport } from "./FunctionDetailReport";
@@ -17,10 +18,10 @@ export default async function FunctionDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ functions?: string }>;
+  searchParams: Promise<{ functions?: string; addToDashboard?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { functions: functionsParam } = await searchParams;
+  const { functions: functionsParam, addToDashboard } = await searchParams;
 
   const selectedFunctionIds = functionsParam
     ? functionsParam.split(",").filter(Boolean)
@@ -31,7 +32,7 @@ export default async function FunctionDetailPage({
       selectedFunctionIds.length > 0 ? selectedFunctionIds : undefined,
   };
 
-  const [event, pickerOptions, data, functionTypes, scheduleTypes, serviceStyles, setupTypes] =
+  const [event, pickerOptions, data, functionTypes, scheduleTypes, serviceStyles, setupTypes, dashboardChoices] =
     await Promise.all([
       getEvent(eventId),
       getFunctionPickerOptions(eventId),
@@ -40,6 +41,7 @@ export default async function FunctionDetailPage({
       getOptions("schedule_type"),
       getOptions("service_style"),
       getOptions("setup_type"),
+      listShareLinkGroupChoicesForEvent(eventId),
     ]);
 
   if (!event || !data) notFound();
@@ -76,6 +78,8 @@ export default async function FunctionDetailPage({
               eventId={eventId}
               reportType="FUNCTION_DETAIL"
               currentFilters={{ functionIds: validSelected }}
+              dashboardChoices={dashboardChoices}
+              addToDashboardId={addToDashboard}
             />
           }
         />

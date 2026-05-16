@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/actions";
 import { getRoomScheduleData } from "@/app/events/reports/actions";
+import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { getOptions } from "@/app/settings/actions";
 import { enumerateEventDays } from "../event-profile/days";
 import { ReportFilters } from "./ReportFilters";
@@ -19,15 +20,15 @@ export default async function RoomSchedulePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string; rooms?: string }>;
+  searchParams: Promise<{ days?: string; rooms?: string; addToDashboard?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { days: daysParam, rooms: roomsParam } = await searchParams;
+  const { days: daysParam, rooms: roomsParam, addToDashboard } = await searchParams;
 
   const selectedDays = parseListParam(daysParam);
   const selectedRoomIds = parseListParam(roomsParam);
 
-  const [event, data, functionTypes, scheduleTypes] = await Promise.all([
+  const [event, data, functionTypes, scheduleTypes, dashboardChoices] = await Promise.all([
     getEvent(eventId),
     getRoomScheduleData(eventId, {
       days: selectedDays.length > 0 ? selectedDays : undefined,
@@ -35,6 +36,7 @@ export default async function RoomSchedulePage({
     }),
     getOptions("function_type"),
     getOptions("schedule_type"),
+    listShareLinkGroupChoicesForEvent(eventId),
   ]);
 
   if (!event || !data) notFound();
@@ -75,6 +77,8 @@ export default async function RoomSchedulePage({
               eventId={eventId}
               reportType="ROOM_SCHEDULE"
               currentFilters={{ days: selectedDays, rooms: selectedRoomIds }}
+              dashboardChoices={dashboardChoices}
+              addToDashboardId={addToDashboard}
             />
           }
         />

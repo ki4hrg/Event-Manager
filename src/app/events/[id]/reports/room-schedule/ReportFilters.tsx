@@ -13,6 +13,7 @@ type ReportFiltersProps = {
   selectedDays: string[];
   selectedRoomIds: string[];
   basePath?: string;
+  paramPrefix?: string;
   shareButton?: React.ReactNode;
   hidePrint?: boolean;
 };
@@ -55,6 +56,7 @@ export function ReportFilters({
   selectedDays,
   selectedRoomIds,
   basePath = `/events/${eventId}/reports/room-schedule`,
+  paramPrefix = "",
   shareButton,
   hidePrint = false,
 }: ReportFiltersProps) {
@@ -62,33 +64,41 @@ export function ReportFilters({
   const searchParams = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  function pushWith(key: "days" | "rooms", next: string[]) {
+  const daysKey = `${paramPrefix}days`;
+  const roomsKey = `${paramPrefix}rooms`;
+
+  function pushWith(key: string, next: string[]) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.length > 0) {
       params.set(key, next.join(","));
     } else {
       params.delete(key);
     }
-    router.push(`${basePath}?${params.toString()}`);
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   function toggleDay(value: string) {
-    pushWith("days", toggleFilter(selectedDays, value));
+    pushWith(daysKey, toggleFilter(selectedDays, value));
   }
 
   function toggleRoom(value: string) {
-    pushWith("rooms", toggleFilter(selectedRoomIds, value));
+    pushWith(roomsKey, toggleFilter(selectedRoomIds, value));
   }
 
   function toggleGroup(groupRoomIds: string[], allActive: boolean) {
     const next = allActive
       ? selectedRoomIds.filter((id) => !groupRoomIds.includes(id))
       : Array.from(new Set([...selectedRoomIds, ...groupRoomIds]));
-    pushWith("rooms", next);
+    pushWith(roomsKey, next);
   }
 
   function clearFilters() {
-    router.push(basePath);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(daysKey);
+    params.delete(roomsKey);
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   const roomBuckets = useMemo(() => groupRoomOptions(rooms), [rooms]);

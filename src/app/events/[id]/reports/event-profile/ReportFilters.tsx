@@ -12,6 +12,7 @@ type ReportFiltersProps = {
   selectedDays: string[];
   selectedSections: string[];
   basePath?: string;
+  paramPrefix?: string;
   shareButton?: React.ReactNode;
   hidePrint?: boolean;
 };
@@ -26,6 +27,7 @@ export function ReportFilters({
   selectedDays,
   selectedSections,
   basePath = `/events/${eventId}/reports/event-profile`,
+  paramPrefix = "",
   shareButton,
   hidePrint = false,
 }: ReportFiltersProps) {
@@ -33,26 +35,34 @@ export function ReportFilters({
   const searchParams = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  function pushWith(key: "days" | "sections", next: string[]) {
+  const daysKey = `${paramPrefix}days`;
+  const sectionsKey = `${paramPrefix}sections`;
+
+  function pushWith(key: string, next: string[]) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.length > 0) {
       params.set(key, next.join(","));
     } else {
       params.delete(key);
     }
-    router.push(`${basePath}?${params.toString()}`);
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   function toggleDay(value: string) {
-    pushWith("days", toggleFilter(selectedDays, value));
+    pushWith(daysKey, toggleFilter(selectedDays, value));
   }
 
   function toggleSection(value: string) {
-    pushWith("sections", toggleFilter(selectedSections, value));
+    pushWith(sectionsKey, toggleFilter(selectedSections, value));
   }
 
   function clearFilters() {
-    router.push(basePath);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(daysKey);
+    params.delete(sectionsKey);
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   const hasFilters = selectedDays.length > 0 || selectedSections.length > 0;

@@ -3,12 +3,7 @@
 import { useState } from "react";
 import { revokeShareLink } from "@/app/events/share-links/actions";
 import { useRouter } from "next/navigation";
-
-const REPORT_LABELS: Record<string, string> = {
-  EQUIPMENT_RESPONSIBILITY: "Equipment Responsibility",
-  VENDOR_HANDOFF: "Vendor Handoff",
-  EVENT_PROFILE: "Event Profile",
-};
+import { SHARE_REPORT_LABELS } from "@/lib/shareLinks";
 
 type Link = {
   id: string;
@@ -79,7 +74,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
       {Array.from(byType.entries()).map(([reportType, typeLinks]) => (
         <div key={reportType}>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-            {REPORT_LABELS[reportType] ?? reportType}
+            {SHARE_REPORT_LABELS[reportType] ?? reportType}
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

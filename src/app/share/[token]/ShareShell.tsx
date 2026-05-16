@@ -2,7 +2,7 @@ type ShareShellProps = {
   eventName: string;
   reportTitle: string;
   label?: string | null;
-  printHref: string;
+  printHref?: string;
   children: React.ReactNode;
 };
 
@@ -23,12 +23,14 @@ export function ShareShell({ eventName, reportTitle, label, printHref, children 
               {label ?? reportTitle}
             </h1>
           </div>
-          <a
-            href={printHref}
-            className="shrink-0 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-          >
-            Print / Save PDF
-          </a>
+          {printHref && (
+            <a
+              href={printHref}
+              className="shrink-0 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            >
+              Print / Save PDF
+            </a>
+          )}
         </div>
       </header>
 
