@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { startTransition, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -323,16 +323,18 @@ export function EventSidebar({
 
   // Hydrate collapse state from localStorage on mount
   useEffect(() => {
-    setMounted(true);
-    if (localStorage.getItem("event-sidebar-collapsed") === "true") {
-      setCollapsed(true);
-    }
+    startTransition(() => {
+      setMounted(true);
+      if (localStorage.getItem("event-sidebar-collapsed") === "true") {
+        setCollapsed(true);
+      }
+    });
   }, []);
 
   // Fetch item list when active section changes
   useEffect(() => {
     if (!currentSection) {
-      setItems([]);
+      startTransition(() => setItems([]));
       return;
     }
     let cancelled = false;

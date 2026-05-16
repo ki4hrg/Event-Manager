@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { EventKeyStaff, Contact } from "@prisma/client";
@@ -186,9 +187,9 @@ export function KeyStaffList({
                       Create new contact
                     </button>
                   ) : (
-                    <a href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
+                    <Link href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
                       Create a new contact
-                    </a>
+                    </Link>
                   )}
                 </p>
               )}

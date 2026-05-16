@@ -215,7 +215,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
 
         {items.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            No reports yet. Click "Add report" to pick one, then configure its filters on that report's page.
+            No reports yet. Click &quot;Add report&quot; to pick one, then configure its filters on that report&apos;s page.
           </p>
         ) : (
           <div className="border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700">
@@ -301,7 +301,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
             </div>
             <div className="px-5 py-4 space-y-2">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                You'll be taken to the report to configure filters, then add it back here.
+                You&apos;ll be taken to the report to configure filters, then add it back here.
               </p>
               {Object.keys(REPORT_PATHS).map((rt) => (
                 <button

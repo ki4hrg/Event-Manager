@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -340,14 +340,6 @@ function DayGrid({
     return true;
   });
 
-  if (day.timeSlots.length === 0 || visibleRooms.length === 0) {
-    return (
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        No scheduled functions for this day.
-      </p>
-    );
-  }
-
   type EntriesCell = { type: "entries"; entries: AgendaEntry[]; rowspan: number; slotTime: Date };
   type CellRender = { type: "skip" } | { type: "empty"; slotTime: Date } | EntriesCell;
 
@@ -403,7 +395,7 @@ function DayGrid({
   }
 
   let sliceStart = 0;
-  if (viewSettings.collapseEmptyHours) {
+  if (viewSettings.collapseEmptyHours && day.timeSlots.length > 0) {
     const BUFFER = 2;
     const dayMidnightMs = day.timeSlots[0].getTime();
     const nextMidnightMs = day.timeSlots[day.timeSlots.length - 1].getTime() + SLOT_INTERVAL_MS;
@@ -460,12 +452,20 @@ function DayGrid({
       scrollRef.current.scrollTop = (targetRow as HTMLElement).offsetTop;
     }
     hasScrolled.current = true;
-  }, [day.scrollToSlotIndex]);
+  }, [day.scrollToSlotIndex, sliceStart]);
 
   // Reset scroll tracking when day changes
   useEffect(() => {
     hasScrolled.current = false;
   }, [day.dateKey]);
+
+  if (day.timeSlots.length === 0 || visibleRooms.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        No scheduled functions for this day.
+      </p>
+    );
+  }
 
   const tableMinWidth = TIME_COL_PX + MIN_ROOM_COL_PX * visibleRooms.length;
 
@@ -802,7 +802,7 @@ export function AgendaGrid({
 
   // Always-current ref so callbacks can snapshot state without stale closures
   const agendaDataRef = useRef(agendaData);
-  agendaDataRef.current = agendaData;
+  useLayoutEffect(() => { agendaDataRef.current = agendaData; });
 
   const { days, rooms, unscheduled } = agendaData;
 

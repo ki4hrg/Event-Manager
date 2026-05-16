@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type {
   WorkflowInstance as PrismaWorkflowInstance,
@@ -344,9 +345,9 @@ export function WorkflowPanel({
             {instances.length === 0
               ? "No workflows available. "
               : "All available workflows assigned. "}
-            <a href="/workflows" className="text-blue-600 dark:text-blue-400 hover:underline">
+            <Link href="/workflows" className="text-blue-600 dark:text-blue-400 hover:underline">
               Manage workflows
-            </a>
+            </Link>
           </p>
         )}
       </div>

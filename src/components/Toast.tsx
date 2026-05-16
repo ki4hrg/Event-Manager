@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 export function Toast() {
@@ -12,7 +12,7 @@ export function Toast() {
   useEffect(() => {
     const success = searchParams.get("success");
     if (success) {
-      setMessage(success);
+      startTransition(() => setMessage(success));
       requestAnimationFrame(() => setVisible(true));
 
       const url = new URL(window.location.href);

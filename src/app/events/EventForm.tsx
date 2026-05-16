@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { startTransition, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Event, Venue } from "@prisma/client";
 
@@ -27,6 +28,19 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
 export function EventForm({ event, venues, action }: EventFormProps) {
   const isEdit = !!event;
   const [editing, setEditing] = useState(!isEdit);
+  const [daysLabel, setDaysLabel] = useState("");
+
+  useEffect(() => {
+    if (!event) return;
+    const now = Date.now();
+    const startDays = Math.ceil((new Date(event.startDate).getTime() - now) / 86_400_000);
+    const endDays = Math.ceil((new Date(event.endDate).getTime() - now) / 86_400_000);
+    let label: string;
+    if (startDays > 0) label = `${startDays} days away`;
+    else if (endDays < 0) label = `ended ${Math.abs(endDays)} days ago`;
+    else label = "ongoing";
+    startTransition(() => setDaysLabel(label));
+  }, [event]);
 
   const formatDateForInput = (date: Date) => {
     return new Date(date).toISOString().split("T")[0];
@@ -55,18 +69,6 @@ export function EventForm({ event, venues, action }: EventFormProps) {
   };
 
   if (isEdit && !editing) {
-    const now = Date.now();
-    const startDays = Math.ceil(
-      (new Date(event.startDate).getTime() - now) / 86_400_000
-    );
-    const endDays = Math.ceil(
-      (new Date(event.endDate).getTime() - now) / 86_400_000
-    );
-    let daysLabel: string;
-    if (startDays > 0) daysLabel = `${startDays} days away`;
-    else if (endDays < 0) daysLabel = `ended ${Math.abs(endDays)} days ago`;
-    else daysLabel = "ongoing";
-
     const dateRange = `${formatDateForDisplay(event.startDate)} – ${formatDateForDisplay(event.endDate)}`;
 
     return (
@@ -228,12 +230,12 @@ export function EventForm({ event, venues, action }: EventFormProps) {
             Cancel
           </button>
         ) : (
-          <a
+          <Link
             href="/events"
             className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel
-          </a>
+          </Link>
         )}
       </div>
     </form>

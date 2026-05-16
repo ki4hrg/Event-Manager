@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { Contact, CustomOption } from "@prisma/client";
 
@@ -163,12 +164,12 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
 
       <div className="flex gap-4">
         <SubmitButton isEdit={isEdit} />
-        <a
+        <Link
           href="/contacts"
           className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           Cancel
-        </a>
+        </Link>
       </div>
     </form>
   );

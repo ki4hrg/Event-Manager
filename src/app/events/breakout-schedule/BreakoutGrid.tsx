@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useMemo } from "react";
+import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "./utils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
@@ -762,10 +762,11 @@ function AssignmentGrid({
   const [activeDrag, setActiveDrag] = useState<DragItemData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [optimisticGroup, setOptimisticGroup] = useState(group);
-  const snapshotRef = useRef(group);
+  const [snapshotGroup, setSnapshotGroup] = useState(group);
 
   // Keep optimistic state in sync with server data when not dragging
-  if (!activeDrag && group !== optimisticGroup && group !== snapshotRef.current) {
+  if (!activeDrag && group !== optimisticGroup && group !== snapshotGroup) {
+    setSnapshotGroup(group);
     setOptimisticGroup(group);
   }
 
@@ -911,7 +912,7 @@ function AssignmentGrid({
     const data = event.active.data.current as DragItemData;
     setActiveDrag(data);
     setError(null);
-    snapshotRef.current = optimisticGroup;
+    setSnapshotGroup(optimisticGroup);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {

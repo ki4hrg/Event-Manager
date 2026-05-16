@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { startTransition, useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import type { OptionCategory } from "./actions";
@@ -286,7 +286,9 @@ export function OptionList({
   const [reordering, setReordering] = useState(false);
   const [localOptions, setLocalOptions] = useState(options);
 
-  useEffect(() => setLocalOptions(options), [options]);
+  useEffect(() => {
+    startTransition(() => setLocalOptions(options));
+  }, [options]);
 
   const sensors = useSensors(useSensor(PointerSensor));
 

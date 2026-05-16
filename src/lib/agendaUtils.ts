@@ -74,9 +74,7 @@ export type SerializedAgendaData = {
   // Room and FunctionWithRelations have Date fields (createdAt, updatedAt) that
   // become strings over the wire — they are not used in client rendering, so
   // we keep the types loose here rather than creating full serialized variants.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rooms: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   unscheduled: any[];
 };
 

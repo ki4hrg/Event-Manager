@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { PresentationContact, Contact, CustomOption } from "@prisma/client";
@@ -173,9 +174,9 @@ export function SpeakerList({
                         Create new contact
                       </button>
                     ) : (
-                      <a href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
+                      <Link href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
                         Create a new contact
-                      </a>
+                      </Link>
                     )}
                   </p>
                 )}

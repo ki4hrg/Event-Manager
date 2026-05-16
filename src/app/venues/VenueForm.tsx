@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Venue } from "@prisma/client";
@@ -190,12 +191,12 @@ export function VenueForm({ venue, action }: VenueFormProps) {
               Cancel
             </button>
           ) : (
-            <a
+            <Link
               href="/venues"
               className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Cancel
-            </a>
+            </Link>
           )}
         </div>
       </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { startTransition, useState, useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
@@ -31,7 +31,7 @@ export function RichTextEditor({ name, defaultValue = "", placeholder }: RichTex
   useEffect(() => {
     if (editor && defaultValue !== editor.getHTML()) {
       editor.commands.setContent(defaultValue || "");
-      setHtml(defaultValue || "");
+      startTransition(() => setHtml(defaultValue || ""));
     }
   }, [defaultValue, editor]);
 
