@@ -141,6 +141,91 @@ const defaultEquipment = [
   { name: "Recording Deck / Encoder", category: "Video Outputs", sortOrder: 4 },
 ];
 
+const NON_EVENT_RESOURCES = [
+  "ROLES",
+  "USERS",
+  "SETTINGS",
+  "WORKFLOWS",
+  "VENDORS",
+  "VENUES",
+  "CONTACTS",
+];
+
+const EVENT_RESOURCES = [
+  "EVENTS",
+  "FUNCTIONS",
+  "PRESENTATIONS",
+  "AV_ORDERS",
+  "CATERING_ORDERS",
+  "SETUP_ORDERS",
+  "PRINT_ORDERS",
+  "MEDIA_ORDERS",
+  "FILES",
+  "SHARE_LINKS",
+];
+
+// Resources only granted to the Admin role by default. The seeded User role omits these (implicit NONE).
+const ADMIN_ONLY_RESOURCES = new Set(["ROLES", "USERS", "SETTINGS", "WORKFLOWS"]);
+
+function buildPermissions(level, { adminOnly }) {
+  const perms = [];
+  for (const resource of NON_EVENT_RESOURCES) {
+    if (!adminOnly && ADMIN_ONLY_RESOURCES.has(resource)) continue;
+    perms.push({ resource, scope: "GLOBAL", level });
+  }
+  for (const resource of EVENT_RESOURCES) {
+    for (const scope of ["GLOBAL", "ASSIGNED", "UNASSIGNED"]) {
+      perms.push({ resource, scope, level });
+    }
+  }
+  return perms;
+}
+
+async function syncSystemRole(name, description, level, { adminOnly }) {
+  const role = await prisma.role.upsert({
+    where: { name },
+    update: { description, isSystem: true },
+    create: { name, description, isSystem: true },
+  });
+  // Rewrite system-role permissions on every run so the matrix stays in sync with the seed definition.
+  // System roles are read-only in the UI; user-created roles are untouched.
+  await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+  const perms = buildPermissions(level, { adminOnly });
+  await prisma.rolePermission.createMany({
+    data: perms.map((p) => ({ roleId: role.id, ...p })),
+  });
+  return role;
+}
+
+async function seedRoles() {
+  const adminRole = await syncSystemRole(
+    "Admin",
+    "Full access to all resources and events.",
+    "DELETE",
+    { adminOnly: true },
+  );
+  const userRole = await syncSystemRole(
+    "User",
+    "Default role: edit access on all events; no access to admin settings, roles, or user management.",
+    "WRITE",
+    { adminOnly: false },
+  );
+
+  // Backfill: link each user to the appropriate Role based on the legacy string column.
+  // Only touches users where roleId is still null; safe to re-run after migrations.
+  const admins = await prisma.user.updateMany({
+    where: { roleId: null, role: "admin" },
+    data: { roleId: adminRole.id },
+  });
+  const users = await prisma.user.updateMany({
+    where: { roleId: null, role: { not: "admin" } },
+    data: { roleId: userRole.id },
+  });
+  if (admins.count > 0 || users.count > 0) {
+    console.log(`Linked ${admins.count} admin(s) and ${users.count} user(s) to default roles.`);
+  }
+}
+
 async function seedUsers() {
   const userCount = await prisma.user.count();
 
@@ -239,6 +324,7 @@ async function backfillVenueVendors() {
 
 async function main() {
   await seedUsers();
+  await seedRoles();
   await seedOptions();
   await seedEquipment();
   await seedSystemVendors();

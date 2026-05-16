@@ -14,13 +14,18 @@ model User {
   name       String?
   // Nullable: new users start without a password until they consume an invite token.
   password   String?
+  // Legacy string column. Kept through PR3 for safe rollback; the source of truth for permissions is roleRef.
   role       String        @default("user")
+  // FK to the RBAC Role table. Backfilled by prisma/seed.mjs from the legacy `role` column.
+  roleId     String?
+  roleRef    Role?         @relation(fields: [roleId], references: [id])
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
   settings            UserSetting[]
   shareLinks          ShareLink[]
   shareLinkGroups     ShareLinkGroup[]
   passwordResetTokens PasswordResetToken[]
+  staffAssignments    EventStaff[]
 }
 
 // One-time tokens used for both initial invite and password reset flows.
@@ -127,6 +132,7 @@ model Event {
   files              FileUpload[]
   keyStaff           EventKeyStaff[]
   statusDefaults     EventStatusDefault[]
+  staff              EventStaff[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -1242,4 +1248,77 @@ model EventStatusDefault {
 
   @@unique([eventId, modelType])
   @@index([eventId])
+}
+
+// RBAC
+
+enum PermissionResource {
+  ROLES
+  USERS
+  SETTINGS
+  WORKFLOWS
+  VENDORS
+  VENUES
+  CONTACTS
+  EVENTS
+  FUNCTIONS
+  PRESENTATIONS
+  AV_ORDERS
+  CATERING_ORDERS
+  SETUP_ORDERS
+  PRINT_ORDERS
+  MEDIA_ORDERS
+  FILES
+  SHARE_LINKS
+}
+
+enum PermissionLevel {
+  NONE
+  VIEW
+  WRITE
+  DELETE
+}
+
+enum PermissionScope {
+  GLOBAL
+  ASSIGNED
+  UNASSIGNED
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  // System roles (seeded Admin/User) cannot be renamed or deleted from the UI.
+  isSystem    Boolean          @default(false)
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model RolePermission {
+  id       String             @id @default(cuid())
+  roleId   String
+  role     Role               @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  resource PermissionResource
+  scope    PermissionScope
+  level    PermissionLevel    @default(NONE)
+
+  @@unique([roleId, resource, scope])
+  @@index([roleId])
+}
+
+// Junction linking app Users to Events they are staff on. Distinct from EventKeyStaff (Contacts).
+model EventStaff {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  addedAt   DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([userId])
 }
