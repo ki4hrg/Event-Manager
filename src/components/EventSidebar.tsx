@@ -87,6 +87,11 @@ const LinkIcon = () => (
     <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
   </svg>
 );
+const SlidersIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" />
+  </svg>
+);
 const ChevronLeftIcon = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
     <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -140,6 +145,8 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Equipment",        segment: "reports/equipment-responsibility", icon: <ClipboardIcon /> },
   { type: "link",  label: "Vendor Handoff",   segment: "reports/vendor-handoff",          icon: <HandoffIcon /> },
   { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon /> },
+  { type: "group", label: "Configuration" },
+  { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon /> },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

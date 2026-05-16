@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { EntityStatus, StatusModelType, CustomOption } from "@prisma/client";
 import { EDIT_STATUS_OPTIONS, STATUS_MODEL_LABEL } from "@/lib/statusConstants";
+import { btnPrimary, btnOutlinedSm } from "@/lib/buttonStyles";
 
 const ALL_MODEL_TYPES: StatusModelType[] = [
   "FUNCTION",
@@ -15,6 +16,8 @@ const ALL_MODEL_TYPES: StatusModelType[] = [
   "MEDIA_ORDER",
 ];
 
+const DEFAULT_ROW = { status: "PENDING" as EntityStatus, substatus: "" };
+
 type StatusDefault = {
   modelType: StatusModelType;
   status: EntityStatus;
@@ -24,33 +27,33 @@ type StatusDefault = {
 type StatusDefaultsPanelProps = {
   defaults: StatusDefault[];
   substatuses: CustomOption[];
-  setDefault: (modelType: StatusModelType, status: EntityStatus, substatus: string | null) => Promise<void>;
+  saveAll: (
+    overrides: Array<{ modelType: StatusModelType; status: EntityStatus; substatus: string | null }>
+  ) => Promise<void>;
   clearDefault: (modelType: StatusModelType) => Promise<void>;
 };
 
 export function StatusDefaultsPanel({
   defaults,
   substatuses,
-  setDefault,
+  saveAll,
   clearDefault,
 }: StatusDefaultsPanelProps) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+  const [clearingRow, setClearingRow] = useState<StatusModelType | null>(null);
 
-  const [rows, setRows] = useState<
-    Map<StatusModelType, { status: EntityStatus; substatus: string }>
-  >(() => {
-    const m = new Map<StatusModelType, { status: EntityStatus; substatus: string }>();
-    for (const d of defaults) {
-      m.set(d.modelType, { status: d.status, substatus: d.substatus ?? "" });
+  const [rows, setRows] = useState<Map<StatusModelType, { status: EntityStatus; substatus: string }>>(
+    () => {
+      const m = new Map<StatusModelType, { status: EntityStatus; substatus: string }>();
+      for (const d of defaults) {
+        m.set(d.modelType, { status: d.status, substatus: d.substatus ?? "" });
+      }
+      return m;
     }
-    return m;
-  });
+  );
 
-  const [saving, setSaving] = useState<Set<StatusModelType>>(new Set());
-
-  const getRow = (modelType: StatusModelType) =>
-    rows.get(modelType) ?? { status: "PENDING" as EntityStatus, substatus: "" };
+  const getRow = (modelType: StatusModelType) => rows.get(modelType) ?? DEFAULT_ROW;
 
   const setRowField = (
     modelType: StatusModelType,
@@ -58,7 +61,7 @@ export function StatusDefaultsPanel({
     value: string
   ) => {
     setRows((prev) => {
-      const current = prev.get(modelType) ?? { status: "PENDING" as EntityStatus, substatus: "" };
+      const current = prev.get(modelType) ?? DEFAULT_ROW;
       const updated =
         field === "status"
           ? { status: value as EntityStatus, substatus: "" }
@@ -67,35 +70,29 @@ export function StatusDefaultsPanel({
     });
   };
 
-  const handleSave = (modelType: StatusModelType) => {
-    const row = getRow(modelType);
-    setSaving((prev) => new Set(prev).add(modelType));
+  const handleClear = (modelType: StatusModelType) => {
+    setClearingRow(modelType);
+    setRows((prev) => {
+      const next = new Map(prev);
+      next.delete(modelType);
+      return next;
+    });
     startTransition(async () => {
-      await setDefault(modelType, row.status, row.substatus || null);
+      await clearDefault(modelType);
       router.refresh();
-      setSaving((prev) => {
-        const next = new Set(prev);
-        next.delete(modelType);
-        return next;
-      });
+      setClearingRow(null);
     });
   };
 
-  const handleClear = (modelType: StatusModelType) => {
-    setSaving((prev) => new Set(prev).add(modelType));
+  const handleSave = () => {
     startTransition(async () => {
-      await clearDefault(modelType);
-      setRows((prev) => {
-        const next = new Map(prev);
-        next.delete(modelType);
-        return next;
-      });
+      const overrides = Array.from(rows.entries()).map(([modelType, row]) => ({
+        modelType,
+        status: row.status,
+        substatus: row.substatus || null,
+      }));
+      await saveAll(overrides);
       router.refresh();
-      setSaving((prev) => {
-        const next = new Set(prev);
-        next.delete(modelType);
-        return next;
-      });
     });
   };
 
@@ -103,22 +100,24 @@ export function StatusDefaultsPanel({
     "text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-        Default Status on Create
-      </p>
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-        Overrides the system default (Pending) for new items created in this event.
-      </p>
-      <div className="space-y-3">
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+          Default Status on Create
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Overrides the system default (Pending) for new items created in this event.
+        </p>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
         {ALL_MODEL_TYPES.map((modelType) => {
           const row = getRow(modelType);
           const hasOverride = defaults.some((d) => d.modelType === modelType);
-          const isPending = saving.has(modelType);
           const availableSubstatuses = substatuses.filter((s) => s.group === row.status);
 
           return (
-            <div key={modelType} className="flex flex-wrap items-center gap-2">
+            <div key={modelType} className="flex flex-wrap items-center gap-2 p-3">
               <span className="text-sm text-gray-700 dark:text-gray-300 w-36 shrink-0">
                 {STATUS_MODEL_LABEL[modelType]}
               </span>
@@ -147,25 +146,30 @@ export function StatusDefaultsPanel({
                   </option>
                 ))}
               </select>
-              <button
-                onClick={() => handleSave(modelType)}
-                disabled={isPending}
-                className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isPending ? "Saving…" : "Save"}
-              </button>
               {hasOverride && (
                 <button
+                  type="button"
                   onClick={() => handleClear(modelType)}
                   disabled={isPending}
-                  className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                  className={`${btnOutlinedSm} disabled:opacity-50`}
                 >
-                  Clear
+                  {clearingRow === modelType ? "Clearing…" : "Clear"}
                 </button>
               )}
             </div>
           );
         })}
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isPending}
+          className={`${btnPrimary} disabled:opacity-50`}
+        >
+          {isPending && clearingRow === null ? "Saving…" : "Save defaults"}
+        </button>
       </div>
     </div>
   );

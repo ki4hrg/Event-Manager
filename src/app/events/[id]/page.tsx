@@ -20,16 +20,12 @@ import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
 import { StatusSummaryCard } from "./StatusSummaryCard";
-import { getStatusDefaults, setStatusDefault, clearStatusDefault } from "../status-defaults/actions";
-import { getSubstatusOptions } from "@/app/settings/actions";
-import { StatusDefaultsPanel } from "../status-defaults/StatusDefaultsPanel";
-import type { EntityStatus, StatusModelType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, venues, stats, keyStaff, statusDefaults, substatuses] = await Promise.all([
+  const [event, venues, stats, keyStaff] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
     getEventOverviewStats(id),
@@ -38,8 +34,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       include: { contact: true },
       orderBy: { sortOrder: "asc" },
     }),
-    getStatusDefaults(id),
-    getSubstatusOptions(),
   ]);
 
   if (!event) {
@@ -86,20 +80,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     await createContactAndAddKeyStaff(id, formData);
   };
 
-  const setStatusDefaultAction = async (
-    modelType: StatusModelType,
-    status: EntityStatus,
-    substatus: string | null
-  ) => {
-    "use server";
-    await setStatusDefault(id, modelType, status, substatus);
-  };
-
-  const clearStatusDefaultAction = async (modelType: StatusModelType) => {
-    "use server";
-    await clearStatusDefault(id, modelType);
-  };
-
   return (
     <>
       <Suspense fallback={null}>
@@ -130,12 +110,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             createContact={createContactAction}
           />
 
-          <StatusDefaultsPanel
-            defaults={statusDefaults}
-            substatuses={substatuses}
-            setDefault={setStatusDefaultAction}
-            clearDefault={clearStatusDefaultAction}
-          />
         </div>
 
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 content-start">
