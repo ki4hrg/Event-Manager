@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, venues, stats, keyStaff, staffCount] = await Promise.all([
+  const [event, venues, stats, keyStaff] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
     getEventOverviewStats(id),
@@ -34,7 +34,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       include: { contact: true },
       orderBy: { sortOrder: "asc" },
     }),
-    prisma.eventStaff.count({ where: { eventId: id } }),
   ]);
 
   if (!event) {
@@ -110,27 +109,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             searchContacts={searchContactsAction}
             createContact={createContactAction}
           />
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-baseline justify-between">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Staff Access
-              </p>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {staffCount} assigned
-              </span>
-            </div>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              App users with assigned-scope access to this event.
-            </p>
-            <a
-              href={`/events/${id}/staff`}
-              className="mt-3 inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Manage staff →
-            </a>
-          </div>
-
         </div>
 
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 content-start">
