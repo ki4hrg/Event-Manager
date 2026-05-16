@@ -58,6 +58,16 @@ enum EntityStatus {
   CANCELLED
 }
 
+enum StatusModelType {
+  FUNCTION
+  PRESENTATION
+  AV_ORDER
+  CATERING_ORDER
+  SETUP_ORDER
+  PRINT_ORDER
+  MEDIA_ORDER
+}
+
 // Customizable options for dropdowns
 model CustomOption {
   id        String   @id @default(cuid())
@@ -116,6 +126,7 @@ model Event {
   shareLinkGroups    ShareLinkGroup[]
   files              FileUpload[]
   keyStaff           EventKeyStaff[]
+  statusDefaults     EventStatusDefault[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -1217,4 +1228,18 @@ model ShareLinkGroupItem {
   createdAt     DateTime       @default(now())
 
   @@index([groupId, sortOrder])
+}
+
+model EventStatusDefault {
+  id        String          @id @default(cuid())
+  event     Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String
+  modelType StatusModelType
+  status    EntityStatus
+  substatus String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([eventId, modelType])
+  @@index([eventId])
 }

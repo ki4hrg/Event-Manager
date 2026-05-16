@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
+import { resolveCreateStatus } from "@/lib/statusDefaults";
 
 // ============================================================================
 // Track CRUD (event-scoped)
@@ -146,6 +147,8 @@ export async function createPresentation(eventId: string, formData: FormData) {
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
   const instanceCountRaw = formData.get("instanceCount") as string;
 
+  const defaults = await resolveCreateStatus(eventId, "PRESENTATION");
+
   const presentation = await prisma.presentation.create({
     data: {
       title,
@@ -157,6 +160,8 @@ export async function createPresentation(eventId: string, formData: FormData) {
       breakoutGroupId: breakoutGroupId || null,
       instanceCount: instanceCountRaw ? parseInt(instanceCountRaw) : 1,
       eventId,
+      status: defaults.status,
+      substatus: defaults.substatus,
     },
   });
 

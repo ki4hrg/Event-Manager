@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
+import { resolveCreateStatus } from "@/lib/statusDefaults";
 
 export async function getPrintOrders(eventId: string) {
   await requireAuth();
@@ -61,8 +62,10 @@ export async function createPrintOrder(eventId: string, formData: FormData) {
   const presentationId = (formData.get("presentationId") as string) || null;
   const selectedVendorId = (formData.get("vendorId") as string) || null;
 
+  const defaults = await resolveCreateStatus(eventId, "PRINT_ORDER");
+
   const printOrder = await prisma.printOrder.create({
-    data: { name, eventId, notes, presentationId },
+    data: { name, eventId, notes, presentationId, status: defaults.status, substatus: defaults.substatus },
   });
 
   const [, defaultVendor] = await Promise.all([

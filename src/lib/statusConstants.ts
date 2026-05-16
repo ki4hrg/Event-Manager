@@ -1,4 +1,4 @@
-import type { EntityStatus } from "@prisma/client";
+import type { EntityStatus, StatusModelType } from "@prisma/client";
 
 export type StatusCounts = {
   PENDING: number;
@@ -27,3 +27,13 @@ export const EDIT_STATUS_OPTIONS: { value: EntityStatus; label: string }[] = [
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "COMPLETE", label: "Complete" },
 ];
+
+export const STATUS_MODEL_LABEL: Record<StatusModelType, string> = {
+  FUNCTION: "Function",
+  PRESENTATION: "Presentation",
+  AV_ORDER: "AV Order",
+  CATERING_ORDER: "Catering Order",
+  SETUP_ORDER: "Setup Order",
+  PRINT_ORDER: "Print Order",
+  MEDIA_ORDER: "Media Order",
+};

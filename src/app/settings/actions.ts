@@ -148,6 +148,7 @@ async function propagateLabelRename(
         tx.setupOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
         tx.printOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
         tx.mediaOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
+        tx.eventStatusDefault.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
       ]);
       break;
     case "contact_role":
@@ -167,9 +168,22 @@ export async function getSubstatusOptions(group?: string) {
 
 export async function deleteOption(id: string) {
   await requireAdmin();
-  const option = await prisma.customOption.findUnique({ where: { id }, select: { isSystem: true } });
+  const option = await prisma.customOption.findUnique({
+    where: { id },
+    select: { isSystem: true, category: true, label: true },
+  });
   if (option?.isSystem) throw new Error("Cannot delete a system option.");
-  await prisma.customOption.delete({ where: { id } });
+
+  await prisma.$transaction(async (tx) => {
+    if (option?.category === "substatus" && option.label) {
+      await tx.eventStatusDefault.updateMany({
+        where: { substatus: option.label },
+        data: { substatus: null },
+      });
+    }
+    await tx.customOption.delete({ where: { id } });
+  });
+
   revalidatePath("/settings");
 }
 

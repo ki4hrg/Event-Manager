@@ -9,6 +9,7 @@ import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
+import { resolveCreateStatus } from "@/lib/statusDefaults";
 
 export async function getAVOrders(eventId: string) {
   await requireAuth();
@@ -114,11 +115,15 @@ export async function createAVOrder(eventId: string, formData: FormData) {
   const functionId = (formData.get("functionId") as string) || null;
   const selectedVendorId = (formData.get("vendorId") as string) || null;
 
+  const defaults = await resolveCreateStatus(eventId, "AV_ORDER");
+
   const avOrder = await prisma.aVOrder.create({
     data: {
       name,
       eventId,
       notes: notes || null,
+      status: defaults.status,
+      substatus: defaults.substatus,
     },
   });
 

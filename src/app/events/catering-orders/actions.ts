@@ -9,6 +9,7 @@ import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
+import { resolveCreateStatus } from "@/lib/statusDefaults";
 
 async function eventTimezone(eventId: string): Promise<string> {
   const event = await prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true } });
@@ -54,6 +55,8 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
   const name = formData.get("name") as string;
   const functionId = formData.get("functionId") as string;
 
+  const defaults = await resolveCreateStatus(eventId, "CATERING_ORDER");
+
   const cateringOrder = await prisma.cateringOrder.create({
     data: {
       name,
@@ -72,6 +75,8 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
       cancellationTerms: (formData.get("cancellationTerms") as string) || null,
       dietaryNotes: (formData.get("dietaryNotes") as string) || null,
       notes: (formData.get("notes") as string) || null,
+      status: defaults.status,
+      substatus: defaults.substatus,
     },
   });
 

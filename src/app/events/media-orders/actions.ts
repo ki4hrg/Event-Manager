@@ -8,6 +8,7 @@ import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel, getResponsiblePartyVendors } from "@/app/vendors/actions";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
+import { resolveCreateStatus } from "@/lib/statusDefaults";
 
 export async function getMediaOrders(eventId: string) {
   await requireAuth();
@@ -81,8 +82,10 @@ export async function createMediaOrder(eventId: string, formData: FormData) {
   const presentationId = (formData.get("presentationId") as string) || null;
   const selectedVendorId = (formData.get("vendorId") as string) || null;
 
+  const defaults = await resolveCreateStatus(eventId, "MEDIA_ORDER");
+
   const mediaOrder = await prisma.mediaOrder.create({
-    data: { name, eventId, notes },
+    data: { name, eventId, notes, status: defaults.status, substatus: defaults.substatus },
   });
 
   const [, , defaultVendor] = await Promise.all([

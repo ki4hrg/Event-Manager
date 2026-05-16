@@ -8,6 +8,7 @@ import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
+import { resolveCreateStatus } from "@/lib/statusDefaults";
 
 export async function getSetupOrders(eventId: string) {
   await requireAuth();
@@ -63,6 +64,8 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
   const roomId = (formData.get("roomId") as string) || null;
   const selectedVendorId = (formData.get("vendorId") as string) || null;
 
+  const defaults = await resolveCreateStatus(eventId, "SETUP_ORDER");
+
   const setupOrder = await prisma.setupOrder.create({
     data: {
       name,
@@ -70,6 +73,8 @@ export async function createSetupOrder(eventId: string, formData: FormData) {
       setupType: setupType || null,
       notes: notes || null,
       roomId,
+      status: defaults.status,
+      substatus: defaults.substatus,
     },
   });
 

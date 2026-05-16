@@ -8,6 +8,7 @@ import type { EntityStatus } from "@prisma/client";
 import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
+import { resolveCreateStatus } from "@/lib/statusDefaults";
 
 export async function getFunctions(eventId: string) {
   await requireAuth();
@@ -97,6 +98,8 @@ export async function createFunction(eventId: string, formData: FormData) {
   const startTimeRaw = formData.get("startTime") as string;
   const endTimeRaw = formData.get("endTime") as string;
 
+  const defaults = await resolveCreateStatus(eventId, "FUNCTION");
+
   // Create the function
   const fn = await prisma.function.create({
     data: {
@@ -107,6 +110,8 @@ export async function createFunction(eventId: string, formData: FormData) {
       offSiteLocation,
       eventId,
       breakoutGroupId: breakoutGroupId || null,
+      status: defaults.status,
+      substatus: defaults.substatus,
       rooms: {
         create: roomIds.map((roomId) => ({ roomId })),
       },
