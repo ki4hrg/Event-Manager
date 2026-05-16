@@ -20,6 +20,9 @@ import {
   createSetupEquipmentItem,
   updateSetupEquipmentItem,
   deleteSetupEquipmentItem,
+  createSetupOrderDetail,
+  updateSetupOrderDetail,
+  deleteSetupOrderDetail,
 } from "../../../setup-orders/actions";
 import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
@@ -35,6 +38,7 @@ import { VendorPanel } from "../../../vendors/VendorPanel";
 import { SetupOrderTabs, SETUP_ORDER_TABS } from "../../../setup-orders/SetupOrderTabs";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { SetupTableList } from "../../../setup-orders/SetupTableList";
+import { SetupOrderDetailTable } from "../../../setup-orders/SetupOrderDetailTable";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { FunctionMultiLinkControl } from "../../../functions/FunctionMultiLinkControl";
@@ -213,6 +217,21 @@ export default async function SetupOrderPage({
     await deleteSetupEquipmentItem(id, setupOrderId, eventId);
   };
 
+  const createDetailAction = async (formData: FormData) => {
+    "use server";
+    await createSetupOrderDetail(setupOrderId, eventId, formData);
+  };
+
+  const updateDetailAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateSetupOrderDetail(id, setupOrderId, eventId, formData);
+  };
+
+  const deleteDetailAction = async (id: string) => {
+    "use server";
+    await deleteSetupOrderDetail(id, setupOrderId, eventId);
+  };
+
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
 
@@ -378,6 +397,13 @@ export default async function SetupOrderPage({
           </div>
 
           <div className="lg:col-span-2 space-y-8">
+            <SetupOrderDetailTable
+              details={setupOrder.details}
+              responsiblePartyVendors={responsiblePartyVendors}
+              createDetail={createDetailAction}
+              updateDetail={updateDetailAction}
+              deleteDetail={deleteDetailAction}
+            />
             <SetupTableList
               tables={setupOrder.tables}
               vendorOptions={responsiblePartyVendors}

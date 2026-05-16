@@ -868,6 +868,10 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
           include: { providerVendor: { select: { id: true, name: true } } },
           orderBy: { sortOrder: "asc" },
         },
+        details: {
+          include: { responsiblePartyVendor: { select: { id: true, name: true } } },
+          orderBy: { sortOrder: "asc" },
+        },
         equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
       },
       orderBy: { createdAt: "asc" },
@@ -1081,6 +1085,10 @@ const fdSetupOrderInclude = {
   vendors: { include: { vendor: fdVendorSelect } },
   tables: {
     include: { providerVendor: fdVendorSelect },
+    orderBy: { sortOrder: "asc" },
+  },
+  details: {
+    include: { responsiblePartyVendor: fdVendorSelect },
     orderBy: { sortOrder: "asc" },
   },
   equipmentItems: { include: fdEquipmentItemInclude, orderBy: { sortOrder: "asc" } },

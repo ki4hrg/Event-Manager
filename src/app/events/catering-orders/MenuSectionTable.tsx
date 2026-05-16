@@ -6,6 +6,7 @@ import type { CateringOrderMenuSection, Vendor } from "@prisma/client";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { isRichTextEmpty } from "@/lib/richText";
 
 type MenuSectionWithVendor = CateringOrderMenuSection & {
   responsiblePartyVendor: Vendor | null;
@@ -30,12 +31,6 @@ function SubmitButton({ label }: { label: string }) {
       {pending ? "..." : label}
     </button>
   );
-}
-
-function isMenuContentEmpty(form: HTMLFormElement): boolean {
-  const input = form.querySelector('input[name="menuContent"]') as HTMLInputElement | null;
-  const text = input?.value.replace(/<[^>]*>/g, "").trim() ?? "";
-  return text === "";
 }
 
 export function MenuSectionTable({
@@ -76,7 +71,7 @@ export function MenuSectionTable({
         <form
           action={handleCreate}
           onSubmit={(e) => {
-            if (isMenuContentEmpty(e.currentTarget)) {
+            if (isRichTextEmpty(e.currentTarget, "menuContent")) {
               e.preventDefault();
               setMenuError(true);
             } else {
@@ -125,7 +120,7 @@ export function MenuSectionTable({
                 <form
                   action={(fd) => handleUpdate(section.id, fd)}
                   onSubmit={(e) => {
-                    if (isMenuContentEmpty(e.currentTarget)) {
+                    if (isRichTextEmpty(e.currentTarget, "menuContent")) {
                       e.preventDefault();
                       setMenuError(true);
                     } else {

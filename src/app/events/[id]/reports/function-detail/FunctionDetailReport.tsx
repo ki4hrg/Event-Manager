@@ -365,6 +365,32 @@ function SetupOrderCard({
         </p>
       )}
 
+      {order.details.length > 0 && (
+        <SubSection title="Details">
+          <div className="space-y-2">
+            {order.details.map((detail) => (
+              <div key={detail.id}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                    {detail.headline}
+                  </p>
+                  {detail.responsiblePartyVendor && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      By: {detail.responsiblePartyVendor.name}
+                    </p>
+                  )}
+                </div>
+                {/* RichTextEditor output — chain: SetupOrderDetailTable → RichTextEditor */}
+                <div
+                  className="text-xs text-gray-700 dark:text-gray-300 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                  dangerouslySetInnerHTML={{ __html: detail.description }}
+                />
+              </div>
+            ))}
+          </div>
+        </SubSection>
+      )}
+
       {order.tables.length > 0 && (
         <SubSection title="Tables">
           <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">

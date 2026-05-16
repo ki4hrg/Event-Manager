@@ -9,16 +9,16 @@ datasource db {
 
 // Authentication
 model User {
-  id         String        @id @default(cuid())
-  email      String        @unique
-  name       String?
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  name                String?
   // Nullable: new users start without a password until they consume an invite token.
-  password   String?
+  password            String?
   // FK to the RBAC Role table. Source of truth for permissions.
-  roleId     String?
-  roleRef    Role?         @relation(fields: [roleId], references: [id])
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  roleId              String?
+  roleRef             Role?                @relation(fields: [roleId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   settings            UserSetting[]
   shareLinks          ShareLink[]
   shareLinkGroups     ShareLinkGroup[]
@@ -107,14 +107,14 @@ model Equipment {
 
 // Core entities
 model Event {
-  id                 String              @id @default(cuid())
+  id                 String               @id @default(cuid())
   name               String
   description        String?
   startDate          DateTime
   endDate            DateTime
-  timezone           String              @default("America/Chicago")
+  timezone           String               @default("America/Chicago")
   venueId            String?
-  venue              Venue?              @relation(fields: [venueId], references: [id])
+  venue              Venue?               @relation(fields: [venueId], references: [id])
   functions          Function[]
   presentations      Presentation[]
   presentationTracks PresentationTrack[]
@@ -131,8 +131,8 @@ model Event {
   keyStaff           EventKeyStaff[]
   statusDefaults     EventStatusDefault[]
   staff              EventStaff[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 }
 
 model Venue {
@@ -472,6 +472,7 @@ model SetupOrder {
   presentationLinks SetupOrderPresentation[]
   notes             String?
   tables            SetupTable[]
+  details           SetupOrderDetail[]
   equipmentItems    EquipmentItem[]
   vendors           SetupOrderVendor[]
   files             FileUpload[]
@@ -521,6 +522,22 @@ model SetupTable {
 
   @@index([setupOrderId])
   @@index([providerVendorId])
+}
+
+model SetupOrderDetail {
+  id                       String     @id @default(cuid())
+  setupOrderId             String
+  setupOrder               SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  headline                 String
+  description              String
+  responsiblePartyVendorId String?
+  responsiblePartyVendor   Vendor?    @relation("SetupOrderDetailResponsibleVendor", fields: [responsiblePartyVendorId], references: [id], onDelete: SetNull)
+  sortOrder                Int        @default(0)
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
+
+  @@index([setupOrderId])
+  @@index([responsiblePartyVendorId])
 }
 
 model CateringOrderLineItem {
@@ -797,6 +814,7 @@ model Vendor {
   equipmentItemsAsProvider EquipmentItem[]            @relation("EquipmentItemProviderVendor")
   equipmentItemsAsOperator EquipmentItem[]            @relation("EquipmentItemOperatorVendor")
   responsibleMenuSections  CateringOrderMenuSection[] @relation("MenuSectionResponsibleVendor")
+  responsibleSetupDetails  SetupOrderDetail[]         @relation("SetupOrderDetailResponsibleVendor")
   inputGroupsAsProvider    InputGroup[]               @relation("InputGroupProviderVendor")
   inputGroupsAsOperator    InputGroup[]               @relation("InputGroupOperatorVendor")
   inputItemsAsProvider     InputItem[]                @relation("InputItemProviderVendor")
@@ -1309,12 +1327,12 @@ model RolePermission {
 
 // Junction linking app Users to Events they are staff on. Distinct from EventKeyStaff (Contacts).
 model EventStaff {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  addedAt   DateTime @default(now())
+  id      String   @id @default(cuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  addedAt DateTime @default(now())
 
   @@unique([userId, eventId])
   @@index([eventId])
