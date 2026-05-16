@@ -2,14 +2,15 @@ import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { PermissionResource } from "@prisma/client";
 import { btnPrimary } from "@/lib/buttonStyles";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { getWorkflowTemplates } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkflowsPage() {
-  await requireAdmin();
+  await requirePermission(PermissionResource.WORKFLOWS, "VIEW");
   const templates = await getWorkflowTemplates();
 
   return (

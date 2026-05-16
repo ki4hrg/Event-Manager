@@ -2,8 +2,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { PermissionResource } from "@prisma/client";
 
 export type ResponsiblePartyOptions = {
   vendors: { id: string; name: string }[];
@@ -12,7 +14,7 @@ export type ResponsiblePartyOptions = {
 };
 
 export async function getResponsiblePartyVendors(eventId: string, modelType?: string): Promise<ResponsiblePartyOptions> {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
@@ -39,7 +41,7 @@ export async function getResponsiblePartyVendors(eventId: string, modelType?: st
 }
 
 export async function getVendors() {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.vendor.findMany({
     where: { isSystemVendor: false, venueId: null },
     include: {
@@ -50,7 +52,7 @@ export async function getVendors() {
 }
 
 export async function getVendor(id: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.vendor.findUnique({
     where: { id },
     include: {
@@ -60,7 +62,7 @@ export async function getVendor(id: string) {
 }
 
 export async function searchVendors(query: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.vendor.findMany({
     where: {
       name: { contains: query, mode: "insensitive" },
@@ -71,7 +73,7 @@ export async function searchVendors(query: string) {
 }
 
 export async function createVendor(formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "WRITE");
   const name = (formData.get("name") as string).trim();
   const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
@@ -85,7 +87,7 @@ export async function createVendor(formData: FormData) {
 }
 
 export async function updateVendor(id: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "WRITE");
   const name = (formData.get("name") as string).trim();
   const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
@@ -100,7 +102,7 @@ export async function updateVendor(id: string, formData: FormData) {
 }
 
 export async function deleteVendor(id: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "DELETE");
   await prisma.vendor.delete({ where: { id } });
   revalidatePath("/vendors");
   redirect("/vendors");
@@ -109,7 +111,7 @@ export async function deleteVendor(id: string) {
 // Vendor contact management
 
 export async function searchContactsForVendor(query: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.contact.findMany({
     where: {
       OR: [
@@ -132,7 +134,7 @@ async function clearOtherPrimaries(vendorId: string, excludeId?: string) {
 }
 
 export async function createAndAddVendorContact(vendorId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "WRITE");
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -159,7 +161,7 @@ export async function createAndAddVendorContact(vendorId: string, formData: Form
 }
 
 export async function addVendorContact(vendorId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "WRITE");
   const contactId = formData.get("contactId") as string;
   const contactType = (formData.get("contactType") as string) || null;
   const isPrimary = formData.get("isPrimary") === "true";
@@ -174,7 +176,7 @@ export async function addVendorContact(vendorId: string, formData: FormData) {
 }
 
 export async function updateVendorContact(contactId: string, vendorId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "WRITE");
   const contactType = (formData.get("contactType") as string) || null;
   const isPrimary = formData.get("isPrimary") === "true";
 
@@ -189,7 +191,7 @@ export async function updateVendorContact(contactId: string, vendorId: string, f
 }
 
 export async function removeVendorContact(contactId: string, vendorId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "DELETE");
   await prisma.vendorContact.delete({ where: { id: contactId } });
   revalidatePath(`/vendors/${vendorId}`);
 }
@@ -197,7 +199,7 @@ export async function removeVendorContact(contactId: string, vendorId: string) {
 // Event vendor management
 
 export async function getEventVendors(eventId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.eventVendor.findMany({
     where: { eventId },
     include: { vendor: true },
@@ -206,7 +208,7 @@ export async function getEventVendors(eventId: string) {
 }
 
 export async function searchVendorsForEvent(query: string, eventId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   // Returns vendors not already assigned to this event
   const assigned = await prisma.eventVendor.findMany({
     where: { eventId },
@@ -225,7 +227,7 @@ export async function searchVendorsForEvent(query: string, eventId: string) {
 }
 
 export async function addVendorToEvent(eventId: string, vendorId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "WRITE");
   await prisma.eventVendor.create({
     data: { eventId, vendorId },
   });
@@ -234,7 +236,7 @@ export async function addVendorToEvent(eventId: string, vendorId: string) {
 }
 
 export async function removeVendorFromEvent(eventVendorId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "DELETE");
   await prisma.eventVendor.delete({ where: { id: eventVendorId } });
   revalidatePath(`/events/${eventId}/vendors`);
 }
@@ -245,7 +247,7 @@ export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_O
 // Assigns a vendor as the default for a model type on this event.
 // Transfers the designation away from any other vendor that held it.
 export async function setDefaultVendor(eventVendorId: string, modelType: ModelType, eventId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "WRITE");
   await prisma.$transaction([
     prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE "eventId" = ${eventId} AND id != ${eventVendorId}`,
     prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_append(array_remove("defaultFor", ${modelType}), ${modelType}) WHERE id = ${eventVendorId}`,
@@ -254,13 +256,13 @@ export async function setDefaultVendor(eventVendorId: string, modelType: ModelTy
 }
 
 export async function removeDefaultVendor(eventVendorId: string, modelType: ModelType, eventId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "WRITE");
   await prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE id = ${eventVendorId}`;
   revalidatePath(`/events/${eventId}/vendors`);
 }
 
 export async function getDefaultVendorForModel(eventId: string, modelType: ModelType) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.eventVendor.findFirst({
     where: { eventId, defaultFor: { has: modelType } },
   });
@@ -269,7 +271,7 @@ export async function getDefaultVendorForModel(eventId: string, modelType: Model
 // Entity vendor management helpers
 
 export async function getEventVendorsForPicker(eventId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.eventVendor.findMany({
     where: { eventId },
     include: { vendor: true },
@@ -282,7 +284,7 @@ export async function getEventVendorsForPicker(eventId: string) {
 // Also includes the venue vendor and system (event team) vendor when they match the query,
 // since those are valid order vendors even when not registered via EventVendor.
 export async function searchAssignedEventVendors(query: string, eventId: string, modelType?: ModelType) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENDORS, "VIEW");
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;

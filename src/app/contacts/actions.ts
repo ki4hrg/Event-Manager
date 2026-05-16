@@ -1,26 +1,27 @@
 "use server";
 
+import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getContacts() {
-  await requireAuth();
+  await requirePermission(PermissionResource.CONTACTS, "VIEW");
   return prisma.contact.findMany({
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 }
 
 export async function getContact(id: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.CONTACTS, "VIEW");
   return prisma.contact.findUnique({
     where: { id },
   });
 }
 
 export async function createContact(formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.CONTACTS, "WRITE");
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -46,7 +47,7 @@ export async function createContact(formData: FormData) {
 }
 
 export async function updateContact(id: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.CONTACTS, "WRITE");
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -74,7 +75,7 @@ export async function updateContact(id: string, formData: FormData) {
 }
 
 export async function deleteContact(id: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.CONTACTS, "DELETE");
   await prisma.contact.delete({ where: { id } });
   revalidatePath("/contacts");
   redirect("/contacts");

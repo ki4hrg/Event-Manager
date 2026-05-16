@@ -1,6 +1,7 @@
+import { PermissionResource } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { getUser, updateUser, deleteUser, resendPasswordResetEmail } from "../actions";
 import { UserForm } from "../UserForm";
 import { ResendInviteButton } from "../ResendInviteButton";
@@ -15,7 +16,7 @@ export default async function UserDetailPage({
   params: Promise<{ userId: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  const session = await requireAdmin();
+  const session = await requirePermission(PermissionResource.USERS, "VIEW");
   const { userId } = await params;
   const { error } = await searchParams;
   const user = await getUser(userId);

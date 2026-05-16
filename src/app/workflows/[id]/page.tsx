@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { PermissionResource } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import {
   getWorkflowTemplate,
   updateWorkflowTemplate,
@@ -23,7 +24,7 @@ export default async function WorkflowDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.WORKFLOWS, "VIEW");
   const { id } = await params;
   const [template, substatuses] = await Promise.all([
     getWorkflowTemplate(id),

@@ -1,12 +1,13 @@
 import Link from "next/link";
+import { PermissionResource } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { createWorkflowTemplate } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewWorkflowPage() {
-  await requireAdmin();
+  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
 
   const createAction = async (formData: FormData) => {
     "use server";

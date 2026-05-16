@@ -1,4 +1,5 @@
-import { requireAdmin } from "@/lib/auth";
+import { PermissionResource } from "@prisma/client";
+import { requirePermission } from "@/lib/permissions";
 import { getEmailConfigStatus, isEmailConfigured } from "@/lib/email";
 import { sendTestEmailAction } from "./actions";
 import { SendTestEmailForm } from "./SendTestEmailForm";
@@ -6,7 +7,7 @@ import { SendTestEmailForm } from "./SendTestEmailForm";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsEmailPage() {
-  const session = await requireAdmin();
+  const session = await requirePermission(PermissionResource.SETTINGS, "VIEW");
   const status = getEmailConfigStatus();
   const configured = isEmailConfigured();
 

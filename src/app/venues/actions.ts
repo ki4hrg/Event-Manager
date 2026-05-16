@@ -1,12 +1,13 @@
 "use server";
 
+import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getVenues() {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "VIEW");
   return prisma.venue.findMany({
     include: { _count: { select: { rooms: true } } },
     orderBy: { name: "asc" },
@@ -14,7 +15,7 @@ export async function getVenues() {
 }
 
 export async function getVenue(id: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "VIEW");
   return prisma.venue.findUnique({
     where: { id },
     include: {
@@ -27,7 +28,7 @@ export async function getVenue(id: string) {
 }
 
 export async function createVenue(formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const name = formData.get("name") as string;
   const address = formData.get("address") as string;
   const city = formData.get("city") as string;
@@ -55,7 +56,7 @@ export async function createVenue(formData: FormData) {
 }
 
 export async function updateVenue(id: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const name = formData.get("name") as string;
   const address = formData.get("address") as string;
   const city = formData.get("city") as string;
@@ -86,7 +87,7 @@ export async function updateVenue(id: string, formData: FormData) {
 }
 
 export async function updateVenueVendorDetails(venueId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const notes = (formData.get("notes") as string) || null;
 
   await prisma.vendor.updateMany({
@@ -98,7 +99,7 @@ export async function updateVenueVendorDetails(venueId: string, formData: FormDa
 }
 
 export async function deleteVenue(id: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "DELETE");
   await prisma.venue.delete({ where: { id } });
   revalidatePath("/venues");
   redirect("/venues");
@@ -106,7 +107,7 @@ export async function deleteVenue(id: string) {
 
 // Room actions
 export async function createRoom(venueId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const name = formData.get("name") as string;
   const capacity = formData.get("capacity") as string;
   const notes = formData.get("notes") as string;
@@ -126,7 +127,7 @@ export async function createRoom(venueId: string, formData: FormData) {
 }
 
 export async function updateRoom(roomId: string, venueId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const name = formData.get("name") as string;
   const capacity = formData.get("capacity") as string;
   const notes = formData.get("notes") as string;
@@ -146,28 +147,28 @@ export async function updateRoom(roomId: string, venueId: string, formData: Form
 }
 
 export async function deleteRoom(roomId: string, venueId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "DELETE");
   await prisma.room.delete({ where: { id: roomId } });
   revalidatePath(`/venues/${venueId}`);
 }
 
 // Room group actions
 export async function createRoomGroup(venueId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const name = formData.get("name") as string;
   await prisma.roomGroup.create({ data: { name, venueId } });
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function updateRoomGroup(groupId: string, venueId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const name = formData.get("name") as string;
   await prisma.roomGroup.update({ where: { id: groupId }, data: { name } });
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function deleteRoomGroup(groupId: string, venueId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "DELETE");
   await prisma.roomGroup.delete({ where: { id: groupId } });
   revalidatePath(`/venues/${venueId}`);
 }
@@ -177,7 +178,7 @@ export async function deleteRoomGroup(groupId: string, venueId: string) {
 // ============================================================================
 
 export async function searchContacts(query: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.CONTACTS, "VIEW");
   if (!query || query.length < 2) {
     return [];
   }
@@ -197,7 +198,7 @@ export async function searchContacts(query: string) {
 }
 
 export async function addVenueContact(venueId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
 
@@ -213,7 +214,7 @@ export async function addVenueContact(venueId: string, formData: FormData) {
 }
 
 export async function updateVenueContact(contactId: string, venueId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const role = formData.get("role") as string;
 
   await prisma.venueContact.update({
@@ -225,13 +226,13 @@ export async function updateVenueContact(contactId: string, venueId: string, for
 }
 
 export async function removeVenueContact(contactId: string, venueId: string) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "DELETE");
   await prisma.venueContact.delete({ where: { id: contactId } });
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function createAndAddVenueContact(venueId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission(PermissionResource.VENUES, "WRITE");
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;

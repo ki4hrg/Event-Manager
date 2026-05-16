@@ -1,13 +1,14 @@
 "use server";
 
+import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { sendInviteEmail, sendPasswordResetEmail } from "@/lib/email";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getUsers() {
-  await requireAdmin();
+  await requirePermission(PermissionResource.USERS, "VIEW");
   return prisma.user.findMany({
     select: {
       id: true,
@@ -21,7 +22,7 @@ export async function getUsers() {
 }
 
 export async function getUser(id: string) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.USERS, "VIEW");
   return prisma.user.findUnique({
     where: { id },
     select: {
@@ -35,7 +36,7 @@ export async function getUser(id: string) {
 }
 
 export async function createUser(formData: FormData) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.USERS, "WRITE");
 
   const email = ((formData.get("email") as string) || "").trim().toLowerCase();
   const name = (formData.get("name") as string) || null;
@@ -79,7 +80,7 @@ export async function createUser(formData: FormData) {
 }
 
 export async function updateUser(id: string, formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requirePermission(PermissionResource.USERS, "WRITE");
 
   const email = ((formData.get("email") as string) || "").trim().toLowerCase();
   const name = (formData.get("name") as string) || null;
@@ -113,7 +114,7 @@ export async function updateUser(id: string, formData: FormData) {
 }
 
 export async function resendPasswordResetEmail(userId: string): Promise<void> {
-  await requireAdmin();
+  await requirePermission(PermissionResource.USERS, "WRITE");
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -126,7 +127,7 @@ export async function resendPasswordResetEmail(userId: string): Promise<void> {
 }
 
 export async function deleteUser(id: string) {
-  const session = await requireAdmin();
+  const session = await requirePermission(PermissionResource.USERS, "DELETE");
 
   if (session.user.id === id) {
     throw new Error("You cannot delete your own account");

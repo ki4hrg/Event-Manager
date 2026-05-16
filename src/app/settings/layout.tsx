@@ -1,11 +1,12 @@
-import { requireAdmin } from "@/lib/auth";
+import { PermissionResource } from "@prisma/client";
+import { requirePermission } from "@/lib/permissions";
 import { PageWrapper } from "@/components/PageWrapper";
 import { SettingsTabs } from "./SettingsTabs";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.SETTINGS, "VIEW");
 
   return (
     <PageWrapper>

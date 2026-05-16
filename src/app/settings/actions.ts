@@ -1,8 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireAdmin } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
+import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
 export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "substatus" | "print_distribution";
@@ -36,7 +38,7 @@ export async function getAllOptions() {
 }
 
 export async function createOption(category: OptionCategory, formData: FormData) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.SETTINGS, "WRITE");
   const label = formData.get("label") as string;
   const color = formData.get("color") as string;
   const group = formData.get("group") as string | null;
@@ -63,7 +65,7 @@ export async function createOption(category: OptionCategory, formData: FormData)
 }
 
 export async function updateOption(id: string, formData: FormData) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.SETTINGS, "WRITE");
   const label = formData.get("label") as string;
   const color = formData.get("color") as string;
   const group = formData.get("group") as string | null;
@@ -167,7 +169,7 @@ export async function getSubstatusOptions(group?: string) {
 }
 
 export async function deleteOption(id: string) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.SETTINGS, "DELETE");
   const option = await prisma.customOption.findUnique({
     where: { id },
     select: { isSystem: true, category: true, label: true },
@@ -196,7 +198,7 @@ export async function getEquipment() {
 }
 
 export async function createEquipment(formData: FormData) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.SETTINGS, "WRITE");
   const name = formData.get("name") as string;
   const category = formData.get("category") as string;
 
@@ -214,7 +216,7 @@ export async function createEquipment(formData: FormData) {
 }
 
 export async function updateEquipment(id: string, formData: FormData) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.SETTINGS, "WRITE");
   await prisma.equipment.update({
     where: { id },
     data: {
@@ -226,13 +228,13 @@ export async function updateEquipment(id: string, formData: FormData) {
 }
 
 export async function deleteEquipment(id: string) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.SETTINGS, "DELETE");
   await prisma.equipment.delete({ where: { id } });
   revalidatePath("/settings");
 }
 
 export async function reorderOptions(category: OptionCategory, orderedIds: string[]) {
-  await requireAdmin();
+  await requirePermission(PermissionResource.SETTINGS, "WRITE");
   // Update sortOrder for each option
   await Promise.all(
     orderedIds.map((id, index) =>
