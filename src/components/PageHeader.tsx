@@ -9,8 +9,8 @@ type Props = {
 
 export function PageHeader({ breadcrumbs, title, description, actions }: Props) {
   return (
-    <div className="flex justify-between items-start mb-6">
-      <div>
+    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start mb-6">
+      <div className="min-w-0">
         {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
         <h1 className={`text-2xl font-semibold text-gray-900 dark:text-white${breadcrumbs ? " mt-1" : ""}`}>
           {title}
@@ -19,7 +19,7 @@ export function PageHeader({ breadcrumbs, title, description, actions }: Props) 
           <p className="text-gray-600 dark:text-gray-400 mt-1">{description}</p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}
     </div>
   );
 }

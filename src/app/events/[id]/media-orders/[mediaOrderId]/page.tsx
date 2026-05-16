@@ -208,8 +208,8 @@ export default async function MediaOrderPage({
         <Toast />
       </Suspense>
 
-      <div className="flex justify-between items-center mb-6">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
+        <div className="min-w-0">
           <Breadcrumbs
             items={[
               { label: "Events", href: "/events" },
@@ -218,7 +218,7 @@ export default async function MediaOrderPage({
               { label: mediaOrder.name },
             ]}
           />
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex flex-wrap items-center gap-3 mt-1">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               {mediaOrder.name}
             </h1>
@@ -226,13 +226,15 @@ export default async function MediaOrderPage({
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
         </div>
-        <CancelOrDeleteButton
-          status={mediaOrder.status ?? null}
-          substatuses={substatuses}
-          cancel={cancelAction}
-          restore={restoreAction}
-          deleteAction={deleteMediaOrderAction}
-        />
+        <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
+          <CancelOrDeleteButton
+            status={mediaOrder.status ?? null}
+            substatuses={substatuses}
+            cancel={cancelAction}
+            restore={restoreAction}
+            deleteAction={deleteMediaOrderAction}
+          />
+        </div>
       </div>
 
       <MediaOrderTabs basePath={`/events/${eventId}/media-orders/${mediaOrderId}`} activeTab={activeTab} />

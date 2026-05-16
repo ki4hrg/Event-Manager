@@ -374,15 +374,15 @@ export default async function AVOrderPage({
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex justify-between items-center mb-6">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
+        <div className="min-w-0">
           <Breadcrumbs items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
             { label: "AV Orders", href: `/events/${eventId}/av-orders` },
             { label: avOrder.name },
           ]} />
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex flex-wrap items-center gap-3 mt-1">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               {avOrder.name}
             </h1>
@@ -390,7 +390,7 @@ export default async function AVOrderPage({
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           <a
             href={`/events/${eventId}/av-orders/${avOrderId}/print`}
             target="_blank"
