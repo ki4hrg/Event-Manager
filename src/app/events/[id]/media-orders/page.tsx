@@ -34,7 +34,7 @@ export default async function MediaOrdersPage({
   if (!event) notFound();
 
   const workflowSummaries = mediaOrders.length > 0
-    ? await getWorkflowBadgeSummaries("media_order", mediaOrders.map((o) => o.id))
+    ? await getWorkflowBadgeSummaries("media_order", mediaOrders.map((o) => o.id), eventId)
     : {};
 
   const vendors = flattenResponsiblePartyOptions(responsiblePartyVendors);

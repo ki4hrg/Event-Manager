@@ -1,17 +1,27 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
+
+// Verifies the function belongs to the claimed event before a create-style mutation
+// (where Prisma can't enforce ownership via the where clause).
+async function assertFunctionInEvent(functionId: string, eventId: string) {
+  const found = await prisma.function.findUnique({
+    where: { id: functionId, eventId },
+    select: { id: true },
+  });
+  if (!found) notFound();
+}
 import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 
 export async function getFunctions(eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
   return prisma.function.findMany({
     where: { eventId },
     include: {
@@ -24,7 +34,7 @@ export async function getFunctions(eventId: string) {
 }
 
 export async function getFunctionsForTable(eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
   const rows = await prisma.function.findMany({
     where: { eventId },
     include: {
@@ -48,7 +58,7 @@ export async function getFunctionsForTable(eventId: string) {
 export type FunctionForTable = Awaited<ReturnType<typeof getFunctionsForTable>>[number];
 
 export async function getFunctionsWithPresentations(eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
   return prisma.function.findMany({
     where: { eventId },
     include: {
@@ -63,7 +73,6 @@ export async function getFunctionsWithPresentations(eventId: string) {
 }
 
 export async function getFunction(id: string) {
-  await requireAuth();
   const row = await prisma.function.findUnique({
     where: { id },
     include: {
@@ -79,6 +88,7 @@ export async function getFunction(id: string) {
     },
   });
   if (!row) return null;
+  await requirePermission("FUNCTIONS", "VIEW", row.eventId);
   return {
     ...row,
     avOrders: row.avOrderFunctions.map((l) => l.avOrder),
@@ -87,7 +97,7 @@ export async function getFunction(id: string) {
 }
 
 export async function createFunction(eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
@@ -136,7 +146,7 @@ export async function createFunction(eventId: string, formData: FormData) {
     });
   }
 
-  await autoAssignDefaultWorkflows("function", fn.id);
+  await autoAssignDefaultWorkflows("function", fn.id, eventId);
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 
@@ -147,7 +157,7 @@ export async function createFunction(eventId: string, formData: FormData) {
 }
 
 export async function updateFunction(id: string, eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
@@ -156,9 +166,10 @@ export async function updateFunction(id: string, eventId: string, formData: Form
   const roomIds = formData.getAll("roomIds") as string[];
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
 
-  // Update the function
+  // eventId in the where clause atomically verifies the function belongs to
+  // the claimed event — guards against a caller passing another event's id.
   await prisma.function.update({
-    where: { id },
+    where: { id, eventId },
     data: {
       name,
       description: description || null,
@@ -184,23 +195,23 @@ export async function updateFunction(id: string, eventId: string, formData: Form
 }
 
 export async function deleteFunction(id: string, eventId: string) {
-  await requireAuth();
-  await prisma.function.delete({ where: { id } });
+  await requirePermission("FUNCTIONS", "DELETE", eventId);
+  await prisma.function.delete({ where: { id, eventId } });
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/agenda`);
   redirect(`/events/${eventId}`);
 }
 
 export async function deleteFunctions(ids: string[], eventId: string) {
-  await requireAuth();
-  await prisma.function.deleteMany({ where: { id: { in: ids } } });
+  await requirePermission("FUNCTIONS", "DELETE", eventId);
+  await prisma.function.deleteMany({ where: { id: { in: ids }, eventId } });
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/functions`);
   revalidatePath(`/events/${eventId}/agenda`);
 }
 
 export async function getFunctionOptions(eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
   return prisma.function.findMany({
     where: { eventId },
     select: { id: true, name: true },
@@ -213,24 +224,22 @@ export async function bulkUpdateFunctions(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; type?: string }
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   await prisma.function.updateMany({ where: { id: { in: ids }, eventId }, data: updates });
   revalidatePath(`/events/${eventId}/functions`);
 }
 
 export async function duplicateFunction(id: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const original = await prisma.function.findUnique({
-    where: { id },
+    where: { id, eventId },
     include: {
       rooms: true,
       schedules: true,
     },
   });
 
-  if (!original) {
-    throw new Error("Function not found");
-  }
+  if (!original) notFound();
 
   // Create duplicate
   const duplicate = await prisma.function.create({
@@ -278,7 +287,8 @@ export async function createSchedule(
   eventId: string,
   formData: FormData
 ): Promise<{ conflicts: RoomConflict[] } | undefined> {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertFunctionInEvent(functionId, eventId);
   const type = formData.get("type") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -328,7 +338,8 @@ export async function updateSchedule(
   eventId: string,
   formData: FormData
 ): Promise<{ conflicts: RoomConflict[] } | undefined> {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertFunctionInEvent(functionId, eventId);
   const type = formData.get("type") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -351,7 +362,7 @@ export async function updateSchedule(
   }
 
   await prisma.functionSchedule.update({
-    where: { id: scheduleId },
+    where: { id: scheduleId, function: { eventId } },
     data: {
       type,
       startTime: parsedStart,
@@ -365,8 +376,8 @@ export async function updateSchedule(
 }
 
 export async function deleteSchedule(scheduleId: string, functionId: string, eventId: string) {
-  await requireAuth();
-  await prisma.functionSchedule.delete({ where: { id: scheduleId } });
+  await requirePermission("FUNCTIONS", "DELETE", eventId);
+  await prisma.functionSchedule.delete({ where: { id: scheduleId, function: { eventId } } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
@@ -375,7 +386,7 @@ export async function deleteSchedule(scheduleId: string, functionId: string, eve
 // ============================================================================
 
 export async function searchContacts(query: string) {
-  await requireAuth();
+  await requirePermission("CONTACTS", "VIEW");
   if (!query || query.length < 2) {
     return [];
   }
@@ -395,7 +406,8 @@ export async function searchContacts(query: string) {
 }
 
 export async function addFunctionContact(functionId: string, eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertFunctionInEvent(functionId, eventId);
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
 
@@ -416,11 +428,11 @@ export async function updateFunctionContact(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const role = formData.get("role") as string;
 
   await prisma.functionContact.update({
-    where: { id: contactId },
+    where: { id: contactId, function: { eventId } },
     data: { role: role || null },
   });
 
@@ -428,8 +440,8 @@ export async function updateFunctionContact(
 }
 
 export async function removeFunctionContact(contactId: string, functionId: string, eventId: string) {
-  await requireAuth();
-  await prisma.functionContact.delete({ where: { id: contactId } });
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await prisma.functionContact.delete({ where: { id: contactId, function: { eventId } } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
@@ -438,7 +450,8 @@ export async function createAndAddFunctionContact(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertFunctionInEvent(functionId, eventId);
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -473,7 +486,8 @@ export async function updateFunctionRoom(
   newRoomId: string,
   eventId: string
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertFunctionInEvent(functionId, eventId);
   if (oldRoomId === newRoomId) return { success: true };
 
   const existing = await prisma.functionRoom.findUnique({
@@ -503,7 +517,8 @@ export async function scheduleUnscheduledFunction(
   eventId: string,
   force = false
 ): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertFunctionInEvent(functionId, eventId);
   const start = new Date(startTime);
   const end = new Date(endTime);
   if (end <= start) return { success: false, error: "End time must be after start time" };
@@ -544,7 +559,8 @@ export async function rescheduleEntry(
   eventId: string,
   force = false
 ): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertFunctionInEvent(functionId, eventId);
   const startTime = new Date(newStartTime);
   const endTime = new Date(newEndTime);
 
@@ -559,7 +575,7 @@ export async function rescheduleEntry(
   }
 
   await prisma.functionSchedule.update({
-    where: { id: scheduleId },
+    where: { id: scheduleId, function: { eventId } },
     data: { startTime, endTime },
   });
 

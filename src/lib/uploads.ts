@@ -1,5 +1,6 @@
 import path from "path";
 import type { FileUpload } from "@prisma/client";
+import { prisma } from "./prisma";
 
 export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/data/uploads";
 
@@ -70,6 +71,43 @@ export function getUploadDir(entityType: EntityType, entityId: string): string {
 
 export function getUploadPath(entityType: EntityType, entityId: string, storedName: string): string {
   return path.join(getUploadDir(entityType, entityId), storedName);
+}
+
+// Resolve the eventId that owns this file, walking through the parent entity.
+// Returns null for venue-attached files (which have no event scope).
+export async function resolveFileEventId(
+  record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "mediaOrderId" | "venueId">,
+): Promise<string | null> {
+  return resolveEntityEventId(getEntityTypeFromRecord(record), getEntityIdFromRecord(record));
+}
+
+export async function resolveEntityEventId(entityType: EntityType, entityId: string): Promise<string | null> {
+  switch (entityType) {
+    case "event":
+      return entityId;
+    case "cateringOrder": {
+      const o = await prisma.cateringOrder.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
+    case "avOrder": {
+      const o = await prisma.aVOrder.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
+    case "printOrder": {
+      const o = await prisma.printOrder.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
+    case "setupOrder": {
+      const o = await prisma.setupOrder.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
+    case "mediaOrder": {
+      const o = await prisma.mediaOrder.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
+    case "venue":
+      return null;
+  }
 }
 
 export function formatFileSize(bytes: number): string {

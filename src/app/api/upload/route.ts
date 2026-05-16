@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync, unlinkSync, existsSync } from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import {
   VALID_ENTITY_TYPES,
   EntityType,
@@ -13,11 +13,10 @@ import {
   MAX_UPLOAD_BYTES,
   ALLOWED_UPLOAD_MIME_TYPES,
   isValidEntityId,
+  resolveEntityEventId,
 } from "@/lib/uploads";
 
 export async function POST(request: NextRequest) {
-  await requireAuth();
-
   let filePath: string | null = null;
 
   try {
@@ -47,6 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const validEntityType = entityType as EntityType;
+    await requirePermission("FILES", "WRITE", await resolveEntityEventId(validEntityType, entityId));
     const ext = path.extname(file.name);
     const storedName = `${randomUUID()}${ext}`;
     const uploadDir = getUploadDir(validEntityType, entityId);

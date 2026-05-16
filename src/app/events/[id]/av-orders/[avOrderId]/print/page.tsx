@@ -18,8 +18,8 @@ export default async function AVOrderPrintPage({
   const [event, order, vendors, workflowInstances] = await Promise.all([
     getEvent(eventId),
     getAVOrder(avOrderId),
-    getAVOrderVendors(avOrderId),
-    getWorkflowInstances("av_order", avOrderId),
+    getAVOrderVendors(avOrderId, eventId),
+    getWorkflowInstances("av_order", avOrderId, eventId),
   ]);
 
   if (!event || !order) {

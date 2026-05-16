@@ -57,7 +57,7 @@ export default async function MediaOrderPage({
   const [event, mediaOrder, workflowInstances, allTemplates] = await Promise.all([
     getEvent(eventId),
     getMediaOrder(mediaOrderId),
-    getWorkflowInstances("media_order", mediaOrderId),
+    getWorkflowInstances("media_order", mediaOrderId, eventId),
     getWorkflowTemplateOptions(),
   ]);
 
@@ -70,7 +70,7 @@ export default async function MediaOrderPage({
     mediaOrderVendors, fileTypeOptions, mediaOrderFiles, responsiblePartyVendors, substatuses,
     deliveryOptions, allFunctions, allPresentations, partyOptions,
   ] = await Promise.all([
-    getMediaOrderVendors(mediaOrderId),
+    getMediaOrderVendors(mediaOrderId, eventId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { mediaOrderId }, orderBy: { createdAt: "asc" } }),
     getResponsiblePartyVendors(eventId, "MEDIA_ORDER"),

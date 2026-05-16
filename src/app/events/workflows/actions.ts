@@ -1,11 +1,91 @@
 "use server";
 
-import { requireAuth } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requirePermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import type { EntityStatus } from "@prisma/client";
+import type { EntityStatus, PermissionResource } from "@prisma/client";
 
 export type WorkflowEntityType = "function" | "catering_order" | "av_order" | "print_order" | "presentation" | "setup_order" | "media_order";
+
+function entityResource(entityType: WorkflowEntityType): PermissionResource {
+  switch (entityType) {
+    case "function": return "FUNCTIONS";
+    case "catering_order": return "CATERING_ORDERS";
+    case "av_order": return "AV_ORDERS";
+    case "print_order": return "PRINT_ORDERS";
+    case "presentation": return "PRESENTATIONS";
+    case "setup_order": return "SETUP_ORDERS";
+    case "media_order": return "MEDIA_ORDERS";
+  }
+}
+
+// Confirms the entity actually belongs to the claimed event before mutation.
+// Without this, a caller with ASSIGNED scope on event A could pass entityId from
+// event B and the resource-level gate would still grant access.
+async function assertEntityInEvent(
+  entityType: WorkflowEntityType,
+  entityId: string,
+  eventId: string,
+) {
+  const select = { eventId: true };
+  const found = await (() => {
+    switch (entityType) {
+      case "function": return prisma.function.findUnique({ where: { id: entityId }, select });
+      case "catering_order": return prisma.cateringOrder.findUnique({ where: { id: entityId }, select });
+      case "av_order": return prisma.aVOrder.findUnique({ where: { id: entityId }, select });
+      case "print_order": return prisma.printOrder.findUnique({ where: { id: entityId }, select });
+      case "presentation": return prisma.presentation.findUnique({ where: { id: entityId }, select });
+      case "setup_order": return prisma.setupOrder.findUnique({ where: { id: entityId }, select });
+      case "media_order": return prisma.mediaOrder.findUnique({ where: { id: entityId }, select });
+    }
+  })();
+  if (!found || found.eventId !== eventId) notFound();
+}
+
+// Confirms the workflow instance actually belongs to the claimed entity.
+// Prevents a caller from passing an instanceId from a different entity/event
+// while satisfying the resource gate on the supplied entity.
+async function assertInstanceMatches(
+  instanceId: string,
+  entityType: WorkflowEntityType,
+  entityId: string,
+) {
+  const inst = await prisma.workflowInstance.findUnique({
+    where: { id: instanceId },
+    select: { entityType: true, entityId: true },
+  });
+  if (!inst || inst.entityType !== entityType || inst.entityId !== entityId) notFound();
+}
+
+async function filterEntityIdsInEvent(
+  entityType: WorkflowEntityType,
+  entityIds: string[],
+  eventId: string,
+): Promise<string[]> {
+  const where = { id: { in: entityIds }, eventId };
+  const select = { id: true };
+  const rows = await (() => {
+    switch (entityType) {
+      case "function": return prisma.function.findMany({ where, select });
+      case "catering_order": return prisma.cateringOrder.findMany({ where, select });
+      case "av_order": return prisma.aVOrder.findMany({ where, select });
+      case "print_order": return prisma.printOrder.findMany({ where, select });
+      case "presentation": return prisma.presentation.findMany({ where, select });
+      case "setup_order": return prisma.setupOrder.findMany({ where, select });
+      case "media_order": return prisma.mediaOrder.findMany({ where, select });
+    }
+  })();
+  return rows.map((r) => r.id);
+}
+
+async function gateWorkflowAction(
+  entityType: WorkflowEntityType,
+  eventId: string,
+  action: PermissionAction,
+) {
+  return requirePermission(entityResource(entityType), action, eventId);
+}
 
 function revalidateEntity(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   switch (entityType) {
@@ -164,8 +244,9 @@ async function recomputeEntityStatus(entityType: WorkflowEntityType, entityId: s
   await updateEntityStatus(entityType, entityId, completionStatus, completionSubstatus);
 }
 
-export async function getWorkflowInstances(entityType: WorkflowEntityType, entityId: string) {
-  await requireAuth();
+export async function getWorkflowInstances(entityType: WorkflowEntityType, entityId: string, eventId: string) {
+  await gateWorkflowAction(entityType, eventId, "VIEW");
+  await assertEntityInEvent(entityType, entityId, eventId);
   return prisma.workflowInstance.findMany({
     where: { entityType, entityId },
     include: {
@@ -192,7 +273,8 @@ export async function assignWorkflow(
   entityId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "WRITE");
+  await assertEntityInEvent(entityType, entityId, eventId);
   await prisma.workflowInstance.create({
     data: { templateId, entityType, entityId },
   });
@@ -206,7 +288,9 @@ export async function removeWorkflow(
   entityId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "WRITE");
+  await assertEntityInEvent(entityType, entityId, eventId);
+  await assertInstanceMatches(instanceId, entityType, entityId);
   await prisma.workflowInstance.delete({ where: { id: instanceId } });
   // Recompute status since a workflow was removed
   await recomputeEntityStatus(entityType, entityId);
@@ -220,7 +304,9 @@ export async function toggleStepCompletion(
   entityId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "WRITE");
+  await assertEntityInEvent(entityType, entityId, eventId);
+  await assertInstanceMatches(instanceId, entityType, entityId);
   const existing = await prisma.workflowStepCompletion.findUnique({
     where: { instanceId_stepId: { instanceId, stepId } },
   });
@@ -272,13 +358,19 @@ export type WorkflowBadgeSummary = { count: number; done: number; total: number 
 
 export async function getWorkflowBadgeSummaries(
   entityType: WorkflowEntityType,
-  entityIds: string[]
+  entityIds: string[],
+  eventId: string
 ): Promise<Record<string, WorkflowBadgeSummary>> {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "VIEW");
   if (entityIds.length === 0) return {};
 
+  // Restrict to ids that actually belong to this event; a caller could pass
+  // ids from another event and the resource gate alone would still permit it.
+  const ownedIds = await filterEntityIdsInEvent(entityType, entityIds, eventId);
+  if (ownedIds.length === 0) return {};
+
   const instances = await prisma.workflowInstance.findMany({
-    where: { entityType, entityId: { in: entityIds } },
+    where: { entityType, entityId: { in: ownedIds } },
     include: {
       template: {
         include: {
@@ -326,7 +418,9 @@ export async function toggleItemCompletion(
   entityId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "WRITE");
+  await assertEntityInEvent(entityType, entityId, eventId);
+  await assertInstanceMatches(instanceId, entityType, entityId);
   const existing = await prisma.workflowChecklistCompletion.findUnique({
     where: { instanceId_itemId: { instanceId, itemId } },
   });
@@ -411,7 +505,8 @@ export async function setEntityStatus(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "WRITE");
+  await assertEntityInEvent(entityType, entityId, eventId);
   const status = (formData.get("status") as EntityStatus | null) || null;
   const substatus = (formData.get("substatus") as string | null) || null;
   await updateEntityStatus(entityType, entityId, status, substatus);
@@ -424,7 +519,8 @@ export async function cancelEntity(
   substatus: string,
   eventId: string
 ) {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "WRITE");
+  await assertEntityInEvent(entityType, entityId, eventId);
   await updateEntityStatus(entityType, entityId, "CANCELLED", substatus);
   revalidateEntity(entityType, entityId, eventId);
 }
@@ -434,16 +530,19 @@ export async function restoreEntity(
   entityId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "WRITE");
+  await assertEntityInEvent(entityType, entityId, eventId);
   await recomputeEntityStatus(entityType, entityId);
   revalidateEntity(entityType, entityId, eventId);
 }
 
 export async function autoAssignDefaultWorkflows(
   entityType: WorkflowEntityType,
-  entityId: string
+  entityId: string,
+  eventId: string
 ) {
-  await requireAuth();
+  await gateWorkflowAction(entityType, eventId, "WRITE");
+  await assertEntityInEvent(entityType, entityId, eventId);
   const templates = await prisma.workflowTemplate.findMany({
     where: { defaultForEntityTypes: { has: entityType } },
     select: { id: true },

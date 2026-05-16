@@ -29,7 +29,7 @@ export default async function EventFunctionsPage({
   }
 
   const workflowSummaries = functions.length > 0
-    ? await getWorkflowBadgeSummaries("function", functions.map((f) => f.id))
+    ? await getWorkflowBadgeSummaries("function", functions.map((f) => f.id), id)
     : {};
 
   const duplicateFunctionAction = async (functionId: string) => {

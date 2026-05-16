@@ -75,7 +75,7 @@ export default async function AVOrderPage({
   const [event, avOrder, workflowInstances, allTemplates] = await Promise.all([
     getEvent(eventId),
     getAVOrder(avOrderId),
-    getWorkflowInstances("av_order", avOrderId),
+    getWorkflowInstances("av_order", avOrderId, eventId),
     getWorkflowTemplateOptions(),
   ]);
 
@@ -84,7 +84,7 @@ export default async function AVOrderPage({
   }
 
   const [avOrderVendors, fileTypeOptions, avOrderFiles, availableEventVendors, substatuses] = await Promise.all([
-    getAVOrderVendors(avOrderId),
+    getAVOrderVendors(avOrderId, eventId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { avOrderId }, orderBy: { createdAt: "asc" } }),
     searchAssignedEventVendors("", eventId, "AV_ORDER"),

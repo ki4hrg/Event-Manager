@@ -1,12 +1,12 @@
 "use server";
 
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { EntityStatus, StatusModelType } from "@prisma/client";
 
 export async function getStatusDefaults(eventId: string) {
-  await requireAuth();
+  await requirePermission("EVENTS", "VIEW", eventId);
   return prisma.eventStatusDefault.findMany({
     where: { eventId },
     select: { modelType: true, status: true, substatus: true },
@@ -19,7 +19,7 @@ export async function setStatusDefault(
   status: EntityStatus,
   substatus: string | null
 ) {
-  await requireAuth();
+  await requirePermission("EVENTS", "WRITE", eventId);
   await prisma.eventStatusDefault.upsert({
     where: { eventId_modelType: { eventId, modelType } },
     create: { eventId, modelType, status, substatus },
@@ -29,7 +29,7 @@ export async function setStatusDefault(
 }
 
 export async function clearStatusDefault(eventId: string, modelType: StatusModelType) {
-  await requireAuth();
+  await requirePermission("EVENTS", "WRITE", eventId);
   await prisma.eventStatusDefault.deleteMany({ where: { eventId, modelType } });
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/settings`);
@@ -39,7 +39,7 @@ export async function saveAllStatusDefaults(
   eventId: string,
   overrides: Array<{ modelType: StatusModelType; status: EntityStatus; substatus: string | null }>
 ) {
-  await requireAuth();
+  await requirePermission("EVENTS", "WRITE", eventId);
   await prisma.$transaction(
     overrides.map(({ modelType, status, substatus }) =>
       prisma.eventStatusDefault.upsert({

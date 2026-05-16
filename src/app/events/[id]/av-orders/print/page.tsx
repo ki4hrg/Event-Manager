@@ -28,8 +28,8 @@ export default async function AVOrdersPrintPage({
     orderList.map(async (o) => {
       const [order, vendors, workflows] = await Promise.all([
         getAVOrder(o.id),
-        getAVOrderVendors(o.id),
-        getWorkflowInstances("av_order", o.id),
+        getAVOrderVendors(o.id, eventId),
+        getWorkflowInstances("av_order", o.id, eventId),
       ]);
       return { order, vendors, workflows };
     })

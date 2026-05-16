@@ -25,7 +25,7 @@ export default async function MediaOrdersPrintPage({
     orderList.map(async (o) => {
       const [order, vendors] = await Promise.all([
         getMediaOrder(o.id),
-        getMediaOrderVendors(o.id),
+        getMediaOrderVendors(o.id, eventId),
       ]);
       return { order, vendors };
     })

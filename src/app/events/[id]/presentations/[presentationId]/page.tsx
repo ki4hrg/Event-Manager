@@ -73,7 +73,7 @@ export default async function PresentationPage({
     getTracks(eventId),
     getOptions("presenter_role"),
     getOptions("presentation_type"),
-    getWorkflowInstances("presentation", presentationId),
+    getWorkflowInstances("presentation", presentationId, eventId),
     getWorkflowTemplateOptions(),
     getSubstatusOptions(),
   ]);

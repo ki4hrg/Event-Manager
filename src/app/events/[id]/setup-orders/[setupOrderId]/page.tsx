@@ -69,7 +69,7 @@ export default async function SetupOrderPage({
       getResponsiblePartyVendors(eventId, "SETUP_ORDER"),
       getEquipment(),
       getOptions("equipment_category"),
-      getWorkflowInstances("setup_order", setupOrderId),
+      getWorkflowInstances("setup_order", setupOrderId, eventId),
       getWorkflowTemplateOptions(),
     ]);
   if (!event || !setupOrder) {
@@ -77,7 +77,7 @@ export default async function SetupOrderPage({
   }
 
   const [setupOrderVendors, fileTypeOptions, setupOrderFiles, availableEventVendors, substatuses] = await Promise.all([
-    getSetupOrderVendors(setupOrderId),
+    getSetupOrderVendors(setupOrderId, eventId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { setupOrderId }, orderBy: { createdAt: "asc" } }),
     searchAssignedEventVendors("", eventId, "SETUP_ORDER"),

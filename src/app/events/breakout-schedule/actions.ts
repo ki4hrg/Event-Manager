@@ -1,15 +1,30 @@
 "use server";
 
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
+
+async function assertBreakoutGroupInEvent(groupId: string, eventId: string) {
+  const found = await prisma.breakoutGroup.findUnique({ where: { id: groupId, eventId }, select: { id: true } });
+  if (!found) notFound();
+}
+
+async function assertSessionInEvent(functionId: string, eventId: string) {
+  const found = await prisma.function.findUnique({ where: { id: functionId, eventId, type: "BREAKOUT_BLOCK" }, select: { id: true } });
+  if (!found) notFound();
+}
+
+async function assertPresentationInEvent(presentationId: string, eventId: string) {
+  const found = await prisma.presentation.findUnique({ where: { id: presentationId, eventId }, select: { id: true } });
+  if (!found) notFound();
+}
 
 // ── Group CRUD ─────────────────────────────────────────────────────────────────
 
 export async function getBreakoutGroups(eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
   const groups = await prisma.breakoutGroup.findMany({
     where: { eventId },
     include: {
@@ -52,7 +67,7 @@ export async function getBreakoutGroups(eventId: string) {
 }
 
 export async function getUngroupedBlocks(eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
   const blocks = await prisma.function.findMany({
     where: {
       eventId,
@@ -83,7 +98,7 @@ export async function getUngroupedBlocks(eventId: string) {
 }
 
 export async function createBreakoutGroup(eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
 
   const maxOrder = await prisma.breakoutGroup.findFirst({
@@ -108,11 +123,11 @@ export async function updateBreakoutGroup(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
 
   await prisma.breakoutGroup.update({
-    where: { id: groupId },
+    where: { id: groupId, eventId },
     data: { name },
   });
 
@@ -120,15 +135,16 @@ export async function updateBreakoutGroup(
 }
 
 export async function deleteBreakoutGroup(groupId: string, eventId: string) {
-  await requireAuth();
-  await prisma.breakoutGroup.delete({ where: { id: groupId } });
+  await requirePermission("FUNCTIONS", "DELETE", eventId);
+  await prisma.breakoutGroup.delete({ where: { id: groupId, eventId } });
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
 // ── Group Room Management ──────────────────────────────────────────────────────
 
 export async function addRoomToGroup(groupId: string, roomId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertBreakoutGroupInEvent(groupId, eventId);
   await prisma.breakoutGroupRoom.create({
     data: { breakoutGroupId: groupId, roomId },
   });
@@ -136,7 +152,8 @@ export async function addRoomToGroup(groupId: string, roomId: string, eventId: s
 }
 
 export async function removeRoomFromGroup(groupId: string, roomId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertBreakoutGroupInEvent(groupId, eventId);
   // Get all sessions in this group
   const sessions = await prisma.function.findMany({
     where: { breakoutGroupId: groupId, type: "BREAKOUT_BLOCK" },
@@ -170,7 +187,8 @@ export async function setSessionRoomOverride(
   type: "exclude" | "include",
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertSessionInEvent(functionId, eventId);
   await prisma.breakoutSessionRoomOverride.upsert({
     where: { functionId_roomId: { functionId, roomId } },
     update: { type },
@@ -192,7 +210,8 @@ export async function removeSessionRoomOverride(
   roomId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertSessionInEvent(functionId, eventId);
   await prisma.breakoutSessionRoomOverride.delete({
     where: { functionId_roomId: { functionId, roomId } },
   });
@@ -206,7 +225,8 @@ export async function createSessionInGroup(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertBreakoutGroupInEvent(groupId, eventId);
   const name = formData.get("name") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -244,7 +264,7 @@ export async function updateSession(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const startTime = formData.get("startTime") as string;
   const endTime = formData.get("endTime") as string;
@@ -256,13 +276,13 @@ export async function updateSession(
   const timezone = event?.timezone || "America/Chicago";
 
   await prisma.function.update({
-    where: { id: functionId },
+    where: { id: functionId, eventId },
     data: { name },
   });
 
   // Update the first schedule (the main session time)
   const schedule = await prisma.functionSchedule.findFirst({
-    where: { functionId },
+    where: { functionId, function: { eventId } },
     orderBy: { sortOrder: "asc" },
   });
 
@@ -280,8 +300,8 @@ export async function updateSession(
 }
 
 export async function deleteSession(functionId: string, eventId: string) {
-  await requireAuth();
-  await prisma.function.delete({ where: { id: functionId } });
+  await requirePermission("FUNCTIONS", "DELETE", eventId);
+  await prisma.function.delete({ where: { id: functionId, eventId } });
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
@@ -293,7 +313,9 @@ export async function assignPresentationToSession(
   roomId: string | null,
   eventId: string
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertSessionInEvent(functionId, eventId);
+  await assertPresentationInEvent(presentationId, eventId);
   // Check room not already taken in this session
   if (roomId) {
     const conflict = await prisma.presentationSlot.findFirst({
@@ -331,11 +353,13 @@ export async function movePresentationSlot(
   newRoomId: string | null,
   eventId: string
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  // Verify the slot belongs to a function in this event and the target function also does.
   const slot = await prisma.presentationSlot.findUnique({
-    where: { id: slotId },
+    where: { id: slotId, function: { eventId } },
   });
   if (!slot) return { success: false, error: "Slot not found" };
+  await assertSessionInEvent(newFunctionId, eventId);
 
   const sameSess = slot.functionId === newFunctionId;
   const sameRoom = slot.roomId === newRoomId;
@@ -384,11 +408,12 @@ export async function movePresentationSlot(
 }
 
 export async function removePresentationFromSession(slotId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const slot = await prisma.presentationSlot.findUnique({
-    where: { id: slotId },
+    where: { id: slotId, function: { eventId } },
     select: { presentationId: true },
   });
+  if (!slot) notFound();
 
   await prisma.presentationSlot.delete({ where: { id: slotId } });
 
@@ -405,9 +430,10 @@ export async function assignPresentationToGroup(
   groupId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertBreakoutGroupInEvent(groupId, eventId);
   await prisma.presentation.update({
-    where: { id: presentationId },
+    where: { id: presentationId, eventId },
     data: { breakoutGroupId: groupId },
   });
   revalidatePath(`/events/${eventId}/breakout-schedule`);
@@ -418,9 +444,9 @@ export async function unassignPresentationFromGroup(
   presentationId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   await prisma.presentation.update({
-    where: { id: presentationId },
+    where: { id: presentationId, eventId },
     data: { breakoutGroupId: null },
   });
   revalidatePath(`/events/${eventId}/breakout-schedule`);
@@ -431,7 +457,7 @@ export async function getAvailablePresentationsForGroup(
   groupId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
   return prisma.presentation.findMany({
     where: { eventId, NOT: { breakoutGroupId: groupId } },
     select: {
@@ -453,7 +479,8 @@ export async function createGroupPresentation(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertBreakoutGroupInEvent(groupId, eventId);
   const title = formData.get("title") as string;
   const instanceCountRaw = formData.get("instanceCount") as string;
   const instanceCount = instanceCountRaw ? parseInt(instanceCountRaw) : 1;
@@ -479,13 +506,13 @@ export async function assignPresentationToBlock(
   roomId: string | null,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const result = await assignPresentationToSession(presentationId, functionId, roomId, eventId);
   if (!result.success) throw new Error(result.error);
 }
 
 export async function removePresentationFromBlock(slotId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   return removePresentationFromSession(slotId, eventId);
 }
 
@@ -494,9 +521,9 @@ export async function updateSlotRoom(
   roomId: string | null,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   await prisma.presentationSlot.update({
-    where: { id: slotId },
+    where: { id: slotId, function: { eventId } },
     data: { roomId: roomId || null },
   });
   revalidatePath(`/events/${eventId}/breakout-schedule`);
@@ -506,7 +533,7 @@ export async function getAvailableBlocksForPresentation(
   presentationId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
   return prisma.function.findMany({
     where: {
       eventId,
@@ -527,11 +554,12 @@ export async function removeAllBreakoutAssignments(
   presentationId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertPresentationInEvent(presentationId, eventId);
   await prisma.$transaction([
-    prisma.presentationSlot.deleteMany({ where: { presentationId } }),
+    prisma.presentationSlot.deleteMany({ where: { presentationId, function: { eventId } } }),
     prisma.presentation.update({
-      where: { id: presentationId },
+      where: { id: presentationId, eventId },
       data: { breakoutGroupId: null },
     }),
   ]);

@@ -30,7 +30,7 @@ export default async function SetupOrdersPage({
   if (!event) notFound();
 
   const workflowSummaries = setupOrders.length > 0
-    ? await getWorkflowBadgeSummaries("setup_order", setupOrders.map((o) => o.id))
+    ? await getWorkflowBadgeSummaries("setup_order", setupOrders.map((o) => o.id), eventId)
     : {};
 
   const vendors = flattenResponsiblePartyOptions(responsiblePartyVendors);

@@ -18,8 +18,8 @@ export default async function CateringOrderPrintPage({
   const [event, order, vendors, workflowInstances] = await Promise.all([
     getEvent(eventId),
     getCateringOrder(cateringOrderId),
-    getCateringOrderVendors(cateringOrderId),
-    getWorkflowInstances("catering_order", cateringOrderId),
+    getCateringOrderVendors(cateringOrderId, eventId),
+    getWorkflowInstances("catering_order", cateringOrderId, eventId),
   ]);
 
   if (!event || !order) {

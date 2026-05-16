@@ -1,19 +1,29 @@
 "use server";
 
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
+
+// Verifies the presentation belongs to the claimed event before a create-style
+// mutation (where Prisma can't enforce ownership via the where clause).
+async function assertPresentationInEvent(presentationId: string, eventId: string) {
+  const found = await prisma.presentation.findUnique({
+    where: { id: presentationId, eventId },
+    select: { id: true },
+  });
+  if (!found) notFound();
+}
 
 // ============================================================================
 // Track CRUD (event-scoped)
 // ============================================================================
 
 export async function getTracks(eventId: string) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "VIEW", eventId);
   return prisma.presentationTrack.findMany({
     where: { eventId },
     orderBy: { sortOrder: "asc" },
@@ -21,7 +31,7 @@ export async function getTracks(eventId: string) {
 }
 
 export async function createTrack(eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const color = formData.get("color") as string;
 
@@ -44,12 +54,12 @@ export async function createTrack(eventId: string, formData: FormData) {
 }
 
 export async function updateTrack(trackId: string, eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const color = formData.get("color") as string;
 
   await prisma.presentationTrack.update({
-    where: { id: trackId },
+    where: { id: trackId, eventId },
     data: {
       name,
       color: color || null,
@@ -60,8 +70,8 @@ export async function updateTrack(trackId: string, eventId: string, formData: Fo
 }
 
 export async function deleteTrack(trackId: string, eventId: string) {
-  await requireAuth();
-  await prisma.presentationTrack.delete({ where: { id: trackId } });
+  await requirePermission("PRESENTATIONS", "DELETE", eventId);
+  await prisma.presentationTrack.delete({ where: { id: trackId, eventId } });
   revalidatePath(`/events/${eventId}/presentations`);
 }
 
@@ -70,7 +80,7 @@ export async function deleteTrack(trackId: string, eventId: string) {
 // ============================================================================
 
 export async function getPresentations(eventId: string) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "VIEW", eventId);
   return prisma.presentation.findMany({
     where: { eventId },
     include: {
@@ -93,7 +103,6 @@ export async function getPresentations(eventId: string) {
 }
 
 export async function getPresentation(id: string) {
-  await requireAuth();
   const row = await prisma.presentation.findUnique({
     where: { id },
     include: {
@@ -122,6 +131,7 @@ export async function getPresentation(id: string) {
     },
   });
   if (!row) return null;
+  await requirePermission("PRESENTATIONS", "VIEW", row.eventId);
   return {
     ...row,
     avOrders: row.avOrderLinks.map((l) => l.avOrder),
@@ -131,7 +141,7 @@ export async function getPresentation(id: string) {
 }
 
 export async function createPresentation(eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const trackId = formData.get("trackId") as string;
@@ -178,22 +188,22 @@ export async function createPresentation(eventId: string, formData: FormData) {
     });
   }
 
-  await autoAssignDefaultWorkflows("presentation", presentation.id);
+  await autoAssignDefaultWorkflows("presentation", presentation.id, eventId);
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations/${presentation.id}`);
 }
 
 export async function updatePresentationInstanceCount(id: string, eventId: string, count: number) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   await prisma.presentation.update({
-    where: { id },
+    where: { id, eventId },
     data: { instanceCount: count },
   });
   revalidatePath(`/events/${eventId}/presentations/${id}`);
 }
 
 export async function updatePresentation(id: string, eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const trackId = formData.get("trackId") as string;
@@ -205,7 +215,7 @@ export async function updatePresentation(id: string, eventId: string, formData: 
   const instanceCountRaw = formData.get("instanceCount") as string;
 
   await prisma.presentation.update({
-    where: { id },
+    where: { id, eventId },
     data: {
       title,
       type: type || "",
@@ -224,14 +234,14 @@ export async function updatePresentation(id: string, eventId: string, formData: 
 }
 
 export async function deletePresentation(id: string, eventId: string) {
-  await requireAuth();
-  await prisma.presentation.delete({ where: { id } });
+  await requirePermission("PRESENTATIONS", "DELETE", eventId);
+  await prisma.presentation.delete({ where: { id, eventId } });
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations`);
 }
 
 export async function deletePresentations(ids: string[], eventId: string) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "DELETE", eventId);
   await prisma.presentation.deleteMany({ where: { id: { in: ids }, eventId } });
   revalidatePath(`/events/${eventId}/presentations`);
 }
@@ -241,7 +251,7 @@ export async function bulkUpdatePresentations(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; trackId?: string | null; type?: string }
 ) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const { status, substatus, trackId, type } = updates;
   await prisma.presentation.updateMany({
     where: { id: { in: ids }, eventId },
@@ -256,17 +266,15 @@ export async function bulkUpdatePresentations(
 }
 
 export async function duplicatePresentation(id: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const original = await prisma.presentation.findUnique({
-    where: { id },
+    where: { id, eventId },
     include: {
       speakers: true,
     },
   });
 
-  if (!original) {
-    throw new Error("Presentation not found");
-  }
+  if (!original) notFound();
 
   const duplicate = await prisma.presentation.create({
     data: {
@@ -306,7 +314,8 @@ export async function addSpeaker(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  await assertPresentationInEvent(presentationId, eventId);
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
   const isPrimary = formData.get("isPrimary") === "true";
@@ -343,7 +352,8 @@ export async function updateSpeaker(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  await assertPresentationInEvent(presentationId, eventId);
   const role = formData.get("role") as string;
   const isPrimary = formData.get("isPrimary") === "true";
 
@@ -355,7 +365,7 @@ export async function updateSpeaker(
   }
 
   await prisma.presentationContact.update({
-    where: { id: speakerId },
+    where: { id: speakerId, presentation: { eventId } },
     data: {
       role: role || null,
       isPrimary,
@@ -366,8 +376,8 @@ export async function updateSpeaker(
 }
 
 export async function removeSpeaker(speakerId: string, presentationId: string, eventId: string) {
-  await requireAuth();
-  await prisma.presentationContact.delete({ where: { id: speakerId } });
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  await prisma.presentationContact.delete({ where: { id: speakerId, presentation: { eventId } } });
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -376,7 +386,8 @@ export async function createAndAddPresentationSpeaker(
   eventId: string,
   formData: FormData
 ) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  await assertPresentationInEvent(presentationId, eventId);
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -424,11 +435,11 @@ export async function reorderSpeakers(
   eventId: string,
   orderedIds: string[]
 ) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   await Promise.all(
     orderedIds.map((id, index) =>
       prisma.presentationContact.update({
-        where: { id },
+        where: { id, presentation: { eventId } },
         data: { sortOrder: index },
       })
     )
@@ -446,7 +457,7 @@ export async function reorderSpeakers(
 // ============================================================================
 
 export async function searchContacts(query: string) {
-  await requireAuth();
+  await requirePermission("CONTACTS", "VIEW");
   if (!query || query.length < 2) {
     return [];
   }
@@ -495,7 +506,7 @@ export async function importPresentationsFromCSV(
   rows: Record<string, string>[],
   mapping: ColumnMapping
 ): Promise<{ created: number; errors: Array<{ row: number; message: string }> }> {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const errors: Array<{ row: number; message: string }> = [];
   let created = 0;
 
@@ -576,7 +587,7 @@ export async function importPresentationsFromCSV(
         });
       }
 
-      await autoAssignDefaultWorkflows("presentation", presentation.id);
+      await autoAssignDefaultWorkflows("presentation", presentation.id, eventId);
       created++;
     } catch (err) {
       errors.push({ row: i + 1, message: err instanceof Error ? err.message : "Unknown error" });
@@ -588,7 +599,7 @@ export async function importPresentationsFromCSV(
 }
 
 export async function getPresentationOptions(eventId: string) {
-  await requireAuth();
+  await requirePermission("PRESENTATIONS", "VIEW", eventId);
   return prisma.presentation.findMany({
     where: { eventId },
     select: { id: true, title: true },

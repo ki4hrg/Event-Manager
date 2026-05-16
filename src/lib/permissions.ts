@@ -33,7 +33,7 @@ export const loadPermissions = cache(async (userId: string) => {
 export async function requirePermission(
   resource: PermissionResource,
   action: PermissionAction,
-  eventId?: string,
+  eventId?: string | null,
 ) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -41,7 +41,7 @@ export async function requirePermission(
   const { permissions, assignedEventIds } = await loadPermissions(session.user.id);
 
   let scope: PermissionScope;
-  if (eventId === undefined) {
+  if (eventId == null) {
     scope = PermissionScope.GLOBAL;
   } else {
     scope = assignedEventIds.has(eventId)

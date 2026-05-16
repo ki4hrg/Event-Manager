@@ -30,7 +30,7 @@ export default async function CateringOrdersPage({
   if (!event) notFound();
 
   const workflowSummaries = cateringOrders.length > 0
-    ? await getWorkflowBadgeSummaries("catering_order", cateringOrders.map((o) => o.id))
+    ? await getWorkflowBadgeSummaries("catering_order", cateringOrders.map((o) => o.id), eventId)
     : {};
 
   const vendors = flattenResponsiblePartyOptions(responsiblePartyVendors);

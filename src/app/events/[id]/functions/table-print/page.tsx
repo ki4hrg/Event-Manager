@@ -61,7 +61,7 @@ export default async function FunctionTablePrintPage({
 
   const workflowSummaries: Record<string, WorkflowBadgeSummary> =
     functions.length > 0
-      ? await getWorkflowBadgeSummaries("function", functions.map((f) => f.id))
+      ? await getWorkflowBadgeSummaries("function", functions.map((f) => f.id), eventId)
       : {};
 
   const tz = event.timezone || "America/Chicago";

@@ -1,17 +1,27 @@
 "use server";
 
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel, getResponsiblePartyVendors } from "@/app/vendors/actions";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 
+// Verifies the media order belongs to the claimed event before a create-style
+// mutation (where Prisma can't enforce ownership via the where clause).
+async function assertMediaOrderInEvent(mediaOrderId: string, eventId: string) {
+  const found = await prisma.mediaOrder.findUnique({
+    where: { id: mediaOrderId, eventId },
+    select: { id: true },
+  });
+  if (!found) notFound();
+}
+
 export async function getMediaOrders(eventId: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "VIEW", eventId);
   const rows = await prisma.mediaOrder.findMany({
     where: { eventId },
     include: {
@@ -30,7 +40,6 @@ export async function getMediaOrders(eventId: string) {
 }
 
 export async function getMediaOrder(id: string) {
-  await requireAuth();
   const row = await prisma.mediaOrder.findUnique({
     where: { id },
     include: {
@@ -67,6 +76,7 @@ export async function getMediaOrder(id: string) {
     },
   });
   if (!row) return null;
+  await requirePermission("MEDIA_ORDERS", "VIEW", row.eventId);
   return {
     ...row,
     functions: row.functionLinks.map((l) => l.function),
@@ -75,7 +85,7 @@ export async function getMediaOrder(id: string) {
 }
 
 export async function createMediaOrder(eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   const name = (formData.get("name") as string)?.trim();
   const notes = (formData.get("notes") as string) || null;
   const functionId = (formData.get("functionId") as string) || null;
@@ -103,7 +113,7 @@ export async function createMediaOrder(eventId: string, formData: FormData) {
     vendorIdToAssign
       ? prisma.mediaOrderVendor.create({ data: { mediaOrderId: mediaOrder.id, vendorId: vendorIdToAssign } })
       : Promise.resolve(null),
-    autoAssignDefaultWorkflows("media_order", mediaOrder.id),
+    autoAssignDefaultWorkflows("media_order", mediaOrder.id, eventId),
   ]);
 
   if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
@@ -113,19 +123,19 @@ export async function createMediaOrder(eventId: string, formData: FormData) {
 }
 
 export async function updateMediaOrder(id: string, eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   const name = (formData.get("name") as string)?.trim();
   const notes = (formData.get("notes") as string) || null;
 
-  await prisma.mediaOrder.update({ where: { id }, data: { name, notes } });
+  await prisma.mediaOrder.update({ where: { id, eventId }, data: { name, notes } });
   revalidatePath(`/events/${eventId}/media-orders`);
   revalidatePath(`/events/${eventId}/media-orders/${id}`);
   redirect(`/events/${eventId}/media-orders/${id}?success=Media Order updated`);
 }
 
 export async function deleteMediaOrder(id: string, eventId: string) {
-  await requireAuth();
-  await prisma.mediaOrder.delete({ where: { id } });
+  await requirePermission("MEDIA_ORDERS", "DELETE", eventId);
+  await prisma.mediaOrder.delete({ where: { id, eventId } });
   revalidatePath(`/events/${eventId}/media-orders`);
   redirect(`/events/${eventId}/media-orders`);
 }
@@ -135,7 +145,8 @@ export async function deleteMediaOrder(id: string, eventId: string) {
 // ============================================================================
 
 export async function linkMediaOrderToFunction(mediaOrderId: string, functionId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await assertMediaOrderInEvent(mediaOrderId, eventId);
   await prisma.mediaOrderFunction.upsert({
     where: { mediaOrderId_functionId: { mediaOrderId, functionId } },
     create: { mediaOrderId, functionId },
@@ -146,14 +157,15 @@ export async function linkMediaOrderToFunction(mediaOrderId: string, functionId:
 }
 
 export async function unlinkMediaOrderFromFunction(mediaOrderId: string, functionId: string, eventId: string) {
-  await requireAuth();
-  await prisma.mediaOrderFunction.deleteMany({ where: { mediaOrderId, functionId } });
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await prisma.mediaOrderFunction.deleteMany({ where: { mediaOrderId, functionId, mediaOrder: { eventId } } });
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function linkMediaOrderToPresentation(mediaOrderId: string, presentationId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await assertMediaOrderInEvent(mediaOrderId, eventId);
   await prisma.mediaOrderPresentation.upsert({
     where: { mediaOrderId_presentationId: { mediaOrderId, presentationId } },
     create: { mediaOrderId, presentationId },
@@ -164,14 +176,14 @@ export async function linkMediaOrderToPresentation(mediaOrderId: string, present
 }
 
 export async function unlinkMediaOrderFromPresentation(mediaOrderId: string, presentationId: string, eventId: string) {
-  await requireAuth();
-  await prisma.mediaOrderPresentation.deleteMany({ where: { mediaOrderId, presentationId } });
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await prisma.mediaOrderPresentation.deleteMany({ where: { mediaOrderId, presentationId, mediaOrder: { eventId } } });
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function getAvailableMediaOrdersForFunction(eventId: string, functionId?: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "VIEW", eventId);
   return prisma.mediaOrder.findMany({
     where: {
       eventId,
@@ -182,7 +194,7 @@ export async function getAvailableMediaOrdersForFunction(eventId: string, functi
 }
 
 export async function getAvailableMediaOrdersForPresentation(eventId: string, presentationId?: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "VIEW", eventId);
   return prisma.mediaOrder.findMany({
     where: {
       eventId,
@@ -194,12 +206,12 @@ export async function getAvailableMediaOrdersForPresentation(eventId: string, pr
 
 // Aliases used by the Function / Presentation detail page panels (revalidates the parent page too)
 export async function linkMediaOrderToFunctionFromFunction(mediaOrderId: string, functionId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   return linkMediaOrderToFunction(mediaOrderId, functionId, eventId);
 }
 
 export async function unlinkMediaOrderFromFunctionPage(mediaOrderId: string, functionId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   return unlinkMediaOrderFromFunction(mediaOrderId, functionId, eventId);
 }
 
@@ -208,12 +220,12 @@ export async function linkMediaOrderToPresentationFromPresentation(
   presentationId: string,
   eventId: string
 ) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   return linkMediaOrderToPresentation(mediaOrderId, presentationId, eventId);
 }
 
 export async function unlinkMediaOrderFromPresentationPage(mediaOrderId: string, presentationId: string, eventId: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   return unlinkMediaOrderFromPresentation(mediaOrderId, presentationId, eventId);
 }
 
@@ -232,7 +244,8 @@ function parseMediaItemData(formData: FormData) {
 }
 
 export async function createMediaItem(mediaOrderId: string, eventId: string, formData: FormData) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await assertMediaOrderInEvent(mediaOrderId, eventId);
   const { _max } = await prisma.mediaItem.aggregate({ where: { mediaOrderId }, _max: { sortOrder: true } });
   await prisma.mediaItem.create({
     data: { mediaOrderId, ...parseMediaItemData(formData), sortOrder: (_max.sortOrder ?? -1) + 1 },
@@ -241,14 +254,14 @@ export async function createMediaItem(mediaOrderId: string, eventId: string, for
 }
 
 export async function updateMediaItem(id: string, mediaOrderId: string, eventId: string, formData: FormData) {
-  await requireAuth();
-  await prisma.mediaItem.update({ where: { id }, data: parseMediaItemData(formData) });
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await prisma.mediaItem.update({ where: { id, mediaOrder: { eventId } }, data: parseMediaItemData(formData) });
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }
 
 export async function deleteMediaItem(id: string, mediaOrderId: string, eventId: string) {
-  await requireAuth();
-  await prisma.mediaItem.delete({ where: { id } });
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await prisma.mediaItem.delete({ where: { id, mediaOrder: { eventId } } });
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }
 
@@ -308,7 +321,8 @@ export async function getMediaOrderPartyOptions(
   mediaOrderId: string,
   eventId: string
 ): Promise<{ responsiblePartyVendors: ResponsiblePartyOptions; contacts: { id: string; firstName: string; lastName: string; organization: string | null }[] }> {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "VIEW", eventId);
+  await assertMediaOrderInEvent(mediaOrderId, eventId);
   const [responsiblePartyVendors, contacts] = await Promise.all([
     getResponsiblePartyVendors(eventId, "MEDIA_ORDER"),
     getContactsForMediaOrder(mediaOrderId),
@@ -321,7 +335,7 @@ export async function getMediaOrderPartyOptions(
 // ============================================================================
 
 export async function deleteMediaOrders(ids: string[], eventId: string) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "DELETE", eventId);
   await prisma.mediaOrder.deleteMany({ where: { id: { in: ids }, eventId } });
   revalidatePath(`/events/${eventId}/media-orders`);
 }
@@ -331,7 +345,7 @@ export async function bulkUpdateMediaOrders(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string; presentationId?: string }
 ) {
-  await requireAuth();
+  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   const { status, substatus, vendorId, functionId, presentationId } = updates;
 
   if (status !== undefined || substatus !== undefined) {
@@ -345,7 +359,7 @@ export async function bulkUpdateMediaOrders(
   }
 
   if (vendorId) {
-    await prisma.mediaOrderVendor.deleteMany({ where: { mediaOrderId: { in: ids } } });
+    await prisma.mediaOrderVendor.deleteMany({ where: { mediaOrderId: { in: ids }, mediaOrder: { eventId } } });
     await prisma.mediaOrderVendor.createMany({ data: ids.map((id) => ({ mediaOrderId: id, vendorId })) });
   }
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getUserLandingPage, getLastEventId } from "@/lib/userSettings";
@@ -8,7 +8,7 @@ import { getUserLandingPage, getLastEventId } from "@/lib/userSettings";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const session = await requireAuth();
+  const session = await requirePermission("EVENTS", "VIEW");
 
   const [pref, lastId] = await Promise.all([
     getUserLandingPage(session.user.id),

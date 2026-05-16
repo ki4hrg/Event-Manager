@@ -30,7 +30,7 @@ export default async function AVOrdersPage({
   if (!event) notFound();
 
   const workflowSummaries = avOrders.length > 0
-    ? await getWorkflowBadgeSummaries("av_order", avOrders.map((o) => o.id))
+    ? await getWorkflowBadgeSummaries("av_order", avOrders.map((o) => o.id), eventId)
     : {};
 
   const vendors = flattenResponsiblePartyOptions(responsiblePartyVendors);

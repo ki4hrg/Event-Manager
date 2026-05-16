@@ -104,7 +104,7 @@ export default async function FunctionPage({
     getAvailableSetupOrdersForFunction(eventId, functionId),
     getAvailablePrintOrdersForFunction(eventId, functionId),
     getAvailableMediaOrdersForFunction(eventId, functionId),
-    getWorkflowInstances("function", functionId),
+    getWorkflowInstances("function", functionId, eventId),
     getWorkflowTemplateOptions(),
     getSubstatusOptions(),
   ]);

@@ -57,7 +57,7 @@ export default async function PrintOrderPage({
   const [event, printOrder, workflowInstances, allTemplates] = await Promise.all([
     getEvent(eventId),
     getPrintOrder(printOrderId),
-    getWorkflowInstances("print_order", printOrderId),
+    getWorkflowInstances("print_order", printOrderId, eventId),
     getWorkflowTemplateOptions(),
   ]);
 
@@ -67,7 +67,7 @@ export default async function PrintOrderPage({
     printOrderVendors, fileTypeOptions, printOrderFiles, responsiblePartyVendors, substatuses,
     distributionOptions, availableFunctions, availablePresentations, partyOptions,
   ] = await Promise.all([
-    getPrintOrderVendors(printOrderId),
+    getPrintOrderVendors(printOrderId, eventId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { printOrderId }, orderBy: { createdAt: "asc" } }),
     getResponsiblePartyVendors(eventId, "PRINT_ORDER"),

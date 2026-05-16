@@ -17,7 +17,7 @@ export default async function FunctionPrintPage({
   const [event, fn, workflowInstances] = await Promise.all([
     getEvent(eventId),
     getFunction(functionId),
-    getWorkflowInstances("function", functionId),
+    getWorkflowInstances("function", functionId, eventId),
   ]);
 
   if (!event || !fn) {

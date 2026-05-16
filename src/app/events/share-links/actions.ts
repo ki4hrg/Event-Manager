@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { generateShareToken } from "@/lib/shareLinks";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 import { revalidatePath } from "next/cache";
@@ -16,7 +16,7 @@ export type CreateShareLinkInput = {
 };
 
 export async function createShareLink(input: CreateShareLinkInput) {
-  const session = await requireAuth();
+  const session = await requirePermission("SHARE_LINKS", "WRITE", input.eventId);
   const token = generateShareToken();
   const link = await prisma.shareLink.create({
     data: {
@@ -35,20 +35,20 @@ export async function createShareLink(input: CreateShareLinkInput) {
 }
 
 export async function revokeShareLink(id: string) {
-  await requireAuth();
   const link = await prisma.shareLink.findUniqueOrThrow({
     where: { id },
     select: { eventId: true },
   });
+  await requirePermission("SHARE_LINKS", "WRITE", link.eventId);
   await prisma.shareLink.update({
-    where: { id },
+    where: { id, eventId: link.eventId },
     data: { revokedAt: new Date() },
   });
   revalidatePath(`/events/${link.eventId}/share-links`);
 }
 
 export async function listShareLinksForEvent(eventId: string) {
-  await requireAuth();
+  await requirePermission("SHARE_LINKS", "VIEW", eventId);
   return prisma.shareLink.findMany({
     where: { eventId },
     orderBy: { createdAt: "desc" },
@@ -57,7 +57,7 @@ export async function listShareLinksForEvent(eventId: string) {
 }
 
 export async function listShareLinksForReport(eventId: string, reportType: string) {
-  await requireAuth();
+  await requirePermission("SHARE_LINKS", "VIEW", eventId);
   return prisma.shareLink.findMany({
     where: { eventId, reportType },
     orderBy: { createdAt: "desc" },

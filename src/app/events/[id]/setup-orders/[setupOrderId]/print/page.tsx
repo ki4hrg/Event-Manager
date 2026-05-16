@@ -19,8 +19,8 @@ export default async function SetupOrderPrintPage({
   const [event, setupOrder, vendors, workflowInstances] = await Promise.all([
     getEvent(eventId),
     getSetupOrder(setupOrderId),
-    getSetupOrderVendors(setupOrderId),
-    getWorkflowInstances("setup_order", setupOrderId),
+    getSetupOrderVendors(setupOrderId, eventId),
+    getWorkflowInstances("setup_order", setupOrderId, eventId),
   ]);
 
   if (!event || !setupOrder) {

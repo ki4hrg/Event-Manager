@@ -32,7 +32,7 @@ export default async function PrintOrdersPage({
   if (!event) notFound();
 
   const workflowSummaries = printOrders.length > 0
-    ? await getWorkflowBadgeSummaries("print_order", printOrders.map((o) => o.id))
+    ? await getWorkflowBadgeSummaries("print_order", printOrders.map((o) => o.id), eventId)
     : {};
 
   const vendors = flattenResponsiblePartyOptions(responsiblePartyVendors);

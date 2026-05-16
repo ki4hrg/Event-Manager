@@ -1,14 +1,13 @@
 import { readFileSync } from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
-import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord } from "@/lib/uploads";
+import { requirePermission } from "@/lib/permissions";
+import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord, resolveFileEventId } from "@/lib/uploads";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }
 ) {
-  await requireAuth();
   const { fileId } = await params;
 
   const record = await prisma.fileUpload.findUnique({
@@ -18,6 +17,8 @@ export async function GET(
   if (!record) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  await requirePermission("FILES", "VIEW", await resolveFileEventId(record));
 
   const entityType = getEntityTypeFromRecord(record);
   const entityId = getEntityIdFromRecord(record);

@@ -29,8 +29,8 @@ export default async function SetupOrdersPrintPage({
     orderList.map(async (o) => {
       const [order, vendors, workflows] = await Promise.all([
         getSetupOrder(o.id),
-        getSetupOrderVendors(o.id),
-        getWorkflowInstances("setup_order", o.id),
+        getSetupOrderVendors(o.id, eventId),
+        getWorkflowInstances("setup_order", o.id, eventId),
       ]);
       return { order, vendors, workflows };
     })

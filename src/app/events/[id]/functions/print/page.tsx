@@ -28,7 +28,7 @@ export default async function FunctionsPrintPage({
     functionList.map(async (f) => {
       const [fn, workflows] = await Promise.all([
         getFunction(f.id),
-        getWorkflowInstances("function", f.id),
+        getWorkflowInstances("function", f.id, eventId),
       ]);
       return { fn, workflows };
     })
