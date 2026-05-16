@@ -1,11 +1,25 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 
-const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY ?? "";
-const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN ?? "";
-const MAILGUN_FROM = process.env.MAILGUN_FROM ?? "";
-const MAILGUN_BASE_URL = process.env.MAILGUN_BASE_URL ?? "https://api.mailgun.net";
-const APP_BASE_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+function readEnv(key: string, fallback = ""): string {
+  const raw = process.env[key];
+  if (raw == null) return fallback;
+  let value = raw.trim();
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      value = value.slice(1, -1).trim();
+    }
+  }
+  return value || fallback;
+}
+
+const MAILGUN_API_KEY = readEnv("MAILGUN_API_KEY");
+const MAILGUN_DOMAIN = readEnv("MAILGUN_DOMAIN");
+const MAILGUN_FROM = readEnv("MAILGUN_FROM");
+const MAILGUN_BASE_URL = readEnv("MAILGUN_BASE_URL", "https://api.mailgun.net");
+const APP_BASE_URL = readEnv("NEXTAUTH_URL", "http://localhost:3000");
 
 export const INVITE_TOKEN_EXPIRY_HOURS = 168; // 7 days
 export const RESET_TOKEN_EXPIRY_HOURS = 1;
