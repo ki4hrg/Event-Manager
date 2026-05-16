@@ -29,6 +29,10 @@ services:
       AUTH_TRUST_HOST: "true"
       NEXTAUTH_TRUST_HOST: "true"
       PORT: ${PORT:-3000}
+      MAILGUN_API_KEY: ${MAILGUN_API_KEY:-}
+      MAILGUN_DOMAIN: ${MAILGUN_DOMAIN:-}
+      MAILGUN_FROM: ${MAILGUN_FROM:-}
+      MAILGUN_BASE_URL: ${MAILGUN_BASE_URL:-https://api.mailgun.net}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:

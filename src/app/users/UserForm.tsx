@@ -127,20 +127,6 @@ export function UserForm({ user, saveAction, deleteAction, currentUserId }: User
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Password {isCreate ? "*" : "(leave blank to keep current)"}
-          </label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            required={isCreate}
-            minLength={6}
-            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        <div>
           <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Role *
           </label>
