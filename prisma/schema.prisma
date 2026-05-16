@@ -12,13 +12,29 @@ model User {
   id         String        @id @default(cuid())
   email      String        @unique
   name       String?
-  password   String
+  // Nullable: new users start without a password until they consume an invite token.
+  password   String?
   role       String        @default("user")
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
-  settings        UserSetting[]
-  shareLinks      ShareLink[]
-  shareLinkGroups ShareLinkGroup[]
+  settings            UserSetting[]
+  shareLinks          ShareLink[]
+  shareLinkGroups     ShareLinkGroup[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// One-time tokens used for both initial invite and password reset flows.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([token])
 }
 
 // Per-user key-value settings store

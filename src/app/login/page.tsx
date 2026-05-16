@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import Link from "next/link";
+import { Toast } from "@/components/Toast";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,6 +39,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+      <Suspense fallback={null}>
+        <Toast />
+      </Suspense>
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -96,6 +102,12 @@ export default function LoginPage() {
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
+
+          <p className="text-center text-sm">
+            <Link href="/forgot-password" className="text-blue-600 dark:text-blue-400 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
         </form>
       </div>
     </div>
