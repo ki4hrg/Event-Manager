@@ -4,6 +4,7 @@ import { getEvent } from "../../../actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
+import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { ReportFilters } from "./ReportFilters";
 import { EquipmentResponsibilityReport } from "./EquipmentResponsibilityReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
@@ -15,10 +16,10 @@ export default async function EquipmentResponsibilityPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vendors?: string; models?: string }>;
+  searchParams: Promise<{ vendors?: string; models?: string; addToDashboard?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { vendors: vendorParam, models: modelsParam } = await searchParams;
+  const { vendors: vendorParam, models: modelsParam, addToDashboard } = await searchParams;
 
   const selectedVendorIds = vendorParam ? vendorParam.split(",").filter(Boolean) : [];
   const selectedModelTypes = modelsParam ? modelsParam.split(",").filter(Boolean) : [];
@@ -28,10 +29,11 @@ export default async function EquipmentResponsibilityPage({
     modelTypes: selectedModelTypes.length > 0 ? selectedModelTypes : undefined,
   };
 
-  const [event, responsiblePartyVendors, groups] = await Promise.all([
+  const [event, responsiblePartyVendors, groups, dashboardChoices] = await Promise.all([
     getEvent(eventId),
     getResponsiblePartyVendors(eventId),
     getEquipmentResponsibilityData(eventId, filters),
+    listShareLinkGroupChoicesForEvent(eventId),
   ]);
 
   if (!event) notFound();
@@ -62,6 +64,8 @@ export default async function EquipmentResponsibilityPage({
               eventId={eventId}
               reportType="EQUIPMENT_RESPONSIBILITY"
               currentFilters={{ vendorIds: selectedVendorIds, modelTypes: selectedModelTypes }}
+              dashboardChoices={dashboardChoices}
+              addToDashboardId={addToDashboard}
             />
           }
         />

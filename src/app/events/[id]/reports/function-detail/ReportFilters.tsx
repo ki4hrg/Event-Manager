@@ -9,6 +9,7 @@ type ReportFiltersProps = {
   functions: FunctionPickerOption[];
   selectedFunctionIds: string[];
   basePath?: string;
+  paramPrefix?: string;
   shareButton?: React.ReactNode;
   hidePrint?: boolean;
 };
@@ -49,6 +50,7 @@ export function ReportFilters({
   functions,
   selectedFunctionIds,
   basePath = `/events/${eventId}/reports/function-detail`,
+  paramPrefix = "",
   shareButton,
   hidePrint = false,
 }: ReportFiltersProps) {
@@ -56,12 +58,14 @@ export function ReportFilters({
   const searchParams = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const functionsKey = `${paramPrefix}functions`;
+
   function pushFunctions(next: string[]) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.length > 0) {
-      params.set("functions", next.join(","));
+      params.set(functionsKey, next.join(","));
     } else {
-      params.delete("functions");
+      params.delete(functionsKey);
     }
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
@@ -79,7 +83,10 @@ export function ReportFilters({
   }
 
   function clearFilters() {
-    router.push(basePath);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(functionsKey);
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   const buckets = useMemo(() => bucketByType(functions), [functions]);

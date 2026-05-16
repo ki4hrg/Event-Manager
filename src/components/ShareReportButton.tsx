@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { createShareLink, revokeShareLink, listShareLinksForReport } from "@/app/events/share-links/actions";
+import { addShareLinkGroupItem, createShareLinkGroup } from "@/app/events/share-link-groups/actions";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 
 type ExistingLink = {
@@ -14,10 +16,18 @@ type ExistingLink = {
   token: string;
 };
 
+export type DashboardChoice = {
+  id: string;
+  label: string | null;
+  itemCount: number;
+};
+
 type ShareReportButtonProps = {
   eventId: string;
   reportType: string;
   currentFilters: ShareLinkFilters;
+  dashboardChoices?: DashboardChoice[];
+  addToDashboardId?: string;
 };
 
 function shareUrl(token: string): string {
@@ -36,11 +46,17 @@ function linkStatus(link: ExistingLink): { label: string; cls: string } {
   return { label: "Active", cls: "text-green-600 dark:text-green-400" };
 }
 
-export function ShareReportButton({ eventId, reportType, currentFilters }: ShareReportButtonProps) {
+type Mode = "single" | "dashboard";
+
+export function ShareReportButton({ eventId, reportType, currentFilters, dashboardChoices, addToDashboardId }: ShareReportButtonProps) {
+  const router = useRouter();
+  const hasDashboards = !!dashboardChoices;
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>(addToDashboardId ? "dashboard" : "single");
   const [label, setLabel] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [filtersLocked, setFiltersLocked] = useState(true);
+  const [dashboardId, setDashboardId] = useState<string>(addToDashboardId ?? "");
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [existingLinks, setExistingLinks] = useState<ExistingLink[]>([]);
@@ -64,9 +80,18 @@ export function ShareReportButton({ eventId, reportType, currentFilters }: Share
   }, [open, eventId, reportType]);
 
   function handleOpen() {
+    setMode(addToDashboardId ? "dashboard" : "single");
     setLabel("");
     setExpiresAt("");
     setFiltersLocked(true);
+    const defaultDashboard =
+      addToDashboardId ??
+      (dashboardChoices && dashboardChoices.length > 0
+        ? dashboardChoices[0].id
+        : dashboardChoices
+          ? "__new__"
+          : "");
+    setDashboardId(defaultDashboard);
     setCreatedToken(null);
     setCopied(false);
     setError(null);
@@ -116,6 +141,29 @@ export function ShareReportButton({ eventId, reportType, currentFilters }: Share
     });
   }
 
+  function handleAddToDashboard() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        let targetId = dashboardId;
+        if (targetId === "__new__") {
+          const created = await createShareLinkGroup({ eventId, label: label || null });
+          targetId = created.id;
+        }
+        await addShareLinkGroupItem(targetId, {
+          reportType,
+          filters: currentFilters,
+          filtersLocked,
+          label: label || null,
+        });
+        setOpen(false);
+        router.push(`/events/${eventId}/share-links/dashboards/${targetId}?success=Report+added+to+dashboard`);
+      } catch {
+        setError("Couldn't add report to dashboard. Please try again.");
+      }
+    });
+  }
+
   const activeLinks = existingLinks.filter((l) => !l.revokedAt && !(l.expiresAt && new Date(l.expiresAt) < new Date()));
 
   return (
@@ -149,7 +197,31 @@ export function ShareReportButton({ eventId, reportType, currentFilters }: Share
                   {error}
                 </div>
               )}
-              {!createdToken ? (
+              {hasDashboards && !createdToken && (
+                <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded text-xs">
+                  <button
+                    onClick={() => setMode("single")}
+                    className={`flex-1 px-3 py-1.5 rounded ${
+                      mode === "single"
+                        ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
+                        : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    Single link
+                  </button>
+                  <button
+                    onClick={() => setMode("dashboard")}
+                    className={`flex-1 px-3 py-1.5 rounded ${
+                      mode === "dashboard"
+                        ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
+                        : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    Add to dashboard
+                  </button>
+                </div>
+              )}
+              {!createdToken && mode === "single" ? (
                 <>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -207,7 +279,72 @@ export function ShareReportButton({ eventId, reportType, currentFilters }: Share
                     </button>
                   </div>
                 </>
-              ) : (
+              ) : !createdToken && mode === "dashboard" ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Dashboard
+                    </label>
+                    <select
+                      value={dashboardId}
+                      onChange={(e) => setDashboardId(e.target.value)}
+                      className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {dashboardChoices?.length === 0 && <option value="">(none yet)</option>}
+                      {dashboardChoices?.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.label || "Untitled dashboard"} ({d.itemCount} {d.itemCount === 1 ? "report" : "reports"})
+                        </option>
+                      ))}
+                      <option value="__new__">+ New dashboard…</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Tab label <span className="font-normal text-gray-400">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={label}
+                      onChange={(e) => setLabel(e.target.value)}
+                      placeholder={dashboardId === "__new__" ? "New dashboard label" : "Defaults to report name"}
+                      className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filtersLocked}
+                      onChange={(e) => setFiltersLocked(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300 dark:border-gray-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Lock filters for this report
+                      <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        When checked, recipients see only the current filters on this tab.
+                      </span>
+                    </span>
+                  </label>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      onClick={() => setOpen(false)}
+                      className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAddToDashboard}
+                      disabled={isPending || !dashboardId}
+                      className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
+                    >
+                      {isPending ? "Adding..." : "Add to dashboard"}
+                    </button>
+                  </div>
+                </>
+              ) : !createdToken ? null : (
                 <div className="space-y-3">
                   <p className="text-sm text-gray-700 dark:text-gray-300">Link created:</p>
                   <div className="flex items-center gap-2">

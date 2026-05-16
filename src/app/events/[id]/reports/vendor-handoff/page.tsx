@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
 import { getOrderAssignedVendors, getVendorHandoffData } from "@/app/events/reports/actions";
+import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { getOptions } from "@/app/settings/actions";
 import { ReportFilters } from "./ReportFilters";
 import { VendorHandoffReport } from "./VendorHandoffReport";
@@ -14,16 +15,17 @@ export default async function VendorHandoffPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vendorId?: string }>;
+  searchParams: Promise<{ vendorId?: string; addToDashboard?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { vendorId } = await searchParams;
+  const { vendorId, addToDashboard } = await searchParams;
 
-  const [event, vendors, data, functionTypes] = await Promise.all([
+  const [event, vendors, data, functionTypes, dashboardChoices] = await Promise.all([
     getEvent(eventId),
     getOrderAssignedVendors(eventId),
     vendorId ? getVendorHandoffData(eventId, vendorId) : Promise.resolve(null),
     getOptions("function_type"),
+    listShareLinkGroupChoicesForEvent(eventId),
   ]);
 
   if (!event) notFound();
@@ -51,6 +53,8 @@ export default async function VendorHandoffPage({
               eventId={eventId}
               reportType="VENDOR_HANDOFF"
               currentFilters={{ vendorId: vendorId ?? undefined }}
+              dashboardChoices={dashboardChoices}
+              addToDashboardId={addToDashboard}
             />
           }
         />

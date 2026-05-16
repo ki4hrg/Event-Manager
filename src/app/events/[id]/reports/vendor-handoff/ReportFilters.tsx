@@ -9,22 +9,26 @@ type ReportFiltersProps = {
   vendors: VendorOption[];
   selectedVendorId: string | null;
   basePath?: string;
+  paramPrefix?: string;
   shareButton?: React.ReactNode;
   hidePrint?: boolean;
 };
 
-export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `/events/${eventId}/reports/vendor-handoff`, shareButton, hidePrint = false }: ReportFiltersProps) {
+export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `/events/${eventId}/reports/vendor-handoff`, paramPrefix = "", shareButton, hidePrint = false }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const vendorKey = `${paramPrefix}vendorId`;
 
   function handleVendorChange(vendorId: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (vendorId) {
-      params.set("vendorId", vendorId);
+      params.set(vendorKey, vendorId);
     } else {
-      params.delete("vendorId");
+      params.delete(vendorKey);
     }
-    router.push(`${basePath}?${params.toString()}`);
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   const showPrint = !!selectedVendorId && !hidePrint;
