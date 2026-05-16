@@ -41,10 +41,6 @@ export default async function EquipmentResponsibilityPage({
 
   const vendorOptions = flattenResponsiblePartyOptions(responsiblePartyVendors);
 
-  const targetDashboard = addToDashboard
-    ? dashboardChoices.find((d) => d.id === addToDashboard)
-    : undefined;
-
   return (
     <>
       <div className="mb-4">
@@ -59,13 +55,11 @@ export default async function EquipmentResponsibilityPage({
       <div className="max-w-5xl">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Equipment Responsibility</h2>
 
-        {targetDashboard && (
-          <AddToDashboardBanner
-            eventId={eventId}
-            dashboardId={targetDashboard.id}
-            dashboardLabel={targetDashboard.label}
-          />
-        )}
+        <AddToDashboardBanner
+          eventId={eventId}
+          addToDashboardId={addToDashboard}
+          dashboardChoices={dashboardChoices}
+        />
 
         <ReportFilters
           eventId={eventId}

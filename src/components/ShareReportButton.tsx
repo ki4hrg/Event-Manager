@@ -55,7 +55,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
   const targetDashboard = isAddingToDashboard
     ? dashboardChoices?.find((d) => d.id === addToDashboardId)
     : undefined;
-  const targetDashboardName = targetDashboard?.label || "dashboard";
+  const targetDashboardName = targetDashboard?.label || "Untitled dashboard";
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>(addToDashboardId ? "dashboard" : "single");
   const [label, setLabel] = useState("");
@@ -70,7 +70,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isAddingToDashboard) return;
     let cancelled = false;
     listShareLinksForReport(eventId, reportType)
       .then((links) => {
@@ -82,7 +82,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
     return () => {
       cancelled = true;
     };
-  }, [open, eventId, reportType]);
+  }, [open, eventId, reportType, isAddingToDashboard]);
 
   function handleOpen() {
     setMode(addToDashboardId ? "dashboard" : "single");

@@ -50,10 +50,6 @@ export default async function FunctionDetailPage({
   const validIds = new Set(pickerOptions.map((o) => o.value));
   const validSelected = selectedFunctionIds.filter((id) => validIds.has(id));
 
-  const targetDashboard = addToDashboard
-    ? dashboardChoices.find((d) => d.id === addToDashboard)
-    : undefined;
-
   return (
     <>
       <div className="mb-4">
@@ -74,13 +70,11 @@ export default async function FunctionDetailPage({
           Function Detail
         </h2>
 
-        {targetDashboard && (
-          <AddToDashboardBanner
-            eventId={eventId}
-            dashboardId={targetDashboard.id}
-            dashboardLabel={targetDashboard.label}
-          />
-        )}
+        <AddToDashboardBanner
+          eventId={eventId}
+          addToDashboardId={addToDashboard}
+          dashboardChoices={dashboardChoices}
+        />
 
         <ReportFilters
           eventId={eventId}
