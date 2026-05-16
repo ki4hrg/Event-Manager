@@ -13,6 +13,8 @@ import { ViewToggle } from "@/components/ui/ViewToggle";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
+import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
+import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 
 type CateringOrder = Awaited<ReturnType<typeof getCateringOrders>>[number];
 
@@ -23,14 +25,16 @@ type Props = {
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
   initialStatus?: string;
+  initialVendor?: string;
+  initialFunction?: string;
   deleteCateringOrder: (formData: FormData) => Promise<void>;
   deleteCateringOrders: (ids: string[]) => Promise<void>;
   bulkUpdateCateringOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
 };
 
 type SortField = "name" | "status" | "vendors" | "serviceStyle" | "guaranteeCount" | "function";
-type FilterState = { name: string; status: string };
-const DEFAULT_FILTERS: FilterState = { name: "", status: "" };
+type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter };
+const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "" };
 
 export function CateringOrderList({
   cateringOrders,
@@ -39,6 +43,8 @@ export function CateringOrderList({
   substatuses,
   vendors,
   initialStatus,
+  initialVendor,
+  initialFunction,
   deleteCateringOrder,
   deleteCateringOrders,
   bulkUpdateCateringOrders,
@@ -47,7 +53,12 @@ export function CateringOrderList({
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
+  const [filters, setFilters] = useState<FilterState>({
+    ...DEFAULT_FILTERS,
+    status: initialStatus ?? "",
+    vendor: asPresence(initialVendor),
+    function: asPresence(initialFunction),
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
@@ -64,6 +75,10 @@ export function CateringOrderList({
       if (filters.status === "__blank__") {
         if (o.status != null) return false;
       } else if (filters.status && o.status !== filters.status) return false;
+      if (filters.vendor === "yes" && o.vendors.length === 0) return false;
+      if (filters.vendor === "none" && o.vendors.length > 0) return false;
+      if (filters.function === "yes" && !o.function) return false;
+      if (filters.function === "none" && o.function) return false;
       return true;
     });
   }, [cateringOrders, filters]);
@@ -162,6 +177,8 @@ export function CateringOrderList({
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
+          <PresenceFilterSelect label="Vendor" value={filters.vendor} onChange={(v) => setFilter("vendor", v)} />
+          <PresenceFilterSelect label="Function" value={filters.function} onChange={(v) => setFilter("function", v)} />
         </div>
         <div className="flex gap-2 shrink-0">
           <a

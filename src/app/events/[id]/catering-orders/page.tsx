@@ -16,10 +16,10 @@ export default async function CateringOrdersPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ status?: string; vendor?: string; function?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus } = (await searchParams) ?? {};
+  const { status: initialStatus, vendor: initialVendor, function: initialFunction } = (await searchParams) ?? {};
   const [event, cateringOrders, substatuses, responsiblePartyVendors] = await Promise.all([
     getEvent(eventId),
     getCateringOrders(eventId),
@@ -70,6 +70,8 @@ export default async function CateringOrdersPage({
         substatuses={substatuses}
         vendors={vendors}
         initialStatus={initialStatus}
+        initialVendor={initialVendor}
+        initialFunction={initialFunction}
         deleteCateringOrder={deleteCateringOrderAction}
         deleteCateringOrders={deleteCateringOrdersAction}
         bulkUpdateCateringOrders={bulkUpdateCateringOrdersAction}

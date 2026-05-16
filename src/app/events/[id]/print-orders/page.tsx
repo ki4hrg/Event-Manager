@@ -17,10 +17,10 @@ export default async function PrintOrdersPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ status?: string; vendor?: string; function?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus } = (await searchParams) ?? {};
+  const { status: initialStatus, vendor: initialVendor, function: initialFunction } = (await searchParams) ?? {};
   const [event, printOrders, substatuses, responsiblePartyVendors, functions] = await Promise.all([
     getEvent(eventId),
     getPrintOrders(eventId),
@@ -79,6 +79,8 @@ export default async function PrintOrdersPage({
         vendors={vendors}
         functions={functions}
         initialStatus={initialStatus}
+        initialVendor={initialVendor}
+        initialFunction={initialFunction}
         deletePrintOrder={deletePrintOrderAction}
         deletePrintOrders={deletePrintOrdersAction}
         bulkUpdatePrintOrders={bulkUpdatePrintOrdersAction}

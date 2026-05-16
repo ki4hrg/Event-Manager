@@ -19,7 +19,7 @@ import { KeyStaffList } from "../KeyStaffList";
 import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
-import { StatusSummaryCard } from "./StatusSummaryCard";
+import { EntityOverviewCard } from "./EntityOverviewCard";
 
 export const dynamic = "force-dynamic";
 
@@ -111,80 +111,14 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           />
         </div>
 
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 content-start">
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Functions
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
+          {stats.entities.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 sm:col-span-2">
+              No content available for this event.
             </p>
-            <p className="text-3xl font-semibold text-gray-900 dark:text-white mb-3">
-              {stats.functions.total}
-            </p>
-            <div className="space-y-1 text-sm">
-              {stats.functions.missingSchedule > 0 ? (
-                <a
-                  href={`/events/${id}/functions?schedule=none`}
-                  className="block text-amber-600 dark:text-amber-500 hover:underline"
-                >
-                  {stats.functions.missingSchedule} missing schedule
-                </a>
-              ) : (
-                <p className="text-gray-400 dark:text-gray-500">0 missing schedule</p>
-              )}
-              {stats.functions.missingRoom > 0 ? (
-                <a
-                  href={`/events/${id}/functions?room=none`}
-                  className="block text-amber-600 dark:text-amber-500 hover:underline"
-                >
-                  {stats.functions.missingRoom} missing room
-                </a>
-              ) : (
-                <p className="text-gray-400 dark:text-gray-500">0 missing room</p>
-              )}
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <a
-                href={`/events/${id}/functions`}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                View functions →
-              </a>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Presentations
-            </p>
-            <p className="text-3xl font-semibold text-gray-900 dark:text-white mb-3">
-              {stats.presentations.total}
-            </p>
-            <div className="space-y-1 text-sm">
-              <p
-                className={
-                  stats.presentations.unassigned > 0
-                    ? "text-amber-600 dark:text-amber-500"
-                    : "text-gray-400 dark:text-gray-500"
-                }
-              >
-                {stats.presentations.unassigned} unassigned
-              </p>
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <a
-                href={`/events/${id}/presentations`}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                View presentations →
-              </a>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Status
-            </p>
-            <StatusSummaryCard groups={stats.entityGroups} />
-          </div>
+          ) : (
+            stats.entities.map(({ key, ...rest }) => <EntityOverviewCard key={key} {...rest} />)
+          )}
         </div>
       </div>
     </>

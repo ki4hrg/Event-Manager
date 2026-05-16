@@ -14,6 +14,8 @@ import { ViewToggle } from "@/components/ui/ViewToggle";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { EDIT_STATUS_OPTIONS, STATUS_LABEL } from "@/lib/statusConstants";
+import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
+import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 
 type AVOrder = Awaited<ReturnType<typeof getAVOrders>>[number];
 
@@ -24,6 +26,8 @@ type Props = {
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
   initialStatus?: string;
+  initialVendor?: string;
+  initialFunction?: string;
   deleteAVOrder: (formData: FormData) => Promise<void>;
   deleteAVOrders: (ids: string[]) => Promise<void>;
   bulkUpdateAVOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
@@ -31,8 +35,8 @@ type Props = {
 
 type SortField = "name" | "status" | "vendors" | "functions" | "presentation";
 
-type FilterState = { name: string; status: string };
-const DEFAULT_FILTERS: FilterState = { name: "", status: "" };
+type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter };
+const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "" };
 
 export function AVOrderList({
   avOrders,
@@ -41,6 +45,8 @@ export function AVOrderList({
   substatuses,
   vendors,
   initialStatus,
+  initialVendor,
+  initialFunction,
   deleteAVOrder,
   deleteAVOrders,
   bulkUpdateAVOrders,
@@ -49,7 +55,12 @@ export function AVOrderList({
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
+  const [filters, setFilters] = useState<FilterState>({
+    ...DEFAULT_FILTERS,
+    status: initialStatus ?? "",
+    vendor: asPresence(initialVendor),
+    function: asPresence(initialFunction),
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
@@ -66,6 +77,10 @@ export function AVOrderList({
       if (filters.status === "__blank__") {
         if (o.status != null) return false;
       } else if (filters.status && o.status !== filters.status) return false;
+      if (filters.vendor === "yes" && o.vendors.length === 0) return false;
+      if (filters.vendor === "none" && o.vendors.length > 0) return false;
+      if (filters.function === "yes" && o.functions.length === 0) return false;
+      if (filters.function === "none" && o.functions.length > 0) return false;
       return true;
     });
   }, [avOrders, filters]);
@@ -163,6 +178,8 @@ export function AVOrderList({
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
+          <PresenceFilterSelect label="Vendor" value={filters.vendor} onChange={(v) => setFilter("vendor", v)} />
+          <PresenceFilterSelect label="Function" value={filters.function} onChange={(v) => setFilter("function", v)} />
         </div>
         <div className="flex gap-2 shrink-0">
           <a

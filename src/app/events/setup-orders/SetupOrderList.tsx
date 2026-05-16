@@ -13,6 +13,8 @@ import { ViewToggle } from "@/components/ui/ViewToggle";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
+import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
+import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import { getSetupOrderDisplayName } from "./utils";
 
 type SetupOrder = Awaited<ReturnType<typeof getSetupOrders>>[number];
@@ -24,14 +26,16 @@ type Props = {
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
   initialStatus?: string;
+  initialVendor?: string;
+  initialFunction?: string;
   deleteSetupOrder: (formData: FormData) => Promise<void>;
   deleteSetupOrders: (ids: string[]) => Promise<void>;
   bulkUpdateSetupOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
 };
 
 type SortField = "name" | "status" | "vendors" | "type" | "room" | "tables" | "equipment" | "functions";
-type FilterState = { name: string; status: string };
-const DEFAULT_FILTERS: FilterState = { name: "", status: "" };
+type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter };
+const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "" };
 
 export function SetupOrderList({
   setupOrders,
@@ -40,6 +44,8 @@ export function SetupOrderList({
   substatuses,
   vendors,
   initialStatus,
+  initialVendor,
+  initialFunction,
   deleteSetupOrder,
   deleteSetupOrders,
   bulkUpdateSetupOrders,
@@ -48,7 +54,12 @@ export function SetupOrderList({
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
+  const [filters, setFilters] = useState<FilterState>({
+    ...DEFAULT_FILTERS,
+    status: initialStatus ?? "",
+    vendor: asPresence(initialVendor),
+    function: asPresence(initialFunction),
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
@@ -66,6 +77,10 @@ export function SetupOrderList({
       if (filters.status === "__blank__") {
         if (o.status != null) return false;
       } else if (filters.status && o.status !== filters.status) return false;
+      if (filters.vendor === "yes" && o.vendors.length === 0) return false;
+      if (filters.vendor === "none" && o.vendors.length > 0) return false;
+      if (filters.function === "yes" && o.functions.length === 0) return false;
+      if (filters.function === "none" && o.functions.length > 0) return false;
       return true;
     });
   }, [setupOrders, filters]);
@@ -166,6 +181,8 @@ export function SetupOrderList({
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
+          <PresenceFilterSelect label="Vendor" value={filters.vendor} onChange={(v) => setFilter("vendor", v)} />
+          <PresenceFilterSelect label="Function" value={filters.function} onChange={(v) => setFilter("function", v)} />
         </div>
         <div className="flex gap-2 shrink-0">
           <a

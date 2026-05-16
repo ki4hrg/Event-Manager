@@ -30,13 +30,15 @@ export const loadPermissions = cache(async (userId: string) => {
   };
 });
 
-export async function requirePermission(
+async function resolvePermission(
   resource: PermissionResource,
   action: PermissionAction,
   eventId?: string | null,
 ) {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) {
+    return { session: null, scope: null, allowed: false } as const;
+  }
 
   const { permissions, assignedEventIds } = await loadPermissions(session.user.id);
 
@@ -50,7 +52,27 @@ export async function requirePermission(
   }
 
   const granted = permissions.find((p) => p.resource === resource && p.scope === scope);
-  if (!granted || LEVEL_ORDER[granted.level] < LEVEL_ORDER[action]) {
+  const allowed = !!granted && LEVEL_ORDER[granted.level] >= LEVEL_ORDER[action];
+  return { session, scope, allowed } as const;
+}
+
+export async function hasPermission(
+  resource: PermissionResource,
+  action: PermissionAction,
+  eventId?: string | null,
+): Promise<boolean> {
+  const { allowed } = await resolvePermission(resource, action, eventId);
+  return allowed;
+}
+
+export async function requirePermission(
+  resource: PermissionResource,
+  action: PermissionAction,
+  eventId?: string | null,
+) {
+  const { session, scope, allowed } = await resolvePermission(resource, action, eventId);
+  if (!session) redirect("/login");
+  if (!allowed) {
     // Hide existence of unassigned events on read; redirect home on write/delete or admin-resource denial.
     if (scope === PermissionScope.UNASSIGNED && action === "VIEW") notFound();
     redirect("/");

@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
+import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
+import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import type {
   Presentation,
   PresentationContact,
@@ -37,6 +39,8 @@ type PresentationListProps = {
   presentationTypes: CustomOption[];
   substatuses: CustomOption[];
   initialStatus?: string;
+  initialSlot?: string;
+  initialSpeaker?: string;
   duplicatePresentation: (id: string) => Promise<void>;
   deletePresentation: (id: string) => Promise<void>;
   deletePresentations: (ids: string[]) => Promise<void>;
@@ -47,8 +51,8 @@ type PresentationListProps = {
 };
 
 type SortField = "title" | "status" | "type" | "track" | "speaker" | "slots";
-type FilterState = { title: string; status: string; trackId: string; type: string };
-const DEFAULT_FILTERS: FilterState = { title: "", status: "", trackId: "", type: "" };
+type FilterState = { title: string; status: string; trackId: string; type: string; slot: PresenceFilter; speaker: PresenceFilter };
+const DEFAULT_FILTERS: FilterState = { title: "", status: "", trackId: "", type: "", slot: "", speaker: "" };
 
 function primarySpeakerName(speakers: (PresentationContact & { contact: Contact })[]) {
   const primary = speakers.find((s) => s.isPrimary) ?? speakers[0];
@@ -63,6 +67,8 @@ export function PresentationList({
   presentationTypes,
   substatuses,
   initialStatus,
+  initialSlot,
+  initialSpeaker,
   duplicatePresentation,
   deletePresentation,
   deletePresentations,
@@ -72,7 +78,12 @@ export function PresentationList({
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("title");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS, status: initialStatus ?? "" });
+  const [filters, setFilters] = useState<FilterState>({
+    ...DEFAULT_FILTERS,
+    status: initialStatus ?? "",
+    slot: asPresence(initialSlot),
+    speaker: asPresence(initialSpeaker),
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
@@ -96,6 +107,10 @@ export function PresentationList({
         if (p.trackId != null) return false;
       } else if (filters.trackId && p.trackId !== filters.trackId) return false;
       if (filters.type && p.type !== filters.type) return false;
+      if (filters.slot === "yes" && p.slots.length === 0) return false;
+      if (filters.slot === "none" && p.slots.length > 0) return false;
+      if (filters.speaker === "yes" && p.speakers.length === 0) return false;
+      if (filters.speaker === "none" && p.speakers.length > 0) return false;
       return true;
     });
   }, [presentations, filters]);
@@ -209,6 +224,14 @@ export function PresentationList({
               {tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
+          <PresenceFilterSelect
+            label="Slot"
+            value={filters.slot}
+            onChange={(v) => setFilter("slot", v)}
+            hasLabel="Assigned"
+            missingLabel="Unassigned"
+          />
+          <PresenceFilterSelect label="Speaker" value={filters.speaker} onChange={(v) => setFilter("speaker", v)} />
         </div>
         <div className="flex gap-2 shrink-0">
           <Link

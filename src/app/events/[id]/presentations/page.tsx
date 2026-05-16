@@ -24,10 +24,10 @@ export default async function PresentationsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ status?: string; slot?: string; speaker?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus } = (await searchParams) ?? {};
+  const { status: initialStatus, slot: initialSlot, speaker: initialSpeaker } = (await searchParams) ?? {};
   const [event, presentations, tracks, presentationTypes, substatuses] = await Promise.all([
     getEvent(eventId),
     getPresentations(eventId),
@@ -102,6 +102,8 @@ export default async function PresentationsPage({
         presentationTypes={presentationTypes}
         substatuses={substatuses}
         initialStatus={initialStatus}
+        initialSlot={initialSlot}
+        initialSpeaker={initialSpeaker}
         duplicatePresentation={duplicatePresentationAction}
         deletePresentation={deletePresentationAction}
         deletePresentations={deletePresentationsAction}

@@ -16,10 +16,10 @@ export default async function SetupOrdersPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ status?: string; vendor?: string; function?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus } = (await searchParams) ?? {};
+  const { status: initialStatus, vendor: initialVendor, function: initialFunction } = (await searchParams) ?? {};
   const [event, setupOrders, substatuses, responsiblePartyVendors] = await Promise.all([
     getEvent(eventId),
     getSetupOrders(eventId),
@@ -76,6 +76,8 @@ export default async function SetupOrdersPage({
         substatuses={substatuses}
         vendors={vendors}
         initialStatus={initialStatus}
+        initialVendor={initialVendor}
+        initialFunction={initialFunction}
         deleteSetupOrder={deleteSetupOrderAction}
         deleteSetupOrders={deleteSetupOrdersAction}
         bulkUpdateSetupOrders={bulkUpdateSetupOrdersAction}
