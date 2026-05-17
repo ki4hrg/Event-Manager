@@ -9,6 +9,7 @@ export type ShareLinkFilters = {
   sections?: string[];
   rooms?: string[];
   functionIds?: string[];
+  breakoutGroupIds?: string[];
 };
 
 export const SHARE_REPORT_LABELS: Record<string, string> = {
@@ -17,6 +18,8 @@ export const SHARE_REPORT_LABELS: Record<string, string> = {
   EVENT_PROFILE: "Event Profile",
   ROOM_SCHEDULE: "Room Schedule",
   FUNCTION_DETAIL: "Function Detail",
+  BREAKOUT_GRID: "Breakout Grid",
+  BREAKOUT_ASSIGNMENTS: "Breakout Assignments",
 };
 
 export function generateShareToken(): string {

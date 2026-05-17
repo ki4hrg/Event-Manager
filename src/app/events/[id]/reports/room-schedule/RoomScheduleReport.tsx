@@ -418,7 +418,7 @@ export function RoomScheduleReport({ data, functionTypes, scheduleTypes }: Props
             <div key={g.groupId ?? "__ungrouped__"} className="space-y-4">
               <h2
                 id={`room-group-${g.groupId ?? "ungrouped"}`}
-                className="scroll-mt-24 text-xs font-semibold text-gray-500 dark:text-gray-400 print:text-gray-700 uppercase tracking-wide border-b border-gray-200 dark:border-gray-700 pb-1"
+                className="scroll-mt-24 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-gray-200 dark:border-gray-700 pb-1 print:hidden"
               >
                 {g.label}
               </h2>
