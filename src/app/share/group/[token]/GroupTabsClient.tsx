@@ -1,6 +1,6 @@
 "use client";
 
-import { Children, isValidElement, useRef } from "react";
+import { Children, isValidElement, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 type TabDescriptor = {
@@ -19,84 +19,109 @@ export function GroupTabsClient({ tabs, initialId, children }: GroupTabsClientPr
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const tabListRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const currentParam = searchParams.get("tab");
   const activeId = currentParam && tabs.some((t) => t.id === currentParam) ? currentParam : initialId;
+  const active = tabs.find((t) => t.id === activeId);
 
   function selectTab(id: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", id);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    setMenuOpen(false);
+    triggerRef.current?.focus();
   }
 
-  function handleKeyDown(e: React.KeyboardEvent, idx: number) {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    e.preventDefault();
-    const delta = e.key === "ArrowLeft" ? -1 : 1;
-    const next = (idx + delta + tabs.length) % tabs.length;
-    selectTab(tabs[next].id);
-    const buttons = tabListRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]");
-    buttons?.[next]?.focus();
-  }
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handlePointer(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [menuOpen]);
 
   const panels = Children.toArray(children).filter(isValidElement);
-  const active = tabs.find((t) => t.id === activeId);
 
   return (
     <div>
-      <div
-        ref={tabListRef}
-        role="tablist"
-        aria-label="Dashboard reports"
-        className="flex gap-1 overflow-x-auto snap-x mb-4 border-b border-gray-200 dark:border-gray-700 print:hidden"
-      >
-        {tabs.map((tab, idx) => {
-          const selected = tab.id === activeId;
-          return (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={selected}
-              aria-controls={`panel-${tab.id}`}
-              id={`tab-${tab.id}`}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => selectTab(tab.id)}
-              onKeyDown={(e) => handleKeyDown(e, idx)}
-              className={`shrink-0 snap-start whitespace-nowrap px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
-                selected
-                  ? "border-blue-600 text-blue-700 dark:text-blue-300 font-medium"
-                  : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-              }`}
+      <div className="flex items-center justify-between gap-3 mb-4 print:hidden">
+        <div ref={menuRef} className="relative">
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {active?.title ?? "Reports"}
+            </span>
+            <span aria-hidden="true" className="text-gray-400">▾</span>
+          </button>
+          {menuOpen && (
+            <ul
+              role="menu"
+              aria-label="Dashboard reports"
+              className="absolute left-0 top-full mt-1 z-20 min-w-full max-h-80 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg py-1"
             >
-              {tab.title}
-            </button>
-          );
-        })}
-      </div>
-
-      {active && (
-        <div className="flex items-center justify-end mb-4 print:hidden">
+              {tabs.map((tab) => {
+                const selected = tab.id === activeId;
+                return (
+                  <li key={tab.id} role="none">
+                    <button
+                      role="menuitem"
+                      type="button"
+                      aria-current={selected ? "true" : undefined}
+                      onClick={() => selectTab(tab.id)}
+                      className={`block w-full text-left px-4 py-2 text-sm whitespace-nowrap ${
+                        selected
+                          ? "bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {tab.title}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        {active && (
           <a
             href={active.printHref}
-            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            className="shrink-0 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
           >
             Print / Save PDF
           </a>
-        </div>
-      )}
+        )}
+      </div>
 
       {panels.map((panel, idx) => {
         const id = tabs[idx]?.id ?? String(idx);
         const selected = id === activeId;
         return (
-          <div
-            key={id}
-            role="tabpanel"
-            id={`panel-${id}`}
-            aria-labelledby={`tab-${id}`}
-            hidden={!selected}
-          >
+          <div key={id} id={`panel-${id}`} hidden={!selected}>
             {panel}
           </div>
         );
