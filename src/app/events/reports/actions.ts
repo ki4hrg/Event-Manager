@@ -1307,3 +1307,93 @@ export async function getFunctionPickerOptions(eventId: string): Promise<Functio
 
   return options;
 }
+
+// ── Breakout Schedule reports (Grid + Assignments) ────────────────────────────
+
+export type BreakoutScheduleFilters = {
+  groupIds?: string[];
+};
+
+export async function getBreakoutScheduleData(
+  eventId: string,
+  opts: BreakoutScheduleFilters = {}
+) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, timezone: true },
+  });
+  if (!event) return null;
+
+  const groupIdFilter =
+    opts.groupIds && opts.groupIds.length > 0 ? { in: opts.groupIds } : undefined;
+
+  const groups = await prisma.breakoutGroup.findMany({
+    where: { eventId, ...(groupIdFilter ? { id: groupIdFilter } : {}) },
+    include: {
+      rooms: { include: { room: true }, orderBy: { id: "asc" } },
+      functions: {
+        where: { type: "BREAKOUT_BLOCK" },
+        include: {
+          schedules: { orderBy: { startTime: "asc" } },
+          rooms: { include: { room: true }, orderBy: { id: "asc" } },
+          sessionRoomOverrides: true,
+          presentationSlots: {
+            include: {
+              presentation: {
+                include: {
+                  speakers: {
+                    include: {
+                      contact: { select: { id: true, firstName: true, lastName: true } },
+                    },
+                    orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+                  },
+                },
+              },
+              room: true,
+            },
+          },
+        },
+      },
+      presentations: {
+        include: {
+          slots: { include: { room: true } },
+          track: true,
+          speakers: {
+            include: {
+              contact: { select: { id: true, firstName: true, lastName: true } },
+            },
+            orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+          },
+        },
+      },
+    },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  for (const group of groups) {
+    group.functions.sort((a, b) => {
+      const aTime = a.schedules[0]?.startTime.getTime() ?? Infinity;
+      const bTime = b.schedules[0]?.startTime.getTime() ?? Infinity;
+      return aTime - bTime;
+    });
+    group.presentations.sort((a, b) => a.title.localeCompare(b.title));
+  }
+
+  return {
+    timezone: event.timezone,
+    groups,
+  };
+}
+
+export type BreakoutScheduleData = NonNullable<
+  Awaited<ReturnType<typeof getBreakoutScheduleData>>
+>;
+export type BreakoutScheduleGroup = BreakoutScheduleData["groups"][number];
+
+export async function getBreakoutGroupOptions(eventId: string) {
+  return prisma.breakoutGroup.findMany({
+    where: { eventId },
+    select: { id: true, name: true },
+    orderBy: { sortOrder: "asc" },
+  });
+}

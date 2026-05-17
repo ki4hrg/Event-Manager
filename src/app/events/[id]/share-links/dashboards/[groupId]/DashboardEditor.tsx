@@ -40,6 +40,8 @@ const REPORT_PATHS: Record<string, string> = {
   EVENT_PROFILE: "event-profile",
   ROOM_SCHEDULE: "room-schedule",
   FUNCTION_DETAIL: "function-detail",
+  BREAKOUT_GRID: "breakout-grid",
+  BREAKOUT_ASSIGNMENTS: "breakout-assignments",
 };
 
 function toDateInput(iso: string | null): string {

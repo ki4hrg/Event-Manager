@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
-import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions } from "@/app/events/reports/actions";
+import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions, getBreakoutScheduleData, getBreakoutGroupOptions } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
@@ -9,11 +9,15 @@ import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/Ve
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
+import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
+import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
 import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equipment-responsibility/ReportFilters";
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
 import { ReportFilters as RsReportFilters } from "@/app/events/[id]/reports/room-schedule/ReportFilters";
 import { ReportFilters as FdReportFilters } from "@/app/events/[id]/reports/function-detail/ReportFilters";
+import { ReportFilters as BgReportFilters } from "@/app/events/[id]/reports/breakout-grid/ReportFilters";
+import { ReportFilters as BaReportFilters } from "@/app/events/[id]/reports/breakout-assignments/ReportFilters";
 import { enumerateEventDays } from "@/app/events/[id]/reports/event-profile/days";
 import { MODEL_TYPES } from "@/app/vendors/model-types";
 import { ShareShell } from "./ShareShell";
@@ -382,6 +386,70 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           serviceStyles={serviceStyles}
           setupTypes={setupTypes}
         />
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "BREAKOUT_GRID" || link.reportType === "BREAKOUT_ASSIGNMENTS") {
+    let effectiveGroupIds: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveGroupIds = storedFilters.breakoutGroupIds;
+    } else {
+      const groupsParam = getString(sp.groups);
+      effectiveGroupIds = groupsParam
+        ? groupsParam.split(",").filter(Boolean)
+        : storedFilters.breakoutGroupIds;
+    }
+
+    const groupOptions = link.filtersLocked ? null : await getBreakoutGroupOptions(link.eventId);
+    if (!link.filtersLocked && groupOptions) {
+      effectiveGroupIds = intersect(effectiveGroupIds, new Set(groupOptions.map((g) => g.id)));
+    }
+
+    const data = await getBreakoutScheduleData(link.eventId, {
+      groupIds: effectiveGroupIds && effectiveGroupIds.length > 0 ? effectiveGroupIds : undefined,
+    });
+    if (!data) notFound();
+
+    const printParams = new URLSearchParams();
+    if (effectiveGroupIds?.length) printParams.set("groups", effectiveGroupIds.join(","));
+    const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
+
+    const groupChoices = (groupOptions ?? []).map((g) => ({ value: g.id, label: g.name }));
+    const isGrid = link.reportType === "BREAKOUT_GRID";
+
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle={isGrid ? "Breakout Grid" : "Breakout Assignments"}
+        label={link.label}
+        printHref={printHref}
+      >
+        {!link.filtersLocked && groupOptions && (
+          isGrid ? (
+            <BgReportFilters
+              eventId={link.eventId}
+              groups={groupChoices}
+              selectedGroupIds={effectiveGroupIds ?? []}
+              basePath={`/share/${token}`}
+              hidePrint
+            />
+          ) : (
+            <BaReportFilters
+              eventId={link.eventId}
+              groups={groupChoices}
+              selectedGroupIds={effectiveGroupIds ?? []}
+              basePath={`/share/${token}`}
+              hidePrint
+            />
+          )
+        )}
+        {isGrid ? (
+          <BreakoutGridReport data={data} />
+        ) : (
+          <BreakoutAssignmentsReport data={data} />
+        )}
       </ShareShell>
     );
   }

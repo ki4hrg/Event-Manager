@@ -1,7 +1,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
-import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getRoomScheduleData, getFunctionDetailData } from "@/app/events/reports/actions";
+import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
@@ -10,6 +10,8 @@ import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/Ve
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
+import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
+import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 
@@ -305,6 +307,49 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
           serviceStyles={serviceStyles}
           setupTypes={setupTypes}
         />
+      </div>
+    );
+  }
+
+  if (link.reportType === "BREAKOUT_GRID") {
+    const effectiveGroupIds = link.filtersLocked
+      ? storedFilters.breakoutGroupIds
+      : (getString(sp.groups)?.split(",").filter(Boolean) ?? storedFilters.breakoutGroupIds);
+
+    const data = await getBreakoutScheduleData(link.eventId, {
+      groupIds: effectiveGroupIds && effectiveGroupIds.length > 0 ? effectiveGroupIds : undefined,
+    });
+    if (!data) notFound();
+
+    return (
+      <>
+        <style>{`@page { size: landscape; margin: 0.5in; }`}</style>
+        <div className="p-6 max-w-none mx-auto print:p-0">
+          <PrintHeader eventName={link.event.name} title="Breakout Grid" backHref={backHref} />
+          <BreakoutGridReport data={data} />
+        </div>
+      </>
+    );
+  }
+
+  if (link.reportType === "BREAKOUT_ASSIGNMENTS") {
+    const effectiveGroupIds = link.filtersLocked
+      ? storedFilters.breakoutGroupIds
+      : (getString(sp.groups)?.split(",").filter(Boolean) ?? storedFilters.breakoutGroupIds);
+
+    const data = await getBreakoutScheduleData(link.eventId, {
+      groupIds: effectiveGroupIds && effectiveGroupIds.length > 0 ? effectiveGroupIds : undefined,
+    });
+    if (!data) notFound();
+
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <PrintHeader
+          eventName={link.event.name}
+          title="Breakout Assignments"
+          backHref={backHref}
+        />
+        <BreakoutAssignmentsReport data={data} />
       </div>
     );
   }
