@@ -330,6 +330,23 @@ export default async function FunctionPage({
               breakoutGroups={fn.type === "BREAKOUT_BLOCK" ? breakoutGroups : undefined}
             />
           </div>
+          <ContactList
+            contacts={fn.contacts}
+            addContact={addContactAction}
+            updateContact={updateContactAction}
+            removeContact={removeContactAction}
+            searchContacts={searchContactsAction}
+            createContact={createContactAction}
+          />
+          <WorkflowPanel
+            instances={workflowInstances}
+            availableTemplates={availableWorkflowTemplates}
+            entityStatus={fn.status ?? null}
+            assignWorkflow={assignWorkflowAction}
+            removeWorkflow={removeWorkflowAction}
+            toggleStep={toggleStepAction}
+            toggleItem={toggleItemAction}
+          />
         </div>
 
         <div className="lg:col-span-2 space-y-8">
@@ -341,14 +358,6 @@ export default async function FunctionPage({
             createSchedule={createScheduleAction}
             updateSchedule={updateScheduleAction}
             deleteSchedule={deleteScheduleAction}
-          />
-          <ContactList
-            contacts={fn.contacts}
-            addContact={addContactAction}
-            updateContact={updateContactAction}
-            removeContact={removeContactAction}
-            searchContacts={searchContactsAction}
-            createContact={createContactAction}
           />
           <AVOrderPanel
             title="AV Orders"
@@ -392,15 +401,6 @@ export default async function FunctionPage({
             newMediaOrderPath={`/events/${eventId}/media-orders/new?functionId=${functionId}`}
             linkMediaOrder={linkMediaOrderAction}
             unlinkMediaOrder={unlinkMediaOrderAction}
-          />
-          <WorkflowPanel
-            instances={workflowInstances}
-            availableTemplates={availableWorkflowTemplates}
-            entityStatus={fn.status ?? null}
-            assignWorkflow={assignWorkflowAction}
-            removeWorkflow={removeWorkflowAction}
-            toggleStep={toggleStepAction}
-            toggleItem={toggleItemAction}
           />
         </div>
       </div>

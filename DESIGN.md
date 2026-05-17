@@ -26,6 +26,8 @@ The left column should be used for generally static summary and metadata-type in
 
 Additional cards may be used for similar information like contacts, vendors, workflows, etc.
 
+**Contacts and Workflows always live in the left column** across every detail page that has them (orders, functions, etc.). They are the last two cards in the left column, in that order, with Workflows at the bottom and Contacts directly above it. Model-specific cards appear above this pair.
+
 #### Right Column
 The right column should be used for more dynamic "working" content. An example here is the SetupOrder model, where the right column shows details like:
 
@@ -47,9 +49,10 @@ The page header shows: record name, entity status badge (Pending / In Progress /
 ### Left Column (col-span-1)
 - **Details Card**: Name, Status (interactive EntityStatusPanel), Notes, Vendor(s)
 - **Linked Function(s) card**: Functions associated with this order; rendered as a standalone card, not embedded inside the Details Card
+- **Contacts card** (when the order type supports order-level contacts): positioned directly above the Workflows card
 - **Workflows card**: Workflow instances with step/checklist progress
 
-Model-specific additions to the left column (e.g., Linked Presentation for AVOrder, Guest Counts for CateringOrder) appear below the Linked Function(s) card and above the Workflows card.
+Model-specific additions to the left column (e.g., Linked Presentation for AVOrder, Guest Counts for CateringOrder) appear below the Linked Function(s) card and above the Contacts/Workflows pair. See "Standard Page Layout > Left Column" for the cross-cutting Contacts/Workflows rule.
 
 ### Right Column (col-span-2)
 Model-specific working content. See each model's section under Critical Information for specifics.
@@ -142,6 +145,10 @@ Critical info varies by function subtype, but the following apply to all functio
 * Linked Orders (Catering, Setup, A/V) — summary with link to each
 
 For function subtypes with minimal bespoke data (e.g., office, registration, exhibits), the linked orders surface most of the working detail. For subtypes with richer bespoke structure (e.g., Breakout sessions), the overview should surface subtype-specific fields and the layout may differ from the standard two-column model.
+
+#### Layout
+- **Left column**: Details Card (name, type, room, schedule fields), Contacts card, Workflows card
+- **Right column**: Schedule list, then linked-order panels (AV, Catering, Setup, Print, Media)
 
 ### Presentation Model
 * Presentation Title
