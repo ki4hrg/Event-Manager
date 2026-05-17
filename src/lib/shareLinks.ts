@@ -7,6 +7,7 @@ export type ShareLinkFilters = {
   vendorId?: string;
   days?: string[];
   sections?: string[];
+  scheduleTypes?: string[];
   rooms?: string[];
   functionIds?: string[];
   breakoutGroupIds?: string[];

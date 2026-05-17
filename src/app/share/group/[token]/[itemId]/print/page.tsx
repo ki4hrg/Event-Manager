@@ -19,6 +19,7 @@ import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/Ve
 import {
   EventProfileReport,
   PROFILE_SECTIONS,
+  resolveScheduleTypeFilter,
   type ProfileSection,
 } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
@@ -180,6 +181,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
     case "EVENT_PROFILE": {
       const daysParam = getString(sp.days);
       const sectionsParam = getString(sp.sections);
+      const scheduleTypesParam = getString(sp.scheduleTypes);
       const days = item.filtersLocked
         ? stored.days
         : daysParam
@@ -190,11 +192,20 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         : sectionsParam
           ? sectionsParam.split(",").filter(Boolean)
           : stored.sections;
+      const scheduleTypesExplicit = item.filtersLocked
+        ? stored.scheduleTypes !== undefined
+        : scheduleTypesParam !== undefined || stored.scheduleTypes !== undefined;
+      const rawScheduleTypes = item.filtersLocked
+        ? stored.scheduleTypes
+        : scheduleTypesParam !== undefined
+          ? scheduleTypesParam.split(",").filter(Boolean)
+          : stored.scheduleTypes;
 
-      const [event, data, functionTypes, serviceStyles] = await Promise.all([
+      const [event, data, functionTypes, scheduleTypes, serviceStyles] = await Promise.all([
         getEvent(eventId),
         getEventProfileData(eventId, { days: days && days.length > 0 ? days : undefined }),
         getOptions("function_type"),
+        getOptions("schedule_type"),
         getOptions("service_style"),
       ]);
 
@@ -205,14 +216,22 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         validSectionValues.has(s as ProfileSection),
       ) as ProfileSection[];
 
+      const selectedScheduleTypes = resolveScheduleTypeFilter(
+        scheduleTypes,
+        rawScheduleTypes,
+        scheduleTypesExplicit,
+      );
+
       return (
         <div className="p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <EventProfileReport
             data={data}
             functionTypes={functionTypes}
+            scheduleTypes={scheduleTypes}
             serviceStyles={serviceStyles}
             selectedSections={validSections}
+            selectedScheduleTypes={selectedScheduleTypes}
           />
         </div>
       );

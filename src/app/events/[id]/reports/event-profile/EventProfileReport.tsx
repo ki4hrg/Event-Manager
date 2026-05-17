@@ -19,14 +19,33 @@ export const PROFILE_SECTIONS = [
 
 export type ProfileSection = (typeof PROFILE_SECTIONS)[number]["value"];
 
+// Sentinels for entries auto-created outside the schedule form (agenda quick-add → "MAIN",
+// function form's initial entry → "SESSION"). Not real schedule_type CustomOptions, but
+// they represent the function's "main occurrence", so the default filter and the valid
+// set both include them.
+export const MAIN_SCHEDULE_TYPES = ["Main Event", "MAIN", "SESSION"] as const;
+
+export function resolveScheduleTypeFilter(
+  scheduleTypes: { label: string }[],
+  raw: string[] | undefined,
+  explicit: boolean
+): string[] {
+  const valid = new Set<string>([...scheduleTypes.map((t) => t.label), ...MAIN_SCHEDULE_TYPES]);
+  if (!explicit) return MAIN_SCHEDULE_TYPES.slice();
+  return (raw ?? []).filter((t) => valid.has(t));
+}
+
 type Props = {
   data: EventProfileData;
   functionTypes: CustomOption[];
+  scheduleTypes: CustomOption[];
   serviceStyles: CustomOption[];
   selectedSections?: ProfileSection[];
+  selectedScheduleTypes: string[];
 };
 
 type FunctionRow = EventProfileData["functions"][number];
+type ScheduleRow = FunctionRow["schedules"][number];
 type BreakoutGroupRow = EventProfileData["breakoutGroups"][number];
 type BreakoutBlockRow = BreakoutGroupRow["functions"][number];
 type CateringOrderRow = EventProfileData["cateringOrders"][number];
@@ -60,28 +79,34 @@ function contactDisplayName(c: { firstName: string; lastName: string }): string 
   return `${c.firstName} ${c.lastName}`.trim();
 }
 
-function groupFunctionsByDay(
+type ScheduleEntry = { fn: FunctionRow; schedule: ScheduleRow };
+
+function groupScheduleEntriesByDay(
   functions: FunctionRow[],
+  selectedScheduleTypes: string[],
   timezone: string
-): { dated: Map<string, FunctionRow[]>; unscheduled: FunctionRow[] } {
-  const dated = new Map<string, FunctionRow[]>();
+): { dated: Map<string, ScheduleEntry[]>; unscheduled: FunctionRow[] } {
+  const dated = new Map<string, ScheduleEntry[]>();
   const unscheduled: FunctionRow[] = [];
+  const filterSet = new Set(selectedScheduleTypes);
+  const filterActive = filterSet.size > 0;
+
   for (const fn of functions) {
-    const start = earliestStart(fn);
-    if (!start) {
+    if (fn.schedules.length === 0) {
       unscheduled.push(fn);
       continue;
     }
-    const key = getDateKeyInTimezone(start, timezone);
-    if (!dated.has(key)) dated.set(key, []);
-    dated.get(key)!.push(fn);
+    const matching = filterActive
+      ? fn.schedules.filter((s) => filterSet.has(s.type))
+      : fn.schedules;
+    for (const schedule of matching) {
+      const key = getDateKeyInTimezone(schedule.startTime, timezone);
+      if (!dated.has(key)) dated.set(key, []);
+      dated.get(key)!.push({ fn, schedule });
+    }
   }
-  Array.from(dated.values()).forEach((fns) => {
-    fns.sort((a, b) => {
-      const aT = earliestStart(a)?.getTime() ?? 0;
-      const bT = earliestStart(b)?.getTime() ?? 0;
-      return aT - bT;
-    });
+  Array.from(dated.values()).forEach((entries) => {
+    entries.sort((a, b) => a.schedule.startTime.getTime() - b.schedule.startTime.getTime());
   });
   return { dated, unscheduled };
 }
@@ -105,17 +130,88 @@ function effectiveRoomsForBlock(
   return Array.from(byId.values());
 }
 
-function FunctionCard({
+function ScheduleEntryCard({
   fn,
+  schedule,
+  anchorId,
   timezone,
+  functionTypes,
+  scheduleTypes,
+}: {
+  fn: FunctionRow;
+  schedule: ScheduleRow;
+  anchorId: string;
+  timezone: string;
+  functionTypes: CustomOption[];
+  scheduleTypes: CustomOption[];
+}) {
+  const fnTypeLabel = resolveOptionLabel(fn.type, functionTypes) || fn.type;
+  const scheduleTypeLabel = resolveOptionLabel(schedule.type, scheduleTypes) || schedule.type;
+  return (
+    <div
+      id={anchorId}
+      className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 scroll-mt-24 print:break-inside-avoid"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">{fn.name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            {fnTypeLabel}
+            {fn.description ? ` · ${fn.description}` : ""}
+          </p>
+        </div>
+        <div className="shrink-0">
+          <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
+        </div>
+      </div>
+      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+        <dt className="text-gray-500 dark:text-gray-400">{scheduleTypeLabel}</dt>
+        <dd className="text-gray-900 dark:text-gray-100">
+          {formatTimeRange(schedule.startTime, schedule.endTime, timezone)}
+        </dd>
+        <dt className="text-gray-500 dark:text-gray-400">Room</dt>
+        <dd className="text-gray-900 dark:text-gray-100">{fnRoomsLabel(fn)}</dd>
+        {fn.contacts.length > 0 && (
+          <>
+            <dt className="text-gray-500 dark:text-gray-400">Contacts</dt>
+            <dd className="text-gray-900 dark:text-gray-100">
+              <ul className="space-y-0.5">
+                {fn.contacts.map((fc) => (
+                  <li key={fc.contact.id}>
+                    {contactDisplayName(fc.contact)}
+                    {fc.role && <span className="text-gray-500 dark:text-gray-400"> — {fc.role}</span>}
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
+        {schedule.notes && (
+          <>
+            <dt className="text-gray-500 dark:text-gray-400">Schedule notes</dt>
+            <dd className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{schedule.notes}</dd>
+          </>
+        )}
+        {fn.notes && (
+          <>
+            <dt className="text-gray-500 dark:text-gray-400">Notes</dt>
+            <dd className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{fn.notes}</dd>
+          </>
+        )}
+      </dl>
+    </div>
+  );
+}
+
+function UnscheduledFunctionCard({
+  fn,
+  timezone: _timezone,
   functionTypes,
 }: {
   fn: FunctionRow;
   timezone: string;
   functionTypes: CustomOption[];
 }) {
-  const start = earliestStart(fn);
-  const end = latestEnd(fn);
   const typeLabel = resolveOptionLabel(fn.type, functionTypes) || fn.type;
   return (
     <div
@@ -136,7 +232,7 @@ function FunctionCard({
       </div>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
         <dt className="text-gray-500 dark:text-gray-400">Time</dt>
-        <dd className="text-gray-900 dark:text-gray-100">{formatTimeRange(start, end, timezone)}</dd>
+        <dd className="text-gray-900 dark:text-gray-100">Unscheduled</dd>
         <dt className="text-gray-500 dark:text-gray-400">Room</dt>
         <dd className="text-gray-900 dark:text-gray-100">{fnRoomsLabel(fn)}</dd>
         {fn.contacts.length > 0 && (
@@ -537,7 +633,14 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
   );
 }
 
-export function EventProfileReport({ data, functionTypes, serviceStyles, selectedSections }: Props) {
+export function EventProfileReport({
+  data,
+  functionTypes,
+  scheduleTypes,
+  serviceStyles,
+  selectedSections,
+  selectedScheduleTypes,
+}: Props) {
   const { event, venue, keyStaff, functions, breakoutGroups, cateringOrders, printOrders, timezone } = data;
   const active = new Set<ProfileSection>(
     selectedSections && selectedSections.length > 0
@@ -545,8 +648,25 @@ export function EventProfileReport({ data, functionTypes, serviceStyles, selecte
       : (PROFILE_SECTIONS.map((s) => s.value) as ProfileSection[])
   );
 
-  const { dated, unscheduled } = groupFunctionsByDay(functions, timezone);
+  const { dated, unscheduled } = groupScheduleEntriesByDay(
+    functions,
+    selectedScheduleTypes,
+    timezone
+  );
   const sortedDateKeys = Array.from(dated.keys()).sort();
+  const firstAnchorByFunction = new Map<string, string>();
+  for (const dateKey of sortedDateKeys) {
+    for (const entry of dated.get(dateKey)!) {
+      if (!firstAnchorByFunction.has(entry.fn.id)) {
+        firstAnchorByFunction.set(entry.fn.id, `entry-${entry.schedule.id}`);
+      }
+    }
+  }
+  for (const fn of unscheduled) {
+    if (!firstAnchorByFunction.has(fn.id)) {
+      firstAnchorByFunction.set(fn.id, `function-${fn.id}`);
+    }
+  }
 
   const navSections: { id: string; label: string }[] = [{ id: "summary", label: "Summary" }];
   if (active.has("contacts")) navSections.push({ id: "key-contacts", label: "Key Contacts" });
@@ -559,7 +679,12 @@ export function EventProfileReport({ data, functionTypes, serviceStyles, selecte
   if (active.has("schedule") && functions.length > 0) {
     itemGroups.push({
       label: "Functions",
-      links: functions.map((fn) => ({ id: `function-${fn.id}`, label: fn.name })),
+      links: functions
+        .filter((fn) => firstAnchorByFunction.has(fn.id))
+        .map((fn) => ({
+          id: firstAnchorByFunction.get(fn.id)!,
+          label: fn.name,
+        })),
     });
   }
   if (active.has("breakouts") && breakoutGroups.length > 0) {
@@ -591,7 +716,9 @@ export function EventProfileReport({ data, functionTypes, serviceStyles, selecte
     return start === end ? start : `${start} – ${end}`;
   })();
 
-  const totalScheduleEntries = functions.length + unscheduled.length;
+  const totalScheduleEntries =
+    sortedDateKeys.reduce((sum, key) => sum + (dated.get(key)?.length ?? 0), 0) +
+    unscheduled.length;
   const hasAny =
     keyStaff.length > 0 ||
     venue ||
@@ -645,8 +772,16 @@ export function EventProfileReport({ data, functionTypes, serviceStyles, selecte
                   {formatDateHeading(dateKey, timezone)}
                 </h3>
                 <div className="space-y-2">
-                  {dated.get(dateKey)!.map((fn) => (
-                    <FunctionCard key={fn.id} fn={fn} timezone={timezone} functionTypes={functionTypes} />
+                  {dated.get(dateKey)!.map((entry) => (
+                    <ScheduleEntryCard
+                      key={entry.schedule.id}
+                      fn={entry.fn}
+                      schedule={entry.schedule}
+                      anchorId={`entry-${entry.schedule.id}`}
+                      timezone={timezone}
+                      functionTypes={functionTypes}
+                      scheduleTypes={scheduleTypes}
+                    />
                   ))}
                 </div>
               </div>
@@ -656,7 +791,12 @@ export function EventProfileReport({ data, functionTypes, serviceStyles, selecte
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-800 mb-2">Unscheduled</h3>
                 <div className="space-y-2">
                   {unscheduled.map((fn) => (
-                    <FunctionCard key={fn.id} fn={fn} timezone={timezone} functionTypes={functionTypes} />
+                    <UnscheduledFunctionCard
+                      key={fn.id}
+                      fn={fn}
+                      timezone={timezone}
+                      functionTypes={functionTypes}
+                    />
                   ))}
                 </div>
               </div>

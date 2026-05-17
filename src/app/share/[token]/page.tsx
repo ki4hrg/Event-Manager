@@ -6,7 +6,7 @@ import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
-import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
+import { EventProfileReport, PROFILE_SECTIONS, resolveScheduleTypeFilter, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
@@ -169,19 +169,29 @@ export default async function SharePage({ params, searchParams }: PageProps) {
   if (link.reportType === "EVENT_PROFILE") {
     let effectiveDays: string[] | undefined;
     let effectiveSections: string[] | undefined;
+    let effectiveScheduleTypes: string[] | undefined;
+    let scheduleTypesExplicit = false;
 
     if (link.filtersLocked) {
       effectiveDays = storedFilters.days;
       effectiveSections = storedFilters.sections;
+      effectiveScheduleTypes = storedFilters.scheduleTypes;
+      scheduleTypesExplicit = storedFilters.scheduleTypes !== undefined;
     } else {
       const daysParam = getString(sp.days);
       const sectionsParam = getString(sp.sections);
+      const scheduleTypesParam = getString(sp.scheduleTypes);
       effectiveDays = daysParam
         ? daysParam.split(",").filter(Boolean)
         : storedFilters.days;
       effectiveSections = sectionsParam
         ? sectionsParam.split(",").filter(Boolean)
         : storedFilters.sections;
+      scheduleTypesExplicit =
+        scheduleTypesParam !== undefined || storedFilters.scheduleTypes !== undefined;
+      effectiveScheduleTypes = scheduleTypesParam !== undefined
+        ? scheduleTypesParam.split(",").filter(Boolean)
+        : storedFilters.scheduleTypes;
     }
 
     const event = await getEvent(link.eventId);
@@ -192,11 +202,12 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
     }
 
-    const [data, functionTypes, serviceStyles] = await Promise.all([
+    const [data, functionTypes, scheduleTypes, serviceStyles] = await Promise.all([
       getEventProfileData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
       }),
       getOptions("function_type"),
+      getOptions("schedule_type"),
       getOptions("service_style"),
     ]);
 
@@ -207,10 +218,21 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       validSectionValues.has(s as ProfileSection)
     ) as ProfileSection[];
 
+    const selectedScheduleTypes = resolveScheduleTypeFilter(
+      scheduleTypes,
+      effectiveScheduleTypes,
+      scheduleTypesExplicit,
+    );
+
     const printParams = new URLSearchParams();
     if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
     if (effectiveSections?.length) printParams.set("sections", effectiveSections.join(","));
+    if (scheduleTypesExplicit) {
+      printParams.set("scheduleTypes", selectedScheduleTypes.join(","));
+    }
     const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
+
+    const scheduleTypeOptions = scheduleTypes.map((t) => ({ value: t.label, label: t.label }));
 
     return (
       <ShareShell
@@ -223,8 +245,10 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           <EpReportFilters
             eventId={link.eventId}
             days={dayOptions}
+            scheduleTypeOptions={scheduleTypeOptions}
             selectedDays={effectiveDays ?? []}
             selectedSections={effectiveSections ?? []}
+            selectedScheduleTypes={selectedScheduleTypes}
             basePath={`/share/${token}`}
             hidePrint
           />
@@ -232,8 +256,10 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         <EventProfileReport
           data={data}
           functionTypes={functionTypes}
+          scheduleTypes={scheduleTypes}
           serviceStyles={serviceStyles}
           selectedSections={validSections}
+          selectedScheduleTypes={selectedScheduleTypes}
         />
       </ShareShell>
     );
