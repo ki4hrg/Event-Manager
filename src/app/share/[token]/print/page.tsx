@@ -178,28 +178,35 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
   if (link.reportType === "EVENT_PROFILE") {
     let effectiveDays: string[] | undefined;
     let effectiveSections: string[] | undefined;
+    let effectiveTypes: string[] | undefined;
 
     if (link.filtersLocked) {
       effectiveDays = storedFilters.days;
       effectiveSections = storedFilters.sections;
+      effectiveTypes = storedFilters.types;
     } else {
       const daysParam = getString(sp.days);
       const sectionsParam = getString(sp.sections);
+      const typesParam = getString(sp.types);
       effectiveDays = daysParam
         ? daysParam.split(",").filter(Boolean)
         : storedFilters.days;
       effectiveSections = sectionsParam
         ? sectionsParam.split(",").filter(Boolean)
         : storedFilters.sections;
+      effectiveTypes = typesParam
+        ? typesParam.split(",").filter(Boolean)
+        : storedFilters.types;
     }
 
-    const [event, data, functionTypes, serviceStyles] = await Promise.all([
+    const [event, data, serviceStyles, scheduleTypes] = await Promise.all([
       getEvent(link.eventId),
       getEventProfileData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
+        types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
       }),
-      getOptions("function_type"),
       getOptions("service_style"),
+      getOptions("schedule_type"),
     ]);
 
     if (!event || !data) notFound();
@@ -214,8 +221,8 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
         <PrintHeader eventName={link.event.name} title="Event Profile" backHref={backHref} />
         <EventProfileReport
           data={data}
-          functionTypes={functionTypes}
           serviceStyles={serviceStyles}
+          scheduleTypes={scheduleTypes}
           selectedSections={validSections}
         />
       </div>

@@ -169,19 +169,25 @@ export default async function SharePage({ params, searchParams }: PageProps) {
   if (link.reportType === "EVENT_PROFILE") {
     let effectiveDays: string[] | undefined;
     let effectiveSections: string[] | undefined;
+    let effectiveTypes: string[] | undefined;
 
     if (link.filtersLocked) {
       effectiveDays = storedFilters.days;
       effectiveSections = storedFilters.sections;
+      effectiveTypes = storedFilters.types;
     } else {
       const daysParam = getString(sp.days);
       const sectionsParam = getString(sp.sections);
+      const typesParam = getString(sp.types);
       effectiveDays = daysParam
         ? daysParam.split(",").filter(Boolean)
         : storedFilters.days;
       effectiveSections = sectionsParam
         ? sectionsParam.split(",").filter(Boolean)
         : storedFilters.sections;
+      effectiveTypes = typesParam
+        ? typesParam.split(",").filter(Boolean)
+        : storedFilters.types;
     }
 
     const event = await getEvent(link.eventId);
@@ -192,24 +198,32 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
     }
 
-    const [data, functionTypes, serviceStyles] = await Promise.all([
+    const [data, serviceStyles, scheduleTypes] = await Promise.all([
       getEventProfileData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
+        types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
       }),
-      getOptions("function_type"),
       getOptions("service_style"),
+      getOptions("schedule_type"),
     ]);
 
     if (!data) notFound();
+
+    if (!link.filtersLocked) {
+      effectiveTypes = intersect(effectiveTypes, new Set(scheduleTypes.map((t) => t.label)));
+    }
 
     const validSectionValues = new Set(PROFILE_SECTIONS.map((s) => s.value));
     const validSections = (effectiveSections ?? []).filter((s) =>
       validSectionValues.has(s as ProfileSection)
     ) as ProfileSection[];
 
+    const typeOptions = scheduleTypes.map((t) => ({ value: t.label, label: t.label }));
+
     const printParams = new URLSearchParams();
     if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
     if (effectiveSections?.length) printParams.set("sections", effectiveSections.join(","));
+    if (effectiveTypes?.length) printParams.set("types", effectiveTypes.join(","));
     const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
 
     return (
@@ -223,16 +237,18 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           <EpReportFilters
             eventId={link.eventId}
             days={dayOptions}
+            scheduleTypes={typeOptions}
             selectedDays={effectiveDays ?? []}
             selectedSections={effectiveSections ?? []}
+            selectedTypes={effectiveTypes ?? []}
             basePath={`/share/${token}`}
             hidePrint
           />
         )}
         <EventProfileReport
           data={data}
-          functionTypes={functionTypes}
           serviceStyles={serviceStyles}
+          scheduleTypes={scheduleTypes}
           selectedSections={validSections}
         />
       </ShareShell>

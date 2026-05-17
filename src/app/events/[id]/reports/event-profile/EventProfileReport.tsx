@@ -1,7 +1,8 @@
 import type { CustomOption } from "@prisma/client";
 import type { EventProfileData } from "@/app/events/reports/actions";
 import { getDateKeyInTimezone, formatDateHeading, formatTime } from "@/lib/agendaUtils";
-import { resolveOptionLabel } from "@/lib/optionUtils";
+import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
+import { colorClasses } from "@/lib/colors";
 import { formatPhone } from "@/lib/format-phone";
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
@@ -21,17 +22,17 @@ export type ProfileSection = (typeof PROFILE_SECTIONS)[number]["value"];
 
 type Props = {
   data: EventProfileData;
-  functionTypes: CustomOption[];
   serviceStyles: CustomOption[];
+  scheduleTypes: CustomOption[];
   selectedSections?: ProfileSection[];
 };
 
-type FunctionRow = EventProfileData["functions"][number];
 type BreakoutGroupRow = EventProfileData["breakoutGroups"][number];
 type BreakoutBlockRow = BreakoutGroupRow["functions"][number];
 type CateringOrderRow = EventProfileData["cateringOrders"][number];
 type PrintOrderRow = EventProfileData["printOrders"][number];
 type KeyStaffRow = EventProfileData["keyStaff"][number];
+type ScheduleItemRow = EventProfileData["scheduleItems"][number];
 
 function earliestStart(fn: { schedules: { startTime: Date }[] }): Date | null {
   if (fn.schedules.length === 0) return null;
@@ -50,7 +51,10 @@ function formatTimeRange(start: Date | null, end: Date | null, timezone: string)
   return endStr ? `${startStr} – ${endStr}` : startStr;
 }
 
-function fnRoomsLabel(fn: FunctionRow): string {
+function fnRoomsLabel(fn: {
+  rooms: { room: { name: string } }[];
+  offSiteLocation: string | null;
+}): string {
   if (fn.rooms.length > 0) return fn.rooms.map((r) => r.room.name).join(", ");
   if (fn.offSiteLocation) return `Off-site: ${fn.offSiteLocation}`;
   return "—";
@@ -60,30 +64,20 @@ function contactDisplayName(c: { firstName: string; lastName: string }): string 
   return `${c.firstName} ${c.lastName}`.trim();
 }
 
-function groupFunctionsByDay(
-  functions: FunctionRow[],
+function groupScheduleItemsByDay(
+  items: ScheduleItemRow[],
   timezone: string
-): { dated: Map<string, FunctionRow[]>; unscheduled: FunctionRow[] } {
-  const dated = new Map<string, FunctionRow[]>();
-  const unscheduled: FunctionRow[] = [];
-  for (const fn of functions) {
-    const start = earliestStart(fn);
-    if (!start) {
-      unscheduled.push(fn);
-      continue;
-    }
-    const key = getDateKeyInTimezone(start, timezone);
+): Map<string, ScheduleItemRow[]> {
+  const dated = new Map<string, ScheduleItemRow[]>();
+  for (const item of items) {
+    const key = getDateKeyInTimezone(item.startTime, timezone);
     if (!dated.has(key)) dated.set(key, []);
-    dated.get(key)!.push(fn);
+    dated.get(key)!.push(item);
   }
-  Array.from(dated.values()).forEach((fns) => {
-    fns.sort((a, b) => {
-      const aT = earliestStart(a)?.getTime() ?? 0;
-      const bT = earliestStart(b)?.getTime() ?? 0;
-      return aT - bT;
-    });
+  dated.forEach((items) => {
+    items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   });
-  return { dated, unscheduled };
+  return dated;
 }
 
 function effectiveRoomsForBlock(
@@ -105,63 +99,67 @@ function effectiveRoomsForBlock(
   return Array.from(byId.values());
 }
 
-function FunctionCard({
-  fn,
+function ScheduleItemCard({
+  item,
   timezone,
-  functionTypes,
+  scheduleTypes,
+  attachFunctionAnchor,
 }: {
-  fn: FunctionRow;
+  item: ScheduleItemRow;
   timezone: string;
-  functionTypes: CustomOption[];
+  scheduleTypes: CustomOption[];
+  attachFunctionAnchor: boolean;
 }) {
-  const start = earliestStart(fn);
-  const end = latestEnd(fn);
-  const typeLabel = resolveOptionLabel(fn.type, functionTypes) || fn.type;
+  const fn = item.function;
+  const typeLabel = resolveOptionLabel(item.type, scheduleTypes) || item.type;
+  const typeColor = resolveOptionColor(item.type, scheduleTypes);
+  const badgeClass = colorClasses[typeColor] ?? colorClasses.gray;
+  const fnName = fn.name || fn.type || "Unnamed Function";
   return (
-    <div
-      id={`function-${fn.id}`}
-      className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 scroll-mt-24 print:break-inside-avoid"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">{fn.name}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {typeLabel}
-            {fn.description ? ` · ${fn.description}` : ""}
-          </p>
+    <>
+      {attachFunctionAnchor && (
+        <div id={`function-${fn.id}`} className="scroll-mt-24" aria-hidden />
+      )}
+      <div
+        id={`schedule-item-${item.id}`}
+        className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 scroll-mt-24 print:break-inside-avoid"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              {item.type && (
+                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${badgeClass}`}>
+                  {typeLabel}
+                </span>
+              )}
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {formatTimeRange(item.startTime, item.endTime, timezone)}
+              </p>
+              {item.isPublic && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">Public</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+              <span className="text-gray-500 dark:text-gray-400">Function: </span>
+              {fnName}
+            </p>
+          </div>
+          <div className="shrink-0">
+            <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
+          </div>
         </div>
-        <div className="shrink-0">
-          <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
-        </div>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+          <dt className="text-gray-500 dark:text-gray-400">Room</dt>
+          <dd className="text-gray-900 dark:text-gray-100">{fnRoomsLabel(fn)}</dd>
+          {item.notes && (
+            <>
+              <dt className="text-gray-500 dark:text-gray-400">Notes</dt>
+              <dd className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{item.notes}</dd>
+            </>
+          )}
+        </dl>
       </div>
-      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-        <dt className="text-gray-500 dark:text-gray-400">Time</dt>
-        <dd className="text-gray-900 dark:text-gray-100">{formatTimeRange(start, end, timezone)}</dd>
-        <dt className="text-gray-500 dark:text-gray-400">Room</dt>
-        <dd className="text-gray-900 dark:text-gray-100">{fnRoomsLabel(fn)}</dd>
-        {fn.contacts.length > 0 && (
-          <>
-            <dt className="text-gray-500 dark:text-gray-400">Contacts</dt>
-            <dd className="text-gray-900 dark:text-gray-100">
-              <ul className="space-y-0.5">
-                {fn.contacts.map((fc) => (
-                  <li key={fc.contact.id}>
-                    {contactDisplayName(fc.contact)}
-                    {fc.role && <span className="text-gray-500 dark:text-gray-400"> — {fc.role}</span>}
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          </>
-        )}
-        {fn.notes && (
-          <>
-            <dt className="text-gray-500 dark:text-gray-400">Notes</dt>
-            <dd className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{fn.notes}</dd>
-          </>
-        )}
-      </dl>
-    </div>
+    </>
   );
 }
 
@@ -537,31 +535,25 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
   );
 }
 
-export function EventProfileReport({ data, functionTypes, serviceStyles, selectedSections }: Props) {
-  const { event, venue, keyStaff, functions, breakoutGroups, cateringOrders, printOrders, timezone } = data;
+export function EventProfileReport({ data, serviceStyles, scheduleTypes, selectedSections }: Props) {
+  const { event, venue, keyStaff, breakoutGroups, cateringOrders, printOrders, scheduleItems, timezone } = data;
   const active = new Set<ProfileSection>(
     selectedSections && selectedSections.length > 0
       ? selectedSections
       : (PROFILE_SECTIONS.map((s) => s.value) as ProfileSection[])
   );
 
-  const { dated, unscheduled } = groupFunctionsByDay(functions, timezone);
-  const sortedDateKeys = Array.from(dated.keys()).sort();
+  const scheduleByDay = groupScheduleItemsByDay(scheduleItems, timezone);
+  const sortedDateKeys = Array.from(scheduleByDay.keys()).sort();
 
   const navSections: { id: string; label: string }[] = [{ id: "summary", label: "Summary" }];
   if (active.has("contacts")) navSections.push({ id: "key-contacts", label: "Key Contacts" });
-  if (active.has("schedule") && (functions.length > 0)) navSections.push({ id: "function-schedule", label: "Schedule" });
+  if (active.has("schedule") && scheduleItems.length > 0) navSections.push({ id: "function-schedule", label: "Schedule" });
   if (active.has("breakouts") && breakoutGroups.length > 0) navSections.push({ id: "breakout-schedule", label: "Breakouts" });
   if (active.has("catering") && cateringOrders.length > 0) navSections.push({ id: "catering", label: "Catering" });
   if (active.has("print") && printOrders.length > 0) navSections.push({ id: "print-orders", label: "Print" });
 
   const itemGroups = [];
-  if (active.has("schedule") && functions.length > 0) {
-    itemGroups.push({
-      label: "Functions",
-      links: functions.map((fn) => ({ id: `function-${fn.id}`, label: fn.name })),
-    });
-  }
   if (active.has("breakouts") && breakoutGroups.length > 0) {
     itemGroups.push({
       label: "Breakout groups",
@@ -591,11 +583,10 @@ export function EventProfileReport({ data, functionTypes, serviceStyles, selecte
     return start === end ? start : `${start} – ${end}`;
   })();
 
-  const totalScheduleEntries = functions.length + unscheduled.length;
   const hasAny =
     keyStaff.length > 0 ||
     venue ||
-    totalScheduleEntries > 0 ||
+    scheduleItems.length > 0 ||
     breakoutGroups.length > 0 ||
     cateringOrders.length > 0 ||
     printOrders.length > 0;
@@ -635,32 +626,35 @@ export function EventProfileReport({ data, functionTypes, serviceStyles, selecte
         </section>
       )}
 
-      {active.has("schedule") && totalScheduleEntries > 0 && (
+      {active.has("schedule") && scheduleItems.length > 0 && (
         <section>
           <SectionDivider id="function-schedule" title="Schedule" />
           <div className="mt-3 space-y-5">
-            {sortedDateKeys.map((dateKey) => (
-              <div key={dateKey}>
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-800 mb-2">
-                  {formatDateHeading(dateKey, timezone)}
-                </h3>
-                <div className="space-y-2">
-                  {dated.get(dateKey)!.map((fn) => (
-                    <FunctionCard key={fn.id} fn={fn} timezone={timezone} functionTypes={functionTypes} />
-                  ))}
+            {sortedDateKeys.map((dateKey) => {
+              const seenFunctionIds = new Set<string>();
+              return (
+                <div key={dateKey}>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-800 mb-2">
+                    {formatDateHeading(dateKey, timezone)}
+                  </h3>
+                  <div className="space-y-2">
+                    {scheduleByDay.get(dateKey)!.map((item) => {
+                      const attachAnchor = !seenFunctionIds.has(item.function.id);
+                      seenFunctionIds.add(item.function.id);
+                      return (
+                        <ScheduleItemCard
+                          key={item.id}
+                          item={item}
+                          timezone={timezone}
+                          scheduleTypes={scheduleTypes}
+                          attachFunctionAnchor={attachAnchor}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {unscheduled.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 print:text-gray-800 mb-2">Unscheduled</h3>
-                <div className="space-y-2">
-                  {unscheduled.map((fn) => (
-                    <FunctionCard key={fn.id} fn={fn} timezone={timezone} functionTypes={functionTypes} />
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })}
           </div>
         </section>
       )}
