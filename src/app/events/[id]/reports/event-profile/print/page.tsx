@@ -3,12 +3,7 @@ import { getEvent } from "@/app/events/actions";
 import { getEventProfileData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { PrintHeader } from "@/components/print/PrintHeader";
-import {
-  EventProfileReport,
-  PROFILE_SECTIONS,
-  resolveScheduleTypeFilter,
-  type ProfileSection,
-} from "../EventProfileReport";
+import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "../EventProfileReport";
 
 export const dynamic = "force-dynamic";
 
@@ -21,14 +16,10 @@ export default async function EventProfilePrintPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string; sections?: string; scheduleTypes?: string }>;
+  searchParams: Promise<{ days?: string; sections?: string }>;
 }) {
   const { id: eventId } = await params;
-  const {
-    days: daysParam,
-    sections: sectionsParam,
-    scheduleTypes: scheduleTypesParam,
-  } = await searchParams;
+  const { days: daysParam, sections: sectionsParam } = await searchParams;
 
   const selectedDays = parseListParam(daysParam);
   const validSectionValues = new Set(PROFILE_SECTIONS.map((s) => s.value));
@@ -39,25 +30,17 @@ export default async function EventProfilePrintPage({
   const qs = new URLSearchParams({
     ...(daysParam ? { days: daysParam } : {}),
     ...(sectionsParam ? { sections: sectionsParam } : {}),
-    ...(scheduleTypesParam !== undefined ? { scheduleTypes: scheduleTypesParam } : {}),
   }).toString();
   const backHref = `/events/${eventId}/reports/event-profile${qs ? `?${qs}` : ""}`;
 
-  const [event, data, functionTypes, scheduleTypes, serviceStyles] = await Promise.all([
+  const [event, data, functionTypes, serviceStyles] = await Promise.all([
     getEvent(eventId),
     getEventProfileData(eventId, { days: selectedDays.length > 0 ? selectedDays : undefined }),
     getOptions("function_type"),
-    getOptions("schedule_type"),
     getOptions("service_style"),
   ]);
 
   if (!event || !data) notFound();
-
-  const selectedScheduleTypes = resolveScheduleTypeFilter(
-    scheduleTypes,
-    scheduleTypesParam !== undefined ? parseListParam(scheduleTypesParam) : undefined,
-    scheduleTypesParam !== undefined,
-  );
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -65,10 +48,8 @@ export default async function EventProfilePrintPage({
       <EventProfileReport
         data={data}
         functionTypes={functionTypes}
-        scheduleTypes={scheduleTypes}
         serviceStyles={serviceStyles}
         selectedSections={selectedSections}
-        selectedScheduleTypes={selectedScheduleTypes}
       />
     </div>
   );
