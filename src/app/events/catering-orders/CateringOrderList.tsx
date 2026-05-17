@@ -32,7 +32,7 @@ type Props = {
   bulkUpdateCateringOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
 };
 
-type SortField = "name" | "status" | "vendors" | "serviceStyle" | "guaranteeCount" | "function";
+type SortField = "functionTime" | "name" | "status" | "vendors" | "serviceStyle" | "guaranteeCount" | "function";
 type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter };
 const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "" };
 
@@ -51,7 +51,7 @@ export function CateringOrderList({
 }: Props) {
   const router = useRouter();
   const [view, setView] = useState<"list" | "table">("list");
-  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortField, setSortField] = useState<SortField>("functionTime");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [filters, setFilters] = useState<FilterState>({
     ...DEFAULT_FILTERS,
@@ -86,6 +86,8 @@ export function CateringOrderList({
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       switch (sortField) {
+        // Server pre-sorts by main function time; preserve that order here.
+        case "functionTime": return 0;
         case "name": return compareValues(a.name, b.name, sortDir);
         case "status": return compareValues(a.status, b.status, sortDir);
         case "vendors": return compareValues(a.vendors.map((v) => v.vendor.name).join(", "), b.vendors.map((v) => v.vendor.name).join(", "), sortDir);
