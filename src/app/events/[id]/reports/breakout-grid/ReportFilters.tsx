@@ -10,6 +10,7 @@ type ReportFiltersProps = {
   groups: GroupOption[];
   selectedGroupIds: string[];
   basePath?: string;
+  paramPrefix?: string;
   shareButton?: React.ReactNode;
   hidePrint?: boolean;
 };
@@ -23,12 +24,15 @@ export function ReportFilters({
   groups,
   selectedGroupIds,
   basePath = `/events/${eventId}/reports/breakout-grid`,
+  paramPrefix = "",
   shareButton,
   hidePrint = false,
 }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const groupsKey = `${paramPrefix}groups`;
 
   function pushWith(key: string, next: string[]) {
     const params = new URLSearchParams(searchParams.toString());
@@ -42,12 +46,12 @@ export function ReportFilters({
   }
 
   function toggleGroup(value: string) {
-    pushWith("groups", toggleFilter(selectedGroupIds, value));
+    pushWith(groupsKey, toggleFilter(selectedGroupIds, value));
   }
 
   function clearFilters() {
     const params = new URLSearchParams(searchParams.toString());
-    params.delete("groups");
+    params.delete(groupsKey);
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
   }

@@ -9,6 +9,7 @@ import {
   getEventProfileData,
   getRoomScheduleData,
   getFunctionDetailData,
+  getBreakoutScheduleData,
 } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
@@ -22,6 +23,8 @@ import {
 } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
+import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
+import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 
 export const dynamic = "force-dynamic";
@@ -286,6 +289,57 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
             serviceStyles={serviceStyles}
             setupTypes={setupTypes}
           />
+        </div>
+      );
+    }
+    case "BREAKOUT_GRID": {
+      const groupsParam = getString(sp.groups);
+      const groupIds = item.filtersLocked
+        ? stored.breakoutGroupIds
+        : groupsParam
+          ? groupsParam.split(",").filter(Boolean)
+          : stored.breakoutGroupIds;
+
+      const [event, data] = await Promise.all([
+        getEvent(eventId),
+        getBreakoutScheduleData(eventId, {
+          groupIds: groupIds && groupIds.length > 0 ? groupIds : undefined,
+        }),
+      ]);
+
+      if (!event || !data) notFound();
+
+      return (
+        <>
+          <style>{`@page { size: landscape; margin: 0.5in; }`}</style>
+          <div className="p-6 max-w-none mx-auto print:p-0">
+            <PrintHeader eventName={eventName} title={title} backHref={backHref} />
+            <BreakoutGridReport data={data} />
+          </div>
+        </>
+      );
+    }
+    case "BREAKOUT_ASSIGNMENTS": {
+      const groupsParam = getString(sp.groups);
+      const groupIds = item.filtersLocked
+        ? stored.breakoutGroupIds
+        : groupsParam
+          ? groupsParam.split(",").filter(Boolean)
+          : stored.breakoutGroupIds;
+
+      const [event, data] = await Promise.all([
+        getEvent(eventId),
+        getBreakoutScheduleData(eventId, {
+          groupIds: groupIds && groupIds.length > 0 ? groupIds : undefined,
+        }),
+      ]);
+
+      if (!event || !data) notFound();
+
+      return (
+        <div className="p-6 max-w-5xl mx-auto">
+          <PrintHeader eventName={eventName} title={title} backHref={backHref} />
+          <BreakoutAssignmentsReport data={data} />
         </div>
       );
     }

@@ -13,6 +13,8 @@ import {
   getRoomScheduleData,
   getFunctionDetailData,
   getFunctionPickerOptions,
+  getBreakoutScheduleData,
+  getBreakoutGroupOptions,
 } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
@@ -25,11 +27,15 @@ import {
 } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
+import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
+import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
 import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equipment-responsibility/ReportFilters";
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
 import { ReportFilters as RsReportFilters } from "@/app/events/[id]/reports/room-schedule/ReportFilters";
 import { ReportFilters as FdReportFilters } from "@/app/events/[id]/reports/function-detail/ReportFilters";
+import { ReportFilters as BgReportFilters } from "@/app/events/[id]/reports/breakout-grid/ReportFilters";
+import { ReportFilters as BaReportFilters } from "@/app/events/[id]/reports/breakout-assignments/ReportFilters";
 import { enumerateEventDays } from "@/app/events/[id]/reports/event-profile/days";
 import { MODEL_TYPES } from "@/app/vendors/model-types";
 import { ShareShell } from "@/app/share/[token]/ShareShell";
@@ -416,6 +422,78 @@ async function renderItem(
               serviceStyles={serviceStyles}
               setupTypes={setupTypes}
             />
+          </>
+        ),
+      };
+    }
+    case "BREAKOUT_GRID":
+    case "BREAKOUT_ASSIGNMENTS": {
+      const isGrid = item.reportType === "BREAKOUT_GRID";
+
+      let effectiveGroupIds: string[] | undefined;
+      if (item.filtersLocked) {
+        effectiveGroupIds = stored.breakoutGroupIds;
+      } else {
+        const groupsParam = getString(sp[`${prefix}groups`]);
+        effectiveGroupIds = groupsParam
+          ? groupsParam.split(",").filter(Boolean)
+          : stored.breakoutGroupIds;
+      }
+
+      const groupOptions = item.filtersLocked
+        ? null
+        : await getBreakoutGroupOptions(eventId);
+      if (!item.filtersLocked && groupOptions) {
+        effectiveGroupIds = intersect(
+          effectiveGroupIds,
+          new Set(groupOptions.map((g) => g.id)),
+        );
+      }
+
+      const data = await getBreakoutScheduleData(eventId, {
+        groupIds: effectiveGroupIds && effectiveGroupIds.length > 0 ? effectiveGroupIds : undefined,
+      });
+
+      if (!data) notFound();
+
+      const printParams = new URLSearchParams();
+      if (effectiveGroupIds?.length) printParams.set("groups", effectiveGroupIds.join(","));
+      const printHref = printParams.size > 0 ? `${printBase}?${printParams}` : printBase;
+
+      const groupChoices = (groupOptions ?? []).map((g) => ({ value: g.id, label: g.name }));
+
+      return {
+        id: item.id,
+        title,
+        printHref,
+        body: (
+          <>
+            {!item.filtersLocked && groupOptions && (
+              isGrid ? (
+                <BgReportFilters
+                  eventId={eventId}
+                  groups={groupChoices}
+                  selectedGroupIds={effectiveGroupIds ?? []}
+                  basePath={sharePath}
+                  paramPrefix={prefix}
+                  hidePrint
+                />
+              ) : (
+                <BaReportFilters
+                  eventId={eventId}
+                  groups={groupChoices}
+                  selectedGroupIds={effectiveGroupIds ?? []}
+                  basePath={sharePath}
+                  paramPrefix={prefix}
+                  hidePrint
+                />
+              )
+            )}
+            {isGrid ? (
+              <BreakoutGridReport data={data} />
+            ) : (
+              <BreakoutAssignmentsReport data={data} />
+            )}
           </>
         ),
       };
