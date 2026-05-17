@@ -180,6 +180,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
     case "EVENT_PROFILE": {
       const daysParam = getString(sp.days);
       const sectionsParam = getString(sp.sections);
+      const typesParam = getString(sp.types);
       const days = item.filtersLocked
         ? stored.days
         : daysParam
@@ -190,12 +191,20 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         : sectionsParam
           ? sectionsParam.split(",").filter(Boolean)
           : stored.sections;
+      const types = item.filtersLocked
+        ? stored.types
+        : typesParam
+          ? typesParam.split(",").filter(Boolean)
+          : stored.types;
 
-      const [event, data, functionTypes, serviceStyles] = await Promise.all([
+      const [event, data, serviceStyles, scheduleTypes] = await Promise.all([
         getEvent(eventId),
-        getEventProfileData(eventId, { days: days && days.length > 0 ? days : undefined }),
-        getOptions("function_type"),
+        getEventProfileData(eventId, {
+          days: days && days.length > 0 ? days : undefined,
+          types: types && types.length > 0 ? types : undefined,
+        }),
         getOptions("service_style"),
+        getOptions("schedule_type"),
       ]);
 
       if (!event || !data) notFound();
@@ -210,8 +219,8 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <EventProfileReport
             data={data}
-            functionTypes={functionTypes}
             serviceStyles={serviceStyles}
+            scheduleTypes={scheduleTypes}
             selectedSections={validSections}
           />
         </div>

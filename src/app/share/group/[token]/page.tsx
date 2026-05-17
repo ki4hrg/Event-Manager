@@ -215,14 +215,18 @@ async function renderItem(
     case "EVENT_PROFILE": {
       let effectiveDays: string[] | undefined;
       let effectiveSections: string[] | undefined;
+      let effectiveTypes: string[] | undefined;
       if (item.filtersLocked) {
         effectiveDays = stored.days;
         effectiveSections = stored.sections;
+        effectiveTypes = stored.types;
       } else {
         const daysParam = getString(sp[`${prefix}days`]);
         const sectionsParam = getString(sp[`${prefix}sections`]);
+        const typesParam = getString(sp[`${prefix}types`]);
         effectiveDays = daysParam ? daysParam.split(",").filter(Boolean) : stored.days;
         effectiveSections = sectionsParam ? sectionsParam.split(",").filter(Boolean) : stored.sections;
+        effectiveTypes = typesParam ? typesParam.split(",").filter(Boolean) : stored.types;
       }
 
       const event = await getEvent(eventId);
@@ -233,24 +237,32 @@ async function renderItem(
         effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
       }
 
-      const [data, functionTypes, serviceStyles] = await Promise.all([
+      const [data, serviceStyles, scheduleTypes] = await Promise.all([
         getEventProfileData(eventId, {
           days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
+          types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
         }),
-        getOptions("function_type"),
         getOptions("service_style"),
+        getOptions("schedule_type"),
       ]);
 
       if (!data) notFound();
+
+      if (!item.filtersLocked) {
+        effectiveTypes = intersect(effectiveTypes, new Set(scheduleTypes.map((t) => t.label)));
+      }
 
       const validSectionValues = new Set(PROFILE_SECTIONS.map((s) => s.value));
       const validSections = (effectiveSections ?? []).filter((s) =>
         validSectionValues.has(s as ProfileSection),
       ) as ProfileSection[];
 
+      const typeOptions = scheduleTypes.map((t) => ({ value: t.label, label: t.label }));
+
       const printParams = new URLSearchParams();
       if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
       if (effectiveSections?.length) printParams.set("sections", effectiveSections.join(","));
+      if (effectiveTypes?.length) printParams.set("types", effectiveTypes.join(","));
       const printHref = printParams.size > 0 ? `${printBase}?${printParams}` : printBase;
 
       return {
@@ -263,8 +275,10 @@ async function renderItem(
               <EpReportFilters
                 eventId={eventId}
                 days={dayOptions}
+                scheduleTypes={typeOptions}
                 selectedDays={effectiveDays ?? []}
                 selectedSections={effectiveSections ?? []}
+                selectedTypes={effectiveTypes ?? []}
                 basePath={sharePath}
                 paramPrefix={prefix}
                 hidePrint
@@ -272,8 +286,8 @@ async function renderItem(
             )}
             <EventProfileReport
               data={data}
-              functionTypes={functionTypes}
               serviceStyles={serviceStyles}
+              scheduleTypes={scheduleTypes}
               selectedSections={validSections}
             />
           </>

@@ -21,10 +21,10 @@ export default async function EventProfilePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string; sections?: string; addToDashboard?: string }>;
+  searchParams: Promise<{ days?: string; sections?: string; types?: string; addToDashboard?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { days: daysParam, sections: sectionsParam, addToDashboard } = await searchParams;
+  const { days: daysParam, sections: sectionsParam, types: typesParam, addToDashboard } = await searchParams;
 
   const selectedDays = parseListParam(daysParam);
   const validSectionValues = new Set(PROFILE_SECTIONS.map((s) => s.value));
@@ -32,17 +32,29 @@ export default async function EventProfilePage({
     validSectionValues.has(s as ProfileSection)
   ) as ProfileSection[];
 
-  const [event, data, functionTypes, serviceStyles, dashboardChoices] = await Promise.all([
+  const [event, scheduleTypes, dashboardChoices] = await Promise.all([
     getEvent(eventId),
-    getEventProfileData(eventId, { days: selectedDays.length > 0 ? selectedDays : undefined }),
-    getOptions("function_type"),
-    getOptions("service_style"),
+    getOptions("schedule_type"),
     listShareLinkGroupChoicesForEvent(eventId),
   ]);
 
-  if (!event || !data) notFound();
+  if (!event) notFound();
+
+  const validTypeValues = new Set(scheduleTypes.map((t) => t.label));
+  const selectedTypes = parseListParam(typesParam).filter((v) => validTypeValues.has(v));
+
+  const [data, serviceStyles] = await Promise.all([
+    getEventProfileData(eventId, {
+      days: selectedDays.length > 0 ? selectedDays : undefined,
+      types: selectedTypes.length > 0 ? selectedTypes : undefined,
+    }),
+    getOptions("service_style"),
+  ]);
+
+  if (!data) notFound();
 
   const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
+  const typeOptions = scheduleTypes.map((t) => ({ value: t.label, label: t.label }));
 
   return (
     <>
@@ -69,13 +81,15 @@ export default async function EventProfilePage({
         <ReportFilters
           eventId={eventId}
           days={dayOptions}
+          scheduleTypes={typeOptions}
           selectedDays={selectedDays}
           selectedSections={selectedSections}
+          selectedTypes={selectedTypes}
           shareButton={
             <ShareReportButton
               eventId={eventId}
               reportType="EVENT_PROFILE"
-              currentFilters={{ days: selectedDays, sections: selectedSections }}
+              currentFilters={{ days: selectedDays, sections: selectedSections, types: selectedTypes }}
               dashboardChoices={dashboardChoices}
               addToDashboardId={addToDashboard}
             />
@@ -84,8 +98,8 @@ export default async function EventProfilePage({
 
         <EventProfileReport
           data={data}
-          functionTypes={functionTypes}
           serviceStyles={serviceStyles}
+          scheduleTypes={scheduleTypes}
           selectedSections={selectedSections}
         />
       </div>

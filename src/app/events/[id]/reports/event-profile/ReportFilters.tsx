@@ -5,12 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PROFILE_SECTIONS } from "./EventProfileReport";
 
 type DayOption = { value: string; label: string };
+type TypeOption = { value: string; label: string };
 
 type ReportFiltersProps = {
   eventId: string;
   days: DayOption[];
+  scheduleTypes: TypeOption[];
   selectedDays: string[];
   selectedSections: string[];
+  selectedTypes: string[];
   basePath?: string;
   paramPrefix?: string;
   shareButton?: React.ReactNode;
@@ -24,8 +27,10 @@ function toggleFilter(selected: string[], value: string): string[] {
 export function ReportFilters({
   eventId,
   days,
+  scheduleTypes,
   selectedDays,
   selectedSections,
+  selectedTypes,
   basePath = `/events/${eventId}/reports/event-profile`,
   paramPrefix = "",
   shareButton,
@@ -37,6 +42,7 @@ export function ReportFilters({
 
   const daysKey = `${paramPrefix}days`;
   const sectionsKey = `${paramPrefix}sections`;
+  const typesKey = `${paramPrefix}types`;
 
   function pushWith(key: string, next: string[]) {
     const params = new URLSearchParams(searchParams.toString());
@@ -57,16 +63,21 @@ export function ReportFilters({
     pushWith(sectionsKey, toggleFilter(selectedSections, value));
   }
 
+  function toggleType(value: string) {
+    pushWith(typesKey, toggleFilter(selectedTypes, value));
+  }
+
   function clearFilters() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete(daysKey);
     params.delete(sectionsKey);
+    params.delete(typesKey);
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
-  const hasFilters = selectedDays.length > 0 || selectedSections.length > 0;
-  const filterCount = selectedDays.length + selectedSections.length;
+  const hasFilters = selectedDays.length > 0 || selectedSections.length > 0 || selectedTypes.length > 0;
+  const filterCount = selectedDays.length + selectedSections.length + selectedTypes.length;
 
   const actions = (
     <>
@@ -137,6 +148,30 @@ export function ReportFilters({
           })}
         </div>
       </div>
+
+      {scheduleTypes.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Schedule Item Type</p>
+          <div className="flex flex-wrap gap-2">
+            {scheduleTypes.map(({ value, label }) => {
+              const active = selectedTypes.includes(value);
+              return (
+                <button
+                  key={value}
+                  onClick={() => toggleType(value)}
+                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                    active
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </>
   );
 

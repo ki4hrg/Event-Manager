@@ -16,10 +16,10 @@ export default async function EventProfilePrintPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string; sections?: string }>;
+  searchParams: Promise<{ days?: string; sections?: string; types?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { days: daysParam, sections: sectionsParam } = await searchParams;
+  const { days: daysParam, sections: sectionsParam, types: typesParam } = await searchParams;
 
   const selectedDays = parseListParam(daysParam);
   const validSectionValues = new Set(PROFILE_SECTIONS.map((s) => s.value));
@@ -30,25 +30,37 @@ export default async function EventProfilePrintPage({
   const qs = new URLSearchParams({
     ...(daysParam ? { days: daysParam } : {}),
     ...(sectionsParam ? { sections: sectionsParam } : {}),
+    ...(typesParam ? { types: typesParam } : {}),
   }).toString();
   const backHref = `/events/${eventId}/reports/event-profile${qs ? `?${qs}` : ""}`;
 
-  const [event, data, functionTypes, serviceStyles] = await Promise.all([
+  const [event, scheduleTypes] = await Promise.all([
     getEvent(eventId),
-    getEventProfileData(eventId, { days: selectedDays.length > 0 ? selectedDays : undefined }),
-    getOptions("function_type"),
+    getOptions("schedule_type"),
+  ]);
+
+  if (!event) notFound();
+
+  const validTypeValues = new Set(scheduleTypes.map((t) => t.label));
+  const selectedTypes = parseListParam(typesParam).filter((v) => validTypeValues.has(v));
+
+  const [data, serviceStyles] = await Promise.all([
+    getEventProfileData(eventId, {
+      days: selectedDays.length > 0 ? selectedDays : undefined,
+      types: selectedTypes.length > 0 ? selectedTypes : undefined,
+    }),
     getOptions("service_style"),
   ]);
 
-  if (!event || !data) notFound();
+  if (!data) notFound();
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <PrintHeader eventName={event.name} title="Event Profile" backHref={backHref} />
       <EventProfileReport
         data={data}
-        functionTypes={functionTypes}
         serviceStyles={serviceStyles}
+        scheduleTypes={scheduleTypes}
         selectedSections={selectedSections}
       />
     </div>

@@ -577,6 +577,7 @@ export async function getEquipmentResponsibilityData(
 
 export type EventProfileFilters = {
   days?: string[]; // YYYY-MM-DD keys in event timezone
+  types?: string[]; // FunctionSchedule.type labels to keep
 };
 
 function functionMatchesDays(
@@ -613,6 +614,7 @@ export async function getEventProfileData(
 
   const timezone = event.timezone;
   const dayKeys = opts.days && opts.days.length > 0 ? new Set(opts.days) : null;
+  const typeKeys = opts.types && opts.types.length > 0 ? new Set(opts.types) : null;
 
   const functionScheduleInclude = {
     schedules: { orderBy: { sortOrder: "asc" as const } },
@@ -627,7 +629,7 @@ export async function getEventProfileData(
     },
   };
 
-  const [keyStaff, allFunctions, breakoutGroups, cateringOrders, printOrders] = await Promise.all([
+  const [keyStaff, allFunctions, breakoutGroups, cateringOrders, printOrders, allScheduleItems] = await Promise.all([
     prisma.eventKeyStaff.findMany({
       where: { eventId },
       include: {
@@ -695,6 +697,23 @@ export async function getEventProfileData(
       },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.functionSchedule.findMany({
+      where: { function: { eventId, type: { not: "BREAKOUT_BLOCK" } } },
+      include: {
+        function: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+            substatus: true,
+            offSiteLocation: true,
+            rooms: { include: { room: { select: { id: true, name: true } } } },
+          },
+        },
+      },
+      orderBy: { startTime: "asc" },
+    }),
   ]);
 
   const filteredFunctions = dayKeys
@@ -716,6 +735,12 @@ export async function getEventProfileData(
       )
     : cateringOrders;
 
+  const filteredScheduleItems = allScheduleItems.filter((item) => {
+    if (dayKeys && !dayKeys.has(getDateKeyInTimezone(item.startTime, timezone))) return false;
+    if (typeKeys && !typeKeys.has(item.type)) return false;
+    return true;
+  });
+
   return {
     event,
     venue: event.venue,
@@ -724,6 +749,7 @@ export async function getEventProfileData(
     breakoutGroups: filteredBreakoutGroups,
     cateringOrders: filteredCateringOrders,
     printOrders,
+    scheduleItems: filteredScheduleItems,
     timezone,
   };
 }
