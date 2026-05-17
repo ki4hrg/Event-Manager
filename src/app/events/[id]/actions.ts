@@ -73,19 +73,19 @@ export async function getEventOverviewStats(eventId: string) {
     presentationsMissingSpeaker,
     avOrders,
     avMissingVendor,
-    avMissingFunction,
+    avUnlinked,
     cateringOrders,
     cateringMissingVendor,
     cateringMissingFunction,
     setupOrders,
     setupMissingVendor,
-    setupMissingFunction,
+    setupUnlinked,
     printOrders,
     printMissingVendor,
-    printMissingFunction,
+    printUnlinked,
     mediaOrders,
     mediaMissingVendor,
-    mediaMissingFunction,
+    mediaUnlinked,
   ] = await Promise.all([
     canViewFunctions
       ? prisma.function.findMany({ where: { eventId }, select: { status: true } })
@@ -112,7 +112,7 @@ export async function getEventOverviewStats(eventId: string) {
       ? prisma.aVOrder.count({ where: { eventId, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewAVOrders && canEditAVOrders
-      ? prisma.aVOrder.count({ where: { eventId, functionLinks: { none: {} } } })
+      ? prisma.aVOrder.count({ where: { eventId, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
       : Promise.resolve(0),
     canViewCateringOrders
       ? prisma.cateringOrder.findMany({ where: { eventId }, select: { status: true } })
@@ -130,7 +130,7 @@ export async function getEventOverviewStats(eventId: string) {
       ? prisma.setupOrder.count({ where: { eventId, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewSetupOrders && canEditSetupOrders
-      ? prisma.setupOrder.count({ where: { eventId, functionLinks: { none: {} } } })
+      ? prisma.setupOrder.count({ where: { eventId, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
       : Promise.resolve(0),
     canViewPrintOrders
       ? prisma.printOrder.findMany({ where: { eventId }, select: { status: true } })
@@ -139,7 +139,7 @@ export async function getEventOverviewStats(eventId: string) {
       ? prisma.printOrder.count({ where: { eventId, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewPrintOrders && canEditPrintOrders
-      ? prisma.printOrder.count({ where: { eventId, functions: { none: {} } } })
+      ? prisma.printOrder.count({ where: { eventId, functions: { none: {} }, presentationId: null } })
       : Promise.resolve(0),
     canViewMediaOrders
       ? prisma.mediaOrder.findMany({ where: { eventId }, select: { status: true } })
@@ -148,7 +148,7 @@ export async function getEventOverviewStats(eventId: string) {
       ? prisma.mediaOrder.count({ where: { eventId, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewMediaOrders && canEditMediaOrders
-      ? prisma.mediaOrder.count({ where: { eventId, functionLinks: { none: {} } } })
+      ? prisma.mediaOrder.count({ where: { eventId, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
       : Promise.resolve(0),
   ]);
 
@@ -202,7 +202,7 @@ export async function getEventOverviewStats(eventId: string) {
       attention: canEditAVOrders
         ? [
             { label: "missing vendor", count: avMissingVendor, href: `${basePath}?vendor=none` },
-            { label: "missing function", count: avMissingFunction, href: `${basePath}?function=none` },
+            { label: "unlinked", count: avUnlinked, href: `${basePath}?linked=none` },
           ]
         : [],
     });
@@ -238,7 +238,7 @@ export async function getEventOverviewStats(eventId: string) {
       attention: canEditSetupOrders
         ? [
             { label: "missing vendor", count: setupMissingVendor, href: `${basePath}?vendor=none` },
-            { label: "missing function", count: setupMissingFunction, href: `${basePath}?function=none` },
+            { label: "unlinked", count: setupUnlinked, href: `${basePath}?linked=none` },
           ]
         : [],
     });
@@ -256,7 +256,7 @@ export async function getEventOverviewStats(eventId: string) {
       attention: canEditPrintOrders
         ? [
             { label: "missing vendor", count: printMissingVendor, href: `${basePath}?vendor=none` },
-            { label: "missing function", count: printMissingFunction, href: `${basePath}?function=none` },
+            { label: "unlinked", count: printUnlinked, href: `${basePath}?linked=none` },
           ]
         : [],
     });
@@ -274,7 +274,7 @@ export async function getEventOverviewStats(eventId: string) {
       attention: canEditMediaOrders
         ? [
             { label: "missing vendor", count: mediaMissingVendor, href: `${basePath}?vendor=none` },
-            { label: "missing function", count: mediaMissingFunction, href: `${basePath}?function=none` },
+            { label: "unlinked", count: mediaUnlinked, href: `${basePath}?linked=none` },
           ]
         : [],
     });

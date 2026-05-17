@@ -29,6 +29,7 @@ type Props = {
   initialStatus?: string;
   initialVendor?: string;
   initialFunction?: string;
+  initialLinked?: string;
   deleteMediaOrder: (formData: FormData) => Promise<void>;
   deleteMediaOrders: (ids: string[]) => Promise<void>;
   bulkUpdateMediaOrders: (
@@ -38,8 +39,8 @@ type Props = {
 };
 
 type SortField = "name" | "status" | "vendors" | "items" | "functions" | "presentations";
-type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter };
-const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "" };
+type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter; linked: PresenceFilter };
+const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "", linked: "" };
 
 export function MediaOrderList({
   mediaOrders,
@@ -52,6 +53,7 @@ export function MediaOrderList({
   initialStatus,
   initialVendor,
   initialFunction,
+  initialLinked,
   deleteMediaOrder,
   deleteMediaOrders,
   bulkUpdateMediaOrders,
@@ -65,6 +67,7 @@ export function MediaOrderList({
     status: initialStatus ?? "",
     vendor: asPresence(initialVendor),
     function: asPresence(initialFunction),
+    linked: asPresence(initialLinked),
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -88,6 +91,9 @@ export function MediaOrderList({
       if (filters.vendor === "none" && o.vendors.length > 0) return false;
       if (filters.function === "yes" && o.functions.length === 0) return false;
       if (filters.function === "none" && o.functions.length > 0) return false;
+      const hasLink = o.functions.length > 0 || o.presentations.length > 0;
+      if (filters.linked === "yes" && !hasLink) return false;
+      if (filters.linked === "none" && hasLink) return false;
       return true;
     });
   }, [mediaOrders, filters]);
@@ -192,6 +198,13 @@ export function MediaOrderList({
           </div>
           <PresenceFilterSelect label="Vendor" value={filters.vendor} onChange={(v) => setFilter("vendor", v)} />
           <PresenceFilterSelect label="Function" value={filters.function} onChange={(v) => setFilter("function", v)} />
+          <PresenceFilterSelect
+            label="Link"
+            value={filters.linked}
+            onChange={(v) => setFilter("linked", v)}
+            hasLabel="Linked"
+            missingLabel="Unlinked"
+          />
         </div>
         <Link
           href={`/events/${eventId}/media-orders/new`}

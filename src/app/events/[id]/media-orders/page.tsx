@@ -18,10 +18,10 @@ export default async function MediaOrdersPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string; vendor?: string; function?: string }>;
+  searchParams?: Promise<{ status?: string; vendor?: string; function?: string; linked?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus, vendor: initialVendor, function: initialFunction } = (await searchParams) ?? {};
+  const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked } = (await searchParams) ?? {};
   const [event, mediaOrders, substatuses, responsiblePartyVendors, functions, presentations] = await Promise.all([
     getEvent(eventId),
     getMediaOrders(eventId),
@@ -83,6 +83,7 @@ export default async function MediaOrdersPage({
         initialStatus={initialStatus}
         initialVendor={initialVendor}
         initialFunction={initialFunction}
+        initialLinked={initialLinked}
         deleteMediaOrder={deleteMediaOrderAction}
         deleteMediaOrders={deleteMediaOrdersAction}
         bulkUpdateMediaOrders={bulkUpdateMediaOrdersAction}

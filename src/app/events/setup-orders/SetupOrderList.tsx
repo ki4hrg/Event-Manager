@@ -28,14 +28,15 @@ type Props = {
   initialStatus?: string;
   initialVendor?: string;
   initialFunction?: string;
+  initialLinked?: string;
   deleteSetupOrder: (formData: FormData) => Promise<void>;
   deleteSetupOrders: (ids: string[]) => Promise<void>;
   bulkUpdateSetupOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
 };
 
 type SortField = "name" | "status" | "vendors" | "type" | "room" | "tables" | "equipment" | "functions";
-type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter };
-const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "" };
+type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter; linked: PresenceFilter };
+const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "", linked: "" };
 
 export function SetupOrderList({
   setupOrders,
@@ -46,6 +47,7 @@ export function SetupOrderList({
   initialStatus,
   initialVendor,
   initialFunction,
+  initialLinked,
   deleteSetupOrder,
   deleteSetupOrders,
   bulkUpdateSetupOrders,
@@ -59,6 +61,7 @@ export function SetupOrderList({
     status: initialStatus ?? "",
     vendor: asPresence(initialVendor),
     function: asPresence(initialFunction),
+    linked: asPresence(initialLinked),
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -81,6 +84,9 @@ export function SetupOrderList({
       if (filters.vendor === "none" && o.vendors.length > 0) return false;
       if (filters.function === "yes" && o.functions.length === 0) return false;
       if (filters.function === "none" && o.functions.length > 0) return false;
+      const hasLink = o.functions.length > 0 || o.presentations.length > 0;
+      if (filters.linked === "yes" && !hasLink) return false;
+      if (filters.linked === "none" && hasLink) return false;
       return true;
     });
   }, [setupOrders, filters]);
@@ -183,6 +189,13 @@ export function SetupOrderList({
           </div>
           <PresenceFilterSelect label="Vendor" value={filters.vendor} onChange={(v) => setFilter("vendor", v)} />
           <PresenceFilterSelect label="Function" value={filters.function} onChange={(v) => setFilter("function", v)} />
+          <PresenceFilterSelect
+            label="Link"
+            value={filters.linked}
+            onChange={(v) => setFilter("linked", v)}
+            hasLabel="Linked"
+            missingLabel="Unlinked"
+          />
         </div>
         <div className="flex gap-2 shrink-0">
           <a

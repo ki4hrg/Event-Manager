@@ -28,14 +28,15 @@ type Props = {
   initialStatus?: string;
   initialVendor?: string;
   initialFunction?: string;
+  initialLinked?: string;
   deletePrintOrder: (formData: FormData) => Promise<void>;
   deletePrintOrders: (ids: string[]) => Promise<void>;
   bulkUpdatePrintOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string }) => Promise<void>;
 };
 
 type SortField = "name" | "status" | "vendors" | "items" | "functions" | "presentation";
-type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter };
-const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "" };
+type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter; linked: PresenceFilter };
+const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "", linked: "" };
 
 export function PrintOrderList({
   printOrders,
@@ -47,6 +48,7 @@ export function PrintOrderList({
   initialStatus,
   initialVendor,
   initialFunction,
+  initialLinked,
   deletePrintOrder,
   deletePrintOrders,
   bulkUpdatePrintOrders,
@@ -60,6 +62,7 @@ export function PrintOrderList({
     status: initialStatus ?? "",
     vendor: asPresence(initialVendor),
     function: asPresence(initialFunction),
+    linked: asPresence(initialLinked),
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -82,6 +85,9 @@ export function PrintOrderList({
       if (filters.vendor === "none" && o.vendors.length > 0) return false;
       if (filters.function === "yes" && o.functions.length === 0) return false;
       if (filters.function === "none" && o.functions.length > 0) return false;
+      const hasLink = o.functions.length > 0 || !!o.presentation;
+      if (filters.linked === "yes" && !hasLink) return false;
+      if (filters.linked === "none" && hasLink) return false;
       return true;
     });
   }, [printOrders, filters]);
@@ -184,6 +190,13 @@ export function PrintOrderList({
           </div>
           <PresenceFilterSelect label="Vendor" value={filters.vendor} onChange={(v) => setFilter("vendor", v)} />
           <PresenceFilterSelect label="Function" value={filters.function} onChange={(v) => setFilter("function", v)} />
+          <PresenceFilterSelect
+            label="Link"
+            value={filters.linked}
+            onChange={(v) => setFilter("linked", v)}
+            hasLabel="Linked"
+            missingLabel="Unlinked"
+          />
         </div>
         <Link
           href={`/events/${eventId}/print-orders/new`}
