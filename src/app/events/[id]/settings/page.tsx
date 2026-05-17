@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { prisma } from "@/lib/prisma";
 import { Toast } from "@/components/Toast";
 import { PageHeader } from "@/components/PageHeader";
-import { getEvent } from "../../actions";
+import { DeleteButton } from "@/components/DeleteButton";
+import { getEvent, updateEvent, deleteEvent } from "../../actions";
+import { EventForm } from "../../EventForm";
 import { getStatusDefaults, clearStatusDefault, saveAllStatusDefaults } from "@/app/events/status-defaults/actions";
 import { getSubstatusOptions } from "@/app/settings/actions";
 import { StatusDefaultsPanel } from "@/app/events/status-defaults/StatusDefaultsPanel";
@@ -12,13 +15,24 @@ export const dynamic = "force-dynamic";
 
 export default async function EventSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, statusDefaults, substatuses] = await Promise.all([
+  const [event, venues, statusDefaults, substatuses] = await Promise.all([
     getEvent(id),
+    prisma.venue.findMany({ orderBy: { name: "asc" } }),
     getStatusDefaults(id),
     getSubstatusOptions(),
   ]);
 
   if (!event) notFound();
+
+  const updateEventAction = async (formData: FormData) => {
+    "use server";
+    await updateEvent(id, formData);
+  };
+
+  const deleteEventAction = async () => {
+    "use server";
+    await deleteEvent(id);
+  };
 
   const saveAllAction = async (
     overrides: Array<{ modelType: StatusModelType; status: EntityStatus; substatus: string | null }>
@@ -46,13 +60,38 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
         title="Event Settings"
       />
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-8">
+        <div>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+            Event Details
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Name, dates, timezone, and venue.
+          </p>
+          <EventForm
+            venues={venues}
+            event={event}
+            action={updateEventAction}
+            cancelHref={`/events/${id}`}
+          />
+        </div>
+
         <StatusDefaultsPanel
           defaults={statusDefaults}
           substatuses={substatuses}
           saveAll={saveAllAction}
           clearDefault={clearDefaultAction}
         />
+
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+          <h2 className="text-lg font-medium text-red-700 dark:text-red-400 mb-1">
+            Danger Zone
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Permanently delete this event and everything associated with it.
+          </p>
+          <DeleteButton action={deleteEventAction} label="Delete Event" />
+        </div>
       </div>
     </>
   );

@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Event, Venue } from "@prisma/client";
+import { btnSecondary } from "@/lib/buttonStyles";
 
 type EventFormProps = {
   event?: Event;
   venues: Venue[];
   action: (formData: FormData) => Promise<void>;
+  cancelHref?: string;
 };
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -25,86 +26,14 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function EventForm({ event, venues, action }: EventFormProps) {
+export function EventForm({ event, venues, action, cancelHref }: EventFormProps) {
   const isEdit = !!event;
-  const [editing, setEditing] = useState(!isEdit);
-  const [daysLabel, setDaysLabel] = useState("");
-
-  useEffect(() => {
-    if (!event) return;
-    const now = Date.now();
-    const startDays = Math.ceil((new Date(event.startDate).getTime() - now) / 86_400_000);
-    const endDays = Math.ceil((new Date(event.endDate).getTime() - now) / 86_400_000);
-    let label: string;
-    if (startDays > 0) label = `${startDays} days away`;
-    else if (endDays < 0) label = `ended ${Math.abs(endDays)} days ago`;
-    else label = "ongoing";
-    startTransition(() => setDaysLabel(label));
-  }, [event]);
-
   const formatDateForInput = (date: Date) => {
     return new Date(date).toISOString().split("T")[0];
   };
 
-  const formatDateForDisplay = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const venueName = event?.venueId
-    ? venues.find((v) => v.id === event.venueId)?.name || "—"
-    : "—";
-
-  const timezoneLabels: Record<string, string> = {
-    "America/New_York": "Eastern Time",
-    "America/Chicago": "Central Time",
-    "America/Denver": "Mountain Time",
-    "America/Los_Angeles": "Pacific Time",
-    "America/Anchorage": "Alaska Time",
-    "Pacific/Honolulu": "Hawaii Time",
-    UTC: "UTC",
-  };
-
-  if (isEdit && !editing) {
-    const dateRange = `${formatDateForDisplay(event.startDate)} – ${formatDateForDisplay(event.endDate)}`;
-
-    return (
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-gray-700 dark:text-gray-300">
-            {event.venueId && `${venueName} · `}
-            {dateRange}
-            <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
-              {daysLabel}
-            </span>
-          </p>
-          {event.description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {event.description}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={() => setEditing(true)}
-          className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-950 shrink-0 ml-4"
-        >
-          Edit
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <form
-      action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
-      }}
-      className="space-y-6"
-    >
+    <form action={action} className="space-y-6">
       <div>
         <label
           htmlFor="name"
@@ -221,22 +150,9 @@ export function EventForm({ event, venues, action }: EventFormProps) {
 
       <div className="flex gap-4">
         <SubmitButton isEdit={isEdit} />
-        {isEdit ? (
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            Cancel
-          </button>
-        ) : (
-          <Link
-            href="/events"
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            Cancel
-          </Link>
-        )}
+        <Link href={cancelHref ?? "/events"} className={btnSecondary}>
+          Cancel
+        </Link>
       </div>
     </form>
   );
