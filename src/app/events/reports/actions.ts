@@ -7,6 +7,7 @@ import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { compareRoomsByGroup } from "@/lib/roomGroups";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { compareByMainFunctionTime } from "@/lib/functionSchedules";
 
 export type EquipmentReportFilters = {
   vendorIds?: string[];
@@ -729,11 +730,13 @@ export async function getEventProfileData(
         .filter((g) => g.functions.length > 0)
     : breakoutGroups.filter((g) => g.functions.length > 0);
 
-  const filteredCateringOrders = dayKeys
-    ? cateringOrders.filter((c) =>
-        c.function ? functionMatchesDays(c.function.schedules, dayKeys, timezone) : false
-      )
-    : cateringOrders;
+  const filteredCateringOrders = (
+    dayKeys
+      ? cateringOrders.filter((c) =>
+          c.function ? functionMatchesDays(c.function.schedules, dayKeys, timezone) : false
+        )
+      : cateringOrders
+  ).slice().sort(compareByMainFunctionTime);
 
   const filteredScheduleItems = allScheduleItems.filter((item) => {
     if (dayKeys && !dayKeys.has(getDateKeyInTimezone(item.startTime, timezone))) return false;
