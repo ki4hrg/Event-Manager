@@ -126,23 +126,20 @@ function ScheduleItemCard({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{fnName}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               {item.type && (
                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${badgeClass}`}>
                   {typeLabel}
                 </span>
               )}
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              <span className="text-xs text-gray-700 dark:text-gray-300">
                 {formatTimeRange(item.startTime, item.endTime, timezone)}
-              </p>
+              </span>
               {item.isPublic && (
                 <span className="text-xs text-gray-500 dark:text-gray-400">Public</span>
               )}
             </div>
-            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
-              <span className="text-gray-500 dark:text-gray-400">Function: </span>
-              {fnName}
-            </p>
           </div>
           <div className="shrink-0">
             <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
