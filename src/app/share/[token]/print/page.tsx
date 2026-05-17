@@ -7,7 +7,7 @@ import { getEvent } from "@/app/events/actions";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
-import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
+import { EventProfileReport, PROFILE_SECTIONS, resolveScheduleTypeFilter, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
@@ -178,27 +178,38 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
   if (link.reportType === "EVENT_PROFILE") {
     let effectiveDays: string[] | undefined;
     let effectiveSections: string[] | undefined;
+    let effectiveScheduleTypes: string[] | undefined;
+    let scheduleTypesExplicit = false;
 
     if (link.filtersLocked) {
       effectiveDays = storedFilters.days;
       effectiveSections = storedFilters.sections;
+      effectiveScheduleTypes = storedFilters.scheduleTypes;
+      scheduleTypesExplicit = storedFilters.scheduleTypes !== undefined;
     } else {
       const daysParam = getString(sp.days);
       const sectionsParam = getString(sp.sections);
+      const scheduleTypesParam = getString(sp.scheduleTypes);
       effectiveDays = daysParam
         ? daysParam.split(",").filter(Boolean)
         : storedFilters.days;
       effectiveSections = sectionsParam
         ? sectionsParam.split(",").filter(Boolean)
         : storedFilters.sections;
+      scheduleTypesExplicit =
+        scheduleTypesParam !== undefined || storedFilters.scheduleTypes !== undefined;
+      effectiveScheduleTypes = scheduleTypesParam !== undefined
+        ? scheduleTypesParam.split(",").filter(Boolean)
+        : storedFilters.scheduleTypes;
     }
 
-    const [event, data, functionTypes, serviceStyles] = await Promise.all([
+    const [event, data, functionTypes, scheduleTypes, serviceStyles] = await Promise.all([
       getEvent(link.eventId),
       getEventProfileData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
       }),
       getOptions("function_type"),
+      getOptions("schedule_type"),
       getOptions("service_style"),
     ]);
 
@@ -209,14 +220,22 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
       validSectionValues.has(s as ProfileSection)
     ) as ProfileSection[];
 
+    const selectedScheduleTypes = resolveScheduleTypeFilter(
+      scheduleTypes,
+      effectiveScheduleTypes,
+      scheduleTypesExplicit,
+    );
+
     return (
       <div className="p-6 max-w-5xl mx-auto">
         <PrintHeader eventName={link.event.name} title="Event Profile" backHref={backHref} />
         <EventProfileReport
           data={data}
           functionTypes={functionTypes}
+          scheduleTypes={scheduleTypes}
           serviceStyles={serviceStyles}
           selectedSections={validSections}
+          selectedScheduleTypes={selectedScheduleTypes}
         />
       </div>
     );

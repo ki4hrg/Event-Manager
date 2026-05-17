@@ -5,12 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PROFILE_SECTIONS } from "./EventProfileReport";
 
 type DayOption = { value: string; label: string };
+type ScheduleTypeOption = { value: string; label: string };
 
 type ReportFiltersProps = {
   eventId: string;
   days: DayOption[];
+  scheduleTypeOptions: ScheduleTypeOption[];
   selectedDays: string[];
   selectedSections: string[];
+  selectedScheduleTypes: string[];
   basePath?: string;
   paramPrefix?: string;
   shareButton?: React.ReactNode;
@@ -24,8 +27,10 @@ function toggleFilter(selected: string[], value: string): string[] {
 export function ReportFilters({
   eventId,
   days,
+  scheduleTypeOptions,
   selectedDays,
   selectedSections,
+  selectedScheduleTypes,
   basePath = `/events/${eventId}/reports/event-profile`,
   paramPrefix = "",
   shareButton,
@@ -37,11 +42,14 @@ export function ReportFilters({
 
   const daysKey = `${paramPrefix}days`;
   const sectionsKey = `${paramPrefix}sections`;
+  const scheduleTypesKey = `${paramPrefix}scheduleTypes`;
 
-  function pushWith(key: string, next: string[]) {
+  function pushWith(key: string, next: string[], options?: { allowEmpty?: boolean }) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.length > 0) {
       params.set(key, next.join(","));
+    } else if (options?.allowEmpty) {
+      params.set(key, "");
     } else {
       params.delete(key);
     }
@@ -57,16 +65,26 @@ export function ReportFilters({
     pushWith(sectionsKey, toggleFilter(selectedSections, value));
   }
 
+  function toggleScheduleType(value: string) {
+    // Preserve the empty state so deselecting the last default chip
+    // sticks instead of reverting to the URL-absent default.
+    pushWith(scheduleTypesKey, toggleFilter(selectedScheduleTypes, value), { allowEmpty: true });
+  }
+
   function clearFilters() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete(daysKey);
     params.delete(sectionsKey);
+    params.delete(scheduleTypesKey);
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
-  const hasFilters = selectedDays.length > 0 || selectedSections.length > 0;
-  const filterCount = selectedDays.length + selectedSections.length;
+  const scheduleTypesExplicit = searchParams.has(scheduleTypesKey);
+  const hasFilters =
+    selectedDays.length > 0 || selectedSections.length > 0 || scheduleTypesExplicit;
+  const filterCount =
+    selectedDays.length + selectedSections.length + (scheduleTypesExplicit ? 1 : 0);
 
   const actions = (
     <>
@@ -137,6 +155,32 @@ export function ReportFilters({
           })}
         </div>
       </div>
+
+      {scheduleTypeOptions.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+            Schedule types
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {scheduleTypeOptions.map(({ value, label }) => {
+              const active = selectedScheduleTypes.includes(value);
+              return (
+                <button
+                  key={value}
+                  onClick={() => toggleScheduleType(value)}
+                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                    active
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </>
   );
 

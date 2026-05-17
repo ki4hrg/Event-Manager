@@ -23,6 +23,7 @@ import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/Ve
 import {
   EventProfileReport,
   PROFILE_SECTIONS,
+  resolveScheduleTypeFilter,
   type ProfileSection,
 } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
@@ -215,14 +216,24 @@ async function renderItem(
     case "EVENT_PROFILE": {
       let effectiveDays: string[] | undefined;
       let effectiveSections: string[] | undefined;
+      let effectiveScheduleTypes: string[] | undefined;
+      let scheduleTypesExplicit = false;
       if (item.filtersLocked) {
         effectiveDays = stored.days;
         effectiveSections = stored.sections;
+        effectiveScheduleTypes = stored.scheduleTypes;
+        scheduleTypesExplicit = stored.scheduleTypes !== undefined;
       } else {
         const daysParam = getString(sp[`${prefix}days`]);
         const sectionsParam = getString(sp[`${prefix}sections`]);
+        const scheduleTypesParam = getString(sp[`${prefix}scheduleTypes`]);
         effectiveDays = daysParam ? daysParam.split(",").filter(Boolean) : stored.days;
         effectiveSections = sectionsParam ? sectionsParam.split(",").filter(Boolean) : stored.sections;
+        scheduleTypesExplicit =
+          scheduleTypesParam !== undefined || stored.scheduleTypes !== undefined;
+        effectiveScheduleTypes = scheduleTypesParam !== undefined
+          ? scheduleTypesParam.split(",").filter(Boolean)
+          : stored.scheduleTypes;
       }
 
       const event = await getEvent(eventId);
@@ -233,11 +244,12 @@ async function renderItem(
         effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
       }
 
-      const [data, functionTypes, serviceStyles] = await Promise.all([
+      const [data, functionTypes, scheduleTypes, serviceStyles] = await Promise.all([
         getEventProfileData(eventId, {
           days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         }),
         getOptions("function_type"),
+        getOptions("schedule_type"),
         getOptions("service_style"),
       ]);
 
@@ -248,9 +260,19 @@ async function renderItem(
         validSectionValues.has(s as ProfileSection),
       ) as ProfileSection[];
 
+      const selectedScheduleTypes = resolveScheduleTypeFilter(
+        scheduleTypes,
+        effectiveScheduleTypes,
+        scheduleTypesExplicit,
+      );
+      const scheduleTypeOptions = scheduleTypes.map((t) => ({ value: t.label, label: t.label }));
+
       const printParams = new URLSearchParams();
       if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
       if (effectiveSections?.length) printParams.set("sections", effectiveSections.join(","));
+      if (scheduleTypesExplicit) {
+        printParams.set("scheduleTypes", selectedScheduleTypes.join(","));
+      }
       const printHref = printParams.size > 0 ? `${printBase}?${printParams}` : printBase;
 
       return {
@@ -263,8 +285,10 @@ async function renderItem(
               <EpReportFilters
                 eventId={eventId}
                 days={dayOptions}
+                scheduleTypeOptions={scheduleTypeOptions}
                 selectedDays={effectiveDays ?? []}
                 selectedSections={effectiveSections ?? []}
+                selectedScheduleTypes={selectedScheduleTypes}
                 basePath={sharePath}
                 paramPrefix={prefix}
                 hidePrint
@@ -273,8 +297,10 @@ async function renderItem(
             <EventProfileReport
               data={data}
               functionTypes={functionTypes}
+              scheduleTypes={scheduleTypes}
               serviceStyles={serviceStyles}
               selectedSections={validSections}
+              selectedScheduleTypes={selectedScheduleTypes}
             />
           </>
         ),
