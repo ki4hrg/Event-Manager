@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect, notFound } from "next/navigation";
-import { PermissionResource } from "@prisma/client";
+import { PermissionResource, type Vendor } from "@prisma/client";
 
 export type ResponsiblePartyOptions = {
   vendors: { id: string; name: string }[];
@@ -197,18 +197,84 @@ export async function removeVendorContact(contactId: string, vendorId: string) {
 
 // Event vendor management
 
-export async function getEventVendors(eventId: string) {
+// Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
+export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER" | "MEDIA_ORDER";
+
+export type EventVendorKind = "regular" | "system" | "venue";
+
+export type EventVendorEntry = {
+  vendorId: string;
+  vendor: Vendor;
+  defaultFor: ModelType[];
+  kind: EventVendorKind;
+  // null for system/venue vendors that haven't been touched yet (no EventVendor row).
+  // Used by the remove action; system/venue entries are never removable.
+  eventVendorId: string | null;
+};
+
+// Returns the EventVendor list for the page. Always surfaces the system (event team) vendor
+// and the event's venue vendor as virtual entries when they don't yet have an EventVendor row,
+// so they can be tagged as defaults like any other vendor.
+export async function getEventVendors(eventId: string): Promise<EventVendorEntry[]> {
   await requirePermission(PermissionResource.VENDORS, "VIEW");
-  return prisma.eventVendor.findMany({
-    where: { eventId },
-    include: { vendor: true },
-    orderBy: { vendor: { name: "asc" } },
-  });
+
+  const [eventVendors, systemVendor, eventData] = await Promise.all([
+    prisma.eventVendor.findMany({
+      where: { eventId },
+      include: { vendor: true },
+    }),
+    prisma.vendor.findFirst({ where: { isSystemVendor: true } }),
+    prisma.event.findUnique({
+      where: { id: eventId },
+      select: { venue: { select: { vendor: true } } },
+    }),
+  ]);
+
+  const venueVendor = eventData?.venue?.vendor ?? null;
+  const byVendorId = new Map(eventVendors.map((ev) => [ev.vendorId, ev]));
+
+  const buildEntry = (vendor: Vendor, kind: EventVendorKind): EventVendorEntry => {
+    const ev = byVendorId.get(vendor.id);
+    return {
+      vendorId: vendor.id,
+      vendor: ev?.vendor ?? vendor,
+      defaultFor: (ev?.defaultFor ?? []) as ModelType[],
+      kind,
+      eventVendorId: ev?.id ?? null,
+    };
+  };
+
+  const entries: EventVendorEntry[] = [];
+  const pinnedIds = new Set<string>();
+
+  if (systemVendor) {
+    entries.push(buildEntry(systemVendor, "system"));
+    pinnedIds.add(systemVendor.id);
+  }
+  if (venueVendor && !pinnedIds.has(venueVendor.id)) {
+    entries.push(buildEntry(venueVendor, "venue"));
+    pinnedIds.add(venueVendor.id);
+  }
+
+  const regulars = eventVendors
+    .filter((ev) => !pinnedIds.has(ev.vendorId))
+    .sort((a, b) => a.vendor.name.localeCompare(b.vendor.name))
+    .map((ev): EventVendorEntry => ({
+      vendorId: ev.vendorId,
+      vendor: ev.vendor,
+      defaultFor: ev.defaultFor as ModelType[],
+      kind: "regular",
+      eventVendorId: ev.id,
+    }));
+
+  entries.push(...regulars);
+  return entries;
 }
 
 export async function searchVendorsForEvent(query: string, eventId: string) {
   await requirePermission(PermissionResource.VENDORS, "VIEW");
-  // Returns vendors not already assigned to this event
+  // Returns vendors not already assigned to this event. Excludes system / venue-linked
+  // vendors because those are always surfaced as virtual entries on the page.
   const assigned = await prisma.eventVendor.findMany({
     where: { eventId },
     select: { vendorId: true },
@@ -219,6 +285,8 @@ export async function searchVendorsForEvent(query: string, eventId: string) {
     where: {
       name: { contains: query, mode: "insensitive" },
       id: { notIn: assignedIds },
+      isSystemVendor: false,
+      venueId: null,
     },
     orderBy: { name: "asc" },
     take: 20,
@@ -240,23 +308,26 @@ export async function removeVendorFromEvent(eventVendorId: string, eventId: stri
   revalidatePath(`/events/${eventId}/vendors`);
 }
 
-// Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
-export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER" | "MEDIA_ORDER";
-
 // Assigns a vendor as the default for a model type on this event.
 // Transfers the designation away from any other vendor that held it.
-export async function setDefaultVendor(eventVendorId: string, modelType: ModelType, eventId: string) {
+// Lazy-creates the EventVendor row when needed (e.g. for system / venue vendors).
+export async function setDefaultVendor(eventId: string, vendorId: string, modelType: ModelType) {
   await requirePermission(PermissionResource.VENDORS, "WRITE");
+  await prisma.eventVendor.upsert({
+    where: { eventId_vendorId: { eventId, vendorId } },
+    create: { eventId, vendorId },
+    update: {},
+  });
   await prisma.$transaction([
-    prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE "eventId" = ${eventId} AND id != ${eventVendorId}`,
-    prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_append(array_remove("defaultFor", ${modelType}), ${modelType}) WHERE id = ${eventVendorId}`,
+    prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE "eventId" = ${eventId} AND "vendorId" != ${vendorId}`,
+    prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_append(array_remove("defaultFor", ${modelType}), ${modelType}) WHERE "eventId" = ${eventId} AND "vendorId" = ${vendorId}`,
   ]);
   revalidatePath(`/events/${eventId}/vendors`);
 }
 
-export async function removeDefaultVendor(eventVendorId: string, modelType: ModelType, eventId: string) {
+export async function removeDefaultVendor(eventId: string, vendorId: string, modelType: ModelType) {
   await requirePermission(PermissionResource.VENDORS, "WRITE");
-  await prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE id = ${eventVendorId}`;
+  await prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE "eventId" = ${eventId} AND "vendorId" = ${vendorId}`;
   revalidatePath(`/events/${eventId}/vendors`);
 }
 

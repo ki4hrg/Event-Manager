@@ -40,14 +40,14 @@ export default async function EventVendorsPage({ params }: { params: Promise<{ i
     await removeVendorFromEvent(eventVendorId, eventId);
   };
 
-  const setDefaultAction = async (eventVendorId: string, modelType: ModelType) => {
+  const setDefaultAction = async (vendorId: string, modelType: ModelType) => {
     "use server";
-    await setDefaultVendor(eventVendorId, modelType, eventId);
+    await setDefaultVendor(eventId, vendorId, modelType);
   };
 
-  const removeDefaultAction = async (eventVendorId: string, modelType: ModelType) => {
+  const removeDefaultAction = async (vendorId: string, modelType: ModelType) => {
     "use server";
-    await removeDefaultVendor(eventVendorId, modelType, eventId);
+    await removeDefaultVendor(eventId, vendorId, modelType);
   };
 
   return (

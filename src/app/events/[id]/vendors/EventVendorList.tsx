@@ -2,19 +2,24 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import type { EventVendor, Vendor } from "@prisma/client";
-import type { ModelType } from "@/app/vendors/actions";
+import type { Vendor } from "@prisma/client";
+import type { ModelType, EventVendorEntry } from "@/app/vendors/actions";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
-
-type EventVendorWithVendor = EventVendor & { vendor: Vendor };
+import { colorClasses } from "@/lib/colors";
 
 type EventVendorListProps = {
-  eventVendors: EventVendorWithVendor[];
+  eventVendors: EventVendorEntry[];
   searchVendors: (query: string) => Promise<Vendor[]>;
   addVendor: (vendorId: string) => Promise<void>;
   removeVendor: (eventVendorId: string) => Promise<void>;
-  setDefault: (eventVendorId: string, modelType: ModelType) => Promise<void>;
-  removeDefault: (eventVendorId: string, modelType: ModelType) => Promise<void>;
+  setDefault: (vendorId: string, modelType: ModelType) => Promise<void>;
+  removeDefault: (vendorId: string, modelType: ModelType) => Promise<void>;
+};
+
+const KIND_BADGES: Record<EventVendorEntry["kind"], { label: string; color: keyof typeof colorClasses } | null> = {
+  regular: null,
+  system: { label: "Event Team", color: "blue" },
+  venue: { label: "Venue", color: "purple" },
 };
 
 export function EventVendorList({
@@ -57,15 +62,15 @@ export function EventVendorList({
     setSearchResults([]);
   };
 
-  const handleToggleDefault = async (ev: EventVendorWithVendor, modelType: ModelType) => {
-    const key = `${ev.id}:${modelType}`;
+  const handleToggleDefault = async (entry: EventVendorEntry, modelType: ModelType) => {
+    const key = `${entry.vendorId}-${modelType}`;
     if (pendingToggles.has(key)) return;
     setPendingToggles((prev) => new Set(prev).add(key));
     try {
-      if (ev.defaultFor.includes(modelType)) {
-        await removeDefault(ev.id, modelType);
+      if (entry.defaultFor.includes(modelType)) {
+        await removeDefault(entry.vendorId, modelType);
       } else {
-        await setDefault(ev.id, modelType);
+        await setDefault(entry.vendorId, modelType);
       }
     } finally {
       setPendingToggles((prev) => {
@@ -168,66 +173,78 @@ export function EventVendorList({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {eventVendors.map((ev) => (
-                <tr key={ev.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4">
-                    <Link
-                      href={`/vendors/${ev.vendorId}`}
-                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
-                    >
-                      {ev.vendor.name}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {ev.vendor.models.map((model) => (
-                        <span
-                          key={model}
-                          className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
+              {eventVendors.map((entry) => {
+                const badge = KIND_BADGES[entry.kind];
+                return (
+                  <tr key={entry.vendorId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link
+                          href={`/vendors/${entry.vendorId}`}
+                          className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
                         >
-                          {MODEL_LABELS[model] || model}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-3">
-                      {MODEL_TYPES.map(({ value, label }) => {
-                        const key = `${ev.id}:${value}`;
-                        const isChecked = ev.defaultFor.includes(value);
-                        const isPending = pendingToggles.has(key);
-                        return (
-                          <label
-                            key={value}
-                            className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none"
+                          {entry.vendor.name}
+                        </Link>
+                        {badge && (
+                          <span className={`px-2 py-0.5 text-xs rounded ${colorClasses[badge.color]}`}>
+                            {badge.label}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {entry.vendor.models.map((model) => (
+                          <span
+                            key={model}
+                            className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                           >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              disabled={isPending}
-                              onChange={() => handleToggleDefault(ev, value)}
-                              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 disabled:opacity-50"
-                            />
-                            {label}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={async () => {
-                        if (confirm(`Remove ${ev.vendor.name} from this event?`)) {
-                          await removeVendor(ev.id);
-                        }
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                            {MODEL_LABELS[model] || model}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-3">
+                        {MODEL_TYPES.map(({ value, label }) => {
+                          const key = `${entry.vendorId}-${value}`;
+                          const isChecked = entry.defaultFor.includes(value);
+                          const isPending = pendingToggles.has(key);
+                          return (
+                            <label
+                              key={value}
+                              className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={isPending}
+                                onChange={() => handleToggleDefault(entry, value)}
+                                className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 disabled:opacity-50"
+                              />
+                              {label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {entry.kind === "regular" && entry.eventVendorId && (
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Remove ${entry.vendor.name} from this event?`)) {
+                              await removeVendor(entry.eventVendorId!);
+                            }
+                          }}
+                          className="text-red-600 hover:underline text-sm"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
