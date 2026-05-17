@@ -148,7 +148,7 @@ export function FunctionTableView({
       if (filters.type && fn.type !== filters.type) return false;
 
       if (filters.room === "__none__") {
-        if (fn.type === "BREAKOUT_BLOCK" || fn.rooms.length > 0) return false;
+        if (fn.type === "BREAKOUT_BLOCK" || fn.rooms.length > 0 || fn.offSiteLocation) return false;
       } else if (filters.room && !fn.rooms.some((r) => r.room.name === filters.room)) return false;
 
       if (filters.contacts) {

@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/PageHeader";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
-import { btnOutlinedSm } from "@/lib/buttonStyles";
 import {
   getEvent,
   addEventKeyStaff,
@@ -104,31 +102,27 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <PageHeader
-        breadcrumbs={[{ label: "Events", href: "/events" }, { label: event.name }]}
-        title={event.name}
-        actions={
-          <Link href={`/events/${id}/settings`} className={btnOutlinedSm}>
-            Settings
-          </Link>
-        }
-      />
-
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center gap-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-        <div className="text-center sm:border-r sm:border-gray-200 dark:sm:border-gray-700 sm:pr-6 shrink-0">
-          <div className={`text-5xl font-bold tabular-nums ${countdown.tone}`}>{countdown.value}</div>
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">
-            {countdown.label}
-          </div>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-base font-medium text-gray-900 dark:text-white">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
+        <div className="min-w-0">
+          <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name }]} />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+            {event.name}
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             {dateRange}
-            {event.venue && <span className="text-gray-500 dark:text-gray-400"> · {event.venue.name}</span>}
+            {event.venue && <span> · {event.venue.name}</span>}
           </p>
           {event.description && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{event.description}</p>
           )}
+        </div>
+        <div className="sm:shrink-0">
+          <span className="inline-flex items-baseline gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5">
+            <span className={`text-base font-bold tabular-nums ${countdown.tone}`}>{countdown.value}</span>
+            <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {countdown.label}
+            </span>
+          </span>
         </div>
       </div>
 

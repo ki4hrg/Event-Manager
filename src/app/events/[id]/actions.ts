@@ -94,7 +94,7 @@ export async function getEventOverviewStats(eventId: string) {
       ? prisma.function.count({ where: { eventId, schedules: { none: {} } } })
       : Promise.resolve(0),
     canViewFunctions && canEditFunctions
-      ? prisma.function.count({ where: { eventId, rooms: { none: {} }, type: { not: "BREAKOUT_BLOCK" } } })
+      ? prisma.function.count({ where: { eventId, rooms: { none: {} }, offSiteLocation: null, type: { not: "BREAKOUT_BLOCK" } } })
       : Promise.resolve(0),
     canViewPresentations
       ? prisma.presentation.findMany({ where: { eventId }, select: { status: true } })
