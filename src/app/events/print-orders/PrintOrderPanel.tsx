@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { OrderMeta, type OrderMetaFields } from "@/components/OrderMeta";
 
-type PrintOrderSummary = {
+type PrintOrderSummary = OrderMetaFields & {
   id: string;
   name: string;
 };
@@ -122,17 +123,27 @@ export function PrintOrderPanel(props: Props) {
             {printOrders.map((po) => (
               <div
                 key={po.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
+                className="flex items-start justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
               >
-                <Link
-                  href={`/events/${eventId}/print-orders/${po.id}`}
-                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
-                >
-                  {po.name}
-                </Link>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/events/${eventId}/print-orders/${po.id}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
+                  >
+                    {po.name}
+                  </Link>
+                  <div className="mt-1">
+                    <OrderMeta
+                      status={po.status}
+                      substatus={po.substatus}
+                      vendors={po.vendors}
+                      notes={po.notes}
+                    />
+                  </div>
+                </div>
                 <button
                   onClick={() => handleUnlink(po.id)}
-                  className="text-red-600 hover:underline text-sm"
+                  className="text-red-600 hover:underline text-sm flex-shrink-0"
                 >
                   Unlink
                 </button>
@@ -186,16 +197,26 @@ export function PrintOrderPanel(props: Props) {
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Print Order</h2>
 
       {printOrder ? (
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-          <Link
-            href={`/events/${eventId}/print-orders/${printOrder.id}`}
-            className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
-          >
-            {printOrder.name}
-          </Link>
+        <div className="flex items-start justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <div className="min-w-0 flex-1">
+            <Link
+              href={`/events/${eventId}/print-orders/${printOrder.id}`}
+              className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
+            >
+              {printOrder.name}
+            </Link>
+            <div className="mt-1">
+              <OrderMeta
+                status={printOrder.status}
+                substatus={printOrder.substatus}
+                vendors={printOrder.vendors}
+                notes={printOrder.notes}
+              />
+            </div>
+          </div>
           <button
             onClick={handleUnlink}
-            className="text-red-600 hover:underline text-sm"
+            className="text-red-600 hover:underline text-sm flex-shrink-0"
           >
             Unlink
           </button>

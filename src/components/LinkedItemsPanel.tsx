@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 
 type LinkedItem = {
   id: string;
   label: string;
   detailPath: string;
+  metadata?: ReactNode;
 };
 
 type LinkedItemsPanelProps = {
@@ -68,18 +69,23 @@ export function LinkedItemsPanel({
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
+              className="flex items-start justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
             >
-              <Link
-                href={item.detailPath}
-                className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
-              >
-                {item.label}
-              </Link>
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={item.detailPath}
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
+                >
+                  {item.label}
+                </Link>
+                {item.metadata && (
+                  <div className="mt-1">{item.metadata}</div>
+                )}
+              </div>
               <button
                 onClick={() => handleUnlink(item.id, item.label)}
                 disabled={unlinkingId === item.id}
-                className="text-red-600 hover:underline text-sm disabled:opacity-50"
+                className="text-red-600 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
               >
                 Unlink
               </button>

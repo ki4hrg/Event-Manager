@@ -1,9 +1,10 @@
 "use client";
 
 import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
+import { OrderMeta, type OrderMetaFields } from "@/components/OrderMeta";
 import { getSetupOrderDisplayName } from "./utils";
 
-type SetupOrderSummary = {
+type SetupOrderSummary = OrderMetaFields & {
   id: string;
   description?: string | null;
   setupType?: string | null;
@@ -37,6 +38,15 @@ export function SetupOrderPanel({
         id: o.id,
         label: getSetupOrderDisplayName(o),
         detailPath: `/events/${eventId}/setup-orders/${o.id}`,
+        metadata: (
+          <OrderMeta
+            status={o.status}
+            substatus={o.substatus}
+            vendors={o.vendors}
+            fields={[{ label: "Setup", value: o.setupType }]}
+            notes={o.notes}
+          />
+        ),
       }))}
       availableItems={availableSetupOrders.map((o) => ({ id: o.id, label: getSetupOrderDisplayName(o) }))}
       linkLabel="Link Existing"

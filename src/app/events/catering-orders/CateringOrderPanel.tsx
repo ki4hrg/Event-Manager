@@ -3,9 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { CateringOrder } from "@prisma/client";
+import { OrderMeta } from "@/components/OrderMeta";
+
+type CateringOrderWithVendors = CateringOrder & {
+  vendors?: { vendor: { name: string } }[];
+};
+
+function guestCountField(o: CateringOrderWithVendors): { label: string; value: number } | null {
+  if (o.confirmedCount != null) return { label: "Confirmed", value: o.confirmedCount };
+  if (o.guaranteeCount != null) return { label: "Guarantee", value: o.guaranteeCount };
+  if (o.expectedCount != null) return { label: "Expected", value: o.expectedCount };
+  return null;
+}
 
 type CateringOrderPanelProps = {
-  cateringOrder: CateringOrder | null;
+  cateringOrder: CateringOrderWithVendors | null;
   eventId: string;
   availableCateringOrders: CateringOrder[];
   newCateringOrderPath: string;
@@ -55,24 +67,31 @@ export function CateringOrderPanel({
       </h2>
 
       {cateringOrder ? (
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-          <div>
+        <div className="flex items-start justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <div className="min-w-0 flex-1">
             <Link
               href={`/events/${eventId}/catering-orders/${cateringOrder.id}`}
               className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
             >
               {cateringOrder.name}
             </Link>
-            {cateringOrder.guaranteeCount != null && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Guarantee: {cateringOrder.guaranteeCount}
-              </p>
-            )}
+            <div className="mt-1">
+              <OrderMeta
+                status={cateringOrder.status}
+                substatus={cateringOrder.substatus}
+                vendors={cateringOrder.vendors}
+                fields={[
+                  { label: "Service", value: cateringOrder.serviceStyle },
+                  guestCountField(cateringOrder),
+                ]}
+                notes={cateringOrder.notes}
+              />
+            </div>
           </div>
           <button
             onClick={handleUnlink}
             disabled={isUnlinking}
-            className="text-red-600 hover:underline text-sm disabled:opacity-50"
+            className="text-red-600 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
           >
             Unlink
           </button>

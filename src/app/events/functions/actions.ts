@@ -73,17 +73,30 @@ export async function getFunctionsWithPresentations(eventId: string) {
 }
 
 export async function getFunction(id: string) {
+  const vendorInclude = { vendors: { include: { vendor: { select: { name: true } } } } } as const;
   const row = await prisma.function.findUnique({
     where: { id },
     include: {
       rooms: { include: { room: true } },
       schedules: { orderBy: { sortOrder: "asc" } },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
-      avOrderFunctions: { include: { avOrder: true } },
-      cateringOrder: true,
-      setupOrderFunctions: { include: { setupOrder: { include: { room: true } } } },
-      printOrderFunctions: { include: { printOrder: { select: { id: true, name: true } } } },
-      mediaOrderFunctions: { include: { mediaOrder: { select: { id: true, name: true } } } },
+      avOrderFunctions: { include: { avOrder: { include: vendorInclude } } },
+      cateringOrder: { include: vendorInclude },
+      setupOrderFunctions: { include: { setupOrder: { include: { room: true, ...vendorInclude } } } },
+      printOrderFunctions: {
+        include: {
+          printOrder: {
+            select: { id: true, name: true, status: true, substatus: true, notes: true, ...vendorInclude },
+          },
+        },
+      },
+      mediaOrderFunctions: {
+        include: {
+          mediaOrder: {
+            select: { id: true, name: true, status: true, substatus: true, notes: true, ...vendorInclude },
+          },
+        },
+      },
       breakoutGroup: true,
     },
   });
