@@ -27,6 +27,7 @@ import { RoomList } from "../RoomList";
 import { ContactList } from "../ContactList";
 import { getOptions } from "@/app/settings/actions";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
+import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +121,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
       <PageHeader
         breadcrumbs={[{ label: "Venues", href: "/venues" }, { label: venue.name }]}
         title={venue.name}
+        meta={<LastUpdated updatedAt={venue.updatedAt} updatedBy={venue.updatedBy} />}
         actions={<DeleteButton action={deleteVenueAction} />}
       />
 

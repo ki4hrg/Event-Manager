@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/actions";
-import { getRoomScheduleData } from "@/app/events/reports/actions";
+import { getRoomScheduleData, getEventLastUpdate } from "@/app/events/reports/actions";
+import { LastUpdated } from "@/components/LastUpdated";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { getOptions } from "@/app/settings/actions";
 import { enumerateEventDays } from "../event-profile/days";
@@ -30,7 +31,7 @@ export default async function RoomSchedulePage({
   const selectedRoomIds = parseListParam(roomsParam);
   const usedOnly = usedOnlyParam === "true";
 
-  const [event, data, functionTypes, scheduleTypes, dashboardChoices] = await Promise.all([
+  const [event, data, functionTypes, scheduleTypes, dashboardChoices, lastUpdate] = await Promise.all([
     getEvent(eventId),
     getRoomScheduleData(eventId, {
       days: selectedDays.length > 0 ? selectedDays : undefined,
@@ -39,6 +40,7 @@ export default async function RoomSchedulePage({
     getOptions("function_type"),
     getOptions("schedule_type"),
     listShareLinkGroupChoicesForEvent(eventId),
+    getEventLastUpdate(eventId),
   ]);
 
   if (!event || !data) notFound();
@@ -63,6 +65,14 @@ export default async function RoomSchedulePage({
           ]}
         />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{event.name}</h1>
+        {lastUpdate && (
+          <LastUpdated
+            updatedAt={lastUpdate.updatedAt}
+            updatedBy={lastUpdate.updatedBy}
+            timezone={event.timezone}
+            className="mt-2"
+          />
+        )}
       </div>
 
       <div className="max-w-5xl">

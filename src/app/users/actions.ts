@@ -33,12 +33,14 @@ export async function getUser(id: string) {
       roleId: true,
       roleRef: { select: { id: true, name: true } },
       createdAt: true,
+      updatedAt: true,
+      updatedBy: { select: { name: true, email: true } },
     },
   });
 }
 
 export async function createUser(formData: FormData) {
-  await requirePermission(PermissionResource.USERS, "WRITE");
+  const session = await requirePermission(PermissionResource.USERS, "WRITE");
 
   const email = ((formData.get("email") as string) || "").trim().toLowerCase();
   const name = (formData.get("name") as string) || null;
@@ -65,6 +67,7 @@ export async function createUser(formData: FormData) {
       name,
       password: null,
       roleId,
+      updatedById: session.user.id,
     },
     select: { id: true, email: true, name: true },
   });
@@ -129,6 +132,7 @@ export async function updateUser(id: string, formData: FormData) {
       email,
       name,
       roleId: nextRoleId,
+      updatedById: session.user.id,
     },
   });
 

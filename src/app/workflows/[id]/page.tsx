@@ -16,6 +16,7 @@ import {
 } from "../actions";
 import { getSubstatusOptions } from "@/app/settings/actions";
 import { WorkflowEditor } from "./WorkflowEditor";
+import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,9 @@ export default async function WorkflowDetailPage({
         >
           &larr; Back to Workflows
         </Link>
+        <div className="mt-2">
+          <LastUpdated updatedAt={template.updatedAt} updatedBy={template.updatedBy} />
+        </div>
       </div>
 
       <WorkflowEditor

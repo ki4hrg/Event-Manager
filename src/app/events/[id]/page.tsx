@@ -16,6 +16,7 @@ import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
 import { EntityOverviewCard } from "./EntityOverviewCard";
+import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +116,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           {event.description && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{event.description}</p>
           )}
+          <LastUpdated
+            updatedAt={event.updatedAt}
+            updatedBy={event.updatedBy}
+            timezone={event.timezone}
+            className="mt-2"
+          />
         </div>
         <div className="sm:shrink-0">
           <span className="inline-flex items-baseline gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5">

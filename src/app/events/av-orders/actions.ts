@@ -21,6 +21,11 @@ async function assertAVOrderInEvent(avOrderId: string, eventId: string) {
   if (!found) notFound();
 }
 
+// Updates the parent AVOrder's updatedById so child mutations surface in "last updated by".
+async function bumpAVOrder(avOrderId: string, userId: string) {
+  await prisma.aVOrder.update({ where: { id: avOrderId }, data: { updatedById: userId } });
+}
+
 export async function getAVOrders(eventId: string) {
   await requirePermission("AV_ORDERS", "VIEW", eventId);
   const rows = await prisma.aVOrder.findMany({
@@ -106,6 +111,7 @@ export async function getAVOrder(id: string) {
         include: { equipment: true, providerVendor: true, providerContact: true, operatorVendor: true, operatorContact: true },
         orderBy: [{ sortOrder: "asc" }, { item: "asc" }],
       },
+      updatedBy: { select: { name: true, email: true } },
     },
   });
   if (!row) return null;
@@ -118,7 +124,7 @@ export async function getAVOrder(id: string) {
 }
 
 export async function createAVOrder(eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const notes = formData.get("notes") as string;
   const presentationId = (formData.get("presentationId") as string) || null;
@@ -134,6 +140,7 @@ export async function createAVOrder(eventId: string, formData: FormData) {
       notes: notes || null,
       status: defaults.status,
       substatus: defaults.substatus,
+      updatedById: session.user.id,
     },
   });
 
@@ -168,7 +175,7 @@ export async function createAVOrder(eventId: string, formData: FormData) {
 }
 
 export async function updateAVOrder(id: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const notes = formData.get("notes") as string;
 
@@ -177,6 +184,7 @@ export async function updateAVOrder(id: string, eventId: string, formData: FormD
     data: {
       name,
       notes: notes || null,
+      updatedById: session.user.id,
     },
   });
 
@@ -197,21 +205,23 @@ export async function deleteAVOrder(id: string, eventId: string) {
 // ============================================================================
 
 export async function linkAVOrderToFunction(avOrderId: string, functionId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
   await prisma.aVOrderFunction.upsert({
     where: { avOrderId_functionId: { avOrderId, functionId } },
     create: { avOrderId, functionId },
     update: {},
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function unlinkAVOrderFromFunction(avOrderId: string, functionId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
   await prisma.aVOrderFunction.deleteMany({ where: { avOrderId, functionId } });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -221,21 +231,23 @@ export async function linkAVOrderToPresentation(
   presentationId: string,
   eventId: string
 ) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
   await prisma.aVOrderPresentation.upsert({
     where: { avOrderId_presentationId: { avOrderId, presentationId } },
     create: { avOrderId, presentationId },
     update: {},
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function unlinkAVOrderFromPresentation(avOrderId: string, presentationId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
   await prisma.aVOrderPresentation.deleteMany({ where: { avOrderId, presentationId } });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -298,11 +310,12 @@ export async function unlinkAVOrderFromPresentationPage(avOrderId: string, prese
 // ============================================================================
 
 export async function updateAudioSection(id: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.audioSection.update({
     where: { id, avOrder: { eventId } },
     data: { notes: (formData.get("notes") as string) || null },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
@@ -311,7 +324,7 @@ export async function updateAudioSection(id: string, avOrderId: string, eventId:
 // ============================================================================
 
 export async function createInputGroup(audioSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const parent = await prisma.audioSection.findUnique({ where: { id: audioSectionId, avOrder: { eventId } }, select: { id: true } });
   if (!parent) notFound();
   const { _max } = await prisma.inputGroup.aggregate({ where: { audioSectionId }, _max: { sortOrder: true } });
@@ -323,11 +336,12 @@ export async function createInputGroup(audioSectionId: string, avOrderId: string
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function updateInputGroup(id: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.inputGroup.update({
     where: { id, audioSection: { avOrder: { eventId } } },
     data: {
@@ -339,12 +353,14 @@ export async function updateInputGroup(id: string, avOrderId: string, eventId: s
       notes: (formData.get("notes") as string) || null,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function deleteInputGroup(id: string, avOrderId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.inputGroup.delete({ where: { id, audioSection: { avOrder: { eventId } } } });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
@@ -353,7 +369,7 @@ export async function deleteInputGroup(id: string, avOrderId: string, eventId: s
 // ============================================================================
 
 export async function createInputItem(inputGroupId: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const parent = await prisma.inputGroup.findUnique({ where: { id: inputGroupId, audioSection: { avOrder: { eventId } } }, select: { id: true } });
   if (!parent) notFound();
   const { _max } = await prisma.inputItem.aggregate({ where: { inputGroupId }, _max: { sortOrder: true } });
@@ -371,11 +387,12 @@ export async function createInputItem(inputGroupId: string, avOrderId: string, e
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function updateInputItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.inputItem.update({
     where: { id, inputGroup: { audioSection: { avOrder: { eventId } } } },
     data: {
@@ -389,12 +406,14 @@ export async function updateInputItem(id: string, avOrderId: string, eventId: st
       notes: (formData.get("notes") as string) || null,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function deleteInputItem(id: string, avOrderId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.inputItem.delete({ where: { id, inputGroup: { audioSection: { avOrder: { eventId } } } } });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
@@ -403,7 +422,7 @@ export async function deleteInputItem(id: string, avOrderId: string, eventId: st
 // ============================================================================
 
 export async function createMonitorMix(audioSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const parent = await prisma.audioSection.findUnique({ where: { id: audioSectionId, avOrder: { eventId } }, select: { id: true } });
   if (!parent) notFound();
   const { _max } = await prisma.monitorMix.aggregate({ where: { audioSectionId }, _max: { sortOrder: true } });
@@ -420,11 +439,12 @@ export async function createMonitorMix(audioSectionId: string, avOrderId: string
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function updateMonitorMix(id: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.monitorMix.update({
     where: { id, audioSection: { avOrder: { eventId } } },
     data: {
@@ -437,17 +457,19 @@ export async function updateMonitorMix(id: string, avOrderId: string, eventId: s
       notes: (formData.get("notes") as string) || null,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function deleteMonitorMix(id: string, avOrderId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.monitorMix.delete({ where: { id, audioSection: { avOrder: { eventId } } } });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function createMonitorOutput(monitorMixId: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const parent = await prisma.monitorMix.findUnique({ where: { id: monitorMixId, audioSection: { avOrder: { eventId } } }, select: { id: true } });
   if (!parent) notFound();
   const { _max } = await prisma.monitorOutput.aggregate({ where: { monitorMixId }, _max: { sortOrder: true } });
@@ -465,11 +487,12 @@ export async function createMonitorOutput(monitorMixId: string, avOrderId: strin
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function updateMonitorOutput(id: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const quantityRaw = formData.get("quantity") as string;
   await prisma.monitorOutput.update({
     where: { id, monitorMix: { audioSection: { avOrder: { eventId } } } },
@@ -483,12 +506,14 @@ export async function updateMonitorOutput(id: string, avOrderId: string, eventId
       notes: (formData.get("notes") as string) || null,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function deleteMonitorOutput(id: string, avOrderId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.monitorOutput.delete({ where: { id, monitorMix: { audioSection: { avOrder: { eventId } } } } });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
@@ -497,16 +522,17 @@ export async function deleteMonitorOutput(id: string, avOrderId: string, eventId
 // ============================================================================
 
 export async function updateVideoSection(id: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.videoSection.update({
     where: { id, avOrder: { eventId } },
     data: { notes: (formData.get("notes") as string) || null },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function createVideoEquipmentItem(videoSectionId: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const parent = await prisma.videoSection.findUnique({ where: { id: videoSectionId, avOrder: { eventId } }, select: { id: true } });
   if (!parent) notFound();
   const { _max } = await prisma.equipmentItem.aggregate({ where: { videoSectionId }, _max: { sortOrder: true } });
@@ -526,11 +552,12 @@ export async function createVideoEquipmentItem(videoSectionId: string, avOrderId
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function updateVideoEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const equipmentId = (formData.get("equipmentId") as string) || null;
   const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
   await prisma.equipmentItem.update({
@@ -546,12 +573,14 @@ export async function updateVideoEquipmentItem(id: string, avOrderId: string, ev
       notes: (formData.get("notes") as string) || null,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function deleteVideoEquipmentItem(id: string, avOrderId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.equipmentItem.delete({ where: { id, videoSection: { avOrder: { eventId } } } });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
@@ -560,7 +589,7 @@ export async function deleteVideoEquipmentItem(id: string, avOrderId: string, ev
 // ============================================================================
 
 export async function createAVEquipmentItem(avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
   const { _max } = await prisma.equipmentItem.aggregate({ where: { avOrderId }, _max: { sortOrder: true } });
   const equipmentId = (formData.get("equipmentId") as string) || null;
@@ -579,11 +608,12 @@ export async function createAVEquipmentItem(avOrderId: string, eventId: string, 
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function updateAVEquipmentItem(id: string, avOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const equipmentId = (formData.get("equipmentId") as string) || null;
   const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
   await prisma.equipmentItem.update({
@@ -599,12 +629,14 @@ export async function updateAVEquipmentItem(id: string, avOrderId: string, event
       notes: (formData.get("notes") as string) || null,
     },
   });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function deleteAVEquipmentItem(id: string, avOrderId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.equipmentItem.delete({ where: { id, avOrder: { eventId } } });
+  await bumpAVOrder(avOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
@@ -696,7 +728,7 @@ export async function bulkUpdateAVOrders(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }
 ) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   const { status, substatus, vendorId } = updates;
 
   if (status !== undefined || substatus !== undefined) {
@@ -705,6 +737,7 @@ export async function bulkUpdateAVOrders(
       data: {
         ...(status !== undefined ? { status } : {}),
         ...(substatus !== undefined ? { substatus } : {}),
+        updatedById: session.user.id,
       },
     });
   }
@@ -712,6 +745,10 @@ export async function bulkUpdateAVOrders(
   if (vendorId) {
     await prisma.aVOrderVendor.deleteMany({ where: { avOrderId: { in: ids }, avOrder: { eventId } } });
     await prisma.aVOrderVendor.createMany({ data: ids.map((id) => ({ avOrderId: id, vendorId })) });
+    await prisma.aVOrder.updateMany({
+      where: { id: { in: ids }, eventId },
+      data: { updatedById: session.user.id },
+    });
   }
 
   revalidatePath(`/events/${eventId}/av-orders`);

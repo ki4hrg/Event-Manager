@@ -19,6 +19,10 @@ async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
   if (!found) notFound();
 }
 
+async function bumpPrintOrder(printOrderId: string, userId: string) {
+  await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: userId } });
+}
+
 export async function getPrintOrders(eventId: string) {
   await requirePermission("PRINT_ORDERS", "VIEW", eventId);
   return prisma.printOrder.findMany({
@@ -59,6 +63,7 @@ export async function getPrintOrder(id: string) {
       items: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       vendors: { include: { vendor: true }, orderBy: { vendor: { name: "asc" } } },
       files: { orderBy: { createdAt: "asc" } },
+      updatedBy: { select: { name: true, email: true } },
     },
   });
   if (!row) return null;
@@ -67,7 +72,7 @@ export async function getPrintOrder(id: string) {
 }
 
 export async function createPrintOrder(eventId: string, formData: FormData) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   const name = (formData.get("name") as string)?.trim();
   const notes = (formData.get("notes") as string) || null;
   const functionId = (formData.get("functionId") as string) || null;
@@ -77,7 +82,7 @@ export async function createPrintOrder(eventId: string, formData: FormData) {
   const defaults = await resolveCreateStatus(eventId, "PRINT_ORDER");
 
   const printOrder = await prisma.printOrder.create({
-    data: { name, eventId, notes, presentationId, status: defaults.status, substatus: defaults.substatus },
+    data: { name, eventId, notes, presentationId, status: defaults.status, substatus: defaults.substatus, updatedById: session.user.id },
   });
 
   const [, defaultVendor] = await Promise.all([
@@ -99,11 +104,11 @@ export async function createPrintOrder(eventId: string, formData: FormData) {
 }
 
 export async function updatePrintOrder(id: string, eventId: string, formData: FormData) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   const name = (formData.get("name") as string)?.trim();
   const notes = (formData.get("notes") as string) || null;
 
-  await prisma.printOrder.update({ where: { id, eventId }, data: { name, notes } });
+  await prisma.printOrder.update({ where: { id, eventId }, data: { name, notes, updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/print-orders`);
   revalidatePath(`/events/${eventId}/print-orders/${id}`);
   redirect(`/events/${eventId}/print-orders/${id}?success=Print Order updated`);
@@ -118,29 +123,31 @@ export async function deletePrintOrder(id: string, eventId: string) {
 
 // Function link/unlink (many-to-many via junction)
 export async function linkPrintOrderToFunction(printOrderId: string, functionId: string, eventId: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await assertPrintOrderInEvent(printOrderId, eventId);
   await prisma.printOrderFunction.create({ data: { printOrderId, functionId } });
+  await bumpPrintOrder(printOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
 export async function unlinkPrintOrderFromFunction(printOrderId: string, functionId: string, eventId: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await prisma.printOrderFunction.deleteMany({ where: { printOrderId, functionId, printOrder: { eventId } } });
+  await bumpPrintOrder(printOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
 // Presentation link/unlink
 export async function linkPrintOrderToPresentation(printOrderId: string, presentationId: string, eventId: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await prisma.printOrder.update({ where: { id: printOrderId, eventId }, data: { presentationId } });
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  await prisma.printOrder.update({ where: { id: printOrderId, eventId }, data: { presentationId, updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function unlinkPrintOrderFromPresentation(printOrderId: string, presentationId: string | null, eventId: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await prisma.printOrder.update({ where: { id: printOrderId, eventId }, data: { presentationId: null } });
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  await prisma.printOrder.update({ where: { id: printOrderId, eventId }, data: { presentationId: null, updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
   if (presentationId) {
     revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
@@ -169,9 +176,10 @@ export async function linkPrintOrderToFunctionFromFunction(
   functionId: string,
   eventId: string
 ) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await assertPrintOrderInEvent(printOrderId, eventId);
   await prisma.printOrderFunction.create({ data: { printOrderId, functionId } });
+  await bumpPrintOrder(printOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
@@ -180,8 +188,9 @@ export async function unlinkPrintOrderFromFunctionPage(
   functionId: string,
   eventId: string
 ) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await prisma.printOrderFunction.deleteMany({ where: { printOrderId, functionId, printOrder: { eventId } } });
+  await bumpPrintOrder(printOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
@@ -191,14 +200,14 @@ export async function linkPrintOrderToPresentationFromPresentation(
   presentationId: string,
   eventId: string
 ) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await prisma.printOrder.update({ where: { id: printOrderId, eventId }, data: { presentationId } });
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  await prisma.printOrder.update({ where: { id: printOrderId, eventId }, data: { presentationId, updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function unlinkPrintOrderFromPresentationPage(presentationId: string, eventId: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await prisma.printOrder.updateMany({ where: { presentationId, eventId }, data: { presentationId: null } });
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  await prisma.printOrder.updateMany({ where: { presentationId, eventId }, data: { presentationId: null, updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -218,24 +227,27 @@ function parsePrintItemData(formData: FormData) {
 
 // PrintItem CRUD
 export async function createPrintItem(printOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await assertPrintOrderInEvent(printOrderId, eventId);
   const { _max } = await prisma.printItem.aggregate({ where: { printOrderId }, _max: { sortOrder: true } });
   await prisma.printItem.create({
     data: { printOrderId, ...parsePrintItemData(formData), sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
+  await bumpPrintOrder(printOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
 export async function updatePrintItem(id: string, printOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await prisma.printItem.update({ where: { id, printOrder: { eventId } }, data: parsePrintItemData(formData) });
+  await bumpPrintOrder(printOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
 export async function deletePrintItem(id: string, printOrderId: string, eventId: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await prisma.printItem.delete({ where: { id, printOrder: { eventId } } });
+  await bumpPrintOrder(printOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
@@ -301,7 +313,7 @@ export async function bulkUpdatePrintOrders(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string }
 ) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   const { status, substatus, vendorId, functionId } = updates;
 
   if (status !== undefined || substatus !== undefined) {
@@ -310,6 +322,7 @@ export async function bulkUpdatePrintOrders(
       data: {
         ...(status !== undefined ? { status } : {}),
         ...(substatus !== undefined ? { substatus } : {}),
+        updatedById: session.user.id,
       },
     });
   }
@@ -317,6 +330,10 @@ export async function bulkUpdatePrintOrders(
   if (vendorId) {
     await prisma.printOrderVendor.deleteMany({ where: { printOrderId: { in: ids }, printOrder: { eventId } } });
     await prisma.printOrderVendor.createMany({ data: ids.map((id) => ({ printOrderId: id, vendorId })) });
+    await prisma.printOrder.updateMany({
+      where: { id: { in: ids }, eventId },
+      data: { updatedById: session.user.id },
+    });
   }
 
   if (functionId) {
@@ -330,6 +347,10 @@ export async function bulkUpdatePrintOrders(
     if (toCreate.length > 0) {
       await prisma.printOrderFunction.createMany({
         data: toCreate.map((id) => ({ printOrderId: id, functionId })),
+      });
+      await prisma.printOrder.updateMany({
+        where: { id: { in: ids }, eventId },
+        data: { updatedById: session.user.id },
       });
     }
   }

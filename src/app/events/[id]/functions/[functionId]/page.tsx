@@ -58,6 +58,7 @@ import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
+import { LastUpdated } from "@/components/LastUpdated";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
@@ -271,6 +272,12 @@ export default async function FunctionPage({
             </h1>
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
+          <LastUpdated
+            updatedAt={fn.updatedAt}
+            updatedBy={fn.updatedBy}
+            timezone={event.timezone}
+            className="mt-2"
+          />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           <a

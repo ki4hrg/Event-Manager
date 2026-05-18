@@ -9,21 +9,39 @@ datasource db {
 
 // Authentication
 model User {
-  id                  String               @id @default(cuid())
-  email               String               @unique
-  name                String?
+  id                       String               @id @default(cuid())
+  email                    String               @unique
+  name                     String?
   // Nullable: new users start without a password until they consume an invite token.
-  password            String?
+  password                 String?
   // FK to the RBAC Role table. Source of truth for permissions.
-  roleId              String?
-  roleRef             Role?                @relation(fields: [roleId], references: [id])
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  settings            UserSetting[]
-  shareLinks          ShareLink[]
-  shareLinkGroups     ShareLinkGroup[]
-  passwordResetTokens PasswordResetToken[]
-  staffAssignments    EventStaff[]
+  roleId                   String?
+  roleRef                  Role?                @relation(fields: [roleId], references: [id])
+  // Self-ref for "last updated by" attribution.
+  updatedById              String?
+  updatedBy                User?                @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatesByUser            User[]               @relation("UserUpdatedBy")
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  settings                 UserSetting[]
+  shareLinks               ShareLink[]
+  shareLinkGroups          ShareLinkGroup[]
+  passwordResetTokens      PasswordResetToken[]
+  staffAssignments         EventStaff[]
+  // Inverse relations for "last updated by" attribution across all editable entities.
+  updatedEvents            Event[]              @relation("EventUpdatedBy")
+  updatedVenues            Venue[]              @relation("VenueUpdatedBy")
+  updatedContacts          Contact[]            @relation("ContactUpdatedBy")
+  updatedVendors           Vendor[]             @relation("VendorUpdatedBy")
+  updatedFunctions         Function[]           @relation("FunctionUpdatedBy")
+  updatedPresentations     Presentation[]       @relation("PresentationUpdatedBy")
+  updatedCateringOrders    CateringOrder[]      @relation("CateringOrderUpdatedBy")
+  updatedAVOrders          AVOrder[]            @relation("AVOrderUpdatedBy")
+  updatedSetupOrders       SetupOrder[]         @relation("SetupOrderUpdatedBy")
+  updatedPrintOrders       PrintOrder[]         @relation("PrintOrderUpdatedBy")
+  updatedMediaOrders       MediaOrder[]         @relation("MediaOrderUpdatedBy")
+  updatedWorkflowTemplates WorkflowTemplate[]   @relation("WorkflowTemplateUpdatedBy")
+  updatedRoles             Role[]               @relation("RoleUpdatedBy")
 }
 
 // One-time tokens used for both initial invite and password reset flows.
@@ -131,27 +149,35 @@ model Event {
   keyStaff           EventKeyStaff[]
   statusDefaults     EventStatusDefault[]
   staff              EventStaff[]
+  updatedById        String?
+  updatedBy          User?                @relation("EventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
+
+  @@index([updatedById])
 }
 
 model Venue {
-  id         String         @id @default(cuid())
-  name       String
-  address    String?
-  city       String?
-  state      String?
-  zip        String?
-  country    String?
-  notes      String?
-  rooms      Room[]
-  roomGroups RoomGroup[]
-  events     Event[]
-  contacts   VenueContact[]
-  vendor     Vendor?
-  files      FileUpload[]
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  id          String         @id @default(cuid())
+  name        String
+  address     String?
+  city        String?
+  state       String?
+  zip         String?
+  country     String?
+  notes       String?
+  rooms       Room[]
+  roomGroups  RoomGroup[]
+  events      Event[]
+  contacts    VenueContact[]
+  vendor      Vendor?
+  files       FileUpload[]
+  updatedById String?
+  updatedBy   User?          @relation("VenueUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([updatedById])
 }
 
 model RoomGroup {
@@ -216,8 +242,12 @@ model Contact {
   equipmentItemsAsProvider EquipmentItem[]        @relation("EquipmentItemProviderContact")
   equipmentItemsAsOperator EquipmentItem[]        @relation("EquipmentItemOperatorContact")
   eventKeyStaff            EventKeyStaff[]
+  updatedById              String?
+  updatedBy                User?                  @relation("ContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
+
+  @@index([updatedById])
 }
 
 // Junction table for Venue <-> Contact
@@ -272,11 +302,14 @@ model Function {
   sessionRoomOverrides BreakoutSessionRoomOverride[]
   cateringOrder        CateringOrder?
   timelineItems        TimelineItem[]
+  updatedById          String?
+  updatedBy            User?                         @relation("FunctionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt            DateTime                      @default(now())
   updatedAt            DateTime                      @updatedAt
 
   @@index([eventId])
   @@index([breakoutGroupId])
+  @@index([updatedById])
 }
 
 // Schedule items for a function (setup, rehearsal, main event, etc.)
@@ -337,11 +370,14 @@ model AVOrder {
   equipmentItems    EquipmentItem[]
   vendors           AVOrderVendor[]
   files             FileUpload[]
+  updatedById       String?
+  updatedBy         User?                 @relation("AVOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
   @@index([eventId])
   @@index([copiedFromId])
+  @@index([updatedById])
 }
 
 model AVOrderFunction {
@@ -395,10 +431,13 @@ model CateringOrder {
   contacts          CateringOrderContact[]
   vendors           CateringOrderVendor[]
   files             FileUpload[]
+  updatedById       String?
+  updatedBy         User?                      @relation("CateringOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt         DateTime                   @default(now())
   updatedAt         DateTime                   @updatedAt
 
   @@index([eventId])
+  @@index([updatedById])
   @@map("BEO")
 }
 
@@ -476,11 +515,14 @@ model SetupOrder {
   equipmentItems    EquipmentItem[]
   vendors           SetupOrderVendor[]
   files             FileUpload[]
+  updatedById       String?
+  updatedBy         User?                    @relation("SetupOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 
   @@index([eventId])
   @@index([roomId])
+  @@index([updatedById])
 }
 
 model SetupOrderFunction {
@@ -679,12 +721,15 @@ model Presentation {
   setupOrderLinks SetupOrderPresentation[]
   printOrder      PrintOrder?
   mediaOrderLinks MediaOrderPresentation[]
+  updatedById     String?
+  updatedBy       User?                    @relation("PresentationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
 
   @@index([eventId])
   @@index([trackId])
   @@index([breakoutGroupId])
+  @@index([updatedById])
 }
 
 model PresentationContact {
@@ -715,8 +760,12 @@ model WorkflowTemplate {
   completionSubstatusValue String?
   steps                    WorkflowStep[]
   instances                WorkflowInstance[]
+  updatedById              String?
+  updatedBy                User?              @relation("WorkflowTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                DateTime           @default(now())
   updatedAt                DateTime           @updatedAt
+
+  @@index([updatedById])
 }
 
 model WorkflowStep {
@@ -825,8 +874,12 @@ model Vendor {
   monitorOutputsAsOperator MonitorOutput[]            @relation("MonitorOutputOperatorVendor")
   setupTablesAsProvider    SetupTable[]               @relation("SetupTableProviderVendor")
   mediaItemsAsAdvancer     MediaItem[]                @relation("MediaItemAdvancerVendor")
+  updatedById              String?
+  updatedBy                User?                      @relation("VendorUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                DateTime                   @default(now())
   updatedAt                DateTime                   @updatedAt
+
+  @@index([updatedById])
 }
 
 // Junction: Vendor <-> Contact
@@ -1033,11 +1086,14 @@ model MediaOrder {
   items             MediaItem[]
   vendors           MediaOrderVendor[]
   files             FileUpload[]
+  updatedById       String?
+  updatedBy         User?                    @relation("MediaOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 
   @@index([eventId])
   @@index([copiedFromId])
+  @@index([updatedById])
 }
 
 model MediaOrderFunction {
@@ -1106,10 +1162,13 @@ model PrintOrder {
   items          PrintItem[]
   vendors        PrintOrderVendor[]
   files          FileUpload[]
+  updatedById    String?
+  updatedBy      User?                @relation("PrintOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
   @@index([eventId])
+  @@index([updatedById])
 }
 
 model PrintOrderFunction {
@@ -1309,8 +1368,12 @@ model Role {
   isSystem    Boolean          @default(false)
   permissions RolePermission[]
   users       User[]
+  updatedById String?
+  updatedBy   User?            @relation("RoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+
+  @@index([updatedById])
 }
 
 model RolePermission {

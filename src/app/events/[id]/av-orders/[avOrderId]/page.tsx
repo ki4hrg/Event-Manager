@@ -56,6 +56,7 @@ import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
+import { LastUpdated } from "@/components/LastUpdated";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
@@ -389,6 +390,12 @@ export default async function AVOrderPage({
             <EntityStatusBadge status={entityStatus} substatus={avOrder.substatus ?? null} />
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
+          <LastUpdated
+            updatedAt={avOrder.updatedAt}
+            updatedBy={avOrder.updatedBy}
+            timezone={event.timezone}
+            className="mt-2"
+          />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           <a

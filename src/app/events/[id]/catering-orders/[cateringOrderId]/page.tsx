@@ -42,6 +42,7 @@ import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepComplet
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
+import { LastUpdated } from "@/components/LastUpdated";
 import {
   getCateringOrderVendors,
   addVendorToCateringOrder,
@@ -340,6 +341,12 @@ export default async function CateringOrderPage({
             <EntityStatusBadge status={entityStatus} substatus={cateringOrder.substatus ?? null} />
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
+          <LastUpdated
+            updatedAt={cateringOrder.updatedAt}
+            updatedBy={cateringOrder.updatedBy}
+            timezone={event.timezone}
+            className="mt-2"
+          />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           <a

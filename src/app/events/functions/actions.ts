@@ -98,6 +98,7 @@ export async function getFunction(id: string) {
         },
       },
       breakoutGroup: true,
+      updatedBy: { select: { name: true, email: true } },
     },
   });
   if (!row) return null;
@@ -110,7 +111,7 @@ export async function getFunction(id: string) {
 }
 
 export async function createFunction(eventId: string, formData: FormData) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
@@ -135,6 +136,7 @@ export async function createFunction(eventId: string, formData: FormData) {
       breakoutGroupId: breakoutGroupId || null,
       status: defaults.status,
       substatus: defaults.substatus,
+      updatedById: session.user.id,
       rooms: {
         create: roomIds.map((roomId) => ({ roomId })),
       },
@@ -170,7 +172,7 @@ export async function createFunction(eventId: string, formData: FormData) {
 }
 
 export async function updateFunction(id: string, eventId: string, formData: FormData) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const type = formData.get("type") as string;
@@ -190,6 +192,7 @@ export async function updateFunction(id: string, eventId: string, formData: Form
       notes: notes || null,
       offSiteLocation,
       breakoutGroupId: breakoutGroupId || null,
+      updatedById: session.user.id,
     },
   });
 
@@ -237,13 +240,16 @@ export async function bulkUpdateFunctions(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; type?: string }
 ) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
-  await prisma.function.updateMany({ where: { id: { in: ids }, eventId }, data: updates });
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await prisma.function.updateMany({
+    where: { id: { in: ids }, eventId },
+    data: { ...updates, updatedById: session.user.id },
+  });
   revalidatePath(`/events/${eventId}/functions`);
 }
 
 export async function duplicateFunction(id: string, eventId: string) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   const original = await prisma.function.findUnique({
     where: { id, eventId },
     include: {
@@ -263,6 +269,7 @@ export async function duplicateFunction(id: string, eventId: string) {
       notes: original.notes,
       offSiteLocation: original.offSiteLocation,
       eventId: original.eventId,
+      updatedById: session.user.id,
       rooms: {
         create: original.rooms.map((r) => ({ roomId: r.roomId })),
       },
@@ -300,7 +307,7 @@ export async function createSchedule(
   eventId: string,
   formData: FormData
 ): Promise<{ conflicts: RoomConflict[] } | undefined> {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
   const type = formData.get("type") as string;
   const startTime = formData.get("startTime") as string;
@@ -341,6 +348,7 @@ export async function createSchedule(
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -351,7 +359,7 @@ export async function updateSchedule(
   eventId: string,
   formData: FormData
 ): Promise<{ conflicts: RoomConflict[] } | undefined> {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
   const type = formData.get("type") as string;
   const startTime = formData.get("startTime") as string;
@@ -384,13 +392,15 @@ export async function updateSchedule(
       isPublic,
     },
   });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function deleteSchedule(scheduleId: string, functionId: string, eventId: string) {
-  await requirePermission("FUNCTIONS", "DELETE", eventId);
+  const session = await requirePermission("FUNCTIONS", "DELETE", eventId);
   await prisma.functionSchedule.delete({ where: { id: scheduleId, function: { eventId } } });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
@@ -419,7 +429,7 @@ export async function searchContacts(query: string) {
 }
 
 export async function addFunctionContact(functionId: string, eventId: string, formData: FormData) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
@@ -431,6 +441,7 @@ export async function addFunctionContact(functionId: string, eventId: string, fo
       role: role || null,
     },
   });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -441,20 +452,22 @@ export async function updateFunctionContact(
   eventId: string,
   formData: FormData
 ) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   const role = formData.get("role") as string;
 
   await prisma.functionContact.update({
     where: { id: contactId, function: { eventId } },
     data: { role: role || null },
   });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function removeFunctionContact(contactId: string, functionId: string, eventId: string) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   await prisma.functionContact.delete({ where: { id: contactId, function: { eventId } } });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
@@ -463,7 +476,7 @@ export async function createAndAddFunctionContact(
   eventId: string,
   formData: FormData
 ) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
@@ -479,12 +492,14 @@ export async function createAndAddFunctionContact(
       email: email || null,
       phone: phone || null,
       organization: organization || null,
+      updatedById: session.user.id,
     },
   });
 
   await prisma.functionContact.create({
     data: { functionId, contactId: contact.id, role: role || null },
   });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -499,7 +514,7 @@ export async function updateFunctionRoom(
   newRoomId: string,
   eventId: string
 ): Promise<{ success: boolean; error?: string }> {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
   if (oldRoomId === newRoomId) return { success: true };
 
@@ -516,6 +531,7 @@ export async function updateFunctionRoom(
       data: { functionId, roomId: newRoomId },
     }),
   ]);
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/agenda`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
@@ -530,7 +546,7 @@ export async function scheduleUnscheduledFunction(
   eventId: string,
   force = false
 ): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
   const start = new Date(startTime);
   const end = new Date(endTime);
@@ -558,6 +574,7 @@ export async function scheduleUnscheduledFunction(
       sortOrder: 0,
     },
   });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/agenda`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
@@ -572,7 +589,7 @@ export async function rescheduleEntry(
   eventId: string,
   force = false
 ): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
   const startTime = new Date(newStartTime);
   const endTime = new Date(newEndTime);
@@ -591,6 +608,7 @@ export async function rescheduleEntry(
     where: { id: scheduleId, function: { eventId } },
     data: { startTime, endTime },
   });
+  await prisma.function.update({ where: { id: functionId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/agenda`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);

@@ -20,6 +20,10 @@ async function assertMediaOrderInEvent(mediaOrderId: string, eventId: string) {
   if (!found) notFound();
 }
 
+async function bumpMediaOrder(mediaOrderId: string, userId: string) {
+  await prisma.mediaOrder.update({ where: { id: mediaOrderId }, data: { updatedById: userId } });
+}
+
 export async function getMediaOrders(eventId: string) {
   await requirePermission("MEDIA_ORDERS", "VIEW", eventId);
   const rows = await prisma.mediaOrder.findMany({
@@ -73,6 +77,7 @@ export async function getMediaOrder(id: string) {
       },
       vendors: { include: { vendor: true }, orderBy: { vendor: { name: "asc" } } },
       files: { orderBy: { createdAt: "asc" } },
+      updatedBy: { select: { name: true, email: true } },
     },
   });
   if (!row) return null;
@@ -85,7 +90,7 @@ export async function getMediaOrder(id: string) {
 }
 
 export async function createMediaOrder(eventId: string, formData: FormData) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   const name = (formData.get("name") as string)?.trim();
   const notes = (formData.get("notes") as string) || null;
   const functionId = (formData.get("functionId") as string) || null;
@@ -95,7 +100,7 @@ export async function createMediaOrder(eventId: string, formData: FormData) {
   const defaults = await resolveCreateStatus(eventId, "MEDIA_ORDER");
 
   const mediaOrder = await prisma.mediaOrder.create({
-    data: { name, eventId, notes, status: defaults.status, substatus: defaults.substatus },
+    data: { name, eventId, notes, status: defaults.status, substatus: defaults.substatus, updatedById: session.user.id },
   });
 
   const [, , defaultVendor] = await Promise.all([
@@ -123,11 +128,11 @@ export async function createMediaOrder(eventId: string, formData: FormData) {
 }
 
 export async function updateMediaOrder(id: string, eventId: string, formData: FormData) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   const name = (formData.get("name") as string)?.trim();
   const notes = (formData.get("notes") as string) || null;
 
-  await prisma.mediaOrder.update({ where: { id, eventId }, data: { name, notes } });
+  await prisma.mediaOrder.update({ where: { id, eventId }, data: { name, notes, updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/media-orders`);
   revalidatePath(`/events/${eventId}/media-orders/${id}`);
   redirect(`/events/${eventId}/media-orders/${id}?success=Media Order updated`);
@@ -145,39 +150,43 @@ export async function deleteMediaOrder(id: string, eventId: string) {
 // ============================================================================
 
 export async function linkMediaOrderToFunction(mediaOrderId: string, functionId: string, eventId: string) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await assertMediaOrderInEvent(mediaOrderId, eventId);
   await prisma.mediaOrderFunction.upsert({
     where: { mediaOrderId_functionId: { mediaOrderId, functionId } },
     create: { mediaOrderId, functionId },
     update: {},
   });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function unlinkMediaOrderFromFunction(mediaOrderId: string, functionId: string, eventId: string) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await prisma.mediaOrderFunction.deleteMany({ where: { mediaOrderId, functionId, mediaOrder: { eventId } } });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function linkMediaOrderToPresentation(mediaOrderId: string, presentationId: string, eventId: string) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await assertMediaOrderInEvent(mediaOrderId, eventId);
   await prisma.mediaOrderPresentation.upsert({
     where: { mediaOrderId_presentationId: { mediaOrderId, presentationId } },
     create: { mediaOrderId, presentationId },
     update: {},
   });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function unlinkMediaOrderFromPresentation(mediaOrderId: string, presentationId: string, eventId: string) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await prisma.mediaOrderPresentation.deleteMany({ where: { mediaOrderId, presentationId, mediaOrder: { eventId } } });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -244,24 +253,27 @@ function parseMediaItemData(formData: FormData) {
 }
 
 export async function createMediaItem(mediaOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await assertMediaOrderInEvent(mediaOrderId, eventId);
   const { _max } = await prisma.mediaItem.aggregate({ where: { mediaOrderId }, _max: { sortOrder: true } });
   await prisma.mediaItem.create({
     data: { mediaOrderId, ...parseMediaItemData(formData), sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }
 
 export async function updateMediaItem(id: string, mediaOrderId: string, eventId: string, formData: FormData) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await prisma.mediaItem.update({ where: { id, mediaOrder: { eventId } }, data: parseMediaItemData(formData) });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }
 
 export async function deleteMediaItem(id: string, mediaOrderId: string, eventId: string) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await prisma.mediaItem.delete({ where: { id, mediaOrder: { eventId } } });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }
 
@@ -345,7 +357,7 @@ export async function bulkUpdateMediaOrders(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string; presentationId?: string }
 ) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   const { status, substatus, vendorId, functionId, presentationId } = updates;
 
   if (status !== undefined || substatus !== undefined) {
@@ -354,6 +366,7 @@ export async function bulkUpdateMediaOrders(
       data: {
         ...(status !== undefined ? { status } : {}),
         ...(substatus !== undefined ? { substatus } : {}),
+        updatedById: session.user.id,
       },
     });
   }
@@ -361,6 +374,7 @@ export async function bulkUpdateMediaOrders(
   if (vendorId) {
     await prisma.mediaOrderVendor.deleteMany({ where: { mediaOrderId: { in: ids }, mediaOrder: { eventId } } });
     await prisma.mediaOrderVendor.createMany({ data: ids.map((id) => ({ mediaOrderId: id, vendorId })) });
+    await prisma.mediaOrder.updateMany({ where: { id: { in: ids }, eventId }, data: { updatedById: session.user.id } });
   }
 
   if (functionId) {
@@ -374,6 +388,7 @@ export async function bulkUpdateMediaOrders(
       await prisma.mediaOrderFunction.createMany({
         data: toCreate.map((id) => ({ mediaOrderId: id, functionId })),
       });
+      await prisma.mediaOrder.updateMany({ where: { id: { in: ids }, eventId }, data: { updatedById: session.user.id } });
     }
   }
 
@@ -388,6 +403,7 @@ export async function bulkUpdateMediaOrders(
       await prisma.mediaOrderPresentation.createMany({
         data: toCreate.map((id) => ({ mediaOrderId: id, presentationId })),
       });
+      await prisma.mediaOrder.updateMany({ where: { id: { in: ids }, eventId }, data: { updatedById: session.user.id } });
     }
   }
 

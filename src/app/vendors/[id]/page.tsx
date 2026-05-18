@@ -18,6 +18,7 @@ import { getOptions } from "@/app/settings/actions";
 import { VendorForm } from "../VendorForm";
 import { MODEL_LABELS } from "../model-types";
 import { VendorContactList } from "../VendorContactList";
+import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
       <PageHeader
         breadcrumbs={[{ label: "Vendors", href: "/vendors" }, { label: vendor.name }]}
         title={vendor.name}
+        meta={<LastUpdated updatedAt={vendor.updatedAt} updatedBy={vendor.updatedBy} />}
         actions={!vendor.isSystemVendor ? <DeleteButton action={deleteVendorAction} /> : undefined}
       />
       {vendor.models.length > 0 && (

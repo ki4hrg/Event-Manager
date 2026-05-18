@@ -7,6 +7,7 @@ import { Toast } from "@/components/Toast";
 import { getContact, updateContact, deleteContact } from "../actions";
 import { ContactForm } from "../ContactForm";
 import { getOptions } from "@/app/settings/actions";
+import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       <PageHeader
         breadcrumbs={[{ label: "Contacts", href: "/contacts" }, { label: `${contact.firstName} ${contact.lastName}` }]}
         title={`${contact.firstName} ${contact.lastName}`}
+        meta={<LastUpdated updatedAt={contact.updatedAt} updatedBy={contact.updatedBy} />}
         actions={<DeleteButton action={deleteContactAction} />}
       />
 

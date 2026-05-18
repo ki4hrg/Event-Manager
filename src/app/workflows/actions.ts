@@ -47,12 +47,17 @@ export async function getWorkflowTemplate(id: string) {
         },
       },
       _count: { select: { instances: true } },
+      updatedBy: { select: { name: true, email: true } },
     },
   });
 }
 
+async function bumpWorkflowTemplate(templateId: string, userId: string) {
+  await prisma.workflowTemplate.update({ where: { id: templateId }, data: { updatedById: userId } });
+}
+
 export async function createWorkflowTemplate(formData: FormData) {
-  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const defaultForEntityTypes = formData.getAll("defaultForEntityTypes") as string[];
@@ -68,6 +73,7 @@ export async function createWorkflowTemplate(formData: FormData) {
       description: description || null,
       defaultForEntityTypes,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+      updatedById: session.user.id,
     },
   });
 
@@ -75,7 +81,7 @@ export async function createWorkflowTemplate(formData: FormData) {
 }
 
 export async function updateWorkflowTemplate(id: string, formData: FormData) {
-  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const defaultForEntityTypes = formData.getAll("defaultForEntityTypes") as string[];
@@ -86,7 +92,7 @@ export async function updateWorkflowTemplate(id: string, formData: FormData) {
 
   await prisma.workflowTemplate.update({
     where: { id },
-    data: { name, description: description || null, defaultForEntityTypes, pendingStatusValue, pendingSubstatusValue, completionStatusValue, completionSubstatusValue },
+    data: { name, description: description || null, defaultForEntityTypes, pendingStatusValue, pendingSubstatusValue, completionStatusValue, completionSubstatusValue, updatedById: session.user.id },
   });
 
   revalidatePath(`/workflows/${id}`);
@@ -102,7 +108,7 @@ export async function deleteWorkflowTemplate(id: string) {
 // --- Steps ---
 
 export async function createWorkflowStep(templateId: string, formData: FormData) {
-  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   const label = formData.get("label") as string;
   const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
   const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
@@ -122,12 +128,13 @@ export async function createWorkflowStep(templateId: string, formData: FormData)
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
+  await bumpWorkflowTemplate(templateId, session.user.id);
 
   revalidatePath(`/workflows/${templateId}`);
 }
 
 export async function updateWorkflowStep(id: string, templateId: string, formData: FormData) {
-  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   const label = formData.get("label") as string;
   const pendingStatusValue = (formData.get("pendingStatusValue") as EntityStatus | null) || null;
   const pendingSubstatusValue = (formData.get("pendingSubstatusValue") as string | null) || null;
@@ -136,29 +143,32 @@ export async function updateWorkflowStep(id: string, templateId: string, formDat
     where: { id },
     data: { label, pendingStatusValue, pendingSubstatusValue },
   });
+  await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
 }
 
 export async function deleteWorkflowStep(id: string, templateId: string) {
-  await requirePermission(PermissionResource.WORKFLOWS, "DELETE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "DELETE");
   await prisma.workflowStep.delete({ where: { id } });
+  await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
 }
 
 export async function reorderWorkflowSteps(templateId: string, orderedIds: string[]) {
-  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await Promise.all(
     orderedIds.map((id, index) =>
       prisma.workflowStep.update({ where: { id }, data: { sortOrder: index } })
     )
   );
+  await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
 }
 
 // --- Checklist Items ---
 
 export async function createChecklistItem(stepId: string, templateId: string, formData: FormData) {
-  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   const label = formData.get("label") as string;
 
   const maxOrder = await prisma.workflowChecklistItem.findFirst({
@@ -174,30 +184,34 @@ export async function createChecklistItem(stepId: string, templateId: string, fo
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
+  await bumpWorkflowTemplate(templateId, session.user.id);
 
   revalidatePath(`/workflows/${templateId}`);
 }
 
 export async function updateChecklistItem(id: string, templateId: string, formData: FormData) {
-  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   const label = formData.get("label") as string;
 
   await prisma.workflowChecklistItem.update({ where: { id }, data: { label } });
+  await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
 }
 
 export async function deleteChecklistItem(id: string, templateId: string) {
-  await requirePermission(PermissionResource.WORKFLOWS, "DELETE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "DELETE");
   await prisma.workflowChecklistItem.delete({ where: { id } });
+  await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
 }
 
 export async function reorderChecklistItems(stepId: string, templateId: string, orderedIds: string[]) {
-  await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
+  const session = await requirePermission(PermissionResource.WORKFLOWS, "WRITE");
   await Promise.all(
     orderedIds.map((id, index) =>
       prisma.workflowChecklistItem.update({ where: { id }, data: { sortOrder: index } })
     )
   );
+  await bumpWorkflowTemplate(templateId, session.user.id);
   revalidatePath(`/workflows/${templateId}`);
 }

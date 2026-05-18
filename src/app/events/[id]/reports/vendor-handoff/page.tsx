@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
-import { getOrderAssignedVendors, getVendorHandoffData } from "@/app/events/reports/actions";
+import { getOrderAssignedVendors, getVendorHandoffData, getEventLastUpdate } from "@/app/events/reports/actions";
+import { LastUpdated } from "@/components/LastUpdated";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { getOptions } from "@/app/settings/actions";
 import { ReportFilters } from "./ReportFilters";
@@ -21,12 +22,13 @@ export default async function VendorHandoffPage({
   const { id: eventId } = await params;
   const { vendorId, addToDashboard } = await searchParams;
 
-  const [event, vendors, data, functionTypes, dashboardChoices] = await Promise.all([
+  const [event, vendors, data, functionTypes, dashboardChoices, lastUpdate] = await Promise.all([
     getEvent(eventId),
     getOrderAssignedVendors(eventId),
     vendorId ? getVendorHandoffData(eventId, vendorId) : Promise.resolve(null),
     getOptions("function_type"),
     listShareLinkGroupChoicesForEvent(eventId),
+    getEventLastUpdate(eventId),
   ]);
 
   if (!event) notFound();
@@ -40,6 +42,14 @@ export default async function VendorHandoffPage({
           { label: "Vendor Handoff" },
         ]} />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{event.name}</h1>
+        {lastUpdate && (
+          <LastUpdated
+            updatedAt={lastUpdate.updatedAt}
+            updatedBy={lastUpdate.updatedBy}
+            timezone={event.timezone}
+            className="mt-2"
+          />
+        )}
       </div>
 
       <div className="max-w-5xl">

@@ -29,6 +29,7 @@ import {
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
+import { LastUpdated } from "@/components/LastUpdated";
 import {
   getAvailableAVOrdersForPresentation,
   linkAVOrderToPresentationFromPresentation,
@@ -293,6 +294,12 @@ export default async function PresentationPage({
             <EntityStatusBadge status={presentation.status ?? null} substatus={presentation.substatus ?? null} />
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
+          <LastUpdated
+            updatedAt={presentation.updatedAt}
+            updatedBy={presentation.updatedBy}
+            timezone={event.timezone}
+            className="mt-2"
+          />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           <form action={duplicatePresentationAction}>

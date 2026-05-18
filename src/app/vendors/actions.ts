@@ -56,6 +56,7 @@ export async function getVendor(id: string) {
     where: { id },
     include: {
       contacts: { include: { contact: true }, orderBy: [{ isPrimary: "desc" }, { id: "asc" }] },
+      updatedBy: { select: { name: true, email: true } },
     },
   });
 }
@@ -72,13 +73,13 @@ export async function searchVendors(query: string) {
 }
 
 export async function createVendor(formData: FormData) {
-  await requirePermission(PermissionResource.VENDORS, "WRITE");
+  const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
   const name = (formData.get("name") as string).trim();
   const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
 
   const vendor = await prisma.vendor.create({
-    data: { name, models, notes },
+    data: { name, models, notes, updatedById: session.user.id },
   });
 
   revalidatePath("/vendors");
@@ -86,14 +87,14 @@ export async function createVendor(formData: FormData) {
 }
 
 export async function updateVendor(id: string, formData: FormData) {
-  await requirePermission(PermissionResource.VENDORS, "WRITE");
+  const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
   const name = (formData.get("name") as string).trim();
   const models = formData.getAll("models") as string[];
   const notes = (formData.get("notes") as string) || null;
 
   await prisma.vendor.update({
     where: { id },
-    data: { name, models, notes },
+    data: { name, models, notes, updatedById: session.user.id },
   });
 
   revalidatePath(`/vendors/${id}`);
@@ -133,7 +134,7 @@ async function clearOtherPrimaries(vendorId: string, excludeId?: string) {
 }
 
 export async function createAndAddVendorContact(vendorId: string, formData: FormData) {
-  await requirePermission(PermissionResource.VENDORS, "WRITE");
+  const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -147,6 +148,7 @@ export async function createAndAddVendorContact(vendorId: string, formData: Form
       lastName,
       email: email || null,
       organization: organization || null,
+      updatedById: session.user.id,
     },
   });
 
@@ -155,12 +157,13 @@ export async function createAndAddVendorContact(vendorId: string, formData: Form
   await prisma.vendorContact.create({
     data: { vendorId, contactId: contact.id, contactType, isPrimary },
   });
+  await prisma.vendor.update({ where: { id: vendorId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/vendors/${vendorId}`);
 }
 
 export async function addVendorContact(vendorId: string, formData: FormData) {
-  await requirePermission(PermissionResource.VENDORS, "WRITE");
+  const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
   const contactId = formData.get("contactId") as string;
   const contactType = (formData.get("contactType") as string) || null;
   const isPrimary = formData.get("isPrimary") === "true";
@@ -170,12 +173,13 @@ export async function addVendorContact(vendorId: string, formData: FormData) {
   await prisma.vendorContact.create({
     data: { vendorId, contactId, contactType, isPrimary },
   });
+  await prisma.vendor.update({ where: { id: vendorId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/vendors/${vendorId}`);
 }
 
 export async function updateVendorContact(contactId: string, vendorId: string, formData: FormData) {
-  await requirePermission(PermissionResource.VENDORS, "WRITE");
+  const session = await requirePermission(PermissionResource.VENDORS, "WRITE");
   const contactType = (formData.get("contactType") as string) || null;
   const isPrimary = formData.get("isPrimary") === "true";
 
@@ -185,13 +189,15 @@ export async function updateVendorContact(contactId: string, vendorId: string, f
     where: { id: contactId },
     data: { contactType, isPrimary },
   });
+  await prisma.vendor.update({ where: { id: vendorId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/vendors/${vendorId}`);
 }
 
 export async function removeVendorContact(contactId: string, vendorId: string) {
-  await requirePermission(PermissionResource.VENDORS, "DELETE");
+  const session = await requirePermission(PermissionResource.VENDORS, "DELETE");
   await prisma.vendorContact.delete({ where: { id: contactId } });
+  await prisma.vendor.update({ where: { id: vendorId }, data: { updatedById: session.user.id } });
   revalidatePath(`/vendors/${vendorId}`);
 }
 
@@ -430,28 +436,31 @@ export async function getAVOrderVendors(avOrderId: string, eventId: string) {
 }
 
 export async function addVendorToAVOrder(avOrderId: string, vendorId: string, eventId: string, notes?: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
   await prisma.aVOrderVendor.create({
     data: { avOrderId, vendorId, notes: notes || null },
   });
+  await prisma.aVOrder.update({ where: { id: avOrderId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function updateAVOrderVendor(id: string, avOrderId: string, eventId: string, notes: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.aVOrderVendor.update({
     where: { id, avOrder: { eventId } },
     data: { notes: notes || null },
   });
+  await prisma.aVOrder.update({ where: { id: avOrderId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
 export async function removeVendorFromAVOrder(id: string, avOrderId: string, eventId: string) {
-  await requirePermission("AV_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("AV_ORDERS", "WRITE", eventId);
   await prisma.aVOrderVendor.delete({ where: { id, avOrder: { eventId } } });
+  await prisma.aVOrder.update({ where: { id: avOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/av-orders/${avOrderId}`);
 }
 
@@ -467,28 +476,31 @@ export async function getCateringOrderVendors(cateringOrderId: string, eventId: 
 }
 
 export async function addVendorToCateringOrder(cateringOrderId: string, vendorId: string, eventId: string, notes?: string) {
-  await requirePermission("CATERING_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
   await assertCateringOrderInEvent(cateringOrderId, eventId);
   await prisma.cateringOrderVendor.create({
     data: { cateringOrderId, vendorId, notes: notes || null },
   });
+  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
 export async function updateCateringOrderVendor(id: string, cateringOrderId: string, eventId: string, notes: string) {
-  await requirePermission("CATERING_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
   await prisma.cateringOrderVendor.update({
     where: { id, cateringOrder: { eventId } },
     data: { notes: notes || null },
   });
+  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
 export async function removeVendorFromCateringOrder(id: string, cateringOrderId: string, eventId: string) {
-  await requirePermission("CATERING_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
   await prisma.cateringOrderVendor.delete({ where: { id, cateringOrder: { eventId } } });
+  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
 }
 
@@ -504,28 +516,31 @@ export async function getSetupOrderVendors(setupOrderId: string, eventId: string
 }
 
 export async function addVendorToSetupOrder(setupOrderId: string, vendorId: string, eventId: string, notes?: string) {
-  await requirePermission("SETUP_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
   await assertSetupOrderInEvent(setupOrderId, eventId);
   await prisma.setupOrderVendor.create({
     data: { setupOrderId, vendorId, notes: notes || null },
   });
+  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function updateSetupOrderVendor(id: string, setupOrderId: string, eventId: string, notes: string) {
-  await requirePermission("SETUP_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
   await prisma.setupOrderVendor.update({
     where: { id, setupOrder: { eventId } },
     data: { notes: notes || null },
   });
+  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function removeVendorFromSetupOrder(id: string, setupOrderId: string, eventId: string) {
-  await requirePermission("SETUP_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
   await prisma.setupOrderVendor.delete({ where: { id, setupOrder: { eventId } } });
+  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
@@ -539,26 +554,29 @@ export async function getPrintOrderVendors(printOrderId: string, eventId: string
 }
 
 export async function addVendorToPrintOrder(printOrderId: string, vendorId: string, eventId: string, notes?: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await assertPrintOrderInEvent(printOrderId, eventId);
   await prisma.printOrderVendor.create({
     data: { printOrderId, vendorId, notes: notes || null },
   });
+  await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
 export async function updatePrintOrderVendor(id: string, printOrderId: string, eventId: string, notes: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await prisma.printOrderVendor.update({
     where: { id, printOrder: { eventId } },
     data: { notes: notes || null },
   });
+  await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
 export async function removeVendorFromPrintOrder(id: string, printOrderId: string, eventId: string) {
-  await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await prisma.printOrderVendor.delete({ where: { id, printOrder: { eventId } } });
+  await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
@@ -572,25 +590,28 @@ export async function getMediaOrderVendors(mediaOrderId: string, eventId: string
 }
 
 export async function addVendorToMediaOrder(mediaOrderId: string, vendorId: string, eventId: string, notes?: string) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await assertMediaOrderInEvent(mediaOrderId, eventId);
   await prisma.mediaOrderVendor.create({
     data: { mediaOrderId, vendorId, notes: notes || null },
   });
+  await prisma.mediaOrder.update({ where: { id: mediaOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }
 
 export async function updateMediaOrderVendor(id: string, mediaOrderId: string, eventId: string, notes: string) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await prisma.mediaOrderVendor.update({
     where: { id, mediaOrder: { eventId } },
     data: { notes: notes || null },
   });
+  await prisma.mediaOrder.update({ where: { id: mediaOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }
 
 export async function removeVendorFromMediaOrder(id: string, mediaOrderId: string, eventId: string) {
-  await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
   await prisma.mediaOrderVendor.delete({ where: { id, mediaOrder: { eventId } } });
+  await prisma.mediaOrder.update({ where: { id: mediaOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }

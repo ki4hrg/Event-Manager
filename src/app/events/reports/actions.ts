@@ -1426,3 +1426,34 @@ export async function getBreakoutGroupOptions(eventId: string) {
     orderBy: { sortOrder: "asc" },
   });
 }
+
+// Returns the most recently updated entity across an event's editable records
+// (Event itself + Functions + Presentations + every order type). Used by report
+// pages to surface a "data last updated" line so users know if data is stale.
+//
+// No requireAuth() — share-route compatible (the share view passes hideUser to omit names).
+export async function getEventLastUpdate(eventId: string): Promise<{
+  updatedAt: Date;
+  updatedBy: { name: string | null; email: string } | null;
+} | null> {
+  const select = {
+    updatedAt: true,
+    updatedBy: { select: { name: true, email: true } },
+  } as const;
+  const where = { eventId } as const;
+  const orderBy = { updatedAt: "desc" as const };
+  const [event, fn, pres, av, cater, setup, print, media] = await Promise.all([
+    prisma.event.findUnique({ where: { id: eventId }, select }),
+    prisma.function.findFirst({ where, select, orderBy }),
+    prisma.presentation.findFirst({ where, select, orderBy }),
+    prisma.aVOrder.findFirst({ where, select, orderBy }),
+    prisma.cateringOrder.findFirst({ where, select, orderBy }),
+    prisma.setupOrder.findFirst({ where, select, orderBy }),
+    prisma.printOrder.findFirst({ where, select, orderBy }),
+    prisma.mediaOrder.findFirst({ where, select, orderBy }),
+  ]);
+  const candidates = [event, fn, pres, av, cater, setup, print, media].filter((c): c is NonNullable<typeof c> => c != null);
+  if (candidates.length === 0) return null;
+  const latest = candidates.reduce((max, c) => (c.updatedAt > max.updatedAt ? c : max));
+  return { updatedAt: latest.updatedAt, updatedBy: latest.updatedBy };
+}

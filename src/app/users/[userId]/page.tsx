@@ -7,6 +7,7 @@ import { getRoleOptions } from "@/app/settings/roles/actions";
 import { UserForm } from "../UserForm";
 import { ResendInviteButton } from "../ResendInviteButton";
 import { notFound } from "next/navigation";
+import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,9 @@ export default async function UserDetailPage({
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-2">
           {user.name || user.email}
         </h1>
+        <div className="mt-1">
+          <LastUpdated updatedAt={user.updatedAt} updatedBy={user.updatedBy} />
+        </div>
       </div>
       {error && (
         <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-300 text-sm">

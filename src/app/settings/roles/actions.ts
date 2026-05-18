@@ -19,7 +19,10 @@ export async function getRole(id: string) {
   await requirePermission(PermissionResource.ROLES, "VIEW");
   return prisma.role.findUnique({
     where: { id },
-    include: { permissions: true },
+    include: {
+      permissions: true,
+      updatedBy: { select: { name: true, email: true } },
+    },
   });
 }
 
@@ -63,7 +66,7 @@ function readLevel(
 }
 
 export async function createRole(formData: FormData) {
-  await requirePermission(PermissionResource.ROLES, "WRITE");
+  const session = await requirePermission(PermissionResource.ROLES, "WRITE");
 
   const name = ((formData.get("name") as string) || "").trim();
   const description = (formData.get("description") as string)?.trim() || null;
@@ -78,6 +81,7 @@ export async function createRole(formData: FormData) {
       name,
       description,
       isSystem: false,
+      updatedById: session.user.id,
       permissions: { create: rows },
     },
     select: { id: true },
@@ -89,7 +93,7 @@ export async function createRole(formData: FormData) {
 }
 
 export async function updateRole(id: string, formData: FormData) {
-  await requirePermission(PermissionResource.ROLES, "WRITE");
+  const session = await requirePermission(PermissionResource.ROLES, "WRITE");
 
   const role = await prisma.role.findUnique({
     where: { id },
@@ -110,7 +114,7 @@ export async function updateRole(id: string, formData: FormData) {
   const rows = parsePermissions(formData);
 
   await prisma.$transaction([
-    prisma.role.update({ where: { id }, data: { name, description } }),
+    prisma.role.update({ where: { id }, data: { name, description, updatedById: session.user.id } }),
     prisma.rolePermission.deleteMany({ where: { roleId: id } }),
     prisma.rolePermission.createMany({ data: rows.map((r) => ({ roleId: id, ...r })) }),
   ]);

@@ -25,7 +25,10 @@ export async function getEvents() {
 export const getEvent = cache(async (id: string) => {
   return prisma.event.findUnique({
     where: { id },
-    include: { venue: true },
+    include: {
+      venue: true,
+      updatedBy: { select: { name: true, email: true } },
+    },
   });
 });
 
@@ -57,7 +60,7 @@ export async function createEvent(formData: FormData) {
 }
 
 export async function updateEvent(id: string, formData: FormData) {
-  await requirePermission("EVENTS", "WRITE", id);
+  const session = await requirePermission("EVENTS", "WRITE", id);
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const startDate = formData.get("startDate") as string;
@@ -74,6 +77,7 @@ export async function updateEvent(id: string, formData: FormData) {
       endDate: new Date(endDate),
       timezone: timezone || "America/Chicago",
       venueId: venueId || null,
+      updatedById: session.user.id,
     },
   });
 
@@ -107,7 +111,7 @@ export async function searchContactsForKeyStaff(query: string) {
 }
 
 export async function addEventKeyStaff(eventId: string, formData: FormData) {
-  await requirePermission("EVENTS", "WRITE", eventId);
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
   const contactId = formData.get("contactId") as string;
   const title = (formData.get("title") as string) || null;
   const models = formData.getAll("models") as string[];
@@ -115,6 +119,7 @@ export async function addEventKeyStaff(eventId: string, formData: FormData) {
   await prisma.eventKeyStaff.create({
     data: { eventId, contactId, title, models },
   });
+  await prisma.event.update({ where: { id: eventId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}`);
 }
 
@@ -123,7 +128,7 @@ export async function updateEventKeyStaff(
   eventId: string,
   formData: FormData
 ) {
-  await requirePermission("EVENTS", "WRITE", eventId);
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
   const title = (formData.get("title") as string) || null;
   const models = formData.getAll("models") as string[];
 
@@ -131,17 +136,19 @@ export async function updateEventKeyStaff(
     where: { id: keyStaffId, eventId },
     data: { title, models },
   });
+  await prisma.event.update({ where: { id: eventId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}`);
 }
 
 export async function removeEventKeyStaff(keyStaffId: string, eventId: string) {
-  await requirePermission("EVENTS", "WRITE", eventId);
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
   await prisma.eventKeyStaff.delete({ where: { id: keyStaffId, eventId } });
+  await prisma.event.update({ where: { id: eventId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}`);
 }
 
 export async function createContactAndAddKeyStaff(eventId: string, formData: FormData) {
-  await requirePermission("EVENTS", "WRITE", eventId);
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -156,12 +163,15 @@ export async function createContactAndAddKeyStaff(eventId: string, formData: For
         lastName,
         email: email || null,
         organization: organization || null,
+        updatedById: session.user.id,
       },
     });
 
     await tx.eventKeyStaff.create({
       data: { eventId, contactId: contact.id, title, models },
     });
+
+    await tx.event.update({ where: { id: eventId }, data: { updatedById: session.user.id } });
   });
 
   revalidatePath(`/events/${eventId}`);

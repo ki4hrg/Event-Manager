@@ -7,6 +7,7 @@ import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
+import { LastUpdated } from "@/components/LastUpdated";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
@@ -228,6 +229,12 @@ export default async function PrintOrderPage({
             <EntityStatusBadge status={entityStatus} substatus={printOrder.substatus ?? null} />
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
           </div>
+          <LastUpdated
+            updatedAt={printOrder.updatedAt}
+            updatedBy={printOrder.updatedBy}
+            timezone={event.timezone}
+            className="mt-2"
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           <CancelOrDeleteButton

@@ -17,11 +17,12 @@ export async function getContact(id: string) {
   await requirePermission(PermissionResource.CONTACTS, "VIEW");
   return prisma.contact.findUnique({
     where: { id },
+    include: { updatedBy: { select: { name: true, email: true } } },
   });
 }
 
 export async function createContact(formData: FormData) {
-  await requirePermission(PermissionResource.CONTACTS, "WRITE");
+  const session = await requirePermission(PermissionResource.CONTACTS, "WRITE");
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -30,7 +31,7 @@ export async function createContact(formData: FormData) {
   const notes = formData.get("notes") as string;
   const roles = formData.getAll("roles") as string[];
 
-  const contact = await prisma.contact.create({
+  await prisma.contact.create({
     data: {
       firstName,
       lastName,
@@ -39,6 +40,7 @@ export async function createContact(formData: FormData) {
       organization: organization || null,
       notes: notes || null,
       roles,
+      updatedById: session.user.id,
     },
   });
 
@@ -47,7 +49,7 @@ export async function createContact(formData: FormData) {
 }
 
 export async function updateContact(id: string, formData: FormData) {
-  await requirePermission(PermissionResource.CONTACTS, "WRITE");
+  const session = await requirePermission(PermissionResource.CONTACTS, "WRITE");
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
@@ -66,6 +68,7 @@ export async function updateContact(id: string, formData: FormData) {
       organization: organization || null,
       notes: notes || null,
       roles,
+      updatedById: session.user.id,
     },
   });
 

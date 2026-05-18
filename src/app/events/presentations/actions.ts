@@ -128,6 +128,7 @@ export async function getPresentation(id: string) {
       mediaOrderLinks: { include: { mediaOrder: { select: { id: true, name: true } } } },
       printOrder: { select: { id: true, name: true } },
       event: true,
+      updatedBy: { select: { name: true, email: true } },
     },
   });
   if (!row) return null;
@@ -141,7 +142,7 @@ export async function getPresentation(id: string) {
 }
 
 export async function createPresentation(eventId: string, formData: FormData) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const trackId = formData.get("trackId") as string;
@@ -172,6 +173,7 @@ export async function createPresentation(eventId: string, formData: FormData) {
       eventId,
       status: defaults.status,
       substatus: defaults.substatus,
+      updatedById: session.user.id,
     },
   });
 
@@ -194,16 +196,16 @@ export async function createPresentation(eventId: string, formData: FormData) {
 }
 
 export async function updatePresentationInstanceCount(id: string, eventId: string, count: number) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   await prisma.presentation.update({
     where: { id, eventId },
-    data: { instanceCount: count },
+    data: { instanceCount: count, updatedById: session.user.id },
   });
   revalidatePath(`/events/${eventId}/presentations/${id}`);
 }
 
 export async function updatePresentation(id: string, eventId: string, formData: FormData) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const trackId = formData.get("trackId") as string;
@@ -225,6 +227,7 @@ export async function updatePresentation(id: string, eventId: string, formData: 
       internalNotes: internalNotes || null,
       ...(breakoutGroupId !== null ? { breakoutGroupId: (breakoutGroupId as string) || null } : {}),
       ...(instanceCountRaw ? { instanceCount: parseInt(instanceCountRaw) } : {}),
+      updatedById: session.user.id,
     },
   });
 
@@ -251,7 +254,7 @@ export async function bulkUpdatePresentations(
   eventId: string,
   updates: { status?: EntityStatus; substatus?: string | null; trackId?: string | null; type?: string }
 ) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const { status, substatus, trackId, type } = updates;
   await prisma.presentation.updateMany({
     where: { id: { in: ids }, eventId },
@@ -260,13 +263,14 @@ export async function bulkUpdatePresentations(
       ...(substatus !== undefined ? { substatus } : {}),
       ...(trackId !== undefined ? { trackId } : {}),
       ...(type !== undefined ? { type } : {}),
+      updatedById: session.user.id,
     },
   });
   revalidatePath(`/events/${eventId}/presentations`);
 }
 
 export async function duplicatePresentation(id: string, eventId: string) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const original = await prisma.presentation.findUnique({
     where: { id, eventId },
     include: {
@@ -285,6 +289,7 @@ export async function duplicatePresentation(id: string, eventId: string) {
       schedulingNotes: original.schedulingNotes,
       internalNotes: original.internalNotes,
       eventId: original.eventId,
+      updatedById: session.user.id,
     },
   });
 
@@ -314,7 +319,7 @@ export async function addSpeaker(
   eventId: string,
   formData: FormData
 ) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   await assertPresentationInEvent(presentationId, eventId);
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
@@ -342,6 +347,7 @@ export async function addSpeaker(
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
+  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -352,7 +358,7 @@ export async function updateSpeaker(
   eventId: string,
   formData: FormData
 ) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   await assertPresentationInEvent(presentationId, eventId);
   const role = formData.get("role") as string;
   const isPrimary = formData.get("isPrimary") === "true";
@@ -371,13 +377,15 @@ export async function updateSpeaker(
       isPrimary,
     },
   });
+  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function removeSpeaker(speakerId: string, presentationId: string, eventId: string) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   await prisma.presentationContact.delete({ where: { id: speakerId, presentation: { eventId } } });
+  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -386,7 +394,7 @@ export async function createAndAddPresentationSpeaker(
   eventId: string,
   formData: FormData
 ) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   await assertPresentationInEvent(presentationId, eventId);
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
@@ -401,6 +409,7 @@ export async function createAndAddPresentationSpeaker(
       lastName,
       email: email || null,
       organization: organization || null,
+      updatedById: session.user.id,
     },
   });
 
@@ -426,6 +435,7 @@ export async function createAndAddPresentationSpeaker(
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
+  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -435,7 +445,7 @@ export async function reorderSpeakers(
   eventId: string,
   orderedIds: string[]
 ) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   await Promise.all(
     orderedIds.map((id, index) =>
       prisma.presentationContact.update({
@@ -444,6 +454,7 @@ export async function reorderSpeakers(
       })
     )
   );
+  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
 
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -506,7 +517,7 @@ export async function importPresentationsFromCSV(
   rows: Record<string, string>[],
   mapping: ColumnMapping
 ): Promise<{ created: number; errors: Array<{ row: number; message: string }> }> {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const errors: Array<{ row: number; message: string }> = [];
   let created = 0;
 
@@ -560,7 +571,7 @@ export async function importPresentationsFromCSV(
         let contact = email ? (contactByEmail.get(email) ?? null) : null;
         if (!contact) {
           contact = await prisma.contact.create({
-            data: { firstName: firstName || "Unknown", lastName, email },
+            data: { firstName: firstName || "Unknown", lastName, email, updatedById: session.user.id },
           });
           if (email) contactByEmail.set(email, contact);
         }
@@ -578,6 +589,7 @@ export async function importPresentationsFromCSV(
           schedulingNotes: fields["presentation.schedulingNotes"]?.trim() || null,
           internalNotes: fields["presentation.internalNotes"]?.trim() || null,
           instanceCount,
+          updatedById: session.user.id,
         },
       });
 
