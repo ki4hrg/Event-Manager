@@ -80,7 +80,7 @@ export default async function PrintOrderPage({
 
   const [
     printOrderVendors, fileTypeOptions, printOrderFiles, responsiblePartyVendors, substatuses,
-    distributionOptions, availableFunctions, availablePresentations, partyOptions,
+    distributionOptions, availableFunctions, availablePresentations, partyOptions, availableEventVendors,
   ] = await Promise.all([
     getPrintOrderVendors(printOrderId, eventId),
     getOptions("file_type"),
@@ -97,6 +97,7 @@ export default async function PrintOrderPage({
           orderBy: { title: "asc" },
         }),
     getPrintOrderPartyOptions(printOrderId),
+    searchAssignedEventVendors("", eventId, "PRINT_ORDER"),
   ]);
 
   const linkedFunctionIds = new Set(printOrder.functions.map((f) => f.function.id));
@@ -345,6 +346,7 @@ export default async function PrintOrderPage({
       {activeTab === "vendors" && (
         <VendorPanel
           assignedVendors={printOrderVendors}
+          availableVendors={availableEventVendors}
           eventId={eventId}
           searchEventVendors={searchEventVendorsAction}
           addVendor={addVendorAction}

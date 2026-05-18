@@ -83,7 +83,7 @@ export default async function MediaOrderPage({
 
   const [
     mediaOrderVendors, fileTypeOptions, mediaOrderFiles, responsiblePartyVendors, substatuses,
-    deliveryOptions, allFunctions, allPresentations, partyOptions,
+    deliveryOptions, allFunctions, allPresentations, partyOptions, availableEventVendors,
   ] = await Promise.all([
     getMediaOrderVendors(mediaOrderId, eventId),
     getOptions("file_type"),
@@ -94,6 +94,7 @@ export default async function MediaOrderPage({
     prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.presentation.findMany({ where: { eventId }, orderBy: { title: "asc" }, select: { id: true, title: true } }),
     getMediaOrderPartyOptions(mediaOrderId, eventId),
+    searchAssignedEventVendors("", eventId, "MEDIA_ORDER"),
   ]);
 
   const unlinkableFunctions = allFunctions.filter((f) => !linkedFunctionIds.has(f.id));
@@ -337,6 +338,7 @@ export default async function MediaOrderPage({
       {activeTab === "vendors" && (
         <VendorPanel
           assignedVendors={mediaOrderVendors}
+          availableVendors={availableEventVendors}
           eventId={eventId}
           searchEventVendors={searchEventVendorsAction}
           addVendor={addVendorAction}

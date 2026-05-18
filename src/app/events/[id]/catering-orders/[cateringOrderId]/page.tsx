@@ -513,6 +513,7 @@ export default async function CateringOrderPage({
       {activeTab === "vendors" && (
         <VendorPanel
           assignedVendors={cateringOrderVendors}
+          availableVendors={availableEventVendors}
           eventId={eventId}
           searchEventVendors={searchEventVendorsAction}
           addVendor={addVendorAction}

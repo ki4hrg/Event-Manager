@@ -451,6 +451,7 @@ export default async function SetupOrderPage({
       {activeTab === "vendors" && (
         <VendorPanel
           assignedVendors={setupOrderVendors}
+          availableVendors={availableEventVendors}
           eventId={eventId}
           searchEventVendors={searchEventVendorsAction}
           addVendor={addVendorAction}

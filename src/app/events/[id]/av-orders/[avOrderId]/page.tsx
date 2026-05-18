@@ -552,6 +552,7 @@ export default async function AVOrderPage({
       {activeTab === "vendors" && (
         <VendorPanel
           assignedVendors={avOrderVendors}
+          availableVendors={availableEventVendors}
           eventId={eventId}
           searchEventVendors={searchEventVendorsAction}
           addVendor={addVendorAction}

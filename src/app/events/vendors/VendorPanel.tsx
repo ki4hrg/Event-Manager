@@ -11,8 +11,11 @@ type AssignedVendor = {
   vendor: Vendor;
 };
 
+const DROPDOWN_THRESHOLD = 5;
+
 type VendorPanelProps = {
   assignedVendors: AssignedVendor[];
+  availableVendors: Vendor[];
   eventId: string;
   searchEventVendors: (query: string) => Promise<Vendor[]>;
   addVendor: (vendorId: string, notes: string) => Promise<void>;
@@ -22,6 +25,7 @@ type VendorPanelProps = {
 
 export function VendorPanel({
   assignedVendors,
+  availableVendors,
   eventId,
   searchEventVendors,
   addVendor,
@@ -37,8 +41,12 @@ export function VendorPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNotes, setEditNotes] = useState("");
 
+  const assignedIdSet = new Set(assignedVendors.map((v) => v.vendor.id));
+  const unassignedVendors = availableVendors.filter((v) => !assignedIdSet.has(v.id));
+  const useDropdown = unassignedVendors.length <= DROPDOWN_THRESHOLD;
+
   useEffect(() => {
-    if (searchQuery.length < 2) {
+    if (useDropdown || searchQuery.length < 2) {
       setSearchResults([]);
       return;
     }
@@ -47,15 +55,14 @@ export function VendorPanel({
       setIsSearching(true);
       try {
         const results = await searchEventVendors(searchQuery);
-        const assignedIds = new Set(assignedVendors.map((v) => v.vendor.id));
-        setSearchResults(results.filter((v) => !assignedIds.has(v.id)));
+        setSearchResults(results.filter((v) => !assignedIdSet.has(v.id)));
       } finally {
         setIsSearching(false);
       }
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchEventVendors, assignedVendors]);
+  }, [searchQuery, searchEventVendors, assignedVendors, useDropdown]);
 
   const handleSelect = (vendor: Vendor) => {
     setSelectedVendor(vendor);
@@ -101,49 +108,85 @@ export function VendorPanel({
       {showAddForm && (
         <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
           {!selectedVendor ? (
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Search Event Vendors
-              </label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by vendor name..."
-                autoFocus
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-              />
-              {isSearching && (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Searching...</p>
-              )}
-              {searchResults.length > 0 && (
-                <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-40 overflow-y-auto">
-                  {searchResults.map((vendor) => (
-                    <button
-                      key={vendor.id}
-                      type="button"
-                      onClick={() => handleSelect(vendor)}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
-                    >
-                      <span className="text-gray-900 dark:text-white font-medium">{vendor.name}</span>
-                      {vendor.models.length > 0 && (
-                        <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
-                          {vendor.models.map((m) => MODEL_LABELS[m] || m).join(", ")}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  No vendors found.{" "}
-                  <Link href={`/events/${eventId}/vendors`} className="text-blue-600 dark:text-blue-400 hover:underline">
-                    Manage event vendors
-                  </Link>
-                </p>
-              )}
-            </div>
+            useDropdown ? (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Event Vendor
+                </label>
+                {unassignedVendors.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No additional vendors available.{" "}
+                    <Link href={`/events/${eventId}/vendors`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                      Manage event vendors
+                    </Link>
+                  </p>
+                ) : (
+                  <select
+                    autoFocus
+                    value=""
+                    onChange={(e) => {
+                      const v = unassignedVendors.find((u) => u.id === e.target.value);
+                      if (v) handleSelect(v);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value="">Select vendor...</option>
+                    {unassignedVendors.map((vendor) => (
+                      <option key={vendor.id} value={vendor.id}>
+                        {vendor.name}
+                        {vendor.models.length > 0
+                          ? ` — ${vendor.models.map((m) => MODEL_LABELS[m] || m).join(", ")}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Search Event Vendors
+                </label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by vendor name..."
+                  autoFocus
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+                {isSearching && (
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Searching...</p>
+                )}
+                {searchResults.length > 0 && (
+                  <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-40 overflow-y-auto">
+                    {searchResults.map((vendor) => (
+                      <button
+                        key={vendor.id}
+                        type="button"
+                        onClick={() => handleSelect(vendor)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+                      >
+                        <span className="text-gray-900 dark:text-white font-medium">{vendor.name}</span>
+                        {vendor.models.length > 0 && (
+                          <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
+                            {vendor.models.map((m) => MODEL_LABELS[m] || m).join(", ")}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    No vendors found.{" "}
+                    <Link href={`/events/${eventId}/vendors`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                      Manage event vendors
+                    </Link>
+                  </p>
+                )}
+              </div>
+            )
           ) : (
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
