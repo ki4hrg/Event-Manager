@@ -642,7 +642,7 @@ export async function getEventProfileData(
     }),
     prisma.function.findMany({
       where: { eventId, type: { not: "BREAKOUT_BLOCK" } },
-      include: functionScheduleInclude,
+      include: { ...functionScheduleInclude, updatedBy: { select: { name: true, email: true } } },
     }),
     prisma.breakoutGroup.findMany({
       where: { eventId },
@@ -665,11 +665,13 @@ export async function getEventProfileData(
                       },
                       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
                     },
+                    updatedBy: { select: { name: true, email: true } },
                   },
                 },
                 room: { select: { id: true, name: true } },
               },
             },
+            updatedBy: { select: { name: true, email: true } },
           },
         },
       },
@@ -686,6 +688,7 @@ export async function getEventProfileData(
         vendors: {
           include: { vendor: { select: { id: true, name: true } } },
         },
+        updatedBy: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -695,6 +698,7 @@ export async function getEventProfileData(
         vendors: { include: { vendor: { select: { id: true, name: true } } } },
         functions: { include: { function: { select: { id: true, name: true } } } },
         presentation: { select: { id: true, title: true } },
+        updatedBy: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -710,6 +714,8 @@ export async function getEventProfileData(
             substatus: true,
             offSiteLocation: true,
             rooms: { include: { room: { select: { id: true, name: true } } } },
+            updatedAt: true,
+            updatedBy: { select: { name: true, email: true } },
           },
         },
       },
@@ -816,6 +822,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
           orderBy: { sortOrder: "asc" },
         },
         equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+        updatedBy: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -869,6 +876,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
           },
         },
         equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+        updatedBy: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -902,6 +910,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
           orderBy: { sortOrder: "asc" },
         },
         equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+        updatedBy: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -1000,11 +1009,13 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
                   },
                   orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
                 },
+                updatedBy: { select: { name: true, email: true } },
               },
             },
             room: { select: { id: true, name: true } },
           },
         },
+        updatedBy: { select: { name: true, email: true } },
       },
     }),
   ]);
@@ -1107,6 +1118,7 @@ const fdAVOrderInclude = {
     },
   },
   equipmentItems: { include: fdEquipmentItemInclude, orderBy: { sortOrder: "asc" } },
+  updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.AVOrderInclude;
 
 const fdSetupOrderInclude = {
@@ -1121,6 +1133,7 @@ const fdSetupOrderInclude = {
     orderBy: { sortOrder: "asc" },
   },
   equipmentItems: { include: fdEquipmentItemInclude, orderBy: { sortOrder: "asc" } },
+  updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.SetupOrderInclude;
 
 const fdPrintOrderInclude = {
@@ -1134,6 +1147,7 @@ const fdPrintOrderInclude = {
     },
     orderBy: { sortOrder: "asc" },
   },
+  updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.PrintOrderInclude;
 
 const fdMediaOrderInclude = {
@@ -1145,6 +1159,7 @@ const fdMediaOrderInclude = {
     },
     orderBy: { sortOrder: "asc" },
   },
+  updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.MediaOrderInclude;
 
 const fdCateringOrderInclude = {
@@ -1164,6 +1179,7 @@ const fdCateringOrderInclude = {
     },
     orderBy: { id: "asc" },
   },
+  updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.CateringOrderInclude;
 
 const fdFunctionInclude = {
@@ -1211,11 +1227,13 @@ const fdFunctionInclude = {
           setupOrderLinks: { include: { setupOrder: { include: fdSetupOrderInclude } } },
           printOrder: { include: fdPrintOrderInclude },
           mediaOrderLinks: { include: { mediaOrder: { include: fdMediaOrderInclude } } },
+          updatedBy: { select: { name: true, email: true } },
         },
       },
     },
     orderBy: { id: "asc" },
   },
+  updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.FunctionInclude;
 
 function earliestScheduleTime(schedules: { startTime: Date }[]): number {
@@ -1376,11 +1394,13 @@ export async function getBreakoutScheduleData(
                     },
                     orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
                   },
+                  updatedBy: { select: { name: true, email: true } },
                 },
               },
               room: true,
             },
           },
+          updatedBy: { select: { name: true, email: true } },
         },
       },
       presentations: {
@@ -1393,6 +1413,7 @@ export async function getBreakoutScheduleData(
             },
             orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
           },
+          updatedBy: { select: { name: true, email: true } },
         },
       },
     },
@@ -1425,35 +1446,4 @@ export async function getBreakoutGroupOptions(eventId: string) {
     select: { id: true, name: true },
     orderBy: { sortOrder: "asc" },
   });
-}
-
-// Returns the most recently updated entity across an event's editable records
-// (Event itself + Functions + Presentations + every order type). Used by report
-// pages to surface a "data last updated" line so users know if data is stale.
-//
-// No requireAuth() — share-route compatible (the share view passes hideUser to omit names).
-export async function getEventLastUpdate(eventId: string): Promise<{
-  updatedAt: Date;
-  updatedBy: { name: string | null; email: string } | null;
-} | null> {
-  const select = {
-    updatedAt: true,
-    updatedBy: { select: { name: true, email: true } },
-  } as const;
-  const where = { eventId } as const;
-  const orderBy = { updatedAt: "desc" as const };
-  const [event, fn, pres, av, cater, setup, print, media] = await Promise.all([
-    prisma.event.findUnique({ where: { id: eventId }, select }),
-    prisma.function.findFirst({ where, select, orderBy }),
-    prisma.presentation.findFirst({ where, select, orderBy }),
-    prisma.aVOrder.findFirst({ where, select, orderBy }),
-    prisma.cateringOrder.findFirst({ where, select, orderBy }),
-    prisma.setupOrder.findFirst({ where, select, orderBy }),
-    prisma.printOrder.findFirst({ where, select, orderBy }),
-    prisma.mediaOrder.findFirst({ where, select, orderBy }),
-  ]);
-  const candidates = [event, fn, pres, av, cater, setup, print, media].filter((c): c is NonNullable<typeof c> => c != null);
-  if (candidates.length === 0) return null;
-  const latest = candidates.reduce((max, c) => (c.updatedAt > max.updatedAt ? c : max));
-  return { updatedAt: latest.updatedAt, updatedBy: latest.updatedBy };
 }

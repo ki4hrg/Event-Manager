@@ -4,9 +4,7 @@ import { getEvent } from "../../../actions";
 import {
   getFunctionDetailData,
   getFunctionPickerOptions,
-  getEventLastUpdate,
 } from "@/app/events/reports/actions";
-import { LastUpdated } from "@/components/LastUpdated";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { getOptions } from "@/app/settings/actions";
 import { ReportFilters } from "./ReportFilters";
@@ -35,7 +33,7 @@ export default async function FunctionDetailPage({
       selectedFunctionIds.length > 0 ? selectedFunctionIds : undefined,
   };
 
-  const [event, pickerOptions, data, functionTypes, scheduleTypes, serviceStyles, setupTypes, dashboardChoices, lastUpdate] =
+  const [event, pickerOptions, data, functionTypes, scheduleTypes, serviceStyles, setupTypes, dashboardChoices] =
     await Promise.all([
       getEvent(eventId),
       getFunctionPickerOptions(eventId),
@@ -45,7 +43,6 @@ export default async function FunctionDetailPage({
       getOptions("service_style"),
       getOptions("setup_type"),
       listShareLinkGroupChoicesForEvent(eventId),
-      getEventLastUpdate(eventId),
     ]);
 
   if (!event || !data) notFound();
@@ -66,14 +63,6 @@ export default async function FunctionDetailPage({
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           {event.name}
         </h1>
-        {lastUpdate && (
-          <LastUpdated
-            updatedAt={lastUpdate.updatedAt}
-            updatedBy={lastUpdate.updatedBy}
-            timezone={event.timezone}
-            className="mt-2"
-          />
-        )}
       </div>
 
       <div className="max-w-5xl">

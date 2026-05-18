@@ -19,6 +19,7 @@ import {
 } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
+import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import {
@@ -162,7 +163,7 @@ async function renderItem(
       }
 
       const [event, vendors, functionTypes] = await Promise.all([
-        getEvent(eventId),
+        getEvent(eventId).then(stripUpdatedBy),
         item.filtersLocked ? Promise.resolve(null) : getOrderAssignedVendors(eventId),
         getOptions("function_type"),
       ]);
@@ -175,7 +176,7 @@ async function renderItem(
       }
 
       const handoffData = effectiveVendorId
-        ? await getVendorHandoffData(eventId, effectiveVendorId)
+        ? stripUpdatedBy(await getVendorHandoffData(eventId, effectiveVendorId))
         : null;
 
       const printHref = effectiveVendorId
@@ -230,7 +231,7 @@ async function renderItem(
         effectiveTypes = typesParam ? typesParam.split(",").filter(Boolean) : stored.types;
       }
 
-      const event = await getEvent(eventId);
+      const event = stripUpdatedBy(await getEvent(eventId));
       if (!event) notFound();
 
       const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
@@ -242,7 +243,7 @@ async function renderItem(
         getEventProfileData(eventId, {
           days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
           types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
-        }),
+        }).then(stripUpdatedBy),
         getOptions("service_style"),
         getOptions("schedule_type"),
       ]);
@@ -314,7 +315,7 @@ async function renderItem(
         stored.usedOnly
       );
 
-      const event = await getEvent(eventId);
+      const event = stripUpdatedBy(await getEvent(eventId));
       if (!event) notFound();
 
       const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
@@ -327,7 +328,7 @@ async function renderItem(
           days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
           roomIds:
             effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
-        }),
+        }).then(stripUpdatedBy),
         getOptions("function_type"),
         getOptions("schedule_type"),
       ]);
@@ -394,7 +395,7 @@ async function renderItem(
 
       const [event, pickerOptions, functionTypes, scheduleTypes, serviceStyles, setupTypes] =
         await Promise.all([
-          getEvent(eventId),
+          getEvent(eventId).then(stripUpdatedBy),
           item.filtersLocked ? Promise.resolve(null) : getFunctionPickerOptions(eventId),
           getOptions("function_type"),
           getOptions("schedule_type"),
@@ -411,9 +412,9 @@ async function renderItem(
         );
       }
 
-      const data = await getFunctionDetailData(eventId, {
+      const data = stripUpdatedBy(await getFunctionDetailData(eventId, {
         functionIds: effectiveFunctionIds,
-      });
+      }));
 
       if (!data) notFound();
 
@@ -474,9 +475,9 @@ async function renderItem(
         );
       }
 
-      const data = await getBreakoutScheduleData(eventId, {
+      const data = stripUpdatedBy(await getBreakoutScheduleData(eventId, {
         groupIds: effectiveGroupIds && effectiveGroupIds.length > 0 ? effectiveGroupIds : undefined,
-      });
+      }));
 
       if (!data) notFound();
 

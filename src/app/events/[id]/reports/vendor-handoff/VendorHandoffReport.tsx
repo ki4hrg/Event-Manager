@@ -12,6 +12,7 @@ import {
 } from "@/lib/reportStyles";
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
+import { LastUpdated } from "@/components/LastUpdated";
 
 type HandoffData = NonNullable<Awaited<ReturnType<typeof getVendorHandoffData>>>;
 type Event = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
@@ -482,6 +483,12 @@ function CateringOrderSection({
           <span>Catering Order</span>
           {order.serviceStyle && <span>Service: {order.serviceStyle}</span>}
         </div>
+        <LastUpdated
+          updatedAt={order.updatedAt}
+          updatedBy={order.updatedBy}
+          timezone={timezone}
+          className="mt-1 print:hidden"
+        />
       </div>
 
       {hasGuestCounts && (
@@ -614,6 +621,11 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">{order.name}</h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">AV Order</p>
+        <LastUpdated
+          updatedAt={order.updatedAt}
+          updatedBy={order.updatedBy}
+          className="mt-1 print:hidden"
+        />
       </div>
 
       {audio && (audio.inputGroups.length > 0 || audio.monitorMixes.length > 0) && (
@@ -781,6 +793,11 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
           {order.setupType && <span>Type: {order.setupType}</span>}
           {order.room && <span>Room: {order.room.name}</span>}
         </div>
+        <LastUpdated
+          updatedAt={order.updatedAt}
+          updatedBy={order.updatedBy}
+          className="mt-1 print:hidden"
+        />
       </div>
 
       {order.details.length > 0 && (

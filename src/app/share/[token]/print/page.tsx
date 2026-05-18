@@ -4,6 +4,7 @@ import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from 
 import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
+import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
@@ -155,8 +156,8 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
     }
 
     const [event, handoffData, functionTypes] = await Promise.all([
-      getEvent(link.eventId),
-      getVendorHandoffData(link.eventId, effectiveVendorId),
+      getEvent(link.eventId).then(stripUpdatedBy),
+      getVendorHandoffData(link.eventId, effectiveVendorId).then(stripUpdatedBy),
       getOptions("function_type"),
     ]);
 
@@ -200,11 +201,11 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
     }
 
     const [event, data, serviceStyles, scheduleTypes] = await Promise.all([
-      getEvent(link.eventId),
+      getEvent(link.eventId).then(stripUpdatedBy),
       getEventProfileData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
-      }),
+      }).then(stripUpdatedBy),
       getOptions("service_style"),
       getOptions("schedule_type"),
     ]);
@@ -254,11 +255,11 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
     );
 
     const [event, data, functionTypes, scheduleTypes] = await Promise.all([
-      getEvent(link.eventId),
+      getEvent(link.eventId).then(stripUpdatedBy),
       getRoomScheduleData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         roomIds: effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
-      }),
+      }).then(stripUpdatedBy),
       getOptions("function_type"),
       getOptions("schedule_type"),
     ]);
@@ -297,8 +298,8 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
 
     const [event, data, functionTypes, scheduleTypes, serviceStyles, setupTypes] =
       await Promise.all([
-        getEvent(link.eventId),
-        getFunctionDetailData(link.eventId, { functionIds: effectiveFunctionIds }),
+        getEvent(link.eventId).then(stripUpdatedBy),
+        getFunctionDetailData(link.eventId, { functionIds: effectiveFunctionIds }).then(stripUpdatedBy),
         getOptions("function_type"),
         getOptions("schedule_type"),
         getOptions("service_style"),
@@ -330,9 +331,9 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
       ? storedFilters.breakoutGroupIds
       : (getString(sp.groups)?.split(",").filter(Boolean) ?? storedFilters.breakoutGroupIds);
 
-    const data = await getBreakoutScheduleData(link.eventId, {
+    const data = stripUpdatedBy(await getBreakoutScheduleData(link.eventId, {
       groupIds: effectiveGroupIds && effectiveGroupIds.length > 0 ? effectiveGroupIds : undefined,
-    });
+    }));
     if (!data) notFound();
 
     return <BreakoutGridPrintView data={data} eventName={link.event.name} />;
@@ -343,9 +344,9 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
       ? storedFilters.breakoutGroupIds
       : (getString(sp.groups)?.split(",").filter(Boolean) ?? storedFilters.breakoutGroupIds);
 
-    const data = await getBreakoutScheduleData(link.eventId, {
+    const data = stripUpdatedBy(await getBreakoutScheduleData(link.eventId, {
       groupIds: effectiveGroupIds && effectiveGroupIds.length > 0 ? effectiveGroupIds : undefined,
-    });
+    }));
     if (!data) notFound();
 
     return (

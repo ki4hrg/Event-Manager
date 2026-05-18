@@ -13,6 +13,7 @@ import {
 } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
+import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
@@ -158,8 +159,8 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       }
 
       const [event, handoffData, functionTypes] = await Promise.all([
-        getEvent(eventId),
-        getVendorHandoffData(eventId, vendorId),
+        getEvent(eventId).then(stripUpdatedBy),
+        getVendorHandoffData(eventId, vendorId).then(stripUpdatedBy),
         getOptions("function_type"),
       ]);
 
@@ -198,11 +199,11 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
           : stored.types;
 
       const [event, data, serviceStyles, scheduleTypes] = await Promise.all([
-        getEvent(eventId),
+        getEvent(eventId).then(stripUpdatedBy),
         getEventProfileData(eventId, {
           days: days && days.length > 0 ? days : undefined,
           types: types && types.length > 0 ? types : undefined,
-        }),
+        }).then(stripUpdatedBy),
         getOptions("service_style"),
         getOptions("schedule_type"),
       ]);
@@ -246,11 +247,11 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       );
 
       const [event, data, functionTypes, scheduleTypes] = await Promise.all([
-        getEvent(eventId),
+        getEvent(eventId).then(stripUpdatedBy),
         getRoomScheduleData(eventId, {
           days: days && days.length > 0 ? days : undefined,
           roomIds: roomIds && roomIds.length > 0 ? roomIds : undefined,
-        }),
+        }).then(stripUpdatedBy),
         getOptions("function_type"),
         getOptions("schedule_type"),
       ]);
@@ -284,8 +285,8 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
 
       const [event, data, functionTypes, scheduleTypes, serviceStyles, setupTypes] =
         await Promise.all([
-          getEvent(eventId),
-          getFunctionDetailData(eventId, { functionIds }),
+          getEvent(eventId).then(stripUpdatedBy),
+          getFunctionDetailData(eventId, { functionIds }).then(stripUpdatedBy),
           getOptions("function_type"),
           getOptions("schedule_type"),
           getOptions("service_style"),
@@ -316,10 +317,10 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
           : stored.breakoutGroupIds;
 
       const [event, data] = await Promise.all([
-        getEvent(eventId),
+        getEvent(eventId).then(stripUpdatedBy),
         getBreakoutScheduleData(eventId, {
           groupIds: groupIds && groupIds.length > 0 ? groupIds : undefined,
-        }),
+        }).then(stripUpdatedBy),
       ]);
 
       if (!event || !data) notFound();
@@ -335,10 +336,10 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
           : stored.breakoutGroupIds;
 
       const [event, data] = await Promise.all([
-        getEvent(eventId),
+        getEvent(eventId).then(stripUpdatedBy),
         getBreakoutScheduleData(eventId, {
           groupIds: groupIds && groupIds.length > 0 ? groupIds : undefined,
-        }),
+        }).then(stripUpdatedBy),
       ]);
 
       if (!event || !data) notFound();

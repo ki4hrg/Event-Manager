@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
 import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions, getBreakoutScheduleData, getBreakoutGroupOptions } from "@/app/events/reports/actions";
+import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
@@ -117,7 +118,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
     }
 
     const [event, vendors, functionTypes] = await Promise.all([
-      getEvent(link.eventId),
+      getEvent(link.eventId).then(stripUpdatedBy),
       link.filtersLocked ? Promise.resolve(null) : getOrderAssignedVendors(link.eventId),
       getOptions("function_type"),
     ]);
@@ -129,7 +130,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       if (!validIds.has(effectiveVendorId)) effectiveVendorId = null;
     }
 
-    const handoffData = effectiveVendorId ? await getVendorHandoffData(link.eventId, effectiveVendorId) : null;
+    const handoffData = effectiveVendorId ? stripUpdatedBy(await getVendorHandoffData(link.eventId, effectiveVendorId)) : null;
 
     const printHref = effectiveVendorId
       ? `${printBase}?vendorId=${effectiveVendorId}`
@@ -190,7 +191,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         : storedFilters.types;
     }
 
-    const event = await getEvent(link.eventId);
+    const event = stripUpdatedBy(await getEvent(link.eventId));
     if (!event) notFound();
 
     const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
@@ -202,7 +203,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       getEventProfileData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
-      }),
+      }).then(stripUpdatedBy),
       getOptions("service_style"),
       getOptions("schedule_type"),
     ]);
@@ -279,7 +280,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       storedFilters.usedOnly
     );
 
-    const event = await getEvent(link.eventId);
+    const event = stripUpdatedBy(await getEvent(link.eventId));
     if (!event) notFound();
 
     const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
@@ -291,7 +292,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       getRoomScheduleData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         roomIds: effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
-      }),
+      }).then(stripUpdatedBy),
       getOptions("function_type"),
       getOptions("schedule_type"),
     ]);
@@ -359,7 +360,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
 
     const [event, pickerOptions, functionTypes, scheduleTypes, serviceStyles, setupTypes] =
       await Promise.all([
-        getEvent(link.eventId),
+        getEvent(link.eventId).then(stripUpdatedBy),
         link.filtersLocked ? Promise.resolve(null) : getFunctionPickerOptions(link.eventId),
         getOptions("function_type"),
         getOptions("schedule_type"),
@@ -376,9 +377,9 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       );
     }
 
-    const data = await getFunctionDetailData(link.eventId, {
+    const data = stripUpdatedBy(await getFunctionDetailData(link.eventId, {
       functionIds: effectiveFunctionIds,
-    });
+    }));
 
     if (!data) notFound();
 
@@ -432,9 +433,9 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       effectiveGroupIds = intersect(effectiveGroupIds, new Set(groupOptions.map((g) => g.id)));
     }
 
-    const data = await getBreakoutScheduleData(link.eventId, {
+    const data = stripUpdatedBy(await getBreakoutScheduleData(link.eventId, {
       groupIds: effectiveGroupIds && effectiveGroupIds.length > 0 ? effectiveGroupIds : undefined,
-    });
+    }));
     if (!data) notFound();
 
     const printParams = new URLSearchParams();

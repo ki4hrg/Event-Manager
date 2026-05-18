@@ -4,9 +4,7 @@ import { getEvent } from "@/app/events/actions";
 import {
   getBreakoutScheduleData,
   getBreakoutGroupOptions,
-  getEventLastUpdate,
 } from "@/app/events/reports/actions";
-import { LastUpdated } from "@/components/LastUpdated";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { ReportFilters } from "./ReportFilters";
 import { BreakoutGridReport } from "./BreakoutGridReport";
@@ -31,14 +29,13 @@ export default async function BreakoutGridPage({
 
   const selectedGroupIds = parseListParam(groupsParam);
 
-  const [event, groupOptions, data, dashboardChoices, lastUpdate] = await Promise.all([
+  const [event, groupOptions, data, dashboardChoices] = await Promise.all([
     getEvent(eventId),
     getBreakoutGroupOptions(eventId),
     getBreakoutScheduleData(eventId, {
       groupIds: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
     }),
     listShareLinkGroupChoicesForEvent(eventId),
-    getEventLastUpdate(eventId),
   ]);
 
   if (!event || !data) notFound();
@@ -61,14 +58,6 @@ export default async function BreakoutGridPage({
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           {event.name}
         </h1>
-        {lastUpdate && (
-          <LastUpdated
-            updatedAt={lastUpdate.updatedAt}
-            updatedBy={lastUpdate.updatedBy}
-            timezone={event.timezone}
-            className="mt-2"
-          />
-        )}
       </div>
 
       <div className="max-w-5xl">

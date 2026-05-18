@@ -8,6 +8,7 @@ import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EmptyState } from "@/components/EmptyState";
+import { LastUpdated } from "@/components/LastUpdated";
 import { reportTh as th, reportTd as td, reportSectionCard as sectionCard } from "@/lib/reportStyles";
 
 export const PROFILE_SECTIONS = [
@@ -163,6 +164,7 @@ function ScheduleItemCard({
             </>
           )}
         </dl>
+        <LastUpdated updatedAt={fn.updatedAt} updatedBy={fn.updatedBy} timezone={timezone} className="mt-2 print:hidden" />
       </div>
     </>
   );
@@ -298,6 +300,7 @@ function BreakoutGroupCard({
                 <p className="font-semibold text-sm text-gray-900 dark:text-white">
                   {formatTimeRange(earliestStart(b), latestEnd(b), timezone)}
                 </p>
+                <LastUpdated updatedAt={b.updatedAt} updatedBy={b.updatedBy} timezone={timezone} className="mt-0.5 print:hidden" />
                 {blockRooms.length > 0 && (
                   <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-2 gap-2 text-xs">
                     {blockRooms.map((room) => {
@@ -320,6 +323,12 @@ function BreakoutGroupCard({
                                   {contactDisplayName(slot.presentation.speakers[0].contact)}
                                 </p>
                               )}
+                              <LastUpdated
+                                updatedAt={slot.presentation.updatedAt}
+                                updatedBy={slot.presentation.updatedBy}
+                                timezone={timezone}
+                                className="mt-0.5 print:hidden"
+                              />
                             </>
                           ) : (
                             <p className="text-gray-400 dark:text-gray-500 italic mt-0.5">—</p>
@@ -391,6 +400,7 @@ function CateringCard({
               {fnRoomsLabel(fn)}
             </p>
           )}
+          <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} timezone={timezone} className="mt-1 print:hidden" />
         </div>
         <div className="shrink-0">
           <EntityStatusBadge status={order.status} substatus={order.substatus} />
@@ -479,6 +489,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
                   : `Function: ${o.functions.map((f) => f.function.name).join(", ")}`}
               </p>
             )}
+            <LastUpdated updatedAt={o.updatedAt} updatedBy={o.updatedBy} className="mt-0.5" />
           </div>
         ))}
       </div>
@@ -495,7 +506,10 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
           <tbody>
             {orders.map((o) => (
               <tr key={o.id}>
-                <td className={`${td} font-medium`}>{o.name}</td>
+                <td className={`${td} font-medium`}>
+                  {o.name}
+                  <LastUpdated updatedAt={o.updatedAt} updatedBy={o.updatedBy} className="block mt-0.5 font-normal print:hidden" />
+                </td>
                 <td className={td}>{o.vendors.map((v) => v.vendor.name).join(", ")}</td>
                 <td className={td}>
                   {o.presentation

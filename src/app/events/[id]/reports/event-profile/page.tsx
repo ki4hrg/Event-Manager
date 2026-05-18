@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/actions";
-import { getEventProfileData, getEventLastUpdate } from "@/app/events/reports/actions";
-import { LastUpdated } from "@/components/LastUpdated";
+import { getEventProfileData } from "@/app/events/reports/actions";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { getOptions } from "@/app/settings/actions";
 import { enumerateEventDays } from "./days";
@@ -33,11 +32,10 @@ export default async function EventProfilePage({
     validSectionValues.has(s as ProfileSection)
   ) as ProfileSection[];
 
-  const [event, scheduleTypes, dashboardChoices, lastUpdate] = await Promise.all([
+  const [event, scheduleTypes, dashboardChoices] = await Promise.all([
     getEvent(eventId),
     getOptions("schedule_type"),
     listShareLinkGroupChoicesForEvent(eventId),
-    getEventLastUpdate(eventId),
   ]);
 
   if (!event) notFound();
@@ -69,14 +67,6 @@ export default async function EventProfilePage({
           ]}
         />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{event.name}</h1>
-        {lastUpdate && (
-          <LastUpdated
-            updatedAt={lastUpdate.updatedAt}
-            updatedBy={lastUpdate.updatedBy}
-            timezone={event.timezone}
-            className="mt-2"
-          />
-        )}
       </div>
 
       <div className="max-w-5xl">

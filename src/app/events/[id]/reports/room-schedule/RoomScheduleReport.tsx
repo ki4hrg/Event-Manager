@@ -12,6 +12,7 @@ import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
+import { LastUpdated } from "@/components/LastUpdated";
 import {
   reportTh as th,
   reportTd as td,
@@ -200,6 +201,12 @@ function itemTitle(item: AgendaItem): string {
   return item.entry.slot.presentation.title;
 }
 
+function itemUpdate(item: AgendaItem): { updatedAt: Date; updatedBy: { name: string | null; email: string } | null } {
+  if (item.kind === "function") return { updatedAt: item.fn.updatedAt, updatedBy: item.fn.updatedBy };
+  const p = item.entry.slot.presentation;
+  return { updatedAt: p.updatedAt, updatedBy: p.updatedBy };
+}
+
 function itemContext(item: AgendaItem, functionTypes: CustomOption[]): string {
   if (item.kind === "function") {
     return resolveOptionLabel(item.fn.type, functionTypes) || item.fn.type || "";
@@ -265,6 +272,7 @@ function RoomDayTable({
               <p className="text-gray-500 dark:text-gray-400 mt-0.5">
                 {itemContext(item, functionTypes)}
               </p>
+              <LastUpdated {...itemUpdate(item)} timezone={timezone} className="mt-0.5" />
               {contacts.length > 0 && (
                 <p className="text-gray-700 dark:text-gray-300 mt-1">
                   {contacts.join(", ")}
@@ -315,6 +323,7 @@ function RoomDayTable({
                   </td>
                   <td className={`${td} font-semibold text-gray-900 dark:text-white print:text-black`}>
                     {itemTitle(item)}
+                    <LastUpdated {...itemUpdate(item)} timezone={timezone} className="block mt-0.5 font-normal print:hidden" />
                   </td>
                   <td className={td}>{itemContext(item, functionTypes)}</td>
                   <td className={td}>

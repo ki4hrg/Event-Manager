@@ -5,6 +5,7 @@ import type {
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
+import { LastUpdated } from "@/components/LastUpdated";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { formatPhone } from "@/lib/format-phone";
 import { resolveOptionLabel } from "@/lib/optionUtils";
@@ -288,6 +289,7 @@ function AVOrderCard({ order }: { order: AvOrder }) {
         </div>
         <VendorPills vendors={order.vendors} />
       </div>
+      <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
       {order.notes && (
         <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
           {order.notes}
@@ -353,6 +355,7 @@ function SetupOrderCard({
         </div>
         <VendorPills vendors={order.vendors} />
       </div>
+      <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
       {order.notes && (
         <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
           {order.notes}
@@ -481,6 +484,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
         </div>
         <VendorPills vendors={order.vendors} />
       </div>
+      <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
       {order.notes && (
         <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
           {order.notes}
@@ -589,6 +593,7 @@ function MediaOrderCard({ order }: { order: MediaOrder }) {
         </div>
         <VendorPills vendors={order.vendors} />
       </div>
+      <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
       {order.notes && (
         <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
           {order.notes}
@@ -690,6 +695,7 @@ function CateringSection({
         </div>
         <VendorPills vendors={catering.vendors} />
       </div>
+      <LastUpdated updatedAt={catering.updatedAt} updatedBy={catering.updatedBy} className="mb-2 print:hidden" />
 
       <div className="text-xs text-gray-600 dark:text-gray-400 flex flex-wrap gap-x-4 gap-y-1 mb-2">
         {catering.expectedCount != null && (
@@ -1035,6 +1041,7 @@ function FunctionBlock({
               </span>
             )}
           </div>
+          <LastUpdated updatedAt={fn.updatedAt} updatedBy={fn.updatedBy} timezone={timezone} className="mb-2 print:hidden" />
           {fn.description && (
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
               {fn.description}
