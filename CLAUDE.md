@@ -378,6 +378,22 @@ Format: `- [area] one-line description (PR/file reference if relevant)`
 
 Don't update CLAUDE.md directly. Don't ask whether to add an entry — just add it. The parking lot is processed during periodic reviews.
 
+## Refactor candidates
+
+When a `/simplify` (or ad-hoc) review flags real duplication or restructuring that's bigger than the change in flight, append a one-line entry to `reviews/refactors/candidates.md` instead of expanding scope. Use it for findings that are real and worth doing but too big to bundle with the current commit.
+
+Triage:
+
+| Finding | Action |
+|---|---|
+| Small, in-scope cleanup (≤~20 lines, doesn't touch unrelated files) | Fix now |
+| False positive, or conflicts with a real constraint | Skip silently |
+| Real, worth doing, but bigger than the current change | Park in `reviews/refactors/candidates.md` |
+
+Format: `- [area] one-line description (file references, originating PR/commit if useful)`
+
+Don't act on parked entries unprompted. The list is processed during periodic refactor sweeps.
+
 ## Further reading
 
 - `prisma/schema.prisma` — full data model.
