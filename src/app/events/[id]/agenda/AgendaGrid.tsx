@@ -477,7 +477,7 @@ function DayGrid({
         </colgroup>
         <thead className="sticky top-0 z-20">
           <tr className="bg-gray-50 dark:bg-gray-800">
-            <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap bg-gray-50 dark:bg-gray-800">
+            <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap bg-gray-50 dark:bg-gray-800 sticky left-0 z-30">
               Time
             </th>
             {visibleRooms.map((room) => (
@@ -494,7 +494,7 @@ function DayGrid({
         <tbody>
           {rowData.map(({ slotTime, cells }) => (
             <tr key={slotTime.toISOString()} className="h-14">
-              <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap align-top font-medium">
+              <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap align-top font-medium sticky left-0 z-10 bg-white dark:bg-gray-900">
                 {formatTime(slotTime, timezone)}
               </td>
               {cells.map((cell, i) => {
