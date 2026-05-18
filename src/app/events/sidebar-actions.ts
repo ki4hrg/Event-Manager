@@ -31,7 +31,8 @@ export async function getSidebarItems(
       }),
       prisma.customOption.findMany({
         where: { category: "function_type" },
-        select: { label: true },
+        select: { label: true, sortOrder: true },
+        orderBy: { sortOrder: "asc" },
       }),
     ]);
 
@@ -44,10 +45,14 @@ export async function getSidebarItems(
       groups.set(key, group);
     }
 
+    const sortOrderByLabel = new Map<string, number>(
+      typeOptions.map((o) => [o.label, o.sortOrder])
+    );
     const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
-      const aLabel = groups.get(a)!.headerLabel;
-      const bLabel = groups.get(b)!.headerLabel;
-      return aLabel.localeCompare(bLabel);
+      const aOrder = sortOrderByLabel.get(a) ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = sortOrderByLabel.get(b) ?? Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return groups.get(a)!.headerLabel.localeCompare(groups.get(b)!.headerLabel);
     });
 
     const items: SidebarItem[] = [];

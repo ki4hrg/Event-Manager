@@ -380,49 +380,51 @@ export default async function FunctionPage({
             updateSchedule={updateScheduleAction}
             deleteSchedule={deleteScheduleAction}
           />
-          <AVOrderPanel
-            title="AV Orders"
-            avOrders={fn.avOrders}
-            eventId={eventId}
-            availableAVOrders={availableAVOrders}
-            newAVOrderPath={`/events/${eventId}/av-orders/new?functionId=${functionId}`}
-            linkAVOrder={linkAVOrderAction}
-            unlinkAVOrder={unlinkAVOrderAction}
-          />
-          <CateringOrderPanel
-            cateringOrder={fn.cateringOrder}
-            eventId={eventId}
-            availableCateringOrders={availableCateringOrders}
-            newCateringOrderPath={`/events/${eventId}/catering-orders/new?functionId=${functionId}`}
-            linkCateringOrder={linkCateringOrderAction}
-            unlinkCateringOrder={unlinkCateringOrderAction}
-          />
-          <SetupOrderPanel
-            setupOrders={fn.setupOrders}
-            eventId={eventId}
-            availableSetupOrders={availableSetupOrders}
-            newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}
-            linkSetupOrder={linkSetupOrderAction}
-            unlinkSetupOrder={unlinkSetupOrderAction}
-          />
-          <PrintOrderPanel
-            mode="function"
-            printOrders={fn.printOrderFunctions.map((pof) => pof.printOrder)}
-            eventId={eventId}
-            availablePrintOrders={availablePrintOrders}
-            newPrintOrderPath={`/events/${eventId}/print-orders/new?functionId=${functionId}`}
-            linkPrintOrder={linkPrintOrderAction}
-            unlinkPrintOrder={unlinkPrintOrderAction}
-          />
-          <MediaOrderPanel
-            title="Media Orders"
-            mediaOrders={fn.mediaOrderFunctions.map((mof) => mof.mediaOrder)}
-            eventId={eventId}
-            availableMediaOrders={availableMediaOrders}
-            newMediaOrderPath={`/events/${eventId}/media-orders/new?functionId=${functionId}`}
-            linkMediaOrder={linkMediaOrderAction}
-            unlinkMediaOrder={unlinkMediaOrderAction}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 content-start">
+            <AVOrderPanel
+              title="AV Orders"
+              avOrders={fn.avOrders}
+              eventId={eventId}
+              availableAVOrders={availableAVOrders}
+              newAVOrderPath={`/events/${eventId}/av-orders/new?functionId=${functionId}`}
+              linkAVOrder={linkAVOrderAction}
+              unlinkAVOrder={unlinkAVOrderAction}
+            />
+            <CateringOrderPanel
+              cateringOrder={fn.cateringOrder}
+              eventId={eventId}
+              availableCateringOrders={availableCateringOrders}
+              newCateringOrderPath={`/events/${eventId}/catering-orders/new?functionId=${functionId}`}
+              linkCateringOrder={linkCateringOrderAction}
+              unlinkCateringOrder={unlinkCateringOrderAction}
+            />
+            <SetupOrderPanel
+              setupOrders={fn.setupOrders}
+              eventId={eventId}
+              availableSetupOrders={availableSetupOrders}
+              newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}
+              linkSetupOrder={linkSetupOrderAction}
+              unlinkSetupOrder={unlinkSetupOrderAction}
+            />
+            <PrintOrderPanel
+              mode="function"
+              printOrders={fn.printOrderFunctions.map((pof) => pof.printOrder)}
+              eventId={eventId}
+              availablePrintOrders={availablePrintOrders}
+              newPrintOrderPath={`/events/${eventId}/print-orders/new?functionId=${functionId}`}
+              linkPrintOrder={linkPrintOrderAction}
+              unlinkPrintOrder={unlinkPrintOrderAction}
+            />
+            <MediaOrderPanel
+              title="Media Orders"
+              mediaOrders={fn.mediaOrderFunctions.map((mof) => mof.mediaOrder)}
+              eventId={eventId}
+              availableMediaOrders={availableMediaOrders}
+              newMediaOrderPath={`/events/${eventId}/media-orders/new?functionId=${functionId}`}
+              linkMediaOrder={linkMediaOrderAction}
+              unlinkMediaOrder={unlinkMediaOrderAction}
+            />
+          </div>
         </div>
       </div>
     </>
