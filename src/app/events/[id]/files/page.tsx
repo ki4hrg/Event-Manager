@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
@@ -11,6 +12,8 @@ import { formatFileSize } from "@/lib/uploads";
 import { getSetupOrderDisplayName } from "../../setup-orders/utils";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Files" };
 
 type OrderSummary = {
   id: string;

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -30,6 +31,16 @@ import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const venue = await prisma.venue.findUnique({ where: { id }, select: { name: true } });
+  return { title: venue?.name ?? "Venue" };
+}
 
 export default async function VenuePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

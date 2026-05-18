@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
@@ -6,6 +7,8 @@ import { toTitleCase } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Agenda (print)" };
 
 function formatTime(date: Date, timezone: string): string {
   return new Date(date).toLocaleTimeString("en-US", {

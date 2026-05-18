@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { SetupOrderDetails } from "@/app/events/setup-orders/SetupOrderDetails";
@@ -8,6 +9,8 @@ import { getWorkflowInstances } from "@/app/events/workflows/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Setup orders (print)" };
 
 export default async function SetupOrdersPrintPage({
   params,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -54,6 +55,19 @@ import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; setupOrderId: string }>;
+}): Promise<Metadata> {
+  const { setupOrderId } = await params;
+  const order = await prisma.setupOrder.findUnique({
+    where: { id: setupOrderId },
+    select: { name: true, setupType: true, room: { select: { name: true } } },
+  });
+  return { title: order ? getSetupOrderDisplayName(order) : "Setup order" };
+}
 
 export default async function SetupOrderPage({
   params,

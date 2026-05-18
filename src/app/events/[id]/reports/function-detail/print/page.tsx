@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/actions";
 import { getFunctionDetailData } from "@/app/events/reports/actions";
@@ -6,6 +7,8 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { FunctionDetailReport } from "../FunctionDetailReport";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Function detail (print)" };
 
 export default async function FunctionDetailPrintPage({
   params,

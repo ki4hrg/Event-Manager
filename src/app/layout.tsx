@@ -9,7 +9,10 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Event Manager",
+  title: {
+    default: "Event Manager",
+    template: "%s · Event Manager",
+  },
   description: "Internal tool for managing conferences and events",
 };
 

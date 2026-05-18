@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -61,6 +62,19 @@ import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; avOrderId: string }>;
+}): Promise<Metadata> {
+  const { avOrderId } = await params;
+  const order = await prisma.aVOrder.findUnique({
+    where: { id: avOrderId },
+    select: { name: true },
+  });
+  return { title: order?.name ?? "AV order" };
+}
 
 export default async function AVOrderPage({
   params,

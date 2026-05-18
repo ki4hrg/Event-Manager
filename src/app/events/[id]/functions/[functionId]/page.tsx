@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -62,6 +63,19 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; functionId: string }>;
+}): Promise<Metadata> {
+  const { functionId } = await params;
+  const fn = await prisma.function.findUnique({
+    where: { id: functionId },
+    select: { name: true },
+  });
+  return { title: fn?.name ?? "Function" };
+}
 
 export default async function FunctionPage({
   params,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/actions";
 import { getVendorHandoffData } from "@/app/events/reports/actions";
@@ -6,6 +7,8 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "../VendorHandoffReport";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Vendor handoff (print)" };
 
 export default async function VendorHandoffPrintPage({
   params,

@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { getOptions, createOption, updateOption, deleteOption, reorderOptions } from "../actions";
 import { OptionList } from "../OptionList";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Vendor options" };
 
 export default async function SettingsVendorsPage() {
   const vendorContactTypes = await getOptions("vendor_contact_type");

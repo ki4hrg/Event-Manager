@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
@@ -13,6 +14,8 @@ import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Function detail" };
 
 export default async function FunctionDetailPage({
   params,

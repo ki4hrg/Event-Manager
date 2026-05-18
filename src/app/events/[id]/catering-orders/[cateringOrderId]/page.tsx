@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
@@ -66,6 +67,19 @@ import { FileUploadPanel } from "@/components/FileUploadPanel";
 import type { TimelineItem } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; cateringOrderId: string }>;
+}): Promise<Metadata> {
+  const { cateringOrderId } = await params;
+  const order = await prisma.cateringOrder.findUnique({
+    where: { id: cateringOrderId },
+    select: { name: true },
+  });
+  return { title: order?.name ?? "Catering order" };
+}
 
 function TimelinePreview({
   items,

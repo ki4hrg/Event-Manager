@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -5,6 +6,8 @@ import { requirePermission } from "@/lib/permissions";
 import { createWorkflowTemplate } from "../actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New workflow" };
 
 export default async function NewWorkflowPage() {
   await requirePermission(PermissionResource.WORKFLOWS, "WRITE");

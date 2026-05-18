@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
@@ -8,6 +9,8 @@ import { requirePermission } from "@/lib/permissions";
 import { getWorkflowTemplates } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Workflows" };
 
 export default async function WorkflowsPage() {
   await requirePermission(PermissionResource.WORKFLOWS, "VIEW");

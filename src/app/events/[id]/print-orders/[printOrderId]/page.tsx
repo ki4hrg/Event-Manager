@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +44,19 @@ import { PrintItemPanel } from "../../../print-orders/PrintItemPanel";
 import { PrintOrderLinkPanel } from "../../../print-orders/PrintOrderLinkPanel";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; printOrderId: string }>;
+}): Promise<Metadata> {
+  const { printOrderId } = await params;
+  const order = await prisma.printOrder.findUnique({
+    where: { id: printOrderId },
+    select: { name: true },
+  });
+  return { title: order?.name ?? "Print order" };
+}
 
 export default async function PrintOrderPage({
   params,

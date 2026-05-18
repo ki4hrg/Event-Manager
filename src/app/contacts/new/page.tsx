@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { PageWrapper } from "@/components/PageWrapper";
 import { createContact } from "../actions";
 import { ContactForm } from "../ContactForm";
 import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New contact" };
 
 export default async function NewContactPage() {
   const contactRoles = await getOptions("contact_role");

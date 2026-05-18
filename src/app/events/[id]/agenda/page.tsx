@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +12,8 @@ import dynamicImport from "next/dynamic";
 const AgendaGrid = dynamicImport(() => import("./AgendaGrid").then((m) => m.AgendaGrid), { ssr: false });
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Agenda" };
 
 export default async function AgendaPage({
   params,

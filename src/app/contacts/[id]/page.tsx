@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/DeleteButton";
@@ -10,6 +12,20 @@ import { getOptions } from "@/app/settings/actions";
 import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const contact = await prisma.contact.findUnique({
+    where: { id },
+    select: { firstName: true, lastName: true },
+  });
+  if (!contact) return { title: "Contact" };
+  return { title: `${contact.firstName} ${contact.lastName}`.trim() || "Contact" };
+}
 
 export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

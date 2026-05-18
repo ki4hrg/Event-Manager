@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/actions";
 import { getBreakoutScheduleData } from "@/app/events/reports/actions";
 import { BreakoutGridPrintView } from "../BreakoutGridPrintView";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Breakout grid (print)" };
 
 function parseListParam(v: string | undefined): string[] {
   return v ? v.split(",").filter(Boolean) : [];

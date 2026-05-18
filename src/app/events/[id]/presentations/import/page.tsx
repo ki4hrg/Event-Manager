@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
@@ -5,6 +6,8 @@ import { importPresentationsFromCSV, type ColumnMapping } from "../../../present
 import { ImportForm } from "./ImportForm";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Import presentations" };
 
 export default async function ImportPresentationsPage({
   params,

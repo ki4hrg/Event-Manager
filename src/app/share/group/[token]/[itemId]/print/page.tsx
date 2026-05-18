@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import React from "react";
 import { notFound } from "next/navigation";
 import { getActiveShareLinkGroup, resolveSharedBoolean } from "@/lib/shareLinks";
@@ -29,6 +30,20 @@ import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-as
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string; itemId: string }>;
+}): Promise<Metadata> {
+  const { token, itemId } = await params;
+  const group = await getActiveShareLinkGroup(token);
+  if (!group) return { title: "Shared report (print)" };
+  const item = group.items.find((i) => i.id === itemId);
+  if (!item) return { title: `${group.label ?? "Shared dashboard"} (print)` };
+  const itemName = item.label || SHARE_REPORT_LABELS[item.reportType] || "Report";
+  return { title: { absolute: `${itemName} · ${group.event.name} (print)` } };
+}
 
 type PageProps = {
   params: Promise<{ token: string; itemId: string }>;

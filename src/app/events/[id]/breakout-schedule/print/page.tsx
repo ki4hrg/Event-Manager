@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
@@ -11,6 +12,8 @@ import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import type { Room } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Breakout schedule (print)" };
 
 // Max rooms per table chunk before splitting onto a new page
 const ROOMS_PER_CHUNK = 8;

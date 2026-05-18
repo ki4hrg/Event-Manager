@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -10,6 +11,8 @@ import { ShareLinksTable } from "./ShareLinksTable";
 import { ShareLinkGroupsTable } from "./ShareLinkGroupsTable";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Share links" };
 
 export default async function ShareLinksPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;

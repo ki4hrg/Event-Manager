@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { getSubstatusOptions, createOption, updateOption, deleteOption, reorderOptions } from "../actions";
 import { OptionList } from "../OptionList";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Statuses" };
 
 const GROUPS = [
   { group: "PENDING", label: "Pending Substatuses", description: "Specific states within the Pending top-level status (e.g., Expected, Requested)" },

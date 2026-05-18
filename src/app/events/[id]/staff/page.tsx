@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
@@ -12,6 +13,8 @@ import {
 import { EventStaffList } from "./EventStaffList";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Staff" };
 
 export default async function EventStaffPage({
   params,

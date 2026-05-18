@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { getMediaOrders, getMediaOrder } from "@/app/events/media-orders/actions";
@@ -6,6 +7,8 @@ import { getMediaOrderVendors } from "@/app/vendors/actions";
 import { partyLabel } from "@/app/events/av-orders/party-field";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Media orders (print)" };
 
 export default async function MediaOrdersPrintPage({
   params,

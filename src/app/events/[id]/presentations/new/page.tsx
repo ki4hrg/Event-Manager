@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getEvent } from "../../../actions";
@@ -6,6 +7,8 @@ import { PresentationForm } from "../../../presentations/PresentationForm";
 import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New presentation" };
 
 export default async function NewPresentationPage({
   params,

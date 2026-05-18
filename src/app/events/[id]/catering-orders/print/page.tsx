@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { CateringOrderDetails } from "@/app/events/catering-orders/CateringOrderDetails";
@@ -7,6 +8,8 @@ import { getCateringOrderVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Catering orders (print)" };
 
 export default async function CateringOrdersPrintPage({
   params,

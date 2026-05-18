@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
@@ -6,6 +7,8 @@ import { getVendors } from "./actions";
 import { MODEL_LABELS } from "./model-types";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Vendors" };
 
 export default async function VendorsPage() {
   const vendors = await getVendors();

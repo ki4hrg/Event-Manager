@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
@@ -12,6 +13,8 @@ import { MediaOrderList } from "../../media-orders/MediaOrderList";
 import type { EntityStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Media orders" };
 
 export default async function MediaOrdersPage({
   params,

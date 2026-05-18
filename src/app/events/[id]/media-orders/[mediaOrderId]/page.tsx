@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +44,19 @@ import { MediaItemPanel } from "../../../media-orders/MediaItemPanel";
 import { MediaOrderLinkPanel } from "../../../media-orders/MediaOrderLinkPanel";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; mediaOrderId: string }>;
+}): Promise<Metadata> {
+  const { mediaOrderId } = await params;
+  const order = await prisma.mediaOrder.findUnique({
+    where: { id: mediaOrderId },
+    select: { name: true },
+  });
+  return { title: order?.name ?? "Media order" };
+}
 
 export default async function MediaOrderPage({
   params,

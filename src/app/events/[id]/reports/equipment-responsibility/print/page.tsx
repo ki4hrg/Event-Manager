@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import React from "react";
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/actions";
@@ -7,6 +8,8 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Equipment responsibility (print)" };
 
 export default async function EquipmentResponsibilityPrintPage({
   params,

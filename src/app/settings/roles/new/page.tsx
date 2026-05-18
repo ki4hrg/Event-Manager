@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { createRole } from "../actions";
 import { RoleForm } from "../RoleForm";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New role" };
 
 export default async function NewRolePage() {
   return (

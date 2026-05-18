@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PermissionResource } from "@prisma/client";
 import { requirePermission } from "@/lib/permissions";
 import { getEmailConfigStatus, isEmailConfigured } from "@/lib/email";
@@ -5,6 +6,8 @@ import { sendTestEmailAction } from "./actions";
 import { SendTestEmailForm } from "./SendTestEmailForm";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Email" };
 
 export default async function SettingsEmailPage() {
   const session = await requirePermission(PermissionResource.SETTINGS, "VIEW");

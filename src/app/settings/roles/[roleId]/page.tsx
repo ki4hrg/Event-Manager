@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { deleteRole, getRole, updateRole } from "../actions";
@@ -7,6 +9,16 @@ import { RoleForm } from "../RoleForm";
 import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ roleId: string }>;
+}): Promise<Metadata> {
+  const { roleId } = await params;
+  const role = await prisma.role.findUnique({ where: { id: roleId }, select: { name: true } });
+  return { title: role?.name ?? "Role" };
+}
 
 export default async function EditRolePage({
   params,

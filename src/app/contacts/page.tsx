@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
@@ -6,6 +7,8 @@ import { getContacts } from "./actions";
 import { formatPhone } from "@/lib/format-phone";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Contacts" };
 
 export default async function ContactsPage() {
   const contacts = await getContacts();

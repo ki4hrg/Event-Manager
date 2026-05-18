@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -61,6 +62,19 @@ import { MediaOrderPanel } from "../../../media-orders/MediaOrderPanel";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; presentationId: string }>;
+}): Promise<Metadata> {
+  const { presentationId } = await params;
+  const presentation = await prisma.presentation.findUnique({
+    where: { id: presentationId },
+    select: { title: true },
+  });
+  return { title: presentation?.title ?? "Presentation" };
+}
 
 export default async function PresentationPage({
   params,

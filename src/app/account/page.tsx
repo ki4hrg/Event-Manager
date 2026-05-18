@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { requireAuth } from "@/lib/auth";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -6,6 +7,8 @@ import { getUserLandingPage } from "@/lib/userSettings";
 import { updateLandingPage } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Account" };
 
 export default async function AccountPage() {
   const session = await requireAuth();

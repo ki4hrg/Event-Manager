@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { reportTh as th, reportTd as td } from "@/lib/reportStyles";
@@ -10,6 +11,8 @@ import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Function table (print)" };
 
 function getEarliestStart(fn: FunctionForTable): Date | null {
   if (fn.schedules.length === 0) return null;

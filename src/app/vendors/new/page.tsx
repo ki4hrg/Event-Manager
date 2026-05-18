@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { PageWrapper } from "@/components/PageWrapper";
 import Link from "next/link";
 import { createVendor } from "../actions";
 import { VendorForm } from "../VendorForm";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New vendor" };
 
 export default async function NewVendorPage() {
   return (

@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { getOptions, createOption, updateOption, deleteOption, reorderOptions } from "../actions";
 import { OptionList } from "../OptionList";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Function options" };
 
 export default async function SettingsFunctionsPage() {
   const [functionTypes, scheduleTypes, setupTypes] = await Promise.all([

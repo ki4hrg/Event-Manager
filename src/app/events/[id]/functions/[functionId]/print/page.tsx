@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { FunctionDetails } from "@/app/events/functions/FunctionDetails";
 import { getFunction } from "@/app/events/functions/actions";
@@ -6,6 +8,19 @@ import { getEvent } from "../../../../actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; functionId: string }>;
+}): Promise<Metadata> {
+  const { functionId } = await params;
+  const fn = await prisma.function.findUnique({
+    where: { id: functionId },
+    select: { name: true },
+  });
+  return { title: fn ? `${fn.name} (print)` : "Function (print)" };
+}
 
 export default async function FunctionPrintPage({
   params,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -7,6 +8,16 @@ import { getShareLinkGroup } from "@/app/events/share-link-groups/actions";
 import { DashboardEditor } from "./DashboardEditor";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; groupId: string }>;
+}): Promise<Metadata> {
+  const { groupId } = await params;
+  const group = await getShareLinkGroup(groupId);
+  return { title: group?.label || "Dashboard" };
+}
 
 export default async function DashboardEditorPage({
   params,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,8 @@ import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New catering order" };
 
 export default async function NewCateringOrderPage({
   params,

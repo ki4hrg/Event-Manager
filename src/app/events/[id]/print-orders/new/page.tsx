@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +10,8 @@ import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New print order" };
 
 export default async function NewPrintOrderPage({
   params,

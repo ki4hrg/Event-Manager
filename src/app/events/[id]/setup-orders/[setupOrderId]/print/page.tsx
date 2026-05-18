@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { SetupOrderDetails } from "@/app/events/setup-orders/SetupOrderDetails";
 import { getSetupOrder } from "@/app/events/setup-orders/actions";
@@ -8,6 +10,19 @@ import { getWorkflowInstances } from "@/app/events/workflows/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; setupOrderId: string }>;
+}): Promise<Metadata> {
+  const { setupOrderId } = await params;
+  const order = await prisma.setupOrder.findUnique({
+    where: { id: setupOrderId },
+    select: { name: true, setupType: true, room: { select: { name: true } } },
+  });
+  return { title: order ? `${getSetupOrderDisplayName(order)} (print)` : "Setup order (print)" };
+}
 
 export default async function SetupOrderPrintPage({
   params,

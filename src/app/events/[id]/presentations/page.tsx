@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import type { EntityStatus } from "@prisma/client";
@@ -18,6 +19,8 @@ import { TrackPanel } from "../../presentations/TrackPanel";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Presentations" };
 
 export default async function PresentationsPage({
   params,

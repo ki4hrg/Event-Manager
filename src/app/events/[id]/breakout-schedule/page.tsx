@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -25,6 +26,8 @@ import { BreakoutGrid } from "../../breakout-schedule/BreakoutGrid";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Breakout schedule" };
 
 export default async function BreakoutSchedulePage({
   params,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/actions";
 import { getEventProfileData } from "@/app/events/reports/actions";
@@ -6,6 +7,8 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "../EventProfileReport";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Event profile (print)" };
 
 function parseListParam(v: string | undefined): string[] {
   return v ? v.split(",").filter(Boolean) : [];

@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
+import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import {
   getWorkflowTemplate,
@@ -19,6 +21,19 @@ import { WorkflowEditor } from "./WorkflowEditor";
 import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const template = await prisma.workflowTemplate.findUnique({
+    where: { id },
+    select: { name: true },
+  });
+  return { title: template?.name ?? "Workflow" };
+}
 
 export default async function WorkflowDetailPage({
   params,

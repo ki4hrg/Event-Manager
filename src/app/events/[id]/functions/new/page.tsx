@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -8,6 +9,8 @@ import { getOptions } from "@/app/settings/actions";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New function" };
 
 export default async function NewFunctionPage({
   params,

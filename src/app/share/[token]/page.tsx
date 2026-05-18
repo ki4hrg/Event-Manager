@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
@@ -34,6 +35,24 @@ type PageProps = {
   params: Promise<{ token: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+const REPORT_TITLES: Record<string, string> = {
+  EQUIPMENT_RESPONSIBILITY: "Equipment responsibility",
+  VENDOR_HANDOFF: "Vendor handoff",
+  EVENT_PROFILE: "Event profile",
+  ROOM_SCHEDULE: "Room schedule",
+  FUNCTION_DETAIL: "Function detail",
+  BREAKOUT_GRID: "Breakout grid",
+  BREAKOUT_ASSIGNMENTS: "Breakout assignments",
+};
+
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const link = await getActiveShareLink(token);
+  if (!link) return { title: "Shared report" };
+  const reportName = REPORT_TITLES[link.reportType] ?? "Shared report";
+  return { title: { absolute: `${reportName} · ${link.event.name}` } };
+}
 
 function getString(v: string | string[] | undefined): string | undefined {
   return typeof v === "string" ? v : undefined;

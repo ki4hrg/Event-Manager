@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { getOptions, createOption, updateOption, deleteOption, reorderOptions, getEquipment, createEquipment, updateEquipment, deleteEquipment } from "../actions";
 import { OptionList } from "../OptionList";
 import { EquipmentList } from "../EquipmentList";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Equipment" };
 
 export default async function SettingsEquipmentPage() {
   const [equipmentCategories, equipment] = await Promise.all([

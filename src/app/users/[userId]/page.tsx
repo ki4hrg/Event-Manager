@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { PermissionResource } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { getUser, updateUser, deleteUser, resendPasswordResetEmail } from "../actions";
 import { getRoleOptions } from "@/app/settings/roles/actions";
@@ -10,6 +12,19 @@ import { notFound } from "next/navigation";
 import { LastUpdated } from "@/components/LastUpdated";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ userId: string }>;
+}): Promise<Metadata> {
+  const { userId } = await params;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true },
+  });
+  return { title: user?.name || user?.email || "User" };
+}
 
 export default async function UserDetailPage({
   params,

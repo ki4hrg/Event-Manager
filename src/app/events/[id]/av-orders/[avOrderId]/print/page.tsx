@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { AVOrderDetails } from "@/app/events/av-orders/AVOrderDetails";
 import { getAVOrder } from "@/app/events/av-orders/actions";
@@ -7,6 +9,19 @@ import { getAVOrderVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; avOrderId: string }>;
+}): Promise<Metadata> {
+  const { avOrderId } = await params;
+  const order = await prisma.aVOrder.findUnique({
+    where: { id: avOrderId },
+    select: { name: true },
+  });
+  return { title: order ? `${order.name} (print)` : "AV order (print)" };
+}
 
 export default async function AVOrderPrintPage({
   params,

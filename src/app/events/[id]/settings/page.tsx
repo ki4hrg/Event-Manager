@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +13,8 @@ import { StatusDefaultsPanel } from "@/app/events/status-defaults/StatusDefaults
 import type { EntityStatus, StatusModelType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Event settings" };
 
 export default async function EventSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { CateringOrderDetails } from "@/app/events/catering-orders/CateringOrderDetails";
 import { getCateringOrder } from "@/app/events/catering-orders/actions";
@@ -7,6 +9,19 @@ import { getCateringOrderVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; cateringOrderId: string }>;
+}): Promise<Metadata> {
+  const { cateringOrderId } = await params;
+  const order = await prisma.cateringOrder.findUnique({
+    where: { id: cateringOrderId },
+    select: { name: true },
+  });
+  return { title: order ? `${order.name} (print)` : "Catering order (print)" };
+}
 
 export default async function CateringOrderPrintPage({
   params,

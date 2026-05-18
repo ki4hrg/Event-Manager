@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
@@ -7,6 +8,8 @@ import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Functions" };
 
 export default async function EventFunctionsPage({
   params,

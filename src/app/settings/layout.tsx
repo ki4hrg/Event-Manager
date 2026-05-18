@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { PermissionResource } from "@prisma/client";
 import { requirePermission } from "@/lib/permissions";
 import { PageWrapper } from "@/components/PageWrapper";
 import { SettingsTabs } from "./SettingsTabs";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: { default: "Settings", template: "%s · Settings · Event Manager" },
+};
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   await requirePermission(PermissionResource.SETTINGS, "VIEW");

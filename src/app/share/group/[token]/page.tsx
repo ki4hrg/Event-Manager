@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   getActiveShareLinkGroup,
@@ -62,6 +63,14 @@ function intersect(input: string[] | undefined, valid: Set<string>): string[] | 
 
 function itemPrefix(itemId: string): string {
   return `i_${itemId}_`;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const group = await getActiveShareLinkGroup(token);
+  if (!group) return { title: "Shared dashboard" };
+  const dashName = group.label || "Shared dashboard";
+  return { title: { absolute: `${dashName} · ${group.event.name}` } };
 }
 
 type GroupItem = {

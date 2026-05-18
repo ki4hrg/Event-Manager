@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { FunctionDetails } from "@/app/events/functions/FunctionDetails";
@@ -7,6 +8,8 @@ import { getWorkflowInstances } from "@/app/events/workflows/actions";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Functions (print)" };
 
 export default async function FunctionsPrintPage({
   params,

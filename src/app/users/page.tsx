@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
@@ -6,6 +7,8 @@ import { roleBadgeClass } from "@/lib/roleStyles";
 import { getUsers } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Users" };
 
 export default async function UsersPage() {
   const users = await getUsers();

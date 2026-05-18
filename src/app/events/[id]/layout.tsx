@@ -1,8 +1,25 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/Header";
 import { EventLayoutClient } from "@/components/EventLayoutClient";
 import { requirePermission } from "@/lib/permissions";
 import { getEvent } from "../actions";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const event = await getEvent(id);
+  if (!event) return {};
+  return {
+    title: {
+      default: `${event.name} · Event Manager`,
+      template: `%s · ${event.name} · Event Manager`,
+    },
+  };
+}
 
 export default async function EventLayout({
   children,

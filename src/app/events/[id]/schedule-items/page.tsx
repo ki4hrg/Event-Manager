@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
@@ -11,6 +12,8 @@ import {
 import { ScheduleItemList } from "../../schedule-items/ScheduleItemList";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Schedule items" };
 
 export default async function ScheduleItemsPage({
   params,

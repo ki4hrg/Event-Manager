@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { AVOrderDetails } from "@/app/events/av-orders/AVOrderDetails";
@@ -7,6 +8,8 @@ import { getAVOrderVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "AV orders (print)" };
 
 export default async function AVOrdersPrintPage({
   params,

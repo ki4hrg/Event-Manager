@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
@@ -10,6 +11,8 @@ import { SetupOrderList } from "../../setup-orders/SetupOrderList";
 import type { EntityStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Setup orders" };
 
 export default async function SetupOrdersPage({
   params,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/actions";
@@ -12,6 +13,8 @@ import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Breakout assignments" };
 
 function parseListParam(v: string | undefined): string[] {
   return v ? v.split(",").filter(Boolean) : [];

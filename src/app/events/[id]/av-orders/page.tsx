@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
@@ -10,6 +11,8 @@ import { AVOrderList } from "../../av-orders/AVOrderList";
 import type { EntityStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "AV orders" };
 
 export default async function AVOrdersPage({
   params,

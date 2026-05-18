@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +11,8 @@ import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/li
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "New setup order" };
 
 export default async function NewSetupOrderPage({
   params,

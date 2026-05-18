@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { consumePasswordResetToken } from "@/lib/email";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Reset password" };
 
 export default async function ResetPasswordPage({
   params,

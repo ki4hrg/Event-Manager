@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
@@ -6,6 +7,8 @@ import { getEvents } from "./actions";
 import { EventListClient } from "./EventListClient";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Events" };
 
 export default async function EventsPage() {
   const events = await getEvents();

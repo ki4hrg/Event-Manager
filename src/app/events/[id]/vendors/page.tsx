@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
@@ -13,6 +14,8 @@ import {
 import { EventVendorList } from "./EventVendorList";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Vendors" };
 
 export default async function EventVendorsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;

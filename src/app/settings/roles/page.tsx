@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Toast } from "@/components/Toast";
@@ -5,6 +6,8 @@ import { btnPrimary } from "@/lib/buttonStyles";
 import { getRoles } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Roles" };
 
 export default async function SettingsRolesPage() {
   const roles = await getRoles();
