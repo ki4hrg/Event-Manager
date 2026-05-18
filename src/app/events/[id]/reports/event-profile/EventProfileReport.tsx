@@ -1,6 +1,6 @@
 import type { CustomOption } from "@prisma/client";
 import type { EventProfileData } from "@/app/events/reports/actions";
-import { getDateKeyInTimezone, formatDateHeading, formatTime } from "@/lib/agendaUtils";
+import { getDateKeyInTimezone, formatDateHeading, formatTime, formatTimeRange as formatTimeRangeShared } from "@/lib/agendaUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { colorClasses } from "@/lib/colors";
 import { formatPhone } from "@/lib/format-phone";
@@ -45,19 +45,10 @@ function latestEnd(fn: { schedules: { endTime: Date }[] }): Date | null {
   return fn.schedules.reduce((max, s) => (s.endTime > max ? s.endTime : max), fn.schedules[0].endTime);
 }
 
-function formatShortDate(date: Date, timezone: string): string {
-  return date.toLocaleDateString("en-US", { timeZone: timezone, month: "short", day: "numeric" });
-}
-
 function formatTimeRange(start: Date | null, end: Date | null, timezone: string): string {
   if (!start) return "Unscheduled";
-  const startStr = formatTime(start, timezone);
-  if (!end) return startStr;
-  const endStr = formatTime(end, timezone);
-  if (getDateKeyInTimezone(start, timezone) !== getDateKeyInTimezone(end, timezone)) {
-    return `${startStr} – ${endStr} (${formatShortDate(end, timezone)})`;
-  }
-  return `${startStr} – ${endStr}`;
+  if (!end) return formatTime(start, timezone);
+  return formatTimeRangeShared(start, end, timezone);
 }
 
 function fnRoomsLabel(fn: {
@@ -164,7 +155,6 @@ function ScheduleItemCard({
             </>
           )}
         </dl>
-        <LastUpdated updatedAt={fn.updatedAt} updatedBy={fn.updatedBy} timezone={timezone} className="mt-2 print:hidden" />
       </div>
     </>
   );
@@ -300,7 +290,6 @@ function BreakoutGroupCard({
                 <p className="font-semibold text-sm text-gray-900 dark:text-white">
                   {formatTimeRange(earliestStart(b), latestEnd(b), timezone)}
                 </p>
-                <LastUpdated updatedAt={b.updatedAt} updatedBy={b.updatedBy} timezone={timezone} className="mt-0.5 print:hidden" />
                 {blockRooms.length > 0 && (
                   <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-2 gap-2 text-xs">
                     {blockRooms.map((room) => {
@@ -323,12 +312,6 @@ function BreakoutGroupCard({
                                   {contactDisplayName(slot.presentation.speakers[0].contact)}
                                 </p>
                               )}
-                              <LastUpdated
-                                updatedAt={slot.presentation.updatedAt}
-                                updatedBy={slot.presentation.updatedBy}
-                                timezone={timezone}
-                                className="mt-0.5 print:hidden"
-                              />
                             </>
                           ) : (
                             <p className="text-gray-400 dark:text-gray-500 italic mt-0.5">—</p>

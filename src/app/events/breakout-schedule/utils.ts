@@ -1,4 +1,5 @@
 import type { BreakoutGroupRoom, BreakoutSessionRoomOverride, FunctionRoom, Room } from "@prisma/client";
+import { formatTimeRange } from "@/lib/agendaUtils";
 
 type SessionForRooms = {
   rooms: (FunctionRoom & { room: Room })[];
@@ -34,17 +35,7 @@ export function formatSessionTime(
 ): string {
   if (schedules.length === 0) return "No time set";
   const s = schedules[0];
-  const start = new Date(s.startTime).toLocaleString("en-US", {
-    timeZone: timezone,
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const end = new Date(s.endTime).toLocaleString("en-US", {
-    timeZone: timezone,
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return `${start} – ${end}`;
+  return formatTimeRange(new Date(s.startTime), new Date(s.endTime), timezone);
 }
 
 export function getPrimaryNames(

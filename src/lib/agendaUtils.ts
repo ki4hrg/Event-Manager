@@ -168,6 +168,28 @@ export function formatTime(date: Date, timezone: string): string {
   }).format(date);
 }
 
+export function formatShortDate(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+/**
+ * "9:00 AM – 11:00 AM" when start/end fall on the same day in the given timezone,
+ * "9:00 AM – 1:00 AM (May 19)" when end crosses into a different day. Used on
+ * report schedule rows so multi-day functions don't quietly drop the end date.
+ */
+export function formatTimeRange(start: Date, end: Date, timezone: string): string {
+  const startStr = formatTime(start, timezone);
+  const endStr = formatTime(end, timezone);
+  if (getDateKeyInTimezone(start, timezone) !== getDateKeyInTimezone(end, timezone)) {
+    return `${startStr} – ${endStr} (${formatShortDate(end, timezone)})`;
+  }
+  return `${startStr} – ${endStr}`;
+}
+
 // ── Grid helpers ───────────────────────────────────────────────────────────────
 
 /** Finds the slot key under which a given schedule entry lives in a column. */

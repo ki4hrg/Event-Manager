@@ -6,7 +6,6 @@ import type {
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
-import { LastUpdated } from "@/components/LastUpdated";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import {
   getEffectiveRooms,
@@ -130,12 +129,6 @@ function GroupSection({
                           <div className="text-gray-500 dark:text-gray-400 print:text-gray-700 font-normal">
                             {formatSessionTime(session.schedules, timezone)}
                           </div>
-                          <LastUpdated
-                            updatedAt={session.updatedAt}
-                            updatedBy={session.updatedBy}
-                            timezone={timezone}
-                            className="block mt-0.5 font-normal print:hidden"
-                          />
                         </td>
                         {chunkRooms.map((room) => {
                           const isAvailable = effectiveIds?.has(room.id) ?? false;
@@ -165,12 +158,6 @@ function GroupSection({
                                       {speakerNames}
                                     </div>
                                   )}
-                                  <LastUpdated
-                                    updatedAt={slot.presentation.updatedAt}
-                                    updatedBy={slot.presentation.updatedBy}
-                                    timezone={timezone}
-                                    className="block mt-0.5 print:hidden"
-                                  />
                                 </>
                               ) : (
                                 <span className="text-gray-300 dark:text-gray-600 print:text-gray-400">
@@ -232,12 +219,6 @@ function MobileSessions({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {formatSessionTime(session.schedules, timezone)}
             </p>
-            <LastUpdated
-              updatedAt={session.updatedAt}
-              updatedBy={session.updatedBy}
-              timezone={timezone}
-              className="mt-0.5"
-            />
             {rows.length === 0 ? (
               <p className="mt-2 text-xs text-gray-400 italic">No rooms available.</p>
             ) : (
@@ -261,12 +242,6 @@ function MobileSessions({
                               {speakers}
                             </p>
                           )}
-                          <LastUpdated
-                            updatedAt={row.slot.presentation.updatedAt}
-                            updatedBy={row.slot.presentation.updatedBy}
-                            timezone={timezone}
-                            className="mt-0.5"
-                          />
                         </>
                       ) : (
                         <p className="text-gray-400 italic">Unassigned</p>
