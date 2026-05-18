@@ -5,6 +5,13 @@
 export const reportTh =
   "px-3 py-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100 print:text-black border-b border-gray-300 dark:border-gray-600 print:border-gray-400 bg-gray-100 dark:bg-gray-700 print:bg-gray-200 whitespace-nowrap";
 
+// reportTh variant that allows wrapping — use for column headers (e.g. room names)
+// where titles are too long to fit on one line at narrow widths.
+export const reportThWrap = reportTh.replace(
+  "whitespace-nowrap",
+  "whitespace-normal break-words"
+);
+
 export const reportTd =
   "px-3 py-2 text-xs text-gray-700 dark:text-gray-300 print:text-gray-900 border-b border-gray-200 dark:border-gray-700 print:border-gray-300 align-top";
 

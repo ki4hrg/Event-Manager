@@ -10,7 +10,7 @@ import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/Ve
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
-import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
+import { BreakoutGridPrintView } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridPrintView";
 import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
@@ -335,15 +335,7 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
     });
     if (!data) notFound();
 
-    return (
-      <>
-        <style>{`@page { size: landscape; margin: 0.5in; }`}</style>
-        <div className="p-6 max-w-none mx-auto print:p-0">
-          <PrintHeader eventName={link.event.name} title="Breakout Grid" backHref={backHref} />
-          <BreakoutGridReport data={data} />
-        </div>
-      </>
-    );
+    return <BreakoutGridPrintView data={data} eventName={link.event.name} />;
   }
 
   if (link.reportType === "BREAKOUT_ASSIGNMENTS") {

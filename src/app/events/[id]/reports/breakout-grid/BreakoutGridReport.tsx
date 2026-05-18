@@ -15,12 +15,10 @@ import {
 } from "@/app/events/breakout-schedule/utils";
 import {
   reportTh as th,
+  reportThWrap as roomTh,
   reportTd as td,
   reportSectionCard as sectionCard,
 } from "@/lib/reportStyles";
-
-// Room header cells need word-wrap; reportTh has whitespace-nowrap which collides at narrow widths.
-const roomTh = th.replace("whitespace-nowrap", "whitespace-normal break-words");
 
 // Max rooms per table chunk before splitting onto a new page.
 const ROOMS_PER_CHUNK = 8;

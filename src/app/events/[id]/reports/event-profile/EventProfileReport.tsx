@@ -277,114 +277,76 @@ function BreakoutGroupCard({
 
       {blocks.length === 0 ? (
         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No sessions scheduled.</p>
-      ) : rooms.length === 0 ? (
-        // Fallback: flat list when no rooms are known
-        <ul className="mt-3 space-y-2 text-sm">
-          {blocks.map((b) => (
-            <li key={b.id} className="border-l-2 border-gray-300 dark:border-gray-600 pl-3">
-              <p className="font-medium">{formatTimeRange(earliestStart(b), latestEnd(b), timezone)}</p>
-              {b.presentationSlots.map((s) => (
-                <p key={s.id} className="text-xs">
-                  {s.presentation.title}
-                  {s.presentation.speakers[0] &&
-                    <span className="text-gray-500 dark:text-gray-400"> — {contactDisplayName(s.presentation.speakers[0].contact)}</span>}
-                </p>
-              ))}
-            </li>
-          ))}
-        </ul>
       ) : (
-        <>
-          {/* Mobile: stacked block list */}
-          <div className="sm:hidden print:hidden mt-3 space-y-5 text-xs">
-            {blocks.map((b) => {
-              const blockRooms = effectiveRoomsForBlock(b, group);
-              const slotByRoom = new Map(b.presentationSlots.filter((s) => s.room).map((s) => [s.room!.id, s]));
-              return (
-                <div key={b.id} className="border border-gray-200 dark:border-gray-700 rounded p-2">
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {formatTimeRange(earliestStart(b), latestEnd(b), timezone)}
-                  </p>
-                  <ul className="mt-1 space-y-1">
+        <div className="mt-3 space-y-4">
+          {blocks.map((b) => {
+            const blockRooms = rooms.length === 0
+              ? []
+              : effectiveRoomsForBlock(b, group);
+            const slotByRoom = new Map(
+              b.presentationSlots.filter((s) => s.room).map((s) => [s.room!.id, s])
+            );
+            const orphanSlots =
+              rooms.length === 0
+                ? b.presentationSlots
+                : b.presentationSlots.filter((s) => !s.room);
+            return (
+              <div
+                key={b.id}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 print:break-inside-avoid"
+              >
+                <p className="font-semibold text-sm text-gray-900 dark:text-white">
+                  {formatTimeRange(earliestStart(b), latestEnd(b), timezone)}
+                </p>
+                {blockRooms.length > 0 && (
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-2 gap-2 text-xs">
                     {blockRooms.map((room) => {
                       const slot = slotByRoom.get(room.id);
                       return (
-                        <li key={room.id}>
-                          <span className="text-gray-500 dark:text-gray-400">{room.name}:</span>{" "}
+                        <div
+                          key={room.id}
+                          className="border border-gray-100 dark:border-gray-700 print:border-gray-200 rounded p-2"
+                        >
+                          <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            {room.name}
+                          </p>
                           {slot ? (
                             <>
-                              {slot.presentation.title}
+                              <p className="font-medium text-gray-900 dark:text-white mt-0.5">
+                                {slot.presentation.title}
+                              </p>
                               {slot.presentation.speakers[0] && (
-                                <span className="text-gray-500 dark:text-gray-400"> — {contactDisplayName(slot.presentation.speakers[0].contact)}</span>
+                                <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {contactDisplayName(slot.presentation.speakers[0].contact)}
+                                </p>
                               )}
                             </>
                           ) : (
-                            <span className="text-gray-400 dark:text-gray-500 italic">—</span>
+                            <p className="text-gray-400 dark:text-gray-500 italic mt-0.5">—</p>
                           )}
-                        </li>
+                        </div>
                       );
                     })}
+                  </div>
+                )}
+                {orphanSlots.length > 0 && (
+                  <ul className="mt-2 space-y-0.5 text-xs">
+                    {orphanSlots.map((s) => (
+                      <li key={s.id}>
+                        {s.presentation.title}
+                        {s.presentation.speakers[0] && (
+                          <span className="text-gray-500 dark:text-gray-400">
+                            {" "}— {contactDisplayName(s.presentation.speakers[0].contact)}
+                          </span>
+                        )}
+                      </li>
+                    ))}
                   </ul>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Desktop / print: time × room grid */}
-          <div className="hidden sm:block print:block overflow-x-auto mt-3">
-            <table className="w-full text-sm border-collapse table-fixed">
-              <colgroup>
-                <col style={{ width: "13%" }} />
-                {rooms.map((r) => (
-                  <col key={r.id} style={{ width: `${87 / rooms.length}%` }} />
-                ))}
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className={th}>Time</th>
-                  {rooms.map((r) => (
-                    <th key={r.id} className={th.replace("whitespace-nowrap", "whitespace-normal break-words")}>{r.name}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {blocks.map((b) => {
-                  const blockRooms = new Set(effectiveRoomsForBlock(b, group).map((r) => r.id));
-                  const slotByRoom = new Map(b.presentationSlots.filter((s) => s.room).map((s) => [s.room!.id, s]));
-                  return (
-                    <tr key={b.id}>
-                      <td className={`${td} whitespace-nowrap font-medium`}>
-                        {formatTimeRange(earliestStart(b), latestEnd(b), timezone)}
-                      </td>
-                      {rooms.map((room) => {
-                        const slot = slotByRoom.get(room.id);
-                        const isEffective = blockRooms.has(room.id);
-                        return (
-                          <td key={room.id} className={td}>
-                            {!isEffective ? (
-                              <span className="text-gray-300 dark:text-gray-600">—</span>
-                            ) : slot ? (
-                              <div>
-                                <p className="font-medium">{slot.presentation.title}</p>
-                                {slot.presentation.speakers[0] && (
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {contactDisplayName(slot.presentation.speakers[0].contact)}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 dark:text-gray-500 italic">—</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

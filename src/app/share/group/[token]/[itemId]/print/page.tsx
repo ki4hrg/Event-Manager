@@ -23,7 +23,7 @@ import {
 } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
-import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
+import { BreakoutGridPrintView } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridPrintView";
 import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 
@@ -324,15 +324,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
 
       if (!event || !data) notFound();
 
-      return (
-        <>
-          <style>{`@page { size: landscape; margin: 0.5in; }`}</style>
-          <div className="p-6 max-w-none mx-auto print:p-0">
-            <PrintHeader eventName={eventName} title={title} backHref={backHref} />
-            <BreakoutGridReport data={data} />
-          </div>
-        </>
-      );
+      return <BreakoutGridPrintView data={data} eventName={eventName} />;
     }
     case "BREAKOUT_ASSIGNMENTS": {
       const groupsParam = getString(sp.groups);
