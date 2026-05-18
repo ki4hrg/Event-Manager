@@ -10,7 +10,7 @@ import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { formatPhone } from "@/lib/format-phone";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { STATUS_LABEL, STATUS_CLASS } from "@/lib/statusConstants";
-import { formatTime, formatShortDate, getDateKeyInTimezone } from "@/lib/agendaUtils";
+import { formatTime, formatDateTime, getDateKeyInTimezone } from "@/lib/agendaUtils";
 
 type OptionList = { label: string; color?: string | null }[];
 
@@ -33,26 +33,14 @@ type InputGroupT = NonNullable<AvOrder["audioSection"]>["inputGroups"][number];
 type MonitorMixT = NonNullable<AvOrder["audioSection"]>["monitorMixes"][number];
 type PresentationSlot = Fn["presentationSlots"][number];
 
-function formatDateTime(date: Date, timezone: string): string {
-  return new Date(date).toLocaleString("en-US", {
-    timeZone: timezone,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-// Mobile schedule row pairs full-datetime start with bare end time; append the
-// end date in parens when the schedule crosses midnight so multi-day blocks
-// don't silently lose the boundary. Matches Event Profile's pattern.
+// Mobile schedule row pairs the start datetime with a bare end time on the same
+// day, or with a full end datetime when the schedule crosses midnight so
+// multi-day blocks don't silently lose the boundary.
 function formatScheduleEndTime(start: Date, end: Date, timezone: string): string {
-  const endStr = formatTime(end, timezone);
   if (getDateKeyInTimezone(start, timezone) !== getDateKeyInTimezone(end, timezone)) {
-    return `${endStr} (${formatShortDate(end, timezone)})`;
+    return formatDateTime(end, timezone);
   }
-  return endStr;
+  return formatTime(end, timezone);
 }
 
 function vendorOrContactName(

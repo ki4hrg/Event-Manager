@@ -176,18 +176,29 @@ export function formatShortDate(date: Date, timezone: string): string {
   }).format(date);
 }
 
+export function formatDateTime(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
 /**
  * "9:00 AM – 11:00 AM" when start/end fall on the same day in the given timezone,
- * "9:00 AM – 1:00 AM (May 19)" when end crosses into a different day. Used on
- * report schedule rows so multi-day functions don't quietly drop the end date.
+ * "Wed, May 27, 3:00 PM – Sat, May 30, 3:00 PM" when end crosses into a different
+ * day. Used on report schedule rows so multi-day functions don't quietly drop
+ * the end date.
  */
 export function formatTimeRange(start: Date, end: Date, timezone: string): string {
-  const startStr = formatTime(start, timezone);
-  const endStr = formatTime(end, timezone);
   if (getDateKeyInTimezone(start, timezone) !== getDateKeyInTimezone(end, timezone)) {
-    return `${startStr} – ${endStr} (${formatShortDate(end, timezone)})`;
+    return `${formatDateTime(start, timezone)} – ${formatDateTime(end, timezone)}`;
   }
-  return `${startStr} – ${endStr}`;
+  return `${formatTime(start, timezone)} – ${formatTime(end, timezone)}`;
 }
 
 // ── Grid helpers ───────────────────────────────────────────────────────────────
