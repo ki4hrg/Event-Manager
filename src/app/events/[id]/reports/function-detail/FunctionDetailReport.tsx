@@ -10,7 +10,7 @@ import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { formatPhone } from "@/lib/format-phone";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { STATUS_LABEL, STATUS_CLASS } from "@/lib/statusConstants";
-import { formatTime } from "@/lib/agendaUtils";
+import { formatTime, formatShortDate, getDateKeyInTimezone } from "@/lib/agendaUtils";
 
 type OptionList = { label: string; color?: string | null }[];
 
@@ -42,6 +42,17 @@ function formatDateTime(date: Date, timezone: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+// Mobile schedule row pairs full-datetime start with bare end time; append the
+// end date in parens when the schedule crosses midnight so multi-day blocks
+// don't silently lose the boundary. Matches Event Profile's pattern.
+function formatScheduleEndTime(start: Date, end: Date, timezone: string): string {
+  const endStr = formatTime(end, timezone);
+  if (getDateKeyInTimezone(start, timezone) !== getDateKeyInTimezone(end, timezone)) {
+    return `${endStr} (${formatShortDate(end, timezone)})`;
+  }
+  return endStr;
 }
 
 function vendorOrContactName(
@@ -1074,7 +1085,7 @@ function FunctionBlock({
                   </p>
                   <p className="text-gray-500 dark:text-gray-400">
                     {formatDateTime(s.startTime, timezone)} –{" "}
-                    {formatTime(s.endTime, timezone)}
+                    {formatScheduleEndTime(s.startTime, s.endTime, timezone)}
                   </p>
                   {s.notes && (
                     <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">

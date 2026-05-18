@@ -5,7 +5,6 @@ import type {
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
-import { LastUpdated } from "@/components/LastUpdated";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { formatSessionTime, getPrimaryNames } from "@/app/events/breakout-schedule/utils";
 import {
@@ -88,12 +87,6 @@ function PresentationCard({
               {speakers}
             </p>
           )}
-          <LastUpdated
-            updatedAt={presentation.updatedAt}
-            updatedBy={presentation.updatedBy}
-            timezone={timezone}
-            className="mt-1 print:hidden"
-          />
         </div>
         {presentation.instanceCount > 1 && (
           <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-700">
