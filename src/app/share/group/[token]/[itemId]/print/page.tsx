@@ -1,6 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import { getActiveShareLinkGroup } from "@/lib/shareLinks";
+import { getActiveShareLinkGroup, resolveSharedBoolean } from "@/lib/shareLinks";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 import { SHARE_REPORT_LABELS } from "@/lib/shareLinks";
 import {
@@ -239,6 +239,11 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         : roomsParam
           ? roomsParam.split(",").filter(Boolean)
           : stored.rooms;
+      const usedOnly = resolveSharedBoolean(
+        item.filtersLocked,
+        getString(sp.usedOnly),
+        stored.usedOnly
+      );
 
       const [event, data, functionTypes, scheduleTypes] = await Promise.all([
         getEvent(eventId),
@@ -263,6 +268,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
               data={data}
               functionTypes={functionTypes}
               scheduleTypes={scheduleTypes}
+              usedOnly={usedOnly}
             />
           </div>
         </>

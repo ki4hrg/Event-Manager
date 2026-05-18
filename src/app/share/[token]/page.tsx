@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
+import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
 import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions, getBreakoutScheduleData, getBreakoutGroupOptions } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
@@ -258,6 +258,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
   if (link.reportType === "ROOM_SCHEDULE") {
     let effectiveDays: string[] | undefined;
     let effectiveRoomIds: string[] | undefined;
+    let effectiveUsedOnly: boolean;
 
     if (link.filtersLocked) {
       effectiveDays = storedFilters.days;
@@ -272,6 +273,11 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         ? roomsParam.split(",").filter(Boolean)
         : storedFilters.rooms;
     }
+    effectiveUsedOnly = resolveSharedBoolean(
+      link.filtersLocked,
+      getString(sp.usedOnly),
+      storedFilters.usedOnly
+    );
 
     const event = await getEvent(link.eventId);
     if (!event) notFound();
@@ -299,6 +305,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
     const printParams = new URLSearchParams();
     if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
     if (effectiveRoomIds?.length) printParams.set("rooms", effectiveRoomIds.join(","));
+    if (effectiveUsedOnly) printParams.set("usedOnly", "true");
     const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
 
     const roomOptions = data.rooms.map((r) => ({
@@ -323,6 +330,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
             rooms={roomOptions}
             selectedDays={effectiveDays ?? []}
             selectedRoomIds={effectiveRoomIds ?? []}
+            usedOnly={effectiveUsedOnly}
             basePath={`/share/${token}`}
             hidePrint
           />
@@ -331,6 +339,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           data={data}
           functionTypes={functionTypes}
           scheduleTypes={scheduleTypes}
+          usedOnly={effectiveUsedOnly}
         />
       </ShareShell>
     );

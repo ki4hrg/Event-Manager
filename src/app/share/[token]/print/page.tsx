@@ -1,6 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import { getActiveShareLink, recordShareLinkAccess } from "@/lib/shareLinks";
+import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
@@ -232,6 +232,7 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
   if (link.reportType === "ROOM_SCHEDULE") {
     let effectiveDays: string[] | undefined;
     let effectiveRoomIds: string[] | undefined;
+    let effectiveUsedOnly: boolean;
 
     if (link.filtersLocked) {
       effectiveDays = storedFilters.days;
@@ -246,6 +247,11 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
         ? roomsParam.split(",").filter(Boolean)
         : storedFilters.rooms;
     }
+    effectiveUsedOnly = resolveSharedBoolean(
+      link.filtersLocked,
+      getString(sp.usedOnly),
+      storedFilters.usedOnly
+    );
 
     const [event, data, functionTypes, scheduleTypes] = await Promise.all([
       getEvent(link.eventId),
@@ -270,6 +276,7 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
             data={data}
             functionTypes={functionTypes}
             scheduleTypes={scheduleTypes}
+            usedOnly={effectiveUsedOnly}
           />
         </div>
       </>

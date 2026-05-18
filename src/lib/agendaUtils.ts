@@ -240,7 +240,7 @@ export function computeRowspan(entry: AgendaEntry, timeSlots: Date[]): number {
 // ── Multi-day splitting ───────────────────────────────────────────────────────
 
 /** Returns the UTC instant of midnight for a YYYY-MM-DD in the given timezone. */
-function getStartOfDayInTimezone(dateKey: string, timezone: string): Date {
+export function getStartOfDayInTimezone(dateKey: string, timezone: string): Date {
   const noon = new Date(`${dateKey}T12:00:00Z`);
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
@@ -256,7 +256,7 @@ function getStartOfDayInTimezone(dateKey: string, timezone: string): Date {
   return new Date(noon.getTime() - h * 3600000 - m * 60000 - s * 1000);
 }
 
-function getNextDateKey(dateKey: string): string {
+export function getNextDateKey(dateKey: string): string {
   const d = new Date(`${dateKey}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);

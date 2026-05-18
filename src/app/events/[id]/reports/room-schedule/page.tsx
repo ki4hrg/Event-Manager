@@ -21,13 +21,14 @@ export default async function RoomSchedulePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string; rooms?: string; addToDashboard?: string }>;
+  searchParams: Promise<{ days?: string; rooms?: string; usedOnly?: string; addToDashboard?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { days: daysParam, rooms: roomsParam, addToDashboard } = await searchParams;
+  const { days: daysParam, rooms: roomsParam, usedOnly: usedOnlyParam, addToDashboard } = await searchParams;
 
   const selectedDays = parseListParam(daysParam);
   const selectedRoomIds = parseListParam(roomsParam);
+  const usedOnly = usedOnlyParam === "true";
 
   const [event, data, functionTypes, scheduleTypes, dashboardChoices] = await Promise.all([
     getEvent(eventId),
@@ -79,11 +80,12 @@ export default async function RoomSchedulePage({
           rooms={roomOptions}
           selectedDays={selectedDays}
           selectedRoomIds={selectedRoomIds}
+          usedOnly={usedOnly}
           shareButton={
             <ShareReportButton
               eventId={eventId}
               reportType="ROOM_SCHEDULE"
-              currentFilters={{ days: selectedDays, rooms: selectedRoomIds }}
+              currentFilters={{ days: selectedDays, rooms: selectedRoomIds, usedOnly }}
               dashboardChoices={dashboardChoices}
               addToDashboardId={addToDashboard}
             />
@@ -94,6 +96,7 @@ export default async function RoomSchedulePage({
           data={data}
           functionTypes={functionTypes}
           scheduleTypes={scheduleTypes}
+          usedOnly={usedOnly}
         />
       </div>
     </>

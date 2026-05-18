@@ -43,12 +43,6 @@ function formatDateTime(date: Date, timezone: string): string {
   });
 }
 
-function partyKindLabel(kind: RollupEntry["partyKind"]): string {
-  if (kind === "VENDOR") return "Vendor";
-  if (kind === "CONTACT") return "Contact";
-  return "Unassigned";
-}
-
 function vendorOrContactName(
   vendor?: { name: string } | null,
   contact?: { firstName: string; lastName: string } | null,
@@ -998,307 +992,6 @@ function WorkflowBlock({ instances }: { instances: Fn["workflowInstances"] }) {
   );
 }
 
-type RollupEntry = {
-  partyId: string;
-  partyKind: "VENDOR" | "CONTACT" | "UNASSIGNED";
-  partyName: string;
-  role: string;
-  sourceLabel: string;
-  anchorId: string;
-};
-
-function collectRollup(data: FunctionDetailData): RollupEntry[] {
-  const entries: RollupEntry[] = [];
-
-  function pushParty(
-    vendor: { id: string; name: string } | null | undefined,
-    contact: { id: string; firstName: string; lastName: string } | null | undefined,
-    role: string,
-    sourceLabel: string,
-    anchorId: string,
-  ) {
-    if (vendor) {
-      entries.push({
-        partyId: vendor.id,
-        partyKind: "VENDOR",
-        partyName: vendor.name,
-        role,
-        sourceLabel,
-        anchorId,
-      });
-    } else if (contact) {
-      entries.push({
-        partyId: contact.id,
-        partyKind: "CONTACT",
-        partyName: `${contact.firstName} ${contact.lastName}`,
-        role,
-        sourceLabel,
-        anchorId,
-      });
-    } else {
-      entries.push({
-        partyId: "__unassigned__",
-        partyKind: "UNASSIGNED",
-        partyName: "Unassigned",
-        role,
-        sourceLabel,
-        anchorId,
-      });
-    }
-  }
-
-  function pushAVOrder(order: AvOrder, sourcePrefix: string, anchorId: string) {
-    const label = `${sourcePrefix} · AV Order: ${order.name}`;
-    for (const v of order.vendors) {
-      pushParty(v.vendor, null, "AV Vendor", label, anchorId);
-    }
-    for (const item of order.equipmentItems) {
-      pushParty(item.providerVendor, item.providerContact, "AV Provider", label, anchorId);
-      if (item.operatorVendor || item.operatorContact) {
-        pushParty(item.operatorVendor, item.operatorContact, "AV Operator", label, anchorId);
-      }
-    }
-    if (order.audioSection) {
-      for (const g of order.audioSection.inputGroups) {
-        pushParty(g.providerVendor, g.providerContact, "Audio Input Provider", label, anchorId);
-        if (g.operatorVendor || g.operatorContact) {
-          pushParty(g.operatorVendor, g.operatorContact, "Audio Input Operator", label, anchorId);
-        }
-        for (const it of g.inputItems) {
-          if (it.providerVendor || it.providerContact) {
-            pushParty(it.providerVendor, it.providerContact, "Audio Input Provider", label, anchorId);
-          }
-        }
-      }
-      for (const m of order.audioSection.monitorMixes) {
-        pushParty(m.providerVendor, m.providerContact, "Monitor Provider", label, anchorId);
-      }
-    }
-    if (order.videoSection) {
-      for (const item of order.videoSection.equipmentItems) {
-        pushParty(item.providerVendor, item.providerContact, "Video Provider", label, anchorId);
-        if (item.operatorVendor || item.operatorContact) {
-          pushParty(item.operatorVendor, item.operatorContact, "Video Operator", label, anchorId);
-        }
-      }
-    }
-  }
-
-  function pushSetupOrder(order: SetupOrder, sourcePrefix: string, anchorId: string) {
-    const label = `${sourcePrefix} · Setup Order: ${order.name ?? "Setup"}`;
-    for (const v of order.vendors) {
-      pushParty(v.vendor, null, "Setup Vendor", label, anchorId);
-    }
-    for (const t of order.tables) {
-      if (t.providerVendor) {
-        pushParty(t.providerVendor, null, "Table Provider", label, anchorId);
-      }
-    }
-    for (const item of order.equipmentItems) {
-      pushParty(item.providerVendor, item.providerContact, "Equipment Provider", label, anchorId);
-      if (item.operatorVendor || item.operatorContact) {
-        pushParty(item.operatorVendor, item.operatorContact, "Equipment Operator", label, anchorId);
-      }
-    }
-  }
-
-  function pushPrintOrder(order: PrintOrder, sourcePrefix: string, anchorId: string) {
-    const label = `${sourcePrefix} · Print Order: ${order.name}`;
-    for (const v of order.vendors) {
-      pushParty(v.vendor, null, "Print Vendor", label, anchorId);
-    }
-    for (const item of order.items) {
-      if (item.designerVendor || item.designerContact) {
-        pushParty(item.designerVendor, item.designerContact, "Designer", label, anchorId);
-      }
-      if (item.printerVendor || item.printerContact) {
-        pushParty(item.printerVendor, item.printerContact, "Printer", label, anchorId);
-      }
-    }
-  }
-
-  function pushMediaOrder(order: MediaOrder, sourcePrefix: string, anchorId: string) {
-    const label = `${sourcePrefix} · Media Order: ${order.name}`;
-    for (const v of order.vendors) {
-      pushParty(v.vendor, null, "Media Vendor", label, anchorId);
-    }
-    for (const item of order.items) {
-      if (item.advancerVendor || item.advancerContact) {
-        pushParty(item.advancerVendor, item.advancerContact, "Advancer", label, anchorId);
-      }
-    }
-  }
-
-  for (const fn of data.functions) {
-    const fnLabel = `Function: ${formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}`;
-    const fnAnchor = `function-${fn.id}`;
-
-    if (fn.cateringOrder) {
-      const cLabel = `${fnLabel} · Catering: ${fn.cateringOrder.name}`;
-      for (const v of fn.cateringOrder.vendors) {
-        pushParty(v.vendor, null, "Catering Vendor", cLabel, fnAnchor);
-      }
-      for (const ms of fn.cateringOrder.menuSections) {
-        if (ms.responsiblePartyVendor) {
-          pushParty(ms.responsiblePartyVendor, null, "Menu Section Vendor", cLabel, fnAnchor);
-        }
-      }
-      for (const item of fn.cateringOrder.equipmentItems) {
-        pushParty(item.providerVendor, item.providerContact, "Catering Equipment Provider", cLabel, fnAnchor);
-        if (item.operatorVendor || item.operatorContact) {
-          pushParty(item.operatorVendor, item.operatorContact, "Catering Equipment Operator", cLabel, fnAnchor);
-        }
-      }
-    }
-
-    for (const link of fn.avOrderFunctions) {
-      pushAVOrder(link.avOrder, fnLabel, fnAnchor);
-    }
-    for (const link of fn.setupOrderFunctions) {
-      pushSetupOrder(link.setupOrder, fnLabel, fnAnchor);
-    }
-    for (const link of fn.printOrderFunctions) {
-      pushPrintOrder(link.printOrder, fnLabel, fnAnchor);
-    }
-    for (const link of fn.mediaOrderFunctions) {
-      pushMediaOrder(link.mediaOrder, fnLabel, fnAnchor);
-    }
-
-    for (const slot of fn.presentationSlots) {
-      const p = slot.presentation;
-      const pLabel = `${fnLabel} · Presentation: ${p.title}`;
-      const pAnchor = `presentation-${p.id}`;
-      for (const link of p.avOrderLinks) {
-        pushAVOrder(link.avOrder, pLabel, pAnchor);
-      }
-      for (const link of p.setupOrderLinks) {
-        pushSetupOrder(link.setupOrder, pLabel, pAnchor);
-      }
-      if (p.printOrder) {
-        pushPrintOrder(p.printOrder, pLabel, pAnchor);
-      }
-      for (const link of p.mediaOrderLinks) {
-        pushMediaOrder(link.mediaOrder, pLabel, pAnchor);
-      }
-    }
-  }
-
-  const seen = new Set<string>();
-  const deduped = entries.filter((e) => {
-    const key = `${e.partyKind}::${e.partyId}::${e.role}::${e.sourceLabel}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  deduped.sort((a, b) => {
-    const kindOrder = { VENDOR: 0, CONTACT: 1, UNASSIGNED: 2 } as const;
-    if (kindOrder[a.partyKind] !== kindOrder[b.partyKind]) {
-      return kindOrder[a.partyKind] - kindOrder[b.partyKind];
-    }
-    if (a.partyName !== b.partyName) return a.partyName.localeCompare(b.partyName);
-    if (a.role !== b.role) return a.role.localeCompare(b.role);
-    return a.sourceLabel.localeCompare(b.sourceLabel);
-  });
-
-  return deduped;
-}
-
-function ResponsiblePartiesSection({ rollup }: { rollup: RollupEntry[] }) {
-  if (rollup.length === 0) return null;
-  type Group = {
-    partyId: string;
-    partyKind: RollupEntry["partyKind"];
-    partyName: string;
-    rows: RollupEntry[];
-  };
-  const groups: Group[] = [];
-  let current: Group | null = null;
-  for (const e of rollup) {
-    if (!current || current.partyId !== e.partyId || current.partyKind !== e.partyKind) {
-      current = { partyId: e.partyId, partyKind: e.partyKind, partyName: e.partyName, rows: [] };
-      groups.push(current);
-    }
-    current.rows.push(e);
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="sm:hidden print:hidden space-y-3">
-        {groups.map((g) => (
-          <div
-            key={`${g.partyKind}-${g.partyId}`}
-            className="border border-gray-200 dark:border-gray-700 rounded p-3"
-          >
-            <p className="font-medium text-gray-900 dark:text-gray-100">
-              {g.partyName}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              {partyKindLabel(g.partyKind)}
-            </p>
-            <ul className="text-xs space-y-1">
-              {g.rows.map((r, i) => (
-                <li key={i} className="text-gray-700 dark:text-gray-300">
-                  <span className="font-medium">{r.role}</span> —{" "}
-                  <a
-                    href={`#${r.anchorId}`}
-                    className="text-blue-600 dark:text-blue-400 hover:underline print:text-black"
-                  >
-                    {r.sourceLabel}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-
-      <div className="hidden sm:block print:block overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-600">
-              <th className="py-2 pr-3 text-xs font-semibold">Party</th>
-              <th className="py-2 pr-3 text-xs font-semibold">Role</th>
-              <th className="py-2 text-xs font-semibold">Source</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((g) =>
-              g.rows.map((r, i) => (
-                <tr
-                  key={`${g.partyId}-${i}`}
-                  className="border-b border-gray-100 dark:border-gray-800 align-top"
-                >
-                  <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
-                    {i === 0 ? (
-                      <>
-                        <div>{g.partyName}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {partyKindLabel(g.partyKind)}
-                        </div>
-                      </>
-                    ) : null}
-                  </td>
-                  <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                    {r.role}
-                  </td>
-                  <td className="py-1.5">
-                    <a
-                      href={`#${r.anchorId}`}
-                      className="text-blue-600 dark:text-blue-400 hover:underline print:text-black"
-                    >
-                      {r.sourceLabel}
-                    </a>
-                  </td>
-                </tr>
-              )),
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
 function FunctionBlock({
   fn,
@@ -1324,7 +1017,7 @@ function FunctionBlock({
   const mediaOrders = fn.mediaOrderFunctions.map((l) => l.mediaOrder);
 
   return (
-    <div id={anchorId} className="scroll-mt-24">
+    <section id={anchorId} className="scroll-mt-24 print:break-inside-avoid-page">
       <SectionDivider id={`${anchorId}-divider`} title={displayName} />
 
       <div className="mt-4 space-y-4">
@@ -1539,7 +1232,7 @@ function FunctionBlock({
           </SubSection>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -1557,23 +1250,14 @@ export function FunctionDetailReport({
     );
   }
 
-  const rollup = collectRollup(data);
   const functionLinks = functions.map((fn) => ({
     id: `function-${fn.id}`,
     label: formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name),
   }));
-  const sections = [
-    ...(rollup.length > 0
-      ? [{ id: "responsible-parties", label: "Responsible Parties" }]
-      : []),
-  ];
 
   return (
     <div className="space-y-6">
-      <ReportNav
-        sections={sections}
-        itemGroups={[{ label: "Functions", links: functionLinks }]}
-      />
+      <ReportNav itemGroups={[{ label: "Functions", links: functionLinks }]} />
 
       <div className="space-y-8">
         {functions.map((fn) => (
@@ -1588,18 +1272,6 @@ export function FunctionDetailReport({
           />
         ))}
       </div>
-
-      {rollup.length > 0 && (
-        <div id="responsible-parties" className="scroll-mt-24">
-          <SectionDivider
-            id="responsible-parties-divider"
-            title="Responsible Parties"
-          />
-          <div className="mt-4">
-            <ResponsiblePartiesSection rollup={rollup} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

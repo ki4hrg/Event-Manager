@@ -55,3 +55,9 @@ export function getPrimaryNames(
   if (source.length === 0) return null;
   return source.map((s) => `${s.contact.firstName} ${s.contact.lastName}`).join(", ");
 }
+
+export function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}

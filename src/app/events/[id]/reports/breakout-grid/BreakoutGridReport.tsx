@@ -11,6 +11,7 @@ import {
   getEffectiveRooms,
   formatSessionTime,
   getPrimaryNames,
+  chunkArray,
 } from "@/app/events/breakout-schedule/utils";
 import {
   reportTh as th,
@@ -29,14 +30,6 @@ type Props = {
 };
 
 type Session = BreakoutScheduleGroup["functions"][number];
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
-}
 
 function GroupSection({
   group,

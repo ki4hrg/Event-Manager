@@ -53,4 +53,10 @@ textarea {
     color: black !important;
     font-size: 11pt;
   }
+  /* Prefer to start sections on a fresh page when they can't fit on the
+     current one. Cards and rows keep their existing print:break-inside-avoid
+     utility. */
+  section {
+    break-inside: avoid-page;
+  }
 }

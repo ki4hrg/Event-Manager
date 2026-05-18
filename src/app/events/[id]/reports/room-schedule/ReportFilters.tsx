@@ -12,6 +12,7 @@ type ReportFiltersProps = {
   rooms: RoomOption[];
   selectedDays: string[];
   selectedRoomIds: string[];
+  usedOnly: boolean;
   basePath?: string;
   paramPrefix?: string;
   shareButton?: React.ReactNode;
@@ -55,6 +56,7 @@ export function ReportFilters({
   rooms,
   selectedDays,
   selectedRoomIds,
+  usedOnly,
   basePath = `/events/${eventId}/reports/room-schedule`,
   paramPrefix = "",
   shareButton,
@@ -66,6 +68,7 @@ export function ReportFilters({
 
   const daysKey = `${paramPrefix}days`;
   const roomsKey = `${paramPrefix}rooms`;
+  const usedOnlyKey = `${paramPrefix}usedOnly`;
 
   function pushWith(key: string, next: string[]) {
     const params = new URLSearchParams(searchParams.toString());
@@ -93,10 +96,22 @@ export function ReportFilters({
     pushWith(roomsKey, next);
   }
 
+  function toggleUsedOnly() {
+    const params = new URLSearchParams(searchParams.toString());
+    if (usedOnly) {
+      params.delete(usedOnlyKey);
+    } else {
+      params.set(usedOnlyKey, "true");
+    }
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
+  }
+
   function clearFilters() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete(daysKey);
     params.delete(roomsKey);
+    params.delete(usedOnlyKey);
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
   }
@@ -104,8 +119,8 @@ export function ReportFilters({
   const roomBuckets = useMemo(() => groupRoomOptions(rooms), [rooms]);
   const hasMultipleGroups = roomBuckets.filter((b) => b.groupId !== null).length > 0;
 
-  const hasFilters = selectedDays.length > 0 || selectedRoomIds.length > 0;
-  const filterCount = selectedDays.length + selectedRoomIds.length;
+  const hasFilters = selectedDays.length > 0 || selectedRoomIds.length > 0 || usedOnly;
+  const filterCount = selectedDays.length + selectedRoomIds.length + (usedOnly ? 1 : 0);
 
   const actions = (
     <>
@@ -178,6 +193,20 @@ export function ReportFilters({
           </div>
         </div>
       )}
+
+      <div>
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Show</p>
+        <button
+          onClick={toggleUsedOnly}
+          className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+            usedOnly
+              ? "bg-blue-600 border-blue-600 text-white"
+              : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
+          }`}
+        >
+          Used rooms only
+        </button>
+      </div>
 
       {days.length > 1 && (
         <div>

@@ -16,17 +16,19 @@ export default async function RoomSchedulePrintPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string; rooms?: string }>;
+  searchParams: Promise<{ days?: string; rooms?: string; usedOnly?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { days: daysParam, rooms: roomsParam } = await searchParams;
+  const { days: daysParam, rooms: roomsParam, usedOnly: usedOnlyParam } = await searchParams;
 
   const selectedDays = parseListParam(daysParam);
   const selectedRoomIds = parseListParam(roomsParam);
+  const usedOnly = usedOnlyParam === "true";
 
   const qs = new URLSearchParams({
     ...(daysParam ? { days: daysParam } : {}),
     ...(roomsParam ? { rooms: roomsParam } : {}),
+    ...(usedOnly ? { usedOnly: "true" } : {}),
   }).toString();
   const backHref = `/events/${eventId}/reports/room-schedule${qs ? `?${qs}` : ""}`;
 
@@ -53,6 +55,7 @@ export default async function RoomSchedulePrintPage({
           data={data}
           functionTypes={functionTypes}
           scheduleTypes={scheduleTypes}
+          usedOnly={usedOnly}
         />
       </div>
     </>

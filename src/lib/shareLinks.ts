@@ -9,6 +9,7 @@ export type ShareLinkFilters = {
   sections?: string[];
   types?: string[];
   rooms?: string[];
+  usedOnly?: boolean;
   functionIds?: string[];
   breakoutGroupIds?: string[];
 };
@@ -25,6 +26,21 @@ export const SHARE_REPORT_LABELS: Record<string, string> = {
 
 export function generateShareToken(): string {
   return crypto.randomBytes(32).toString("base64url");
+}
+
+/**
+ * Resolve a boolean filter for a share-link surface. Locked links use the stored value;
+ * unlocked links read the URL param ("true"/anything else) with the stored value as the
+ * fallback when the param is absent.
+ */
+export function resolveSharedBoolean(
+  locked: boolean,
+  paramValue: string | undefined,
+  storedValue: boolean | undefined
+): boolean {
+  if (locked) return storedValue === true;
+  if (paramValue !== undefined) return paramValue === "true";
+  return storedValue === true;
 }
 
 export async function getActiveShareLink(token: string) {

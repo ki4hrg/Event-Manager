@@ -44,11 +44,19 @@ function latestEnd(fn: { schedules: { endTime: Date }[] }): Date | null {
   return fn.schedules.reduce((max, s) => (s.endTime > max ? s.endTime : max), fn.schedules[0].endTime);
 }
 
+function formatShortDate(date: Date, timezone: string): string {
+  return date.toLocaleDateString("en-US", { timeZone: timezone, month: "short", day: "numeric" });
+}
+
 function formatTimeRange(start: Date | null, end: Date | null, timezone: string): string {
   if (!start) return "Unscheduled";
   const startStr = formatTime(start, timezone);
-  const endStr = end ? formatTime(end, timezone) : "";
-  return endStr ? `${startStr} – ${endStr}` : startStr;
+  if (!end) return startStr;
+  const endStr = formatTime(end, timezone);
+  if (getDateKeyInTimezone(start, timezone) !== getDateKeyInTimezone(end, timezone)) {
+    return `${startStr} – ${endStr} (${formatShortDate(end, timezone)})`;
+  }
+  return `${startStr} – ${endStr}`;
 }
 
 function fnRoomsLabel(fn: {
@@ -288,7 +296,7 @@ function BreakoutGroupCard({
       ) : (
         <>
           {/* Mobile: stacked block list */}
-          <div className="sm:hidden print:hidden mt-3 space-y-3 text-xs">
+          <div className="sm:hidden print:hidden mt-3 space-y-5 text-xs">
             {blocks.map((b) => {
               const blockRooms = effectiveRoomsForBlock(b, group);
               const slotByRoom = new Map(b.presentationSlots.filter((s) => s.room).map((s) => [s.room!.id, s]));
@@ -324,12 +332,18 @@ function BreakoutGroupCard({
 
           {/* Desktop / print: time × room grid */}
           <div className="hidden sm:block print:block overflow-x-auto mt-3">
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full text-sm border-collapse table-fixed">
+              <colgroup>
+                <col style={{ width: "13%" }} />
+                {rooms.map((r) => (
+                  <col key={r.id} style={{ width: `${87 / rooms.length}%` }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
                   <th className={th}>Time</th>
                   {rooms.map((r) => (
-                    <th key={r.id} className={th}>{r.name}</th>
+                    <th key={r.id} className={th.replace("whitespace-nowrap", "whitespace-normal break-words")}>{r.name}</th>
                   ))}
                 </tr>
               </thead>
@@ -388,6 +402,8 @@ function CateringCard({
   const fn = order.function;
   const styleLabel = order.serviceStyle ? resolveOptionLabel(order.serviceStyle, serviceStyles) : "";
   const vendorName = order.vendors.map((v) => v.vendor.name).join(", ");
+  const fnStart = fn ? earliestStart(fn) : null;
+  const dateLabel = fnStart ? formatDateHeading(getDateKeyInTimezone(fnStart, timezone), timezone) : null;
   return (
     <div
       id={`catering-${order.id}`}
@@ -402,7 +418,13 @@ function CateringCard({
                 {fn.name}
               </a>
               {" · "}
-              {formatTimeRange(earliestStart(fn), latestEnd(fn), timezone)}
+              {dateLabel && (
+                <>
+                  {dateLabel}
+                  {" · "}
+                </>
+              )}
+              {formatTimeRange(fnStart, latestEnd(fn), timezone)}
               {" · "}
               {fnRoomsLabel(fn)}
             </p>

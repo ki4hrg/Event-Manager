@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import {
   getActiveShareLinkGroup,
   recordShareLinkGroupAccess,
+  resolveSharedBoolean,
 } from "@/lib/shareLinks";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 import { SHARE_REPORT_LABELS } from "@/lib/shareLinks";
@@ -297,6 +298,7 @@ async function renderItem(
     case "ROOM_SCHEDULE": {
       let effectiveDays: string[] | undefined;
       let effectiveRoomIds: string[] | undefined;
+      let effectiveUsedOnly: boolean;
       if (item.filtersLocked) {
         effectiveDays = stored.days;
         effectiveRoomIds = stored.rooms;
@@ -306,6 +308,11 @@ async function renderItem(
         effectiveDays = daysParam ? daysParam.split(",").filter(Boolean) : stored.days;
         effectiveRoomIds = roomsParam ? roomsParam.split(",").filter(Boolean) : stored.rooms;
       }
+      effectiveUsedOnly = resolveSharedBoolean(
+        item.filtersLocked,
+        getString(sp[`${prefix}usedOnly`]),
+        stored.usedOnly
+      );
 
       const event = await getEvent(eventId);
       if (!event) notFound();
@@ -334,6 +341,7 @@ async function renderItem(
       const printParams = new URLSearchParams();
       if (effectiveDays?.length) printParams.set("days", effectiveDays.join(","));
       if (effectiveRoomIds?.length) printParams.set("rooms", effectiveRoomIds.join(","));
+      if (effectiveUsedOnly) printParams.set("usedOnly", "true");
       const printHref = printParams.size > 0 ? `${printBase}?${printParams}` : printBase;
 
       const roomOptions = data.rooms.map((r) => ({
@@ -357,6 +365,7 @@ async function renderItem(
                 rooms={roomOptions}
                 selectedDays={effectiveDays ?? []}
                 selectedRoomIds={effectiveRoomIds ?? []}
+                usedOnly={effectiveUsedOnly}
                 basePath={sharePath}
                 paramPrefix={prefix}
                 hidePrint
@@ -366,6 +375,7 @@ async function renderItem(
               data={data}
               functionTypes={functionTypes}
               scheduleTypes={scheduleTypes}
+              usedOnly={effectiveUsedOnly}
             />
           </>
         ),

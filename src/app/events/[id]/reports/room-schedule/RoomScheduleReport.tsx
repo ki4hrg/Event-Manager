@@ -1,6 +1,12 @@
 import type { CustomOption } from "@prisma/client";
 import type { RoomScheduleData } from "@/app/events/reports/actions";
-import { getDateKeyInTimezone, formatDateHeading, formatTime } from "@/lib/agendaUtils";
+import {
+  getDateKeyInTimezone,
+  formatDateHeading,
+  formatTime,
+  getStartOfDayInTimezone,
+  getNextDateKey,
+} from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { ReportNav } from "@/components/ReportNav";
@@ -16,6 +22,7 @@ type Props = {
   data: RoomScheduleData;
   functionTypes: CustomOption[];
   scheduleTypes: CustomOption[];
+  usedOnly?: boolean;
 };
 
 type RoomBucket = RoomScheduleData["roomBuckets"][number];
@@ -33,7 +40,7 @@ type AgendaItem = (
   start: Date;
   end: Date;
   dayKey: string;
-  allDay: boolean;
+  segmentPosition: "single" | "first" | "middle" | "last";
 };
 
 function pickMainsAndSubs(
@@ -89,6 +96,7 @@ function enumerateDayKeys(start: Date, end: Date, timezone: string): string[] {
   return keys;
 }
 
+
 function buildAgendaItems(bucket: RoomBucket, timezone: string): AgendaItem[] {
   const items: AgendaItem[] = [];
 
@@ -103,14 +111,27 @@ function buildAgendaItems(bucket: RoomBucket, timezone: string): AgendaItem[] {
         const subsForDay = multiDay
           ? subs.filter((s) => getDateKeyInTimezone(s.startTime, timezone) === dayKey)
           : subs;
+        const dayStart = getStartOfDayInTimezone(dayKey, timezone);
+        const dayEnd = getStartOfDayInTimezone(getNextDateKey(dayKey), timezone);
+        const segStart = main.startTime > dayStart ? main.startTime : dayStart;
+        const segEnd = main.endTime < dayEnd ? main.endTime : dayEnd;
+        const isFirst = dayKey === dayKeys[0];
+        const isLast = dayKey === dayKeys[dayKeys.length - 1];
+        const segmentPosition: AgendaItem["segmentPosition"] = !multiDay
+          ? "single"
+          : isFirst
+            ? "first"
+            : isLast
+              ? "last"
+              : "middle";
         items.push({
           ...base,
           mainRow: main,
           subRows: subsForDay,
-          start: main.startTime,
-          end: main.endTime,
+          start: segStart,
+          end: segEnd,
           dayKey,
-          allDay: multiDay,
+          segmentPosition,
         });
       }
     }
@@ -137,7 +158,17 @@ function groupByDay(items: AgendaItem[]): { dateKey: string; items: AgendaItem[]
 }
 
 function timeLabel(item: AgendaItem, timezone: string): string {
-  return item.allDay ? "All day" : timeRange(item.start, item.end, timezone);
+  const range = timeRange(item.start, item.end, timezone);
+  switch (item.segmentPosition) {
+    case "first":
+      return `${range} →`;
+    case "middle":
+      return "Continues all day";
+    case "last":
+      return `→ ${range}`;
+    default:
+      return range;
+  }
 }
 
 function speakerNames(entry: BreakoutEntry): string {
@@ -145,6 +176,19 @@ function speakerNames(entry: BreakoutEntry): string {
     .map((s) => `${s.contact.firstName} ${s.contact.lastName}`.trim())
     .filter(Boolean)
     .join(", ");
+}
+
+function itemContacts(item: AgendaItem): string[] {
+  if (item.kind === "function") {
+    return item.fn.contacts
+      .map((c) => {
+        const name = `${c.contact.firstName} ${c.contact.lastName}`.trim();
+        return c.role ? `${name} (${c.role})` : name;
+      })
+      .filter(Boolean);
+  }
+  const speakers = speakerNames(item.entry);
+  return speakers ? [speakers] : [];
 }
 
 function timeRange(start: Date, end: Date, timezone: string): string {
@@ -170,17 +214,9 @@ function itemNotes(item: AgendaItem): string[] {
   const notes: string[] = [];
   if (item.kind === "function") {
     if (item.fn.description) notes.push(item.fn.description);
-    const contacts = item.fn.contacts
-      .map((c) => `${c.contact.firstName} ${c.contact.lastName}`.trim())
-      .filter(Boolean);
-    if (contacts.length > 0) notes.push(contacts.join(", "));
     if (item.fn.notes) notes.push(item.fn.notes);
-  } else {
-    const speakers = speakerNames(item.entry);
-    if (speakers) notes.push(speakers);
-    if (item.entry.slot.presentation.description) {
-      notes.push(item.entry.slot.presentation.description);
-    }
+  } else if (item.entry.slot.presentation.description) {
+    notes.push(item.entry.slot.presentation.description);
   }
   if (item.mainRow.notes) notes.push(item.mainRow.notes);
   return notes;
@@ -217,6 +253,7 @@ function RoomDayTable({
       <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
         {items.map((item) => {
           const notes = itemNotes(item);
+          const contacts = itemContacts(item);
           return (
             <div key={rowKey(item)} className="p-2">
               <div className="flex justify-between gap-2">
@@ -228,6 +265,11 @@ function RoomDayTable({
               <p className="text-gray-500 dark:text-gray-400 mt-0.5">
                 {itemContext(item, functionTypes)}
               </p>
+              {contacts.length > 0 && (
+                <p className="text-gray-700 dark:text-gray-300 mt-1">
+                  {contacts.join(", ")}
+                </p>
+              )}
               {notes.map((n, i) => (
                 <p key={i} className="text-gray-600 dark:text-gray-300 mt-1 italic">
                   {n}
@@ -251,12 +293,14 @@ function RoomDayTable({
               <th className={`${th} w-44`}>Time</th>
               <th className={th}>Title</th>
               <th className={th}>Type</th>
+              <th className={th}>Contacts</th>
               <th className={th}>Notes</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item) => {
               const notes = itemNotes(item);
+              const contacts = itemContacts(item);
               return (
                 <tr key={rowKey(item)}>
                   <td className={`${td} whitespace-nowrap font-medium`}>
@@ -273,6 +317,17 @@ function RoomDayTable({
                     {itemTitle(item)}
                   </td>
                   <td className={td}>{itemContext(item, functionTypes)}</td>
+                  <td className={td}>
+                    {contacts.length === 0 ? (
+                      <span className="text-gray-400">—</span>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {contacts.map((c, i) => (
+                          <div key={i}>{c}</div>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                   <td className={td}>
                     {notes.length === 0 ? (
                       <span className="text-gray-400">—</span>
@@ -383,14 +438,20 @@ function bucketsByGroup(roomBuckets: RoomBucket[]): GroupedRoomBuckets[] {
   });
 }
 
-export function RoomScheduleReport({ data, functionTypes, scheduleTypes }: Props) {
+export function RoomScheduleReport({ data, functionTypes, scheduleTypes, usedOnly = false }: Props) {
   const { roomBuckets, timezone } = data;
 
-  if (roomBuckets.length === 0) {
+  const visibleBuckets = usedOnly
+    ? roomBuckets.filter(
+        (b) => b.regularFunctions.length > 0 || b.breakoutEntries.length > 0
+      )
+    : roomBuckets;
+
+  if (visibleBuckets.length === 0) {
     return <EmptyState message="No rooms match the selected filters." />;
   }
 
-  const grouped = bucketsByGroup(roomBuckets);
+  const grouped = bucketsByGroup(visibleBuckets);
   const hasGroups = grouped.some((g) => g.groupId !== null);
 
   const navSections = [{ id: "top", label: "Top" }];
@@ -402,7 +463,7 @@ export function RoomScheduleReport({ data, functionTypes, scheduleTypes }: Props
     : [
         {
           label: "Rooms",
-          links: roomBuckets.map((b) => ({ id: `room-${b.room.id}`, label: b.room.name })),
+          links: visibleBuckets.map((b) => ({ id: `room-${b.room.id}`, label: b.room.name })),
         },
       ];
 
@@ -438,7 +499,7 @@ export function RoomScheduleReport({ data, functionTypes, scheduleTypes }: Props
         </div>
       ) : (
         <div className="space-y-6">
-          {roomBuckets.map((bucket) => (
+          {visibleBuckets.map((bucket) => (
             <RoomSection
               key={bucket.room.id}
               bucket={bucket}
