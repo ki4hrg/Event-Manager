@@ -35,7 +35,14 @@ export function CateringOrderDetails({
     <div className="space-y-2">
       {/* Overview */}
       <Section title="Overview">
-        <Field label="Linked Function" value={order.function?.name} />
+        <Field
+          label="Linked Function"
+          value={
+            order.function
+              ? `${order.function.name}${order.function.rooms[0]?.room.name ? ` (${order.function.rooms[0].room.name})` : ""}`
+              : null
+          }
+        />
         <Field label="Service Style" value={order.serviceStyle} />
         {(order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null) && (
           <div className="mb-2 text-sm">
