@@ -685,6 +685,13 @@ export async function getEventProfileData(
           include: { responsiblePartyVendor: { select: { id: true, name: true } } },
           orderBy: { sortOrder: "asc" },
         },
+        additionalServiceLocations: {
+          include: {
+            room: { select: { id: true, name: true } },
+            function: { include: { schedules: { orderBy: { sortOrder: "asc" } } } },
+          },
+          orderBy: { sortOrder: "asc" },
+        },
         vendors: {
           include: { vendor: { select: { id: true, name: true } } },
         },
@@ -738,9 +745,12 @@ export async function getEventProfileData(
 
   const filteredCateringOrders = (
     dayKeys
-      ? cateringOrders.filter((c) =>
-          c.function ? functionMatchesDays(c.function.schedules, dayKeys, timezone) : false
-        )
+      ? cateringOrders.filter((c) => {
+          if (c.function && functionMatchesDays(c.function.schedules, dayKeys, timezone)) return true;
+          return c.additionalServiceLocations.some((loc) =>
+            loc.function ? functionMatchesDays(loc.function.schedules, dayKeys, timezone) : false
+          );
+        })
       : cateringOrders
   ).slice().sort(compareByMainFunctionTime);
 
@@ -819,6 +829,13 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
         timelineItems: { orderBy: { sortOrder: "asc" } },
         menuSections: {
           include: { responsiblePartyVendor: { select: { id: true, name: true } } },
+          orderBy: { sortOrder: "asc" },
+        },
+        additionalServiceLocations: {
+          include: {
+            room: { select: { id: true, name: true } },
+            function: { include: functionInclude },
+          },
           orderBy: { sortOrder: "asc" },
         },
         equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
@@ -1163,10 +1180,18 @@ const fdMediaOrderInclude = {
 } satisfies Prisma.MediaOrderInclude;
 
 const fdCateringOrderInclude = {
+  function: { select: { id: true, name: true } },
   vendors: { include: { vendor: fdVendorSelect } },
   lineItems: { orderBy: { sortOrder: "asc" } },
   menuSections: {
     include: { responsiblePartyVendor: fdVendorSelect },
+    orderBy: { sortOrder: "asc" },
+  },
+  additionalServiceLocations: {
+    include: {
+      room: { select: { id: true, name: true } },
+      function: { select: { id: true, name: true } },
+    },
     orderBy: { sortOrder: "asc" },
   },
   equipmentItems: { include: fdEquipmentItemInclude, orderBy: { sortOrder: "asc" } },
@@ -1205,6 +1230,13 @@ const fdFunctionInclude = {
     orderBy: { id: "asc" },
   },
   cateringOrder: { include: fdCateringOrderInclude },
+  cateringServiceLocations: {
+    include: {
+      cateringOrder: { include: fdCateringOrderInclude },
+      room: { select: { id: true, name: true } },
+    },
+    orderBy: { sortOrder: "asc" },
+  },
   avOrderFunctions: { include: { avOrder: { include: fdAVOrderInclude } } },
   setupOrderFunctions: { include: { setupOrder: { include: fdSetupOrderInclude } } },
   printOrderFunctions: { include: { printOrder: { include: fdPrintOrderInclude } } },

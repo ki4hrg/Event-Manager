@@ -4,6 +4,7 @@ import type { getCateringOrderVendors } from "@/app/vendors/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
 import { formatPhone } from "@/lib/format-phone";
+import { computeServiceLocationCounts } from "@/lib/cateringServiceLocations";
 
 type CateringOrderData = NonNullable<Awaited<ReturnType<typeof getCateringOrder>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
@@ -82,6 +83,69 @@ export function CateringOrderDetails({
         <Field label="Cancellation Terms" value={order.cancellationTerms} />
         <Field label="Notes" value={order.notes} />
       </Section>
+
+      {order.additionalServiceLocations.length > 0 && (() => {
+        const primaryRoom = order.function?.rooms[0]?.room.name ?? null;
+        const { sumKnown, uncountedCount, primaryRemaining, exceedsExpected, exceedsConfirmed } =
+          computeServiceLocationCounts(
+            order.additionalServiceLocations,
+            order.expectedCount,
+            order.confirmedCount,
+          );
+
+        return (
+          <Section title="Service Locations">
+            <div className="text-sm mb-2">
+              <span className="font-medium text-gray-700 print:text-black">Primary service</span>
+              <span className="text-gray-500 print:text-gray-600"> · </span>
+              <span className="text-gray-900 print:text-black">{primaryRoom ?? "—"}</span>
+              <span className="text-gray-500 print:text-gray-600"> · </span>
+              <span className="text-gray-900 print:text-black">
+                {order.expectedCount != null && primaryRemaining != null
+                  ? `${primaryRemaining} of ${order.expectedCount} expected`
+                  : "— of — expected"}
+              </span>
+            </div>
+            {uncountedCount > 0 && (
+              <div className="text-xs text-gray-500 print:text-gray-600 mb-1">
+                ({uncountedCount} location count{uncountedCount === 1 ? "" : "s"} not yet set)
+              </div>
+            )}
+            {exceedsExpected && order.expectedCount != null && (
+              <div className="text-xs text-amber-700 print:text-black mb-1">
+                ⚠ Additional location counts ({sumKnown}) exceed order expected count ({order.expectedCount}).
+              </div>
+            )}
+            {exceedsConfirmed && order.confirmedCount != null && (
+              <div className="text-xs text-amber-700 print:text-black mb-2">
+                ⚠ Additional location counts ({sumKnown}) also exceed confirmed count ({order.confirmedCount}).
+              </div>
+            )}
+            <table className="w-full text-sm border-collapse mt-1">
+              <thead>
+                <tr className="text-left text-gray-500 print:text-gray-600">
+                  <th className="pb-1 pr-4 font-medium">Name</th>
+                  <th className="pb-1 pr-4 font-medium">Room</th>
+                  <th className="pb-1 pr-4 font-medium">Linked Function</th>
+                  <th className="pb-1 pr-4 font-medium">Expected</th>
+                  <th className="pb-1 font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.additionalServiceLocations.map((loc) => (
+                  <tr key={loc.id} className="border-t border-gray-100 print:border-gray-300">
+                    <td className="py-1.5 pr-4 text-gray-900 print:text-black">{loc.name}</td>
+                    <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{loc.room?.name ?? "—"}</td>
+                    <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{loc.function?.name ?? "—"}</td>
+                    <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{loc.expectedCount ?? "—"}</td>
+                    <td className="py-1.5 text-gray-600 print:text-gray-700">{loc.notes ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Section>
+        );
+      })()}
 
       {/* Timeline */}
       {order.timelineItems.length > 0 && (

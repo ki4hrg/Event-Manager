@@ -82,6 +82,13 @@ export async function getFunction(id: string) {
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       avOrderFunctions: { include: { avOrder: { include: vendorInclude } } },
       cateringOrder: { include: vendorInclude },
+      cateringServiceLocations: {
+        include: {
+          cateringOrder: { include: vendorInclude },
+          room: { select: { id: true, name: true } },
+        },
+        orderBy: { sortOrder: "asc" },
+      },
       setupOrderFunctions: { include: { setupOrder: { include: { room: true, ...vendorInclude } } } },
       printOrderFunctions: {
         include: {

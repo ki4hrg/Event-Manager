@@ -30,6 +30,9 @@ import {
   createCateringOrderMenuSection,
   updateCateringOrderMenuSection,
   deleteCateringOrderMenuSection,
+  createCateringOrderServiceLocation,
+  updateCateringOrderServiceLocation,
+  deleteCateringOrderServiceLocation,
   addCateringOrderContact,
   updateCateringOrderContact,
   removeCateringOrderContact,
@@ -61,6 +64,7 @@ import { TimelineTable } from "../../../catering-orders/TimelineTable";
 import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
 import { LineItemTable } from "../../../catering-orders/LineItemTable";
 import { MenuSectionTable } from "../../../catering-orders/MenuSectionTable";
+import { AdditionalServiceLocationTable } from "../../../catering-orders/AdditionalServiceLocationTable";
 import { ContactList } from "../../../functions/ContactList";
 import { FunctionLinkControl } from "../../../functions/FunctionLinkControl";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
@@ -131,7 +135,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allAvailableFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, venueRooms, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -139,7 +143,21 @@ export default async function CateringOrderPage({
       getResponsiblePartyVendors(eventId, "CATERING_ORDER"),
       getEquipment(),
       getOptions("equipment_category"),
-      prisma.function.findMany({ where: { eventId, cateringOrder: null }, orderBy: { name: "asc" } }),
+      prisma.function.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          breakoutGroup: { select: { name: true } },
+          cateringOrder: { select: { id: true } },
+        },
+        orderBy: { name: "asc" },
+      }),
+      prisma.room.findMany({
+        where: { venue: { events: { some: { id: eventId } } } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
       getWorkflowInstances("catering_order", cateringOrderId, eventId),
       getWorkflowTemplateOptions(),
       getCateringOrderVendors(cateringOrderId, eventId),
@@ -152,7 +170,9 @@ export default async function CateringOrderPage({
     notFound();
   }
 
-  const availableFunctions = cateringOrder.functionId ? [] : allAvailableFunctions;
+  const availableFunctions = cateringOrder.functionId
+    ? []
+    : allEventFunctions.filter((fn) => !fn.cateringOrder);
   const basePath = `/events/${eventId}/catering-orders/${cateringOrderId}`;
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
@@ -243,6 +263,19 @@ export default async function CateringOrderPage({
   const deleteMenuSectionAction = async (id: string) => {
     "use server";
     await deleteCateringOrderMenuSection(id, cateringOrderId, eventId);
+  };
+
+  const createServiceLocationAction = async (formData: FormData) => {
+    "use server";
+    await createCateringOrderServiceLocation(cateringOrderId, eventId, formData);
+  };
+  const updateServiceLocationAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateCateringOrderServiceLocation(id, cateringOrderId, eventId, formData);
+  };
+  const deleteServiceLocationAction = async (id: string) => {
+    "use server";
+    await deleteCateringOrderServiceLocation(id, cateringOrderId, eventId);
   };
 
   const addContactAction = async (formData: FormData) => {
@@ -432,6 +465,18 @@ export default async function CateringOrderPage({
                 unlinkFunction={unlinkFromFunctionAction}
               />
             </div>
+
+            <AdditionalServiceLocationTable
+              locations={cateringOrder.additionalServiceLocations}
+              orderExpectedCount={cateringOrder.expectedCount}
+              orderConfirmedCount={cateringOrder.confirmedCount}
+              primaryRoomName={cateringOrder.function?.rooms[0]?.room.name ?? null}
+              rooms={venueRooms}
+              functions={allEventFunctions}
+              createLocation={createServiceLocationAction}
+              updateLocation={updateServiceLocationAction}
+              deleteLocation={deleteServiceLocationAction}
+            />
 
             <ContactList
               contacts={cateringOrder.contacts}

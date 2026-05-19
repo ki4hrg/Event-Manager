@@ -4,7 +4,7 @@ import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect, notFound } from "next/navigation";
-import type { EntityStatus } from "@prisma/client";
+import type { EntityStatus, Prisma } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
@@ -50,11 +50,23 @@ export async function getCateringOrder(id: string) {
   const row = await prisma.cateringOrder.findUnique({
     where: { id },
     include: {
-      function: { include: { schedules: { orderBy: { startTime: "asc" } } } },
+      function: {
+        include: {
+          schedules: { orderBy: { startTime: "asc" } },
+          rooms: { include: { room: { select: { id: true, name: true } } } },
+        },
+      },
       timelineItems: { orderBy: [{ sortOrder: "asc" }, { startTime: "asc" }] },
       equipmentItems: { include: { equipment: true, providerVendor: true, providerContact: true, operatorVendor: true, operatorContact: true }, orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
       lineItems: { orderBy: [{ sortOrder: "asc" }, { description: "asc" }] },
       menuSections: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }] },
+      additionalServiceLocations: {
+        include: {
+          room: { select: { id: true, name: true } },
+          function: { select: { id: true, name: true, breakoutGroup: { select: { name: true } } } },
+        },
+        orderBy: [{ sortOrder: "asc" }],
+      },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       updatedBy: { select: { name: true, email: true } },
     },
@@ -433,6 +445,102 @@ export async function deleteCateringOrderMenuSection(id: string, cateringOrderId
   await prisma.cateringOrderMenuSection.delete({ where: { id, cateringOrder: { eventId } } });
   await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+}
+
+export async function createCateringOrderServiceLocation(cateringOrderId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
+  await assertCateringOrderInEvent(cateringOrderId, eventId);
+  const { _max } = await prisma.cateringOrderServiceLocation.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
+
+  const rawRoomId = formData.get("roomId") as string | null;
+  const rawFunctionId = formData.get("functionId") as string | null;
+  const rawExpectedCount = formData.get("expectedCount") as string | null;
+
+  await prisma.cateringOrderServiceLocation.create({
+    data: {
+      cateringOrderId,
+      name: (formData.get("name") as string).trim(),
+      roomId: rawRoomId && rawRoomId !== "__blank__" ? rawRoomId : null,
+      functionId: rawFunctionId && rawFunctionId !== "__blank__" ? rawFunctionId : null,
+      expectedCount: rawExpectedCount ? parseInt(rawExpectedCount) : null,
+      notes: (formData.get("notes") as string) || null,
+      sortOrder: (_max.sortOrder ?? -1) + 1,
+    },
+  });
+  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: session.user.id } });
+
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+}
+
+export async function updateCateringOrderServiceLocation(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
+  const rawRoomId = formData.get("roomId") as string | null;
+  const rawFunctionId = formData.get("functionId") as string | null;
+  const rawExpectedCount = formData.get("expectedCount") as string | null;
+
+  await prisma.cateringOrderServiceLocation.update({
+    where: { id, cateringOrder: { eventId } },
+    data: {
+      name: (formData.get("name") as string).trim(),
+      roomId: rawRoomId && rawRoomId !== "__blank__" ? rawRoomId : null,
+      functionId: rawFunctionId && rawFunctionId !== "__blank__" ? rawFunctionId : null,
+      expectedCount: rawExpectedCount ? parseInt(rawExpectedCount) : null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: session.user.id } });
+
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+}
+
+export async function deleteCateringOrderServiceLocation(id: string, cateringOrderId: string, eventId: string) {
+  const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
+  await prisma.cateringOrderServiceLocation.delete({ where: { id, cateringOrder: { eventId } } });
+  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: session.user.id } });
+  revalidatePath(`/events/${eventId}/catering-orders/${cateringOrderId}`);
+}
+
+const cateringOrderForFunctionInclude = {
+  function: { select: { id: true, name: true, breakoutGroup: { select: { name: true } } } },
+  vendors: { include: { vendor: { select: { id: true, name: true } } } },
+  additionalServiceLocations: {
+    include: {
+      room: { select: { id: true, name: true } },
+      function: { select: { id: true, name: true } },
+    },
+  },
+} as const;
+
+type CateringOrderForFunction = Prisma.CateringOrderGetPayload<{ include: typeof cateringOrderForFunctionInclude }>;
+
+export type CateringOrderForFunctionEntry = {
+  order: CateringOrderForFunction;
+  via: "PRIMARY" | "ADDITIONAL_LOCATION";
+  location: CateringOrderForFunction["additionalServiceLocations"][number] | null;
+};
+
+export async function getCateringOrdersForFunction(functionId: string, eventId: string): Promise<CateringOrderForFunctionEntry[]> {
+  await requirePermission("CATERING_ORDERS", "VIEW", eventId);
+
+  const orders = await prisma.cateringOrder.findMany({
+    where: {
+      eventId,
+      OR: [
+        { functionId },
+        { additionalServiceLocations: { some: { functionId } } },
+      ],
+    },
+    include: cateringOrderForFunctionInclude,
+  });
+
+  return orders.flatMap<CateringOrderForFunctionEntry>((order) => {
+    if (order.functionId === functionId) {
+      return [{ order, via: "PRIMARY", location: null }];
+    }
+    return order.additionalServiceLocations
+      .filter((loc) => loc.functionId === functionId)
+      .map((location) => ({ order, via: "ADDITIONAL_LOCATION" as const, location }));
+  });
 }
 
 export async function addCateringOrderContact(cateringOrderId: string, eventId: string, formData: FormData) {

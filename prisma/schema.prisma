@@ -194,21 +194,22 @@ model RoomGroup {
 }
 
 model Room {
-  id                   String                        @id @default(cuid())
-  name                 String
-  capacity             Int?
-  notes                String?
-  venueId              String
-  venue                Venue                         @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  groupId              String?
-  group                RoomGroup?                    @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  functions            FunctionRoom[]
-  presentationSlots    PresentationSlot[]
-  breakoutGroupRooms   BreakoutGroupRoom[]
-  sessionRoomOverrides BreakoutSessionRoomOverride[]
-  setupOrders          SetupOrder[]
-  createdAt            DateTime                      @default(now())
-  updatedAt            DateTime                      @updatedAt
+  id                       String                         @id @default(cuid())
+  name                     String
+  capacity                 Int?
+  notes                    String?
+  venueId                  String
+  venue                    Venue                          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  groupId                  String?
+  group                    RoomGroup?                     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  functions                FunctionRoom[]
+  presentationSlots        PresentationSlot[]
+  breakoutGroupRooms       BreakoutGroupRoom[]
+  sessionRoomOverrides     BreakoutSessionRoomOverride[]
+  setupOrders              SetupOrder[]
+  cateringServiceLocations CateringOrderServiceLocation[] @relation("ServiceLocationRoom")
+  createdAt                DateTime                       @default(now())
+  updatedAt                DateTime                       @updatedAt
 
   @@index([groupId])
 }
@@ -279,33 +280,34 @@ model EventKeyStaff {
 
 // Function is the core scheduling unit
 model Function {
-  id                   String                        @id @default(cuid())
-  name                 String
-  description          String?
-  type                 String                        @default("")
-  notes                String?
-  offSiteLocation      String?
-  status               EntityStatus?
-  substatus            String?
-  eventId              String
-  breakoutGroupId      String?
-  event                Event                         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  breakoutGroup        BreakoutGroup?                @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
-  avOrderFunctions     AVOrderFunction[]
-  setupOrderFunctions  SetupOrderFunction[]
-  printOrderFunctions  PrintOrderFunction[]
-  mediaOrderFunctions  MediaOrderFunction[]
-  rooms                FunctionRoom[]
-  contacts             FunctionContact[]
-  schedules            FunctionSchedule[]
-  presentationSlots    PresentationSlot[]
-  sessionRoomOverrides BreakoutSessionRoomOverride[]
-  cateringOrder        CateringOrder?
-  timelineItems        TimelineItem[]
-  updatedById          String?
-  updatedBy            User?                         @relation("FunctionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt            DateTime                      @default(now())
-  updatedAt            DateTime                      @updatedAt
+  id                       String                         @id @default(cuid())
+  name                     String
+  description              String?
+  type                     String                         @default("")
+  notes                    String?
+  offSiteLocation          String?
+  status                   EntityStatus?
+  substatus                String?
+  eventId                  String
+  breakoutGroupId          String?
+  event                    Event                          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  breakoutGroup            BreakoutGroup?                 @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
+  avOrderFunctions         AVOrderFunction[]
+  setupOrderFunctions      SetupOrderFunction[]
+  printOrderFunctions      PrintOrderFunction[]
+  mediaOrderFunctions      MediaOrderFunction[]
+  rooms                    FunctionRoom[]
+  contacts                 FunctionContact[]
+  schedules                FunctionSchedule[]
+  presentationSlots        PresentationSlot[]
+  sessionRoomOverrides     BreakoutSessionRoomOverride[]
+  cateringOrder            CateringOrder?
+  cateringServiceLocations CateringOrderServiceLocation[] @relation("ServiceLocationFunction")
+  timelineItems            TimelineItem[]
+  updatedById              String?
+  updatedBy                User?                          @relation("FunctionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt                DateTime                       @default(now())
+  updatedAt                DateTime                       @updatedAt
 
   @@index([eventId])
   @@index([breakoutGroupId])
@@ -403,38 +405,39 @@ model AVOrderPresentation {
 }
 
 model CateringOrder {
-  id                String                     @id @default(cuid())
-  name              String
-  status            EntityStatus?
-  substatus         String?
-  eventId           String
-  event             Event                      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  functionId        String?                    @unique
-  function          Function?                  @relation(fields: [functionId], references: [id], onDelete: SetNull)
-  serviceStyle      String?
-  expectedCount     Int?
-  confirmedCount    Int?
-  guaranteeCount    Int?
-  staffingNotes     String?
-  rentalMinimum     Decimal?
-  fbMinimum         Decimal?
-  depositDeadline   DateTime?
-  guaranteeDeadline DateTime?
-  paymentDeadline   DateTime?
-  cancellationTerms String?
-  dietaryNotes      String?
-  notes             String?
-  timelineItems     TimelineItem[]
-  equipmentItems    EquipmentItem[]
-  lineItems         CateringOrderLineItem[]
-  menuSections      CateringOrderMenuSection[]
-  contacts          CateringOrderContact[]
-  vendors           CateringOrderVendor[]
-  files             FileUpload[]
-  updatedById       String?
-  updatedBy         User?                      @relation("CateringOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
+  id                         String                         @id @default(cuid())
+  name                       String
+  status                     EntityStatus?
+  substatus                  String?
+  eventId                    String
+  event                      Event                          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId                 String?                        @unique
+  function                   Function?                      @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  serviceStyle               String?
+  expectedCount              Int?
+  confirmedCount             Int?
+  guaranteeCount             Int?
+  staffingNotes              String?
+  rentalMinimum              Decimal?
+  fbMinimum                  Decimal?
+  depositDeadline            DateTime?
+  guaranteeDeadline          DateTime?
+  paymentDeadline            DateTime?
+  cancellationTerms          String?
+  dietaryNotes               String?
+  notes                      String?
+  timelineItems              TimelineItem[]
+  equipmentItems             EquipmentItem[]
+  lineItems                  CateringOrderLineItem[]
+  menuSections               CateringOrderMenuSection[]
+  additionalServiceLocations CateringOrderServiceLocation[]
+  contacts                   CateringOrderContact[]
+  vendors                    CateringOrderVendor[]
+  files                      FileUpload[]
+  updatedById                String?
+  updatedBy                  User?                          @relation("CateringOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt                  DateTime                       @default(now())
+  updatedAt                  DateTime                       @updatedAt
 
   @@index([eventId])
   @@index([updatedById])
@@ -614,6 +617,26 @@ model CateringOrderMenuSection {
   @@index([cateringOrderId])
   @@index([responsiblePartyVendorId])
   @@map("BEOMenuSection")
+}
+
+model CateringOrderServiceLocation {
+  id              String        @id @default(cuid())
+  cateringOrderId String
+  cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  name            String
+  roomId          String?
+  room            Room?         @relation("ServiceLocationRoom", fields: [roomId], references: [id], onDelete: SetNull)
+  functionId      String?
+  function        Function?     @relation("ServiceLocationFunction", fields: [functionId], references: [id], onDelete: SetNull)
+  expectedCount   Int?
+  notes           String?
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([cateringOrderId])
+  @@index([roomId])
+  @@index([functionId])
 }
 
 model CateringOrderContact {

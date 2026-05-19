@@ -3,6 +3,7 @@ import type { getEvent } from "@/app/events/actions";
 import { formatTime, formatDateHeading } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { cateringRelationshipLabel, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { formatPhone } from "@/lib/format-phone";
 import {
   reportTh as th,
@@ -35,9 +36,14 @@ type AVOrder = HandoffData["avOrders"][number];
 type SetupOrder = HandoffData["setupOrders"][number];
 type AnyFn = NonNullable<CateringOrder["function"]> | AVOrder["functions"][number];
 
+type CateringEntry = {
+  order: CateringOrder;
+  relationship: CateringRelationship;
+};
+
 type FunctionGroup = {
   fn: AnyFn;
-  cateringOrders: CateringOrder[];
+  cateringOrders: CateringEntry[];
   avOrders: AVOrder[];
   setupOrders: SetupOrder[];
   earliestStart: number;
@@ -59,7 +65,7 @@ type PresentationGroup = {
 };
 
 type UnscheduledGroup = {
-  cateringOrders: CateringOrder[];
+  cateringOrders: CateringEntry[];
   avOrders: AVOrder[];
   setupOrders: SetupOrder[];
 };
@@ -223,8 +229,22 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
   }
 
   for (const order of data.cateringOrders) {
-    if (order.function) getOrCreateGroup(order.function).cateringOrders.push(order);
-    else unscheduled.cateringOrders.push(order);
+    const placedFunctionIds = new Set<string>();
+    if (order.function) {
+      getOrCreateGroup(order.function).cateringOrders.push({ order, relationship: { via: "PRIMARY" } });
+      placedFunctionIds.add(order.function.id);
+    }
+    for (const loc of order.additionalServiceLocations) {
+      if (!loc.function || placedFunctionIds.has(loc.function.id)) continue;
+      getOrCreateGroup(loc.function).cateringOrders.push({
+        order,
+        relationship: { via: "ADDITIONAL_LOCATION", locationName: loc.name, roomName: loc.room?.name ?? null },
+      });
+      placedFunctionIds.add(loc.function.id);
+    }
+    if (placedFunctionIds.size === 0) {
+      unscheduled.cateringOrders.push({ order, relationship: { via: "PRIMARY" } });
+    }
   }
   for (const order of data.avOrders) {
     if (order.functions.length > 0) {
@@ -348,7 +368,10 @@ function FunctionScheduleSection({
     allFunctions.push(fn);
   };
 
-  for (const order of data.cateringOrders) addFn(order.function);
+  for (const order of data.cateringOrders) {
+    addFn(order.function);
+    for (const loc of order.additionalServiceLocations) addFn(loc.function);
+  }
   for (const order of data.avOrders) for (const fn of order.functions) addFn(fn);
   for (const order of data.setupOrders) for (const fn of order.functions) addFn(fn);
 
@@ -468,10 +491,12 @@ function CateringOrderSection({
   order,
   timezone,
   vendorId,
+  relationship,
 }: {
   order: CateringOrder;
   timezone: string;
   vendorId: string;
+  relationship?: CateringRelationship;
 }) {
   const hasGuestCounts = order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null;
 
@@ -479,8 +504,13 @@ function CateringOrderSection({
     <div className={orderCard}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">{order.name}</h3>
-        <div className="flex gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+        <div className="flex flex-wrap gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
           <span>Catering Order</span>
+          {relationship && (
+            <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 print:bg-transparent print:px-0">
+              {cateringRelationshipLabel(relationship)}
+            </span>
+          )}
           {order.serviceStyle && <span>Service: {order.serviceStyle}</span>}
         </div>
         <LastUpdated
@@ -969,8 +999,14 @@ function FunctionSection({
       {cateringOrders.length > 0 && (
         <>
           {typeCount > 1 && <SubHeading>Catering</SubHeading>}
-          {cateringOrders.map((order) => (
-            <CateringOrderSection key={order.id} order={order} timezone={timezone} vendorId={vendorId} />
+          {cateringOrders.map((entry, idx) => (
+            <CateringOrderSection
+              key={`${entry.order.id}-${idx}`}
+              order={entry.order}
+              timezone={timezone}
+              vendorId={vendorId}
+              relationship={entry.relationship}
+            />
           ))}
         </>
       )}
@@ -1373,8 +1409,14 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
             {unscheduled.cateringOrders.length > 0 && (
               <>
                 {unscheduledTypeCount > 1 && <SubHeading>Catering</SubHeading>}
-                {unscheduled.cateringOrders.map((order) => (
-                  <CateringOrderSection key={order.id} order={order} timezone={timezone} vendorId={vendorId} />
+                {unscheduled.cateringOrders.map((entry, idx) => (
+                  <CateringOrderSection
+                    key={`${entry.order.id}-${idx}`}
+                    order={entry.order}
+                    timezone={timezone}
+                    vendorId={vendorId}
+                    relationship={entry.relationship}
+                  />
                 ))}
               </>
             )}

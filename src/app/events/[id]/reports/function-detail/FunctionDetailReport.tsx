@@ -7,6 +7,7 @@ import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
 import { LastUpdated } from "@/components/LastUpdated";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { cateringRelationshipLabel, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { formatPhone } from "@/lib/format-phone";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { STATUS_LABEL, STATUS_CLASS } from "@/lib/statusConstants";
@@ -670,10 +671,12 @@ function CateringSection({
   catering,
   timezone,
   serviceStyles,
+  relationship,
 }: {
   catering: CateringOrder;
   timezone: string;
   serviceStyles: OptionList;
+  relationship?: CateringRelationship;
 }) {
   const serviceStyleLabel = catering.serviceStyle
     ? resolveOptionLabel(catering.serviceStyle, serviceStyles)
@@ -686,6 +689,11 @@ function CateringSection({
             {catering.name}
           </span>
           <StatusBadge status={catering.status} />
+          {relationship && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+              {cateringRelationshipLabel(relationship)}
+            </span>
+          )}
           {serviceStyleLabel && (
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {serviceStyleLabel}
@@ -1178,15 +1186,41 @@ function FunctionBlock({
           </SubSection>
         )}
 
-        {fn.cateringOrder && (
-          <SubSection title="Catering">
-            <CateringSection
-              catering={fn.cateringOrder}
-              timezone={timezone}
-              serviceStyles={serviceStyles}
-            />
-          </SubSection>
-        )}
+        {(() => {
+          const primaryOrderId = fn.cateringOrder?.id ?? null;
+          const additionalEntries = fn.cateringServiceLocations
+            .filter((loc) => loc.cateringOrder.id !== primaryOrderId)
+            .map((loc) => ({
+              catering: loc.cateringOrder,
+              relationship: {
+                via: "ADDITIONAL_LOCATION" as const,
+                locationName: loc.name,
+                roomName: loc.room?.name ?? null,
+              },
+            }));
+          if (!fn.cateringOrder && additionalEntries.length === 0) return null;
+          return (
+            <SubSection title="Catering">
+              {fn.cateringOrder && (
+                <CateringSection
+                  catering={fn.cateringOrder}
+                  timezone={timezone}
+                  serviceStyles={serviceStyles}
+                  relationship={{ via: "PRIMARY" }}
+                />
+              )}
+              {additionalEntries.map((entry, idx) => (
+                <CateringSection
+                  key={`${entry.catering.id}-${idx}`}
+                  catering={entry.catering}
+                  timezone={timezone}
+                  serviceStyles={serviceStyles}
+                  relationship={entry.relationship}
+                />
+              ))}
+            </SubSection>
+          );
+        })()}
 
         {avOrders.length > 0 && (
           <SubSection title="AV">

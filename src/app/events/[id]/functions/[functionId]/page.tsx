@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
@@ -390,14 +391,44 @@ export default async function FunctionPage({
               linkAVOrder={linkAVOrderAction}
               unlinkAVOrder={unlinkAVOrderAction}
             />
-            <CateringOrderPanel
-              cateringOrder={fn.cateringOrder}
-              eventId={eventId}
-              availableCateringOrders={availableCateringOrders}
-              newCateringOrderPath={`/events/${eventId}/catering-orders/new?functionId=${functionId}`}
-              linkCateringOrder={linkCateringOrderAction}
-              unlinkCateringOrder={unlinkCateringOrderAction}
-            />
+            <div className="space-y-4">
+              <CateringOrderPanel
+                cateringOrder={fn.cateringOrder}
+                eventId={eventId}
+                availableCateringOrders={availableCateringOrders}
+                newCateringOrderPath={`/events/${eventId}/catering-orders/new?functionId=${functionId}`}
+                linkCateringOrder={linkCateringOrderAction}
+                unlinkCateringOrder={unlinkCateringOrderAction}
+              />
+              {fn.cateringServiceLocations.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    Additional Catering Service Locations
+                  </h3>
+                  <ul className="space-y-2">
+                    {fn.cateringServiceLocations.map((loc) => (
+                      <li key={loc.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1 text-sm">
+                            <Link
+                              href={`/events/${eventId}/catering-orders/${loc.cateringOrder.id}`}
+                              className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                            >
+                              {loc.cateringOrder.name}
+                            </Link>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              Service location: <span className="text-gray-700 dark:text-gray-300">{loc.name}</span>
+                              {loc.room && <span> · {loc.room.name}</span>}
+                              {loc.expectedCount != null && <span> · {loc.expectedCount} expected</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
             <SetupOrderPanel
               setupOrders={fn.setupOrders}
               eventId={eventId}
