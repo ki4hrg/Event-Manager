@@ -194,22 +194,21 @@ model RoomGroup {
 }
 
 model Room {
-  id                       String                         @id @default(cuid())
-  name                     String
-  capacity                 Int?
-  notes                    String?
-  venueId                  String
-  venue                    Venue                          @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  groupId                  String?
-  group                    RoomGroup?                     @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  functions                FunctionRoom[]
-  presentationSlots        PresentationSlot[]
-  breakoutGroupRooms       BreakoutGroupRoom[]
-  sessionRoomOverrides     BreakoutSessionRoomOverride[]
-  setupOrders              SetupOrder[]
-  cateringServiceLocations CateringOrderServiceLocation[] @relation("ServiceLocationRoom")
-  createdAt                DateTime                       @default(now())
-  updatedAt                DateTime                       @updatedAt
+  id                   String                        @id @default(cuid())
+  name                 String
+  capacity             Int?
+  notes                String?
+  venueId              String
+  venue                Venue                         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  groupId              String?
+  group                RoomGroup?                    @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  functions            FunctionRoom[]
+  presentationSlots    PresentationSlot[]
+  breakoutGroupRooms   BreakoutGroupRoom[]
+  sessionRoomOverrides BreakoutSessionRoomOverride[]
+  setupOrders          SetupOrder[]
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
 
   @@index([groupId])
 }
@@ -624,8 +623,6 @@ model CateringOrderServiceLocation {
   cateringOrderId String
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   name            String
-  roomId          String?
-  room            Room?         @relation("ServiceLocationRoom", fields: [roomId], references: [id], onDelete: SetNull)
   functionId      String?
   function        Function?     @relation("ServiceLocationFunction", fields: [functionId], references: [id], onDelete: SetNull)
   expectedCount   Int?
@@ -635,7 +632,6 @@ model CateringOrderServiceLocation {
   updatedAt       DateTime      @updatedAt
 
   @@index([cateringOrderId])
-  @@index([roomId])
   @@index([functionId])
 }
 

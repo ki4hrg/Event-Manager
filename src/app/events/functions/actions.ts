@@ -85,7 +85,6 @@ export async function getFunction(id: string) {
       cateringServiceLocations: {
         include: {
           cateringOrder: { include: vendorInclude },
-          room: { select: { id: true, name: true } },
         },
         orderBy: { sortOrder: "asc" },
       },

@@ -62,8 +62,14 @@ export async function getCateringOrder(id: string) {
       menuSections: { include: { responsiblePartyVendor: true }, orderBy: [{ sortOrder: "asc" }] },
       additionalServiceLocations: {
         include: {
-          room: { select: { id: true, name: true } },
-          function: { select: { id: true, name: true, breakoutGroup: { select: { name: true } } } },
+          function: {
+            select: {
+              id: true,
+              name: true,
+              breakoutGroup: { select: { name: true } },
+              rooms: { include: { room: { select: { id: true, name: true } } } },
+            },
+          },
         },
         orderBy: [{ sortOrder: "asc" }],
       },
@@ -452,7 +458,6 @@ export async function createCateringOrderServiceLocation(cateringOrderId: string
   await assertCateringOrderInEvent(cateringOrderId, eventId);
   const { _max } = await prisma.cateringOrderServiceLocation.aggregate({ where: { cateringOrderId }, _max: { sortOrder: true } });
 
-  const rawRoomId = formData.get("roomId") as string | null;
   const rawFunctionId = formData.get("functionId") as string | null;
   const rawExpectedCount = formData.get("expectedCount") as string | null;
 
@@ -460,7 +465,6 @@ export async function createCateringOrderServiceLocation(cateringOrderId: string
     data: {
       cateringOrderId,
       name: (formData.get("name") as string).trim(),
-      roomId: rawRoomId && rawRoomId !== "__blank__" ? rawRoomId : null,
       functionId: rawFunctionId && rawFunctionId !== "__blank__" ? rawFunctionId : null,
       expectedCount: rawExpectedCount ? parseInt(rawExpectedCount) : null,
       notes: (formData.get("notes") as string) || null,
@@ -474,7 +478,6 @@ export async function createCateringOrderServiceLocation(cateringOrderId: string
 
 export async function updateCateringOrderServiceLocation(id: string, cateringOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("CATERING_ORDERS", "WRITE", eventId);
-  const rawRoomId = formData.get("roomId") as string | null;
   const rawFunctionId = formData.get("functionId") as string | null;
   const rawExpectedCount = formData.get("expectedCount") as string | null;
 
@@ -482,7 +485,6 @@ export async function updateCateringOrderServiceLocation(id: string, cateringOrd
     where: { id, cateringOrder: { eventId } },
     data: {
       name: (formData.get("name") as string).trim(),
-      roomId: rawRoomId && rawRoomId !== "__blank__" ? rawRoomId : null,
       functionId: rawFunctionId && rawFunctionId !== "__blank__" ? rawFunctionId : null,
       expectedCount: rawExpectedCount ? parseInt(rawExpectedCount) : null,
       notes: (formData.get("notes") as string) || null,
@@ -505,7 +507,6 @@ const cateringOrderForFunctionInclude = {
   vendors: { include: { vendor: { select: { id: true, name: true } } } },
   additionalServiceLocations: {
     include: {
-      room: { select: { id: true, name: true } },
       function: { select: { id: true, name: true } },
     },
   },

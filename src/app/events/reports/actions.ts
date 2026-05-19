@@ -687,7 +687,6 @@ export async function getEventProfileData(
         },
         additionalServiceLocations: {
           include: {
-            room: { select: { id: true, name: true } },
             function: { include: { schedules: { orderBy: { sortOrder: "asc" } } } },
           },
           orderBy: { sortOrder: "asc" },
@@ -833,7 +832,6 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
         },
         additionalServiceLocations: {
           include: {
-            room: { select: { id: true, name: true } },
             function: { include: functionInclude },
           },
           orderBy: { sortOrder: "asc" },
@@ -1189,7 +1187,6 @@ const fdCateringOrderInclude = {
   },
   additionalServiceLocations: {
     include: {
-      room: { select: { id: true, name: true } },
       function: { select: { id: true, name: true } },
     },
     orderBy: { sortOrder: "asc" },
@@ -1233,7 +1230,6 @@ const fdFunctionInclude = {
   cateringServiceLocations: {
     include: {
       cateringOrder: { include: fdCateringOrderInclude },
-      room: { select: { id: true, name: true } },
     },
     orderBy: { sortOrder: "asc" },
   },

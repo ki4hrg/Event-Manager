@@ -125,22 +125,26 @@ export function CateringOrderDetails({
               <thead>
                 <tr className="text-left text-gray-500 print:text-gray-600">
                   <th className="pb-1 pr-4 font-medium">Name</th>
-                  <th className="pb-1 pr-4 font-medium">Room</th>
                   <th className="pb-1 pr-4 font-medium">Linked Function</th>
                   <th className="pb-1 pr-4 font-medium">Expected</th>
                   <th className="pb-1 font-medium">Notes</th>
                 </tr>
               </thead>
               <tbody>
-                {order.additionalServiceLocations.map((loc) => (
-                  <tr key={loc.id} className="border-t border-gray-100 print:border-gray-300">
-                    <td className="py-1.5 pr-4 text-gray-900 print:text-black">{loc.name}</td>
-                    <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{loc.room?.name ?? "—"}</td>
-                    <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{loc.function?.name ?? "—"}</td>
-                    <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{loc.expectedCount ?? "—"}</td>
-                    <td className="py-1.5 text-gray-600 print:text-gray-700">{loc.notes ?? ""}</td>
-                  </tr>
-                ))}
+                {order.additionalServiceLocations.map((loc) => {
+                  const derivedRoom = loc.function?.rooms[0]?.room.name ?? null;
+                  return (
+                    <tr key={loc.id} className="border-t border-gray-100 print:border-gray-300">
+                      <td className="py-1.5 pr-4 text-gray-900 print:text-black">{loc.name}</td>
+                      <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">
+                        {loc.function?.name ?? "—"}
+                        {derivedRoom && ` (${derivedRoom})`}
+                      </td>
+                      <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{loc.expectedCount ?? "—"}</td>
+                      <td className="py-1.5 text-gray-600 print:text-gray-700">{loc.notes ?? ""}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </Section>

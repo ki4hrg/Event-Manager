@@ -418,7 +418,6 @@ export default async function FunctionPage({
                             </Link>
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                               Service location: <span className="text-gray-700 dark:text-gray-300">{loc.name}</span>
-                              {loc.room && <span> · {loc.room.name}</span>}
                               {loc.expectedCount != null && <span> · {loc.expectedCount} expected</span>}
                             </div>
                           </div>

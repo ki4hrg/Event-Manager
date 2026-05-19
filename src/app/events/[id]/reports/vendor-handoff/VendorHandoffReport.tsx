@@ -238,7 +238,7 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
       if (!loc.function || placedFunctionIds.has(loc.function.id)) continue;
       getOrCreateGroup(loc.function).cateringOrders.push({
         order,
-        relationship: { via: "ADDITIONAL_LOCATION", locationName: loc.name, roomName: loc.room?.name ?? null },
+        relationship: { via: "ADDITIONAL_LOCATION", locationName: loc.name },
       });
       placedFunctionIds.add(loc.function.id);
     }

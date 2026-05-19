@@ -135,7 +135,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, venueRooms, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -151,11 +151,6 @@ export default async function CateringOrderPage({
           breakoutGroup: { select: { name: true } },
           cateringOrder: { select: { id: true } },
         },
-        orderBy: { name: "asc" },
-      }),
-      prisma.room.findMany({
-        where: { venue: { events: { some: { id: eventId } } } },
-        select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
       getWorkflowInstances("catering_order", cateringOrderId, eventId),
@@ -466,18 +461,6 @@ export default async function CateringOrderPage({
               />
             </div>
 
-            <AdditionalServiceLocationTable
-              locations={cateringOrder.additionalServiceLocations}
-              orderExpectedCount={cateringOrder.expectedCount}
-              orderConfirmedCount={cateringOrder.confirmedCount}
-              primaryRoomName={cateringOrder.function?.rooms[0]?.room.name ?? null}
-              rooms={venueRooms}
-              functions={allEventFunctions}
-              createLocation={createServiceLocationAction}
-              updateLocation={updateServiceLocationAction}
-              deleteLocation={deleteServiceLocationAction}
-            />
-
             <ContactList
               contacts={cateringOrder.contacts}
               addContact={addContactAction}
@@ -509,6 +492,16 @@ export default async function CateringOrderPage({
               createSection={createMenuSectionAction}
               updateSection={updateMenuSectionAction}
               deleteSection={deleteMenuSectionAction}
+            />
+            <AdditionalServiceLocationTable
+              locations={cateringOrder.additionalServiceLocations}
+              orderExpectedCount={cateringOrder.expectedCount}
+              orderConfirmedCount={cateringOrder.confirmedCount}
+              primaryRoomName={cateringOrder.function?.rooms[0]?.room.name ?? null}
+              functions={allEventFunctions}
+              createLocation={createServiceLocationAction}
+              updateLocation={updateServiceLocationAction}
+              deleteLocation={deleteServiceLocationAction}
             />
           </div>
         </div>

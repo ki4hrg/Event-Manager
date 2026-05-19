@@ -9,21 +9,18 @@ type LocationFunction = {
   id: string;
   name: string;
   breakoutGroup: { name: string } | null;
+  rooms?: { room: { id: string; name: string } }[];
 };
 
 type ServiceLocation = {
   id: string;
   name: string;
-  roomId: string | null;
   functionId: string | null;
   expectedCount: number | null;
   notes: string | null;
   sortOrder: number;
-  room: { id: string; name: string } | null;
   function: LocationFunction | null;
 };
-
-type RoomOption = { id: string; name: string };
 
 type FunctionOption = {
   id: string;
@@ -36,7 +33,6 @@ type Props = {
   orderExpectedCount: number | null;
   orderConfirmedCount: number | null;
   primaryRoomName: string | null;
-  rooms: RoomOption[];
   functions: FunctionOption[];
   createLocation: (formData: FormData) => Promise<void>;
   updateLocation: (id: string, formData: FormData) => Promise<void>;
@@ -66,7 +62,6 @@ export function AdditionalServiceLocationTable({
   orderExpectedCount,
   orderConfirmedCount,
   primaryRoomName,
-  rooms,
   functions,
   createLocation,
   updateLocation,
@@ -132,7 +127,6 @@ export function AdditionalServiceLocationTable({
       {showAddForm && (
         <LocationForm
           mode="create"
-          rooms={rooms}
           functions={functions}
           orderExpectedCount={orderExpectedCount}
           onSubmit={handleCreate}
@@ -144,63 +138,63 @@ export function AdditionalServiceLocationTable({
         <p className="text-gray-500 dark:text-gray-400 text-sm">No additional service locations yet.</p>
       ) : (
         <div className="space-y-3">
-          {locations.map((loc) => (
-            <div key={loc.id} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              {editingId === loc.id ? (
-                <LocationForm
-                  mode="edit"
-                  initial={loc}
-                  rooms={rooms}
-                  functions={functions}
-                  orderExpectedCount={orderExpectedCount}
-                  onSubmit={(fd) => handleUpdate(loc.id, fd)}
-                  onCancel={() => setEditingId(null)}
-                />
-              ) : (
-                <div>
-                  <div className="flex items-start justify-between mb-1">
-                    <div className="text-sm">
-                      <span className="font-semibold text-gray-900 dark:text-white">{loc.name}</span>
-                      {loc.room && (
-                        <span className="text-gray-500 dark:text-gray-400"> · {loc.room.name}</span>
-                      )}
-                      {loc.function && (
-                        <span className="text-gray-500 dark:text-gray-400">
-                          {" · "}
-                          {functionLabel(loc.function)}
-                        </span>
-                      )}
+          {locations.map((loc) => {
+            const derivedRoom = loc.function?.rooms?.[0]?.room.name ?? null;
+            return (
+              <div key={loc.id} className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                {editingId === loc.id ? (
+                  <LocationForm
+                    mode="edit"
+                    initial={loc}
+                    functions={functions}
+                    orderExpectedCount={orderExpectedCount}
+                    onSubmit={(fd) => handleUpdate(loc.id, fd)}
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : (
+                  <div>
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="text-sm">
+                        <span className="font-semibold text-gray-900 dark:text-white">{loc.name}</span>
+                        {loc.function && (
+                          <span className="text-gray-500 dark:text-gray-400">
+                            {" · "}
+                            {functionLabel(loc.function)}
+                            {derivedRoom && ` (${derivedRoom})`}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2 ml-2 shrink-0">
+                        <button
+                          onClick={() => setEditingId(loc.id)}
+                          className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm("Delete this service location?")) await deleteLocation(loc.id);
+                          }}
+                          className="text-red-600 hover:underline text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2 ml-2 shrink-0">
-                      <button
-                        onClick={() => setEditingId(loc.id)}
-                        className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this service location?")) await deleteLocation(loc.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    {loc.expectedCount != null && (
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        {loc.expectedCount}
+                        {orderExpectedCount != null ? ` of ${orderExpectedCount}` : ""} expected (part of order total)
+                      </div>
+                    )}
+                    {loc.notes && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{loc.notes}</p>
+                    )}
                   </div>
-                  {loc.expectedCount != null && (
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {loc.expectedCount}
-                      {orderExpectedCount != null ? ` of ${orderExpectedCount}` : ""} expected (part of order total)
-                    </div>
-                  )}
-                  {loc.notes && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{loc.notes}</p>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -210,7 +204,6 @@ export function AdditionalServiceLocationTable({
 type LocationFormProps = {
   mode: "create" | "edit";
   initial?: ServiceLocation;
-  rooms: RoomOption[];
   functions: FunctionOption[];
   orderExpectedCount: number | null;
   onSubmit: (formData: FormData) => Promise<void> | void;
@@ -220,7 +213,6 @@ type LocationFormProps = {
 function LocationForm({
   mode,
   initial,
-  rooms,
   functions,
   orderExpectedCount,
   onSubmit,
@@ -239,37 +231,20 @@ function LocationForm({
           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
         />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Room</label>
-          <select
-            name="roomId"
-            defaultValue={initial?.roomId ?? "__blank__"}
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          >
-            <option value="__blank__">(none)</option>
-            {rooms.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Linked Function</label>
-          <select
-            name="functionId"
-            defaultValue={initial?.functionId ?? "__blank__"}
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          >
-            <option value="__blank__">(none)</option>
-            {functions.map((fn) => (
-              <option key={fn.id} value={fn.id}>
-                {functionLabel(fn)}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Linked Function</label>
+        <select
+          name="functionId"
+          defaultValue={initial?.functionId ?? "__blank__"}
+          className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+        >
+          <option value="__blank__">(none)</option>
+          {functions.map((fn) => (
+            <option key={fn.id} value={fn.id}>
+              {functionLabel(fn)}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

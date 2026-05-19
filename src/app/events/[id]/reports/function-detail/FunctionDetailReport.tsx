@@ -1195,7 +1195,6 @@ function FunctionBlock({
               relationship: {
                 via: "ADDITIONAL_LOCATION" as const,
                 locationName: loc.name,
-                roomName: loc.room?.name ?? null,
               },
             }));
           if (!fn.cateringOrder && additionalEntries.length === 0) return null;
