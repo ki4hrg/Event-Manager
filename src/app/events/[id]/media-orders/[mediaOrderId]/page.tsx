@@ -24,8 +24,13 @@ import {
   createMediaItem,
   updateMediaItem,
   deleteMediaItem,
-  getMediaOrderPartyOptions,
+  addMediaOrderContact,
+  updateMediaOrderContact,
+  removeMediaOrderContact,
+  createAndAddMediaOrderContact,
+  searchContactsForMediaOrder,
 } from "../../../media-orders/actions";
+import { ContactList } from "../../../functions/ContactList";
 import {
   getMediaOrderVendors,
   addVendorToMediaOrder,
@@ -83,7 +88,7 @@ export default async function MediaOrderPage({
 
   const [
     mediaOrderVendors, fileTypeOptions, mediaOrderFiles, responsiblePartyVendors, substatuses,
-    deliveryOptions, allFunctions, allPresentations, partyOptions, availableEventVendors,
+    deliveryOptions, allFunctions, allPresentations, availableEventVendors,
   ] = await Promise.all([
     getMediaOrderVendors(mediaOrderId, eventId),
     getOptions("file_type"),
@@ -93,7 +98,6 @@ export default async function MediaOrderPage({
     getOptions("delivery_method"),
     prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.presentation.findMany({ where: { eventId }, orderBy: { title: "asc" }, select: { id: true, title: true } }),
-    getMediaOrderPartyOptions(mediaOrderId, eventId),
     searchAssignedEventVendors("", eventId, "MEDIA_ORDER"),
   ]);
 
@@ -174,6 +178,27 @@ export default async function MediaOrderPage({
   const deleteItemAction = async (id: string) => {
     "use server";
     await deleteMediaItem(id, mediaOrderId, eventId);
+  };
+
+  const addContactAction = async (formData: FormData) => {
+    "use server";
+    await addMediaOrderContact(mediaOrderId, eventId, formData);
+  };
+  const updateContactAction = async (id: string, formData: FormData) => {
+    "use server";
+    await updateMediaOrderContact(id, mediaOrderId, eventId, formData);
+  };
+  const removeContactAction = async (id: string) => {
+    "use server";
+    await removeMediaOrderContact(id, mediaOrderId, eventId);
+  };
+  const searchContactsAction = async (query: string) => {
+    "use server";
+    return searchContactsForMediaOrder(query);
+  };
+  const createContactAction = async (formData: FormData) => {
+    "use server";
+    await createAndAddMediaOrderContact(mediaOrderId, eventId, formData);
   };
 
   const flatVendors = flattenResponsiblePartyOptions(responsiblePartyVendors);
@@ -310,6 +335,15 @@ export default async function MediaOrderPage({
               unlinkPresentation={unlinkFromPresentationAction}
             />
 
+            <ContactList
+              contacts={mediaOrder.contacts}
+              addContact={addContactAction}
+              updateContact={updateContactAction}
+              removeContact={removeContactAction}
+              searchContacts={searchContactsAction}
+              createContact={createContactAction}
+            />
+
             <WorkflowPanel
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
@@ -325,8 +359,6 @@ export default async function MediaOrderPage({
             <MediaItemPanel
               items={mediaOrder.items}
               deliveryOptions={deliveryOptions}
-              vendors={partyOptions.responsiblePartyVendors}
-              contacts={partyOptions.contacts}
               createItem={createItemAction}
               updateItem={updateItemAction}
               deleteItem={deleteItemAction}

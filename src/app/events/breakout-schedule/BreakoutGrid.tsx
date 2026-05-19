@@ -5,6 +5,8 @@ import Link from "next/link";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "./utils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
+import { resolveAdvancer } from "@/lib/presentationAdvancer";
+import { partyLabel } from "@/app/events/av-orders/party-field";
 import {
   DndContext,
   DragOverlay,
@@ -37,8 +39,12 @@ import type {
 type SlotData = PresentationSlot & {
   presentation: Presentation & {
     speakers: (PresentationContact & { contact: Contact })[];
+    advancerVendor: { id: string; name: string } | null;
+    advancerContact: { id: string; firstName: string; lastName: string } | null;
   };
   room: Room | null;
+  advancerVendor: { id: string; name: string } | null;
+  advancerContact: { id: string; firstName: string; lastName: string } | null;
 };
 
 type SessionFunction = PrismaFunction & {
@@ -52,6 +58,8 @@ type GroupPresentation = Presentation & {
   slots: PresentationSlot[];
   track: PresentationTrack | null;
   speakers: (PresentationContact & { contact: Contact })[];
+  advancerVendor: { id: string; name: string } | null;
+  advancerContact: { id: string; firstName: string; lastName: string } | null;
 };
 
 type GroupData = BreakoutGroup & {
@@ -638,10 +646,20 @@ function DraggableCellCard({
     ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
     : undefined;
 
+  const resolvedAdvancer = resolveAdvancer(
+    { advancerVendor: slot.presentation.advancerVendor, advancerContact: slot.presentation.advancerContact },
+    slot,
+  );
+  const advancerText = partyLabel(resolvedAdvancer.vendor, resolvedAdvancer.contact);
+  const titleParts = [slot.presentation.title];
+  if (advancerText) {
+    titleParts.push(`Advancer: ${advancerText}${resolvedAdvancer.source === "slot" ? " (override)" : ""}`);
+  }
   return (
     <div
       ref={setNodeRef}
       style={style}
+      title={titleParts.join("\n")}
       className={`flex items-start justify-between gap-1 cursor-grab active:cursor-grabbing ${
         isDragging ? "opacity-40" : ""
       }`}
@@ -832,9 +850,18 @@ function AssignmentGrid({
         functionId: sessionId,
         presentationId,
         roomId,
+        advancerVendorId: null,
+        advancerContactId: null,
         createdAt: new Date(),
-        presentation: { ...presentation, speakers: presentation.speakers },
+        presentation: {
+          ...presentation,
+          speakers: presentation.speakers,
+          advancerVendor: presentation.advancerVendor,
+          advancerContact: presentation.advancerContact,
+        },
         room: roomList.find((r) => r.id === roomId) ?? null,
+        advancerVendor: null,
+        advancerContact: null,
       };
       return { ...fn, presentationSlots: [...fn.presentationSlots, newSlot] };
     });
@@ -842,7 +869,18 @@ function AssignmentGrid({
       if (p.id !== presentationId) return p;
       return {
         ...p,
-        slots: [...p.slots, { id: `optimistic-${Date.now()}`, functionId: sessionId, presentationId, roomId, createdAt: new Date() }],
+        slots: [
+          ...p.slots,
+          {
+            id: `optimistic-${Date.now()}`,
+            functionId: sessionId,
+            presentationId,
+            roomId,
+            advancerVendorId: null,
+            advancerContactId: null,
+            createdAt: new Date(),
+          },
+        ],
       };
     });
     return g;

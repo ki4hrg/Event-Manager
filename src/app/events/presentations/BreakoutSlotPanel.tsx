@@ -5,6 +5,9 @@ import Link from "next/link";
 import type { PresentationSlot, Function as PrismaFunction, FunctionSchedule, Room, BreakoutGroup } from "@prisma/client";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
+import { PartyField, parsePartyValue, partyLabel, type ContactOptions } from "@/app/events/av-orders/party-field";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { resolveAdvancer } from "@/lib/presentationAdvancer";
 
 type RoomBasic = {
   id: string;
@@ -31,6 +34,13 @@ type SlotWithDetails = PresentationSlot & {
     breakoutGroup: BreakoutGroup | null;
   };
   room: Room | null;
+  advancerVendor: { id: string; name: string } | null;
+  advancerContact: { id: string; firstName: string; lastName: string } | null;
+};
+
+type PresentationAdvancer = {
+  advancerVendor: { id: string; name: string } | null;
+  advancerContact: { id: string; firstName: string; lastName: string } | null;
 };
 
 type BreakoutSlotPanelProps = {
@@ -40,11 +50,15 @@ type BreakoutSlotPanelProps = {
   instanceCount: number;
   currentGroupId: string | null;
   groups: BreakoutGroupFull[];
+  presentationAdvancer: PresentationAdvancer;
+  advancerOptions: { vendorGroups: ResponsiblePartyOptions; contacts: ContactOptions };
   addSlot: (functionId: string, roomId: string | null) => Promise<void>;
   removeAll: () => Promise<void>;
   editSlot: (slotId: string, functionId: string, roomId: string | null) => Promise<{ success: boolean; error?: string }>;
   assignToGroup: (groupId: string) => Promise<void>;
   updateInstanceCount: (count: number) => Promise<void>;
+  setSlotAdvancer: (slotId: string, vendorId: string | null, contactId: string | null) => Promise<void>;
+  clearSlotAdvancer: (slotId: string) => Promise<void>;
 };
 
 function RoomOptions({ rooms }: { rooms: RoomBasic[] }) {
@@ -94,11 +108,15 @@ export function BreakoutSlotPanel({
   instanceCount,
   currentGroupId,
   groups,
+  presentationAdvancer,
+  advancerOptions,
   addSlot,
   removeAll,
   editSlot,
   assignToGroup,
   updateInstanceCount,
+  setSlotAdvancer,
+  clearSlotAdvancer,
 }: BreakoutSlotPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCount, setEditingCount] = useState(false);
@@ -111,6 +129,9 @@ export function BreakoutSlotPanel({
   const [editSessionId, setEditSessionId] = useState("");
   const [editRoomId, setEditRoomId] = useState("");
   const [editError, setEditError] = useState("");
+
+  const [advancerSlotId, setAdvancerSlotId] = useState<string | null>(null);
+  const [advancerValue, setAdvancerValue] = useState("");
 
   const [isPending, startTransition] = useTransition();
 
@@ -207,6 +228,33 @@ export function BreakoutSlotPanel({
       } else {
         setEditError(result.error ?? "Failed to update");
       }
+    });
+  };
+
+  const startAdvancerEdit = (slot: SlotWithDetails) => {
+    setAdvancerSlotId(slot.id);
+    if (slot.advancerVendorId) setAdvancerValue(`vendor:${slot.advancerVendorId}`);
+    else if (slot.advancerContactId) setAdvancerValue(`contact:${slot.advancerContactId}`);
+    else setAdvancerValue("");
+  };
+
+  const cancelAdvancerEdit = () => {
+    setAdvancerSlotId(null);
+    setAdvancerValue("");
+  };
+
+  const saveAdvancer = (slotId: string) => {
+    const { vendorId, contactId } = parsePartyValue(advancerValue);
+    startTransition(async () => {
+      await setSlotAdvancer(slotId, vendorId || null, contactId || null);
+      cancelAdvancerEdit();
+    });
+  };
+
+  const clearAdvancer = (slotId: string) => {
+    startTransition(async () => {
+      await clearSlotAdvancer(slotId);
+      cancelAdvancerEdit();
     });
   };
 
@@ -340,32 +388,91 @@ export function BreakoutSlotPanel({
                 </div>
               </div>
             ) : (
-              <div key={slot.id} className="flex items-start justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                    <Link
-                      href={`/events/${eventId}/functions/${slot.functionId}`}
-                      className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
-                    >
-                      {formatBreakoutSessionName(slot.function.name, slot.function.breakoutGroup?.name)}
-                    </Link>
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {formatSessionTime(slot.function.schedules, timezone)}
-                  </div>
-                  {slot.room && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Room: {slot.room.name}
+              <div key={slot.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <Link
+                        href={`/events/${eventId}/functions/${slot.functionId}`}
+                        className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+                      >
+                        {formatBreakoutSessionName(slot.function.name, slot.function.breakoutGroup?.name)}
+                      </Link>
                     </div>
-                  )}
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {formatSessionTime(slot.function.schedules, timezone)}
+                    </div>
+                    {slot.room && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Room: {slot.room.name}
+                      </div>
+                    )}
+                    {(() => {
+                      const resolved = resolveAdvancer(presentationAdvancer, slot);
+                      const label = partyLabel(resolved.vendor, resolved.contact);
+                      return (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Advancer: {label ?? <span className="italic">none</span>}
+                          {resolved.source === "slot" && (
+                            <span className="ml-1 text-amber-600 dark:text-amber-400">(override)</span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0 ml-3">
+                    <button
+                      onClick={() => startEdit(slot)}
+                      disabled={isPending}
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm disabled:opacity-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => startAdvancerEdit(slot)}
+                      disabled={isPending}
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-xs disabled:opacity-50"
+                    >
+                      {slot.advancerVendorId || slot.advancerContactId ? "Edit advancer" : "Override advancer"}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => startEdit(slot)}
-                  disabled={isPending}
-                  className="text-blue-600 dark:text-blue-400 hover:underline text-sm disabled:opacity-50 shrink-0 ml-3"
-                >
-                  Edit
-                </button>
+                {advancerSlotId === slot.id && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                    <PartyField
+                      value={advancerValue}
+                      onChange={setAdvancerValue}
+                      vendorGroups={advancerOptions.vendorGroups}
+                      contacts={advancerOptions.contacts}
+                      contactsLabel="Speakers"
+                    />
+                    <div className="flex gap-2 text-xs">
+                      <button
+                        onClick={() => saveAdvancer(slot.id)}
+                        disabled={isPending}
+                        className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        Save override
+                      </button>
+                      {(slot.advancerVendorId || slot.advancerContactId) && (
+                        <button
+                          onClick={() => clearAdvancer(slot.id)}
+                          disabled={isPending}
+                          className="px-3 py-1 text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          Clear override
+                        </button>
+                      )}
+                      <button
+                        onClick={cancelAdvancerEdit}
+                        disabled={isPending}
+                        className="px-3 py-1 text-gray-600 dark:text-gray-400"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           )}

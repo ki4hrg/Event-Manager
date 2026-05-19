@@ -10,12 +10,16 @@ import type {
   CustomOption,
 } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
+import { PartyField, partyLabel, type ContactOptions } from "@/app/events/av-orders/party-field";
+import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 
 type SpeakerWithContact = PresentationContact & { contact: Contact };
 
 type PresentationWithRelations = Presentation & {
   track: PresentationTrack | null;
   speakers: SpeakerWithContact[];
+  advancerVendor?: { id: string; name: string } | null;
+  advancerContact?: { id: string; firstName: string; lastName: string } | null;
 };
 
 type SelectedSpeaker = {
@@ -23,6 +27,8 @@ type SelectedSpeaker = {
   role: string;
   isPrimary: boolean;
 };
+
+type AdvancerPartyOptions = { vendorGroups: ResponsiblePartyOptions; contacts: ContactOptions };
 
 type PresentationFormProps = {
   presentation?: PresentationWithRelations;
@@ -32,6 +38,7 @@ type PresentationFormProps = {
   presentationTypes: CustomOption[];
   action: (formData: FormData) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
+  advancerOptions?: AdvancerPartyOptions;
   noCard?: boolean;
 };
 
@@ -53,9 +60,10 @@ type PresentationFieldsProps = {
   presentation?: PresentationWithRelations;
   tracks: PresentationTrack[];
   presentationTypes: CustomOption[];
+  advancerOptions?: AdvancerPartyOptions;
 };
 
-function PresentationFields({ presentation, tracks, presentationTypes }: PresentationFieldsProps) {
+function PresentationFields({ presentation, tracks, presentationTypes, advancerOptions }: PresentationFieldsProps) {
   const inputClass = "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
@@ -143,6 +151,22 @@ function PresentationFields({ presentation, tracks, presentationTypes }: Present
           className={inputClass}
         />
       </div>
+
+      {advancerOptions && (
+        <div>
+          <label className={labelClass}>Advancer</label>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+            Default advancer when this presentation is scheduled. Individual slots can override.
+          </p>
+          <PartyField
+            fieldPrefix="advancer"
+            vendorGroups={advancerOptions.vendorGroups}
+            contacts={advancerOptions.contacts}
+            defaultVendorId={presentation?.advancerVendor?.id ?? null}
+            defaultContactId={presentation?.advancerContact?.id ?? null}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -155,6 +179,7 @@ export function PresentationForm({
   presentationTypes,
   action,
   searchContacts,
+  advancerOptions,
   noCard = false,
 }: PresentationFormProps) {
   const isEdit = !!presentation;
@@ -255,6 +280,10 @@ export function PresentationForm({
           <ReadOnlyField label="Type" value={typeLabel} />
           <ReadOnlyField label="Scheduling Notes" value={presentation.schedulingNotes} />
           <ReadOnlyField label="Internal Notes" value={presentation.internalNotes} />
+          <ReadOnlyField
+            label="Advancer"
+            value={partyLabel(presentation.advancerVendor, presentation.advancerContact)}
+          />
         </dl>
       </div>
     );
@@ -277,6 +306,7 @@ export function PresentationForm({
             presentation={presentation}
             tracks={tracks}
             presentationTypes={presentationTypes}
+            advancerOptions={advancerOptions}
           />
           <div className="flex gap-4">
             <SubmitButton isEdit={true} />

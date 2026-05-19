@@ -121,8 +121,12 @@ export async function getPresentation(id: string) {
             },
           },
           room: true,
+          advancerVendor: { select: { id: true, name: true } },
+          advancerContact: { select: { id: true, firstName: true, lastName: true } },
         },
       },
+      advancerVendor: { select: { id: true, name: true } },
+      advancerContact: { select: { id: true, firstName: true, lastName: true } },
       avOrderLinks: { include: { avOrder: { select: { id: true, name: true } } } },
       setupOrderLinks: { include: { setupOrder: { select: { id: true, name: true, setupType: true, room: { select: { name: true } } } } } },
       mediaOrderLinks: { include: { mediaOrder: { select: { id: true, name: true } } } },
@@ -157,6 +161,8 @@ export async function createPresentation(eventId: string, formData: FormData) {
   const type = formData.get("type") as string;
   const breakoutGroupId = formData.get("breakoutGroupId") as string;
   const instanceCountRaw = formData.get("instanceCount") as string;
+  const advancerVendorId = (formData.get("advancerVendorId") as string) || null;
+  const advancerContactId = (formData.get("advancerContactId") as string) || null;
 
   const defaults = await resolveCreateStatus(eventId, "PRESENTATION");
 
@@ -173,6 +179,8 @@ export async function createPresentation(eventId: string, formData: FormData) {
       eventId,
       status: defaults.status,
       substatus: defaults.substatus,
+      advancerVendorId,
+      advancerContactId,
       updatedById: session.user.id,
     },
   });
@@ -215,6 +223,8 @@ export async function updatePresentation(id: string, eventId: string, formData: 
   const type = formData.get("type") as string;
   const breakoutGroupId = formData.get("breakoutGroupId");
   const instanceCountRaw = formData.get("instanceCount") as string;
+  const advancerVendorIdRaw = formData.get("advancerVendorId");
+  const advancerContactIdRaw = formData.get("advancerContactId");
 
   await prisma.presentation.update({
     where: { id, eventId },
@@ -227,6 +237,8 @@ export async function updatePresentation(id: string, eventId: string, formData: 
       internalNotes: internalNotes || null,
       ...(breakoutGroupId !== null ? { breakoutGroupId: (breakoutGroupId as string) || null } : {}),
       ...(instanceCountRaw ? { instanceCount: parseInt(instanceCountRaw) } : {}),
+      ...(advancerVendorIdRaw !== null ? { advancerVendorId: (advancerVendorIdRaw as string) || null } : {}),
+      ...(advancerContactIdRaw !== null ? { advancerContactId: (advancerContactIdRaw as string) || null } : {}),
       updatedById: session.user.id,
     },
   });
@@ -458,10 +470,6 @@ export async function reorderSpeakers(
 
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
-
-// ============================================================================
-// Contact Search (for speaker selection)
-// ============================================================================
 
 // ============================================================================
 // Contact Search (for speaker selection)

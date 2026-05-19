@@ -3,19 +3,10 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { MediaItem } from "@prisma/client";
-import { PartyField, partyLabel, type ContactOptions } from "@/app/events/av-orders/party-field";
-import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
-
-type MediaItemWithParties = MediaItem & {
-  advancerVendor?: { name: string } | null;
-  advancerContact?: { firstName: string; lastName: string } | null;
-};
 
 type MediaItemPanelProps = {
-  items: MediaItemWithParties[];
+  items: MediaItem[];
   deliveryOptions: { id: string; label: string }[];
-  vendors: ResponsiblePartyOptions;
-  contacts: ContactOptions;
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -37,24 +28,16 @@ function SubmitButton({ label }: { label: string }) {
 function ItemForm({
   defaultDescription = "",
   defaultDelivery = "",
-  defaultAdvancerVendorId = "",
-  defaultAdvancerContactId = "",
   defaultNotes = "",
   deliveryOptions,
-  vendors,
-  contacts,
   onSubmit,
   onCancel,
   submitLabel,
 }: {
   defaultDescription?: string;
   defaultDelivery?: string;
-  defaultAdvancerVendorId?: string;
-  defaultAdvancerContactId?: string;
   defaultNotes?: string;
   deliveryOptions: { id: string; label: string }[];
-  vendors: ResponsiblePartyOptions;
-  contacts: ContactOptions;
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
@@ -88,17 +71,6 @@ function ItemForm({
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Advancer</label>
-          <PartyField
-            fieldPrefix="advancer"
-            vendorGroups={vendors}
-            contacts={contacts}
-            contactsLabel="Contacts"
-            defaultVendorId={defaultAdvancerVendorId || null}
-            defaultContactId={defaultAdvancerContactId || null}
-          />
-        </div>
         <div className="md:col-span-2">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
           <input
@@ -127,8 +99,6 @@ function ItemForm({
 export function MediaItemPanel({
   items,
   deliveryOptions,
-  vendors,
-  contacts,
   createItem,
   updateItem,
   deleteItem,
@@ -164,8 +134,6 @@ export function MediaItemPanel({
         <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <ItemForm
             deliveryOptions={deliveryOptions}
-            vendors={vendors}
-            contacts={contacts}
             onSubmit={handleCreate}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Add"
@@ -183,12 +151,8 @@ export function MediaItemPanel({
                 <ItemForm
                   defaultDescription={item.description}
                   defaultDelivery={item.delivery ?? ""}
-                  defaultAdvancerVendorId={item.advancerVendorId ?? ""}
-                  defaultAdvancerContactId={item.advancerContactId ?? ""}
                   defaultNotes={item.notes ?? ""}
                   deliveryOptions={deliveryOptions}
-                  vendors={vendors}
-                  contacts={contacts}
                   onSubmit={(fd) => handleUpdate(item.id, fd)}
                   onCancel={() => setEditingId(null)}
                   submitLabel="Save"
@@ -200,11 +164,6 @@ export function MediaItemPanel({
                       <span className="font-medium text-gray-900 dark:text-white text-sm">{item.description}</span>
                       {item.delivery && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">· {item.delivery}</span>
-                      )}
-                    </div>
-                    <div className="flex gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {partyLabel(item.advancerVendor, item.advancerContact) && (
-                        <span>Advancer: {partyLabel(item.advancerVendor, item.advancerContact)}</span>
                       )}
                     </div>
                     {item.notes && (

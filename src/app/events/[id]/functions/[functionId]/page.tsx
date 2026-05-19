@@ -451,6 +451,7 @@ export default async function FunctionPage({
               eventId={eventId}
               availableMediaOrders={availableMediaOrders}
               newMediaOrderPath={`/events/${eventId}/media-orders/new?functionId=${functionId}`}
+              emptyMessage="Media to display at this function (looped slides, sponsor video, etc.). Provided by a vendor or a sponsor contact."
               linkMediaOrder={linkMediaOrderAction}
               unlinkMediaOrder={unlinkMediaOrderAction}
             />

@@ -1167,13 +1167,8 @@ const fdPrintOrderInclude = {
 
 const fdMediaOrderInclude = {
   vendors: { include: { vendor: fdVendorSelect } },
-  items: {
-    include: {
-      advancerVendor: fdVendorSelect,
-      advancerContact: fdContactSelect,
-    },
-    orderBy: { sortOrder: "asc" },
-  },
+  contacts: { include: { contact: fdContactSelect }, orderBy: { id: "asc" } },
+  items: { orderBy: { sortOrder: "asc" } },
   updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.MediaOrderInclude;
 
@@ -1240,6 +1235,8 @@ const fdFunctionInclude = {
   presentationSlots: {
     include: {
       room: { select: { id: true, name: true } },
+      advancerVendor: { select: { id: true, name: true } },
+      advancerContact: { select: { id: true, firstName: true, lastName: true } },
       presentation: {
         include: {
           track: { select: { id: true, name: true, color: true } },
@@ -1251,6 +1248,8 @@ const fdFunctionInclude = {
             },
             orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
           },
+          advancerVendor: { select: { id: true, name: true } },
+          advancerContact: { select: { id: true, firstName: true, lastName: true } },
           avOrderLinks: { include: { avOrder: { include: fdAVOrderInclude } } },
           setupOrderLinks: { include: { setupOrder: { include: fdSetupOrderInclude } } },
           printOrder: { include: fdPrintOrderInclude },

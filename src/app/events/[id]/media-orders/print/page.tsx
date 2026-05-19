@@ -4,7 +4,7 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { getMediaOrders, getMediaOrder } from "@/app/events/media-orders/actions";
 import { getEvent } from "../../../actions";
 import { getMediaOrderVendors } from "@/app/vendors/actions";
-import { partyLabel } from "@/app/events/av-orders/party-field";
+import { formatMediaOrderProvidedBy } from "@/lib/mediaOrderProvidedBy";
 
 export const dynamic = "force-dynamic";
 
@@ -64,9 +64,9 @@ export default async function MediaOrdersPrintPage({
               </p>
             )}
 
-            {vendors.length > 0 && (
+            {(vendors.length > 0 || order.contacts.length > 0) && (
               <p className="text-sm text-gray-700 print:text-black mb-3">
-                Vendors: {vendors.map((v) => v.vendor.name).join(", ")}
+                Provided by: {formatMediaOrderProvidedBy(vendors, order.contacts).join(", ")}
               </p>
             )}
 
@@ -78,7 +78,6 @@ export default async function MediaOrdersPrintPage({
                   <tr className="border-b border-gray-300">
                     <th className="text-left py-2 pr-3 font-medium text-gray-700 print:text-black">Item</th>
                     <th className="text-left py-2 pr-3 font-medium text-gray-700 print:text-black">Delivery</th>
-                    <th className="text-left py-2 pr-3 font-medium text-gray-700 print:text-black">Advancer</th>
                     <th className="text-left py-2 font-medium text-gray-700 print:text-black">Notes</th>
                   </tr>
                 </thead>
@@ -87,7 +86,6 @@ export default async function MediaOrdersPrintPage({
                     <tr key={item.id} className="border-b border-gray-200">
                       <td className="py-2 pr-3 align-top">{item.description}</td>
                       <td className="py-2 pr-3 align-top">{item.delivery ?? ""}</td>
-                      <td className="py-2 pr-3 align-top">{partyLabel(item.advancerVendor, item.advancerContact) ?? ""}</td>
                       <td className="py-2 align-top">{item.notes ?? ""}</td>
                     </tr>
                   ))}

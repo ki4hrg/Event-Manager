@@ -37,8 +37,16 @@ export async function getBreakoutGroups(eventId: string) {
           sessionRoomOverrides: true,
           presentationSlots: {
             include: {
-              presentation: { include: { speakers: { include: { contact: true } } } },
+              presentation: {
+                include: {
+                  speakers: { include: { contact: true } },
+                  advancerVendor: { select: { id: true, name: true } },
+                  advancerContact: { select: { id: true, firstName: true, lastName: true } },
+                },
+              },
               room: true,
+              advancerVendor: { select: { id: true, name: true } },
+              advancerContact: { select: { id: true, firstName: true, lastName: true } },
             },
           },
         },
@@ -48,6 +56,8 @@ export async function getBreakoutGroups(eventId: string) {
           slots: true,
           track: true,
           speakers: { include: { contact: true } },
+          advancerVendor: { select: { id: true, name: true } },
+          advancerContact: { select: { id: true, firstName: true, lastName: true } },
         },
       },
     },
@@ -80,8 +90,16 @@ export async function getUngroupedBlocks(eventId: string) {
       sessionRoomOverrides: true,
       presentationSlots: {
         include: {
-          presentation: { include: { speakers: { include: { contact: true } } } },
+          presentation: {
+            include: {
+              speakers: { include: { contact: true } },
+              advancerVendor: { select: { id: true, name: true } },
+              advancerContact: { select: { id: true, firstName: true, lastName: true } },
+            },
+          },
           room: true,
+          advancerVendor: { select: { id: true, name: true } },
+          advancerContact: { select: { id: true, firstName: true, lastName: true } },
         },
       },
     },
@@ -527,6 +545,36 @@ export async function updateSlotRoom(
     data: { roomId: roomId || null },
   });
   revalidatePath(`/events/${eventId}/breakout-schedule`);
+}
+
+export async function setSlotAdvancer(
+  slotId: string,
+  eventId: string,
+  advancerVendorId: string | null,
+  advancerContactId: string | null,
+) {
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const slot = await prisma.presentationSlot.update({
+    where: { id: slotId, function: { eventId } },
+    data: {
+      advancerVendorId: advancerVendorId || null,
+      advancerContactId: advancerContactId || null,
+    },
+    select: { presentationId: true },
+  });
+  revalidatePath(`/events/${eventId}/breakout-schedule`);
+  revalidatePath(`/events/${eventId}/presentations/${slot.presentationId}`);
+}
+
+export async function clearSlotAdvancer(slotId: string, eventId: string) {
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  const slot = await prisma.presentationSlot.update({
+    where: { id: slotId, function: { eventId } },
+    data: { advancerVendorId: null, advancerContactId: null },
+    select: { presentationId: true },
+  });
+  revalidatePath(`/events/${eventId}/breakout-schedule`);
+  revalidatePath(`/events/${eventId}/presentations/${slot.presentationId}`);
 }
 
 export async function getAvailableBlocksForPresentation(

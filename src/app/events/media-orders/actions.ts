@@ -5,8 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect, notFound } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
-import { getDefaultVendorForModel, getResponsiblePartyVendors } from "@/app/vendors/actions";
-import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 
@@ -33,6 +32,7 @@ export async function getMediaOrders(eventId: string) {
       functionLinks: { include: { function: { select: { id: true, name: true } } } },
       presentationLinks: { include: { presentation: { select: { id: true, title: true } } } },
       vendors: { include: { vendor: { select: { id: true, name: true } } } },
+      contacts: { include: { contact: { select: { id: true, firstName: true, lastName: true } } }, orderBy: { id: "asc" } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -71,11 +71,9 @@ export async function getMediaOrder(id: string) {
         },
         orderBy: { presentation: { title: "asc" } },
       },
-      items: {
-        include: { advancerVendor: true, advancerContact: true },
-        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-      },
+      items: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       vendors: { include: { vendor: true }, orderBy: { vendor: { name: "asc" } } },
+      contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       files: { orderBy: { createdAt: "asc" } },
       updatedBy: { select: { name: true, email: true } },
     },
@@ -246,8 +244,6 @@ function parseMediaItemData(formData: FormData) {
   return {
     description: (formData.get("description") as string)?.trim(),
     delivery: (formData.get("delivery") as string) || null,
-    advancerVendorId: (formData.get("advancerVendorId") as string) || null,
-    advancerContactId: (formData.get("advancerContactId") as string) || null,
     notes: (formData.get("notes") as string) || null,
   };
 }
@@ -278,68 +274,79 @@ export async function deleteMediaItem(id: string, mediaOrderId: string, eventId:
 }
 
 // ============================================================================
-// Party options (for the per-item advancer picker)
+// MediaOrderContact CRUD
 // ============================================================================
 
-async function getContactsForMediaOrder(mediaOrderId: string) {
-  const mediaOrder = await prisma.mediaOrder.findUnique({
-    where: { id: mediaOrderId },
-    select: {
-      presentationLinks: {
-        select: {
-          presentation: {
-            select: {
-              speakers: {
-                include: { contact: true },
-                orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-              },
-            },
-          },
-        },
-      },
-      functionLinks: {
-        select: {
-          function: { select: { contacts: { include: { contact: true } } } },
-        },
-      },
+export async function addMediaOrderContact(mediaOrderId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await assertMediaOrderInEvent(mediaOrderId, eventId);
+  const contactId = formData.get("contactId") as string;
+  const role = formData.get("role") as string;
+
+  await prisma.mediaOrderContact.create({
+    data: { mediaOrderId, contactId, role: role || null },
+  });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
+  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
+}
+
+export async function updateMediaOrderContact(id: string, mediaOrderId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await prisma.mediaOrderContact.update({
+    where: { id, mediaOrder: { eventId } },
+    data: { role: (formData.get("role") as string) || null },
+  });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
+  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
+}
+
+export async function removeMediaOrderContact(id: string, mediaOrderId: string, eventId: string) {
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await prisma.mediaOrderContact.delete({ where: { id, mediaOrder: { eventId } } });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
+  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
+}
+
+export async function createAndAddMediaOrderContact(mediaOrderId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
+  await assertMediaOrderInEvent(mediaOrderId, eventId);
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
+  const email = formData.get("email") as string;
+  const organization = formData.get("organization") as string;
+  const role = formData.get("role") as string;
+
+  const contact = await prisma.contact.create({
+    data: {
+      firstName,
+      lastName,
+      email: email || null,
+      organization: organization || null,
+      updatedById: session.user.id,
     },
   });
 
-  const contactMap = new Map<string, { id: string; firstName: string; lastName: string; organization: string | null }>();
-  for (const link of mediaOrder?.presentationLinks ?? []) {
-    for (const s of link.presentation.speakers) {
-      contactMap.set(s.contact.id, {
-        id: s.contact.id,
-        firstName: s.contact.firstName,
-        lastName: s.contact.lastName,
-        organization: s.contact.organization,
-      });
-    }
-  }
-  for (const link of mediaOrder?.functionLinks ?? []) {
-    for (const fc of link.function.contacts) {
-      contactMap.set(fc.contact.id, {
-        id: fc.contact.id,
-        firstName: fc.contact.firstName,
-        lastName: fc.contact.lastName,
-        organization: fc.contact.organization,
-      });
-    }
-  }
-  return Array.from(contactMap.values());
+  await prisma.mediaOrderContact.create({
+    data: { mediaOrderId, contactId: contact.id, role: role || null },
+  });
+  await bumpMediaOrder(mediaOrderId, session.user.id);
+  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
 }
 
-export async function getMediaOrderPartyOptions(
-  mediaOrderId: string,
-  eventId: string
-): Promise<{ responsiblePartyVendors: ResponsiblePartyOptions; contacts: { id: string; firstName: string; lastName: string; organization: string | null }[] }> {
-  await requirePermission("MEDIA_ORDERS", "VIEW", eventId);
-  await assertMediaOrderInEvent(mediaOrderId, eventId);
-  const [responsiblePartyVendors, contacts] = await Promise.all([
-    getResponsiblePartyVendors(eventId, "MEDIA_ORDER"),
-    getContactsForMediaOrder(mediaOrderId),
-  ]);
-  return { responsiblePartyVendors, contacts };
+export async function searchContactsForMediaOrder(query: string) {
+  await requirePermission("CONTACTS", "VIEW");
+  return prisma.contact.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { email: { contains: query, mode: "insensitive" } },
+        { organization: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    take: 20,
+  });
 }
 
 // ============================================================================

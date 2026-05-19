@@ -12,6 +12,9 @@ import { formatPhone } from "@/lib/format-phone";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { STATUS_LABEL, STATUS_CLASS } from "@/lib/statusConstants";
 import { formatTime, formatDateTime, getDateKeyInTimezone } from "@/lib/agendaUtils";
+import { resolveAdvancer } from "@/lib/presentationAdvancer";
+import { partyLabel } from "@/app/events/av-orders/party-field";
+import { formatMediaOrderProvidedBy } from "@/lib/mediaOrderProvidedBy";
 
 type OptionList = { label: string; color?: string | null }[];
 
@@ -582,6 +585,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
 }
 
 function MediaOrderCard({ order }: { order: MediaOrder }) {
+  const providedBy = formatMediaOrderProvidedBy(order.vendors, order.contacts);
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
@@ -594,6 +598,11 @@ function MediaOrderCard({ order }: { order: MediaOrder }) {
         <VendorPills vendors={order.vendors} />
       </div>
       <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
+      {providedBy.length > 0 && (
+        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">
+          Provided by: {providedBy.join(", ")}
+        </p>
+      )}
       {order.notes && (
         <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
           {order.notes}
@@ -613,12 +622,6 @@ function MediaOrderCard({ order }: { order: MediaOrder }) {
                     Delivery: {it.delivery}
                   </p>
                 )}
-                {vendorOrContactName(it.advancerVendor, it.advancerContact) && (
-                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                    Advancer:{" "}
-                    {vendorOrContactName(it.advancerVendor, it.advancerContact)}
-                  </p>
-                )}
                 {it.notes && (
                   <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
                     {it.notes}
@@ -634,7 +637,6 @@ function MediaOrderCard({ order }: { order: MediaOrder }) {
                 <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                   <th className="py-1.5 pr-3 text-xs font-medium">Item</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Delivery</th>
-                  <th className="py-1.5 pr-3 text-xs font-medium">Advancer</th>
                   <th className="py-1.5 text-xs font-medium">Notes</th>
                 </tr>
               </thead>
@@ -649,9 +651,6 @@ function MediaOrderCard({ order }: { order: MediaOrder }) {
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                       {it.delivery ?? "—"}
-                    </td>
-                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                      {vendorOrContactName(it.advancerVendor, it.advancerContact) ?? "—"}
                     </td>
                     <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
                       {it.notes ?? ""}
@@ -901,6 +900,22 @@ function PresentationCard({
                 .join(", ")}
             </p>
           )}
+          {(() => {
+            const resolved = resolveAdvancer(
+              { advancerVendor: p.advancerVendor, advancerContact: p.advancerContact },
+              slot,
+            );
+            const label = partyLabel(resolved.vendor, resolved.contact);
+            if (!label) return null;
+            return (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Advancer: {label}
+                {resolved.source === "slot" && (
+                  <span className="ml-1 text-amber-700 dark:text-amber-400">(override)</span>
+                )}
+              </p>
+            );
+          })()}
         </div>
         <div className="flex items-baseline gap-2 flex-wrap text-xs text-gray-500 dark:text-gray-400">
           <StatusBadge status={p.status} />

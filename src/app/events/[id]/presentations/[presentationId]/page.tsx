@@ -22,6 +22,8 @@ import {
   searchContacts,
   createAndAddPresentationSpeaker,
 } from "../../../presentations/actions";
+import { setSlotAdvancer, clearSlotAdvancer } from "../../../breakout-schedule/actions";
+import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import {
   getAvailableMediaOrdersForPresentation,
   linkMediaOrderToPresentationFromPresentation,
@@ -97,7 +99,7 @@ export default async function PresentationPage({
     notFound();
   }
 
-  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, availableMediaOrders] = await Promise.all([
+  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, availableMediaOrders, advancerVendorGroups] = await Promise.all([
     prisma.breakoutGroup.findMany({
       where: { eventId },
       select: {
@@ -136,7 +138,18 @@ export default async function PresentationPage({
       ? Promise.resolve([])
       : getAvailablePrintOrdersForPresentation(eventId),
     getAvailableMediaOrdersForPresentation(eventId, presentationId),
+    getResponsiblePartyVendors(eventId),
   ]);
+
+  const advancerOptions = {
+    vendorGroups: advancerVendorGroups,
+    contacts: presentation.speakers.map((s) => ({
+      id: s.contact.id,
+      firstName: s.contact.firstName,
+      lastName: s.contact.lastName,
+      organization: s.contact.organization,
+    })),
+  };
 
   const breakoutGroupsFull = breakoutGroups.map((g) => ({
     id: g.id,
@@ -238,6 +251,16 @@ export default async function PresentationPage({
   const updateInstanceCountAction = async (count: number) => {
     "use server";
     await updatePresentationInstanceCount(presentationId, eventId, count);
+  };
+
+  const setSlotAdvancerAction = async (slotId: string, vendorId: string | null, contactId: string | null) => {
+    "use server";
+    await setSlotAdvancer(slotId, eventId, vendorId, contactId);
+  };
+
+  const clearSlotAdvancerAction = async (slotId: string) => {
+    "use server";
+    await clearSlotAdvancer(slotId, eventId);
   };
 
   const linkMediaOrderAction = async (mediaOrderId: string) => {
@@ -358,6 +381,7 @@ export default async function PresentationPage({
               presentationTypes={presentationTypes}
               action={updatePresentationAction}
               searchContacts={searchContactsAction}
+              advancerOptions={advancerOptions}
             />
           </div>
 
@@ -391,11 +415,18 @@ export default async function PresentationPage({
             instanceCount={presentation.instanceCount}
             currentGroupId={presentation.breakoutGroupId}
             groups={breakoutGroupsFull}
+            presentationAdvancer={{
+              advancerVendor: presentation.advancerVendor,
+              advancerContact: presentation.advancerContact,
+            }}
+            advancerOptions={advancerOptions}
             addSlot={addSlotAction}
             removeAll={removeAllAction}
             editSlot={editSlotAction}
             assignToGroup={assignToGroupAction}
             updateInstanceCount={updateInstanceCountAction}
+            setSlotAdvancer={setSlotAdvancerAction}
+            clearSlotAdvancer={clearSlotAdvancerAction}
           />
 
           <AVOrderPanel

@@ -14,6 +14,7 @@ type MediaOrderPanelProps = {
   eventId: string;
   availableMediaOrders: MediaOrderSummary[];
   newMediaOrderPath: string;
+  emptyMessage?: string;
   linkMediaOrder: (mediaOrderId: string) => Promise<void>;
   unlinkMediaOrder: (mediaOrderId: string) => Promise<void>;
 };
@@ -24,6 +25,7 @@ export function MediaOrderPanel({
   eventId,
   availableMediaOrders,
   newMediaOrderPath,
+  emptyMessage = "No Media Orders linked.",
   linkMediaOrder,
   unlinkMediaOrder,
 }: MediaOrderPanelProps) {
@@ -45,7 +47,7 @@ export function MediaOrderPanel({
       }))}
       availableItems={availableMediaOrders.map((o) => ({ id: o.id, label: o.name }))}
       linkLabel="Link Existing"
-      emptyMessage="No Media Orders linked."
+      emptyMessage={emptyMessage}
       newItemPath={newMediaOrderPath}
       newItemLabel="Create New"
       linkItem={linkMediaOrder}

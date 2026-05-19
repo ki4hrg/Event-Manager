@@ -61,29 +61,36 @@ export function partyLabel(
   return null;
 }
 
-export function PartyField({
-  fieldPrefix,
-  vendors,
-  vendorGroups,
-  contacts,
-  contactsLabel = "Contacts",
-  defaultVendorId,
-  defaultContactId,
-}: {
-  fieldPrefix: string;
+type PartyFieldProps = {
   vendors?: PartyOptions;
   vendorGroups?: ResponsiblePartyOptions;
   contacts: ContactOptions;
   contactsLabel?: string;
   defaultVendorId?: string | null;
   defaultContactId?: string | null;
-}) {
+} & (
+  | { fieldPrefix: string; value?: never; onChange?: never }
+  | { fieldPrefix?: never; value: string; onChange: (v: string) => void }
+);
+
+export function PartyField(props: PartyFieldProps) {
+  const {
+    vendors,
+    vendorGroups,
+    contacts,
+    contactsLabel = "Contacts",
+    defaultVendorId,
+    defaultContactId,
+  } = props;
   const initialValue = defaultVendorId
     ? `vendor:${defaultVendorId}`
     : defaultContactId
     ? `contact:${defaultContactId}`
     : "";
-  const [selected, setSelected] = useState(initialValue);
+  const [internalSelected, setInternalSelected] = useState(initialValue);
+  const isControlled = "value" in props && props.value !== undefined;
+  const selected = isControlled ? props.value : internalSelected;
+  const setSelected = isControlled ? props.onChange : setInternalSelected;
   const { vendorId, contactId } = parsePartyValue(selected);
 
   return (
@@ -127,8 +134,12 @@ export function PartyField({
           </optgroup>
         )}
       </select>
-      <input type="hidden" name={`${fieldPrefix}VendorId`} value={vendorId} />
-      <input type="hidden" name={`${fieldPrefix}ContactId`} value={contactId} />
+      {!isControlled && (
+        <>
+          <input type="hidden" name={`${props.fieldPrefix}VendorId`} value={vendorId} />
+          <input type="hidden" name={`${props.fieldPrefix}ContactId`} value={contactId} />
+        </>
+      )}
     </div>
   );
 }
