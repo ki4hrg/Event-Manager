@@ -134,12 +134,12 @@ export function AdditionalServiceLocationTable({
         <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="text-sm">
             <span className="font-semibold text-gray-900 dark:text-white">{primaryName}</span>
+            {primaryRoomName && (
+              <span className="text-gray-500 dark:text-gray-400"> ({primaryRoomName})</span>
+            )}
             <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
               Primary
             </span>
-            {primaryRoomName && (
-              <span className="text-gray-500 dark:text-gray-400"> · {primaryRoomName}</span>
-            )}
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
             {orderExpectedCount != null && primaryRemaining != null
@@ -177,7 +177,7 @@ export function AdditionalServiceLocationTable({
                         </span>
                       ) : (
                         derivedRoom && (
-                          <span className="text-gray-500 dark:text-gray-400"> · {derivedRoom}</span>
+                          <span className="text-gray-500 dark:text-gray-400"> ({derivedRoom})</span>
                         )
                       )}
                     </div>
