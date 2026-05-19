@@ -86,6 +86,7 @@ export function CateringOrderDetails({
 
       {order.additionalServiceLocations.length > 0 && (() => {
         const primaryRoom = order.function?.rooms[0]?.room.name ?? null;
+        const primaryFunctionName = order.function?.name ?? null;
         const { sumKnown, uncountedCount, primaryRemaining, exceedsExpected, exceedsConfirmed } =
           computeServiceLocationCounts(
             order.additionalServiceLocations,
@@ -93,19 +94,15 @@ export function CateringOrderDetails({
             order.confirmedCount,
           );
 
+        const primaryDisplay = primaryFunctionName ?? "Main Service";
+        const primaryLocation = `${primaryDisplay}${primaryRoom ? ` (${primaryRoom})` : ""}`;
+        const primaryCount =
+          order.expectedCount != null && primaryRemaining != null
+            ? `${primaryRemaining} of ${order.expectedCount}`
+            : "—";
+
         return (
           <Section title="Service Locations">
-            <div className="text-sm mb-2">
-              <span className="font-medium text-gray-700 print:text-black">Primary service</span>
-              <span className="text-gray-500 print:text-gray-600"> · </span>
-              <span className="text-gray-900 print:text-black">{primaryRoom ?? "—"}</span>
-              <span className="text-gray-500 print:text-gray-600"> · </span>
-              <span className="text-gray-900 print:text-black">
-                {order.expectedCount != null && primaryRemaining != null
-                  ? `${primaryRemaining} of ${order.expectedCount} expected`
-                  : "— of — expected"}
-              </span>
-            </div>
             {uncountedCount > 0 && (
               <div className="text-xs text-gray-500 print:text-gray-600 mb-1">
                 ({uncountedCount} location count{uncountedCount === 1 ? "" : "s"} not yet set)
@@ -124,22 +121,31 @@ export function CateringOrderDetails({
             <table className="w-full text-sm border-collapse mt-1">
               <thead>
                 <tr className="text-left text-gray-500 print:text-gray-600">
-                  <th className="pb-1 pr-4 font-medium">Name</th>
-                  <th className="pb-1 pr-4 font-medium">Linked Function</th>
+                  <th className="pb-1 pr-4 font-medium">Location</th>
                   <th className="pb-1 pr-4 font-medium">Expected</th>
                   <th className="pb-1 font-medium">Notes</th>
                 </tr>
               </thead>
               <tbody>
+                <tr className="border-t border-gray-100 print:border-gray-300">
+                  <td className="py-1.5 pr-4 text-gray-900 print:text-black">
+                    {primaryLocation}
+                    <span className="ml-1 text-xs text-gray-500 print:text-gray-600">[Primary]</span>
+                  </td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{primaryCount}</td>
+                  <td className="py-1.5 text-gray-600 print:text-gray-700"></td>
+                </tr>
                 {order.additionalServiceLocations.map((loc) => {
                   const derivedRoom = loc.function?.rooms[0]?.room.name ?? null;
-                  const displayName = loc.name ?? loc.function?.name ?? "Unnamed location";
+                  const functionName = loc.function?.name ?? null;
+                  const baseName = loc.name ?? functionName ?? "Unnamed location";
+                  const roomAside = derivedRoom ? ` (${derivedRoom})` : "";
+                  const functionAside = loc.name && functionName ? ` · ${functionName}${roomAside}` : (!loc.name ? roomAside : "");
                   return (
                     <tr key={loc.id} className="border-t border-gray-100 print:border-gray-300">
-                      <td className="py-1.5 pr-4 text-gray-900 print:text-black">{displayName}</td>
-                      <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">
-                        {loc.function?.name ?? "—"}
-                        {derivedRoom && ` (${derivedRoom})`}
+                      <td className="py-1.5 pr-4 text-gray-900 print:text-black">
+                        {baseName}
+                        <span className="text-gray-500 print:text-gray-600">{functionAside}</span>
                       </td>
                       <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{loc.expectedCount ?? "—"}</td>
                       <td className="py-1.5 text-gray-600 print:text-gray-700">{loc.notes ?? ""}</td>
