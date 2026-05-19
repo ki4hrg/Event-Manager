@@ -464,7 +464,7 @@ export async function createCateringOrderServiceLocation(cateringOrderId: string
   await prisma.cateringOrderServiceLocation.create({
     data: {
       cateringOrderId,
-      name: (formData.get("name") as string).trim(),
+      name: ((formData.get("name") as string) || "").trim() || null,
       functionId: rawFunctionId && rawFunctionId !== "__blank__" ? rawFunctionId : null,
       expectedCount: rawExpectedCount ? parseInt(rawExpectedCount) : null,
       notes: (formData.get("notes") as string) || null,
@@ -484,7 +484,7 @@ export async function updateCateringOrderServiceLocation(id: string, cateringOrd
   await prisma.cateringOrderServiceLocation.update({
     where: { id, cateringOrder: { eventId } },
     data: {
-      name: (formData.get("name") as string).trim(),
+      name: ((formData.get("name") as string) || "").trim() || null,
       functionId: rawFunctionId && rawFunctionId !== "__blank__" ? rawFunctionId : null,
       expectedCount: rawExpectedCount ? parseInt(rawExpectedCount) : null,
       notes: (formData.get("notes") as string) || null,

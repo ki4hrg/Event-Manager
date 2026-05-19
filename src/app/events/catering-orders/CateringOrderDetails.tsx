@@ -133,9 +133,10 @@ export function CateringOrderDetails({
               <tbody>
                 {order.additionalServiceLocations.map((loc) => {
                   const derivedRoom = loc.function?.rooms[0]?.room.name ?? null;
+                  const displayName = loc.name ?? loc.function?.name ?? "Unnamed location";
                   return (
                     <tr key={loc.id} className="border-t border-gray-100 print:border-gray-300">
-                      <td className="py-1.5 pr-4 text-gray-900 print:text-black">{loc.name}</td>
+                      <td className="py-1.5 pr-4 text-gray-900 print:text-black">{displayName}</td>
                       <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">
                         {loc.function?.name ?? "—"}
                         {derivedRoom && ` (${derivedRoom})`}

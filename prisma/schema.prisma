@@ -622,7 +622,7 @@ model CateringOrderServiceLocation {
   id              String        @id @default(cuid())
   cateringOrderId String
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
-  name            String
+  name            String?
   functionId      String?
   function        Function?     @relation("ServiceLocationFunction", fields: [functionId], references: [id], onDelete: SetNull)
   expectedCount   Int?

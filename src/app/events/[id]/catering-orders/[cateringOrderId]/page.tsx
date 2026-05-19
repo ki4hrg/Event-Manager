@@ -497,6 +497,7 @@ export default async function CateringOrderPage({
               locations={cateringOrder.additionalServiceLocations}
               orderExpectedCount={cateringOrder.expectedCount}
               orderConfirmedCount={cateringOrder.confirmedCount}
+              primaryFunctionName={cateringOrder.function?.name ?? null}
               primaryRoomName={cateringOrder.function?.rooms[0]?.room.name ?? null}
               functions={allEventFunctions}
               createLocation={createServiceLocationAction}

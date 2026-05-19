@@ -1,10 +1,12 @@
 export type CateringRelationship =
   | { via: "PRIMARY" }
-  | { via: "ADDITIONAL_LOCATION"; locationName: string };
+  | { via: "ADDITIONAL_LOCATION"; locationName: string | null };
 
 export function cateringRelationshipLabel(relationship: CateringRelationship): string {
   if (relationship.via === "PRIMARY") return "Primary catering";
-  return `Additional service location: ${relationship.locationName}`;
+  return relationship.locationName
+    ? `Additional service location: ${relationship.locationName}`
+    : "Additional service location";
 }
 
 type CountableLocation = { expectedCount: number | null };

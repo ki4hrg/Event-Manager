@@ -417,7 +417,7 @@ export default async function FunctionPage({
                               {loc.cateringOrder.name}
                             </Link>
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                              Service location: <span className="text-gray-700 dark:text-gray-300">{loc.name}</span>
+                              Service location{loc.name ? <>: <span className="text-gray-700 dark:text-gray-300">{loc.name}</span></> : " for this function"}
                               {loc.expectedCount != null && <span> · {loc.expectedCount} expected</span>}
                             </div>
                           </div>
