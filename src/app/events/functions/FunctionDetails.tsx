@@ -109,7 +109,11 @@ export function FunctionDetails({
       )}
 
       {/* Linked Orders */}
-      {(fn.avOrders.length > 0 || fn.cateringOrder || fn.setupOrders.length > 0) && (
+      {(fn.avOrders.length > 0 ||
+        fn.cateringOrder ||
+        fn.setupOrders.length > 0 ||
+        fn.printOrderFunctions.length > 0 ||
+        fn.mediaDeliverableFunctions.length > 0) && (
         <Section title="Linked Orders">
           {fn.avOrders.length > 0 && (
             <div className="text-sm mb-1">
@@ -132,6 +136,26 @@ export function FunctionDetails({
               </span>
               <span className="text-gray-900 print:text-black">
                 {fn.setupOrders.map((o) => getSetupOrderDisplayName(o)).join(", ")}
+              </span>
+            </div>
+          )}
+          {fn.printOrderFunctions.length > 0 && (
+            <div className="text-sm mb-1">
+              <span className="font-medium text-gray-500 print:text-gray-600">
+                Print Order{fn.printOrderFunctions.length > 1 ? "s" : ""}:{" "}
+              </span>
+              <span className="text-gray-900 print:text-black">
+                {fn.printOrderFunctions.map((l) => l.printOrder.name).join(", ")}
+              </span>
+            </div>
+          )}
+          {fn.mediaDeliverableFunctions.length > 0 && (
+            <div className="text-sm mb-1">
+              <span className="font-medium text-gray-500 print:text-gray-600">
+                Media Deliverable{fn.mediaDeliverableFunctions.length > 1 ? "s" : ""}:{" "}
+              </span>
+              <span className="text-gray-900 print:text-black">
+                {fn.mediaDeliverableFunctions.map((l) => l.mediaDeliverable.name).join(", ")}
               </span>
             </div>
           )}

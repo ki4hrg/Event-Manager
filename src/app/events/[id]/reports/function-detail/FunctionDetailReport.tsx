@@ -46,15 +46,6 @@ function formatScheduleEndTime(start: Date, end: Date, timezone: string): string
   return formatTime(end, timezone);
 }
 
-function vendorOrContactName(
-  vendor?: { name: string } | null,
-  contact?: { firstName: string; lastName: string } | null,
-): string | null {
-  if (vendor) return vendor.name;
-  if (contact) return `${contact.firstName} ${contact.lastName}`;
-  return null;
-}
-
 function StatusBadge({ status }: { status: Fn["status"] }) {
   if (!status) return null;
   return (
@@ -108,38 +99,40 @@ function EquipmentTable({ items }: { items: EquipmentItem[] }) {
   return (
     <>
       <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
-        {items.map((it) => (
-          <div key={it.id} className="p-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-medium text-gray-900 dark:text-gray-100">
-                {it.equipment?.name ?? it.item}
-              </span>
-              <span className="text-gray-500 dark:text-gray-400">
-                Qty {it.quantity ?? 1}
-              </span>
-            </div>
-            <div className="text-gray-500 dark:text-gray-400 mt-0.5">
-              {it.equipment?.category && <span>{it.equipment.category}</span>}
-              {vendorOrContactName(it.providerVendor, it.providerContact) && (
-                <span>
-                  {" "}· Provider:{" "}
-                  {vendorOrContactName(it.providerVendor, it.providerContact)}
+        {items.map((it) => {
+          const provider = partyLabel(it.providerVendor, it.providerContact);
+          const operator = partyLabel(it.operatorVendor, it.operatorContact);
+          return (
+            <div key={it.id} className="p-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {it.item}
                 </span>
-              )}
-              {vendorOrContactName(it.operatorVendor, it.operatorContact) && (
-                <span>
-                  {" "}· Operator:{" "}
-                  {vendorOrContactName(it.operatorVendor, it.operatorContact)}
+                <span className="text-gray-500 dark:text-gray-400">
+                  Qty {it.quantity ?? 1}
                 </span>
+              </div>
+              {it.equipment?.name && (
+                <div className="text-gray-500 dark:text-gray-400 mt-0.5">
+                  {it.equipment.name}
+                  {it.equipment.category && <span> · {it.equipment.category}</span>}
+                </div>
+              )}
+              {(provider || operator) && (
+                <div className="text-gray-500 dark:text-gray-400 mt-0.5">
+                  {provider && <span>Provider: {provider}</span>}
+                  {provider && operator && " · "}
+                  {operator && <span>Operator: {operator}</span>}
+                </div>
+              )}
+              {it.notes && (
+                <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
+                  {it.notes}
+                </p>
               )}
             </div>
-            {it.notes && (
-              <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
-                {it.notes}
-              </p>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="hidden sm:block print:block overflow-x-auto">
@@ -147,7 +140,7 @@ function EquipmentTable({ items }: { items: EquipmentItem[] }) {
           <thead>
             <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
               <th className="py-1.5 pr-3 text-xs font-medium">Item</th>
-              <th className="py-1.5 pr-3 text-xs font-medium">Category</th>
+              <th className="py-1.5 pr-3 text-xs font-medium">Equipment</th>
               <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">Qty</th>
               <th className="py-1.5 pr-3 text-xs font-medium">Provider</th>
               <th className="py-1.5 pr-3 text-xs font-medium">Operator</th>
@@ -161,19 +154,28 @@ function EquipmentTable({ items }: { items: EquipmentItem[] }) {
                 className="border-b border-gray-100 dark:border-gray-800 align-top"
               >
                 <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
-                  {it.equipment?.name ?? it.item}
+                  {it.item}
                 </td>
                 <td className="py-1.5 pr-3 text-gray-500 dark:text-gray-400">
-                  {it.equipment?.category ?? "—"}
+                  {it.equipment?.name ? (
+                    <>
+                      {it.equipment.name}
+                      {it.equipment.category && (
+                        <span className="text-gray-400 dark:text-gray-500"> · {it.equipment.category}</span>
+                      )}
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-1.5 pr-3 text-right text-gray-900 dark:text-gray-100">
                   {it.quantity ?? 1}
                 </td>
                 <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                  {vendorOrContactName(it.providerVendor, it.providerContact) ?? "—"}
+                  {partyLabel(it.providerVendor, it.providerContact) ?? "—"}
                 </td>
                 <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                  {vendorOrContactName(it.operatorVendor, it.operatorContact) ?? "—"}
+                  {partyLabel(it.operatorVendor, it.operatorContact) ?? "—"}
                 </td>
                 <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
                   {it.notes ?? ""}
@@ -194,10 +196,10 @@ function InputGroupBlock({ group }: { group: InputGroupT }) {
         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
           {group.name}
         </span>
-        {vendorOrContactName(group.providerVendor, group.providerContact) && (
+        {partyLabel(group.providerVendor, group.providerContact) && (
           <span className="text-xs text-gray-500 dark:text-gray-400">
             Provider:{" "}
-            {vendorOrContactName(group.providerVendor, group.providerContact)}
+            {partyLabel(group.providerVendor, group.providerContact)}
           </span>
         )}
       </div>
@@ -209,7 +211,7 @@ function InputGroupBlock({ group }: { group: InputGroupT }) {
       {group.inputItems.length > 0 && (
         <ul className="text-xs text-gray-700 dark:text-gray-300 mt-1 space-y-0.5">
           {group.inputItems.map((it) => {
-            const provider = vendorOrContactName(
+            const provider = partyLabel(
               it.providerVendor,
               it.providerContact,
             );
@@ -217,8 +219,13 @@ function InputGroupBlock({ group }: { group: InputGroupT }) {
               <li key={it.id}>
                 <span className="text-gray-900 dark:text-gray-100">
                   {it.quantity > 1 ? `${it.quantity}× ` : ""}
-                  {it.equipment?.name ?? it.description}
+                  {it.description}
                 </span>
+                {it.equipment?.name && (
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {" "}({it.equipment.name})
+                  </span>
+                )}
                 {provider && (
                   <span className="text-gray-500 dark:text-gray-400">
                     {" "}· {provider}
@@ -240,10 +247,10 @@ function MonitorMixBlock({ mix }: { mix: MonitorMixT }) {
         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
           {mix.description}
         </span>
-        {vendorOrContactName(mix.providerVendor, mix.providerContact) && (
+        {partyLabel(mix.providerVendor, mix.providerContact) && (
           <span className="text-xs text-gray-500 dark:text-gray-400">
             Provider:{" "}
-            {vendorOrContactName(mix.providerVendor, mix.providerContact)}
+            {partyLabel(mix.providerVendor, mix.providerContact)}
           </span>
         )}
       </div>
@@ -255,7 +262,7 @@ function MonitorMixBlock({ mix }: { mix: MonitorMixT }) {
       {mix.monitorOutputs.length > 0 && (
         <ul className="text-xs text-gray-700 dark:text-gray-300 mt-1 space-y-0.5">
           {mix.monitorOutputs.map((out) => {
-            const provider = vendorOrContactName(
+            const provider = partyLabel(
               out.providerVendor,
               out.providerContact,
             );
@@ -508,16 +515,16 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                     </span>
                   )}
                 </div>
-                {vendorOrContactName(it.designerVendor, it.designerContact) && (
+                {partyLabel(it.designerVendor, it.designerContact) && (
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
                     Designer:{" "}
-                    {vendorOrContactName(it.designerVendor, it.designerContact)}
+                    {partyLabel(it.designerVendor, it.designerContact)}
                   </p>
                 )}
-                {vendorOrContactName(it.printerVendor, it.printerContact) && (
+                {partyLabel(it.printerVendor, it.printerContact) && (
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
                     Printer:{" "}
-                    {vendorOrContactName(it.printerVendor, it.printerContact)}
+                    {partyLabel(it.printerVendor, it.printerContact)}
                   </p>
                 )}
                 {it.distributionMethod && (
@@ -561,10 +568,10 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                       {it.quantity ?? "—"}
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                      {vendorOrContactName(it.designerVendor, it.designerContact) ?? "—"}
+                      {partyLabel(it.designerVendor, it.designerContact) ?? "—"}
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                      {vendorOrContactName(it.printerVendor, it.printerContact) ?? "—"}
+                      {partyLabel(it.printerVendor, it.printerContact) ?? "—"}
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                       {it.distributionMethod ?? "—"}

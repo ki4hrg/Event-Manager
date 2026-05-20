@@ -155,9 +155,12 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
         {relevant.map((item) => (
           <div key={item.id} className="p-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="font-medium text-gray-900 dark:text-white">{item.equipment?.name ?? item.item}</span>
+              <span className="font-medium text-gray-900 dark:text-white">{item.item}</span>
               <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {item.quantity ?? 1}</span>
             </div>
+            {item.equipment?.name && (
+              <p className="text-gray-600 dark:text-gray-400 mt-0.5">{item.equipment.name}</p>
+            )}
             <p className="text-gray-600 dark:text-gray-400 mt-0.5">{vendorRole(item.providerVendor, item.operatorVendor, vendorId)}</p>
             <div className="mt-1 text-gray-500 dark:text-gray-400 space-y-0.5">
               <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyName(item.providerVendor, item.providerContact)}</span></p>
@@ -172,6 +175,7 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
           <thead>
             <tr>
               <th className={th}>Item</th>
+              <th className={th}>Equipment</th>
               <th className={th}>Qty</th>
               <th className={th}>Role</th>
               <th className={th}>Provider</th>
@@ -182,7 +186,8 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
           <tbody>
             {relevant.map((item) => (
               <tr key={item.id}>
-                <td className={td}>{item.equipment?.name ?? item.item}</td>
+                <td className={td}>{item.item}</td>
+                <td className={td}>{item.equipment?.name ?? "—"}</td>
                 <td className={td}>{item.quantity ?? 1}</td>
                 <td className={td}>{vendorRole(item.providerVendor, item.operatorVendor, vendorId)}</td>
                 <td className={td}>{partyName(item.providerVendor, item.providerContact)}</td>
