@@ -1007,7 +1007,7 @@ function FunctionBlock({
   const mediaDeliverables = fn.mediaDeliverableFunctions.map((l) => l.mediaDeliverable);
 
   return (
-    <section id={anchorId} className="scroll-mt-24 print:break-inside-avoid-page">
+    <div id={anchorId} className="scroll-mt-24">
       <SectionDivider id={`${anchorId}-divider`} title={displayName} />
 
       <div className="mt-4 space-y-4">
@@ -1248,7 +1248,7 @@ function FunctionBlock({
           </SubSection>
         )}
       </div>
-    </section>
+    </div>
   );
 }
 
