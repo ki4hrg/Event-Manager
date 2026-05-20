@@ -391,7 +391,7 @@ export default async function FunctionPage({
               linkAVOrder={linkAVOrderAction}
               unlinkAVOrder={unlinkAVOrderAction}
             />
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4 h-full">
               <CateringOrderPanel
                 cateringOrder={fn.cateringOrder}
                 eventId={eventId}

@@ -61,7 +61,7 @@ export function CateringOrderPanel({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 flex-1 flex flex-col">
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
         Catering Order
       </h2>
