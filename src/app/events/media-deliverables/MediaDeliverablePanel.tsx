@@ -23,6 +23,7 @@ type MediaDeliverablePanelProps = {
   availableMediaDeliverables: MediaDeliverableSummary[];
   newMediaDeliverablePath: string;
   emptyMessage?: string;
+  fillHeight?: boolean;
   linkMediaDeliverable: (mediaDeliverableId: string) => Promise<void>;
   unlinkMediaDeliverable: (mediaDeliverableId: string) => Promise<void>;
 };
@@ -34,12 +35,14 @@ export function MediaDeliverablePanel({
   availableMediaDeliverables,
   newMediaDeliverablePath,
   emptyMessage = "No Media Deliverables linked.",
+  fillHeight,
   linkMediaDeliverable,
   unlinkMediaDeliverable,
 }: MediaDeliverablePanelProps) {
   return (
     <LinkedItemsPanel
       title={title}
+      fillHeight={fillHeight}
       items={mediaDeliverables.map((d) => ({
         id: d.id,
         label: d.name,

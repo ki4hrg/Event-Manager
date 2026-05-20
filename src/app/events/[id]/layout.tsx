@@ -38,10 +38,7 @@ export default async function EventLayout({
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
-      <div className="print:hidden">
-        <Header />
-      </div>
-      <EventLayoutClient eventId={id} eventName={event.name}>
+      <EventLayoutClient eventId={id} eventName={event.name} header={<Header />}>
         {children}
       </EventLayoutClient>
     </div>

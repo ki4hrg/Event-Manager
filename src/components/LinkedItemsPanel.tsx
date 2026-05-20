@@ -18,6 +18,7 @@ type LinkedItemsPanelProps = {
   emptyMessage?: string;
   newItemPath?: string;
   newItemLabel?: string;
+  fillHeight?: boolean;
   linkItem: (id: string) => Promise<void>;
   unlinkItem: (id: string) => Promise<void>;
 };
@@ -30,6 +31,7 @@ export function LinkedItemsPanel({
   emptyMessage = "None linked.",
   newItemPath,
   newItemLabel,
+  fillHeight = false,
   linkItem,
   unlinkItem,
 }: LinkedItemsPanelProps) {
@@ -61,7 +63,7 @@ export function LinkedItemsPanel({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 h-full flex flex-col">
+    <div className={`bg-white dark:bg-gray-800 shadow rounded-lg p-6${fillHeight ? " h-full flex flex-col" : ""}`}>
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{title}</h2>
 
       {items.length > 0 ? (

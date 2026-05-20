@@ -11,6 +11,7 @@ import { ReportFilters } from "./ReportFilters";
 import { BreakoutAssignmentsReport } from "./BreakoutAssignmentsReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
+import { ReportPaper } from "@/components/ReportPaper";
 
 export const dynamic = "force-dynamic";
 
@@ -64,10 +65,6 @@ export default async function BreakoutAssignmentsPage({
       </div>
 
       <div className="max-w-5xl">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Breakout Assignments
-        </h2>
-
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}
@@ -89,7 +86,9 @@ export default async function BreakoutAssignmentsPage({
           }
         />
 
-        <BreakoutAssignmentsReport data={data} />
+        <ReportPaper title="Breakout Assignments">
+          <BreakoutAssignmentsReport data={data} />
+        </ReportPaper>
       </div>
     </>
   );

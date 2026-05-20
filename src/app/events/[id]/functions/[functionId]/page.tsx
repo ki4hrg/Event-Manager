@@ -388,6 +388,7 @@ export default async function FunctionPage({
               eventId={eventId}
               availableAVOrders={availableAVOrders}
               newAVOrderPath={`/events/${eventId}/av-orders/new?functionId=${functionId}`}
+              fillHeight
               linkAVOrder={linkAVOrderAction}
               unlinkAVOrder={unlinkAVOrderAction}
             />
@@ -433,6 +434,7 @@ export default async function FunctionPage({
               eventId={eventId}
               availableSetupOrders={availableSetupOrders}
               newSetupOrderPath={`/events/${eventId}/setup-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}
+              fillHeight
               linkSetupOrder={linkSetupOrderAction}
               unlinkSetupOrder={unlinkSetupOrderAction}
             />
@@ -452,6 +454,7 @@ export default async function FunctionPage({
               availableMediaDeliverables={availableMediaDeliverables}
               newMediaDeliverablePath={`/events/${eventId}/media-deliverables/new?functionId=${functionId}`}
               emptyMessage="Media to display at this function (looped slides, sponsor video, etc.). Provided by a vendor or a sponsor contact."
+              fillHeight
               linkMediaDeliverable={linkMediaDeliverableAction}
               unlinkMediaDeliverable={unlinkMediaDeliverableAction}
             />

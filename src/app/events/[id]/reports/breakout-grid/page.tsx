@@ -11,6 +11,7 @@ import { ReportFilters } from "./ReportFilters";
 import { BreakoutGridReport } from "./BreakoutGridReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
+import { ReportPaper } from "@/components/ReportPaper";
 
 export const dynamic = "force-dynamic";
 
@@ -64,10 +65,6 @@ export default async function BreakoutGridPage({
       </div>
 
       <div className="max-w-5xl">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Breakout Grid
-        </h2>
-
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}
@@ -89,7 +86,9 @@ export default async function BreakoutGridPage({
           }
         />
 
-        <BreakoutGridReport data={data} />
+        <ReportPaper title="Breakout Grid">
+          <BreakoutGridReport data={data} />
+        </ReportPaper>
       </div>
     </>
   );

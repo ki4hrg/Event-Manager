@@ -10,6 +10,7 @@ import { ReportFilters } from "./ReportFilters";
 import { RoomScheduleReport } from "./RoomScheduleReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
+import { ReportPaper } from "@/components/ReportPaper";
 
 export const dynamic = "force-dynamic";
 
@@ -69,8 +70,6 @@ export default async function RoomSchedulePage({
       </div>
 
       <div className="max-w-5xl">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Room Schedule</h2>
-
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}
@@ -95,12 +94,14 @@ export default async function RoomSchedulePage({
           }
         />
 
-        <RoomScheduleReport
-          data={data}
-          functionTypes={functionTypes}
-          scheduleTypes={scheduleTypes}
-          usedOnly={usedOnly}
-        />
+        <ReportPaper title="Room Schedule">
+          <RoomScheduleReport
+            data={data}
+            functionTypes={functionTypes}
+            scheduleTypes={scheduleTypes}
+            usedOnly={usedOnly}
+          />
+        </ReportPaper>
       </div>
     </>
   );

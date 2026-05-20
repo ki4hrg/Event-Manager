@@ -9,6 +9,7 @@ import { ReportFilters } from "./ReportFilters";
 import { VendorHandoffReport } from "./VendorHandoffReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
+import { ReportPaper } from "@/components/ReportPaper";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +47,6 @@ export default async function VendorHandoffPage({
       </div>
 
       <div className="max-w-5xl">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Vendor Handoff</h2>
-
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}
@@ -69,15 +68,17 @@ export default async function VendorHandoffPage({
           }
         />
 
-        {vendorId && data ? (
-          <VendorHandoffReport data={data} event={event} functionTypes={functionTypes} />
-        ) : vendorId && !data ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Vendor not found.</p>
-        ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Select a vendor to view their handoff report.
-          </p>
-        )}
+        <ReportPaper title="Vendor Handoff">
+          {vendorId && data ? (
+            <VendorHandoffReport data={data} event={event} functionTypes={functionTypes} />
+          ) : vendorId && !data ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Vendor not found.</p>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Select a vendor to view their handoff report.
+            </p>
+          )}
+        </ReportPaper>
       </div>
     </>
   );

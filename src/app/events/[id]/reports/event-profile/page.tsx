@@ -10,6 +10,7 @@ import { ReportFilters } from "./ReportFilters";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "./EventProfileReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
+import { ReportPaper } from "@/components/ReportPaper";
 
 export const dynamic = "force-dynamic";
 
@@ -73,8 +74,6 @@ export default async function EventProfilePage({
       </div>
 
       <div className="max-w-5xl">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Event Profile</h2>
-
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}
@@ -99,12 +98,14 @@ export default async function EventProfilePage({
           }
         />
 
-        <EventProfileReport
-          data={data}
-          serviceStyles={serviceStyles}
-          scheduleTypes={scheduleTypes}
-          selectedSections={selectedSections}
-        />
+        <ReportPaper title="Event Profile">
+          <EventProfileReport
+            data={data}
+            serviceStyles={serviceStyles}
+            scheduleTypes={scheduleTypes}
+            selectedSections={selectedSections}
+          />
+        </ReportPaper>
       </div>
     </>
   );

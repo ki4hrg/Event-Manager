@@ -12,6 +12,7 @@ import { ReportFilters } from "./ReportFilters";
 import { FunctionDetailReport } from "./FunctionDetailReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
+import { ReportPaper } from "@/components/ReportPaper";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +70,6 @@ export default async function FunctionDetailPage({
       </div>
 
       <div className="max-w-5xl">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Function Detail
-        </h2>
-
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}
@@ -94,13 +91,15 @@ export default async function FunctionDetailPage({
           }
         />
 
-        <FunctionDetailReport
-          data={data}
-          functionTypes={functionTypes}
-          scheduleTypes={scheduleTypes}
-          serviceStyles={serviceStyles}
-          setupTypes={setupTypes}
-        />
+        <ReportPaper title="Function Detail">
+          <FunctionDetailReport
+            data={data}
+            functionTypes={functionTypes}
+            scheduleTypes={scheduleTypes}
+            serviceStyles={serviceStyles}
+            setupTypes={setupTypes}
+          />
+        </ReportPaper>
       </div>
     </>
   );

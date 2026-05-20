@@ -10,6 +10,7 @@ import { ReportFilters } from "./ReportFilters";
 import { EquipmentResponsibilityReport } from "./EquipmentResponsibilityReport";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
+import { ReportPaper } from "@/components/ReportPaper";
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +57,6 @@ export default async function EquipmentResponsibilityPage({
       </div>
 
       <div className="max-w-5xl">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Equipment Responsibility</h2>
-
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}
@@ -80,7 +79,9 @@ export default async function EquipmentResponsibilityPage({
           }
         />
 
-        <EquipmentResponsibilityReport groups={groups} />
+        <ReportPaper title="Equipment Responsibility">
+          <EquipmentResponsibilityReport groups={groups} />
+        </ReportPaper>
       </div>
     </>
   );

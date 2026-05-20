@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
-import type { EntityStatus } from "@prisma/client";
+import { EntityStatus } from "@prisma/client";
 import type { StatusCounts } from "@/lib/statusConstants";
 
 export type EntityAttention = { label: string; count: number; href: string };
@@ -28,6 +28,8 @@ function toCounts(items: { status: EntityStatus | null }[]): StatusCounts {
   }
   return counts;
 }
+
+const notCancelled = { not: EntityStatus.CANCELLED };
 
 export async function getEventOverviewStats(eventId: string) {
   await requirePermission("EVENTS", "VIEW", eventId);
@@ -91,66 +93,66 @@ export async function getEventOverviewStats(eventId: string) {
       ? prisma.function.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
     canViewFunctions && canEditFunctions
-      ? prisma.function.count({ where: { eventId, schedules: { none: {} } } })
+      ? prisma.function.count({ where: { eventId, status: notCancelled, schedules: { none: {} } } })
       : Promise.resolve(0),
     canViewFunctions && canEditFunctions
-      ? prisma.function.count({ where: { eventId, rooms: { none: {} }, offSiteLocation: null, type: { not: "BREAKOUT_BLOCK" } } })
+      ? prisma.function.count({ where: { eventId, status: notCancelled, rooms: { none: {} }, offSiteLocation: null, type: { not: "BREAKOUT_BLOCK" } } })
       : Promise.resolve(0),
     canViewPresentations
       ? prisma.presentation.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
     canViewPresentations && canEditPresentations
-      ? prisma.presentation.count({ where: { eventId, slots: { none: {} } } })
+      ? prisma.presentation.count({ where: { eventId, status: notCancelled, slots: { none: {} } } })
       : Promise.resolve(0),
     canViewPresentations && canEditPresentations
-      ? prisma.presentation.count({ where: { eventId, speakers: { none: {} } } })
+      ? prisma.presentation.count({ where: { eventId, status: notCancelled, speakers: { none: {} } } })
       : Promise.resolve(0),
     canViewAVOrders
       ? prisma.aVOrder.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
     canViewAVOrders && canEditAVOrders
-      ? prisma.aVOrder.count({ where: { eventId, vendors: { none: {} } } })
+      ? prisma.aVOrder.count({ where: { eventId, status: notCancelled, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewAVOrders && canEditAVOrders
-      ? prisma.aVOrder.count({ where: { eventId, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
+      ? prisma.aVOrder.count({ where: { eventId, status: notCancelled, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
       : Promise.resolve(0),
     canViewCateringOrders
       ? prisma.cateringOrder.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
     canViewCateringOrders && canEditCateringOrders
-      ? prisma.cateringOrder.count({ where: { eventId, vendors: { none: {} } } })
+      ? prisma.cateringOrder.count({ where: { eventId, status: notCancelled, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewCateringOrders && canEditCateringOrders
-      ? prisma.cateringOrder.count({ where: { eventId, functionId: null } })
+      ? prisma.cateringOrder.count({ where: { eventId, status: notCancelled, functionId: null } })
       : Promise.resolve(0),
     canViewSetupOrders
       ? prisma.setupOrder.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
     canViewSetupOrders && canEditSetupOrders
-      ? prisma.setupOrder.count({ where: { eventId, vendors: { none: {} } } })
+      ? prisma.setupOrder.count({ where: { eventId, status: notCancelled, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewSetupOrders && canEditSetupOrders
-      ? prisma.setupOrder.count({ where: { eventId, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
+      ? prisma.setupOrder.count({ where: { eventId, status: notCancelled, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
       : Promise.resolve(0),
     canViewPrintOrders
       ? prisma.printOrder.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
     canViewPrintOrders && canEditPrintOrders
-      ? prisma.printOrder.count({ where: { eventId, vendors: { none: {} } } })
+      ? prisma.printOrder.count({ where: { eventId, status: notCancelled, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewPrintOrders && canEditPrintOrders
-      ? prisma.printOrder.count({ where: { eventId, functions: { none: {} }, presentationId: null } })
+      ? prisma.printOrder.count({ where: { eventId, status: notCancelled, functions: { none: {} }, presentationId: null } })
       : Promise.resolve(0),
     canViewMediaDeliverables
       ? prisma.mediaDeliverable.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
     canViewMediaDeliverables && canEditMediaDeliverables
       ? prisma.mediaDeliverable.count({
-          where: { eventId, providerVendorId: null, providerContactId: null },
+          where: { eventId, status: notCancelled, providerVendorId: null, providerContactId: null },
         })
       : Promise.resolve(0),
     canViewMediaDeliverables && canEditMediaDeliverables
-      ? prisma.mediaDeliverable.count({ where: { eventId, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
+      ? prisma.mediaDeliverable.count({ where: { eventId, status: notCancelled, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
       : Promise.resolve(0),
   ]);
 

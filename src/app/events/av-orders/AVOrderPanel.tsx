@@ -14,6 +14,7 @@ type AVOrderPanelProps = {
   eventId: string;
   availableAVOrders: AVOrderSummary[];
   newAVOrderPath: string;
+  fillHeight?: boolean;
   linkAVOrder: (avOrderId: string) => Promise<void>;
   unlinkAVOrder: (avOrderId: string) => Promise<void>;
 };
@@ -24,12 +25,14 @@ export function AVOrderPanel({
   eventId,
   availableAVOrders,
   newAVOrderPath,
+  fillHeight,
   linkAVOrder,
   unlinkAVOrder,
 }: AVOrderPanelProps) {
   return (
     <LinkedItemsPanel
       title={title}
+      fillHeight={fillHeight}
       items={avOrders.map((o) => ({
         id: o.id,
         label: o.name,

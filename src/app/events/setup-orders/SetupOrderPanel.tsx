@@ -18,6 +18,7 @@ type SetupOrderPanelProps = {
   eventId: string;
   availableSetupOrders: SetupOrderSummary[];
   newSetupOrderPath: string;
+  fillHeight?: boolean;
   linkSetupOrder: (setupOrderId: string) => Promise<void>;
   unlinkSetupOrder: (setupOrderId: string) => Promise<void>;
 };
@@ -28,12 +29,14 @@ export function SetupOrderPanel({
   eventId,
   availableSetupOrders,
   newSetupOrderPath,
+  fillHeight,
   linkSetupOrder,
   unlinkSetupOrder,
 }: SetupOrderPanelProps) {
   return (
     <LinkedItemsPanel
       title={title}
+      fillHeight={fillHeight}
       items={setupOrders.map((o) => ({
         id: o.id,
         label: getSetupOrderDisplayName(o),
