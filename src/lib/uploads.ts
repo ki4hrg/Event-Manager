@@ -33,7 +33,7 @@ const ENTITY_DIRS = {
   avOrder: "av-orders",
   printOrder: "print-orders",
   setupOrder: "setup-orders",
-  mediaOrder: "media-orders",
+  mediaDeliverable: "media-deliverables",
   venue: "venues",
 } as const;
 
@@ -47,22 +47,22 @@ export const ENTITY_FK_FIELD: Record<EntityType, string> = {
   avOrder: "avOrderId",
   printOrder: "printOrderId",
   setupOrder: "setupOrderId",
-  mediaOrder: "mediaOrderId",
+  mediaDeliverable: "mediaDeliverableId",
   venue: "venueId",
 };
 
-export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "mediaOrderId" | "venueId">): EntityType {
+export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "mediaDeliverableId" | "venueId">): EntityType {
   if (record.eventId) return "event";
   if (record.cateringOrderId) return "cateringOrder";
   if (record.avOrderId) return "avOrder";
   if (record.printOrderId) return "printOrder";
   if (record.setupOrderId) return "setupOrder";
-  if (record.mediaOrderId) return "mediaOrder";
+  if (record.mediaDeliverableId) return "mediaDeliverable";
   return "venue";
 }
 
-export function getEntityIdFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "mediaOrderId" | "venueId">): string {
-  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.mediaOrderId ?? record.venueId)!;
+export function getEntityIdFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "mediaDeliverableId" | "venueId">): string {
+  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.mediaDeliverableId ?? record.venueId)!;
 }
 
 export function getUploadDir(entityType: EntityType, entityId: string): string {
@@ -76,7 +76,7 @@ export function getUploadPath(entityType: EntityType, entityId: string, storedNa
 // Resolve the eventId that owns this file, walking through the parent entity.
 // Returns null for venue-attached files (which have no event scope).
 export async function resolveFileEventId(
-  record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "mediaOrderId" | "venueId">,
+  record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "mediaDeliverableId" | "venueId">,
 ): Promise<string | null> {
   return resolveEntityEventId(getEntityTypeFromRecord(record), getEntityIdFromRecord(record));
 }
@@ -101,8 +101,8 @@ export async function resolveEntityEventId(entityType: EntityType, entityId: str
       const o = await prisma.setupOrder.findUnique({ where: { id: entityId }, select: { eventId: true } });
       return o?.eventId ?? null;
     }
-    case "mediaOrder": {
-      const o = await prisma.mediaOrder.findUnique({ where: { id: entityId }, select: { eventId: true } });
+    case "mediaDeliverable": {
+      const o = await prisma.mediaDeliverable.findUnique({ where: { id: entityId }, select: { eventId: true } });
       return o?.eventId ?? null;
     }
     case "venue":

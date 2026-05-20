@@ -23,12 +23,12 @@ import {
   createAndAddPresentationSpeaker,
 } from "../../../presentations/actions";
 import { setSlotAdvancer, clearSlotAdvancer } from "../../../breakout-schedule/actions";
-import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { getResponsibleParties } from "@/lib/responsibleParties";
 import {
-  getAvailableMediaOrdersForPresentation,
-  linkMediaOrderToPresentationFromPresentation,
-  unlinkMediaOrderFromPresentationPage,
-} from "../../../media-orders/actions";
+  getAvailableMediaDeliverablesForPresentation,
+  linkMediaDeliverableToPresentationFromPresentation,
+  unlinkMediaDeliverableFromPresentationPage,
+} from "../../../media-deliverables/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
@@ -60,7 +60,7 @@ import { PresentationForm } from "../../../presentations/PresentationForm";
 import { BreakoutSlotPanel } from "../../../presentations/BreakoutSlotPanel";
 import { SpeakerList } from "../../../presentations/SpeakerList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
-import { MediaOrderPanel } from "../../../media-orders/MediaOrderPanel";
+import { MediaDeliverablePanel } from "../../../media-deliverables/MediaDeliverablePanel";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +99,7 @@ export default async function PresentationPage({
     notFound();
   }
 
-  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, availableMediaOrders, advancerVendorGroups] = await Promise.all([
+  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, availableMediaDeliverables, advancerPool] = await Promise.all([
     prisma.breakoutGroup.findMany({
       where: { eventId },
       select: {
@@ -137,19 +137,11 @@ export default async function PresentationPage({
     presentation.printOrder
       ? Promise.resolve([])
       : getAvailablePrintOrdersForPresentation(eventId),
-    getAvailableMediaOrdersForPresentation(eventId, presentationId),
-    getResponsiblePartyVendors(eventId),
+    getAvailableMediaDeliverablesForPresentation(eventId, presentationId),
+    getResponsibleParties({ eventId, modelType: "AV_ORDER", presentationIds: [presentationId] }),
   ]);
 
-  const advancerOptions = {
-    vendorGroups: advancerVendorGroups,
-    contacts: presentation.speakers.map((s) => ({
-      id: s.contact.id,
-      firstName: s.contact.firstName,
-      lastName: s.contact.lastName,
-      organization: s.contact.organization,
-    })),
-  };
+  const advancerOptions = advancerPool;
 
   const breakoutGroupsFull = breakoutGroups.map((g) => ({
     id: g.id,
@@ -263,14 +255,14 @@ export default async function PresentationPage({
     await clearSlotAdvancer(slotId, eventId);
   };
 
-  const linkMediaOrderAction = async (mediaOrderId: string) => {
+  const linkMediaDeliverableAction = async (mediaDeliverableId: string) => {
     "use server";
-    await linkMediaOrderToPresentationFromPresentation(mediaOrderId, presentationId, eventId);
+    await linkMediaDeliverableToPresentationFromPresentation(mediaDeliverableId, presentationId, eventId);
   };
 
-  const unlinkMediaOrderAction = async (mediaOrderId: string) => {
+  const unlinkMediaDeliverableAction = async (mediaDeliverableId: string) => {
     "use server";
-    await unlinkMediaOrderFromPresentationPage(mediaOrderId, presentationId, eventId);
+    await unlinkMediaDeliverableFromPresentationPage(mediaDeliverableId, presentationId, eventId);
   };
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
@@ -454,14 +446,14 @@ export default async function PresentationPage({
             linkPrintOrder={linkPrintOrderAction}
             unlinkPrintOrder={unlinkPrintOrderAction}
           />
-          <MediaOrderPanel
-            title="Media Orders"
-            mediaOrders={presentation.mediaOrders}
+          <MediaDeliverablePanel
+            title="Media Deliverables"
+            mediaDeliverables={presentation.mediaDeliverables}
             eventId={eventId}
-            availableMediaOrders={availableMediaOrders}
-            newMediaOrderPath={`/events/${eventId}/media-orders/new?presentationId=${presentationId}`}
-            linkMediaOrder={linkMediaOrderAction}
-            unlinkMediaOrder={unlinkMediaOrderAction}
+            availableMediaDeliverables={availableMediaDeliverables}
+            newMediaDeliverablePath={`/events/${eventId}/media-deliverables/new?presentationId=${presentationId}`}
+            linkMediaDeliverable={linkMediaDeliverableAction}
+            unlinkMediaDeliverable={unlinkMediaDeliverableAction}
           />
         </div>
       </div>

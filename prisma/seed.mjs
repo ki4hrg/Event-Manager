@@ -72,6 +72,11 @@ const defaultDeliveryMethods = [
   { label: "Brought Day Of", sortOrder: 1 },
 ];
 
+const defaultMediaTypes = [
+  { label: "Video", sortOrder: 0 },
+  { label: "Presentation", sortOrder: 1 },
+];
+
 const defaultFileTypes = [
   { label: "Proposal", sortOrder: 0 },
   { label: "Invoice", sortOrder: 1 },
@@ -162,7 +167,7 @@ const EVENT_RESOURCES = [
   "CATERING_ORDERS",
   "SETUP_ORDERS",
   "PRINT_ORDERS",
-  "MEDIA_ORDERS",
+  "MEDIA_DELIVERABLES",
   "FILES",
   "SHARE_LINKS",
 ];
@@ -280,6 +285,7 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("setup_type", defaultSetupTypes);
   totalCreated += await seedOptionsForCategory("file_type", defaultFileTypes);
   totalCreated += await seedOptionsForCategory("delivery_method", defaultDeliveryMethods);
+  totalCreated += await seedOptionsForCategory("media_type", defaultMediaTypes);
   totalCreated += await seedOptionsForCategory("substatus", defaultSubstatuses);
   totalCreated += await seedOptionsForCategory("print_distribution", defaultPrintDistributions);
 

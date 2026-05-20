@@ -129,7 +129,22 @@ export async function getPresentation(id: string) {
       advancerContact: { select: { id: true, firstName: true, lastName: true } },
       avOrderLinks: { include: { avOrder: { select: { id: true, name: true } } } },
       setupOrderLinks: { include: { setupOrder: { select: { id: true, name: true, setupType: true, room: { select: { name: true } } } } } },
-      mediaOrderLinks: { include: { mediaOrder: { select: { id: true, name: true } } } },
+      mediaDeliverableLinks: {
+        include: {
+          mediaDeliverable: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              substatus: true,
+              notes: true,
+              mediaType: true,
+              providerVendor: { select: { name: true } },
+              providerContact: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+      },
       printOrder: { select: { id: true, name: true } },
       event: true,
       updatedBy: { select: { name: true, email: true } },
@@ -141,7 +156,7 @@ export async function getPresentation(id: string) {
     ...row,
     avOrders: row.avOrderLinks.map((l) => l.avOrder),
     setupOrders: row.setupOrderLinks.map((l) => l.setupOrder),
-    mediaOrders: row.mediaOrderLinks.map((l) => l.mediaOrder),
+    mediaDeliverables: row.mediaDeliverableLinks.map((l) => l.mediaDeliverable),
   };
 }
 

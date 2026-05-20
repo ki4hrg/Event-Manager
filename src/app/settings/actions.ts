@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "substatus" | "print_distribution";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution";
 
 // No requireAuth() — reused by /share/[token] (see CLAUDE.md share-link carve-out).
 export async function getOptions(category: OptionCategory) {
@@ -136,7 +136,10 @@ async function propagateLabelRename(
       await tx.fileUpload.updateMany({ where: { fileType: oldLabel }, data: { fileType: newLabel } });
       break;
     case "delivery_method":
-      await tx.mediaItem.updateMany({ where: { delivery: oldLabel }, data: { delivery: newLabel } });
+      await tx.mediaDeliverable.updateMany({ where: { delivery: oldLabel }, data: { delivery: newLabel } });
+      break;
+    case "media_type":
+      await tx.mediaDeliverable.updateMany({ where: { mediaType: oldLabel }, data: { mediaType: newLabel } });
       break;
     case "print_distribution":
       await tx.printItem.updateMany({ where: { distributionMethod: oldLabel }, data: { distributionMethod: newLabel } });
@@ -149,7 +152,7 @@ async function propagateLabelRename(
         tx.cateringOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
         tx.setupOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
         tx.printOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
-        tx.mediaOrder.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
+        tx.mediaDeliverable.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
         tx.eventStatusDefault.updateMany({ where: { substatus: oldLabel }, data: { substatus: newLabel } }),
       ]);
       break;

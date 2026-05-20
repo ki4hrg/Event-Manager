@@ -39,7 +39,7 @@ model User {
   updatedAVOrders          AVOrder[]            @relation("AVOrderUpdatedBy")
   updatedSetupOrders       SetupOrder[]         @relation("SetupOrderUpdatedBy")
   updatedPrintOrders       PrintOrder[]         @relation("PrintOrderUpdatedBy")
-  updatedMediaOrders       MediaOrder[]         @relation("MediaOrderUpdatedBy")
+  updatedMediaDeliverables MediaDeliverable[]   @relation("MediaDeliverableUpdatedBy")
   updatedWorkflowTemplates WorkflowTemplate[]   @relation("WorkflowTemplateUpdatedBy")
   updatedRoles             Role[]               @relation("RoleUpdatedBy")
 }
@@ -86,7 +86,7 @@ enum StatusModelType {
   CATERING_ORDER
   SETUP_ORDER
   PRINT_ORDER
-  MEDIA_ORDER
+  MEDIA_DELIVERABLE
 }
 
 // Customizable options for dropdowns
@@ -141,7 +141,7 @@ model Event {
   cateringOrders     CateringOrder[]
   setupOrders        SetupOrder[]
   printOrders        PrintOrder[]
-  mediaOrders        MediaOrder[]
+  mediaDeliverables  MediaDeliverable[]
   vendors            EventVendor[]
   shareLinks         ShareLink[]
   shareLinkGroups    ShareLinkGroup[]
@@ -227,7 +227,8 @@ model Contact {
   venues                      VenueContact[]
   presentations               PresentationContact[]
   cateringOrders              CateringOrderContact[]
-  mediaOrderContacts          MediaOrderContact[]
+  mediaDeliverableContacts    MediaDeliverableContact[]
+  mediaDeliverablesAsProvider MediaDeliverable[]     @relation("MediaDeliverableProviderContact")
   vendorContacts              VendorContact[]
   printItemsAsDesigner        PrintItem[]            @relation("PrintItemDesignerContact")
   printItemsAsPrinter         PrintItem[]            @relation("PrintItemPrinterContact")
@@ -296,7 +297,7 @@ model Function {
   avOrderFunctions         AVOrderFunction[]
   setupOrderFunctions      SetupOrderFunction[]
   printOrderFunctions      PrintOrderFunction[]
-  mediaOrderFunctions      MediaOrderFunction[]
+  mediaDeliverableFunctions MediaDeliverableFunction[]
   rooms                    FunctionRoom[]
   contacts                 FunctionContact[]
   schedules                FunctionSchedule[]
@@ -745,7 +746,7 @@ model Presentation {
   avOrderLinks      AVOrderPresentation[]
   setupOrderLinks   SetupOrderPresentation[]
   printOrder        PrintOrder?
-  mediaOrderLinks   MediaOrderPresentation[]
+  mediaDeliverableLinks MediaDeliverablePresentation[]
   advancerVendorId  String?
   advancerVendor    Vendor?                  @relation("PresentationAdvancerVendor", fields: [advancerVendorId], references: [id], onDelete: SetNull)
   advancerContactId String?
@@ -886,7 +887,7 @@ model Vendor {
   cateringOrderVendors        CateringOrderVendor[]
   setupOrderVendors           SetupOrderVendor[]
   printOrderVendors           PrintOrderVendor[]
-  mediaOrderVendors           MediaOrderVendor[]
+  mediaDeliverablesAsProvider MediaDeliverable[]         @relation("MediaDeliverableProviderVendor")
   printItemsAsDesigner        PrintItem[]                @relation("PrintItemDesignerVendor")
   printItemsAsPrinter         PrintItem[]                @relation("PrintItemPrinterVendor")
   equipmentItemsAsProvider    EquipmentItem[]            @relation("EquipmentItemProviderVendor")
@@ -1100,90 +1101,71 @@ model VideoSection {
   updatedAt      DateTime        @updatedAt
 }
 
-model MediaOrder {
-  id                String                   @id @default(cuid())
+model MediaDeliverable {
+  id                String                         @id @default(cuid())
   name              String
   status            EntityStatus?
   substatus         String?
   eventId           String
-  event             Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event             Event                          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   copiedFromId      String?
-  copiedFrom        MediaOrder?              @relation("MediaOrderCopies", fields: [copiedFromId], references: [id], onDelete: SetNull)
-  copies            MediaOrder[]             @relation("MediaOrderCopies")
+  copiedFrom        MediaDeliverable?              @relation("MediaDeliverableCopies", fields: [copiedFromId], references: [id], onDelete: SetNull)
+  copies            MediaDeliverable[]             @relation("MediaDeliverableCopies")
+  mediaType         String? // references media_type CustomOption
+  description       String?
+  delivery          String? // references delivery_method CustomOption
   notes             String?
-  functionLinks     MediaOrderFunction[]
-  presentationLinks MediaOrderPresentation[]
-  items             MediaItem[]
-  vendors           MediaOrderVendor[]
-  contacts          MediaOrderContact[]
+  functionLinks     MediaDeliverableFunction[]
+  presentationLinks MediaDeliverablePresentation[]
+  contacts          MediaDeliverableContact[]
   files             FileUpload[]
+  providerVendorId  String?
+  providerVendor    Vendor?                        @relation("MediaDeliverableProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  providerContactId String?
+  providerContact   Contact?                       @relation("MediaDeliverableProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
   updatedById       String?
-  updatedBy         User?                    @relation("MediaOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt         DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
+  updatedBy         User?                          @relation("MediaDeliverableUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime                       @default(now())
+  updatedAt         DateTime                       @updatedAt
 
   @@index([eventId])
   @@index([copiedFromId])
   @@index([updatedById])
+  @@index([providerVendorId])
+  @@index([providerContactId])
 }
 
-model MediaOrderFunction {
-  id           String     @id @default(cuid())
-  mediaOrderId String
-  functionId   String
-  mediaOrder   MediaOrder @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
-  function     Function   @relation(fields: [functionId], references: [id], onDelete: Cascade)
+model MediaDeliverableFunction {
+  id                 String           @id @default(cuid())
+  mediaDeliverableId String
+  functionId         String
+  mediaDeliverable   MediaDeliverable @relation(fields: [mediaDeliverableId], references: [id], onDelete: Cascade)
+  function           Function         @relation(fields: [functionId], references: [id], onDelete: Cascade)
 
-  @@unique([mediaOrderId, functionId])
+  @@unique([mediaDeliverableId, functionId])
   @@index([functionId])
 }
 
-model MediaOrderPresentation {
-  id             String       @id @default(cuid())
-  mediaOrderId   String
-  presentationId String
-  mediaOrder     MediaOrder   @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
-  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+model MediaDeliverablePresentation {
+  id                 String           @id @default(cuid())
+  mediaDeliverableId String
+  presentationId     String
+  mediaDeliverable   MediaDeliverable @relation(fields: [mediaDeliverableId], references: [id], onDelete: Cascade)
+  presentation       Presentation     @relation(fields: [presentationId], references: [id], onDelete: Cascade)
 
-  @@unique([mediaOrderId, presentationId])
+  @@unique([mediaDeliverableId, presentationId])
   @@index([presentationId])
 }
 
-model MediaOrderVendor {
-  id           String     @id @default(cuid())
-  mediaOrderId String
-  vendorId     String
-  notes        String?
-  mediaOrder   MediaOrder @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
-  vendor       Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+model MediaDeliverableContact {
+  id                 String           @id @default(cuid())
+  mediaDeliverableId String
+  contactId          String
+  role               String?
+  mediaDeliverable   MediaDeliverable @relation(fields: [mediaDeliverableId], references: [id], onDelete: Cascade)
+  contact            Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
-  @@unique([mediaOrderId, vendorId])
-  @@index([mediaOrderId])
-}
-
-model MediaItem {
-  id           String     @id @default(cuid())
-  mediaOrderId String
-  mediaOrder   MediaOrder @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
-  description  String
-  delivery     String? // references delivery_method CustomOption
-  notes        String?
-  sortOrder    Int        @default(0)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  @@index([mediaOrderId])
-}
-
-model MediaOrderContact {
-  id           String     @id @default(cuid())
-  mediaOrderId String
-  contactId    String
-  role         String?
-  mediaOrder   MediaOrder @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
-  contact      Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  @@unique([mediaOrderId, contactId])
+  @@unique([mediaDeliverableId, contactId])
   @@index([contactId])
 }
 
@@ -1280,8 +1262,8 @@ model FileUpload {
   setupOrder      SetupOrder?    @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   printOrderId    String?
   printOrder      PrintOrder?    @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
-  mediaOrderId    String?
-  mediaOrder      MediaOrder?    @relation(fields: [mediaOrderId], references: [id], onDelete: Cascade)
+  mediaDeliverableId String?
+  mediaDeliverable   MediaDeliverable? @relation(fields: [mediaDeliverableId], references: [id], onDelete: Cascade)
   venueId         String?
   venue           Venue?         @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
@@ -1292,7 +1274,7 @@ model FileUpload {
   @@index([avOrderId])
   @@index([setupOrderId])
   @@index([printOrderId])
-  @@index([mediaOrderId])
+  @@index([mediaDeliverableId])
   @@index([venueId])
 }
 
@@ -1381,7 +1363,7 @@ enum PermissionResource {
   CATERING_ORDERS
   SETUP_ORDERS
   PRINT_ORDERS
-  MEDIA_ORDERS
+  MEDIA_DELIVERABLES
   FILES
   SHARE_LINKS
 }

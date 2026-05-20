@@ -45,8 +45,8 @@ export async function getEventOverviewStats(eventId: string) {
     canEditSetupOrders,
     canViewPrintOrders,
     canEditPrintOrders,
-    canViewMediaOrders,
-    canEditMediaOrders,
+    canViewMediaDeliverables,
+    canEditMediaDeliverables,
   ] = await Promise.all([
     hasPermission("FUNCTIONS", "VIEW", eventId),
     hasPermission("FUNCTIONS", "WRITE", eventId),
@@ -60,8 +60,8 @@ export async function getEventOverviewStats(eventId: string) {
     hasPermission("SETUP_ORDERS", "WRITE", eventId),
     hasPermission("PRINT_ORDERS", "VIEW", eventId),
     hasPermission("PRINT_ORDERS", "WRITE", eventId),
-    hasPermission("MEDIA_ORDERS", "VIEW", eventId),
-    hasPermission("MEDIA_ORDERS", "WRITE", eventId),
+    hasPermission("MEDIA_DELIVERABLES", "VIEW", eventId),
+    hasPermission("MEDIA_DELIVERABLES", "WRITE", eventId),
   ]);
 
   const [
@@ -83,8 +83,8 @@ export async function getEventOverviewStats(eventId: string) {
     printOrders,
     printMissingVendor,
     printUnlinked,
-    mediaOrders,
-    mediaMissingVendor,
+    mediaDeliverables,
+    mediaMissingProvider,
     mediaUnlinked,
   ] = await Promise.all([
     canViewFunctions
@@ -141,14 +141,16 @@ export async function getEventOverviewStats(eventId: string) {
     canViewPrintOrders && canEditPrintOrders
       ? prisma.printOrder.count({ where: { eventId, functions: { none: {} }, presentationId: null } })
       : Promise.resolve(0),
-    canViewMediaOrders
-      ? prisma.mediaOrder.findMany({ where: { eventId }, select: { status: true } })
+    canViewMediaDeliverables
+      ? prisma.mediaDeliverable.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
-    canViewMediaOrders && canEditMediaOrders
-      ? prisma.mediaOrder.count({ where: { eventId, vendors: { none: {} } } })
+    canViewMediaDeliverables && canEditMediaDeliverables
+      ? prisma.mediaDeliverable.count({
+          where: { eventId, providerVendorId: null, providerContactId: null },
+        })
       : Promise.resolve(0),
-    canViewMediaOrders && canEditMediaOrders
-      ? prisma.mediaOrder.count({ where: { eventId, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
+    canViewMediaDeliverables && canEditMediaDeliverables
+      ? prisma.mediaDeliverable.count({ where: { eventId, functionLinks: { none: {} }, presentationLinks: { none: {} } } })
       : Promise.resolve(0),
   ]);
 
@@ -262,18 +264,18 @@ export async function getEventOverviewStats(eventId: string) {
     });
   }
 
-  if (canViewMediaOrders && mediaOrders) {
-    const basePath = `/events/${eventId}/media-orders`;
+  if (canViewMediaDeliverables && mediaDeliverables) {
+    const basePath = `/events/${eventId}/media-deliverables`;
     entities.push({
-      key: "media-orders",
-      label: "Media Orders",
+      key: "media-deliverables",
+      label: "Media Deliverables",
       basePath,
-      total: mediaOrders.length,
-      counts: toCounts(mediaOrders),
-      canEdit: canEditMediaOrders,
-      attention: canEditMediaOrders
+      total: mediaDeliverables.length,
+      counts: toCounts(mediaDeliverables),
+      canEdit: canEditMediaDeliverables,
+      attention: canEditMediaDeliverables
         ? [
-            { label: "missing vendor", count: mediaMissingVendor, href: `${basePath}?vendor=none` },
+            { label: "missing provider", count: mediaMissingProvider, href: `${basePath}?vendor=none` },
             { label: "unlinked", count: mediaUnlinked, href: `${basePath}?linked=none` },
           ]
         : [],

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { EntityStatus, PermissionResource } from "@prisma/client";
 
-export type WorkflowEntityType = "function" | "catering_order" | "av_order" | "print_order" | "presentation" | "setup_order" | "media_order";
+export type WorkflowEntityType = "function" | "catering_order" | "av_order" | "print_order" | "presentation" | "setup_order" | "media_deliverable";
 
 function entityResource(entityType: WorkflowEntityType): PermissionResource {
   switch (entityType) {
@@ -16,7 +16,7 @@ function entityResource(entityType: WorkflowEntityType): PermissionResource {
     case "print_order": return "PRINT_ORDERS";
     case "presentation": return "PRESENTATIONS";
     case "setup_order": return "SETUP_ORDERS";
-    case "media_order": return "MEDIA_ORDERS";
+    case "media_deliverable": return "MEDIA_DELIVERABLES";
   }
 }
 
@@ -37,7 +37,7 @@ async function assertEntityInEvent(
       case "print_order": return prisma.printOrder.findUnique({ where: { id: entityId }, select });
       case "presentation": return prisma.presentation.findUnique({ where: { id: entityId }, select });
       case "setup_order": return prisma.setupOrder.findUnique({ where: { id: entityId }, select });
-      case "media_order": return prisma.mediaOrder.findUnique({ where: { id: entityId }, select });
+      case "media_deliverable": return prisma.mediaDeliverable.findUnique({ where: { id: entityId }, select });
     }
   })();
   if (!found || found.eventId !== eventId) notFound();
@@ -73,7 +73,7 @@ async function filterEntityIdsInEvent(
       case "print_order": return prisma.printOrder.findMany({ where, select });
       case "presentation": return prisma.presentation.findMany({ where, select });
       case "setup_order": return prisma.setupOrder.findMany({ where, select });
-      case "media_order": return prisma.mediaOrder.findMany({ where, select });
+      case "media_deliverable": return prisma.mediaDeliverable.findMany({ where, select });
     }
   })();
   return rows.map((r) => r.id);
@@ -107,8 +107,8 @@ function revalidateEntity(entityType: WorkflowEntityType, entityId: string, even
     case "setup_order":
       revalidatePath(`/events/${eventId}/setup-orders/${entityId}`);
       break;
-    case "media_order":
-      revalidatePath(`/events/${eventId}/media-orders/${entityId}`);
+    case "media_deliverable":
+      revalidatePath(`/events/${eventId}/media-deliverables/${entityId}`);
       break;
   }
 }
@@ -139,8 +139,8 @@ async function updateEntityStatus(
     case "setup_order":
       await prisma.setupOrder.update({ where: { id: entityId }, data });
       break;
-    case "media_order":
-      await prisma.mediaOrder.update({ where: { id: entityId }, data });
+    case "media_deliverable":
+      await prisma.mediaDeliverable.update({ where: { id: entityId }, data });
       break;
   }
 }

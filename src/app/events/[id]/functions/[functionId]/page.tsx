@@ -42,10 +42,10 @@ import {
   unlinkPrintOrderFromFunctionPage,
 } from "../../../print-orders/actions";
 import {
-  getAvailableMediaOrdersForFunction,
-  linkMediaOrderToFunctionFromFunction,
-  unlinkMediaOrderFromFunctionPage,
-} from "../../../media-orders/actions";
+  getAvailableMediaDeliverablesForFunction,
+  linkMediaDeliverableToFunctionFromFunction,
+  unlinkMediaDeliverableFromFunctionPage,
+} from "../../../media-deliverables/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
 import { ScheduleList } from "../../../functions/ScheduleList";
 import { ContactList } from "../../../functions/ContactList";
@@ -53,7 +53,7 @@ import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { CateringOrderPanel } from "../../../catering-orders/CateringOrderPanel";
 import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
 import { PrintOrderPanel } from "../../../print-orders/PrintOrderPanel";
-import { MediaOrderPanel } from "../../../media-orders/MediaOrderPanel";
+import { MediaDeliverablePanel } from "../../../media-deliverables/MediaDeliverablePanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
@@ -114,12 +114,12 @@ export default async function FunctionPage({
       : []
   );
 
-  const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, availableMediaOrders, workflowInstances, allTemplates, substatuses] = await Promise.all([
+  const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, availableMediaDeliverables, workflowInstances, allTemplates, substatuses] = await Promise.all([
     getAvailableAVOrdersForFunction(eventId, functionId),
     fn.cateringOrder ? [] : getAvailableCateringOrders(eventId),
     getAvailableSetupOrdersForFunction(eventId, functionId),
     getAvailablePrintOrdersForFunction(eventId, functionId),
-    getAvailableMediaOrdersForFunction(eventId, functionId),
+    getAvailableMediaDeliverablesForFunction(eventId, functionId),
     getWorkflowInstances("function", functionId, eventId),
     getWorkflowTemplateOptions(),
     getSubstatusOptions(),
@@ -223,14 +223,14 @@ export default async function FunctionPage({
     await unlinkPrintOrderFromFunctionPage(printOrderId, functionId, eventId);
   };
 
-  const linkMediaOrderAction = async (mediaOrderId: string) => {
+  const linkMediaDeliverableAction = async (mediaDeliverableId: string) => {
     "use server";
-    await linkMediaOrderToFunctionFromFunction(mediaOrderId, functionId, eventId);
+    await linkMediaDeliverableToFunctionFromFunction(mediaDeliverableId, functionId, eventId);
   };
 
-  const unlinkMediaOrderAction = async (mediaOrderId: string) => {
+  const unlinkMediaDeliverableAction = async (mediaDeliverableId: string) => {
     "use server";
-    await unlinkMediaOrderFromFunctionPage(mediaOrderId, functionId, eventId);
+    await unlinkMediaDeliverableFromFunctionPage(mediaDeliverableId, functionId, eventId);
   };
 
   const assignWorkflowAction = async (templateId: string) => {
@@ -445,15 +445,15 @@ export default async function FunctionPage({
               linkPrintOrder={linkPrintOrderAction}
               unlinkPrintOrder={unlinkPrintOrderAction}
             />
-            <MediaOrderPanel
-              title="Media Orders"
-              mediaOrders={fn.mediaOrderFunctions.map((mof) => mof.mediaOrder)}
+            <MediaDeliverablePanel
+              title="Media Deliverables"
+              mediaDeliverables={fn.mediaDeliverableFunctions.map((mdf) => mdf.mediaDeliverable)}
               eventId={eventId}
-              availableMediaOrders={availableMediaOrders}
-              newMediaOrderPath={`/events/${eventId}/media-orders/new?functionId=${functionId}`}
+              availableMediaDeliverables={availableMediaDeliverables}
+              newMediaDeliverablePath={`/events/${eventId}/media-deliverables/new?functionId=${functionId}`}
               emptyMessage="Media to display at this function (looped slides, sponsor video, etc.). Provided by a vendor or a sponsor contact."
-              linkMediaOrder={linkMediaOrderAction}
-              unlinkMediaOrder={unlinkMediaOrderAction}
+              linkMediaDeliverable={linkMediaDeliverableAction}
+              unlinkMediaDeliverable={unlinkMediaDeliverableAction}
             />
           </div>
         </div>

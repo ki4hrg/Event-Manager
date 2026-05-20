@@ -1165,12 +1165,12 @@ const fdPrintOrderInclude = {
   updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.PrintOrderInclude;
 
-const fdMediaOrderInclude = {
-  vendors: { include: { vendor: fdVendorSelect } },
+const fdMediaDeliverableInclude = {
+  providerVendor: fdVendorSelect,
+  providerContact: fdContactSelect,
   contacts: { include: { contact: fdContactSelect }, orderBy: { id: "asc" } },
-  items: { orderBy: { sortOrder: "asc" } },
   updatedBy: { select: { name: true, email: true } },
-} satisfies Prisma.MediaOrderInclude;
+} satisfies Prisma.MediaDeliverableInclude;
 
 const fdCateringOrderInclude = {
   function: { select: { id: true, name: true } },
@@ -1231,7 +1231,7 @@ const fdFunctionInclude = {
   avOrderFunctions: { include: { avOrder: { include: fdAVOrderInclude } } },
   setupOrderFunctions: { include: { setupOrder: { include: fdSetupOrderInclude } } },
   printOrderFunctions: { include: { printOrder: { include: fdPrintOrderInclude } } },
-  mediaOrderFunctions: { include: { mediaOrder: { include: fdMediaOrderInclude } } },
+  mediaDeliverableFunctions: { include: { mediaDeliverable: { include: fdMediaDeliverableInclude } } },
   presentationSlots: {
     include: {
       room: { select: { id: true, name: true } },
@@ -1253,7 +1253,7 @@ const fdFunctionInclude = {
           avOrderLinks: { include: { avOrder: { include: fdAVOrderInclude } } },
           setupOrderLinks: { include: { setupOrder: { include: fdSetupOrderInclude } } },
           printOrder: { include: fdPrintOrderInclude },
-          mediaOrderLinks: { include: { mediaOrder: { include: fdMediaOrderInclude } } },
+          mediaDeliverableLinks: { include: { mediaDeliverable: { include: fdMediaDeliverableInclude } } },
           updatedBy: { select: { name: true, email: true } },
         },
       },

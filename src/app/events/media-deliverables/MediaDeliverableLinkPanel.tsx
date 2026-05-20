@@ -15,7 +15,7 @@ type Props = {
   unlinkPresentation: (id: string) => Promise<void>;
 };
 
-export function MediaOrderLinkPanel({
+export function MediaDeliverableLinkPanel({
   linkedFunctions,
   availableFunctions,
   linkFunction,

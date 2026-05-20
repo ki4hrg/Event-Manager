@@ -204,7 +204,7 @@ export async function removeVendorContact(contactId: string, vendorId: string) {
 // Event vendor management
 
 // Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
-export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER" | "MEDIA_ORDER";
+export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER" | "MEDIA_DELIVERABLE";
 
 export type EventVendorKind = "regular" | "system" | "venue";
 
@@ -421,11 +421,6 @@ async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
   if (!found) notFound();
 }
 
-async function assertMediaOrderInEvent(mediaOrderId: string, eventId: string) {
-  const found = await prisma.mediaOrder.findUnique({ where: { id: mediaOrderId, eventId }, select: { id: true } });
-  if (!found) notFound();
-}
-
 export async function getAVOrderVendors(avOrderId: string, eventId: string) {
   await requirePermission("AV_ORDERS", "VIEW", eventId);
   return prisma.aVOrderVendor.findMany({
@@ -580,38 +575,3 @@ export async function removeVendorFromPrintOrder(id: string, printOrderId: strin
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
 }
 
-export async function getMediaOrderVendors(mediaOrderId: string, eventId: string) {
-  await requirePermission("MEDIA_ORDERS", "VIEW", eventId);
-  return prisma.mediaOrderVendor.findMany({
-    where: { mediaOrderId, mediaOrder: { eventId } },
-    include: { vendor: true },
-    orderBy: { vendor: { name: "asc" } },
-  });
-}
-
-export async function addVendorToMediaOrder(mediaOrderId: string, vendorId: string, eventId: string, notes?: string) {
-  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
-  await assertMediaOrderInEvent(mediaOrderId, eventId);
-  await prisma.mediaOrderVendor.create({
-    data: { mediaOrderId, vendorId, notes: notes || null },
-  });
-  await prisma.mediaOrder.update({ where: { id: mediaOrderId }, data: { updatedById: session.user.id } });
-  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
-}
-
-export async function updateMediaOrderVendor(id: string, mediaOrderId: string, eventId: string, notes: string) {
-  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
-  await prisma.mediaOrderVendor.update({
-    where: { id, mediaOrder: { eventId } },
-    data: { notes: notes || null },
-  });
-  await prisma.mediaOrder.update({ where: { id: mediaOrderId }, data: { updatedById: session.user.id } });
-  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
-}
-
-export async function removeVendorFromMediaOrder(id: string, mediaOrderId: string, eventId: string) {
-  const session = await requirePermission("MEDIA_ORDERS", "WRITE", eventId);
-  await prisma.mediaOrderVendor.delete({ where: { id, mediaOrder: { eventId } } });
-  await prisma.mediaOrder.update({ where: { id: mediaOrderId }, data: { updatedById: session.user.id } });
-  revalidatePath(`/events/${eventId}/media-orders/${mediaOrderId}`);
-}

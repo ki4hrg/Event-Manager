@@ -96,10 +96,19 @@ export async function getFunction(id: string) {
           },
         },
       },
-      mediaOrderFunctions: {
+      mediaDeliverableFunctions: {
         include: {
-          mediaOrder: {
-            select: { id: true, name: true, status: true, substatus: true, notes: true, ...vendorInclude },
+          mediaDeliverable: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              substatus: true,
+              notes: true,
+              mediaType: true,
+              providerVendor: { select: { name: true } },
+              providerContact: { select: { firstName: true, lastName: true } },
+            },
           },
         },
       },

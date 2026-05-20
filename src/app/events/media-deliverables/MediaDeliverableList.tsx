@@ -4,8 +4,9 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CustomOption, EntityStatus } from "@prisma/client";
-import type { getMediaOrders } from "./actions";
+import type { getMediaDeliverables } from "./actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
+import { partyLabel } from "@/app/events/av-orders/party-field";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
@@ -16,47 +17,57 @@ import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 
-type MediaOrder = Awaited<ReturnType<typeof getMediaOrders>>[number];
+type MediaDeliverable = Awaited<ReturnType<typeof getMediaDeliverables>>[number];
 
 type Props = {
-  mediaOrders: MediaOrder[];
+  mediaDeliverables: MediaDeliverable[];
   eventId: string;
   workflowSummaries: Record<string, WorkflowBadgeSummary>;
   substatuses: CustomOption[];
   vendors: { id: string; name: string }[];
   functions: { id: string; name: string }[];
   presentations: { id: string; title: string }[];
+  mediaTypeOptions: { id: string; label: string }[];
   initialStatus?: string;
   initialVendor?: string;
   initialFunction?: string;
   initialLinked?: string;
-  deleteMediaOrder: (formData: FormData) => Promise<void>;
-  deleteMediaOrders: (ids: string[]) => Promise<void>;
-  bulkUpdateMediaOrders: (
+  deleteMediaDeliverable: (formData: FormData) => Promise<void>;
+  deleteMediaDeliverables: (ids: string[]) => Promise<void>;
+  bulkUpdateMediaDeliverables: (
     ids: string[],
-    updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string; presentationId?: string }
+    updates: {
+      status?: EntityStatus;
+      substatus?: string | null;
+      providerVendorId?: string | null;
+      providerContactId?: string | null;
+      mediaType?: string | null;
+      functionId?: string;
+      presentationId?: string;
+    }
   ) => Promise<void>;
 };
 
-type SortField = "name" | "status" | "vendors" | "items" | "functions" | "presentations";
-type FilterState = { name: string; status: string; vendor: PresenceFilter; function: PresenceFilter; linked: PresenceFilter };
-const DEFAULT_FILTERS: FilterState = { name: "", status: "", vendor: "", function: "", linked: "" };
+type SortField = "name" | "status" | "provider" | "mediaType" | "functions" | "presentations";
+type FilterState = { name: string; status: string; provider: PresenceFilter; function: PresenceFilter; linked: PresenceFilter };
+const DEFAULT_FILTERS: FilterState = { name: "", status: "", provider: "", function: "", linked: "" };
 
-export function MediaOrderList({
-  mediaOrders,
+export function MediaDeliverableList({
+  mediaDeliverables,
   eventId,
   workflowSummaries,
   substatuses,
   vendors,
   functions,
   presentations,
+  mediaTypeOptions,
   initialStatus,
   initialVendor,
   initialFunction,
   initialLinked,
-  deleteMediaOrder,
-  deleteMediaOrders,
-  bulkUpdateMediaOrders,
+  deleteMediaDeliverable,
+  deleteMediaDeliverables,
+  bulkUpdateMediaDeliverables,
 }: Props) {
   const router = useRouter();
   const [view, setView] = useState<"list" | "table">("list");
@@ -65,7 +76,7 @@ export function MediaOrderList({
   const [filters, setFilters] = useState<FilterState>({
     ...DEFAULT_FILTERS,
     status: initialStatus ?? "",
-    vendor: asPresence(initialVendor),
+    provider: asPresence(initialVendor),
     function: asPresence(initialFunction),
     linked: asPresence(initialLinked),
   });
@@ -73,7 +84,8 @@ export function MediaOrderList({
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
   const [bulkSubstatus, setBulkSubstatus] = useState("");
-  const [bulkVendorId, setBulkVendorId] = useState("");
+  const [bulkProviderVendorId, setBulkProviderVendorId] = useState("");
+  const [bulkMediaType, setBulkMediaType] = useState("");
   const [bulkFunctionId, setBulkFunctionId] = useState("");
   const [bulkPresentationId, setBulkPresentationId] = useState("");
 
@@ -82,29 +94,35 @@ export function MediaOrderList({
   }
 
   const filtered = useMemo(() => {
-    return mediaOrders.filter((o) => {
-      if (filters.name && !o.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
+    return mediaDeliverables.filter((d) => {
+      if (filters.name && !d.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
       if (filters.status === "__blank__") {
-        if (o.status != null) return false;
-      } else if (filters.status && o.status !== filters.status) return false;
-      if (filters.vendor === "yes" && o.vendors.length === 0) return false;
-      if (filters.vendor === "none" && o.vendors.length > 0) return false;
-      if (filters.function === "yes" && o.functions.length === 0) return false;
-      if (filters.function === "none" && o.functions.length > 0) return false;
-      const hasLink = o.functions.length > 0 || o.presentations.length > 0;
+        if (d.status != null) return false;
+      } else if (filters.status && d.status !== filters.status) return false;
+      const hasProvider = !!(d.providerVendor || d.providerContact);
+      if (filters.provider === "yes" && !hasProvider) return false;
+      if (filters.provider === "none" && hasProvider) return false;
+      if (filters.function === "yes" && d.functions.length === 0) return false;
+      if (filters.function === "none" && d.functions.length > 0) return false;
+      const hasLink = d.functions.length > 0 || d.presentations.length > 0;
       if (filters.linked === "yes" && !hasLink) return false;
       if (filters.linked === "none" && hasLink) return false;
       return true;
     });
-  }, [mediaOrders, filters]);
+  }, [mediaDeliverables, filters]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       switch (sortField) {
         case "name": return compareValues(a.name, b.name, sortDir);
         case "status": return compareValues(a.status, b.status, sortDir);
-        case "vendors": return compareValues(a.vendors.map((v) => v.vendor.name).join(", "), b.vendors.map((v) => v.vendor.name).join(", "), sortDir);
-        case "items": return compareValues(a.items.length, b.items.length, sortDir);
+        case "provider":
+          return compareValues(
+            partyLabel(a.providerVendor, a.providerContact) ?? "",
+            partyLabel(b.providerVendor, b.providerContact) ?? "",
+            sortDir
+          );
+        case "mediaType": return compareValues(a.mediaType ?? "", b.mediaType ?? "", sortDir);
         case "functions": return compareValues(a.functions.length, b.functions.length, sortDir);
         case "presentations": return compareValues(a.presentations.length, b.presentations.length, sortDir);
         default: return 0;
@@ -117,7 +135,7 @@ export function MediaOrderList({
     else { setSortField(field); setSortDir("asc"); }
   }
 
-  const allFilteredIds = sorted.map((o) => o.id);
+  const allFilteredIds = sorted.map((d) => d.id);
   const allSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selected.has(id));
 
   function toggleSelectAll() {
@@ -139,28 +157,38 @@ export function MediaOrderList({
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
-    if (!confirm(`Delete ${ids.length} media order${ids.length !== 1 ? "s" : ""}?`)) return;
-    await deleteMediaOrders(ids);
+    if (!confirm(`Delete ${ids.length} media deliverable${ids.length !== 1 ? "s" : ""}?`)) return;
+    await deleteMediaDeliverables(ids);
     setSelected(new Set());
     router.refresh();
   }
 
   async function handleBulkApply() {
     const ids = Array.from(selected);
-    const updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string; presentationId?: string } = {};
+    const updates: {
+      status?: EntityStatus;
+      substatus?: string | null;
+      providerVendorId?: string | null;
+      providerContactId?: string | null;
+      mediaType?: string | null;
+      functionId?: string;
+      presentationId?: string;
+    } = {};
     if (bulkStatus) updates.status = bulkStatus as EntityStatus;
     if (bulkStatus && bulkSubstatus) updates.substatus = bulkSubstatus;
     else if (bulkStatus) updates.substatus = null;
-    if (bulkVendorId) updates.vendorId = bulkVendorId;
+    if (bulkProviderVendorId) updates.providerVendorId = bulkProviderVendorId;
+    if (bulkMediaType) updates.mediaType = bulkMediaType;
     if (bulkFunctionId) updates.functionId = bulkFunctionId;
     if (bulkPresentationId) updates.presentationId = bulkPresentationId;
     if (Object.keys(updates).length === 0) return;
-    await bulkUpdateMediaOrders(ids, updates);
+    await bulkUpdateMediaDeliverables(ids, updates);
     setSelected(new Set());
     setShowBulkEdit(false);
     setBulkStatus("");
     setBulkSubstatus("");
-    setBulkVendorId("");
+    setBulkProviderVendorId("");
+    setBulkMediaType("");
     setBulkFunctionId("");
     setBulkPresentationId("");
     router.refresh();
@@ -181,7 +209,7 @@ export function MediaOrderList({
       <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
         <div className="flex items-center gap-3 min-w-0">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {sorted.length}{sorted.length !== mediaOrders.length ? ` of ${mediaOrders.length}` : ""} media order{mediaOrders.length !== 1 ? "s" : ""}
+            {sorted.length}{sorted.length !== mediaDeliverables.length ? ` of ${mediaDeliverables.length}` : ""} media deliverable{mediaDeliverables.length !== 1 ? "s" : ""}
           </p>
           <ViewToggle view={view} onChange={setView} />
           <div className="flex items-center gap-1.5">
@@ -196,7 +224,7 @@ export function MediaOrderList({
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-          <PresenceFilterSelect label="Vendor" value={filters.vendor} onChange={(v) => setFilter("vendor", v)} />
+          <PresenceFilterSelect label="Provider" value={filters.provider} onChange={(v) => setFilter("provider", v)} />
           <PresenceFilterSelect label="Function" value={filters.function} onChange={(v) => setFilter("function", v)} />
           <PresenceFilterSelect
             label="Link"
@@ -207,10 +235,10 @@ export function MediaOrderList({
           />
         </div>
         <Link
-          href={`/events/${eventId}/media-orders/new`}
+          href={`/events/${eventId}/media-deliverables/new`}
           className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 shrink-0"
         >
-          Create Media Order
+          Create Media Deliverable
         </Link>
       </div>
 
@@ -255,10 +283,19 @@ export function MediaOrderList({
               </select>
             </div>
           )}
+          {mediaTypeOptions.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Media Type</label>
+              <select value={bulkMediaType} onChange={(e) => setBulkMediaType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+                <option value="">— no change —</option>
+                {mediaTypeOptions.map((o) => <option key={o.id} value={o.label}>{o.label}</option>)}
+              </select>
+            </div>
+          )}
           {vendors.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assign Vendor</label>
-              <select value={bulkVendorId} onChange={(e) => setBulkVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Provider Vendor</label>
+              <select value={bulkProviderVendorId} onChange={(e) => setBulkProviderVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
                 <option value="">— no change —</option>
                 {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
@@ -288,56 +325,58 @@ export function MediaOrderList({
         </div>
       )}
 
-      {mediaOrders.length === 0 ? (
-        <EmptyState message="No media orders yet. Create your first media order to get started." />
+      {mediaDeliverables.length === 0 ? (
+        <EmptyState message="No media deliverables yet. Create your first media deliverable to get started." />
       ) : view === "list" ? (
         <div className="space-y-2">
-          {sorted.map((mo) => (
-            <div
-              key={mo.id}
-              className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-start gap-3 ${selected.has(mo.id) ? "ring-2 ring-blue-200 dark:ring-blue-800" : ""}`}
-            >
-              <input type="checkbox" checked={selected.has(mo.id)} onChange={() => toggleRow(mo.id)} className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Link
-                    href={`/events/${eventId}/media-orders/${mo.id}`}
-                    className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
-                  >
-                    {mo.name}
-                  </Link>
-                  <WorkflowBadge summary={workflowSummaries[mo.id]} />
-                  <EntityStatusBadge status={mo.status} substatus={mo.substatus} />
+          {sorted.map((d) => {
+            const provider = partyLabel(d.providerVendor, d.providerContact);
+            return (
+              <div
+                key={d.id}
+                className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-start gap-3 ${selected.has(d.id) ? "ring-2 ring-blue-200 dark:ring-blue-800" : ""}`}
+              >
+                <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggleRow(d.id)} className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                      href={`/events/${eventId}/media-deliverables/${d.id}`}
+                      className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
+                    >
+                      {d.name}
+                    </Link>
+                    <WorkflowBadge summary={workflowSummaries[d.id]} />
+                    <EntityStatusBadge status={d.status} substatus={d.substatus} />
+                  </div>
+                  <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 flex-wrap">
+                    {d.mediaType && <span>{d.mediaType}</span>}
+                    {provider && <span>Provider: {provider}</span>}
+                    {d.functions.length > 0 && (
+                      <span className="text-green-600 dark:text-green-400">
+                        {d.functions.length === 1
+                          ? `Linked to function: ${d.functions[0].name}`
+                          : `Linked to ${d.functions.length} functions`}
+                      </span>
+                    )}
+                    {d.presentations.length > 0 && (
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {d.presentations.length === 1
+                          ? `Linked to presentation: ${d.presentations[0].title}`
+                          : `Linked to ${d.presentations.length} presentations`}
+                      </span>
+                    )}
+                    {d.functions.length === 0 && d.presentations.length === 0 && (
+                      <span className="text-orange-600 dark:text-orange-400">Unlinked</span>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 flex-wrap">
-                  {mo.items.length > 0 && (
-                    <span>{mo.items.length} item{mo.items.length !== 1 ? "s" : ""}</span>
-                  )}
-                  {mo.functions.length > 0 && (
-                    <span className="text-green-600 dark:text-green-400">
-                      {mo.functions.length === 1
-                        ? `Linked to function: ${mo.functions[0].name}`
-                        : `Linked to ${mo.functions.length} functions`}
-                    </span>
-                  )}
-                  {mo.presentations.length > 0 && (
-                    <span className="text-blue-600 dark:text-blue-400">
-                      {mo.presentations.length === 1
-                        ? `Linked to presentation: ${mo.presentations[0].title}`
-                        : `Linked to ${mo.presentations.length} presentations`}
-                    </span>
-                  )}
-                  {mo.functions.length === 0 && mo.presentations.length === 0 && (
-                    <span className="text-orange-600 dark:text-orange-400">Unlinked</span>
-                  )}
-                </div>
+                <InlineDeleteButton
+                  action={deleteMediaDeliverable}
+                  hiddenInputs={{ mediaDeliverableId: d.id }}
+                />
               </div>
-              <InlineDeleteButton
-                action={deleteMediaOrder}
-                hiddenInputs={{ mediaOrderId: mo.id }}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-2">
@@ -349,8 +388,8 @@ export function MediaOrderList({
                   <th className={thSortable} onClick={() => handleSort("name")}>Name{sortIndicator(sortField === "name", sortDir)}</th>
                   <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>
                   <th className={thBase}>Workflow</th>
-                  <th className={thSortable} onClick={() => handleSort("vendors")}>Vendor(s){sortIndicator(sortField === "vendors", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("items")}>Items{sortIndicator(sortField === "items", sortDir)}</th>
+                  <th className={thSortable} onClick={() => handleSort("mediaType")}>Media Type{sortIndicator(sortField === "mediaType", sortDir)}</th>
+                  <th className={thSortable} onClick={() => handleSort("provider")}>Provider{sortIndicator(sortField === "provider", sortDir)}</th>
                   <th className={thSortable} onClick={() => handleSort("functions")}>Functions{sortIndicator(sortField === "functions", sortDir)}</th>
                   <th className={thSortable} onClick={() => handleSort("presentations")}>Presentations{sortIndicator(sortField === "presentations", sortDir)}</th>
                 </tr>
@@ -374,30 +413,31 @@ export function MediaOrderList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {sorted.map((o) => {
-                  const isSelected = selected.has(o.id);
+                {sorted.map((d) => {
+                  const isSelected = selected.has(d.id);
+                  const provider = partyLabel(d.providerVendor, d.providerContact);
                   return (
-                    <tr key={o.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
-                      <td className="px-3 py-3 w-8"><input type="checkbox" checked={isSelected} onChange={() => toggleRow(o.id)} className="rounded" /></td>
+                    <tr key={d.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
+                      <td className="px-3 py-3 w-8"><input type="checkbox" checked={isSelected} onChange={() => toggleRow(d.id)} className="rounded" /></td>
                       <td className="px-3 py-3 font-medium">
-                        <Link href={`/events/${eventId}/media-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.name}</Link>
+                        <Link href={`/events/${eventId}/media-deliverables/${d.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{d.name}</Link>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>
-                      <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.vendors.length > 0 ? o.vendors.map((v) => v.vendor.name).join(", ") : "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.items.length > 0 ? o.items.length : "—"}</td>
+                      <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={d.status} substatus={d.substatus} /></td>
+                      <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[d.id]} /></td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{d.mediaType ?? "—"}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{provider ?? "—"}</td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {o.functions.length > 0
-                          ? o.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.functions[0].name}</Link>
-                            : `${o.functions.length} functions`
+                        {d.functions.length > 0
+                          ? d.functions.length === 1
+                            ? <Link href={`/events/${eventId}/functions/${d.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{d.functions[0].name}</Link>
+                            : `${d.functions.length} functions`
                           : <span className="text-orange-500">—</span>}
                       </td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {o.presentations.length > 0
-                          ? o.presentations.length === 1
-                            ? <Link href={`/events/${eventId}/presentations/${o.presentations[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.presentations[0].title}</Link>
-                            : `${o.presentations.length} presentations`
+                        {d.presentations.length > 0
+                          ? d.presentations.length === 1
+                            ? <Link href={`/events/${eventId}/presentations/${d.presentations[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{d.presentations[0].title}</Link>
+                            : `${d.presentations.length} presentations`
                           : "—"}
                       </td>
                     </tr>
@@ -406,14 +446,14 @@ export function MediaOrderList({
               </tbody>
             </table>
             {sorted.length === 0 && (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-8 text-sm">No media orders match the current filters.</p>
+              <p className="text-center text-gray-500 dark:text-gray-400 py-8 text-sm">No media deliverables match the current filters.</p>
             )}
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {sorted.length === mediaOrders.length
-              ? `${mediaOrders.length} media order${mediaOrders.length !== 1 ? "s" : ""}`
-              : `${sorted.length} of ${mediaOrders.length} media orders`}
+            {sorted.length === mediaDeliverables.length
+              ? `${mediaDeliverables.length} media deliverable${mediaDeliverables.length !== 1 ? "s" : ""}`
+              : `${sorted.length} of ${mediaDeliverables.length} media deliverables`}
           </p>
         </div>
       )}

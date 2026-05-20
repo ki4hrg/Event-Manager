@@ -7,6 +7,7 @@ import { redirect, notFound } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { getDefaultVendorForModel } from "@/app/vendors/actions";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { getResponsibleParties } from "@/lib/responsibleParties";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
@@ -688,33 +689,25 @@ export async function getAVOrderPartyOptions(avOrderId: string, eventId: string)
   return { vendors: avOrderVendors.map((av) => av.vendor), contacts };
 }
 
-export async function getAVOrderResponsiblePartyOptions(avOrderId: string, eventId: string): Promise<{ responsiblePartyVendors: ResponsiblePartyOptions; contacts: { id: string; firstName: string; lastName: string; organization: string | null }[] }> {
+export async function getAVOrderResponsiblePartyOptions(
+  avOrderId: string,
+  eventId: string
+): Promise<{
+  responsiblePartyVendors: ResponsiblePartyOptions;
+  contacts: { id: string; firstName: string; lastName: string; organization: string | null }[];
+}> {
   await requirePermission("AV_ORDERS", "VIEW", eventId);
-  const [orderVendors, event, systemVendor, contacts] = await Promise.all([
-    prisma.aVOrderVendor.findMany({
-      where: { avOrderId },
-      select: { vendor: { select: { id: true, name: true } } },
-      orderBy: { vendor: { name: "asc" } },
-    }),
-    prisma.event.findUnique({
-      where: { id: eventId },
-      select: { venue: { select: { vendor: { select: { id: true, name: true } } } } },
-    }),
-    prisma.vendor.findFirst({ where: { isSystemVendor: true }, select: { id: true, name: true } }),
-    getSpeakersForAVOrder(avOrderId),
+  const [functionLinks, presentationLinks] = await Promise.all([
+    prisma.aVOrderFunction.findMany({ where: { avOrderId }, select: { functionId: true } }),
+    prisma.aVOrderPresentation.findMany({ where: { avOrderId }, select: { presentationId: true } }),
   ]);
-
-  const venueVendor = event?.venue?.vendor ?? null;
-  const excludeIds = new Set([
-    ...(venueVendor ? [venueVendor.id] : []),
-    ...(systemVendor ? [systemVendor.id] : []),
-  ]);
-  const vendors = orderVendors.map((av) => av.vendor).filter((v) => !excludeIds.has(v.id));
-
-  return {
-    responsiblePartyVendors: { vendors, venueVendor, systemVendor: systemVendor ?? null },
-    contacts,
-  };
+  const pool = await getResponsibleParties({
+    eventId,
+    modelType: "AV_ORDER",
+    functionIds: functionLinks.map((l) => l.functionId),
+    presentationIds: presentationLinks.map((l) => l.presentationId),
+  });
+  return { responsiblePartyVendors: pool.vendorGroups, contacts: pool.contacts };
 }
 
 export async function deleteAVOrders(ids: string[], eventId: string) {

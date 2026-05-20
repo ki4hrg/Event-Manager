@@ -14,7 +14,6 @@ import { STATUS_LABEL, STATUS_CLASS } from "@/lib/statusConstants";
 import { formatTime, formatDateTime, getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/app/events/av-orders/party-field";
-import { formatMediaOrderProvidedBy } from "@/lib/mediaOrderProvidedBy";
 
 type OptionList = { label: string; color?: string | null }[];
 
@@ -30,7 +29,7 @@ type Fn = FunctionDetailFunction;
 type AvOrder = Fn["avOrderFunctions"][number]["avOrder"];
 type SetupOrder = Fn["setupOrderFunctions"][number]["setupOrder"];
 type PrintOrder = Fn["printOrderFunctions"][number]["printOrder"];
-type MediaOrder = Fn["mediaOrderFunctions"][number]["mediaOrder"];
+type MediaDeliverable = Fn["mediaDeliverableFunctions"][number]["mediaDeliverable"];
 type CateringOrder = NonNullable<Fn["cateringOrder"]>;
 type EquipmentItem = AvOrder["equipmentItems"][number];
 type InputGroupT = NonNullable<AvOrder["audioSection"]>["inputGroups"][number];
@@ -584,83 +583,39 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
   );
 }
 
-function MediaOrderCard({ order }: { order: MediaOrder }) {
-  const providedBy = formatMediaOrderProvidedBy(order.vendors, order.contacts);
+function MediaDeliverableCard({ deliverable }: { deliverable: MediaDeliverable }) {
+  const providedBy = partyLabel(deliverable.providerVendor, deliverable.providerContact);
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
         <div className="flex items-baseline gap-2">
-          <span className="font-medium text-gray-900 dark:text-gray-100">
-            {order.name}
-          </span>
-          <StatusBadge status={order.status} />
+          <span className="font-medium text-gray-900 dark:text-gray-100">{deliverable.name}</span>
+          <StatusBadge status={deliverable.status} />
+          {deliverable.mediaType && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">{deliverable.mediaType}</span>
+          )}
         </div>
-        <VendorPills vendors={order.vendors} />
       </div>
-      <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
-      {providedBy.length > 0 && (
-        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">
-          Provided by: {providedBy.join(", ")}
-        </p>
+      <LastUpdated updatedAt={deliverable.updatedAt} updatedBy={deliverable.updatedBy} className="mb-2 print:hidden" />
+      <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-700 dark:text-gray-300 mb-2">
+        {providedBy && (
+          <>
+            <dt className="font-medium">Provider:</dt>
+            <dd>{providedBy}</dd>
+          </>
+        )}
+        {deliverable.delivery && (
+          <>
+            <dt className="font-medium">Delivery:</dt>
+            <dd>{deliverable.delivery}</dd>
+          </>
+        )}
+      </dl>
+      {deliverable.description && (
+        <p className="text-xs text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap">{deliverable.description}</p>
       )}
-      {order.notes && (
-        <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
-          {order.notes}
-        </p>
-      )}
-
-      {order.items.length > 0 && (
-        <>
-          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
-            {order.items.map((it) => (
-              <div key={it.id} className="p-2">
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {it.description}
-                </p>
-                {it.delivery && (
-                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                    Delivery: {it.delivery}
-                  </p>
-                )}
-                {it.notes && (
-                  <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
-                    {it.notes}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="hidden sm:block print:block overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                  <th className="py-1.5 pr-3 text-xs font-medium">Item</th>
-                  <th className="py-1.5 pr-3 text-xs font-medium">Delivery</th>
-                  <th className="py-1.5 text-xs font-medium">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.items.map((it) => (
-                  <tr
-                    key={it.id}
-                    className="border-b border-gray-100 dark:border-gray-800 align-top"
-                  >
-                    <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">
-                      {it.description}
-                    </td>
-                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                      {it.delivery ?? "—"}
-                    </td>
-                    <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">
-                      {it.notes ?? ""}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+      {deliverable.notes && (
+        <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2 whitespace-pre-wrap">{deliverable.notes}</p>
       )}
     </div>
   );
@@ -882,7 +837,7 @@ function PresentationCard({
   const anchorId = `presentation-${p.id}`;
   const avOrders = p.avOrderLinks.map((l) => l.avOrder);
   const setupOrders = p.setupOrderLinks.map((l) => l.setupOrder);
-  const mediaOrders = p.mediaOrderLinks.map((l) => l.mediaOrder);
+  const mediaDeliverables = p.mediaDeliverableLinks.map((l) => l.mediaDeliverable);
   return (
     <div
       id={anchorId}
@@ -948,10 +903,10 @@ function PresentationCard({
           <PrintOrderCard order={p.printOrder} />
         </SubSection>
       )}
-      {mediaOrders.length > 0 && (
+      {mediaDeliverables.length > 0 && (
         <SubSection title="Media">
-          {mediaOrders.map((o) => (
-            <MediaOrderCard key={o.id} order={o} />
+          {mediaDeliverables.map((d) => (
+            <MediaDeliverableCard key={d.id} deliverable={d} />
           ))}
         </SubSection>
       )}
@@ -1042,7 +997,7 @@ function FunctionBlock({
   const avOrders = fn.avOrderFunctions.map((l) => l.avOrder);
   const setupOrders = fn.setupOrderFunctions.map((l) => l.setupOrder);
   const printOrders = fn.printOrderFunctions.map((l) => l.printOrder);
-  const mediaOrders = fn.mediaOrderFunctions.map((l) => l.mediaOrder);
+  const mediaDeliverables = fn.mediaDeliverableFunctions.map((l) => l.mediaDeliverable);
 
   return (
     <section id={anchorId} className="scroll-mt-24 print:break-inside-avoid-page">
@@ -1260,10 +1215,10 @@ function FunctionBlock({
           </SubSection>
         )}
 
-        {mediaOrders.length > 0 && (
+        {mediaDeliverables.length > 0 && (
           <SubSection title="Media">
-            {mediaOrders.map((o) => (
-              <MediaOrderCard key={o.id} order={o} />
+            {mediaDeliverables.map((d) => (
+              <MediaDeliverableCard key={d.id} deliverable={d} />
             ))}
           </SubSection>
         )}

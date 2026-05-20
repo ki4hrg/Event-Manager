@@ -35,5 +35,5 @@ export const STATUS_MODEL_LABEL: Record<StatusModelType, string> = {
   CATERING_ORDER: "Catering Order",
   SETUP_ORDER: "Setup Order",
   PRINT_ORDER: "Print Order",
-  MEDIA_ORDER: "Media Order",
+  MEDIA_DELIVERABLE: "Media Deliverable",
 };

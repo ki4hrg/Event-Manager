@@ -13,7 +13,7 @@ const ALL_MODEL_TYPES: StatusModelType[] = [
   "CATERING_ORDER",
   "SETUP_ORDER",
   "PRINT_ORDER",
-  "MEDIA_ORDER",
+  "MEDIA_DELIVERABLE",
 ];
 
 const DEFAULT_ROW = { status: "PENDING" as EntityStatus, substatus: "" };

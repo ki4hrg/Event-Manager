@@ -3,7 +3,7 @@ export const MODEL_TYPES = [
   { value: "AV_ORDER", label: "AV Order" },
   { value: "SETUP_ORDER", label: "Setup Order" },
   { value: "PRINT_ORDER", label: "Print Order" },
-  { value: "MEDIA_ORDER", label: "Media Order" },
+  { value: "MEDIA_DELIVERABLE", label: "Media Deliverable" },
 ] as const;
 
 export const MODEL_LABELS: Record<string, string> = Object.fromEntries(
