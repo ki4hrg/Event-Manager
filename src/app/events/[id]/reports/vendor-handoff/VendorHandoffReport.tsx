@@ -503,7 +503,12 @@ function CateringOrderSection({
   vendorId: string;
   relationship?: CateringRelationship;
 }) {
-  const hasGuestCounts = order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null;
+  const firmestCount: { label: string; value: number } | null = [
+    { label: "Confirmed", value: order.confirmedCount },
+    { label: "Guaranteed", value: order.guaranteeCount },
+    { label: "Expected", value: order.expectedCount },
+  ].find((c): c is { label: string; value: number } => c.value != null) ?? null;
+  const showGuaranteeDeadline = order.guaranteeDeadline != null && firmestCount?.label !== "Confirmed";
 
   return (
     <div className={orderCard}>
@@ -526,20 +531,14 @@ function CateringOrderSection({
         />
       </div>
 
-      {hasGuestCounts && (
+      {firmestCount && (
         <>
-          <SectionHeading>Guest Counts</SectionHeading>
-          <div className="flex gap-6 mb-4 text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">
-            {order.expectedCount != null && (
-              <span><span className="font-medium">Expected:</span> {order.expectedCount}</span>
-            )}
-            {order.confirmedCount != null && (
-              <span><span className="font-medium">Confirmed:</span> {order.confirmedCount}</span>
-            )}
-            {order.guaranteeCount != null && (
-              <span><span className="font-medium">Guarantee:</span> {order.guaranteeCount}</span>
-            )}
-            {order.guaranteeDeadline && (
+          <SectionHeading>Guest Count</SectionHeading>
+          <div className="flex gap-6 items-center mb-4 text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">
+            <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200 print:bg-transparent print:text-black print:font-semibold">
+              <span className="font-medium">{firmestCount.label}:</span> {firmestCount.value}
+            </span>
+            {showGuaranteeDeadline && order.guaranteeDeadline && (
               <span>
                 <span className="font-medium">Guarantee Deadline:</span>{" "}
                 {new Date(order.guaranteeDeadline).toLocaleDateString("en-US", {
