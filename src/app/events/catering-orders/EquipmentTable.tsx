@@ -28,7 +28,7 @@ type EquipmentTableProps = {
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
-  readOnlyItems?: { label: string; quantity: number }[];
+  readOnlyItems?: { label: string; quantity: number; source?: string }[];
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -217,7 +217,7 @@ export function EquipmentTable({
                 <span className="text-gray-900 dark:text-white font-medium">{ro.label}</span>
                 <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">× {ro.quantity}</span>
               </div>
-              <span className="text-xs text-gray-400 dark:text-gray-500 italic">From setup</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500 italic">{ro.source ?? "From setup"}</span>
             </div>
           ))}
         </div>

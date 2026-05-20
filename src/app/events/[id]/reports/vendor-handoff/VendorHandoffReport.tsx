@@ -3,7 +3,7 @@ import type { getEvent } from "@/app/events/actions";
 import { formatTime, formatDateHeading } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
-import { cateringRelationshipLabel, type CateringRelationship } from "@/lib/cateringServiceLocations";
+import { cateringRelationshipLabel, computeServiceLocationCounts, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { formatPhone } from "@/lib/format-phone";
 import {
   reportTh as th,
@@ -553,6 +553,82 @@ function CateringOrderSection({
           </div>
         </>
       )}
+
+      {(order.function || order.additionalServiceLocations.length > 0) && (() => {
+        const primaryFunctionName = order.function?.name ?? null;
+        const primaryRoom = order.function?.rooms[0]?.room.name ?? null;
+        const { sumKnown, uncountedCount, primaryRemaining, exceedsExpected, exceedsConfirmed } =
+          computeServiceLocationCounts(
+            order.additionalServiceLocations,
+            order.expectedCount,
+            order.confirmedCount,
+          );
+        const primaryDisplay = primaryFunctionName ?? "Main Service";
+        const primaryLocation = `${primaryDisplay}${primaryRoom ? ` (${primaryRoom})` : ""}`;
+        const primaryCount =
+          order.expectedCount != null && primaryRemaining != null
+            ? `${primaryRemaining} of ${order.expectedCount}`
+            : "—";
+
+        return (
+          <>
+            <SectionHeading>Service Locations</SectionHeading>
+            {uncountedCount > 0 && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mb-1">
+                ({uncountedCount} location count{uncountedCount === 1 ? "" : "s"} not yet set)
+              </div>
+            )}
+            {exceedsExpected && order.expectedCount != null && (
+              <div className="text-xs text-amber-700 dark:text-amber-400 print:text-black mb-1">
+                ⚠ Additional location counts ({sumKnown}) exceed order expected count ({order.expectedCount}).
+              </div>
+            )}
+            {exceedsConfirmed && order.confirmedCount != null && (
+              <div className="text-xs text-amber-700 dark:text-amber-400 print:text-black mb-1">
+                ⚠ Additional location counts ({sumKnown}) also exceed confirmed count ({order.confirmedCount}).
+              </div>
+            )}
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th className={th}>Location</th>
+                    <th className={th}>Expected</th>
+                    <th className={th}>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className={td}>
+                      {primaryLocation}
+                      <span className="ml-1 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">[Primary]</span>
+                    </td>
+                    <td className={td}>{primaryCount}</td>
+                    <td className={td}></td>
+                  </tr>
+                  {order.additionalServiceLocations.map((loc) => {
+                    const derivedRoom = loc.function?.rooms[0]?.room.name ?? null;
+                    const functionName = loc.function?.name ?? null;
+                    const baseName = loc.name ?? functionName ?? "Unnamed location";
+                    const roomAside = derivedRoom ? ` (${derivedRoom})` : "";
+                    const functionAside = loc.name && functionName ? ` · ${functionName}${roomAside}` : (!loc.name ? roomAside : "");
+                    return (
+                      <tr key={loc.id}>
+                        <td className={td}>
+                          {baseName}
+                          <span className="text-gray-500 dark:text-gray-400 print:text-gray-600">{functionAside}</span>
+                        </td>
+                        <td className={td}>{loc.expectedCount ?? "—"}</td>
+                        <td className={td}>{loc.notes ?? ""}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      })()}
 
       {order.menuSections.length > 0 && (
         <>

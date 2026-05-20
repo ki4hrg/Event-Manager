@@ -5,31 +5,39 @@ import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
 import { formatPhone } from "@/lib/format-phone";
 import { computeServiceLocationCounts } from "@/lib/cateringServiceLocations";
+import { formatTime as formatTimeInTimezone } from "@/lib/agendaUtils";
 
 type CateringOrderData = NonNullable<Awaited<ReturnType<typeof getCateringOrder>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
 type VendorAssignment = Awaited<ReturnType<typeof getCateringOrderVendors>>[number];
 
-function formatDate(d: Date | null | undefined): string {
+function formatDate(d: Date | null | undefined, timezone: string): string {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(d));
 }
 
-function formatTime(d: Date | null | undefined): string {
+function formatTime(d: Date | null | undefined, timezone: string): string {
   if (!d) return "—";
-  return new Date(d).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return formatTimeInTimezone(new Date(d), timezone);
 }
 
 interface CateringOrderDetailsProps {
   order: CateringOrderData;
   vendors: VendorAssignment[];
   workflowInstances: WorkflowInstance[];
+  timezone: string;
 }
 
 export function CateringOrderDetails({
   order,
   vendors,
   workflowInstances,
+  timezone,
 }: CateringOrderDetailsProps) {
   return (
     <div className="space-y-2">
@@ -63,9 +71,9 @@ export function CateringOrderDetails({
             <span className="font-medium text-gray-500 print:text-gray-600">Deadlines: </span>
             <span className="text-gray-900 print:text-black">
               {[
-                order.depositDeadline && `Deposit: ${formatDate(order.depositDeadline)}`,
-                order.guaranteeDeadline && `Guarantee: ${formatDate(order.guaranteeDeadline)}`,
-                order.paymentDeadline && `Payment: ${formatDate(order.paymentDeadline)}`,
+                order.depositDeadline && `Deposit: ${formatDate(order.depositDeadline, timezone)}`,
+                order.guaranteeDeadline && `Guarantee: ${formatDate(order.guaranteeDeadline, timezone)}`,
+                order.paymentDeadline && `Payment: ${formatDate(order.paymentDeadline, timezone)}`,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -181,8 +189,8 @@ export function CateringOrderDetails({
               {order.timelineItems.map((item) => (
                 <tr key={item.id} className="border-t border-gray-100 print:border-gray-300">
                   <td className="py-1.5 pr-4 text-gray-900 print:text-black">{item.label}</td>
-                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{formatTime(item.startTime)}</td>
-                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{formatTime(item.endTime)}</td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{formatTime(item.startTime, timezone)}</td>
+                  <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{formatTime(item.endTime, timezone)}</td>
                   <td className="py-1.5 text-gray-600 print:text-gray-700">{item.notes ?? ""}</td>
                 </tr>
               ))}

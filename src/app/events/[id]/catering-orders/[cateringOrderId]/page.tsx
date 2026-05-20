@@ -68,6 +68,7 @@ import { AdditionalServiceLocationTable } from "../../../catering-orders/Additio
 import { ContactList } from "../../../functions/ContactList";
 import { FunctionLinkControl } from "../../../functions/FunctionLinkControl";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
+import { formatTime } from "@/lib/agendaUtils";
 import type { TimelineItem } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -88,9 +89,11 @@ export async function generateMetadata({
 function TimelinePreview({
   items,
   serviceTabPath,
+  timezone,
 }: {
   items: TimelineItem[];
   serviceTabPath: string;
+  timezone: string;
 }) {
   if (items.length === 0) return null;
 
@@ -109,9 +112,8 @@ function TimelinePreview({
         {items.map((item) => (
           <div key={item.id} className="flex gap-4 text-sm">
             <span className="text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
-              {new Date(item.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              {item.endTime &&
-                ` – ${new Date(item.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+              {formatTime(item.startTime, timezone)}
+              {item.endTime && ` – ${formatTime(item.endTime, timezone)}`}
             </span>
             <span className="text-gray-900 dark:text-white">{item.label}</span>
             {item.notes && (
@@ -485,6 +487,7 @@ export default async function CateringOrderPage({
             <TimelinePreview
               items={cateringOrder.timelineItems}
               serviceTabPath={`${basePath}?tab=service`}
+              timezone={event.timezone}
             />
             <MenuSectionTable
               sections={cateringOrder.menuSections}
@@ -516,6 +519,7 @@ export default async function CateringOrderPage({
           <div className="lg:col-span-2 space-y-6">
             <TimelineTable
               items={cateringOrder.timelineItems}
+              timezone={event.timezone}
               createItem={createTimelineAction}
               updateItem={updateTimelineAction}
               deleteItem={deleteTimelineAction}

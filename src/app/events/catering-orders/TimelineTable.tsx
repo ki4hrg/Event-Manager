@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { TimelineItem } from "@prisma/client";
+import { formatTime } from "@/lib/agendaUtils";
 
 type TimelineTableProps = {
   items: TimelineItem[];
+  timezone: string;
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -24,16 +26,25 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-function formatTimeForInput(date: Date | null | undefined): string {
+function formatTimeForInput(date: Date | null | undefined, timezone: string): string {
   if (!date) return "";
-  return new Date(date).toISOString().slice(0, 16);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(date));
+  const values: Record<string, string> = {};
+  parts.forEach((part) => {
+    values[part.type] = part.value;
+  });
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
 }
 
-function formatTimeDisplay(date: Date): string {
-  return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-export function TimelineTable({ items, createItem, updateItem, deleteItem }: TimelineTableProps) {
+export function TimelineTable({ items, timezone, createItem, updateItem, deleteItem }: TimelineTableProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -145,7 +156,7 @@ export function TimelineTable({ items, createItem, updateItem, deleteItem }: Tim
                         type="datetime-local"
                         name="startTime"
                         required
-                        defaultValue={formatTimeForInput(item.startTime)}
+                        defaultValue={formatTimeForInput(item.startTime, timezone)}
                         className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                       />
                     </div>
@@ -154,7 +165,7 @@ export function TimelineTable({ items, createItem, updateItem, deleteItem }: Tim
                       <input
                         type="datetime-local"
                         name="endTime"
-                        defaultValue={formatTimeForInput(item.endTime)}
+                        defaultValue={formatTimeForInput(item.endTime, timezone)}
                         className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                       />
                     </div>
@@ -175,8 +186,8 @@ export function TimelineTable({ items, createItem, updateItem, deleteItem }: Tim
                   <div>
                     <span className="text-gray-900 dark:text-white font-medium">{item.label}</span>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                      {formatTimeDisplay(item.startTime)}
-                      {item.endTime && ` – ${formatTimeDisplay(item.endTime)}`}
+                      {formatTime(item.startTime, timezone)}
+                      {item.endTime && ` – ${formatTime(item.endTime, timezone)}`}
                       {item.notes && <span className="ml-2">· {item.notes}</span>}
                     </div>
                   </div>

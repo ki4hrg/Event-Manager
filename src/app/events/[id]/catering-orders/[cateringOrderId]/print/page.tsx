@@ -53,6 +53,7 @@ export default async function CateringOrderPrintPage({
         order={order}
         vendors={vendors}
         workflowInstances={workflowInstances}
+        timezone={event.timezone}
       />
     </div>
   );

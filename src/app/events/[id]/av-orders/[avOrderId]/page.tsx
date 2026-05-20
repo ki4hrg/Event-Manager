@@ -223,21 +223,32 @@ export default async function AVOrderPage({
 
   const entityStatus = avOrder.status ?? null;
 
-  const readOnlyTotals: Record<string, number> = {};
+  const rollupBySource = new Map<string, Map<string, number>>();
+  const addRollup = (label: string | null | undefined, quantity: number, source: string) => {
+    if (!label) return;
+    let bucket = rollupBySource.get(source);
+    if (!bucket) {
+      bucket = new Map();
+      rollupBySource.set(source, bucket);
+    }
+    bucket.set(label, (bucket.get(label) ?? 0) + quantity);
+  };
   for (const group of avOrder.audioSection?.inputGroups ?? []) {
     for (const item of group.inputItems) {
-      if (item.equipment) readOnlyTotals[item.equipment.name] = (readOnlyTotals[item.equipment.name] ?? 0) + item.quantity;
+      addRollup(item.equipment?.name ?? item.description, item.quantity, "Audio");
     }
   }
   for (const mix of avOrder.audioSection?.monitorMixes ?? []) {
     for (const output of mix.monitorOutputs ?? []) {
-      if (output.equipment) readOnlyTotals[output.equipment.name] = (readOnlyTotals[output.equipment.name] ?? 0) + output.quantity;
+      addRollup(output.equipment?.name ?? mix.description, output.quantity, "Monitors");
     }
   }
   for (const item of avOrder.videoSection?.equipmentItems ?? []) {
-    readOnlyTotals[item.item] = (readOnlyTotals[item.item] ?? 0) + (item.quantity ?? 1);
+    addRollup(item.item, item.quantity ?? 1, "Video");
   }
-  const readOnlyItems = Object.entries(readOnlyTotals).map(([label, quantity]) => ({ label, quantity }));
+  const readOnlyItems = Array.from(rollupBySource.entries()).flatMap(([source, bucket]) =>
+    Array.from(bucket.entries()).map(([label, quantity]) => ({ label, quantity, source }))
+  );
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
