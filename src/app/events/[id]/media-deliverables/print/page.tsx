@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { getMediaDeliverables } from "@/app/events/media-deliverables/actions";
 import { getEvent } from "../../../actions";
-import { partyLabel } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
 
 export const dynamic = "force-dynamic";
 

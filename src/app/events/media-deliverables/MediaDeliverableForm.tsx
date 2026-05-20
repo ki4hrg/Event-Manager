@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
-import { PartyField, partyLabel } from "@/app/events/av-orders/party-field";
+import { PartyField } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyPool } from "@/lib/responsibleParties";
 
 type MediaDeliverableData = {

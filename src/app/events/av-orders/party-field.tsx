@@ -51,16 +51,6 @@ export function mergeAndSortVendors(
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function partyLabel(
-  vendorObj: { name: string } | null | undefined,
-  contactObj: { firstName: string; lastName: string } | null | undefined
-): string | null {
-  if (vendorObj) return vendorObj.name;
-  if (contactObj)
-    return [contactObj.firstName, contactObj.lastName].filter(Boolean).join(" ");
-  return null;
-}
-
 type PartyFieldProps = {
   vendors?: PartyOptions;
   vendorGroups?: ResponsiblePartyOptions;

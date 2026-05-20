@@ -13,7 +13,7 @@ import { resolveOptionLabel } from "@/lib/optionUtils";
 import { STATUS_LABEL, STATUS_CLASS } from "@/lib/statusConstants";
 import { formatTime, formatDateTime, getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
-import { partyLabel } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
 
 type OptionList = { label: string; color?: string | null }[];
 

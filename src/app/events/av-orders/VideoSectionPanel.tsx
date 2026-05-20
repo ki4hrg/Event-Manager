@@ -6,9 +6,9 @@ import type { EquipmentItem, VideoSection, Vendor, Contact, Equipment } from "@p
 import {
   type ContactOptions,
   mergeExtraVendorsIntoGroup,
-  partyLabel,
   PartyField,
 } from "./party-field";
+import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { GroupedEquipmentSelect } from "./grouped-equipment-select";
 

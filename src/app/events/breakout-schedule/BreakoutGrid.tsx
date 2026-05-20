@@ -6,7 +6,7 @@ import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "./utils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
-import { partyLabel } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
 import {
   DndContext,
   DragOverlay,

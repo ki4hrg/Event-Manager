@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { EquipmentItem, CustomOption, Equipment, Vendor, Contact } from "@prisma/client";
-import { PartyField, partyLabel } from "@/app/events/av-orders/party-field";
+import { PartyField } from "@/app/events/av-orders/party-field";
 import type { ContactOptions } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 
 type EquipmentItemFull = EquipmentItem & {
@@ -227,7 +228,9 @@ export function EquipmentTable({
       )}
       {items.length > 0 && (
         <div className="space-y-2">
-          {items.map((item) => (
+          {items.map((item) => {
+            const provider = partyLabel(item.providerVendor, item.providerContact);
+            return (
             <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               {editingId === item.id ? (
                 <form action={(fd) => handleUpdate(item.id, fd)} className="space-y-3">
@@ -298,9 +301,7 @@ export function EquipmentTable({
                     <span className="text-gray-900 dark:text-white font-medium">{item.item}</span>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                       {item.quantity != null && <span>× {item.quantity} </span>}
-                      {partyLabel(item.providerVendor, item.providerContact) && (
-                        <span>{partyLabel(item.providerVendor, item.providerContact)}</span>
-                      )}
+                      {provider && <span>{provider}</span>}
                       {item.notes && <span className="ml-2">· {item.notes}</span>}
                     </div>
                   </div>
@@ -318,7 +319,8 @@ export function EquipmentTable({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -5,7 +5,8 @@ import Link from "next/link";
 import type { PresentationSlot, Function as PrismaFunction, FunctionSchedule, Room, BreakoutGroup } from "@prisma/client";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
-import { PartyField, parsePartyValue, partyLabel, type ContactOptions } from "@/app/events/av-orders/party-field";
+import { PartyField, parsePartyValue, type ContactOptions } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 

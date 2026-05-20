@@ -10,7 +10,8 @@ import type {
   CustomOption,
 } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
-import { PartyField, partyLabel, type ContactOptions } from "@/app/events/av-orders/party-field";
+import { PartyField, type ContactOptions } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 
 type SpeakerWithContact = PresentationContact & { contact: Contact };

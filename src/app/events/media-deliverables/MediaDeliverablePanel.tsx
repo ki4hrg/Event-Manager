@@ -3,7 +3,7 @@
 import type { EntityStatus } from "@prisma/client";
 import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { OrderMeta } from "@/components/OrderMeta";
-import { partyLabel } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
 
 type MediaDeliverableSummary = {
   id: string;
