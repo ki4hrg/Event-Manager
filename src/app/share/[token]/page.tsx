@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
-import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions, getBreakoutScheduleData, getBreakoutGroupOptions } from "@/app/events/reports/actions";
+import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions, getBreakoutScheduleData, getBreakoutGroupOptions } from "@/app/events/reports/actions";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
+import { EventScheduleReport } from "@/app/events/[id]/reports/event-schedule/EventScheduleReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
@@ -16,6 +17,7 @@ import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-as
 import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equipment-responsibility/ReportFilters";
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
+import { ReportFilters as EsReportFilters } from "@/app/events/[id]/reports/event-schedule/ReportFilters";
 import { ReportFilters as RsReportFilters } from "@/app/events/[id]/reports/room-schedule/ReportFilters";
 import { ReportFilters as FdReportFilters } from "@/app/events/[id]/reports/function-detail/ReportFilters";
 import { ReportFilters as BgReportFilters } from "@/app/events/[id]/reports/breakout-grid/ReportFilters";
@@ -40,6 +42,7 @@ const REPORT_TITLES: Record<string, string> = {
   EQUIPMENT_RESPONSIBILITY: "Equipment responsibility",
   VENDOR_HANDOFF: "Vendor handoff",
   EVENT_PROFILE: "Event profile",
+  EVENT_SCHEDULE: "Event schedule",
   ROOM_SCHEDULE: "Room schedule",
   FUNCTION_DETAIL: "Function detail",
   BREAKOUT_GRID: "Breakout grid",
@@ -270,6 +273,72 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           serviceStyles={serviceStyles}
           scheduleTypes={scheduleTypes}
           selectedSections={validSections}
+        />
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "EVENT_SCHEDULE") {
+    let effectiveTypes: string[] | undefined;
+    let effectiveIncludeNonPublic: boolean;
+
+    if (link.filtersLocked) {
+      effectiveTypes = storedFilters.types;
+    } else {
+      const typesParam = getString(sp.types);
+      effectiveTypes = typesParam
+        ? typesParam.split(",").filter(Boolean)
+        : storedFilters.types;
+    }
+    effectiveIncludeNonPublic = resolveSharedBoolean(
+      link.filtersLocked,
+      getString(sp.includeNonPublic),
+      storedFilters.includeNonPublic
+    );
+
+    const [scheduleTypes, dataRaw] = await Promise.all([
+      getOptions("schedule_type"),
+      getEventScheduleData(link.eventId, {
+        types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
+        includeNonPublic: effectiveIncludeNonPublic,
+      }),
+    ]);
+
+    if (!link.filtersLocked) {
+      effectiveTypes = intersect(effectiveTypes, new Set(scheduleTypes.map((t) => t.label)));
+    }
+
+    const data = stripUpdatedBy(dataRaw);
+    if (!data) notFound();
+
+    const typeOptions = scheduleTypes.map((t) => ({ value: t.label, label: t.label }));
+
+    const printParams = new URLSearchParams();
+    if (effectiveTypes?.length) printParams.set("types", effectiveTypes.join(","));
+    if (effectiveIncludeNonPublic) printParams.set("includeNonPublic", "true");
+    const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
+
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Event Schedule"
+        label={link.label}
+        printHref={printHref}
+      >
+        {!link.filtersLocked && (
+          <EsReportFilters
+            eventId={link.eventId}
+            scheduleTypes={typeOptions}
+            selectedTypes={effectiveTypes ?? []}
+            includeNonPublic={effectiveIncludeNonPublic}
+            basePath={`/share/${token}`}
+            hidePrint
+          />
+        )}
+        <EventScheduleReport
+          data={data}
+          scheduleTypes={scheduleTypes}
+          includeNonPublic={effectiveIncludeNonPublic}
         />
       </ShareShell>
     );

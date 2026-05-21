@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import React from "react";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
-import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData } from "@/app/events/reports/actions";
+import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
@@ -10,6 +10,7 @@ import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
+import { EventScheduleReport } from "@/app/events/[id]/reports/event-schedule/EventScheduleReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridPrintView } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridPrintView";
@@ -23,6 +24,7 @@ const REPORT_TITLES: Record<string, string> = {
   EQUIPMENT_RESPONSIBILITY: "Equipment responsibility",
   VENDOR_HANDOFF: "Vendor handoff",
   EVENT_PROFILE: "Event profile",
+  EVENT_SCHEDULE: "Event schedule",
   ROOM_SCHEDULE: "Room schedule",
   FUNCTION_DETAIL: "Function detail",
   BREAKOUT_GRID: "Breakout grid",
@@ -246,6 +248,51 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
           selectedSections={validSections}
         />
       </div>
+    );
+  }
+
+  if (link.reportType === "EVENT_SCHEDULE") {
+    let effectiveTypes: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveTypes = storedFilters.types;
+    } else {
+      const typesParam = getString(sp.types);
+      effectiveTypes = typesParam
+        ? typesParam.split(",").filter(Boolean)
+        : storedFilters.types;
+    }
+    const effectiveIncludeNonPublic = resolveSharedBoolean(
+      link.filtersLocked,
+      getString(sp.includeNonPublic),
+      storedFilters.includeNonPublic
+    );
+
+    const [event, data, scheduleTypes] = await Promise.all([
+      getEvent(link.eventId).then(stripUpdatedBy),
+      getEventScheduleData(link.eventId, {
+        types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
+        includeNonPublic: effectiveIncludeNonPublic,
+      }).then(stripUpdatedBy),
+      getOptions("schedule_type"),
+    ]);
+
+    if (!event || !data) notFound();
+
+    return (
+      <>
+        <style>{`@page { margin: 0.5in; }`}</style>
+        <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
+          <div className="print:hidden">
+            <PrintHeader eventName={link.event.name} title="Event Schedule" backHref={backHref} />
+          </div>
+          <EventScheduleReport
+            data={data}
+            scheduleTypes={scheduleTypes}
+            includeNonPublic={effectiveIncludeNonPublic}
+          />
+        </div>
+      </>
     );
   }
 

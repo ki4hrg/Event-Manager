@@ -12,12 +12,14 @@ export type ShareLinkFilters = {
   usedOnly?: boolean;
   functionIds?: string[];
   breakoutGroupIds?: string[];
+  includeNonPublic?: boolean;
 };
 
 export const SHARE_REPORT_LABELS: Record<string, string> = {
   EQUIPMENT_RESPONSIBILITY: "Equipment Responsibility",
   VENDOR_HANDOFF: "Vendor Handoff",
   EVENT_PROFILE: "Event Profile",
+  EVENT_SCHEDULE: "Event Schedule",
   ROOM_SCHEDULE: "Room Schedule",
   FUNCTION_DETAIL: "Function Detail",
   BREAKOUT_GRID: "Breakout Grid",

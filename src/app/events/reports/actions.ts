@@ -1475,3 +1475,55 @@ export async function getBreakoutGroupOptions(eventId: string) {
     orderBy: { sortOrder: "asc" },
   });
 }
+
+// ── Event Schedule report ─────────────────────────────────────────────────────
+
+export type EventScheduleFilters = {
+  types?: string[];
+  includeNonPublic?: boolean;
+};
+
+export async function getEventScheduleData(
+  eventId: string,
+  opts: EventScheduleFilters = {}
+) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, timezone: true },
+  });
+  if (!event) return null;
+
+  const typeKeys = opts.types && opts.types.length > 0 ? new Set(opts.types) : null;
+  const includeNonPublic = opts.includeNonPublic === true;
+
+  const items = await prisma.functionSchedule.findMany({
+    where: {
+      function: { eventId },
+      ...(includeNonPublic ? {} : { isPublic: true }),
+      ...(typeKeys ? { type: { in: Array.from(typeKeys) } } : {}),
+    },
+    include: {
+      function: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          offSiteLocation: true,
+          breakoutGroup: { select: { name: true } },
+          rooms: {
+            include: { room: { select: { id: true, name: true } } },
+          },
+        },
+      },
+    },
+    orderBy: { startTime: "asc" },
+  });
+
+  return {
+    timezone: event.timezone,
+    items,
+  };
+}
+
+export type EventScheduleData = NonNullable<Awaited<ReturnType<typeof getEventScheduleData>>>;
+export type EventScheduleItem = EventScheduleData["items"][number];

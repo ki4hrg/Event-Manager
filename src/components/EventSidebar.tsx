@@ -140,6 +140,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon /> },
   { type: "group", label: "Reports" },
   { type: "link",  label: "Event Profile",   segment: "reports/event-profile",           icon: <ChartIcon /> },
+  { type: "link",  label: "Event Schedule",   segment: "reports/event-schedule",          icon: <ClockIcon /> },
   { type: "link",  label: "Function Detail",  segment: "reports/function-detail",         icon: <ClipboardIcon /> },
   { type: "link",  label: "Room Schedule",    segment: "reports/room-schedule",           icon: <GridIcon /> },
   { type: "link",  label: "Breakout Grid",    segment: "reports/breakout-grid",           icon: <GridIcon /> },
