@@ -22,9 +22,10 @@ function getDateKey(date: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(date);
 }
 
-function formatDateHeading(dateKey: string): string {
+function formatDateHeading(dateKey: string, timezone: string): string {
   // dateKey is "YYYY-MM-DD"; parse at noon UTC to avoid timezone boundary issues
   return new Date(dateKey + "T12:00:00Z").toLocaleDateString("en-US", {
+    timeZone: timezone,
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -100,7 +101,7 @@ export default async function AgendaPrintPage({
     <div className="max-w-4xl mx-auto px-8 py-8 bg-white print:px-0 print:py-0">
       <PrintHeader
         eventName={event.name}
-        title={filterDate ? formatDateHeading(filterDate) : "Agenda"}
+        title={filterDate ? formatDateHeading(filterDate, timezone) : "Agenda"}
         backHref={`/events/${eventId}/agenda`}
       />
 
@@ -115,7 +116,7 @@ export default async function AgendaPrintPage({
         >
           {!filterDate && (
             <h2 className="text-lg font-semibold text-gray-800 print:text-black mb-4 pb-1 border-b border-gray-300">
-              {formatDateHeading(dateKey)}
+              {formatDateHeading(dateKey, timezone)}
             </h2>
           )}
 

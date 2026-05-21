@@ -159,6 +159,25 @@ export function formatDateHeading(dateKey: string, timezone: string): string {
   });
 }
 
+/**
+ * Formats Event.startDate / Event.endDate (Prisma DateTime fields populated from
+ * `<input type="date">` and stored as UTC midnight). Rendering UTC midnight in
+ * any non-UTC timezone rolls the date back a day, so we extract YYYY-MM-DD and
+ * re-parse at noon UTC before formatting. Accepts either a Date or an ISO string
+ * (client components receive serialized props).
+ */
+export function formatEventDate(
+  date: Date | string,
+  timezone: string,
+  options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" }
+): string {
+  const ymd = typeof date === "string" ? date.slice(0, 10) : date.toISOString().slice(0, 10);
+  return new Date(`${ymd}T12:00:00Z`).toLocaleDateString("en-US", {
+    ...options,
+    timeZone: timezone,
+  });
+}
+
 export function formatTime(date: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,

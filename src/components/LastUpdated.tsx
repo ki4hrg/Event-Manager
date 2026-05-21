@@ -34,7 +34,7 @@ export function LastUpdated({ updatedAt, updatedBy, timezone, hideUser, classNam
   if (!updatedAt) return null;
   const tier = getTier(updatedAt);
   const { dot, text } = TIER_CLASSES[tier];
-  const relative = formatRelativeTime(updatedAt);
+  const relative = formatRelativeTime(updatedAt, timezone);
   const absolute = formatAbsoluteTime(updatedAt, timezone);
   const who = !hideUser && updatedBy ? (updatedBy.name || updatedBy.email) : null;
 

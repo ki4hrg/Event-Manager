@@ -17,14 +17,11 @@ import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
 import { EntityOverviewCard } from "./EntityOverviewCard";
 import { LastUpdated } from "@/components/LastUpdated";
+import { formatEventDate } from "@/lib/agendaUtils";
 
 export const dynamic = "force-dynamic";
 
 const MS_PER_DAY = 86_400_000;
-
-function formatDate(d: Date) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function getCountdown(start: Date, end: Date) {
   const now = Date.now();
@@ -96,7 +93,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   };
 
   const countdown = getCountdown(event.startDate, event.endDate);
-  const dateRange = `${formatDate(event.startDate)} – ${formatDate(event.endDate)}`;
+  const dateRange = `${formatEventDate(event.startDate, event.timezone)} – ${formatEventDate(event.endDate, event.timezone)}`;
 
   return (
     <>

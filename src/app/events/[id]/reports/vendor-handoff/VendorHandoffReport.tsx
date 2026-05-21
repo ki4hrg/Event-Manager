@@ -1,6 +1,6 @@
 import type { getVendorHandoffData } from "@/app/events/reports/actions";
 import type { getEvent } from "@/app/events/actions";
-import { formatTime, formatDateHeading } from "@/lib/agendaUtils";
+import { formatTime, formatDateHeading, formatEventDate } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { cateringRelationshipLabel, computeServiceLocationCounts, type CateringRelationship } from "@/lib/cateringServiceLocations";
@@ -410,6 +410,7 @@ function FunctionScheduleSection({
       {sortedDates.map((dateKey) => {
         const rows = byDate.get(dateKey)!;
         const dateLabel = new Date(dateKey + "T12:00:00Z").toLocaleDateString("en-US", {
+          timeZone: timezone,
           weekday: "long",
           month: "long",
           day: "numeric",
@@ -1246,9 +1247,9 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
     unscheduled.setupOrders.length > 0,
   ].filter(Boolean).length;
 
-  const dateOpts: Intl.DateTimeFormatOptions = { timeZone: timezone, month: "long", day: "numeric", year: "numeric" };
-  const startDateStr = event.startDate ? new Date(event.startDate).toLocaleDateString("en-US", dateOpts) : null;
-  const endDateStr = event.endDate ? new Date(event.endDate).toLocaleDateString("en-US", dateOpts) : null;
+  const dateOpts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" };
+  const startDateStr = event.startDate ? formatEventDate(event.startDate, timezone, dateOpts) : null;
+  const endDateStr = event.endDate ? formatEventDate(event.endDate, timezone, dateOpts) : null;
   const dateRange = startDateStr && endDateStr
     ? `${startDateStr} – ${endDateStr}`
     : (startDateStr ?? endDateStr ?? null);

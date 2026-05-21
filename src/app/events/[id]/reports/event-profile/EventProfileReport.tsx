@@ -1,6 +1,6 @@
 import type { CustomOption } from "@prisma/client";
 import type { EventProfileData } from "@/app/events/reports/actions";
-import { getDateKeyInTimezone, formatDateHeading, formatTime, formatTimeRange as formatTimeRangeShared } from "@/lib/agendaUtils";
+import { getDateKeyInTimezone, formatDateHeading, formatTime, formatTimeRange as formatTimeRangeShared, formatEventDate } from "@/lib/agendaUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { colorClasses } from "@/lib/colors";
 import { formatPhone } from "@/lib/format-phone";
@@ -553,18 +553,8 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
   }
 
   const eventDateRange = (() => {
-    const start = new Date(event.startDate).toLocaleDateString("en-US", {
-      timeZone: timezone,
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    const end = new Date(event.endDate).toLocaleDateString("en-US", {
-      timeZone: timezone,
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    const start = formatEventDate(event.startDate, timezone);
+    const end = formatEventDate(event.endDate, timezone);
     return start === end ? start : `${start} – ${end}`;
   })();
 

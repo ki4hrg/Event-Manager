@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatEventDate } from "@/lib/agendaUtils";
 
 type EventItem = {
   id: string;
   name: string;
   startDate: string;
   endDate: string;
+  timezone: string;
   venue?: { name: string } | null;
 };
 
@@ -70,8 +72,8 @@ export function EventListClient({ events }: { events: EventItem[] }) {
                     </Link>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                    {new Date(event.startDate).toLocaleDateString()} -{" "}
-                    {new Date(event.endDate).toLocaleDateString()}
+                    {formatEventDate(event.startDate, event.timezone)} -{" "}
+                    {formatEventDate(event.endDate, event.timezone)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                     {event.venue?.name || "—"}

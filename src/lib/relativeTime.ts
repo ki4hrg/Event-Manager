@@ -2,7 +2,7 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-export function formatRelativeTime(date: Date | string | null | undefined): string {
+export function formatRelativeTime(date: Date | string | null | undefined, timezone?: string): string {
   if (!date) return "";
   const ts = typeof date === "string" ? new Date(date).getTime() : date.getTime();
   const diff = Date.now() - ts;
@@ -20,7 +20,12 @@ export function formatRelativeTime(date: Date | string | null | undefined): stri
     const d = Math.floor(diff / DAY);
     return `${d}d ago`;
   }
-  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(ts).toLocaleDateString("en-US", {
+    timeZone: timezone,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export function formatAbsoluteTime(date: Date | string | null | undefined, timezone?: string): string {
