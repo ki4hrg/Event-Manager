@@ -69,7 +69,7 @@ export default async function FunctionDetailPage({
         </h1>
       </div>
 
-      <div className="max-w-5xl">
+      <div className="max-w-5xl mx-auto">
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}

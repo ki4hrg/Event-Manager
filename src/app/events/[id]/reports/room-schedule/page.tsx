@@ -74,7 +74,7 @@ export default async function RoomSchedulePage({
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{event.name}</h1>
       </div>
 
-      <div className="max-w-5xl">
+      <div className="max-w-5xl mx-auto">
         <AddToDashboardBanner
           eventId={eventId}
           addToDashboardId={addToDashboard}
