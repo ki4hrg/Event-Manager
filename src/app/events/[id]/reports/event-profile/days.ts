@@ -1,10 +1,13 @@
-import { getDateKeyInTimezone, formatDateHeading } from "@/lib/agendaUtils";
+import { formatDateHeading } from "@/lib/agendaUtils";
 
 export type DayOption = { value: string; label: string };
 
 export function enumerateEventDays(start: Date, end: Date, timezone: string): DayOption[] {
-  const startKey = getDateKeyInTimezone(start, timezone);
-  const endKey = getDateKeyInTimezone(end, timezone);
+  // start/end are calendar dates stored as UTC midnight (the form posts YYYY-MM-DD).
+  // Slice the ISO date portion directly — converting through the event timezone would
+  // shift western timezones back by one day and drop the last day of the event.
+  const startKey = start.toISOString().slice(0, 10);
+  const endKey = end.toISOString().slice(0, 10);
   const out: DayOption[] = [];
   let cursor = startKey;
   // 32-day safety cap so a malformed end date can't spin
