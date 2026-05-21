@@ -1513,6 +1513,13 @@ export async function getEventScheduleData(
           rooms: {
             include: { room: { select: { id: true, name: true } } },
           },
+          presentationSlots: {
+            select: {
+              id: true,
+              presentation: { select: { id: true, title: true } },
+              room: { select: { id: true, name: true } },
+            },
+          },
         },
       },
     },

@@ -32,6 +32,22 @@ function roomLabel(item: EventScheduleItem): string {
   return "";
 }
 
+type BreakoutSubRow = { roomName: string; presentationTitle: string };
+
+function breakoutSubRows(item: EventScheduleItem): BreakoutSubRow[] {
+  if (item.function.type !== "BREAKOUT_BLOCK") return [];
+  return item.function.presentationSlots
+    .map((slot) => ({
+      roomName: slot.room?.name ?? "Unassigned",
+      presentationTitle: slot.presentation.title,
+    }))
+    .sort((a, b) => {
+      if (a.roomName === "Unassigned" && b.roomName !== "Unassigned") return 1;
+      if (b.roomName === "Unassigned" && a.roomName !== "Unassigned") return -1;
+      return a.roomName.localeCompare(b.roomName);
+    });
+}
+
 function timeRange(start: Date, end: Date, timezone: string): string {
   return `${formatTime(start, timezone)} – ${formatTime(end, timezone)}`;
 }
@@ -71,6 +87,7 @@ function DayTable({
         {items.map((item) => {
           const room = roomLabel(item);
           const type = resolveOptionLabel(item.type, scheduleTypes) || item.type;
+          const subRows = breakoutSubRows(item);
           return (
             <div key={item.id} className="p-2">
               <div className="flex justify-between gap-2">
@@ -89,6 +106,17 @@ function DayTable({
               </p>
               {room && (
                 <p className="text-gray-700 dark:text-gray-300 mt-1">{room}</p>
+              )}
+              {subRows.length > 0 && (
+                <ul className="mt-1 space-y-0.5 text-gray-600 dark:text-gray-300">
+                  {subRows.map((s, i) => (
+                    <li key={i}>
+                      <span className="font-medium">{s.roomName}</span>
+                      <span className="text-gray-400 dark:text-gray-500"> — </span>
+                      {s.presentationTitle}
+                    </li>
+                  ))}
+                </ul>
               )}
               {item.notes && (
                 <p className="text-gray-600 dark:text-gray-300 mt-1 italic">{item.notes}</p>
@@ -111,6 +139,7 @@ function DayTable({
             {items.map((item) => {
               const room = roomLabel(item);
               const type = resolveOptionLabel(item.type, scheduleTypes) || item.type;
+              const subRows = breakoutSubRows(item);
               return (
                 <tr key={item.id} id={`schedule-${item.id}`} className="scroll-mt-24">
                   <td className={`${td} whitespace-nowrap font-medium`}>
@@ -131,7 +160,18 @@ function DayTable({
                   </td>
                   <td className={td}>{type}</td>
                   <td className={td}>
-                    {room || <span className="text-gray-400">—</span>}
+                    {room || (subRows.length === 0 && <span className="text-gray-400">—</span>)}
+                    {subRows.length > 0 && (
+                      <ul className="mt-1 space-y-0.5 text-[12px] text-gray-600 dark:text-gray-300 print:text-gray-700 font-normal">
+                        {subRows.map((s, i) => (
+                          <li key={i}>
+                            <span className="font-medium">{s.roomName}</span>
+                            <span className="text-gray-400 dark:text-gray-500"> — </span>
+                            {s.presentationTitle}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </td>
                 </tr>
               );
