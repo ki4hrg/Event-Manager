@@ -147,18 +147,20 @@ function DayTable({
                   </td>
                   <td className={`${td} font-semibold text-gray-900 dark:text-white print:text-black`}>
                     {functionLabel(item)}
-                    {includeNonPublic && !item.isPublic && (
-                      <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 align-middle font-normal">
-                        Internal
-                      </span>
-                    )}
                     {item.notes && (
                       <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 print:text-gray-600 font-normal italic">
                         {item.notes}
                       </div>
                     )}
                   </td>
-                  <td className={td}>{type}</td>
+                  <td className={td}>
+                    {type}
+                    {includeNonPublic && !item.isPublic && (
+                      <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 align-middle font-normal">
+                        Internal
+                      </span>
+                    )}
+                  </td>
                   <td className={td}>
                     {room || (subRows.length === 0 && <span className="text-gray-400">—</span>)}
                     {subRows.length > 0 && (
