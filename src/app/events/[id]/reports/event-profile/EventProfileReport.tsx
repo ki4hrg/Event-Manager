@@ -10,6 +10,8 @@ import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { LastUpdated } from "@/components/LastUpdated";
 import { reportTh as th, reportTd as td, reportSectionCard as sectionCard } from "@/lib/reportStyles";
+import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { firmestGuestCount } from "@/lib/cateringGuestCount";
 
 export const PROFILE_SECTIONS = [
   { value: "contacts", label: "Key Contacts" },
@@ -114,7 +116,11 @@ function ScheduleItemCard({
   const typeLabel = resolveOptionLabel(item.type, scheduleTypes) || item.type;
   const typeColor = resolveOptionColor(item.type, scheduleTypes);
   const badgeClass = colorClasses[typeColor] ?? colorClasses.gray;
-  const fnName = fn.name || fn.type || "Unnamed Function";
+  const baseName = fn.name || fn.type || "Unnamed Function";
+  const isBreakout = fn.type === "BREAKOUT_BLOCK";
+  const fnName = isBreakout
+    ? formatBreakoutSessionName(baseName, fn.breakoutGroup?.name)
+    : baseName;
   return (
     <>
       {attachFunctionAnchor && (
@@ -141,13 +147,19 @@ function ScheduleItemCard({
               )}
             </div>
           </div>
-          <div className="shrink-0">
-            <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
-          </div>
+          {!isBreakout && (
+            <div className="shrink-0">
+              <EntityStatusBadge status={fn.status} substatus={fn.substatus} />
+            </div>
+          )}
         </div>
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-          <dt className="text-gray-500 dark:text-gray-400">Room</dt>
-          <dd className="text-gray-900 dark:text-gray-100">{fnRoomsLabel(fn)}</dd>
+          {!isBreakout && (
+            <>
+              <dt className="text-gray-500 dark:text-gray-400">Room</dt>
+              <dd className="text-gray-900 dark:text-gray-100">{fnRoomsLabel(fn)}</dd>
+            </>
+          )}
           {item.notes && (
             <>
               <dt className="text-gray-500 dark:text-gray-400">Notes</dt>
@@ -358,6 +370,7 @@ function CateringCard({
   const vendorName = order.vendors.map((v) => v.vendor.name).join(", ");
   const fnStart = fn ? earliestStart(fn) : null;
   const dateLabel = fnStart ? formatDateHeading(getDateKeyInTimezone(fnStart, timezone), timezone) : null;
+  const firmest = firmestGuestCount(order);
   return (
     <div
       id={`catering-${order.id}`}
@@ -391,16 +404,10 @@ function CateringCard({
       </div>
 
       <dl className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 text-xs">
-        {order.expectedCount != null && (
+        {firmest && (
           <>
-            <dt className="text-gray-500 dark:text-gray-400">Expected</dt>
-            <dd className="text-gray-900 dark:text-gray-100">{order.expectedCount}</dd>
-          </>
-        )}
-        {order.guaranteeCount != null && (
-          <>
-            <dt className="text-gray-500 dark:text-gray-400">Guarantee</dt>
-            <dd className="text-gray-900 dark:text-gray-100">{order.guaranteeCount}</dd>
+            <dt className="text-gray-500 dark:text-gray-400">{firmest.label}</dt>
+            <dd className="text-gray-900 dark:text-gray-100">{firmest.value}</dd>
           </>
         )}
         {styleLabel && (

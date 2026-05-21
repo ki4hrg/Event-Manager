@@ -4,6 +4,7 @@ import { formatTime, formatDateHeading } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { cateringRelationshipLabel, computeServiceLocationCounts, type CateringRelationship } from "@/lib/cateringServiceLocations";
+import { firmestGuestCount } from "@/lib/cateringGuestCount";
 import { formatPhone } from "@/lib/format-phone";
 import {
   reportTh as th,
@@ -503,11 +504,7 @@ function CateringOrderSection({
   vendorId: string;
   relationship?: CateringRelationship;
 }) {
-  const firmestCount: { label: string; value: number } | null = [
-    { label: "Confirmed", value: order.confirmedCount },
-    { label: "Guaranteed", value: order.guaranteeCount },
-    { label: "Expected", value: order.expectedCount },
-  ].find((c): c is { label: string; value: number } => c.value != null) ?? null;
+  const firmestCount = firmestGuestCount(order);
   const showGuaranteeDeadline = order.guaranteeDeadline != null && firmestCount?.label !== "Confirmed";
 
   return (

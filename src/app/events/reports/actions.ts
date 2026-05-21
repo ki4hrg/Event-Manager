@@ -709,7 +709,7 @@ export async function getEventProfileData(
       orderBy: { createdAt: "asc" },
     }),
     prisma.functionSchedule.findMany({
-      where: { function: { eventId, type: { not: "BREAKOUT_BLOCK" } } },
+      where: { function: { eventId } },
       include: {
         function: {
           select: {
@@ -719,6 +719,7 @@ export async function getEventProfileData(
             status: true,
             substatus: true,
             offSiteLocation: true,
+            breakoutGroup: { select: { name: true } },
             rooms: { include: { room: { select: { id: true, name: true } } } },
             updatedAt: true,
             updatedBy: { select: { name: true, email: true } },
