@@ -17,7 +17,13 @@ export function EventLayoutClient({ eventId, eventName, header, children }: Even
   const isPrintView = pathname.endsWith("/print") || pathname.endsWith("/table-print");
 
   if (isPrintView) {
-    return <main className="flex-1 min-w-0 bg-white dark:bg-gray-900">{children}</main>;
+    return (
+      <main className="flex-1 min-w-0 py-8 px-4 print:p-0 print:bg-white">
+        <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded print:shadow-none print:rounded-none print:max-w-none print:bg-white">
+          {children}
+        </div>
+      </main>
+    );
   }
 
   return (
