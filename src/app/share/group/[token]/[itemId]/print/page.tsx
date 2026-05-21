@@ -8,6 +8,7 @@ import {
   getEquipmentResponsibilityData,
   getVendorHandoffData,
   getEventProfileData,
+  getEventScheduleData,
   getRoomScheduleData,
   getFunctionDetailData,
   getBreakoutScheduleData,
@@ -23,6 +24,7 @@ import {
   PROFILE_SECTIONS,
   type ProfileSection,
 } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
+import { EventScheduleReport } from "@/app/events/[id]/reports/event-schedule/EventScheduleReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridPrintView } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridPrintView";
@@ -240,6 +242,46 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
             selectedSections={validSections}
           />
         </div>
+      );
+    }
+    case "EVENT_SCHEDULE": {
+      const typesParam = getString(sp.types);
+      const types = item.filtersLocked
+        ? stored.types
+        : typesParam
+          ? typesParam.split(",").filter(Boolean)
+          : stored.types;
+      const includeNonPublic = resolveSharedBoolean(
+        item.filtersLocked,
+        getString(sp.includeNonPublic),
+        stored.includeNonPublic
+      );
+
+      const [event, data, scheduleTypes] = await Promise.all([
+        getEvent(eventId).then(stripUpdatedBy),
+        getEventScheduleData(eventId, {
+          types: types && types.length > 0 ? types : undefined,
+          includeNonPublic,
+        }).then(stripUpdatedBy),
+        getOptions("schedule_type"),
+      ]);
+
+      if (!event || !data) notFound();
+
+      return (
+        <>
+          <style>{`@page { margin: 0.5in; }`}</style>
+          <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
+            <div className="print:hidden">
+              <PrintHeader eventName={eventName} title={title} backHref={backHref} />
+            </div>
+            <EventScheduleReport
+              data={data}
+              scheduleTypes={scheduleTypes}
+              includeNonPublic={includeNonPublic}
+            />
+          </div>
+        </>
       );
     }
     case "ROOM_SCHEDULE": {
