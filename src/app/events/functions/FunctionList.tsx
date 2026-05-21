@@ -12,7 +12,7 @@ import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { FunctionTableView } from "./FunctionTableView";
-import { getEarliestStart, formatScheduleDateTime } from "./scheduleUtils";
+import { getMainStart, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
@@ -41,11 +41,11 @@ function groupByDate(functions: FunctionForTable[], timezone: string): {
   const unscheduled: FunctionForTable[] = [];
 
   functions.forEach((fn) => {
-    const earliest = getEarliestStart(fn);
-    if (!earliest) {
+    const anchor = getMainStart(fn);
+    if (!anchor) {
       unscheduled.push(fn);
     } else {
-      const dateKey = getDateKeyInTimezone(earliest, timezone);
+      const dateKey = getDateKeyInTimezone(anchor, timezone);
       if (!dated.has(dateKey)) dated.set(dateKey, []);
       dated.get(dateKey)!.push(fn);
     }
@@ -53,8 +53,8 @@ function groupByDate(functions: FunctionForTable[], timezone: string): {
 
   dated.forEach((fns) => {
     fns.sort((a, b) => {
-      const aTime = getEarliestStart(a)?.getTime() || 0;
-      const bTime = getEarliestStart(b)?.getTime() || 0;
+      const aTime = getMainStart(a)?.getTime() || 0;
+      const bTime = getMainStart(b)?.getTime() || 0;
       return aTime - bTime;
     });
   });

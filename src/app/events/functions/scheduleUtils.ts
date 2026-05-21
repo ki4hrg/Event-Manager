@@ -8,6 +8,14 @@ export function getEarliestStart(fn: FunctionForTable): Date | null {
   }, new Date(fn.schedules[0].startTime));
 }
 
+export function getMainStart(fn: FunctionForTable): Date | null {
+  if (fn.schedules.length === 0) return null;
+  // schedules arrive pre-sorted by startTime asc (see getFunctionsForTable),
+  // so the first "main"-typed schedule is also the earliest.
+  const main = fn.schedules.find((s) => s.type.toLowerCase().includes("main"));
+  return main ? new Date(main.startTime) : getEarliestStart(fn);
+}
+
 export function getLatestEnd(fn: FunctionForTable): Date | null {
   if (fn.schedules.length === 0) return null;
   return fn.schedules.reduce((max, s) => {
