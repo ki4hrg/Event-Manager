@@ -760,6 +760,10 @@ export async function getEventProfileData(
     return true;
   });
 
+  const availableDayKeys = Array.from(
+    new Set(allScheduleItems.map((item) => getDateKeyInTimezone(item.startTime, timezone)))
+  ).sort();
+
   return {
     event,
     venue: event.venue,
@@ -769,6 +773,7 @@ export async function getEventProfileData(
     cateringOrders: filteredCateringOrders,
     printOrders,
     scheduleItems: filteredScheduleItems,
+    availableDayKeys,
     timezone,
   };
 }
@@ -1065,10 +1070,19 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
     return { room, regularFunctions, breakoutEntries };
   });
 
+  const availableDayKeys = Array.from(
+    new Set(
+      allFunctions.flatMap((fn) =>
+        fn.schedules.map((s) => getDateKeyInTimezone(s.startTime, timezone))
+      )
+    )
+  ).sort();
+
   return {
     timezone,
     rooms,
     roomBuckets,
+    availableDayKeys,
   };
 }
 

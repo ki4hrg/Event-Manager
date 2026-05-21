@@ -243,11 +243,6 @@ async function renderItem(
       const event = stripUpdatedBy(await getEvent(eventId));
       if (!event) notFound();
 
-      const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
-      if (!item.filtersLocked) {
-        effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
-      }
-
       const [data, serviceStyles, scheduleTypes] = await Promise.all([
         getEventProfileData(eventId, {
           days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
@@ -259,7 +254,14 @@ async function renderItem(
 
       if (!data) notFound();
 
+      const dayOptions = enumerateEventDays(
+        event.startDate,
+        event.endDate,
+        event.timezone,
+        data.availableDayKeys
+      );
       if (!item.filtersLocked) {
+        effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
         effectiveTypes = intersect(effectiveTypes, new Set(scheduleTypes.map((t) => t.label)));
       }
 
@@ -327,11 +329,6 @@ async function renderItem(
       const event = stripUpdatedBy(await getEvent(eventId));
       if (!event) notFound();
 
-      const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
-      if (!item.filtersLocked) {
-        effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
-      }
-
       const [data, functionTypes, scheduleTypes] = await Promise.all([
         getRoomScheduleData(eventId, {
           days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
@@ -344,7 +341,14 @@ async function renderItem(
 
       if (!data) notFound();
 
+      const dayOptions = enumerateEventDays(
+        event.startDate,
+        event.endDate,
+        event.timezone,
+        data.availableDayKeys
+      );
       if (!item.filtersLocked) {
+        effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
         effectiveRoomIds = intersect(effectiveRoomIds, new Set(data.rooms.map((r) => r.id)));
       }
 

@@ -57,7 +57,12 @@ export default async function EventProfilePage({
 
   if (!data) notFound();
 
-  const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
+  const dayOptions = enumerateEventDays(
+    event.startDate,
+    event.endDate,
+    event.timezone,
+    data.availableDayKeys
+  );
   const typeOptions = scheduleTypes.map((t) => ({ value: t.label, label: t.label }));
 
   return (

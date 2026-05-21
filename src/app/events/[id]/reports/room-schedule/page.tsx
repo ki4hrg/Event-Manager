@@ -47,7 +47,12 @@ export default async function RoomSchedulePage({
 
   if (!event || !data) notFound();
 
-  const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
+  const dayOptions = enumerateEventDays(
+    event.startDate,
+    event.endDate,
+    event.timezone,
+    data.availableDayKeys
+  );
   const roomOptions = data.rooms.map((r) => ({
     value: r.id,
     label: r.venue?.name ? `${r.name} · ${r.venue.name}` : r.name,

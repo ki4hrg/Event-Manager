@@ -216,11 +216,6 @@ export default async function SharePage({ params, searchParams }: PageProps) {
     const event = stripUpdatedBy(await getEvent(link.eventId));
     if (!event) notFound();
 
-    const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
-    if (!link.filtersLocked) {
-      effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
-    }
-
     const [data, serviceStyles, scheduleTypes] = await Promise.all([
       getEventProfileData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
@@ -232,7 +227,14 @@ export default async function SharePage({ params, searchParams }: PageProps) {
 
     if (!data) notFound();
 
+    const dayOptions = enumerateEventDays(
+      event.startDate,
+      event.endDate,
+      event.timezone,
+      data.availableDayKeys
+    );
     if (!link.filtersLocked) {
+      effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
       effectiveTypes = intersect(effectiveTypes, new Set(scheduleTypes.map((t) => t.label)));
     }
 
@@ -371,11 +373,6 @@ export default async function SharePage({ params, searchParams }: PageProps) {
     const event = stripUpdatedBy(await getEvent(link.eventId));
     if (!event) notFound();
 
-    const dayOptions = enumerateEventDays(event.startDate, event.endDate, event.timezone);
-    if (!link.filtersLocked) {
-      effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
-    }
-
     const [data, functionTypes, scheduleTypes] = await Promise.all([
       getRoomScheduleData(link.eventId, {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
@@ -387,7 +384,14 @@ export default async function SharePage({ params, searchParams }: PageProps) {
 
     if (!data) notFound();
 
+    const dayOptions = enumerateEventDays(
+      event.startDate,
+      event.endDate,
+      event.timezone,
+      data.availableDayKeys
+    );
     if (!link.filtersLocked) {
+      effectiveDays = intersect(effectiveDays, new Set(dayOptions.map((d) => d.value)));
       effectiveRoomIds = intersect(effectiveRoomIds, new Set(data.rooms.map((r) => r.id)));
     }
 
