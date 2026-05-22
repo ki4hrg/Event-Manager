@@ -42,6 +42,11 @@ import {
   unlinkPrintOrderFromFunctionPage,
 } from "../../../print-orders/actions";
 import {
+  getAvailableSupplyOrdersForFunction,
+  linkSupplyOrderToFunctionFromFunction,
+  unlinkSupplyOrderFromFunctionPage,
+} from "../../../supply-orders/actions";
+import {
   getAvailableMediaDeliverablesForFunction,
   linkMediaDeliverableToFunctionFromFunction,
   unlinkMediaDeliverableFromFunctionPage,
@@ -53,6 +58,7 @@ import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { CateringOrderPanel } from "../../../catering-orders/CateringOrderPanel";
 import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
 import { PrintOrderPanel } from "../../../print-orders/PrintOrderPanel";
+import { SupplyOrderPanel } from "../../../supply-orders/SupplyOrderPanel";
 import { MediaDeliverablePanel } from "../../../media-deliverables/MediaDeliverablePanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
@@ -114,11 +120,12 @@ export default async function FunctionPage({
       : []
   );
 
-  const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, availableMediaDeliverables, workflowInstances, allTemplates, substatuses] = await Promise.all([
+  const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, availableSupplyOrders, availableMediaDeliverables, workflowInstances, allTemplates, substatuses] = await Promise.all([
     getAvailableAVOrdersForFunction(eventId, functionId),
     fn.cateringOrder ? [] : getAvailableCateringOrders(eventId),
     getAvailableSetupOrdersForFunction(eventId, functionId),
     getAvailablePrintOrdersForFunction(eventId, functionId),
+    getAvailableSupplyOrdersForFunction(eventId, functionId),
     getAvailableMediaDeliverablesForFunction(eventId, functionId),
     getWorkflowInstances("function", functionId, eventId),
     getWorkflowTemplateOptions(),
@@ -221,6 +228,16 @@ export default async function FunctionPage({
   const unlinkPrintOrderAction = async (printOrderId: string) => {
     "use server";
     await unlinkPrintOrderFromFunctionPage(printOrderId, functionId, eventId);
+  };
+
+  const linkSupplyOrderAction = async (supplyOrderId: string) => {
+    "use server";
+    await linkSupplyOrderToFunctionFromFunction(supplyOrderId, functionId, eventId);
+  };
+
+  const unlinkSupplyOrderAction = async (supplyOrderId: string) => {
+    "use server";
+    await unlinkSupplyOrderFromFunctionPage(supplyOrderId, functionId, eventId);
   };
 
   const linkMediaDeliverableAction = async (mediaDeliverableId: string) => {
@@ -446,6 +463,15 @@ export default async function FunctionPage({
               newPrintOrderPath={`/events/${eventId}/print-orders/new?functionId=${functionId}`}
               linkPrintOrder={linkPrintOrderAction}
               unlinkPrintOrder={unlinkPrintOrderAction}
+            />
+            <SupplyOrderPanel
+              supplyOrders={fn.supplyOrderLinks.map((l) => l.supplyOrder)}
+              eventId={eventId}
+              availableSupplyOrders={availableSupplyOrders}
+              newSupplyOrderPath={`/events/${eventId}/supply-orders/new?functionId=${functionId}${fn.rooms[0] ? `&roomId=${fn.rooms[0].roomId}` : ""}`}
+              fillHeight
+              linkSupplyOrder={linkSupplyOrderAction}
+              unlinkSupplyOrder={unlinkSupplyOrderAction}
             />
             <MediaDeliverablePanel
               title="Media Deliverables"

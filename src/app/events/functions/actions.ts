@@ -96,6 +96,13 @@ export async function getFunction(id: string) {
           },
         },
       },
+      supplyOrderLinks: {
+        include: {
+          supplyOrder: {
+            select: { id: true, name: true, status: true, substatus: true, packingStatus: true, notes: true, room: { select: { id: true, name: true } }, ...vendorInclude },
+          },
+        },
+      },
       mediaDeliverableFunctions: {
         include: {
           mediaDeliverable: {

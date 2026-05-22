@@ -10,7 +10,7 @@ import {
 } from "./party-field";
 import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
-import { GroupedEquipmentSelect } from "./grouped-equipment-select";
+import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 
 type EquipmentItemWithParties = EquipmentItem & {
   equipment: Equipment | null;

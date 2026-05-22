@@ -1,4 +1,4 @@
-import type { EntityStatus, StatusModelType } from "@prisma/client";
+import type { EntityStatus, PackingStatus, StatusModelType } from "@prisma/client";
 
 export type StatusCounts = {
   PENDING: number;
@@ -36,4 +36,23 @@ export const STATUS_MODEL_LABEL: Record<StatusModelType, string> = {
   SETUP_ORDER: "Setup Order",
   PRINT_ORDER: "Print Order",
   MEDIA_DELIVERABLE: "Media Deliverable",
+  SUPPLY_ORDER: "Supply Order",
 };
+
+export const PACKING_STATUS_LABEL: Record<PackingStatus, string> = {
+  NEEDED: "Needed",
+  PACKED: "Packed",
+  DELIVERED: "Delivered",
+};
+
+export const PACKING_STATUS_CLASS: Record<PackingStatus, string> = {
+  NEEDED: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  PACKED: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  DELIVERED: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+};
+
+export const PACKING_STATUS_OPTIONS: { value: PackingStatus; label: string }[] = [
+  { value: "NEEDED", label: "Needed" },
+  { value: "PACKED", label: "Packed" },
+  { value: "DELIVERED", label: "Delivered" },
+];

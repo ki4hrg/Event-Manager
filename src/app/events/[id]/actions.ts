@@ -47,6 +47,8 @@ export async function getEventOverviewStats(eventId: string) {
     canEditSetupOrders,
     canViewPrintOrders,
     canEditPrintOrders,
+    canViewSupplyOrders,
+    canEditSupplyOrders,
     canViewMediaDeliverables,
     canEditMediaDeliverables,
   ] = await Promise.all([
@@ -62,6 +64,8 @@ export async function getEventOverviewStats(eventId: string) {
     hasPermission("SETUP_ORDERS", "WRITE", eventId),
     hasPermission("PRINT_ORDERS", "VIEW", eventId),
     hasPermission("PRINT_ORDERS", "WRITE", eventId),
+    hasPermission("SUPPLY_ORDERS", "VIEW", eventId),
+    hasPermission("SUPPLY_ORDERS", "WRITE", eventId),
     hasPermission("MEDIA_DELIVERABLES", "VIEW", eventId),
     hasPermission("MEDIA_DELIVERABLES", "WRITE", eventId),
   ]);
@@ -85,6 +89,9 @@ export async function getEventOverviewStats(eventId: string) {
     printOrders,
     printMissingVendor,
     printUnlinked,
+    supplyOrders,
+    supplyMissingVendor,
+    supplyUnlinked,
     mediaDeliverables,
     mediaMissingProvider,
     mediaUnlinked,
@@ -142,6 +149,15 @@ export async function getEventOverviewStats(eventId: string) {
       : Promise.resolve(0),
     canViewPrintOrders && canEditPrintOrders
       ? prisma.printOrder.count({ where: { eventId, status: notCancelled, functions: { none: {} }, presentationId: null } })
+      : Promise.resolve(0),
+    canViewSupplyOrders
+      ? prisma.supplyOrder.findMany({ where: { eventId }, select: { status: true } })
+      : Promise.resolve(null),
+    canViewSupplyOrders && canEditSupplyOrders
+      ? prisma.supplyOrder.count({ where: { eventId, status: notCancelled, vendors: { none: {} } } })
+      : Promise.resolve(0),
+    canViewSupplyOrders && canEditSupplyOrders
+      ? prisma.supplyOrder.count({ where: { eventId, status: notCancelled, functions: { none: {} }, presentations: { none: {} } } })
       : Promise.resolve(0),
     canViewMediaDeliverables
       ? prisma.mediaDeliverable.findMany({ where: { eventId }, select: { status: true } })
@@ -261,6 +277,24 @@ export async function getEventOverviewStats(eventId: string) {
         ? [
             { label: "missing vendor", count: printMissingVendor, href: `${basePath}?vendor=none` },
             { label: "unlinked", count: printUnlinked, href: `${basePath}?linked=none` },
+          ]
+        : [],
+    });
+  }
+
+  if (canViewSupplyOrders && supplyOrders) {
+    const basePath = `/events/${eventId}/supply-orders`;
+    entities.push({
+      key: "supply-orders",
+      label: "Supply Orders",
+      basePath,
+      total: supplyOrders.length,
+      counts: toCounts(supplyOrders),
+      canEdit: canEditSupplyOrders,
+      attention: canEditSupplyOrders
+        ? [
+            { label: "missing vendor", count: supplyMissingVendor, href: basePath },
+            { label: "unlinked", count: supplyUnlinked, href: basePath },
           ]
         : [],
     });
