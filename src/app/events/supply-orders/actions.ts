@@ -30,7 +30,8 @@ export async function getSupplyOrders(eventId: string) {
       items: { select: { id: true, packingStatus: true, acquisitionState: true } },
       functions: { include: { function: { select: { id: true, name: true } } } },
       presentations: { include: { presentation: { select: { id: true, title: true } } } },
-      vendors: { include: { vendor: { select: { id: true, name: true } } } },
+      providerVendor: { select: { id: true, name: true } },
+      providerContact: { select: { id: true, firstName: true, lastName: true } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -41,6 +42,8 @@ export async function getSupplyOrder(id: string) {
     where: { id },
     include: {
       room: { select: { id: true, name: true } },
+      providerVendor: { select: { id: true, name: true } },
+      providerContact: { select: { id: true, firstName: true, lastName: true } },
       functions: {
         include: {
           function: {
@@ -69,10 +72,10 @@ export async function getSupplyOrder(id: string) {
         include: {
           equipment: true,
           providerVendor: { select: { id: true, name: true } },
+          providerContact: { select: { id: true, firstName: true, lastName: true } },
         },
         orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       },
-      vendors: { include: { vendor: true }, orderBy: { vendor: { name: "asc" } } },
       files: { orderBy: { createdAt: "asc" } },
       updatedBy: { select: { name: true, email: true } },
     },
@@ -90,11 +93,19 @@ export async function createSupplyOrder(eventId: string, formData: FormData) {
   const notes = (formData.get("notes") as string) || null;
   const functionId = (formData.get("functionId") as string) || null;
   const presentationId = (formData.get("presentationId") as string) || null;
-  const selectedVendorId = (formData.get("vendorId") as string) || null;
+  let providerVendorId = (formData.get("providerVendorId") as string) || null;
+  let providerContactId = (formData.get("providerContactId") as string) || null;
 
   if (!roomId) {
     throw new Error("Destination room is required.");
   }
+
+  if (!providerVendorId && !providerContactId) {
+    const fallback = await getDefaultVendorForModel(eventId, "SUPPLY_ORDER");
+    providerVendorId = fallback?.vendorId ?? null;
+  }
+  // Provider is a single-party concept — setting one side clears the other.
+  if (providerVendorId) providerContactId = null;
 
   const defaults = await resolveCreateStatus(eventId, "SUPPLY_ORDER");
 
@@ -105,6 +116,8 @@ export async function createSupplyOrder(eventId: string, formData: FormData) {
       roomId,
       specificLocation,
       notes,
+      providerVendorId,
+      providerContactId,
       status: defaults.status,
       substatus: defaults.substatus,
       updatedById: session.user.id,
@@ -121,11 +134,6 @@ export async function createSupplyOrder(eventId: string, formData: FormData) {
     revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
   }
 
-  const vendorIdToAssign = selectedVendorId ?? (await getDefaultVendorForModel(eventId, "SUPPLY_ORDER"))?.vendorId ?? null;
-  if (vendorIdToAssign) {
-    await prisma.supplyOrderVendor.create({ data: { supplyOrderId: supplyOrder.id, vendorId: vendorIdToAssign } });
-  }
-
   await autoAssignDefaultWorkflows("supply_order", supplyOrder.id, eventId);
   revalidatePath(`/events/${eventId}/supply-orders`);
   redirect(`/events/${eventId}/supply-orders/${supplyOrder.id}?success=Supply Order created`);
@@ -137,14 +145,26 @@ export async function updateSupplyOrder(id: string, eventId: string, formData: F
   const roomId = (formData.get("roomId") as string) || "";
   const specificLocation = (formData.get("specificLocation") as string) || null;
   const notes = (formData.get("notes") as string) || null;
+  let providerVendorId = (formData.get("providerVendorId") as string) || null;
+  let providerContactId = (formData.get("providerContactId") as string) || null;
 
   if (!roomId) {
     throw new Error("Destination room is required.");
   }
+  if (providerVendorId) providerContactId = null;
+  if (providerContactId) providerVendorId = null;
 
   await prisma.supplyOrder.update({
     where: { id, eventId },
-    data: { name, roomId, specificLocation, notes, updatedById: session.user.id },
+    data: {
+      name,
+      roomId,
+      specificLocation,
+      notes,
+      providerVendorId,
+      providerContactId,
+      updatedById: session.user.id,
+    },
   });
 
   revalidatePath(`/events/${eventId}/supply-orders`);
@@ -288,7 +308,8 @@ export async function getAvailableSupplyOrdersForFunction(eventId: string, funct
     where: { eventId, functions: { none: { functionId } } },
     include: {
       room: { select: { id: true, name: true } },
-      vendors: { include: { vendor: { select: { name: true } } } },
+      providerVendor: { select: { id: true, name: true } },
+      providerContact: { select: { id: true, firstName: true, lastName: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -300,7 +321,8 @@ export async function getAvailableSupplyOrdersForPresentation(eventId: string, p
     where: { eventId, presentations: { none: { presentationId } } },
     include: {
       room: { select: { id: true, name: true } },
-      vendors: { include: { vendor: { select: { name: true } } } },
+      providerVendor: { select: { id: true, name: true } },
+      providerContact: { select: { id: true, firstName: true, lastName: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -314,12 +336,18 @@ function parseSupplyItemData(formData: FormData) {
   if (!description && !equipmentId) {
     throw new Error("Supply item needs a description or an equipment selection.");
   }
+  let providerVendorId = (formData.get("providerVendorId") as string) || null;
+  let providerContactId = (formData.get("providerContactId") as string) || null;
+  // Provider is a single-party concept — setting one side clears the other.
+  if (providerVendorId) providerContactId = null;
+  if (providerContactId) providerVendorId = null;
   return {
     description,
     equipmentId,
     quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
     acquisitionState: acquisitionStateRaw as AcquisitionState,
-    providerVendorId: (formData.get("providerVendorId") as string) || null,
+    providerVendorId,
+    providerContactId,
     packingStatus: packingStatusRaw as PackingStatus,
     notes: (formData.get("notes") as string) || null,
   };
@@ -378,10 +406,10 @@ export async function updateSupplyOrderItemPackingStatus(
 export async function bulkUpdateSupplyOrders(
   ids: string[],
   eventId: string,
-  updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string; presentationId?: string },
+  updates: { status?: EntityStatus; substatus?: string | null; functionId?: string; presentationId?: string },
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  const { status, substatus, vendorId, functionId, presentationId } = updates;
+  const { status, substatus, functionId, presentationId } = updates;
 
   if (status !== undefined || substatus !== undefined) {
     await prisma.supplyOrder.updateMany({
@@ -391,15 +419,6 @@ export async function bulkUpdateSupplyOrders(
         ...(substatus !== undefined ? { substatus } : {}),
         updatedById: session.user.id,
       },
-    });
-  }
-
-  if (vendorId) {
-    await prisma.supplyOrderVendor.deleteMany({ where: { supplyOrderId: { in: ids }, supplyOrder: { eventId } } });
-    await prisma.supplyOrderVendor.createMany({ data: ids.map((id) => ({ supplyOrderId: id, vendorId })) });
-    await prisma.supplyOrder.updateMany({
-      where: { id: { in: ids }, eventId },
-      data: { updatedById: session.user.id },
     });
   }
 

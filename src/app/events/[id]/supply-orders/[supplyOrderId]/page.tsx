@@ -12,7 +12,6 @@ import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { VendorPanel } from "../../../vendors/VendorPanel";
 import { getEvent } from "../../../actions";
 import {
   getSupplyOrder,
@@ -28,16 +27,8 @@ import {
   deleteSupplyOrderItem,
   updateSupplyOrderItemPackingStatus,
 } from "../../../supply-orders/actions";
-import {
-  getSupplyOrderVendors,
-  addVendorToSupplyOrder,
-  updateSupplyOrderVendor,
-  removeVendorFromSupplyOrder,
-  searchAssignedEventVendors,
-  getResponsiblePartyVendors,
-} from "@/app/vendors/actions";
-import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getEquipment, getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getResponsibleParties } from "@/lib/responsibleParties";
 import {
   getWorkflowInstances,
   assignWorkflow,
@@ -93,21 +84,25 @@ export default async function SupplyOrderPage({
 
   if (!event || !supplyOrder) notFound();
 
+  const linkedFunctionIds = supplyOrder.functions.map((l) => l.function.id);
+  const linkedPresentationIds = supplyOrder.presentations.map((l) => l.presentation.id);
+
   const [
-    supplyOrderVendors,
     fileTypeOptions,
     supplyOrderFiles,
-    responsiblePartyVendors,
-    availableEventVendors,
+    pool,
     venueRooms,
     availableFunctions,
     availablePresentations,
   ] = await Promise.all([
-    getSupplyOrderVendors(supplyOrderId, eventId),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { supplyOrderId }, orderBy: { createdAt: "asc" } }),
-    getResponsiblePartyVendors(eventId, "SUPPLY_ORDER"),
-    searchAssignedEventVendors("", eventId, "SUPPLY_ORDER"),
+    getResponsibleParties({
+      eventId,
+      modelType: "SUPPLY_ORDER",
+      functionIds: linkedFunctionIds,
+      presentationIds: linkedPresentationIds,
+    }),
     event.venueId
       ? prisma.room.findMany({
           where: { venueId: event.venueId },
@@ -127,8 +122,6 @@ export default async function SupplyOrderPage({
     }),
   ]);
 
-  const flatVendors = flattenResponsiblePartyOptions(responsiblePartyVendors);
-
   // Server action closures
   const updateSupplyOrderAction = async (formData: FormData) => {
     "use server";
@@ -143,36 +136,6 @@ export default async function SupplyOrderPage({
   const updatePackingStatusAction = async (status: PackingStatus | null) => {
     "use server";
     await updateSupplyOrderPackingStatus(supplyOrderId, eventId, status);
-  };
-
-  const addVendorToFormAction = async (vendorId: string) => {
-    "use server";
-    await addVendorToSupplyOrder(supplyOrderId, vendorId, eventId);
-  };
-
-  const removeVendorFromFormAction = async (junctionId: string) => {
-    "use server";
-    await removeVendorFromSupplyOrder(junctionId, supplyOrderId, eventId);
-  };
-
-  const searchEventVendorsAction = async (query: string) => {
-    "use server";
-    return searchAssignedEventVendors(query, eventId, "SUPPLY_ORDER");
-  };
-
-  const addVendorAction = async (vendorId: string, notes: string) => {
-    "use server";
-    await addVendorToSupplyOrder(supplyOrderId, vendorId, eventId, notes);
-  };
-
-  const updateVendorAction = async (id: string, notes: string) => {
-    "use server";
-    await updateSupplyOrderVendor(id, supplyOrderId, eventId, notes);
-  };
-
-  const removeVendorAction = async (id: string) => {
-    "use server";
-    await removeVendorFromSupplyOrder(id, supplyOrderId, eventId);
   };
 
   const linkToFunctionAction = async (functionId: string) => {
@@ -326,13 +289,8 @@ export default async function SupplyOrderPage({
                 supplyOrder={supplyOrder}
                 eventId={eventId}
                 rooms={sortRoomsByGroupThenName(venueRooms)}
+                pool={pool}
                 action={updateSupplyOrderAction}
-                vendorLink={{
-                  assignedVendors: supplyOrderVendors,
-                  availableVendors: flatVendors.map((v) => ({ id: v.id, label: v.name })),
-                  addVendor: addVendorToFormAction,
-                  removeVendor: removeVendorFromFormAction,
-                }}
               />
             </div>
 
@@ -370,7 +328,11 @@ export default async function SupplyOrderPage({
             <SupplyOrderItemPanel
               items={supplyOrder.items}
               equipmentOptions={equipmentOptions}
-              vendors={flatVendors}
+              pool={pool}
+              orderProvider={{
+                providerVendor: supplyOrder.providerVendor,
+                providerContact: supplyOrder.providerContact,
+              }}
               createItem={createItemAction}
               updateItem={updateItemAction}
               deleteItem={deleteItemAction}
@@ -378,18 +340,6 @@ export default async function SupplyOrderPage({
             />
           </div>
         </div>
-      )}
-
-      {activeTab === "vendors" && (
-        <VendorPanel
-          assignedVendors={supplyOrderVendors}
-          availableVendors={availableEventVendors}
-          eventId={eventId}
-          searchEventVendors={searchEventVendorsAction}
-          addVendor={addVendorAction}
-          updateVendor={updateVendorAction}
-          removeVendor={removeVendorAction}
-        />
       )}
 
       {activeTab === "files" && (

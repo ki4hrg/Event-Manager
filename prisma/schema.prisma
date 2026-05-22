@@ -94,7 +94,6 @@ enum StatusModelType {
 enum AcquisitionState {
   ON_HAND
   TO_PROCURE
-  FROM_VENDOR
 }
 
 enum PackingStatus {
@@ -261,6 +260,8 @@ model Contact {
   presentationSlotsAsAdvancer PresentationSlot[]        @relation("PresentationSlotAdvancerContact")
   equipmentItemsAsProvider    EquipmentItem[]           @relation("EquipmentItemProviderContact")
   equipmentItemsAsOperator    EquipmentItem[]           @relation("EquipmentItemOperatorContact")
+  supplyOrdersAsProvider      SupplyOrder[]             @relation("SupplyOrderProviderContact")
+  supplyOrderItemsAsProvider  SupplyOrderItem[]         @relation("SupplyOrderItemProviderContact")
   eventKeyStaff               EventKeyStaff[]
   updatedById                 String?
   updatedBy                   User?                     @relation("ContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -906,7 +907,7 @@ model Vendor {
   cateringOrderVendors        CateringOrderVendor[]
   setupOrderVendors           SetupOrderVendor[]
   printOrderVendors           PrintOrderVendor[]
-  supplyOrderVendors          SupplyOrderVendor[]
+  supplyOrdersAsProvider      SupplyOrder[]              @relation("SupplyOrderProviderVendor")
   supplyOrderItemsAsProvider  SupplyOrderItem[]          @relation("SupplyOrderItemProviderVendor")
   mediaDeliverablesAsProvider MediaDeliverable[]         @relation("MediaDeliverableProviderVendor")
   printItemsAsDesigner        PrintItem[]                @relation("PrintItemDesignerVendor")
@@ -1266,54 +1267,63 @@ model PrintOrderVendor {
 }
 
 // SupplyOrder is a destination-bundle ("Registration Kit") packed for a room.
-// Order header carries destination Room + identity; items carry source/state/packing.
+// Order header carries destination Room + identity + provider; items carry
+// state/packing and may override the order's provider.
 model SupplyOrder {
-  id               String                    @id @default(cuid())
-  name             String
-  status           EntityStatus?
-  substatus        String?
-  packingStatus    PackingStatus?
-  eventId          String
-  event            Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  roomId           String
-  room             Room                      @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  specificLocation String?
-  notes            String?
-  functions        SupplyOrderFunction[]
-  presentations    SupplyOrderPresentation[]
-  items            SupplyOrderItem[]
-  vendors          SupplyOrderVendor[]
-  files            FileUpload[]
-  updatedById      String?
-  updatedBy        User?                     @relation("SupplyOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  id                String                    @id @default(cuid())
+  name              String
+  status            EntityStatus?
+  substatus         String?
+  packingStatus     PackingStatus?
+  eventId           String
+  event             Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  roomId            String
+  room              Room                      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  specificLocation  String?
+  notes             String?
+  providerVendorId  String?
+  providerVendor    Vendor?                   @relation("SupplyOrderProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  providerContactId String?
+  providerContact   Contact?                  @relation("SupplyOrderProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
+  functions         SupplyOrderFunction[]
+  presentations     SupplyOrderPresentation[]
+  items             SupplyOrderItem[]
+  files             FileUpload[]
+  updatedById       String?
+  updatedBy         User?                     @relation("SupplyOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
 
   @@index([eventId])
   @@index([roomId])
   @@index([updatedById])
+  @@index([providerVendorId])
+  @@index([providerContactId])
 }
 
 model SupplyOrderItem {
-  id               String           @id @default(cuid())
-  supplyOrderId    String
-  supplyOrder      SupplyOrder      @relation(fields: [supplyOrderId], references: [id], onDelete: Cascade)
-  description      String?
-  equipmentId      String?
-  equipment        Equipment?       @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
-  quantity         Int?
-  acquisitionState AcquisitionState @default(ON_HAND)
-  providerVendorId String?
-  providerVendor   Vendor?          @relation("SupplyOrderItemProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
-  packingStatus    PackingStatus    @default(NEEDED)
-  notes            String?
-  sortOrder        Int              @default(0)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                String           @id @default(cuid())
+  supplyOrderId     String
+  supplyOrder       SupplyOrder      @relation(fields: [supplyOrderId], references: [id], onDelete: Cascade)
+  description       String?
+  equipmentId       String?
+  equipment         Equipment?       @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  quantity          Int?
+  acquisitionState  AcquisitionState @default(ON_HAND)
+  providerVendorId  String?
+  providerVendor    Vendor?          @relation("SupplyOrderItemProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  providerContactId String?
+  providerContact   Contact?         @relation("SupplyOrderItemProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
+  packingStatus     PackingStatus    @default(NEEDED)
+  notes             String?
+  sortOrder         Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@index([supplyOrderId])
   @@index([equipmentId])
   @@index([providerVendorId])
+  @@index([providerContactId])
 }
 
 model SupplyOrderFunction {
@@ -1336,18 +1346,6 @@ model SupplyOrderPresentation {
 
   @@unique([supplyOrderId, presentationId])
   @@index([presentationId])
-}
-
-model SupplyOrderVendor {
-  id            String      @id @default(cuid())
-  supplyOrderId String
-  vendorId      String
-  notes         String?
-  supplyOrder   SupplyOrder @relation(fields: [supplyOrderId], references: [id], onDelete: Cascade)
-  vendor        Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@unique([supplyOrderId, vendorId])
-  @@index([supplyOrderId])
 }
 
 model FileUpload {

@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
-import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
+import { PartyField } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
+import type { ResponsiblePartyPool } from "@/lib/responsibleParties";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
 
 type SupplyOrderData = {
@@ -13,15 +15,18 @@ type SupplyOrderData = {
   room?: { id: string; name: string } | null;
   specificLocation?: string | null;
   notes?: string | null;
+  providerVendorId?: string | null;
+  providerContactId?: string | null;
+  providerVendor?: { name: string } | null;
+  providerContact?: { firstName: string; lastName: string } | null;
 };
 
 type SupplyOrderFormProps = {
   supplyOrder?: SupplyOrderData | null;
   eventId: string;
   rooms: { id: string; name: string; group?: { id: string; name: string; sortOrder: number } | null }[];
+  pool: ResponsiblePartyPool;
   action: (formData: FormData) => Promise<void>;
-  vendorLink?: VendorLinkEditProps;
-  availableVendors?: { id: string; label: string }[];
   initialRoomId?: string;
   cancelPath?: string;
   defaultName?: string;
@@ -45,9 +50,8 @@ export function SupplyOrderForm({
   supplyOrder,
   eventId,
   rooms,
+  pool,
   action,
-  vendorLink,
-  availableVendors = [],
   initialRoomId,
   cancelPath,
   defaultName,
@@ -77,8 +81,11 @@ export function SupplyOrderForm({
           <ReadOnlyField label="Name" value={supplyOrder.name} />
           <ReadOnlyField label="Destination Room" value={supplyOrder.room?.name ?? null} />
           <ReadOnlyField label="Specific Location" value={supplyOrder.specificLocation ?? null} />
+          <ReadOnlyField
+            label="Provider"
+            value={partyLabel(supplyOrder.providerVendor, supplyOrder.providerContact)}
+          />
           <ReadOnlyField label="Notes" value={supplyOrder.notes ?? null} />
-          {vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
         </dl>
       </div>
     );
@@ -157,6 +164,22 @@ export function SupplyOrderForm({
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+            <PartyField
+              fieldPrefix="provider"
+              vendorGroups={pool.vendorGroups}
+              contacts={pool.contacts}
+              defaultVendorId={supplyOrder?.providerVendorId ?? null}
+              defaultContactId={supplyOrder?.providerContactId ?? null}
+            />
+            {!isEdit && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Defaults to the event-team / event-default vendor if left blank. Items inherit this unless overridden.
+              </p>
+            )}
+          </div>
+
+          <div>
             <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Notes
             </label>
@@ -169,9 +192,6 @@ export function SupplyOrderForm({
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-
-          {isEdit && vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
-          {!isEdit && <VendorLinkControl mode="create" availableVendors={availableVendors} />}
         </div>
       </div>
 

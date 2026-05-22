@@ -90,7 +90,7 @@ export async function getEventOverviewStats(eventId: string) {
     printMissingVendor,
     printUnlinked,
     supplyOrders,
-    supplyMissingVendor,
+    supplyMissingProvider,
     supplyUnlinked,
     mediaDeliverables,
     mediaMissingProvider,
@@ -154,7 +154,9 @@ export async function getEventOverviewStats(eventId: string) {
       ? prisma.supplyOrder.findMany({ where: { eventId }, select: { status: true } })
       : Promise.resolve(null),
     canViewSupplyOrders && canEditSupplyOrders
-      ? prisma.supplyOrder.count({ where: { eventId, status: notCancelled, vendors: { none: {} } } })
+      ? prisma.supplyOrder.count({
+          where: { eventId, status: notCancelled, providerVendorId: null, providerContactId: null },
+        })
       : Promise.resolve(0),
     canViewSupplyOrders && canEditSupplyOrders
       ? prisma.supplyOrder.count({ where: { eventId, status: notCancelled, functions: { none: {} }, presentations: { none: {} } } })
@@ -293,7 +295,7 @@ export async function getEventOverviewStats(eventId: string) {
       canEdit: canEditSupplyOrders,
       attention: canEditSupplyOrders
         ? [
-            { label: "missing vendor", count: supplyMissingVendor, href: basePath },
+            { label: "missing provider", count: supplyMissingProvider, href: basePath },
             { label: "unlinked", count: supplyUnlinked, href: basePath },
           ]
         : [],

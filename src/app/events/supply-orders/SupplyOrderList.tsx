@@ -8,6 +8,7 @@ import { WorkflowBadge } from "@/components/WorkflowBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
+import { partyLabel } from "@/lib/partyLabel";
 import {
   EDIT_STATUS_OPTIONS,
   PACKING_STATUS_CLASS,
@@ -164,10 +165,8 @@ export function SupplyOrderList({
                         : `Linked to ${o.presentations.length} presentations`}
                     </span>
                   )}
-                  {o.vendors.length > 0 && (
-                    <span>
-                      Vendor{o.vendors.length !== 1 ? "s" : ""}: {o.vendors.map((v) => v.vendor.name).join(", ")}
-                    </span>
+                  {partyLabel(o.providerVendor, o.providerContact) && (
+                    <span>Provider: {partyLabel(o.providerVendor, o.providerContact)}</span>
                   )}
                 </div>
               </div>

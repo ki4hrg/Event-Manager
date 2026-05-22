@@ -1,15 +1,20 @@
 "use client";
 
-import type { PackingStatus } from "@prisma/client";
+import type { EntityStatus, PackingStatus } from "@prisma/client";
 import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
-import { OrderMeta, type OrderMetaFields } from "@/components/OrderMeta";
+import { OrderMeta } from "@/components/OrderMeta";
 import { PACKING_STATUS_LABEL } from "@/lib/statusConstants";
 
-type SupplyOrderSummary = OrderMetaFields & {
+type SupplyOrderSummary = {
   id: string;
   name: string;
+  status?: EntityStatus | null;
+  substatus?: string | null;
+  notes?: string | null;
   packingStatus?: PackingStatus | null;
   room?: { name: string } | null;
+  providerVendor?: { name: string } | null;
+  providerContact?: { firstName: string; lastName: string } | null;
 };
 
 type SupplyOrderPanelProps = {
@@ -26,6 +31,17 @@ type SupplyOrderPanelProps = {
 function displayName(order: SupplyOrderSummary) {
   if (order.room?.name) return `${order.name} → ${order.room.name}`;
   return order.name;
+}
+
+// Wrap a SupplyOrder's single provider into the shape OrderMeta's `vendors`
+// slot expects so we don't have to extend OrderMeta for this one consumer.
+function providerAsVendors(order: SupplyOrderSummary): { vendor: { name: string } }[] {
+  if (order.providerVendor) return [{ vendor: { name: order.providerVendor.name } }];
+  if (order.providerContact) {
+    const name = [order.providerContact.firstName, order.providerContact.lastName].filter(Boolean).join(" ");
+    return [{ vendor: { name } }];
+  }
+  return [];
 }
 
 export function SupplyOrderPanel({
@@ -50,7 +66,7 @@ export function SupplyOrderPanel({
           <OrderMeta
             status={o.status}
             substatus={o.substatus}
-            vendors={o.vendors}
+            vendors={providerAsVendors(o)}
             fields={[{ label: "Packing", value: o.packingStatus ? PACKING_STATUS_LABEL[o.packingStatus] : null }]}
             notes={o.notes}
           />

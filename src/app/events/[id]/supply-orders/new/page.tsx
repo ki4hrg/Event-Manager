@@ -5,8 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getEvent } from "../../../actions";
 import { createSupplyOrder } from "../../../supply-orders/actions";
 import { SupplyOrderForm } from "../../../supply-orders/SupplyOrderForm";
-import { getResponsiblePartyVendors } from "@/app/vendors/actions";
-import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
+import { getResponsibleParties } from "@/lib/responsibleParties";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 
@@ -24,9 +23,14 @@ export default async function NewSupplyOrderPage({
   const { id: eventId } = await params;
   const { functionId, presentationId, roomId } = await searchParams;
 
-  const [event, responsiblePartyVendors, sourceData] = await Promise.all([
+  const [event, pool, sourceData] = await Promise.all([
     getEvent(eventId),
-    getResponsiblePartyVendors(eventId, "SUPPLY_ORDER"),
+    getResponsibleParties({
+      eventId,
+      modelType: "SUPPLY_ORDER",
+      functionIds: functionId ? [functionId] : [],
+      presentationIds: presentationId ? [presentationId] : [],
+    }),
     functionId
       ? prisma.function.findUnique({ where: { id: functionId }, select: { name: true } })
       : presentationId
@@ -74,11 +78,11 @@ export default async function NewSupplyOrderPage({
       <SupplyOrderForm
         eventId={eventId}
         rooms={rooms}
+        pool={pool}
         initialRoomId={roomId}
         action={createSupplyOrderAction}
         defaultName={defaultName}
         cancelPath={cancelPath}
-        availableVendors={flattenResponsiblePartyOptions(responsiblePartyVendors).map((v) => ({ id: v.id, label: v.name }))}
       />
     </>
   );
