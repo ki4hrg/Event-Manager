@@ -15,6 +15,11 @@ import {
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { LastUpdated } from "@/components/LastUpdated";
+import {
+  ACQUISITION_LABEL,
+  PACKING_STATUS_CLASS,
+  PACKING_STATUS_LABEL,
+} from "@/lib/statusConstants";
 
 type HandoffData = NonNullable<Awaited<ReturnType<typeof getVendorHandoffData>>>;
 type Event = NonNullable<Awaited<ReturnType<typeof getEvent>>>;
@@ -35,6 +40,7 @@ type EquipmentItem = {
 type CateringOrder = HandoffData["cateringOrders"][number];
 type AVOrder = HandoffData["avOrders"][number];
 type SetupOrder = HandoffData["setupOrders"][number];
+type SupplyOrder = HandoffData["supplyOrders"][number];
 type AnyFn = NonNullable<CateringOrder["function"]> | AVOrder["functions"][number];
 
 type CateringEntry = {
@@ -47,6 +53,7 @@ type FunctionGroup = {
   cateringOrders: CateringEntry[];
   avOrders: AVOrder[];
   setupOrders: SetupOrder[];
+  supplyOrders: SupplyOrder[];
   earliestStart: number;
 };
 
@@ -62,6 +69,7 @@ type PresentationGroup = {
   };
   avOrders: AVOrder[];
   setupOrders: SetupOrder[];
+  supplyOrders: SupplyOrder[];
   earliestStart: number;
 };
 
@@ -69,6 +77,7 @@ type UnscheduledGroup = {
   cateringOrders: CateringEntry[];
   avOrders: AVOrder[];
   setupOrders: SetupOrder[];
+  supplyOrders: SupplyOrder[];
 };
 
 function partyName(
@@ -206,7 +215,7 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
 function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; presentationGroups: PresentationGroup[]; unscheduled: UnscheduledGroup } {
   const groupMap = new Map<string, FunctionGroup>();
   const presentationGroupMap = new Map<string, PresentationGroup>();
-  const unscheduled: UnscheduledGroup = { cateringOrders: [], avOrders: [], setupOrders: [] };
+  const unscheduled: UnscheduledGroup = { cateringOrders: [], avOrders: [], setupOrders: [], supplyOrders: [] };
 
   function getOrCreateGroup(fn: AnyFn): FunctionGroup {
     let group = groupMap.get(fn.id);
@@ -214,7 +223,7 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
       const earliest = fn.schedules.length > 0
         ? Math.min(...fn.schedules.map((s) => s.startTime.getTime()))
         : Infinity;
-      group = { fn, cateringOrders: [], avOrders: [], setupOrders: [], earliestStart: earliest };
+      group = { fn, cateringOrders: [], avOrders: [], setupOrders: [], supplyOrders: [], earliestStart: earliest };
       groupMap.set(fn.id, group);
     }
     return group;
@@ -228,7 +237,7 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
             slot.function.schedules.map((s) => s.startTime.getTime())
           ))
         : Infinity;
-      pg = { presentation, avOrders: [], setupOrders: [], earliestStart: earliest };
+      pg = { presentation, avOrders: [], setupOrders: [], supplyOrders: [], earliestStart: earliest };
       presentationGroupMap.set(presentation.id, pg);
     }
     return pg;
@@ -268,6 +277,15 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
       for (const p of order.presentations) getOrCreatePresentationGroup(p).setupOrders.push(order);
     } else {
       unscheduled.setupOrders.push(order);
+    }
+  }
+  for (const order of data.supplyOrders) {
+    if (order.functions.length > 0) {
+      for (const fn of order.functions) getOrCreateGroup(fn).supplyOrders.push(order);
+    } else if (order.presentations.length > 0) {
+      for (const p of order.presentations) getOrCreatePresentationGroup(p).supplyOrders.push(order);
+    } else {
+      unscheduled.supplyOrders.push(order);
     }
   }
 
@@ -343,6 +361,24 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
       }
     }
   }
+  for (const order of data.supplyOrders) {
+    // SupplyOrderItem precedence: item provider overrides; falls back to order
+    // provider. Matches resolveProvider in SupplyOrderItemPanel.
+    const orderLevelVendor = order.providerVendor ?? null;
+    for (const item of order.items) {
+      const provider = item.providerVendor ?? orderLevelVendor;
+      const itemLabel = item.equipment?.name ?? item.description ?? "";
+      if (!itemLabel) continue;
+      addRow(
+        itemLabel,
+        item.equipment?.category ?? null,
+        item.quantity ?? 1,
+        provider,
+        item.providerVendor ? null : item.providerContact,
+        null,
+      );
+    }
+  }
 
   const SORT_LAST = "￿";
   const ROLE_ORDER: Record<string, number> = { "Provider & Operator": 0, "Provider": 1, "Operator": 2 };
@@ -380,6 +416,7 @@ function FunctionScheduleSection({
   }
   for (const order of data.avOrders) for (const fn of order.functions) addFn(fn);
   for (const order of data.setupOrders) for (const fn of order.functions) addFn(fn);
+  for (const order of data.supplyOrders) for (const fn of order.functions) addFn(fn);
 
   if (allFunctions.length === 0) return null;
 
@@ -990,6 +1027,122 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
   );
 }
 
+function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId: string }) {
+  const orderProvider = order.providerVendor ?? null;
+  const orderProviderName = partyName(order.providerVendor, order.providerContact);
+  // Vendors only see items they're responsible for: either explicitly assigned
+  // (item-level vendor matches) or inheriting from the order-level vendor.
+  const visibleItems = order.items.filter((item) => {
+    const resolved = item.providerVendor ?? orderProvider;
+    return resolved?.id === vendorId;
+  });
+  if (visibleItems.length === 0 && orderProvider?.id !== vendorId) return null;
+
+  return (
+    <div className={orderCard}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">
+          {order.name}
+        </h3>
+        <div className="flex flex-wrap gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+          <span>Supply Order</span>
+          <span>
+            Destination: {order.room.name}
+            {order.specificLocation ? ` — ${order.specificLocation}` : ""}
+          </span>
+          {order.packingStatus && (
+            <span className={`px-1.5 py-0.5 rounded ${PACKING_STATUS_CLASS[order.packingStatus]}`}>
+              {PACKING_STATUS_LABEL[order.packingStatus]}
+            </span>
+          )}
+          {orderProviderName !== "—" && <span>Provider: {orderProviderName}</span>}
+        </div>
+        <LastUpdated
+          updatedAt={order.updatedAt}
+          updatedBy={order.updatedBy}
+          className="mt-1 print:hidden"
+        />
+      </div>
+
+      {order.notes && (
+        <>
+          <SectionHeading>Notes</SectionHeading>
+          <p className="text-xs text-gray-700 dark:text-gray-300 print:text-gray-900 mb-3">{order.notes}</p>
+        </>
+      )}
+
+      {visibleItems.length > 0 && (
+        <>
+          <SectionHeading>Items</SectionHeading>
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs mb-2">
+            {visibleItems.map((item) => {
+              const itemLabel = item.equipment?.name ?? item.description ?? "—";
+              const itemProviderName = item.providerVendor
+                ? item.providerVendor.name
+                : item.providerContact
+                  ? `${item.providerContact.firstName} ${item.providerContact.lastName}`
+                  : orderProviderName;
+              return (
+                <div key={item.id} className="p-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{itemLabel}</span>
+                    {item.quantity != null && (
+                      <span className="text-gray-500 dark:text-gray-400">Qty {item.quantity}</span>
+                    )}
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    {PACKING_STATUS_LABEL[item.packingStatus]} · {ACQUISITION_LABEL[item.acquisitionState]}
+                  </p>
+                  {itemProviderName && itemProviderName !== "—" && (
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5">Provider: {itemProviderName}</p>
+                  )}
+                  {item.notes && (
+                    <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">{item.notes}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto mb-2">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Item</th>
+                  <th className={th}>Qty</th>
+                  <th className={th}>Packing</th>
+                  <th className={th}>Source</th>
+                  <th className={th}>Provider</th>
+                  <th className={th}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleItems.map((item) => {
+                  const itemLabel = item.equipment?.name ?? item.description ?? "—";
+                  const itemProviderName = item.providerVendor
+                    ? item.providerVendor.name
+                    : item.providerContact
+                      ? `${item.providerContact.firstName} ${item.providerContact.lastName}`
+                      : orderProviderName;
+                  return (
+                    <tr key={item.id}>
+                      <td className={td}>{itemLabel}</td>
+                      <td className={td}>{item.quantity ?? "—"}</td>
+                      <td className={td}>{PACKING_STATUS_LABEL[item.packingStatus]}</td>
+                      <td className={td}>{ACQUISITION_LABEL[item.acquisitionState]}</td>
+                      <td className={td}>{itemProviderName}</td>
+                      <td className={td}>{item.notes ?? ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function FunctionSection({
   group,
   functionTypes,
@@ -1003,12 +1156,12 @@ function FunctionSection({
   vendorId: string;
   anchorId?: string;
 }) {
-  const { fn, cateringOrders, avOrders, setupOrders } = group;
+  const { fn, cateringOrders, avOrders, setupOrders, supplyOrders } = group;
   const typeLabel = fn.type ? resolveOptionLabel(fn.type, functionTypes) : null;
   const rooms = fn.rooms.map((r) => r.room.name).join(", ") || "—";
   const sortedSchedules = [...fn.schedules].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
-  const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0].filter(Boolean).length;
+  const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0, supplyOrders.length > 0].filter(Boolean).length;
 
   return (
     <div id={anchorId} className={`${sectionCard} print:break-inside-avoid scroll-mt-24`}>
@@ -1104,6 +1257,15 @@ function FunctionSection({
           ))}
         </>
       )}
+
+      {supplyOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Supplies</SubHeading>}
+          {supplyOrders.map((order) => (
+            <SupplyOrderSection key={order.id} order={order} vendorId={vendorId} />
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -1119,9 +1281,9 @@ function PresentationSection({
   vendorId: string;
   anchorId?: string;
 }) {
-  const { presentation, avOrders, setupOrders } = group;
+  const { presentation, avOrders, setupOrders, supplyOrders } = group;
   const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
-  const typeCount = [avOrders.length > 0, setupOrders.length > 0].filter(Boolean).length;
+  const typeCount = [avOrders.length > 0, setupOrders.length > 0, supplyOrders.length > 0].filter(Boolean).length;
 
   const slotsByDate = new Map<string, { slot: PresentationGroup["presentation"]["slots"][number]; schedule: AnyFn["schedules"][number] }[]>();
   for (const slot of presentation.slots) {
@@ -1201,6 +1363,15 @@ function PresentationSection({
           ))}
         </>
       )}
+
+      {supplyOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Supplies</SubHeading>}
+          {supplyOrders.map((order) => (
+            <SupplyOrderSection key={order.id} order={order} vendorId={vendorId} />
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -1239,12 +1410,14 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
   const hasUnscheduled =
     unscheduled.cateringOrders.length > 0 ||
     unscheduled.avOrders.length > 0 ||
-    unscheduled.setupOrders.length > 0;
+    unscheduled.setupOrders.length > 0 ||
+    unscheduled.supplyOrders.length > 0;
 
   const unscheduledTypeCount = [
     unscheduled.cateringOrders.length > 0,
     unscheduled.avOrders.length > 0,
     unscheduled.setupOrders.length > 0,
+    unscheduled.supplyOrders.length > 0,
   ].filter(Boolean).length;
 
   const dateOpts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" };
@@ -1505,6 +1678,14 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
                 {unscheduledTypeCount > 1 && <SubHeading>Setup</SubHeading>}
                 {unscheduled.setupOrders.map((order) => (
                   <SetupOrderSection key={order.id} order={order} vendorId={vendorId} />
+                ))}
+              </>
+            )}
+            {unscheduled.supplyOrders.length > 0 && (
+              <>
+                {unscheduledTypeCount > 1 && <SubHeading>Supplies</SubHeading>}
+                {unscheduled.supplyOrders.map((order) => (
+                  <SupplyOrderSection key={order.id} order={order} vendorId={vendorId} />
                 ))}
               </>
             )}

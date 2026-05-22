@@ -1,4 +1,4 @@
-import type { EntityStatus, PackingStatus, StatusModelType } from "@prisma/client";
+import type { AcquisitionState, EntityStatus, PackingStatus, StatusModelType } from "@prisma/client";
 
 export type StatusCounts = {
   PENDING: number;
@@ -55,4 +55,14 @@ export const PACKING_STATUS_OPTIONS: { value: PackingStatus; label: string }[] =
   { value: "NEEDED", label: "Needed" },
   { value: "PACKED", label: "Packed" },
   { value: "DELIVERED", label: "Delivered" },
+];
+
+export const ACQUISITION_LABEL: Record<AcquisitionState, string> = {
+  ON_HAND: "On Hand",
+  TO_PROCURE: "To Procure",
+};
+
+export const ACQUISITION_OPTIONS: { value: AcquisitionState; label: string }[] = [
+  { value: "ON_HAND", label: "On Hand" },
+  { value: "TO_PROCURE", label: "To Procure" },
 ];

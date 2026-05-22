@@ -309,6 +309,65 @@ Empty string (`""`) means "All / no filter". Never use `null` or `undefined` as 
 ### Absence sentinels across the stack
 Use the same sentinel string for "no value" across `<select>` options, internal component state, and URL params. Prefer `__blank__` for `<select>` values; if a URL param has to be human-readable (`?room=none`, `?schedule=none`), translate at the page boundary once and use `__blank__` internally. Never invent a third string (e.g. mixing `none` / `no` / `__none__` / `__blank__` inside one feature) — pick one and convert at the edge.
 
+## Adding a new entity / order type
+
+When introducing a new order-type or top-level entity, wire it into every shared surface below — most are easy to miss because they don't fail the build (the new value just doesn't appear). Use the checklist; cross-reference SupplyOrder (commit a880f43 + the SupplyOrder UI alignment PR) as the most recent end-to-end reference.
+
+Mark a surface ✗ if it's relevant to the new entity but not yet wired. Some lines won't apply to every entity (e.g. an entity without equipment items skips Equipment Responsibility) — judgement call, but bias toward including unless there's a clear reason not to.
+
+### Schema / database
+- `prisma/schema.prisma` — model, relations, `onDelete` cascades, junction tables (use `functionLinks` / `presentationLinks` naming, not `functions` / `presentations` — see refactor candidates), indexes
+- `StatusModelType` enum — entry for the new entity (drives status defaults)
+- `EntityStatus?` field on the model if it has a workflow status
+- `FileUpload` model — add an optional FK + index if the entity supports attachments
+- `prisma/seed.mjs` — seed any default options the entity depends on
+
+### Auth and permissions
+- `src/app/settings/roles/resources.ts` — add a `PermissionResource` entry; if it's event-scoped, append to `EVENT_SCOPED_RESOURCES`
+- Server Actions: every exported action starts with `await requireAuth()` (or `requireAdmin()` for admin-gated)
+
+### Routes
+- `src/app/events/<entity>/` — colocated `actions.ts` + list/form/panel components (Archetypes A–C in § Route archetypes)
+- `src/app/events/[id]/<entity>/page.tsx` — list page (`force-dynamic`)
+- `src/app/events/[id]/<entity>/new/page.tsx` — create page
+- `src/app/events/[id]/<entity>/[entityId]/page.tsx` — detail page with `<Breadcrumbs>` and inline `"use server"` wrapper actions
+- Redirect convention: thin top-level entities → list view after create; entities needing further setup → detail view after create; duplicates and updates → detail view (see § Server Actions § Redirect target)
+
+### Sidebar / navigation
+- `src/components/EventSidebar.tsx` — `NAV` array entry under the right group (Schedule / Content / Orders / Resources / Reports / Configuration), `getActiveSection` `sections` array, icon (add a new one if no existing icon fits — don't reuse a semantically-different icon)
+- `src/app/events/sidebar-actions.ts` — `SidebarSection` union entry + `getSidebarItems` branch returning the entity's links
+
+### Overview / dashboard
+- `src/app/events/[id]/actions.ts` — `getEventOverviewStats()` permission checks, fetches, attention items, entity card
+- `src/app/events/[id]/page.tsx` — render the new card (if the overview renders cards inline)
+
+### Status / workflow
+- `src/lib/statusConstants.ts` — `STATUS_MODEL_LABEL` entry; promote any entity-specific status enums (e.g. `PACKING_STATUS_LABEL`, `ACQUISITION_LABEL`) here once they're consumed beyond the entity's own folder
+- `src/app/events/status-defaults/StatusDefaultsPanel.tsx` — `ALL_MODEL_TYPES` array
+- `src/app/events/workflows/actions.ts` — `WorkflowEntityType` union + five switch arms (`entityResource`, `assertEntityInEvent`, `filterEntityIdsInEvent`, `revalidateEntity`, `updateEntityStatus`). Each switch covers the full union; some are caught by TS inference if a member is missing, but not all — audit by hand when adding a member
+
+### Vendor model types
+- `src/app/vendors/actions.ts` — `ModelType` union entry
+- `src/app/vendors/model-types.ts` — `MODEL_TYPES` array entry (drives vendor picker filtering across the order forms)
+- `src/lib/responsibleParties.ts` — `ResponsiblePartyModelType` union + exhaustiveness arm; required for the `getResponsiblePartyVendors` + `flattenResponsiblePartyOptions` pattern used in every order form's vendor picker
+
+### Uploads
+- `src/lib/uploads.ts` — `ENTITY_DIRS` entry, `getEntityTypeFromRecord` check, `resolveEntityEventId` switch arm
+
+### Reports — existing ones the entity should flow through
+- `src/app/events/reports/actions.ts`:
+  - `getFunctionDetailData` `fdFunctionInclude` + nested presentation include — add `<entity>Links` (or whichever relation exists on Function/Presentation)
+  - `getEquipmentResponsibilityData` — widen `modelType` unions and add a normalization loop if the entity carries equipment items
+  - `getVendorHandoffData` — fetch the entity's records when the vendor is provider (order-level OR per-item); update `relevantModelTypes`; shape into the return payload
+  - `getOrderAssignedVendors` — add the entity's vendor relation to the union
+- Each report's `*Report.tsx` body — render the new section (mobile cards + desktop table; see § Reports § Required: mobile-friendly tables)
+
+### Share-view integration (only if you add a NEW report for this entity)
+Five surfaces per § Reports § Share-view integration. See that section for the full checklist.
+
+### Bulk edit (only if the entity ships with bulk operations)
+Follow § Order list and bulk edit pattern — selection state, bulk panel (status / substatus / vendor / function link / presentation link), null sentinels.
+
 ## Breakout session labels
 
 Anywhere a breakout session (a `Function` with `type === "BREAKOUT_BLOCK"`) is displayed by name, prepend its `BreakoutGroup.name` so "Session 1" reads as "Learn & Lead Session 1":

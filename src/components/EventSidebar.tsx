@@ -66,6 +66,11 @@ const FolderIcon = () => (
     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
   </svg>
 );
+const PackageIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M10 1.293l-7 3.5v10.414l7 3.5 7-3.5V4.793l-7-3.5zM4.118 5.5L10 8.441 15.882 5.5 10 2.559 4.118 5.5zM5 7.118v6.764l4 2v-6.764l-4-2zm6 8.764l4-2V7.118l-4 2v6.764z" clipRule="evenodd" />
+  </svg>
+);
 const ClipboardIcon = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
@@ -134,6 +139,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Catering Orders",  segment: "catering-orders",                 icon: <UtensilsIcon />,  sidebarSection: "catering-orders" },
   { type: "link",  label: "Print Orders",     segment: "print-orders",                    icon: <PrinterIcon />,   sidebarSection: "print-orders" },
   { type: "link",  label: "Setup Orders",     segment: "setup-orders",                    icon: <WrenchIcon />,    sidebarSection: "setup-orders" },
+  { type: "link",  label: "Supply Orders",    segment: "supply-orders",                   icon: <PackageIcon />,   sidebarSection: "supply-orders" },
   { type: "link",  label: "Media Deliverables", segment: "media-deliverables",            icon: <VideoIcon />,     sidebarSection: "media-deliverables" },
   { type: "group", label: "Resources" },
   { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon /> },
@@ -168,6 +174,7 @@ function getActiveSection(pathname: string, basePath: string): SidebarSection | 
     "catering-orders",
     "print-orders",
     "setup-orders",
+    "supply-orders",
     "media-deliverables",
     "presentations",
   ];

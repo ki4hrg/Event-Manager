@@ -21,7 +21,7 @@ export type EquipmentSourceRef = {
   functionTypeLabel: string | null;
   functionGroupName: string | null;
   functionNames: string[];
-  modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
+  modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER" | "SUPPLY_ORDER";
   quantity: number;
   isScheduled: boolean;
 };
@@ -62,7 +62,7 @@ type NormalizedItem = {
   functionType: string;
   functionGroupName: string | null;
   functionNames: string[];
-  modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
+  modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER" | "SUPPLY_ORDER";
   scheduleWindows: { start: Date; end: Date }[];
 };
 
@@ -146,7 +146,7 @@ export async function getEquipmentResponsibilityData(
   eventId: string,
   filters?: EquipmentReportFilters
 ): Promise<VendorEquipmentGroup[]> {
-  const [equipmentItems, inputItems, monitorMixes, setupTables, functionTypeOptions] = await Promise.all([
+  const [equipmentItems, inputItems, monitorMixes, setupTables, supplyOrderItems, functionTypeOptions] = await Promise.all([
     prisma.equipmentItem.findMany({
       where: {
         OR: [
@@ -255,6 +255,24 @@ export async function getEquipmentResponsibilityData(
         },
       },
     }),
+    prisma.supplyOrderItem.findMany({
+      where: { supplyOrder: { eventId } },
+      include: {
+        equipment: { select: { id: true, name: true, category: true } },
+        providerVendor: { select: { id: true, name: true } },
+        providerContact: { select: { id: true, firstName: true, lastName: true } },
+        supplyOrder: {
+          select: {
+            id: true,
+            name: true,
+            providerVendor: { select: { id: true, name: true } },
+            providerContact: { select: { id: true, firstName: true, lastName: true } },
+            functions: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
+            presentations: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
+          },
+        },
+      },
+    }),
     prisma.customOption.findMany({ where: { category: "function_type" }, select: { label: true } }),
   ]);
 
@@ -265,7 +283,7 @@ export async function getEquipmentResponsibilityData(
     const attrContact = item.providerContact;
     let orderId: string;
     let orderName: string;
-    let modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER";
+    let modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER" | "SUPPLY_ORDER";
     let fns: FunctionRef[];
 
     if (item.cateringOrder) {
@@ -389,6 +407,36 @@ export async function getEquipmentResponsibilityData(
         quantity: totalChairs,
       }, fns));
     }
+  }
+
+  for (const item of supplyOrderItems) {
+    const order = item.supplyOrder;
+    // Item-level provider overrides the order-level provider; mirrors
+    // SupplyOrderItemPanel's resolveProvider precedence.
+    const attrVendor = item.providerVendor ?? order.providerVendor;
+    const attrContact = item.providerVendor ? null : (item.providerContact ?? order.providerContact);
+    const fromFunctions = order.functions.map((l) => l.function);
+    const fns: FunctionRef[] = fromFunctions.length > 0
+      ? fromFunctions
+      : order.presentations.flatMap((pl) => pl.presentation.slots.map((s) => s.function));
+    const itemLabel = item.equipment?.name ?? item.description ?? "";
+    if (!itemLabel) continue;
+    const equipmentKey = item.equipmentId ?? `item:${itemLabel.toLowerCase()}`;
+    const base = {
+      equipmentId: item.equipmentId,
+      equipmentKey,
+      itemName: itemLabel,
+      category: item.equipment?.category ?? null,
+      attributionVendorId: attrVendor?.id ?? null,
+      attributionVendorName: attrVendor?.name ?? null,
+      attributionContactId: attrVendor ? null : (attrContact?.id ?? null),
+      attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
+      quantity: item.quantity ?? 1,
+      orderId: order.id,
+      orderName: order.name,
+      modelType: "SUPPLY_ORDER" as const,
+    };
+    normalized.push(...expandByFunction(base, fns));
   }
 
   let filtered = normalized;
@@ -787,6 +835,8 @@ export async function getOrderAssignedVendors(eventId: string) {
         { cateringOrderVendors: { some: { cateringOrder: { eventId } } } },
         { avOrderVendors: { some: { avOrder: { eventId } } } },
         { setupOrderVendors: { some: { setupOrder: { eventId } } } },
+        { supplyOrdersAsProvider: { some: { eventId } } },
+        { supplyOrderItemsAsProvider: { some: { supplyOrder: { eventId } } } },
       ],
     },
     select: { id: true, name: true },
@@ -815,7 +865,7 @@ const functionInclude = {
 } as const;
 
 export async function getVendorHandoffData(eventId: string, vendorId: string) {
-  const [vendor, cateringOrders, avOrders, setupOrders] = await Promise.all([
+  const [vendor, cateringOrders, avOrders, setupOrders, supplyOrders] = await Promise.all([
     prisma.vendor.findUnique({
       where: { id: vendorId },
       include: {
@@ -935,6 +985,47 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
       },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.supplyOrder.findMany({
+      where: {
+        eventId,
+        OR: [
+          { providerVendorId: vendorId },
+          { items: { some: { providerVendorId: vendorId } } },
+        ],
+      },
+      include: {
+        room: { select: { id: true, name: true } },
+        providerVendor: { select: { id: true, name: true } },
+        providerContact: { select: { id: true, firstName: true, lastName: true } },
+        functions: { include: { function: { include: functionInclude } } },
+        presentations: {
+          include: {
+            presentation: {
+              select: {
+                id: true,
+                title: true,
+                slots: {
+                  include: {
+                    function: { include: functionInclude },
+                    room: { select: { id: true, name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        items: {
+          include: {
+            equipment: { select: { id: true, name: true, category: true } },
+            providerVendor: { select: { id: true, name: true } },
+            providerContact: { select: { id: true, firstName: true, lastName: true } },
+          },
+          orderBy: { sortOrder: "asc" },
+        },
+        updatedBy: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   if (!vendor) return null;
@@ -943,6 +1034,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
     ...(cateringOrders.length > 0 ? (["CATERING_ORDER"] as const) : []),
     ...(avOrders.length > 0 ? (["AV_ORDER"] as const) : []),
     ...(setupOrders.length > 0 ? (["SETUP_ORDER"] as const) : []),
+    ...(supplyOrders.length > 0 ? (["SUPPLY_ORDER"] as const) : []),
   ];
 
   const keyStaff =
@@ -966,12 +1058,20 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
     functions: o.functionLinks.map((l) => l.function),
     presentations: o.presentationLinks.map((l) => l.presentation),
   }));
+  // SupplyOrder already uses `functions`/`presentations` as the relation names,
+  // so reshape just the junction wrappers to match avOrders/setupOrders.
+  const supplyOrdersShaped = supplyOrders.map((o) => ({
+    ...o,
+    functions: o.functions.map((l) => l.function),
+    presentations: o.presentations.map((l) => l.presentation),
+  }));
 
   return {
     vendor,
     cateringOrders,
     avOrders: avOrdersShaped,
     setupOrders: setupOrdersShaped,
+    supplyOrders: supplyOrdersShaped,
     keyStaff,
   };
 }
@@ -1187,6 +1287,21 @@ const fdMediaDeliverableInclude = {
   updatedBy: { select: { name: true, email: true } },
 } satisfies Prisma.MediaDeliverableInclude;
 
+const fdSupplyOrderInclude = {
+  room: { select: { id: true, name: true } },
+  providerVendor: fdVendorSelect,
+  providerContact: fdContactSelect,
+  items: {
+    include: {
+      equipment: { select: { id: true, name: true, category: true } },
+      providerVendor: fdVendorSelect,
+      providerContact: fdContactSelect,
+    },
+    orderBy: { sortOrder: "asc" },
+  },
+  updatedBy: { select: { name: true, email: true } },
+} satisfies Prisma.SupplyOrderInclude;
+
 const fdCateringOrderInclude = {
   function: { select: { id: true, name: true } },
   vendors: { include: { vendor: fdVendorSelect } },
@@ -1246,6 +1361,7 @@ const fdFunctionInclude = {
   avOrderFunctions: { include: { avOrder: { include: fdAVOrderInclude } } },
   setupOrderFunctions: { include: { setupOrder: { include: fdSetupOrderInclude } } },
   printOrderFunctions: { include: { printOrder: { include: fdPrintOrderInclude } } },
+  supplyOrderLinks: { include: { supplyOrder: { include: fdSupplyOrderInclude } } },
   mediaDeliverableFunctions: { include: { mediaDeliverable: { include: fdMediaDeliverableInclude } } },
   presentationSlots: {
     include: {
@@ -1268,6 +1384,7 @@ const fdFunctionInclude = {
           avOrderLinks: { include: { avOrder: { include: fdAVOrderInclude } } },
           setupOrderLinks: { include: { setupOrder: { include: fdSetupOrderInclude } } },
           printOrder: { include: fdPrintOrderInclude },
+          supplyOrderLinks: { include: { supplyOrder: { include: fdSupplyOrderInclude } } },
           mediaDeliverableLinks: { include: { mediaDeliverable: { include: fdMediaDeliverableInclude } } },
           updatedBy: { select: { name: true, email: true } },
         },

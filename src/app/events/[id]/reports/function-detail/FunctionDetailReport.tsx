@@ -10,7 +10,13 @@ import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { cateringRelationshipLabel, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { formatPhone } from "@/lib/format-phone";
 import { resolveOptionLabel } from "@/lib/optionUtils";
-import { STATUS_LABEL, STATUS_CLASS } from "@/lib/statusConstants";
+import {
+  ACQUISITION_LABEL,
+  PACKING_STATUS_CLASS,
+  PACKING_STATUS_LABEL,
+  STATUS_CLASS,
+  STATUS_LABEL,
+} from "@/lib/statusConstants";
 import { formatTime, formatDateTime, getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
@@ -29,6 +35,7 @@ type Fn = FunctionDetailFunction;
 type AvOrder = Fn["avOrderFunctions"][number]["avOrder"];
 type SetupOrder = Fn["setupOrderFunctions"][number]["setupOrder"];
 type PrintOrder = Fn["printOrderFunctions"][number]["printOrder"];
+type SupplyOrder = Fn["supplyOrderLinks"][number]["supplyOrder"];
 type MediaDeliverable = Fn["mediaDeliverableFunctions"][number]["mediaDeliverable"];
 type CateringOrder = NonNullable<Fn["cateringOrder"]>;
 type EquipmentItem = AvOrder["equipmentItems"][number];
@@ -590,6 +597,123 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
   );
 }
 
+function PackingStatusBadge({ status }: { status: SupplyOrder["packingStatus"] }) {
+  if (!status) return null;
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${PACKING_STATUS_CLASS[status]}`}>
+      {PACKING_STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+function SupplyOrderCard({ order }: { order: SupplyOrder }) {
+  const orderProvider = partyLabel(order.providerVendor, order.providerContact);
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="font-medium text-gray-900 dark:text-gray-100">{order.name}</span>
+          <StatusBadge status={order.status} />
+          <PackingStatusBadge status={order.packingStatus} />
+          {order.substatus && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">{order.substatus}</span>
+          )}
+        </div>
+      </div>
+      <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
+
+      <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-700 dark:text-gray-300 mb-2">
+        <dt className="font-medium">Destination:</dt>
+        <dd>
+          {order.room.name}
+          {order.specificLocation ? ` — ${order.specificLocation}` : ""}
+        </dd>
+        {orderProvider && (
+          <>
+            <dt className="font-medium">Provider:</dt>
+            <dd>{orderProvider}</dd>
+          </>
+        )}
+      </dl>
+
+      {order.notes && (
+        <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2 whitespace-pre-wrap">{order.notes}</p>
+      )}
+
+      {order.items.length > 0 && (
+        <>
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+            {order.items.map((it) => {
+              const itemProvider = partyLabel(it.providerVendor, it.providerContact);
+              const providerOverride = itemProvider && itemProvider !== orderProvider;
+              const itemLabel = it.description || it.equipment?.name || "—";
+              return (
+                <div key={it.id} className="p-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{itemLabel}</span>
+                    {it.quantity != null && (
+                      <span className="text-gray-500 dark:text-gray-400">Qty {it.quantity}</span>
+                    )}
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    {PACKING_STATUS_LABEL[it.packingStatus]} · {ACQUISITION_LABEL[it.acquisitionState]}
+                  </p>
+                  {providerOverride && (
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5">Provider: {itemProvider}</p>
+                  )}
+                  {it.notes && (
+                    <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">{it.notes}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden sm:block print:block overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-1.5 pr-3 text-xs font-medium">Item</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">Qty</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Packing</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Source</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Provider</th>
+                  <th className="py-1.5 text-xs font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.items.map((it) => {
+                  const itemProvider = partyLabel(it.providerVendor, it.providerContact);
+                  const providerOverride = itemProvider && itemProvider !== orderProvider;
+                  const itemLabel = it.description || it.equipment?.name || "—";
+                  return (
+                    <tr key={it.id} className="border-b border-gray-100 dark:border-gray-800 align-top">
+                      <td className="py-1.5 pr-3 text-gray-900 dark:text-gray-100">{itemLabel}</td>
+                      <td className="py-1.5 pr-3 text-right text-gray-900 dark:text-gray-100">
+                        {it.quantity ?? "—"}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                        {PACKING_STATUS_LABEL[it.packingStatus]}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                        {ACQUISITION_LABEL[it.acquisitionState]}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                        {providerOverride ? itemProvider : "—"}
+                      </td>
+                      <td className="py-1.5 text-gray-500 dark:text-gray-400 italic">{it.notes ?? ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MediaDeliverableCard({ deliverable }: { deliverable: MediaDeliverable }) {
   const providedBy = partyLabel(deliverable.providerVendor, deliverable.providerContact);
   return (
@@ -844,6 +968,7 @@ function PresentationCard({
   const anchorId = `presentation-${p.id}`;
   const avOrders = p.avOrderLinks.map((l) => l.avOrder);
   const setupOrders = p.setupOrderLinks.map((l) => l.setupOrder);
+  const supplyOrders = p.supplyOrderLinks.map((l) => l.supplyOrder);
   const mediaDeliverables = p.mediaDeliverableLinks.map((l) => l.mediaDeliverable);
   return (
     <div
@@ -908,6 +1033,13 @@ function PresentationCard({
       {p.printOrder && (
         <SubSection title="Print">
           <PrintOrderCard order={p.printOrder} />
+        </SubSection>
+      )}
+      {supplyOrders.length > 0 && (
+        <SubSection title="Supplies">
+          {supplyOrders.map((o) => (
+            <SupplyOrderCard key={o.id} order={o} />
+          ))}
         </SubSection>
       )}
       {mediaDeliverables.length > 0 && (
@@ -1004,6 +1136,7 @@ function FunctionBlock({
   const avOrders = fn.avOrderFunctions.map((l) => l.avOrder);
   const setupOrders = fn.setupOrderFunctions.map((l) => l.setupOrder);
   const printOrders = fn.printOrderFunctions.map((l) => l.printOrder);
+  const supplyOrders = fn.supplyOrderLinks.map((l) => l.supplyOrder);
   const mediaDeliverables = fn.mediaDeliverableFunctions.map((l) => l.mediaDeliverable);
 
   return (
@@ -1218,6 +1351,14 @@ function FunctionBlock({
           <SubSection title="Print">
             {printOrders.map((o) => (
               <PrintOrderCard key={o.id} order={o} />
+            ))}
+          </SubSection>
+        )}
+
+        {supplyOrders.length > 0 && (
+          <SubSection title="Supplies">
+            {supplyOrders.map((o) => (
+              <SupplyOrderCard key={o.id} order={o} />
             ))}
           </SubSection>
         )}

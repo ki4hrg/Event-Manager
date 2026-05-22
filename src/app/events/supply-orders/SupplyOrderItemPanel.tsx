@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
-import type { AcquisitionState, Equipment, PackingStatus, SupplyOrderItem } from "@prisma/client";
+import type { Equipment, PackingStatus, SupplyOrderItem } from "@prisma/client";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { PartyField } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyPool } from "@/lib/responsibleParties";
 import {
+  ACQUISITION_LABEL,
+  ACQUISITION_OPTIONS,
   PACKING_STATUS_CLASS,
   PACKING_STATUS_LABEL,
   PACKING_STATUS_OPTIONS,
@@ -33,16 +35,6 @@ type SupplyOrderItemPanelProps = {
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   updateItemPackingStatus: (id: string, packingStatus: PackingStatus) => Promise<void>;
-};
-
-const ACQUISITION_OPTIONS: { value: AcquisitionState; label: string }[] = [
-  { value: "ON_HAND", label: "On Hand" },
-  { value: "TO_PROCURE", label: "To Procure" },
-];
-
-const ACQUISITION_LABEL: Record<AcquisitionState, string> = {
-  ON_HAND: "On Hand",
-  TO_PROCURE: "To Procure",
 };
 
 function SubmitButton({ label }: { label: string }) {

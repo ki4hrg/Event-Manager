@@ -10,6 +10,7 @@ export type SidebarSection =
   | "catering-orders"
   | "print-orders"
   | "setup-orders"
+  | "supply-orders"
   | "media-deliverables"
   | "presentations";
 
@@ -125,6 +126,23 @@ export async function getSidebarItems(
         id: r.id,
         label: getSetupOrderDisplayName(r),
         href: `${base}/setup-orders/${r.id}`,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  if (section === "supply-orders") {
+    const rows = await prisma.supplyOrder.findMany({
+      where: { eventId },
+      select: { id: true, name: true, room: { select: { name: true } } },
+    });
+    return rows
+      .map((r) => ({
+        kind: "link" as const,
+        id: r.id,
+        label: r.room?.name
+          ? `${r.name || "Unnamed Supply Order"} → ${r.room.name}`
+          : r.name || "Unnamed Supply Order",
+        href: `${base}/supply-orders/${r.id}`,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }
