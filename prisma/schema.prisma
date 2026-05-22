@@ -1298,7 +1298,7 @@ model SupplyOrderItem {
   id               String           @id @default(cuid())
   supplyOrderId    String
   supplyOrder      SupplyOrder      @relation(fields: [supplyOrderId], references: [id], onDelete: Cascade)
-  description      String
+  description      String?
   equipmentId      String?
   equipment        Equipment?       @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
   quantity         Int?

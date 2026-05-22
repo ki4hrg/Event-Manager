@@ -73,14 +73,13 @@ function ItemForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="md:col-span-2">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Description <span className="text-red-500">*</span>
+            Description
           </label>
           <input
             type="text"
             name="description"
-            required
             defaultValue={item?.description ?? ""}
-            placeholder="e.g. Printer"
+            placeholder="e.g. Printer (optional if Equipment is selected)"
             className={inputClass}
           />
         </div>
@@ -258,7 +257,9 @@ export function SupplyOrderItemPanel({
                 ) : (
                   <div>
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white text-sm">{item.description}</span>
+                      <span className="font-medium text-gray-900 dark:text-white text-sm">
+                        {item.description ?? item.equipment?.name ?? "Untitled item"}
+                      </span>
                       {item.quantity && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">× {item.quantity}</span>
                       )}
@@ -276,7 +277,7 @@ export function SupplyOrderItemPanel({
                     {item.providerVendor && (
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">From: {item.providerVendor.name}</p>
                     )}
-                    {item.equipment && (
+                    {item.equipment && item.description && (
                       <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                         {item.equipment.category} · {item.equipment.name}
                       </p>
@@ -320,7 +321,9 @@ export function SupplyOrderItemPanel({
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="font-medium text-gray-900 dark:text-white text-sm">{item.description}</span>
+                        <span className="font-medium text-gray-900 dark:text-white text-sm">
+                          {item.description ?? item.equipment?.name ?? "Untitled item"}
+                        </span>
                         {item.quantity && (
                           <span className="text-xs text-gray-500 dark:text-gray-400">× {item.quantity}</span>
                         )}
@@ -334,7 +337,7 @@ export function SupplyOrderItemPanel({
                         </span>
                       </div>
                       <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
-                        {item.equipment && (
+                        {item.equipment && item.description && (
                           <span>
                             {item.equipment.category} · {item.equipment.name}
                           </span>
