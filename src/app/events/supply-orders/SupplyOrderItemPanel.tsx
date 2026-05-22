@@ -4,6 +4,9 @@ import { useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import type { AcquisitionState, Equipment, PackingStatus, SupplyOrderItem } from "@prisma/client";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
+import { PartyField } from "@/app/events/av-orders/party-field";
+import { partyLabel } from "@/lib/partyLabel";
+import type { ResponsiblePartyPool } from "@/lib/responsibleParties";
 import {
   PACKING_STATUS_CLASS,
   PACKING_STATUS_LABEL,
@@ -13,12 +16,19 @@ import {
 type ItemWithExtras = SupplyOrderItem & {
   equipment: Equipment | null;
   providerVendor: { id: string; name: string } | null;
+  providerContact: { id: string; firstName: string; lastName: string } | null;
+};
+
+type OrderProvider = {
+  providerVendor?: { name: string } | null;
+  providerContact?: { firstName: string; lastName: string } | null;
 };
 
 type SupplyOrderItemPanelProps = {
   items: ItemWithExtras[];
   equipmentOptions: Equipment[];
-  vendors: { id: string; name: string }[];
+  pool: ResponsiblePartyPool;
+  orderProvider: OrderProvider;
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -28,13 +38,11 @@ type SupplyOrderItemPanelProps = {
 const ACQUISITION_OPTIONS: { value: AcquisitionState; label: string }[] = [
   { value: "ON_HAND", label: "On Hand" },
   { value: "TO_PROCURE", label: "To Procure" },
-  { value: "FROM_VENDOR", label: "From Vendor" },
 ];
 
 const ACQUISITION_LABEL: Record<AcquisitionState, string> = {
   ON_HAND: "On Hand",
   TO_PROCURE: "To Procure",
-  FROM_VENDOR: "From Vendor",
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -53,14 +61,14 @@ function SubmitButton({ label }: { label: string }) {
 function ItemForm({
   item,
   equipmentOptions,
-  vendors,
+  pool,
   onSubmit,
   onCancel,
   submitLabel,
 }: {
   item?: ItemWithExtras;
   equipmentOptions: Equipment[];
-  vendors: { id: string; name: string }[];
+  pool: ResponsiblePartyPool;
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
@@ -115,17 +123,16 @@ function ItemForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Provider Vendor</label>
-          <select
-            name="providerVendorId"
-            defaultValue={item?.providerVendorId ?? ""}
-            className={inputClass}
-          >
-            <option value="">— None —</option>
-            {vendors.map((v) => (
-              <option key={v.id} value={v.id}>{v.name}</option>
-            ))}
-          </select>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Provider (override)
+          </label>
+          <PartyField
+            fieldPrefix="provider"
+            vendorGroups={pool.vendorGroups}
+            contacts={pool.contacts}
+            defaultVendorId={item?.providerVendorId ?? null}
+            defaultContactId={item?.providerContactId ?? null}
+          />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Packing Status</label>
@@ -189,10 +196,21 @@ function PackingStatusToggle({
   );
 }
 
+// Resolves the visible provider for an item: own value first, then fall back
+// to the order's provider with a `(from order)` annotation.
+function resolveProvider(item: ItemWithExtras, order: OrderProvider): { label: string; inherited: boolean } | null {
+  const own = partyLabel(item.providerVendor, item.providerContact);
+  if (own) return { label: own, inherited: false };
+  const inherited = partyLabel(order.providerVendor, order.providerContact);
+  if (inherited) return { label: inherited, inherited: true };
+  return null;
+}
+
 export function SupplyOrderItemPanel({
   items,
   equipmentOptions,
-  vendors,
+  pool,
+  orderProvider,
   createItem,
   updateItem,
   deleteItem,
@@ -229,7 +247,7 @@ export function SupplyOrderItemPanel({
         <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <ItemForm
             equipmentOptions={equipmentOptions}
-            vendors={vendors}
+            pool={pool}
             onSubmit={handleCreate}
             onCancel={() => setShowAddForm(false)}
             submitLabel="Add"
@@ -243,90 +261,30 @@ export function SupplyOrderItemPanel({
         <>
           {/* Mobile card view */}
           <div className="sm:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
-            {items.map((item) => (
-              <div key={item.id} className="p-3">
-                {editingId === item.id ? (
-                  <ItemForm
-                    item={item}
-                    equipmentOptions={equipmentOptions}
-                    vendors={vendors}
-                    onSubmit={(fd) => handleUpdate(item.id, fd)}
-                    onCancel={() => setEditingId(null)}
-                    submitLabel="Save"
-                  />
-                ) : (
-                  <div>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white text-sm">
-                        {item.description ?? item.equipment?.name ?? "Untitled item"}
-                      </span>
-                      {item.quantity && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">× {item.quantity}</span>
-                      )}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <PackingStatusToggle
-                        itemId={item.id}
-                        current={item.packingStatus}
-                        onChange={updateItemPackingStatus}
-                      />
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {ACQUISITION_LABEL[item.acquisitionState]}
-                      </span>
-                    </div>
-                    {item.providerVendor && (
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">From: {item.providerVendor.name}</p>
-                    )}
-                    {item.equipment && item.description && (
-                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                        {item.equipment.category} · {item.equipment.name}
-                      </p>
-                    )}
-                    {item.notes && (
-                      <p className="mt-0.5 text-xs italic text-gray-400 dark:text-gray-500">{item.notes}</p>
-                    )}
-                    <div className="mt-2 flex gap-3">
-                      <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
-                        Edit
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this item?")) await deleteItem(item.id);
-                        }}
-                        className="text-red-600 hover:underline text-xs"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop table */}
-          <div className="hidden sm:block space-y-2">
-            {items.map((item) => (
-              <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                {editingId === item.id ? (
-                  <ItemForm
-                    item={item}
-                    equipmentOptions={equipmentOptions}
-                    vendors={vendors}
-                    onSubmit={(fd) => handleUpdate(item.id, fd)}
-                    onCancel={() => setEditingId(null)}
-                    submitLabel="Save"
-                  />
-                ) : (
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 flex-wrap">
+            {items.map((item) => {
+              const provider = resolveProvider(item, orderProvider);
+              return (
+                <div key={item.id} className="p-3">
+                  {editingId === item.id ? (
+                    <ItemForm
+                      item={item}
+                      equipmentOptions={equipmentOptions}
+                      pool={pool}
+                      onSubmit={(fd) => handleUpdate(item.id, fd)}
+                      onCancel={() => setEditingId(null)}
+                      submitLabel="Save"
+                    />
+                  ) : (
+                    <div>
+                      <div className="flex items-baseline justify-between gap-2">
                         <span className="font-medium text-gray-900 dark:text-white text-sm">
                           {item.description ?? item.equipment?.name ?? "Untitled item"}
                         </span>
                         {item.quantity && (
                           <span className="text-xs text-gray-500 dark:text-gray-400">× {item.quantity}</span>
                         )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
                         <PackingStatusToggle
                           itemId={item.id}
                           current={item.packingStatus}
@@ -336,35 +294,113 @@ export function SupplyOrderItemPanel({
                           {ACQUISITION_LABEL[item.acquisitionState]}
                         </span>
                       </div>
-                      <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
-                        {item.equipment && item.description && (
-                          <span>
-                            {item.equipment.category} · {item.equipment.name}
-                          </span>
-                        )}
-                        {item.providerVendor && <span>From: {item.providerVendor.name}</span>}
-                      </div>
-                      {item.notes && (
-                        <p className="text-xs italic text-gray-400 dark:text-gray-500 mt-0.5">{item.notes}</p>
+                      {provider && (
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          Provider: {provider.label}
+                          {provider.inherited && (
+                            <span className="ml-1 italic text-gray-400 dark:text-gray-500">(from order)</span>
+                          )}
+                        </p>
                       )}
+                      {item.equipment && item.description && (
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                          {item.equipment.category} · {item.equipment.name}
+                        </p>
+                      )}
+                      {item.notes && (
+                        <p className="mt-0.5 text-xs italic text-gray-400 dark:text-gray-500">{item.notes}</p>
+                      )}
+                      <div className="mt-2 flex gap-3">
+                        <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm("Delete this item?")) await deleteItem(item.id);
+                          }}
+                          className="text-red-600 hover:underline text-xs"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
-                        Edit
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this item?")) await deleteItem(item.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block space-y-2">
+            {items.map((item) => {
+              const provider = resolveProvider(item, orderProvider);
+              return (
+                <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                  {editingId === item.id ? (
+                    <ItemForm
+                      item={item}
+                      equipmentOptions={equipmentOptions}
+                      pool={pool}
+                      onSubmit={(fd) => handleUpdate(item.id, fd)}
+                      onCancel={() => setEditingId(null)}
+                      submitLabel="Save"
+                    />
+                  ) : (
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="font-medium text-gray-900 dark:text-white text-sm">
+                            {item.description ?? item.equipment?.name ?? "Untitled item"}
+                          </span>
+                          {item.quantity && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">× {item.quantity}</span>
+                          )}
+                          <PackingStatusToggle
+                            itemId={item.id}
+                            current={item.packingStatus}
+                            onChange={updateItemPackingStatus}
+                          />
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {ACQUISITION_LABEL[item.acquisitionState]}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
+                          {item.equipment && item.description && (
+                            <span>
+                              {item.equipment.category} · {item.equipment.name}
+                            </span>
+                          )}
+                          {provider && (
+                            <span>
+                              Provider: {provider.label}
+                              {provider.inherited && (
+                                <span className="ml-1 italic text-gray-400 dark:text-gray-500">(from order)</span>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                        {item.notes && (
+                          <p className="text-xs italic text-gray-400 dark:text-gray-500 mt-0.5">{item.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm("Delete this item?")) await deleteItem(item.id);
+                          }}
+                          className="text-red-600 hover:underline text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         </>
       )}

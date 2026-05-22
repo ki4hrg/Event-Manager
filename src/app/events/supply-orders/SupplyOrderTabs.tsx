@@ -2,7 +2,6 @@ import { DetailTabs } from "@/components/DetailTabs";
 
 export const SUPPLY_ORDER_TABS = [
   { label: "Overview", value: "overview" },
-  { label: "Vendors", value: "vendors" },
   { label: "Files", value: "files" },
 ] as const;
 
