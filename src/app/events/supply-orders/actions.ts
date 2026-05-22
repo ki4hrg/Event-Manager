@@ -309,9 +309,14 @@ export async function getAvailableSupplyOrdersForPresentation(eventId: string, p
 function parseSupplyItemData(formData: FormData) {
   const acquisitionStateRaw = (formData.get("acquisitionState") as string) || "ON_HAND";
   const packingStatusRaw = (formData.get("packingStatus") as string) || "NEEDED";
+  const description = (formData.get("description") as string)?.trim() || null;
+  const equipmentId = (formData.get("equipmentId") as string) || null;
+  if (!description && !equipmentId) {
+    throw new Error("Supply item needs a description or an equipment selection.");
+  }
   return {
-    description: (formData.get("description") as string)?.trim(),
-    equipmentId: (formData.get("equipmentId") as string) || null,
+    description,
+    equipmentId,
     quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
     acquisitionState: acquisitionStateRaw as AcquisitionState,
     providerVendorId: (formData.get("providerVendorId") as string) || null,
