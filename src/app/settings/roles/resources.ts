@@ -20,6 +20,7 @@ const EVENT_SCOPED_RESOURCES: ResourceEntry[] = [
   { value: PermissionResource.CATERING_ORDERS, label: "Catering Orders" },
   { value: PermissionResource.SETUP_ORDERS, label: "Setup Orders" },
   { value: PermissionResource.PRINT_ORDERS, label: "Print Orders" },
+  { value: PermissionResource.SUPPLY_ORDERS, label: "Supply Orders" },
   { value: PermissionResource.MEDIA_DELIVERABLES, label: "Media Deliverables" },
   { value: PermissionResource.FILES, label: "Files" },
   { value: PermissionResource.SHARE_LINKS, label: "Share Links" },

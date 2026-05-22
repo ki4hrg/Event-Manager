@@ -48,8 +48,14 @@ import {
   linkPrintOrderToPresentationFromPresentation,
   unlinkPrintOrderFromPresentationPage,
 } from "../../../print-orders/actions";
+import {
+  getAvailableSupplyOrdersForPresentation,
+  linkSupplyOrderToPresentationFromPresentation,
+  unlinkSupplyOrderFromPresentationPage,
+} from "../../../supply-orders/actions";
 import { SetupOrderPanel } from "../../../setup-orders/SetupOrderPanel";
 import { PrintOrderPanel } from "../../../print-orders/PrintOrderPanel";
+import { SupplyOrderPanel } from "../../../supply-orders/SupplyOrderPanel";
 import {
   assignPresentationToBlock,
   assignPresentationToGroup,
@@ -99,7 +105,7 @@ export default async function PresentationPage({
     notFound();
   }
 
-  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, availableMediaDeliverables, advancerPool] = await Promise.all([
+  const [breakoutGroups, availableAVOrders, availableSetupOrders, availablePrintOrders, availableSupplyOrders, availableMediaDeliverables, advancerPool] = await Promise.all([
     prisma.breakoutGroup.findMany({
       where: { eventId },
       select: {
@@ -137,6 +143,7 @@ export default async function PresentationPage({
     presentation.printOrder
       ? Promise.resolve([])
       : getAvailablePrintOrdersForPresentation(eventId),
+    getAvailableSupplyOrdersForPresentation(eventId, presentationId),
     getAvailableMediaDeliverablesForPresentation(eventId, presentationId),
     getResponsibleParties({ eventId, modelType: "AV_ORDER", presentationIds: [presentationId] }),
   ]);
@@ -218,6 +225,16 @@ export default async function PresentationPage({
   const unlinkPrintOrderAction = async () => {
     "use server";
     await unlinkPrintOrderFromPresentationPage(presentationId, eventId);
+  };
+
+  const linkSupplyOrderAction = async (supplyOrderId: string) => {
+    "use server";
+    await linkSupplyOrderToPresentationFromPresentation(supplyOrderId, presentationId, eventId);
+  };
+
+  const unlinkSupplyOrderAction = async (supplyOrderId: string) => {
+    "use server";
+    await unlinkSupplyOrderFromPresentationPage(supplyOrderId, presentationId, eventId);
   };
 
   const addSlotAction = async (functionId: string, roomId: string | null) => {
@@ -445,6 +462,14 @@ export default async function PresentationPage({
             newPrintOrderPath={`/events/${eventId}/print-orders/new?presentationId=${presentationId}`}
             linkPrintOrder={linkPrintOrderAction}
             unlinkPrintOrder={unlinkPrintOrderAction}
+          />
+          <SupplyOrderPanel
+            supplyOrders={presentation.supplyOrders}
+            eventId={eventId}
+            availableSupplyOrders={availableSupplyOrders}
+            newSupplyOrderPath={`/events/${eventId}/supply-orders/new?presentationId=${presentationId}`}
+            linkSupplyOrder={linkSupplyOrderAction}
+            unlinkSupplyOrder={unlinkSupplyOrderAction}
           />
           <MediaDeliverablePanel
             title="Media Deliverables"

@@ -204,7 +204,7 @@ export async function removeVendorContact(contactId: string, vendorId: string) {
 // Event vendor management
 
 // Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
-export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER" | "MEDIA_DELIVERABLE";
+export type ModelType = "CATERING_ORDER" | "AV_ORDER" | "SETUP_ORDER" | "PRINT_ORDER" | "SUPPLY_ORDER" | "MEDIA_DELIVERABLE";
 
 export type EventVendorKind = "regular" | "system" | "venue";
 
@@ -421,6 +421,11 @@ async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
   if (!found) notFound();
 }
 
+async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) {
+  const found = await prisma.supplyOrder.findUnique({ where: { id: supplyOrderId, eventId }, select: { id: true } });
+  if (!found) notFound();
+}
+
 export async function getAVOrderVendors(avOrderId: string, eventId: string) {
   await requirePermission("AV_ORDERS", "VIEW", eventId);
   return prisma.aVOrderVendor.findMany({
@@ -573,5 +578,43 @@ export async function removeVendorFromPrintOrder(id: string, printOrderId: strin
   await prisma.printOrderVendor.delete({ where: { id, printOrder: { eventId } } });
   await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: session.user.id } });
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+}
+
+// Supply Order vendors
+
+export async function getSupplyOrderVendors(supplyOrderId: string, eventId: string) {
+  await requirePermission("SUPPLY_ORDERS", "VIEW", eventId);
+  return prisma.supplyOrderVendor.findMany({
+    where: { supplyOrderId, supplyOrder: { eventId } },
+    include: { vendor: true },
+    orderBy: { vendor: { name: "asc" } },
+  });
+}
+
+export async function addVendorToSupplyOrder(supplyOrderId: string, vendorId: string, eventId: string, notes?: string) {
+  const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
+  await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  await prisma.supplyOrderVendor.create({
+    data: { supplyOrderId, vendorId, notes: notes || null },
+  });
+  await prisma.supplyOrder.update({ where: { id: supplyOrderId }, data: { updatedById: session.user.id } });
+  revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+}
+
+export async function updateSupplyOrderVendor(id: string, supplyOrderId: string, eventId: string, notes: string) {
+  const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
+  await prisma.supplyOrderVendor.update({
+    where: { id, supplyOrder: { eventId } },
+    data: { notes: notes || null },
+  });
+  await prisma.supplyOrder.update({ where: { id: supplyOrderId }, data: { updatedById: session.user.id } });
+  revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+}
+
+export async function removeVendorFromSupplyOrder(id: string, supplyOrderId: string, eventId: string) {
+  const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
+  await prisma.supplyOrderVendor.delete({ where: { id, supplyOrder: { eventId } } });
+  await prisma.supplyOrder.update({ where: { id: supplyOrderId }, data: { updatedById: session.user.id } });
+  revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
 }
 

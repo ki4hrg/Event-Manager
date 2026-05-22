@@ -13,6 +13,7 @@ const ALL_MODEL_TYPES: StatusModelType[] = [
   "CATERING_ORDER",
   "SETUP_ORDER",
   "PRINT_ORDER",
+  "SUPPLY_ORDER",
   "MEDIA_DELIVERABLE",
 ];
 

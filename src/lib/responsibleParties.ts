@@ -12,7 +12,8 @@ export type ResponsiblePartyModelType =
   | "MEDIA_DELIVERABLE"
   | "CATERING_ORDER"
   | "SETUP_ORDER"
-  | "PRINT_ORDER";
+  | "PRINT_ORDER"
+  | "SUPPLY_ORDER";
 
 type RawContact = { id: string; firstName: string; lastName: string; organization: string | null };
 
@@ -32,6 +33,7 @@ export async function getResponsibleParties(scope: ResponsiblePartyScope): Promi
     case "CATERING_ORDER":
     case "SETUP_ORDER":
     case "PRINT_ORDER":
+    case "SUPPLY_ORDER":
       break;
     default: {
       const _exhaustive: never = scope.modelType;
