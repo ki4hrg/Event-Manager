@@ -4,26 +4,15 @@
 
 type Props = { mcpUrl: string };
 
-const CONNECTOR_STEPS = [
-  "Open Claude.ai (or the Claude desktop app), go to Settings → Connectors.",
-  "Click Add custom connector.",
-  "Give it a name (e.g. \"Event Manager\") and paste the MCP URL above.",
-  "Under Authorization, choose Bearer token and paste your key.",
-  "Save. The connector's tools become available in a new chat — toggle them on under the chat's Connectors menu.",
-] as const;
-
 export function SetupInstructions({ mcpUrl }: Props) {
-  const localConfigSnippet = `{
+  const desktopConfig = `{
   "mcpServers": {
     "event-manager": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "${mcpUrl}",
-        "--header",
-        "Authorization: Bearer YOUR_KEY_HERE"
-      ]
+      "type": "http",
+      "url": "${mcpUrl}",
+      "headers": {
+        "Authorization": "Bearer YOUR_KEY_HERE"
+      }
     }
   }
 }`;
@@ -45,43 +34,33 @@ export function SetupInstructions({ mcpUrl }: Props) {
 
         <section>
           <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-2">
-            Option A — Custom Connector (recommended)
+            Claude Desktop
           </p>
           <p className="mb-2">
-            Available in Claude.ai and Claude Desktop for Pro and Team plans.
-            Tools appear under their own labeled section instead of a generic
-            &quot;Other tools&quot; group.
+            Edit <code>claude_desktop_config.json</code> and add the block
+            below. The config key (<code>event-manager</code>) becomes the
+            section heading for the tools in Claude&apos;s tool picker.
           </p>
-          <ol className="list-decimal list-outside ml-5 space-y-1">
-            {CONNECTOR_STEPS.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </section>
-
-        <section>
-          <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-2">
-            Option B — Local Claude Desktop config
-          </p>
-          <p className="mb-2">
-            Edit <code>claude_desktop_config.json</code> (on macOS:{" "}
+          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            <strong>macOS:</strong>{" "}
             <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>
-            ). Uses the <code>mcp-remote</code> bridge to translate Claude
-            Desktop&apos;s stdio transport to this HTTP endpoint:
+            <br />
+            <strong>Windows:</strong>{" "}
+            <code>%APPDATA%\Claude\claude_desktop_config.json</code>
           </p>
           <pre className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-2 text-xs font-mono text-gray-900 dark:text-gray-100 overflow-x-auto whitespace-pre">
-            {localConfigSnippet}
+            {desktopConfig}
           </pre>
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Replace <code>YOUR_KEY_HERE</code> with the full key shown when you
-            create it (it&apos;s only displayed once). Restart Claude Desktop
-            after editing.
+            create it (it&apos;s only displayed once). Fully quit and reopen
+            Claude Desktop — the new server appears in the tool picker.
           </p>
         </section>
 
         <section>
           <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-2">
-            Option C — Inspector (verify the connection)
+            Verify with the MCP Inspector
           </p>
           <pre className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-2 text-xs font-mono text-gray-900 dark:text-gray-100 overflow-x-auto whitespace-pre">
             {`npx @modelcontextprotocol/inspector --cli ${mcpUrl} \\
@@ -91,7 +70,20 @@ export function SetupInstructions({ mcpUrl }: Props) {
           </pre>
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Lists every tool exposed to your key. Useful for confirming auth
-            works before wiring up the connector.
+            works before wiring up Claude Desktop.
+          </p>
+        </section>
+
+        <section>
+          <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-2">
+            Why not the &quot;Custom Connector&quot; UI?
+          </p>
+          <p>
+            Claude.ai and Claude Desktop&apos;s Custom Connector dialog
+            currently only supports OAuth-based MCP servers — it doesn&apos;t
+            accept static bearer tokens. This server is bearer-only, so use the
+            local config above for now. If/when we add OAuth support, the
+            Custom Connector will be the recommended path.
           </p>
         </section>
       </div>
