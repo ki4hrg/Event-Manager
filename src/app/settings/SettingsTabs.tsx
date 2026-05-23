@@ -14,6 +14,7 @@ const tabs = [
   { label: "Status", segment: "status" },
   { label: "Email", segment: "email" },
   { label: "Roles", segment: "roles" },
+  { label: "API Keys", segment: "api-keys" },
 ];
 
 export function SettingsTabs() {
