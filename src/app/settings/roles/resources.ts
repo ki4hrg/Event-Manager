@@ -10,6 +10,7 @@ const GLOBAL_ONLY_RESOURCES: ResourceEntry[] = [
   { value: PermissionResource.VENDORS, label: "Vendors" },
   { value: PermissionResource.VENUES, label: "Venues" },
   { value: PermissionResource.CONTACTS, label: "Contacts" },
+  { value: PermissionResource.API_KEYS, label: "API Keys" },
 ];
 
 const EVENT_SCOPED_RESOURCES: ResourceEntry[] = [

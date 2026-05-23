@@ -75,6 +75,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (nextUrl.pathname.startsWith("/share/")) return true;
       if (nextUrl.pathname === "/forgot-password") return true;
       if (nextUrl.pathname.startsWith("/reset-password/")) return true;
+      // /api/mcp does its own bearer-token auth via @/lib/mcpAuth.
+      if (nextUrl.pathname.startsWith("/api/mcp")) return true;
 
       return isLoggedIn;
     },

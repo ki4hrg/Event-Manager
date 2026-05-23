@@ -43,6 +43,25 @@ model User {
   updatedMediaDeliverables MediaDeliverable[]   @relation("MediaDeliverableUpdatedBy")
   updatedWorkflowTemplates WorkflowTemplate[]   @relation("WorkflowTemplateUpdatedBy")
   updatedRoles             Role[]               @relation("RoleUpdatedBy")
+  apiKeys                  ApiKey[]
+}
+
+// Bearer tokens for programmatic access via the MCP connector (/api/mcp).
+// hashedKey is SHA-256 of the full key (not bcrypt — keys are high-entropy randoms,
+// indexed lookup, single hash per request). keyPrefix is the plaintext first ~8
+// chars so admins can identify a key in the UI without revealing the secret.
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  keyPrefix  String
+  hashedKey  String    @unique
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId])
 }
 
 // One-time tokens used for both initial invite and password reset flows.
@@ -1474,6 +1493,7 @@ enum PermissionResource {
   MEDIA_DELIVERABLES
   FILES
   SHARE_LINKS
+  API_KEYS
 }
 
 enum PermissionLevel {
