@@ -5,15 +5,28 @@
 type Props = { mcpUrl: string };
 
 export function SetupInstructions({ mcpUrl }: Props) {
-  const desktopConfig = `{
+  // Claude Desktop's `mcpServers` schema only accepts stdio-based entries
+  // (`command` + `args`). For a remote HTTPS MCP endpoint we run the
+  // `mcp-remote` npm bridge as a child process — it spawns as stdio to
+  // Claude Desktop and proxies to our HTTP endpoint, forwarding the bearer
+  // header. (Claude Code's config DOES accept `type: "http"` directly, but
+  // Claude Desktop ignores entries with that shape with the error
+  // `not valid MCP server configurations and were skipped`.)
+  const serverEntry = `"event-manager": {
+  "command": "npx",
+  "args": [
+    "-y",
+    "mcp-remote",
+    "${mcpUrl}",
+    "--header",
+    "Authorization: Bearer YOUR_KEY_HERE"
+  ]
+}`;
+
+  // Full file — for users starting from an empty / non-existent config.
+  const fullConfig = `{
   "mcpServers": {
-    "event-manager": {
-      "type": "http",
-      "url": "${mcpUrl}",
-      "headers": {
-        "Authorization": "Bearer YOUR_KEY_HERE"
-      }
-    }
+    ${serverEntry.split("\n").join("\n    ")}
   }
 }`;
 
@@ -37,21 +50,40 @@ export function SetupInstructions({ mcpUrl }: Props) {
             Claude Desktop
           </p>
           <p className="mb-2">
-            Edit <code>claude_desktop_config.json</code> and add the block
-            below. The config key (<code>event-manager</code>) becomes the
-            section heading for the tools in Claude&apos;s tool picker.
+            Edit <code>claude_desktop_config.json</code>. The config key
+            (<code>event-manager</code>) becomes the section heading for the
+            tools in Claude&apos;s tool picker.
           </p>
-          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
             <strong>macOS:</strong>{" "}
             <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>
             <br />
             <strong>Windows:</strong>{" "}
             <code>%APPDATA%\Claude\claude_desktop_config.json</code>
           </p>
+
+          <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-2 mt-4">
+            If the file already exists (most setups)
+          </p>
+          <p className="mb-2">
+            The file almost always has a <code>preferences</code> block and
+            possibly other <code>mcpServers</code> entries already. Leave them
+            alone. Add this entry inside the existing <code>mcpServers</code>{" "}
+            object (or create the <code>mcpServers</code> key alongside{" "}
+            <code>preferences</code> if it&apos;s not there yet):
+          </p>
           <pre className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-2 text-xs font-mono text-gray-900 dark:text-gray-100 overflow-x-auto whitespace-pre">
-            {desktopConfig}
+            {serverEntry}
           </pre>
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+
+          <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-2 mt-4">
+            If the file is empty or doesn&apos;t exist
+          </p>
+          <pre className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-2 text-xs font-mono text-gray-900 dark:text-gray-100 overflow-x-auto whitespace-pre">
+            {fullConfig}
+          </pre>
+
+          <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
             Replace <code>YOUR_KEY_HERE</code> with the full key shown when you
             create it (it&apos;s only displayed once). Fully quit and reopen
             Claude Desktop — the new server appears in the tool picker.
