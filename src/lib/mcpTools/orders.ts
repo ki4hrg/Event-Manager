@@ -75,6 +75,78 @@ import {
   type SetupEquipmentItemWriteArgs,
   type BulkSetupOrderUpdates,
 } from "@/app/events/setup-orders/core";
+import {
+  createCateringOrderCore,
+  updateCateringOrderCore,
+  deleteCateringOrderCore,
+  deleteCateringOrdersCore,
+  bulkUpdateCateringOrdersCore,
+  linkCateringOrderToFunctionCore,
+  unlinkCateringOrderFromFunctionCore,
+  createTimelineItemCore,
+  updateTimelineItemCore,
+  deleteTimelineItemCore,
+  createCateringEquipmentItemCore,
+  updateCateringEquipmentItemCore,
+  deleteCateringEquipmentItemCore,
+  createCateringOrderLineItemCore,
+  updateCateringOrderLineItemCore,
+  deleteCateringOrderLineItemCore,
+  createCateringOrderMenuSectionCore,
+  updateCateringOrderMenuSectionCore,
+  deleteCateringOrderMenuSectionCore,
+  createCateringOrderServiceLocationCore,
+  updateCateringOrderServiceLocationCore,
+  deleteCateringOrderServiceLocationCore,
+  addCateringOrderContactCore,
+  updateCateringOrderContactCore,
+  removeCateringOrderContactCore,
+  createAndAddCateringOrderContactCore,
+  type CreateCateringOrderArgs,
+  type UpdateCateringOrderArgs,
+  type TimelineItemWriteArgs,
+  type CateringEquipmentItemWriteArgs,
+  type LineItemWriteArgs,
+  type MenuSectionWriteArgs,
+  type ServiceLocationWriteArgs,
+  type BulkCateringOrderUpdates,
+} from "@/app/events/catering-orders/core";
+import {
+  createAVOrderCore,
+  updateAVOrderCore,
+  deleteAVOrderCore,
+  deleteAVOrdersCore,
+  bulkUpdateAVOrdersCore,
+  linkAVOrderToFunctionCore,
+  unlinkAVOrderFromFunctionCore,
+  linkAVOrderToPresentationCore,
+  unlinkAVOrderFromPresentationCore,
+  updateAudioSectionCore,
+  createInputGroupCore,
+  updateInputGroupCore,
+  deleteInputGroupCore,
+  createInputItemCore,
+  updateInputItemCore,
+  deleteInputItemCore,
+  createMonitorMixCore,
+  updateMonitorMixCore,
+  deleteMonitorMixCore,
+  createMonitorOutputCore,
+  updateMonitorOutputCore,
+  deleteMonitorOutputCore,
+  updateVideoSectionCore,
+  createVideoEquipmentItemCore,
+  updateVideoEquipmentItemCore,
+  deleteVideoEquipmentItemCore,
+  createAVEquipmentItemCore,
+  updateAVEquipmentItemCore,
+  deleteAVEquipmentItemCore,
+  type InputItemWriteArgs,
+  type MonitorMixWriteArgs,
+  type MonitorOutputWriteArgs,
+  type AVEquipmentItemWriteArgs,
+  type BulkAVOrderUpdates,
+} from "@/app/events/av-orders/core";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import type { McpToolDefinition } from "./types";
 import { requireString, optionalString, optionalStringArray } from "./types";
@@ -83,6 +155,15 @@ function optionalInt(args: Record<string, unknown>, key: string): number | null 
   const v = args[key];
   if (typeof v !== "number" || !Number.isFinite(v)) return null;
   return Math.trunc(v);
+}
+
+// Parse an ISO 8601 date/time string into a Date. Returns null when the key
+// is absent, an empty string, or unparseable.
+function parseOptionalDate(args: Record<string, unknown>, key: string): Date | null {
+  const v = args[key];
+  if (typeof v !== "string" || v.length === 0) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function readPrintItemArgs(args: Record<string, unknown>): PrintItemWriteArgs {
@@ -1807,6 +1888,1583 @@ export const orderTools: McpToolDefinition[] = [
       const setupOrderId = requireString(args, "setupOrderId");
       const eventId = requireString(args, "eventId");
       await deleteSetupEquipmentItemCore(id, setupOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // CateringOrder writes -----------------------------------------------------
+  {
+    name: "create_catering_order",
+    description:
+      "Create a catering order on an event. Optionally pin to a function. If `vendorId` is omitted, the event's default CATERING_ORDER vendor (if any) is auto-assigned. All deadline fields accept ISO 8601 datetimes. Auto-assigns default workflows.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        name: { type: "string" },
+        functionId: { type: "string", description: "Optional 1:1 function link." },
+        serviceStyle: { type: "string", description: "e.g. PLATED, BUFFET, FAMILY_STYLE." },
+        expectedCount: { type: "number" },
+        confirmedCount: { type: "number" },
+        guaranteeCount: { type: "number" },
+        staffingNotes: { type: "string" },
+        rentalMinimum: { type: "number" },
+        fbMinimum: { type: "number" },
+        depositDeadline: { type: "string", description: "ISO 8601 date/time." },
+        guaranteeDeadline: { type: "string" },
+        paymentDeadline: { type: "string" },
+        cancellationTerms: { type: "string" },
+        dietaryNotes: { type: "string" },
+        notes: { type: "string" },
+        vendorId: { type: "string" },
+      },
+      required: ["eventId", "name"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: CreateCateringOrderArgs = {
+        name: requireString(args, "name"),
+        functionId: optionalString(args, "functionId") ?? null,
+        serviceStyle: optionalString(args, "serviceStyle") ?? null,
+        expectedCount: optionalInt(args, "expectedCount"),
+        confirmedCount: optionalInt(args, "confirmedCount"),
+        guaranteeCount: optionalInt(args, "guaranteeCount"),
+        staffingNotes: optionalString(args, "staffingNotes") ?? null,
+        rentalMinimum:
+          typeof args.rentalMinimum === "number" && Number.isFinite(args.rentalMinimum)
+            ? args.rentalMinimum
+            : null,
+        fbMinimum:
+          typeof args.fbMinimum === "number" && Number.isFinite(args.fbMinimum)
+            ? args.fbMinimum
+            : null,
+        depositDeadline: parseOptionalDate(args, "depositDeadline"),
+        guaranteeDeadline: parseOptionalDate(args, "guaranteeDeadline"),
+        paymentDeadline: parseOptionalDate(args, "paymentDeadline"),
+        cancellationTerms: optionalString(args, "cancellationTerms") ?? null,
+        dietaryNotes: optionalString(args, "dietaryNotes") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+        vendorId: optionalString(args, "vendorId") ?? null,
+      };
+      return createCateringOrderCore(requireString(args, "eventId"), parsed, userId);
+    },
+  },
+  {
+    name: "update_catering_order",
+    description:
+      "Partial update on a catering order. Pass only the fields you want to change. To clear a nullable field, pass an empty string (deadline fields) or 0 / explicit null. The UI splits this across four tab-scoped wrappers; MCP exposes the unified shape.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        eventId: { type: "string" },
+        name: { type: "string" },
+        serviceStyle: { type: "string" },
+        expectedCount: { type: "number" },
+        confirmedCount: { type: "number" },
+        guaranteeCount: { type: "number" },
+        staffingNotes: { type: "string" },
+        rentalMinimum: { type: "number" },
+        fbMinimum: { type: "number" },
+        depositDeadline: { type: "string", description: "ISO 8601, empty string clears." },
+        guaranteeDeadline: { type: "string" },
+        paymentDeadline: { type: "string" },
+        cancellationTerms: { type: "string" },
+        dietaryNotes: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const updates: UpdateCateringOrderArgs = {};
+      if ("name" in args) updates.name = requireString(args, "name");
+      if ("serviceStyle" in args) updates.serviceStyle = optionalString(args, "serviceStyle") ?? null;
+      if ("expectedCount" in args) updates.expectedCount = optionalInt(args, "expectedCount");
+      if ("confirmedCount" in args) updates.confirmedCount = optionalInt(args, "confirmedCount");
+      if ("guaranteeCount" in args) updates.guaranteeCount = optionalInt(args, "guaranteeCount");
+      if ("staffingNotes" in args) updates.staffingNotes = optionalString(args, "staffingNotes") ?? null;
+      if ("rentalMinimum" in args)
+        updates.rentalMinimum =
+          typeof args.rentalMinimum === "number" && Number.isFinite(args.rentalMinimum)
+            ? args.rentalMinimum
+            : null;
+      if ("fbMinimum" in args)
+        updates.fbMinimum =
+          typeof args.fbMinimum === "number" && Number.isFinite(args.fbMinimum)
+            ? args.fbMinimum
+            : null;
+      if ("depositDeadline" in args) updates.depositDeadline = parseOptionalDate(args, "depositDeadline");
+      if ("guaranteeDeadline" in args) updates.guaranteeDeadline = parseOptionalDate(args, "guaranteeDeadline");
+      if ("paymentDeadline" in args) updates.paymentDeadline = parseOptionalDate(args, "paymentDeadline");
+      if ("cancellationTerms" in args) updates.cancellationTerms = optionalString(args, "cancellationTerms") ?? null;
+      if ("dietaryNotes" in args) updates.dietaryNotes = optionalString(args, "dietaryNotes") ?? null;
+      if ("notes" in args) updates.notes = optionalString(args, "notes") ?? null;
+      return updateCateringOrderCore(
+        requireString(args, "id"),
+        requireString(args, "eventId"),
+        updates,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_catering_order",
+    description: "Delete a catering order by id. Cascades per schema.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, eventId: { type: "string" } },
+      required: ["id", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      await deleteCateringOrderCore(id, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  {
+    name: "delete_catering_orders",
+    description: "Bulk-delete multiple catering orders from an event.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ids: { type: "array", items: { type: "string" } },
+        eventId: { type: "string" },
+      },
+      required: ["ids", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      deleteCateringOrdersCore(
+        optionalStringArray(args, "ids"),
+        requireString(args, "eventId"),
+        userId,
+      ),
+  },
+  {
+    name: "bulk_update_catering_orders",
+    description: "Update status / substatus / vendor (replace-all) on multiple catering orders at once.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ids: { type: "array", items: { type: "string" } },
+        eventId: { type: "string" },
+        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"] },
+        substatus: { type: "string" },
+        vendorId: { type: "string" },
+      },
+      required: ["ids", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const ids = optionalStringArray(args, "ids");
+      const eventId = requireString(args, "eventId");
+      const updates: BulkCateringOrderUpdates = {};
+      const status = optionalString(args, "status");
+      if (status) updates.status = status as EntityStatus;
+      if ("substatus" in args) updates.substatus = optionalString(args, "substatus") ?? null;
+      const vendorId = optionalString(args, "vendorId");
+      if (vendorId) updates.vendorId = vendorId;
+      await bulkUpdateCateringOrdersCore(ids, eventId, updates, userId);
+      return { ok: true };
+    },
+  },
+  // CateringOrder function link (1:1 FK) ----------------------------------
+  {
+    name: "link_catering_order_to_function",
+    description: "Link a catering order to a function (1:1 via CateringOrder.functionId — replaces any prior link).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        functionId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["cateringOrderId", "functionId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      linkCateringOrderToFunctionCore(
+        requireString(args, "cateringOrderId"),
+        requireString(args, "functionId"),
+        requireString(args, "eventId"),
+        userId,
+      ),
+  },
+  {
+    name: "unlink_catering_order_from_function",
+    description: "Clear the catering order's function link.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      unlinkCateringOrderFromFunctionCore(
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        userId,
+      ),
+  },
+  // TimelineItem ----------------------------------
+  {
+    name: "create_timeline_item",
+    description:
+      "Add a TimelineItem to a catering order. startTime and endTime are event-local (YYYY-MM-DDTHH:MM) and converted to UTC via the event timezone. sortOrder is auto-appended.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        label: { type: "string" },
+        startTime: { type: "string", description: "Event-local YYYY-MM-DDTHH:MM (no offset)." },
+        endTime: { type: "string", description: "Optional. Event-local YYYY-MM-DDTHH:MM." },
+        notes: { type: "string" },
+      },
+      required: ["cateringOrderId", "eventId", "label", "startTime"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: TimelineItemWriteArgs = {
+        label: requireString(args, "label"),
+        startTime: requireString(args, "startTime"),
+        endTime: optionalString(args, "endTime") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createTimelineItemCore(
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_timeline_item",
+    description: "Replace all writable fields on a TimelineItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        label: { type: "string" },
+        startTime: { type: "string" },
+        endTime: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId", "label", "startTime"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: TimelineItemWriteArgs = {
+        label: requireString(args, "label"),
+        startTime: requireString(args, "startTime"),
+        endTime: optionalString(args, "endTime") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateTimelineItemCore(
+        requireString(args, "id"),
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_timeline_item",
+    description: "Delete a TimelineItem from a catering order.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const cateringOrderId = requireString(args, "cateringOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteTimelineItemCore(id, cateringOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // EquipmentItem (catering-scoped) ----------------------------------
+  {
+    name: "create_catering_equipment_item",
+    description: "Add an EquipmentItem to a catering order. When `equipmentId` is set, the canonical item name is resolved server-side.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        ...setupEquipmentItemProps,
+      },
+      required: ["cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: CateringEquipmentItemWriteArgs = {
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        item: optionalString(args, "item") ?? "",
+        quantity: optionalInt(args, "quantity"),
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createCateringEquipmentItemCore(
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_catering_equipment_item",
+    description: "Replace all writable fields on a catering-order EquipmentItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        ...setupEquipmentItemProps,
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: CateringEquipmentItemWriteArgs = {
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        item: optionalString(args, "item") ?? "",
+        quantity: optionalInt(args, "quantity"),
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateCateringEquipmentItemCore(
+        requireString(args, "id"),
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_catering_equipment_item",
+    description: "Delete a catering-order EquipmentItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const cateringOrderId = requireString(args, "cateringOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteCateringEquipmentItemCore(id, cateringOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // CateringOrderLineItem ----------------------------------
+  {
+    name: "create_catering_line_item",
+    description: "Add a billable LineItem to a catering order. sortOrder is auto-appended.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        description: { type: "string" },
+        unitType: { type: "string" },
+        unitPrice: { type: "number" },
+        quantity: { type: "number" },
+        notes: { type: "string" },
+      },
+      required: ["cateringOrderId", "eventId", "description"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: LineItemWriteArgs = {
+        description: requireString(args, "description"),
+        unitType: optionalString(args, "unitType") ?? null,
+        unitPrice:
+          typeof args.unitPrice === "number" && Number.isFinite(args.unitPrice)
+            ? args.unitPrice
+            : null,
+        quantity: optionalInt(args, "quantity"),
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createCateringOrderLineItemCore(
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_catering_line_item",
+    description: "Replace all writable fields on a CateringOrderLineItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        description: { type: "string" },
+        unitType: { type: "string" },
+        unitPrice: { type: "number" },
+        quantity: { type: "number" },
+        notes: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId", "description"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: LineItemWriteArgs = {
+        description: requireString(args, "description"),
+        unitType: optionalString(args, "unitType") ?? null,
+        unitPrice:
+          typeof args.unitPrice === "number" && Number.isFinite(args.unitPrice)
+            ? args.unitPrice
+            : null,
+        quantity: optionalInt(args, "quantity"),
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateCateringOrderLineItemCore(
+        requireString(args, "id"),
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_catering_line_item",
+    description: "Delete a CateringOrderLineItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const cateringOrderId = requireString(args, "cateringOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteCateringOrderLineItemCore(id, cateringOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // CateringOrderMenuSection ----------------------------------
+  {
+    name: "create_catering_menu_section",
+    description: "Add a MenuSection to a catering order. menuContent is rich-text (HTML) from the RichTextEditor.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        responsiblePartyVendorId: { type: "string" },
+        menuContent: { type: "string", description: "HTML body (the catering UI uses a tiptap editor)." },
+        notes: { type: "string" },
+      },
+      required: ["cateringOrderId", "eventId", "menuContent"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: MenuSectionWriteArgs = {
+        responsiblePartyVendorId: optionalString(args, "responsiblePartyVendorId") ?? null,
+        menuContent: requireString(args, "menuContent"),
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createCateringOrderMenuSectionCore(
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_catering_menu_section",
+    description: "Replace all writable fields on a CateringOrderMenuSection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        responsiblePartyVendorId: { type: "string" },
+        menuContent: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId", "menuContent"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: MenuSectionWriteArgs = {
+        responsiblePartyVendorId: optionalString(args, "responsiblePartyVendorId") ?? null,
+        menuContent: requireString(args, "menuContent"),
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateCateringOrderMenuSectionCore(
+        requireString(args, "id"),
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_catering_menu_section",
+    description: "Delete a CateringOrderMenuSection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const cateringOrderId = requireString(args, "cateringOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteCateringOrderMenuSectionCore(id, cateringOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // CateringOrderServiceLocation ----------------------------------
+  {
+    name: "create_catering_service_location",
+    description: "Add an additional service location to a catering order (e.g. service at a separate function).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        name: { type: "string" },
+        functionId: { type: "string", description: "Optional function this location services." },
+        expectedCount: { type: "number" },
+        notes: { type: "string" },
+      },
+      required: ["cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: ServiceLocationWriteArgs = {
+        name: optionalString(args, "name") ?? null,
+        functionId: optionalString(args, "functionId") ?? null,
+        expectedCount: optionalInt(args, "expectedCount"),
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createCateringOrderServiceLocationCore(
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_catering_service_location",
+    description: "Replace all writable fields on a CateringOrderServiceLocation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        name: { type: "string" },
+        functionId: { type: "string" },
+        expectedCount: { type: "number" },
+        notes: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: ServiceLocationWriteArgs = {
+        name: optionalString(args, "name") ?? null,
+        functionId: optionalString(args, "functionId") ?? null,
+        expectedCount: optionalInt(args, "expectedCount"),
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateCateringOrderServiceLocationCore(
+        requireString(args, "id"),
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_catering_service_location",
+    description: "Delete a CateringOrderServiceLocation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const cateringOrderId = requireString(args, "cateringOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteCateringOrderServiceLocationCore(id, cateringOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // CateringOrderContact ----------------------------------
+  {
+    name: "add_catering_order_contact",
+    description: "Link an existing contact to a catering order with an optional role.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        contactId: { type: "string" },
+        role: { type: "string" },
+      },
+      required: ["cateringOrderId", "eventId", "contactId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      addCateringOrderContactCore(
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        requireString(args, "contactId"),
+        optionalString(args, "role") ?? null,
+        userId,
+      ),
+  },
+  {
+    name: "update_catering_order_contact",
+    description: "Update the role on a CateringOrderContact link.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        role: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      updateCateringOrderContactCore(
+        requireString(args, "id"),
+        requireString(args, "cateringOrderId"),
+        requireString(args, "eventId"),
+        optionalString(args, "role") ?? null,
+        userId,
+      ),
+  },
+  {
+    name: "remove_catering_order_contact",
+    description: "Remove a CateringOrderContact link.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "cateringOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const cateringOrderId = requireString(args, "cateringOrderId");
+      const eventId = requireString(args, "eventId");
+      await removeCateringOrderContactCore(id, cateringOrderId, eventId, userId);
+      return { id, removed: true };
+    },
+  },
+  {
+    name: "create_and_add_catering_order_contact",
+    description:
+      "Create a new contact and immediately link it to a catering order. Use when the contact doesn't yet exist.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cateringOrderId: { type: "string" },
+        eventId: { type: "string" },
+        firstName: { type: "string" },
+        lastName: { type: "string" },
+        email: { type: "string" },
+        organization: { type: "string" },
+        role: { type: "string" },
+      },
+      required: ["cateringOrderId", "eventId", "firstName", "lastName"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      createAndAddCateringOrderContactCore(
+        {
+          cateringOrderId: requireString(args, "cateringOrderId"),
+          eventId: requireString(args, "eventId"),
+          firstName: requireString(args, "firstName"),
+          lastName: requireString(args, "lastName"),
+          email: optionalString(args, "email") ?? null,
+          organization: optionalString(args, "organization") ?? null,
+          role: optionalString(args, "role") ?? null,
+        },
+        userId,
+      ),
+  },
+  // AVOrder writes ----------------------------------
+  {
+    name: "create_av_order",
+    description:
+      "Create an AV order on an event. Auto-creates an AudioSection (with a default InputGroup) and VideoSection so the order's tabs exist immediately. Optionally pins to a function and/or presentation. If `vendorId` is omitted, the event's default AV_ORDER vendor (if any) is auto-assigned. Auto-assigns default workflows.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        name: { type: "string" },
+        notes: { type: "string" },
+        functionId: { type: "string" },
+        presentationId: { type: "string" },
+        vendorId: { type: "string" },
+      },
+      required: ["eventId", "name"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      createAVOrderCore(
+        requireString(args, "eventId"),
+        {
+          name: requireString(args, "name"),
+          notes: optionalString(args, "notes") ?? null,
+          functionId: optionalString(args, "functionId") ?? null,
+          presentationId: optionalString(args, "presentationId") ?? null,
+          vendorId: optionalString(args, "vendorId") ?? null,
+        },
+        userId,
+      ),
+  },
+  {
+    name: "update_av_order",
+    description: "Update name / notes on an AV order.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        eventId: { type: "string" },
+        name: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "eventId", "name"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      updateAVOrderCore(
+        requireString(args, "id"),
+        requireString(args, "eventId"),
+        {
+          name: requireString(args, "name"),
+          notes: optionalString(args, "notes") ?? null,
+        },
+        userId,
+      ),
+  },
+  {
+    name: "delete_av_order",
+    description: "Delete an AV order by id. Cascades per schema (audio section, video section, all items, links).",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, eventId: { type: "string" } },
+      required: ["id", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      await deleteAVOrderCore(id, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  {
+    name: "delete_av_orders",
+    description: "Bulk-delete multiple AV orders from an event.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ids: { type: "array", items: { type: "string" } },
+        eventId: { type: "string" },
+      },
+      required: ["ids", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      deleteAVOrdersCore(
+        optionalStringArray(args, "ids"),
+        requireString(args, "eventId"),
+        userId,
+      ),
+  },
+  {
+    name: "bulk_update_av_orders",
+    description: "Update status / substatus / vendor (replace-all) on multiple AV orders at once.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ids: { type: "array", items: { type: "string" } },
+        eventId: { type: "string" },
+        status: { type: "string", enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"] },
+        substatus: { type: "string" },
+        vendorId: { type: "string" },
+      },
+      required: ["ids", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const ids = optionalStringArray(args, "ids");
+      const eventId = requireString(args, "eventId");
+      const updates: BulkAVOrderUpdates = {};
+      const status = optionalString(args, "status");
+      if (status) updates.status = status as EntityStatus;
+      if ("substatus" in args) updates.substatus = optionalString(args, "substatus") ?? null;
+      const vendorId = optionalString(args, "vendorId");
+      if (vendorId) updates.vendorId = vendorId;
+      await bulkUpdateAVOrdersCore(ids, eventId, updates, userId);
+      return { ok: true };
+    },
+  },
+  // AVOrder links ----------------------------------
+  {
+    name: "link_av_order_to_function",
+    description: "Link an AV order to a function (M:M via AVOrderFunction, upsert).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        avOrderId: { type: "string" },
+        functionId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["avOrderId", "functionId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      linkAVOrderToFunctionCore(
+        requireString(args, "avOrderId"),
+        requireString(args, "functionId"),
+        requireString(args, "eventId"),
+        userId,
+      ),
+  },
+  {
+    name: "unlink_av_order_from_function",
+    description: "Remove an AV order's link to a function.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        avOrderId: { type: "string" },
+        functionId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["avOrderId", "functionId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      unlinkAVOrderFromFunctionCore(
+        requireString(args, "avOrderId"),
+        requireString(args, "functionId"),
+        requireString(args, "eventId"),
+        userId,
+      ),
+  },
+  {
+    name: "link_av_order_to_presentation",
+    description: "Link an AV order to a presentation (M:M via AVOrderPresentation, upsert).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        avOrderId: { type: "string" },
+        presentationId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["avOrderId", "presentationId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      linkAVOrderToPresentationCore(
+        requireString(args, "avOrderId"),
+        requireString(args, "presentationId"),
+        requireString(args, "eventId"),
+        userId,
+      ),
+  },
+  {
+    name: "unlink_av_order_from_presentation",
+    description: "Remove an AV order's link to a presentation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        avOrderId: { type: "string" },
+        presentationId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["avOrderId", "presentationId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      unlinkAVOrderFromPresentationCore(
+        requireString(args, "avOrderId"),
+        requireString(args, "presentationId"),
+        requireString(args, "eventId"),
+        userId,
+      ),
+  },
+  // AudioSection ----------------------------------
+  {
+    name: "update_audio_section",
+    description: "Update the notes field on an AudioSection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      updateAudioSectionCore(
+        requireString(args, "id"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        optionalString(args, "notes") ?? null,
+        userId,
+      ),
+  },
+  // InputGroup ----------------------------------
+  {
+    name: "create_input_group",
+    description: "Add an InputGroup under an AudioSection. Defaults name to \"Default\". sortOrder is auto-appended.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        audioSectionId: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        name: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["audioSectionId", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      createInputGroupCore(
+        requireString(args, "audioSectionId"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        {
+          name: optionalString(args, "name") ?? "Default",
+          notes: optionalString(args, "notes") ?? null,
+        },
+        userId,
+      ),
+  },
+  {
+    name: "update_input_group",
+    description: "Replace all writable fields on an InputGroup.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        name: { type: "string" },
+        providerVendorId: { type: "string" },
+        providerContactId: { type: "string" },
+        operatorVendorId: { type: "string" },
+        operatorContactId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId", "name"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      updateInputGroupCore(
+        requireString(args, "id"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        {
+          name: requireString(args, "name"),
+          providerVendorId: optionalString(args, "providerVendorId") ?? null,
+          providerContactId: optionalString(args, "providerContactId") ?? null,
+          operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+          operatorContactId: optionalString(args, "operatorContactId") ?? null,
+          notes: optionalString(args, "notes") ?? null,
+        },
+        userId,
+      ),
+  },
+  {
+    name: "delete_input_group",
+    description: "Delete an InputGroup (cascades to its InputItems).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const avOrderId = requireString(args, "avOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteInputGroupCore(id, avOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // InputItem ----------------------------------
+  {
+    name: "create_input_item",
+    description: "Add an InputItem to an InputGroup.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        inputGroupId: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        description: { type: "string" },
+        quantity: { type: "number", description: "Defaults 1." },
+        equipmentId: { type: "string" },
+        providerVendorId: { type: "string" },
+        providerContactId: { type: "string" },
+        operatorVendorId: { type: "string" },
+        operatorContactId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["inputGroupId", "avOrderId", "eventId", "description"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: InputItemWriteArgs = {
+        description: requireString(args, "description"),
+        quantity: optionalInt(args, "quantity") ?? 1,
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createInputItemCore(
+        requireString(args, "inputGroupId"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_input_item",
+    description: "Replace all writable fields on an InputItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        description: { type: "string" },
+        quantity: { type: "number" },
+        equipmentId: { type: "string" },
+        providerVendorId: { type: "string" },
+        providerContactId: { type: "string" },
+        operatorVendorId: { type: "string" },
+        operatorContactId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId", "description"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: InputItemWriteArgs = {
+        description: requireString(args, "description"),
+        quantity: optionalInt(args, "quantity") ?? 1,
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateInputItemCore(
+        requireString(args, "id"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_input_item",
+    description: "Delete an InputItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const avOrderId = requireString(args, "avOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteInputItemCore(id, avOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // MonitorMix ----------------------------------
+  {
+    name: "create_monitor_mix",
+    description: "Add a MonitorMix under an AudioSection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        audioSectionId: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        description: { type: "string" },
+        equipmentId: { type: "string" },
+        providerVendorId: { type: "string" },
+        providerContactId: { type: "string" },
+        operatorVendorId: { type: "string" },
+        operatorContactId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["audioSectionId", "avOrderId", "eventId", "description"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: MonitorMixWriteArgs = {
+        description: requireString(args, "description"),
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createMonitorMixCore(
+        requireString(args, "audioSectionId"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_monitor_mix",
+    description: "Replace all writable fields on a MonitorMix.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        description: { type: "string" },
+        equipmentId: { type: "string" },
+        providerVendorId: { type: "string" },
+        providerContactId: { type: "string" },
+        operatorVendorId: { type: "string" },
+        operatorContactId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId", "description"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: MonitorMixWriteArgs = {
+        description: requireString(args, "description"),
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateMonitorMixCore(
+        requireString(args, "id"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_monitor_mix",
+    description: "Delete a MonitorMix (cascades to its MonitorOutputs).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const avOrderId = requireString(args, "avOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteMonitorMixCore(id, avOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // MonitorOutput ----------------------------------
+  {
+    name: "create_monitor_output",
+    description: "Add a MonitorOutput under a MonitorMix.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        monitorMixId: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        equipmentId: { type: "string" },
+        quantity: { type: "number", description: "Defaults 1." },
+        providerVendorId: { type: "string" },
+        providerContactId: { type: "string" },
+        operatorVendorId: { type: "string" },
+        operatorContactId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["monitorMixId", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: MonitorOutputWriteArgs = {
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        quantity: optionalInt(args, "quantity") ?? 1,
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createMonitorOutputCore(
+        requireString(args, "monitorMixId"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_monitor_output",
+    description: "Replace all writable fields on a MonitorOutput.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        equipmentId: { type: "string" },
+        quantity: { type: "number" },
+        providerVendorId: { type: "string" },
+        providerContactId: { type: "string" },
+        operatorVendorId: { type: "string" },
+        operatorContactId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: MonitorOutputWriteArgs = {
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        quantity: optionalInt(args, "quantity") ?? 1,
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateMonitorOutputCore(
+        requireString(args, "id"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_monitor_output",
+    description: "Delete a MonitorOutput.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const avOrderId = requireString(args, "avOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteMonitorOutputCore(id, avOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // VideoSection ----------------------------------
+  {
+    name: "update_video_section",
+    description: "Update the notes field on a VideoSection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      updateVideoSectionCore(
+        requireString(args, "id"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        optionalString(args, "notes") ?? null,
+        userId,
+      ),
+  },
+  // VideoSection EquipmentItem ----------------------------------
+  {
+    name: "create_video_equipment_item",
+    description: "Add an EquipmentItem to a VideoSection. When `equipmentId` is set, the canonical item name is resolved server-side.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        videoSectionId: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        ...setupEquipmentItemProps,
+      },
+      required: ["videoSectionId", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: AVEquipmentItemWriteArgs = {
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        item: optionalString(args, "item") ?? "",
+        quantity: optionalInt(args, "quantity"),
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createVideoEquipmentItemCore(
+        requireString(args, "videoSectionId"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_video_equipment_item",
+    description: "Replace all writable fields on a video-section EquipmentItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        ...setupEquipmentItemProps,
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: AVEquipmentItemWriteArgs = {
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        item: optionalString(args, "item") ?? "",
+        quantity: optionalInt(args, "quantity"),
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateVideoEquipmentItemCore(
+        requireString(args, "id"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_video_equipment_item",
+    description: "Delete a video-section EquipmentItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const avOrderId = requireString(args, "avOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteVideoEquipmentItemCore(id, avOrderId, eventId, userId);
+      return { id, deleted: true };
+    },
+  },
+  // AVOrder-direct EquipmentItem ----------------------------------
+  {
+    name: "create_av_equipment_item",
+    description: "Add an EquipmentItem directly to an AV order (not under audio or video sections). When `equipmentId` is set, the canonical item name is resolved server-side.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        ...setupEquipmentItemProps,
+      },
+      required: ["avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: AVEquipmentItemWriteArgs = {
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        item: optionalString(args, "item") ?? "",
+        quantity: optionalInt(args, "quantity"),
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return createAVEquipmentItemCore(
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "update_av_equipment_item",
+    description: "Replace all writable fields on an AVOrder-direct EquipmentItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+        ...setupEquipmentItemProps,
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const parsed: AVEquipmentItemWriteArgs = {
+        equipmentId: optionalString(args, "equipmentId") ?? null,
+        item: optionalString(args, "item") ?? "",
+        quantity: optionalInt(args, "quantity"),
+        providerVendorId: optionalString(args, "providerVendorId") ?? null,
+        providerContactId: optionalString(args, "providerContactId") ?? null,
+        operatorVendorId: optionalString(args, "operatorVendorId") ?? null,
+        operatorContactId: optionalString(args, "operatorContactId") ?? null,
+        notes: optionalString(args, "notes") ?? null,
+      };
+      return updateAVEquipmentItemCore(
+        requireString(args, "id"),
+        requireString(args, "avOrderId"),
+        requireString(args, "eventId"),
+        parsed,
+        userId,
+      );
+    },
+  },
+  {
+    name: "delete_av_equipment_item",
+    description: "Delete an AVOrder-direct EquipmentItem.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        avOrderId: { type: "string" },
+        eventId: { type: "string" },
+      },
+      required: ["id", "avOrderId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const avOrderId = requireString(args, "avOrderId");
+      const eventId = requireString(args, "eventId");
+      await deleteAVEquipmentItemCore(id, avOrderId, eventId, userId);
       return { id, deleted: true };
     },
   },
