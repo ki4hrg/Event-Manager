@@ -5,8 +5,9 @@ import { requirePermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { EntityStatus, PermissionResource } from "@prisma/client";
+import { autoAssignDefaultWorkflowsCore, type WorkflowEntityType as CoreWorkflowEntityType } from "./core";
 
-export type WorkflowEntityType = "function" | "catering_order" | "av_order" | "print_order" | "presentation" | "setup_order" | "supply_order" | "media_deliverable";
+export type WorkflowEntityType = CoreWorkflowEntityType;
 
 function entityResource(entityType: WorkflowEntityType): PermissionResource {
   switch (entityType) {
@@ -552,15 +553,5 @@ export async function autoAssignDefaultWorkflows(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
-  const templates = await prisma.workflowTemplate.findMany({
-    where: { defaultForEntityTypes: { has: entityType } },
-    select: { id: true },
-  });
-
-  if (templates.length === 0) return;
-
-  await prisma.workflowInstance.createMany({
-    data: templates.map((t) => ({ templateId: t.id, entityType, entityId })),
-    skipDuplicates: true,
-  });
+  await autoAssignDefaultWorkflowsCore(entityType, entityId);
 }
