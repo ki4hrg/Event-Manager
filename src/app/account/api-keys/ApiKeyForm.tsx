@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { mintApiKey } from "./actions";
 
-type User = { id: string; name: string | null; email: string };
-
 type RevealedKey = {
   id: string;
   name: string;
@@ -14,7 +12,7 @@ type RevealedKey = {
   fullKey: string;
 };
 
-export function ApiKeyForm({ users }: { users: User[] }) {
+export function ApiKeyForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [revealed, setRevealed] = useState<RevealedKey | null>(null);
@@ -46,7 +44,7 @@ export function ApiKeyForm({ users }: { users: User[] }) {
         </h3>
         <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
           This is the only time the full key will be shown. Store it somewhere safe
-          before navigating away — we can't recover it later.
+          before navigating away — we can&apos;t recover it later.
         </p>
         <pre className="mt-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-3 text-sm font-mono text-gray-900 dark:text-gray-100 break-all whitespace-pre-wrap">
           {revealed.fullKey}
@@ -75,42 +73,20 @@ export function ApiKeyForm({ users }: { users: User[] }) {
       className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-4 mb-6"
     >
       <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
-        Mint a new API key
+        Create an API key
       </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <label className="block">
-          <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            User
-          </span>
-          <select
-            name="userId"
-            required
-            defaultValue=""
-            className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          >
-            <option value="" disabled>
-              Select a user…
-            </option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name ? `${u.name} (${u.email})` : u.email}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Key name
-          </span>
-          <input
-            type="text"
-            name="name"
-            required
-            placeholder="e.g. claude-desktop-laptop"
-            className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </label>
-      </div>
+      <label className="block">
+        <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Key name
+        </span>
+        <input
+          type="text"
+          name="name"
+          required
+          placeholder="e.g. claude-desktop-laptop"
+          className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+        />
+      </label>
       {error ? (
         <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
       ) : null}
@@ -119,7 +95,7 @@ export function ApiKeyForm({ users }: { users: User[] }) {
           {pending ? "Creating…" : "Create key"}
         </button>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          The key inherits the selected user's role and event assignments.
+          The key inherits your role and event assignments.
         </p>
       </div>
     </form>

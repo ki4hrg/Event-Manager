@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { PageWrapper } from "@/components/PageWrapper";
 import { Toast } from "@/components/Toast";
@@ -24,7 +25,7 @@ export default async function AccountPage() {
         Account
       </h1>
 
-      <div className="max-w-md">
+      <div className="max-w-md space-y-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-base font-medium text-gray-900 dark:text-white mb-4">
             Preferences
@@ -62,7 +63,23 @@ export default async function AccountPage() {
           </form>
         </div>
 
-        <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-base font-medium text-gray-900 dark:text-white mb-2">
+            API Keys
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Bearer tokens for the MCP connector — let Claude Desktop and other
+            clients read your events programmatically.
+          </p>
+          <Link
+            href="/account/api-keys"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Manage API keys →
+          </Link>
+        </div>
+
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           Signed in as {session.user.email}
         </div>
       </div>

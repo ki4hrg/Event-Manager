@@ -1,29 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+import { requireAuth } from "@/lib/auth";
 import { generateApiKey } from "@/lib/mcpAuth";
 
 export async function getApiKeys() {
-  await requirePermission(PermissionResource.API_KEYS, "VIEW");
+  const session = await requireAuth();
   return prisma.apiKey.findMany({
-    include: { user: { select: { id: true, name: true, email: true } } },
+    where: { userId: session.user.id },
     orderBy: [{ revokedAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }],
   });
 }
 
-export async function getApiKeyUsers() {
-  await requirePermission(PermissionResource.API_KEYS, "WRITE");
-  return prisma.user.findMany({
-    select: { id: true, name: true, email: true },
-    orderBy: [{ name: "asc" }, { email: "asc" }],
-  });
-}
-
 // One-of-a-kind: this action returns the freshly generated key so the client
-// can show it to the admin exactly once. We never store the plaintext — the
+// can show it to the user exactly once. We never store the plaintext — the
 // hashedKey is SHA-256(fullKey). This is the deliberate exception to the
 // "actions return void / redirect" convention, documented in CLAUDE.md.
 export async function mintApiKey(formData: FormData): Promise<{
@@ -33,29 +24,30 @@ export async function mintApiKey(formData: FormData): Promise<{
   fullKey: string;
   createdAt: Date;
 }> {
-  await requirePermission(PermissionResource.API_KEYS, "WRITE");
+  const session = await requireAuth();
 
-  const userId = (formData.get("userId") as string) || "";
   const name = ((formData.get("name") as string) || "").trim();
-  if (!userId) throw new Error("Select a user");
   if (!name) throw new Error("Name is required");
 
   const { fullKey, keyPrefix, hashedKey } = generateApiKey();
 
   const created = await prisma.apiKey.create({
-    data: { userId, name, keyPrefix, hashedKey },
+    data: { userId: session.user.id, name, keyPrefix, hashedKey },
     select: { id: true, name: true, keyPrefix: true, createdAt: true },
   });
 
-  revalidatePath("/settings/api-keys");
+  revalidatePath("/account/api-keys");
   return { ...created, fullKey };
 }
 
 export async function revokeApiKey(id: string): Promise<void> {
-  await requirePermission(PermissionResource.API_KEYS, "DELETE");
-  await prisma.apiKey.update({
-    where: { id },
+  const session = await requireAuth();
+  // Scope the update by userId so a user can only revoke their own keys, even
+  // if they guess another key's id. updateMany returns count 0 on no match —
+  // we don't surface a 404 because that would leak existence.
+  await prisma.apiKey.updateMany({
+    where: { id, userId: session.user.id },
     data: { revokedAt: new Date() },
   });
-  revalidatePath("/settings/api-keys");
+  revalidatePath("/account/api-keys");
 }
