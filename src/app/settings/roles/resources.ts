@@ -10,7 +10,8 @@ const GLOBAL_ONLY_RESOURCES: ResourceEntry[] = [
   { value: PermissionResource.VENDORS, label: "Vendors" },
   { value: PermissionResource.VENUES, label: "Venues" },
   { value: PermissionResource.CONTACTS, label: "Contacts" },
-  { value: PermissionResource.API_KEYS, label: "API Keys" },
+  // API_KEYS exists in the enum but is intentionally absent here — API keys are
+  // self-service per-user under /account/api-keys and don't need a role gate.
 ];
 
 const EVENT_SCOPED_RESOURCES: ResourceEntry[] = [

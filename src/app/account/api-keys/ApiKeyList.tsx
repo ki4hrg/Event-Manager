@@ -11,7 +11,6 @@ type ApiKeyRow = {
   lastUsedAt: Date | null;
   createdAt: Date;
   revokedAt: Date | null;
-  user: { id: string; name: string | null; email: string };
 };
 
 function formatDate(d: Date | null): string {
@@ -23,8 +22,8 @@ export function ApiKeyList({ keys }: { keys: ApiKeyRow[] }) {
   if (keys.length === 0) {
     return (
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        No API keys yet. Create one above to give a user programmatic access via the
-        MCP connector.
+        No API keys yet. Create one above to use the MCP connector from Claude
+        Desktop or other clients.
       </p>
     );
   }
@@ -34,7 +33,6 @@ export function ApiKeyList({ keys }: { keys: ApiKeyRow[] }) {
         <thead className="bg-gray-50 dark:bg-gray-900">
           <tr className="text-left">
             <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-300">Name</th>
-            <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-300">User</th>
             <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-300">Prefix</th>
             <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-300">Created</th>
             <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-300">Last used</th>
@@ -68,9 +66,6 @@ function ApiKeyRow({ row }: { row: ApiKeyRow }) {
   return (
     <tr className={isRevoked ? "opacity-60" : undefined}>
       <td className="px-3 py-2 text-gray-900 dark:text-gray-100">{row.name}</td>
-      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
-        {row.user.name ? `${row.user.name}` : row.user.email}
-      </td>
       <td className="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">
         {row.keyPrefix}…
       </td>
