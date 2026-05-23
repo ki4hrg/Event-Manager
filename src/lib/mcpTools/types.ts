@@ -39,3 +39,11 @@ export function optionalString(args: Record<string, unknown>, key: string): stri
   const v = args[key];
   return typeof v === "string" && v.length > 0 ? v : undefined;
 }
+
+// Returns [] when missing or wrong shape; filters non-string entries out.
+// Use for advisory list inputs (tags, role labels) where empty is a fine default.
+export function optionalStringArray(args: Record<string, unknown>, key: string): string[] {
+  const v = args[key];
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === "string" && x.length > 0);
+}

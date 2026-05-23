@@ -1,8 +1,109 @@
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
+import {
+  addVendorToAVOrderCore,
+  updateAVOrderVendorCore,
+  removeVendorFromAVOrderCore,
+  addVendorToCateringOrderCore,
+  updateCateringOrderVendorCore,
+  removeVendorFromCateringOrderCore,
+  addVendorToSetupOrderCore,
+  updateSetupOrderVendorCore,
+  removeVendorFromSetupOrderCore,
+  addVendorToPrintOrderCore,
+  updatePrintOrderVendorCore,
+  removeVendorFromPrintOrderCore,
+} from "@/app/vendors/core";
 import type { McpToolDefinition } from "./types";
-import { requireString } from "./types";
+import { requireString, optionalString } from "./types";
+
+// Build the trio of MCP tools (add / update / remove) for vendor links on a
+// given order type. The four order types differ only in the field name used
+// to identify the order (avOrderId / cateringOrderId / setupOrderId / printOrderId)
+// and the core functions invoked.
+type OrderVendorBinding = {
+  kind: "av" | "catering" | "setup" | "print";
+  orderField: string;
+  add: (orderId: string, vendorId: string, eventId: string, notes: string | null, userId: string) => Promise<unknown>;
+  update: (id: string, orderId: string, eventId: string, notes: string | null, userId: string) => Promise<unknown>;
+  remove: (id: string, orderId: string, eventId: string, userId: string) => Promise<void>;
+};
+
+function orderVendorTools(b: OrderVendorBinding): McpToolDefinition[] {
+  return [
+    {
+      name: `add_vendor_to_${b.kind}_order`,
+      description: `Link a vendor to a ${b.kind} order with optional notes (creates a ${b.kind}OrderVendor row).`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          [b.orderField]: { type: "string" },
+          vendorId: { type: "string" },
+          eventId: { type: "string" },
+          notes: { type: "string", description: "Optional." },
+        },
+        required: [b.orderField, "vendorId", "eventId"],
+        additionalProperties: false,
+      },
+      handler: (args, { userId }) =>
+        b.add(
+          requireString(args, b.orderField),
+          requireString(args, "vendorId"),
+          requireString(args, "eventId"),
+          optionalString(args, "notes") ?? null,
+          userId,
+        ),
+    },
+    {
+      name: `update_${b.kind}_order_vendor`,
+      description: `Update notes on a ${b.kind} order vendor link.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: `The ${b.kind}OrderVendor row id.` },
+          [b.orderField]: { type: "string" },
+          eventId: { type: "string" },
+          notes: { type: "string" },
+        },
+        required: ["id", b.orderField, "eventId"],
+        additionalProperties: false,
+      },
+      handler: (args, { userId }) =>
+        b.update(
+          requireString(args, "id"),
+          requireString(args, b.orderField),
+          requireString(args, "eventId"),
+          optionalString(args, "notes") ?? null,
+          userId,
+        ),
+    },
+    {
+      name: `remove_vendor_from_${b.kind}_order`,
+      description: `Remove a vendor link from a ${b.kind} order (deletes the ${b.kind}OrderVendor row).`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: `The ${b.kind}OrderVendor row id.` },
+          [b.orderField]: { type: "string" },
+          eventId: { type: "string" },
+        },
+        required: ["id", b.orderField, "eventId"],
+        additionalProperties: false,
+      },
+      handler: async (args, { userId }) => {
+        const id = requireString(args, "id");
+        await b.remove(
+          id,
+          requireString(args, b.orderField),
+          requireString(args, "eventId"),
+          userId,
+        );
+        return { id, removed: true };
+      },
+    },
+  ];
+}
 
 export const orderTools: McpToolDefinition[] = [
   // Catering ------------------------------------------------------------------
@@ -461,4 +562,33 @@ export const orderTools: McpToolDefinition[] = [
       return row;
     },
   },
+  // Order ↔ Vendor junctions (4 order types × 3 ops = 12 tools) --------------
+  ...orderVendorTools({
+    kind: "av",
+    orderField: "avOrderId",
+    add: addVendorToAVOrderCore,
+    update: updateAVOrderVendorCore,
+    remove: removeVendorFromAVOrderCore,
+  }),
+  ...orderVendorTools({
+    kind: "catering",
+    orderField: "cateringOrderId",
+    add: addVendorToCateringOrderCore,
+    update: updateCateringOrderVendorCore,
+    remove: removeVendorFromCateringOrderCore,
+  }),
+  ...orderVendorTools({
+    kind: "setup",
+    orderField: "setupOrderId",
+    add: addVendorToSetupOrderCore,
+    update: updateSetupOrderVendorCore,
+    remove: removeVendorFromSetupOrderCore,
+  }),
+  ...orderVendorTools({
+    kind: "print",
+    orderField: "printOrderId",
+    add: addVendorToPrintOrderCore,
+    update: updatePrintOrderVendorCore,
+    remove: removeVendorFromPrintOrderCore,
+  }),
 ];
