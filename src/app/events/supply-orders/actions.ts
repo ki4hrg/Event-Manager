@@ -3,23 +3,26 @@
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect, notFound } from "next/navigation";
-import type { AcquisitionState, EntityStatus, PackingStatus } from "@prisma/client";
-import { getDefaultVendorForModel } from "@/app/vendors/actions";
-import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
-import { resolveCreateStatus } from "@/lib/statusDefaults";
-
-async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) {
-  const found = await prisma.supplyOrder.findUnique({
-    where: { id: supplyOrderId, eventId },
-    select: { id: true },
-  });
-  if (!found) notFound();
-}
-
-async function bumpSupplyOrder(supplyOrderId: string, userId: string) {
-  await prisma.supplyOrder.update({ where: { id: supplyOrderId }, data: { updatedById: userId } });
-}
+import { redirect } from "next/navigation";
+import type { AcquisitionState, PackingStatus } from "@prisma/client";
+import {
+  createSupplyOrderCore,
+  updateSupplyOrderCore,
+  deleteSupplyOrderCore,
+  deleteSupplyOrdersCore,
+  bulkUpdateSupplyOrdersCore,
+  updateSupplyOrderPackingStatusCore,
+  linkSupplyOrderToFunctionCore,
+  unlinkSupplyOrderFromFunctionCore,
+  linkSupplyOrderToPresentationCore,
+  unlinkSupplyOrderFromPresentationCore,
+  createSupplyOrderItemCore,
+  updateSupplyOrderItemCore,
+  deleteSupplyOrderItemCore,
+  updateSupplyOrderItemPackingStatusCore,
+  type SupplyItemWriteArgs,
+  type BulkSupplyOrderUpdates,
+} from "./core";
 
 export async function getSupplyOrders(eventId: string) {
   await requirePermission("SUPPLY_ORDERS", "VIEW", eventId);
@@ -87,145 +90,83 @@ export async function getSupplyOrder(id: string) {
 
 export async function createSupplyOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  const name = (formData.get("name") as string)?.trim();
-  const roomId = (formData.get("roomId") as string) || "";
-  const specificLocation = (formData.get("specificLocation") as string) || null;
-  const notes = (formData.get("notes") as string) || null;
   const functionId = (formData.get("functionId") as string) || null;
   const presentationId = (formData.get("presentationId") as string) || null;
-  let providerVendorId = (formData.get("providerVendorId") as string) || null;
-  let providerContactId = (formData.get("providerContactId") as string) || null;
-
-  if (!roomId) {
-    throw new Error("Destination room is required.");
-  }
-
-  if (!providerVendorId && !providerContactId) {
-    const fallback = await getDefaultVendorForModel(eventId, "SUPPLY_ORDER");
-    providerVendorId = fallback?.vendorId ?? null;
-  }
-  // Provider is a single-party concept — setting one side clears the other.
-  if (providerVendorId) providerContactId = null;
-
-  const defaults = await resolveCreateStatus(eventId, "SUPPLY_ORDER");
-
-  const supplyOrder = await prisma.supplyOrder.create({
-    data: {
-      name,
-      eventId,
-      roomId,
-      specificLocation,
-      notes,
-      providerVendorId,
-      providerContactId,
-      status: defaults.status,
-      substatus: defaults.substatus,
-      updatedById: session.user.id,
+  const supplyOrder = await createSupplyOrderCore(
+    eventId,
+    {
+      name: (formData.get("name") as string)?.trim(),
+      roomId: (formData.get("roomId") as string) || "",
+      specificLocation: (formData.get("specificLocation") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      providerVendorId: (formData.get("providerVendorId") as string) || null,
+      providerContactId: (formData.get("providerContactId") as string) || null,
+      functionId,
+      presentationId,
     },
-  });
+    session.user.id,
+  );
 
-  if (functionId) {
-    await prisma.supplyOrderFunction.create({ data: { supplyOrderId: supplyOrder.id, functionId } });
-    revalidatePath(`/events/${eventId}/functions/${functionId}`);
-  }
-
-  if (presentationId) {
-    await prisma.supplyOrderPresentation.create({ data: { supplyOrderId: supplyOrder.id, presentationId } });
-    revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-  }
-
-  await autoAssignDefaultWorkflows("supply_order", supplyOrder.id, eventId);
+  if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  if (presentationId) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
   revalidatePath(`/events/${eventId}/supply-orders`);
   redirect(`/events/${eventId}/supply-orders/${supplyOrder.id}?success=Supply Order created`);
 }
 
 export async function updateSupplyOrder(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  const name = (formData.get("name") as string)?.trim();
-  const roomId = (formData.get("roomId") as string) || "";
-  const specificLocation = (formData.get("specificLocation") as string) || null;
-  const notes = (formData.get("notes") as string) || null;
-  let providerVendorId = (formData.get("providerVendorId") as string) || null;
-  let providerContactId = (formData.get("providerContactId") as string) || null;
-
-  if (!roomId) {
-    throw new Error("Destination room is required.");
-  }
-  if (providerVendorId) providerContactId = null;
-  if (providerContactId) providerVendorId = null;
-
-  await prisma.supplyOrder.update({
-    where: { id, eventId },
-    data: {
-      name,
-      roomId,
-      specificLocation,
-      notes,
-      providerVendorId,
-      providerContactId,
-      updatedById: session.user.id,
+  await updateSupplyOrderCore(
+    id,
+    eventId,
+    {
+      name: (formData.get("name") as string)?.trim(),
+      roomId: (formData.get("roomId") as string) || "",
+      specificLocation: (formData.get("specificLocation") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      providerVendorId: (formData.get("providerVendorId") as string) || null,
+      providerContactId: (formData.get("providerContactId") as string) || null,
     },
-  });
-
+    session.user.id,
+  );
   revalidatePath(`/events/${eventId}/supply-orders`);
   revalidatePath(`/events/${eventId}/supply-orders/${id}`);
   redirect(`/events/${eventId}/supply-orders/${id}?success=Supply Order updated`);
 }
 
 export async function deleteSupplyOrder(id: string, eventId: string) {
-  await requirePermission("SUPPLY_ORDERS", "DELETE", eventId);
-  await prisma.supplyOrder.delete({ where: { id, eventId } });
+  const session = await requirePermission("SUPPLY_ORDERS", "DELETE", eventId);
+  await deleteSupplyOrderCore(id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders`);
   redirect(`/events/${eventId}/supply-orders`);
 }
 
 export async function deleteSupplyOrders(ids: string[], eventId: string) {
-  await requirePermission("SUPPLY_ORDERS", "DELETE", eventId);
-  await prisma.supplyOrder.deleteMany({ where: { id: { in: ids }, eventId } });
+  const session = await requirePermission("SUPPLY_ORDERS", "DELETE", eventId);
+  await deleteSupplyOrdersCore(ids, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders`);
 }
 
-// Order-level packing status — cascade to every item in the same transaction.
 export async function updateSupplyOrderPackingStatus(
   supplyOrderId: string,
   eventId: string,
   packingStatus: PackingStatus | null,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await assertSupplyOrderInEvent(supplyOrderId, eventId);
-
-  await prisma.$transaction(async (tx) => {
-    await tx.supplyOrder.update({
-      where: { id: supplyOrderId },
-      data: { packingStatus, updatedById: session.user.id },
-    });
-    if (packingStatus) {
-      await tx.supplyOrderItem.updateMany({
-        where: { supplyOrderId },
-        data: { packingStatus },
-      });
-    }
-  });
-
+  await updateSupplyOrderPackingStatusCore(supplyOrderId, eventId, packingStatus, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
 }
 
 // Function link/unlink (many-to-many via junction)
 export async function linkSupplyOrderToFunction(supplyOrderId: string, functionId: string, eventId: string) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await assertSupplyOrderInEvent(supplyOrderId, eventId);
-  await prisma.supplyOrderFunction.create({ data: { supplyOrderId, functionId } });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await linkSupplyOrderToFunctionCore(supplyOrderId, functionId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function unlinkSupplyOrderFromFunction(supplyOrderId: string, functionId: string, eventId: string) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await prisma.supplyOrderFunction.deleteMany({
-    where: { supplyOrderId, functionId, supplyOrder: { eventId } },
-  });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await unlinkSupplyOrderFromFunctionCore(supplyOrderId, functionId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -233,19 +174,14 @@ export async function unlinkSupplyOrderFromFunction(supplyOrderId: string, funct
 // Presentation link/unlink (many-to-many via junction)
 export async function linkSupplyOrderToPresentation(supplyOrderId: string, presentationId: string, eventId: string) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await assertSupplyOrderInEvent(supplyOrderId, eventId);
-  await prisma.supplyOrderPresentation.create({ data: { supplyOrderId, presentationId } });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await linkSupplyOrderToPresentationCore(supplyOrderId, presentationId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function unlinkSupplyOrderFromPresentation(supplyOrderId: string, presentationId: string, eventId: string) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await prisma.supplyOrderPresentation.deleteMany({
-    where: { supplyOrderId, presentationId, supplyOrder: { eventId } },
-  });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await unlinkSupplyOrderFromPresentationCore(supplyOrderId, presentationId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -258,9 +194,7 @@ export async function linkSupplyOrderToFunctionFromFunction(
   eventId: string,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await assertSupplyOrderInEvent(supplyOrderId, eventId);
-  await prisma.supplyOrderFunction.create({ data: { supplyOrderId, functionId } });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await linkSupplyOrderToFunctionCore(supplyOrderId, functionId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
@@ -270,10 +204,7 @@ export async function unlinkSupplyOrderFromFunctionPage(
   eventId: string,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await prisma.supplyOrderFunction.deleteMany({
-    where: { supplyOrderId, functionId, supplyOrder: { eventId } },
-  });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await unlinkSupplyOrderFromFunctionCore(supplyOrderId, functionId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
@@ -283,9 +214,7 @@ export async function linkSupplyOrderToPresentationFromPresentation(
   eventId: string,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await assertSupplyOrderInEvent(supplyOrderId, eventId);
-  await prisma.supplyOrderPresentation.create({ data: { supplyOrderId, presentationId } });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await linkSupplyOrderToPresentationCore(supplyOrderId, presentationId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -295,10 +224,7 @@ export async function unlinkSupplyOrderFromPresentationPage(
   eventId: string,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await prisma.supplyOrderPresentation.deleteMany({
-    where: { supplyOrderId, presentationId, supplyOrder: { eventId } },
-  });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await unlinkSupplyOrderFromPresentationCore(supplyOrderId, presentationId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -328,63 +254,34 @@ export async function getAvailableSupplyOrdersForPresentation(eventId: string, p
   });
 }
 
-function parseSupplyItemData(formData: FormData) {
-  const acquisitionStateRaw = (formData.get("acquisitionState") as string) || "ON_HAND";
-  const packingStatusRaw = (formData.get("packingStatus") as string) || "NEEDED";
-  const description = (formData.get("description") as string)?.trim() || null;
-  const equipmentId = (formData.get("equipmentId") as string) || null;
-  if (!description && !equipmentId) {
-    throw new Error("Supply item needs a description or an equipment selection.");
-  }
-  let providerVendorId = (formData.get("providerVendorId") as string) || null;
-  let providerContactId = (formData.get("providerContactId") as string) || null;
-  // Provider is a single-party concept — setting one side clears the other.
-  if (providerVendorId) providerContactId = null;
-  if (providerContactId) providerVendorId = null;
+function parseSupplyItemData(formData: FormData): SupplyItemWriteArgs {
   return {
-    description,
-    equipmentId,
+    description: (formData.get("description") as string)?.trim() || null,
+    equipmentId: (formData.get("equipmentId") as string) || null,
     quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-    acquisitionState: acquisitionStateRaw as AcquisitionState,
-    providerVendorId,
-    providerContactId,
-    packingStatus: packingStatusRaw as PackingStatus,
+    acquisitionState: ((formData.get("acquisitionState") as string) || "ON_HAND") as AcquisitionState,
+    providerVendorId: (formData.get("providerVendorId") as string) || null,
+    providerContactId: (formData.get("providerContactId") as string) || null,
+    packingStatus: ((formData.get("packingStatus") as string) || "NEEDED") as PackingStatus,
     notes: (formData.get("notes") as string) || null,
   };
 }
 
 export async function createSupplyOrderItem(supplyOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await assertSupplyOrderInEvent(supplyOrderId, eventId);
-  const { _max } = await prisma.supplyOrderItem.aggregate({
-    where: { supplyOrderId },
-    _max: { sortOrder: true },
-  });
-  await prisma.supplyOrderItem.create({
-    data: {
-      supplyOrderId,
-      ...parseSupplyItemData(formData),
-      sortOrder: (_max.sortOrder ?? -1) + 1,
-    },
-  });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await createSupplyOrderItemCore(supplyOrderId, eventId, parseSupplyItemData(formData), session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
 }
 
 export async function updateSupplyOrderItem(id: string, supplyOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await prisma.supplyOrderItem.update({
-    where: { id, supplyOrder: { eventId } },
-    data: parseSupplyItemData(formData),
-  });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await updateSupplyOrderItemCore(id, supplyOrderId, eventId, parseSupplyItemData(formData), session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
 }
 
 export async function deleteSupplyOrderItem(id: string, supplyOrderId: string, eventId: string) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await prisma.supplyOrderItem.delete({ where: { id, supplyOrder: { eventId } } });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await deleteSupplyOrderItemCore(id, supplyOrderId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
 }
 
@@ -395,68 +292,16 @@ export async function updateSupplyOrderItemPackingStatus(
   packingStatus: PackingStatus,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await prisma.supplyOrderItem.update({
-    where: { id, supplyOrder: { eventId } },
-    data: { packingStatus },
-  });
-  await bumpSupplyOrder(supplyOrderId, session.user.id);
+  await updateSupplyOrderItemPackingStatusCore(id, supplyOrderId, eventId, packingStatus, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
 }
 
 export async function bulkUpdateSupplyOrders(
   ids: string[],
   eventId: string,
-  updates: { status?: EntityStatus; substatus?: string | null; functionId?: string; presentationId?: string },
+  updates: BulkSupplyOrderUpdates,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  const { status, substatus, functionId, presentationId } = updates;
-
-  if (status !== undefined || substatus !== undefined) {
-    await prisma.supplyOrder.updateMany({
-      where: { id: { in: ids }, eventId },
-      data: {
-        ...(status !== undefined ? { status } : {}),
-        ...(substatus !== undefined ? { substatus } : {}),
-        updatedById: session.user.id,
-      },
-    });
-  }
-
-  if (functionId) {
-    const existing = await prisma.supplyOrderFunction.findMany({
-      where: { supplyOrderId: { in: ids }, functionId },
-      select: { supplyOrderId: true },
-    });
-    const existingIds = new Set(existing.map((e) => e.supplyOrderId));
-    const toCreate = ids.filter((id) => !existingIds.has(id));
-    if (toCreate.length > 0) {
-      await prisma.supplyOrderFunction.createMany({
-        data: toCreate.map((id) => ({ supplyOrderId: id, functionId })),
-      });
-      await prisma.supplyOrder.updateMany({
-        where: { id: { in: ids }, eventId },
-        data: { updatedById: session.user.id },
-      });
-    }
-  }
-
-  if (presentationId) {
-    const existing = await prisma.supplyOrderPresentation.findMany({
-      where: { supplyOrderId: { in: ids }, presentationId },
-      select: { supplyOrderId: true },
-    });
-    const existingIds = new Set(existing.map((e) => e.supplyOrderId));
-    const toCreate = ids.filter((id) => !existingIds.has(id));
-    if (toCreate.length > 0) {
-      await prisma.supplyOrderPresentation.createMany({
-        data: toCreate.map((id) => ({ supplyOrderId: id, presentationId })),
-      });
-      await prisma.supplyOrder.updateMany({
-        where: { id: { in: ids }, eventId },
-        data: { updatedById: session.user.id },
-      });
-    }
-  }
-
+  await bulkUpdateSupplyOrdersCore(ids, eventId, updates, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders`);
 }

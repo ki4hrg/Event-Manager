@@ -5,6 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  createContactCore,
+  updateContactCore,
+  deleteContactCore,
+  type ContactWriteArgs,
+} from "./core";
 
 export async function getContacts() {
   await requirePermission(PermissionResource.CONTACTS, "VIEW");
@@ -21,65 +27,36 @@ export async function getContact(id: string) {
   });
 }
 
+function readContactArgs(formData: FormData): ContactWriteArgs {
+  return {
+    firstName: formData.get("firstName") as string,
+    lastName: formData.get("lastName") as string,
+    email: (formData.get("email") as string) || null,
+    phone: (formData.get("phone") as string) || null,
+    organization: (formData.get("organization") as string) || null,
+    notes: (formData.get("notes") as string) || null,
+    roles: formData.getAll("roles") as string[],
+  };
+}
+
 export async function createContact(formData: FormData) {
   const session = await requirePermission(PermissionResource.CONTACTS, "WRITE");
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
-  const email = formData.get("email") as string;
-  const phone = formData.get("phone") as string;
-  const organization = formData.get("organization") as string;
-  const notes = formData.get("notes") as string;
-  const roles = formData.getAll("roles") as string[];
-
-  await prisma.contact.create({
-    data: {
-      firstName,
-      lastName,
-      email: email || null,
-      phone: phone || null,
-      organization: organization || null,
-      notes: notes || null,
-      roles,
-      updatedById: session.user.id,
-    },
-  });
-
+  await createContactCore(readContactArgs(formData), session.user.id);
   revalidatePath("/contacts");
   redirect("/contacts");
 }
 
 export async function updateContact(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.CONTACTS, "WRITE");
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
-  const email = formData.get("email") as string;
-  const phone = formData.get("phone") as string;
-  const organization = formData.get("organization") as string;
-  const notes = formData.get("notes") as string;
-  const roles = formData.getAll("roles") as string[];
-
-  await prisma.contact.update({
-    where: { id },
-    data: {
-      firstName,
-      lastName,
-      email: email || null,
-      phone: phone || null,
-      organization: organization || null,
-      notes: notes || null,
-      roles,
-      updatedById: session.user.id,
-    },
-  });
-
+  await updateContactCore(id, readContactArgs(formData), session.user.id);
   revalidatePath("/contacts");
   revalidatePath(`/contacts/${id}`);
   redirect(`/contacts/${id}?success=Contact updated`);
 }
 
 export async function deleteContact(id: string) {
-  await requirePermission(PermissionResource.CONTACTS, "DELETE");
-  await prisma.contact.delete({ where: { id } });
+  const session = await requirePermission(PermissionResource.CONTACTS, "DELETE");
+  await deleteContactCore(id, session.user.id);
   revalidatePath("/contacts");
   redirect("/contacts");
 }

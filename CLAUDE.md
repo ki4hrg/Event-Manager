@@ -433,6 +433,9 @@ The eight report actions in `src/app/events/reports/actions.ts` remain auth-free
 3. Register the new array in `src/lib/mcpTools/index.ts`.
 4. JSON Schema in `inputSchema` is descriptive only; we don't run runtime validation at the MCP boundary (same trust model as Server Actions trusting FormData typing). Tools throw `Error` for bad input; the dispatcher surfaces the message in `isError` content.
 
+### `list_<entity>` vs `get_<entity>` convention
+Every entity exposes a pair: `list_<entity>` returns the list-page summary include (usually one or two levels of nested IDs/labels and a few flat fields), while `get_<entity>` returns the full detail include (all sub-resources, nested relations, attribution). When you add a new `list_*` tool, end its `description` with: `Returns summary shape — use \`get_<entity>\` for full detail (<short comma list of the extra includes>).` The descriptions are the only signal the LLM has, so they need to be specific. Keep them in sync if you ever widen the list include.
+
 ### Writes — `*Core(args, userId)` extraction pattern (phase 2)
 When wiring an MCP write tool that mirrors an existing Server Action, factor out a pure `xxxCore(args, userId)` function from the action body. The Server Action wrapper retains `FormData` parsing, `revalidatePath`, and `redirect`; the core owns `requirePermissionForUser` and the Prisma op (including any `$transaction`). MCP tools call the core directly with typed args. Single source of truth for business rules; no drift between UI and MCP behavior. Phase 1 (reads-only) does not require any action refactoring.
 

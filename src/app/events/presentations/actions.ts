@@ -3,20 +3,28 @@
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
-import { resolveCreateStatus } from "@/lib/statusDefaults";
-
-// Verifies the presentation belongs to the claimed event before a create-style
-// mutation (where Prisma can't enforce ownership via the where clause).
-async function assertPresentationInEvent(presentationId: string, eventId: string) {
-  const found = await prisma.presentation.findUnique({
-    where: { id: presentationId, eventId },
-    select: { id: true },
-  });
-  if (!found) notFound();
-}
+import {
+  createTrackCore,
+  updateTrackCore,
+  deleteTrackCore,
+  createPresentationCore,
+  updatePresentationCore,
+  updatePresentationInstanceCountCore,
+  deletePresentationCore,
+  deletePresentationsCore,
+  bulkUpdatePresentationsCore,
+  duplicatePresentationCore,
+  addSpeakerCore,
+  updateSpeakerCore,
+  removeSpeakerCore,
+  createAndAddPresentationSpeakerCore,
+  reorderSpeakersCore,
+  type PresentationUpdateArgs,
+  type BulkPresentationUpdates,
+} from "./core";
 
 // ============================================================================
 // Track CRUD (event-scoped)
@@ -31,47 +39,35 @@ export async function getTracks(eventId: string) {
 }
 
 export async function createTrack(eventId: string, formData: FormData) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  const name = formData.get("name") as string;
-  const color = formData.get("color") as string;
-
-  const maxOrder = await prisma.presentationTrack.findFirst({
-    where: { eventId },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-
-  await prisma.presentationTrack.create({
-    data: {
-      name,
-      color: color || null,
-      eventId,
-      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  await createTrackCore(
+    eventId,
+    {
+      name: formData.get("name") as string,
+      color: (formData.get("color") as string) || null,
     },
-  });
-
+    session.user.id,
+  );
   revalidatePath(`/events/${eventId}/presentations`);
 }
 
 export async function updateTrack(trackId: string, eventId: string, formData: FormData) {
-  await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  const name = formData.get("name") as string;
-  const color = formData.get("color") as string;
-
-  await prisma.presentationTrack.update({
-    where: { id: trackId, eventId },
-    data: {
-      name,
-      color: color || null,
+  const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  await updateTrackCore(
+    trackId,
+    eventId,
+    {
+      name: formData.get("name") as string,
+      color: (formData.get("color") as string) || null,
     },
-  });
-
+    session.user.id,
+  );
   revalidatePath(`/events/${eventId}/presentations`);
 }
 
 export async function deleteTrack(trackId: string, eventId: string) {
-  await requirePermission("PRESENTATIONS", "DELETE", eventId);
-  await prisma.presentationTrack.delete({ where: { id: trackId, eventId } });
+  const session = await requirePermission("PRESENTATIONS", "DELETE", eventId);
+  await deleteTrackCore(trackId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/presentations`);
 }
 
@@ -180,101 +176,57 @@ export async function getPresentation(id: string) {
 
 export async function createPresentation(eventId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  const title = formData.get("title") as string;
-  const description = formData.get("description") as string;
-  const trackId = formData.get("trackId") as string;
-  const schedulingNotes = formData.get("schedulingNotes") as string;
-  const internalNotes = formData.get("internalNotes") as string;
-
-  // Get speaker data from form
-  const speakerContactIds = formData.getAll("speakerContactIds") as string[];
-  const speakerRoles = formData.getAll("speakerRoles") as string[];
-  const primarySpeakerId = formData.get("primarySpeakerId") as string;
-
-  const type = formData.get("type") as string;
-  const breakoutGroupId = formData.get("breakoutGroupId") as string;
   const instanceCountRaw = formData.get("instanceCount") as string;
-  const advancerVendorId = (formData.get("advancerVendorId") as string) || null;
-  const advancerContactId = (formData.get("advancerContactId") as string) || null;
-
-  const defaults = await resolveCreateStatus(eventId, "PRESENTATION");
-
-  const presentation = await prisma.presentation.create({
-    data: {
-      title,
-      type: type || "",
-      description: description || null,
-      trackId: trackId || null,
-      schedulingNotes: schedulingNotes || null,
-      internalNotes: internalNotes || null,
-      breakoutGroupId: breakoutGroupId || null,
+  const presentation = await createPresentationCore(
+    eventId,
+    {
+      title: formData.get("title") as string,
+      description: (formData.get("description") as string) || null,
+      trackId: (formData.get("trackId") as string) || null,
+      schedulingNotes: (formData.get("schedulingNotes") as string) || null,
+      internalNotes: (formData.get("internalNotes") as string) || null,
+      type: (formData.get("type") as string) || "",
+      breakoutGroupId: (formData.get("breakoutGroupId") as string) || null,
       instanceCount: instanceCountRaw ? parseInt(instanceCountRaw) : 1,
-      eventId,
-      status: defaults.status,
-      substatus: defaults.substatus,
-      advancerVendorId,
-      advancerContactId,
-      updatedById: session.user.id,
+      advancerVendorId: (formData.get("advancerVendorId") as string) || null,
+      advancerContactId: (formData.get("advancerContactId") as string) || null,
+      speakerContactIds: formData.getAll("speakerContactIds") as string[],
+      speakerRoles: formData.getAll("speakerRoles") as string[],
+      primarySpeakerId: (formData.get("primarySpeakerId") as string) || null,
     },
-  });
-
-  // Create speakers
-  if (speakerContactIds.length > 0) {
-    await prisma.presentationContact.createMany({
-      data: speakerContactIds.map((contactId, index) => ({
-        presentationId: presentation.id,
-        contactId,
-        role: speakerRoles[index] || null,
-        isPrimary: contactId === primarySpeakerId,
-        sortOrder: index,
-      })),
-    });
-  }
-
-  await autoAssignDefaultWorkflows("presentation", presentation.id, eventId);
+    session.user.id,
+  );
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations/${presentation.id}`);
 }
 
 export async function updatePresentationInstanceCount(id: string, eventId: string, count: number) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await prisma.presentation.update({
-    where: { id, eventId },
-    data: { instanceCount: count, updatedById: session.user.id },
-  });
+  await updatePresentationInstanceCountCore(id, eventId, count, session.user.id);
   revalidatePath(`/events/${eventId}/presentations/${id}`);
 }
 
 export async function updatePresentation(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  const title = formData.get("title") as string;
-  const description = formData.get("description") as string;
-  const trackId = formData.get("trackId") as string;
-  const schedulingNotes = formData.get("schedulingNotes") as string;
-  const internalNotes = formData.get("internalNotes") as string;
-
-  const type = formData.get("type") as string;
   const breakoutGroupId = formData.get("breakoutGroupId");
   const instanceCountRaw = formData.get("instanceCount") as string;
   const advancerVendorIdRaw = formData.get("advancerVendorId");
   const advancerContactIdRaw = formData.get("advancerContactId");
 
-  await prisma.presentation.update({
-    where: { id, eventId },
-    data: {
-      title,
-      type: type || "",
-      description: description || null,
-      trackId: trackId || null,
-      schedulingNotes: schedulingNotes || null,
-      internalNotes: internalNotes || null,
-      ...(breakoutGroupId !== null ? { breakoutGroupId: (breakoutGroupId as string) || null } : {}),
-      ...(instanceCountRaw ? { instanceCount: parseInt(instanceCountRaw) } : {}),
-      ...(advancerVendorIdRaw !== null ? { advancerVendorId: (advancerVendorIdRaw as string) || null } : {}),
-      ...(advancerContactIdRaw !== null ? { advancerContactId: (advancerContactIdRaw as string) || null } : {}),
-      updatedById: session.user.id,
-    },
-  });
+  const args: PresentationUpdateArgs = {
+    title: formData.get("title") as string,
+    description: (formData.get("description") as string) || null,
+    trackId: (formData.get("trackId") as string) || null,
+    schedulingNotes: (formData.get("schedulingNotes") as string) || null,
+    internalNotes: (formData.get("internalNotes") as string) || null,
+    type: (formData.get("type") as string) || "",
+  };
+  if (breakoutGroupId !== null) args.breakoutGroupId = (breakoutGroupId as string) || null;
+  if (instanceCountRaw) args.instanceCount = parseInt(instanceCountRaw);
+  if (advancerVendorIdRaw !== null) args.advancerVendorId = (advancerVendorIdRaw as string) || null;
+  if (advancerContactIdRaw !== null) args.advancerContactId = (advancerContactIdRaw as string) || null;
+
+  await updatePresentationCore(id, eventId, args, session.user.id);
 
   revalidatePath(`/events/${eventId}/presentations`);
   revalidatePath(`/events/${eventId}/presentations/${id}`);
@@ -282,75 +234,31 @@ export async function updatePresentation(id: string, eventId: string, formData: 
 }
 
 export async function deletePresentation(id: string, eventId: string) {
-  await requirePermission("PRESENTATIONS", "DELETE", eventId);
-  await prisma.presentation.delete({ where: { id, eventId } });
+  const session = await requirePermission("PRESENTATIONS", "DELETE", eventId);
+  await deletePresentationCore(id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations`);
 }
 
 export async function deletePresentations(ids: string[], eventId: string) {
-  await requirePermission("PRESENTATIONS", "DELETE", eventId);
-  await prisma.presentation.deleteMany({ where: { id: { in: ids }, eventId } });
+  const session = await requirePermission("PRESENTATIONS", "DELETE", eventId);
+  await deletePresentationsCore(ids, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/presentations`);
 }
 
 export async function bulkUpdatePresentations(
   ids: string[],
   eventId: string,
-  updates: { status?: EntityStatus; substatus?: string | null; trackId?: string | null; type?: string }
+  updates: BulkPresentationUpdates,
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  const { status, substatus, trackId, type } = updates;
-  await prisma.presentation.updateMany({
-    where: { id: { in: ids }, eventId },
-    data: {
-      ...(status !== undefined ? { status } : {}),
-      ...(substatus !== undefined ? { substatus } : {}),
-      ...(trackId !== undefined ? { trackId } : {}),
-      ...(type !== undefined ? { type } : {}),
-      updatedById: session.user.id,
-    },
-  });
+  await bulkUpdatePresentationsCore(ids, eventId, updates, session.user.id);
   revalidatePath(`/events/${eventId}/presentations`);
 }
 
 export async function duplicatePresentation(id: string, eventId: string) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  const original = await prisma.presentation.findUnique({
-    where: { id, eventId },
-    include: {
-      speakers: true,
-    },
-  });
-
-  if (!original) notFound();
-
-  const duplicate = await prisma.presentation.create({
-    data: {
-      title: `${original.title} (Copy)`,
-      type: original.type,
-      description: original.description,
-      trackId: original.trackId,
-      schedulingNotes: original.schedulingNotes,
-      internalNotes: original.internalNotes,
-      eventId: original.eventId,
-      updatedById: session.user.id,
-    },
-  });
-
-  // Copy speakers
-  if (original.speakers.length > 0) {
-    await prisma.presentationContact.createMany({
-      data: original.speakers.map((s) => ({
-        presentationId: duplicate.id,
-        contactId: s.contactId,
-        role: s.role,
-        isPrimary: s.isPrimary,
-        sortOrder: s.sortOrder,
-      })),
-    });
-  }
-
+  const duplicate = await duplicatePresentationCore(id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/presentations`);
   redirect(`/events/${eventId}/presentations/${duplicate.id}`);
 }
@@ -365,35 +273,14 @@ export async function addSpeaker(
   formData: FormData
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await assertPresentationInEvent(presentationId, eventId);
-  const contactId = formData.get("contactId") as string;
-  const role = formData.get("role") as string;
-  const isPrimary = formData.get("isPrimary") === "true";
-
-  const maxOrder = await prisma.presentationContact.findFirst({
-    where: { presentationId },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-
-  if (isPrimary) {
-    await prisma.presentationContact.updateMany({
-      where: { presentationId },
-      data: { isPrimary: false },
-    });
-  }
-
-  await prisma.presentationContact.create({
-    data: {
-      presentationId,
-      contactId,
-      role: role || null,
-      isPrimary,
-      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-    },
-  });
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
-
+  await addSpeakerCore(
+    presentationId,
+    eventId,
+    formData.get("contactId") as string,
+    (formData.get("role") as string) || null,
+    formData.get("isPrimary") === "true",
+    session.user.id,
+  );
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -404,33 +291,20 @@ export async function updateSpeaker(
   formData: FormData
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await assertPresentationInEvent(presentationId, eventId);
-  const role = formData.get("role") as string;
-  const isPrimary = formData.get("isPrimary") === "true";
-
-  if (isPrimary) {
-    await prisma.presentationContact.updateMany({
-      where: { presentationId, id: { not: speakerId } },
-      data: { isPrimary: false },
-    });
-  }
-
-  await prisma.presentationContact.update({
-    where: { id: speakerId, presentation: { eventId } },
-    data: {
-      role: role || null,
-      isPrimary,
-    },
-  });
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
-
+  await updateSpeakerCore(
+    speakerId,
+    presentationId,
+    eventId,
+    (formData.get("role") as string) || null,
+    formData.get("isPrimary") === "true",
+    session.user.id,
+  );
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function removeSpeaker(speakerId: string, presentationId: string, eventId: string) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await prisma.presentationContact.delete({ where: { id: speakerId, presentation: { eventId } } });
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
+  await removeSpeakerCore(speakerId, presentationId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -440,48 +314,19 @@ export async function createAndAddPresentationSpeaker(
   formData: FormData
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await assertPresentationInEvent(presentationId, eventId);
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
-  const email = formData.get("email") as string;
-  const organization = formData.get("organization") as string;
-  const role = formData.get("role") as string;
-  const isPrimary = formData.get("isPrimary") === "true";
-
-  const contact = await prisma.contact.create({
-    data: {
-      firstName,
-      lastName,
-      email: email || null,
-      organization: organization || null,
-      updatedById: session.user.id,
-    },
-  });
-
-  const maxOrder = await prisma.presentationContact.findFirst({
-    where: { presentationId },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-
-  if (isPrimary) {
-    await prisma.presentationContact.updateMany({
-      where: { presentationId },
-      data: { isPrimary: false },
-    });
-  }
-
-  await prisma.presentationContact.create({
-    data: {
+  await createAndAddPresentationSpeakerCore(
+    {
       presentationId,
-      contactId: contact.id,
-      role: role || null,
-      isPrimary,
-      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+      eventId,
+      firstName: formData.get("firstName") as string,
+      lastName: formData.get("lastName") as string,
+      email: (formData.get("email") as string) || null,
+      organization: (formData.get("organization") as string) || null,
+      role: (formData.get("role") as string) || null,
+      isPrimary: formData.get("isPrimary") === "true",
     },
-  });
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
-
+    session.user.id,
+  );
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -491,16 +336,7 @@ export async function reorderSpeakers(
   orderedIds: string[]
 ) {
   const session = await requirePermission("PRESENTATIONS", "WRITE", eventId);
-  await Promise.all(
-    orderedIds.map((id, index) =>
-      prisma.presentationContact.update({
-        where: { id, presentation: { eventId } },
-        data: { sortOrder: index },
-      })
-    )
-  );
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: session.user.id } });
-
+  await reorderSpeakersCore(presentationId, eventId, orderedIds, session.user.id);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
@@ -529,7 +365,8 @@ export async function searchContacts(query: string) {
 }
 
 // ============================================================================
-// CSV Import
+// CSV Import — UI-only (deferred from MCP per plan: requires file upload
+// semantics and is not a natural LLM interaction shape).
 // ============================================================================
 
 export type ImportDestination =

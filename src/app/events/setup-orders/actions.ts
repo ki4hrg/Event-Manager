@@ -3,26 +3,32 @@
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect, notFound } from "next/navigation";
-import type { EntityStatus } from "@prisma/client";
-import { getDefaultVendorForModel } from "@/app/vendors/actions";
-import { resolveEquipmentName } from "@/lib/equipment-utils";
-import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
-import { resolveCreateStatus } from "@/lib/statusDefaults";
-
-// Verifies the setup order belongs to the claimed event before a create-style mutation
-// (where Prisma can't enforce ownership via the where clause).
-async function assertSetupOrderInEvent(setupOrderId: string, eventId: string) {
-  const found = await prisma.setupOrder.findUnique({
-    where: { id: setupOrderId, eventId },
-    select: { id: true },
-  });
-  if (!found) notFound();
-}
-
-async function bumpSetupOrder(setupOrderId: string, userId: string) {
-  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { updatedById: userId } });
-}
+import { redirect } from "next/navigation";
+import {
+  createSetupOrderCore,
+  updateSetupOrderCore,
+  deleteSetupOrderCore,
+  deleteSetupOrdersCore,
+  duplicateSetupOrderCore,
+  bulkUpdateSetupOrdersCore,
+  linkSetupOrderToFunctionCore,
+  unlinkSetupOrderFromFunctionCore,
+  linkSetupOrderToPresentationCore,
+  unlinkSetupOrderFromPresentationCore,
+  createSetupTableCore,
+  updateSetupTableCore,
+  deleteSetupTableCore,
+  createSetupOrderDetailCore,
+  updateSetupOrderDetailCore,
+  deleteSetupOrderDetailCore,
+  createSetupEquipmentItemCore,
+  updateSetupEquipmentItemCore,
+  deleteSetupEquipmentItemCore,
+  type SetupTableWriteArgs,
+  type SetupOrderDetailWriteArgs,
+  type SetupEquipmentItemWriteArgs,
+  type BulkSetupOrderUpdates,
+} from "./core";
 
 export async function getSetupOrders(eventId: string) {
   await requirePermission("SETUP_ORDERS", "VIEW", eventId);
@@ -72,136 +78,56 @@ export async function getSetupOrder(id: string) {
 
 export async function createSetupOrder(eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  const name = (formData.get("name") as string)?.trim() || null;
-  const setupType = formData.get("setupType") as string;
-  const notes = formData.get("notes") as string;
   const functionId = (formData.get("functionId") as string) || null;
   const presentationId = (formData.get("presentationId") as string) || null;
-  const roomId = (formData.get("roomId") as string) || null;
-  const selectedVendorId = (formData.get("vendorId") as string) || null;
-
-  const defaults = await resolveCreateStatus(eventId, "SETUP_ORDER");
-
-  const setupOrder = await prisma.setupOrder.create({
-    data: {
-      name,
-      eventId,
-      setupType: setupType || null,
-      notes: notes || null,
-      roomId,
-      status: defaults.status,
-      substatus: defaults.substatus,
-      updatedById: session.user.id,
+  const setupOrder = await createSetupOrderCore(
+    eventId,
+    {
+      name: (formData.get("name") as string)?.trim() || null,
+      setupType: (formData.get("setupType") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      roomId: (formData.get("roomId") as string) || null,
+      functionId,
+      presentationId,
+      vendorId: (formData.get("vendorId") as string) || null,
     },
-  });
+    session.user.id,
+  );
 
-  if (functionId) {
-    await prisma.setupOrderFunction.create({ data: { setupOrderId: setupOrder.id, functionId } });
-    revalidatePath(`/events/${eventId}/functions/${functionId}`);
-  }
-
-  if (presentationId) {
-    await prisma.setupOrderPresentation.create({ data: { setupOrderId: setupOrder.id, presentationId } });
-    revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
-  }
-
-  const vendorIdToAssign = selectedVendorId ?? (await getDefaultVendorForModel(eventId, "SETUP_ORDER"))?.vendorId ?? null;
-  if (vendorIdToAssign) {
-    await prisma.setupOrderVendor.create({ data: { setupOrderId: setupOrder.id, vendorId: vendorIdToAssign } });
-  }
-
-  await autoAssignDefaultWorkflows("setup_order", setupOrder.id, eventId);
+  if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  if (presentationId) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
   revalidatePath(`/events/${eventId}/setup-orders`);
   redirect(`/events/${eventId}/setup-orders/${setupOrder.id}`);
 }
 
 export async function updateSetupOrder(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  const name = (formData.get("name") as string)?.trim() || null;
-  const setupType = formData.get("setupType") as string;
-  const notes = formData.get("notes") as string;
-  const roomId = (formData.get("roomId") as string) || null;
-
-  await prisma.setupOrder.update({
-    where: { id, eventId },
-    data: {
-      name,
-      setupType: setupType || null,
-      notes: notes || null,
-      roomId,
-      updatedById: session.user.id,
+  await updateSetupOrderCore(
+    id,
+    eventId,
+    {
+      name: (formData.get("name") as string)?.trim() || null,
+      setupType: (formData.get("setupType") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+      roomId: (formData.get("roomId") as string) || null,
     },
-  });
-
+    session.user.id,
+  );
   revalidatePath(`/events/${eventId}/setup-orders`);
   revalidatePath(`/events/${eventId}/setup-orders/${id}`);
   redirect(`/events/${eventId}/setup-orders/${id}?success=Setup Order updated`);
 }
 
 export async function deleteSetupOrder(id: string, eventId: string) {
-  await requirePermission("SETUP_ORDERS", "DELETE", eventId);
-  await prisma.setupOrder.delete({ where: { id, eventId } });
+  const session = await requirePermission("SETUP_ORDERS", "DELETE", eventId);
+  await deleteSetupOrderCore(id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders`);
   redirect(`/events/${eventId}/setup-orders`);
 }
 
 export async function duplicateSetupOrder(id: string, eventId: string) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  const source = await prisma.setupOrder.findUnique({
-    where: { id, eventId },
-    include: {
-      tables: true,
-      details: true,
-      equipmentItems: true,
-    },
-  });
-  if (!source) throw new Error("Setup order not found");
-
-  const duplicate = await prisma.setupOrder.create({
-    data: {
-      eventId,
-      name: source.name ? `${source.name} (Copy)` : null,
-      setupType: source.setupType,
-      notes: source.notes,
-      roomId: source.roomId,
-      updatedById: session.user.id,
-    },
-  });
-
-  await Promise.all([
-    prisma.setupTable.createMany({
-      data: source.tables.map((t) => ({
-        setupOrderId: duplicate.id,
-        quantity: t.quantity,
-        tableType: t.tableType,
-        chairCount: t.chairCount,
-        chairType: t.chairType,
-        providerVendorId: t.providerVendorId,
-        notes: t.notes,
-        sortOrder: t.sortOrder,
-      })),
-    }),
-    prisma.setupOrderDetail.createMany({
-      data: source.details.map((d) => ({
-        setupOrderId: duplicate.id,
-        headline: d.headline,
-        description: d.description,
-        responsiblePartyVendorId: d.responsiblePartyVendorId,
-        sortOrder: d.sortOrder,
-      })),
-    }),
-    prisma.equipmentItem.createMany({
-      data: source.equipmentItems.map((e) => ({
-        setupOrderId: duplicate.id,
-        item: e.item,
-        quantity: e.quantity,
-        notes: e.notes,
-        sortOrder: e.sortOrder,
-      })),
-    }),
-  ]);
-
-  await autoAssignDefaultWorkflows("setup_order", duplicate.id, eventId);
+  const duplicate = await duplicateSetupOrderCore(id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders`);
   redirect(`/events/${eventId}/setup-orders/${duplicate.id}`);
 }
@@ -209,22 +135,14 @@ export async function duplicateSetupOrder(id: string, eventId: string) {
 // Link/unlink (M:N via SetupOrderFunction / SetupOrderPresentation)
 export async function linkSetupOrderToFunction(setupOrderId: string, functionId: string, eventId: string) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await assertSetupOrderInEvent(setupOrderId, eventId);
-  await prisma.setupOrderFunction.upsert({
-    where: { setupOrderId_functionId: { setupOrderId, functionId } },
-    create: { setupOrderId, functionId },
-    update: {},
-  });
-  await bumpSetupOrder(setupOrderId, session.user.id);
+  await linkSetupOrderToFunctionCore(setupOrderId, functionId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
 
 export async function unlinkSetupOrderFromFunction(setupOrderId: string, functionId: string, eventId: string) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await assertSetupOrderInEvent(setupOrderId, eventId);
-  await prisma.setupOrderFunction.deleteMany({ where: { setupOrderId, functionId } });
-  await bumpSetupOrder(setupOrderId, session.user.id);
+  await unlinkSetupOrderFromFunctionCore(setupOrderId, functionId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -257,22 +175,14 @@ export async function unlinkSetupOrderFromFunctionPage(setupOrderId: string, fun
 
 export async function linkSetupOrderToPresentation(setupOrderId: string, presentationId: string, eventId: string) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await assertSetupOrderInEvent(setupOrderId, eventId);
-  await prisma.setupOrderPresentation.upsert({
-    where: { setupOrderId_presentationId: { setupOrderId, presentationId } },
-    create: { setupOrderId, presentationId },
-    update: {},
-  });
-  await bumpSetupOrder(setupOrderId, session.user.id);
+  await linkSetupOrderToPresentationCore(setupOrderId, presentationId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
 
 export async function unlinkSetupOrderFromPresentation(setupOrderId: string, presentationId: string, eventId: string) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await assertSetupOrderInEvent(setupOrderId, eventId);
-  await prisma.setupOrderPresentation.deleteMany({ where: { setupOrderId, presentationId } });
-  await bumpSetupOrder(setupOrderId, session.user.id);
+  await unlinkSetupOrderFromPresentationCore(setupOrderId, presentationId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -304,185 +214,106 @@ export async function unlinkSetupOrderFromPresentationPage(setupOrderId: string,
 }
 
 // SetupTable CRUD
+function parseSetupTableData(formData: FormData): SetupTableWriteArgs {
+  return {
+    quantity: parseInt(formData.get("quantity") as string),
+    tableType: (formData.get("tableType") as string) || null,
+    chairCount: formData.get("chairCount") ? parseInt(formData.get("chairCount") as string) : null,
+    chairType: (formData.get("chairType") as string) || null,
+    providerVendorId: (formData.get("providerVendorId") as string) || null,
+    notes: (formData.get("notes") as string) || null,
+  };
+}
+
 export async function createSetupTable(setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await assertSetupOrderInEvent(setupOrderId, eventId);
-  const { _max } = await prisma.setupTable.aggregate({ where: { setupOrderId }, _max: { sortOrder: true } });
-
-  await prisma.setupTable.create({
-    data: {
-      setupOrderId,
-      quantity: parseInt(formData.get("quantity") as string),
-      tableType: (formData.get("tableType") as string) || null,
-      chairCount: formData.get("chairCount") ? parseInt(formData.get("chairCount") as string) : null,
-      chairType: (formData.get("chairType") as string) || null,
-      providerVendorId: (formData.get("providerVendorId") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      sortOrder: (_max.sortOrder ?? -1) + 1,
-    },
-  });
-  await bumpSetupOrder(setupOrderId, session.user.id);
-
+  await createSetupTableCore(setupOrderId, eventId, parseSetupTableData(formData), session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function updateSetupTable(id: string, setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await prisma.setupTable.update({
-    where: { id, setupOrder: { eventId } },
-    data: {
-      quantity: parseInt(formData.get("quantity") as string),
-      tableType: (formData.get("tableType") as string) || null,
-      chairCount: formData.get("chairCount") ? parseInt(formData.get("chairCount") as string) : null,
-      chairType: (formData.get("chairType") as string) || null,
-      providerVendorId: (formData.get("providerVendorId") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-    },
-  });
-  await bumpSetupOrder(setupOrderId, session.user.id);
-
+  await updateSetupTableCore(id, setupOrderId, eventId, parseSetupTableData(formData), session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function deleteSetupTable(id: string, setupOrderId: string, eventId: string) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await prisma.setupTable.delete({ where: { id, setupOrder: { eventId } } });
-  await bumpSetupOrder(setupOrderId, session.user.id);
+  await deleteSetupTableCore(id, setupOrderId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 // SetupOrderDetail CRUD
+function parseSetupDetailData(formData: FormData): SetupOrderDetailWriteArgs {
+  return {
+    headline: (formData.get("headline") as string)?.trim() || null,
+    description: formData.get("description") as string,
+    responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
+  };
+}
+
 export async function createSetupOrderDetail(setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await assertSetupOrderInEvent(setupOrderId, eventId);
-  const { _max } = await prisma.setupOrderDetail.aggregate({ where: { setupOrderId }, _max: { sortOrder: true } });
-
-  await prisma.setupOrderDetail.create({
-    data: {
-      setupOrderId,
-      headline: (formData.get("headline") as string)?.trim() || null,
-      description: formData.get("description") as string,
-      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
-      sortOrder: (_max.sortOrder ?? -1) + 1,
-    },
-  });
-  await bumpSetupOrder(setupOrderId, session.user.id);
-
+  await createSetupOrderDetailCore(setupOrderId, eventId, parseSetupDetailData(formData), session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function updateSetupOrderDetail(id: string, setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await prisma.setupOrderDetail.update({
-    where: { id, setupOrder: { eventId } },
-    data: {
-      headline: (formData.get("headline") as string)?.trim() || null,
-      description: formData.get("description") as string,
-      responsiblePartyVendorId: (formData.get("responsiblePartyVendorId") as string) || null,
-    },
-  });
-  await bumpSetupOrder(setupOrderId, session.user.id);
-
+  await updateSetupOrderDetailCore(id, setupOrderId, eventId, parseSetupDetailData(formData), session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function deleteSetupOrderDetail(id: string, setupOrderId: string, eventId: string) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await prisma.setupOrderDetail.delete({ where: { id, setupOrder: { eventId } } });
-  await bumpSetupOrder(setupOrderId, session.user.id);
+  await deleteSetupOrderDetailCore(id, setupOrderId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 // EquipmentItem CRUD for Setup Orders
+function parseSetupEquipmentItemData(formData: FormData): SetupEquipmentItemWriteArgs {
+  return {
+    equipmentId: (formData.get("equipmentId") as string) || null,
+    item: (formData.get("item") as string) || "",
+    quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
+    providerVendorId: (formData.get("providerVendorId") as string) || null,
+    providerContactId: (formData.get("providerContactId") as string) || null,
+    operatorVendorId: (formData.get("operatorVendorId") as string) || null,
+    operatorContactId: (formData.get("operatorContactId") as string) || null,
+    notes: (formData.get("notes") as string) || null,
+  };
+}
+
 export async function createSetupEquipmentItem(setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await assertSetupOrderInEvent(setupOrderId, eventId);
-  const { _max } = await prisma.equipmentItem.aggregate({ where: { setupOrderId }, _max: { sortOrder: true } });
-  const equipmentId = (formData.get("equipmentId") as string) || null;
-  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
-
-  await prisma.equipmentItem.create({
-    data: {
-      setupOrderId,
-      equipmentId,
-      item,
-      quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-      providerVendorId: (formData.get("providerVendorId") as string) || null,
-      providerContactId: (formData.get("providerContactId") as string) || null,
-      operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-      operatorContactId: (formData.get("operatorContactId") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-      sortOrder: (_max.sortOrder ?? -1) + 1,
-    },
-  });
-  await bumpSetupOrder(setupOrderId, session.user.id);
-
+  await createSetupEquipmentItemCore(setupOrderId, eventId, parseSetupEquipmentItemData(formData), session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function updateSetupEquipmentItem(id: string, setupOrderId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  const equipmentId = (formData.get("equipmentId") as string) || null;
-  const item = await resolveEquipmentName(equipmentId, (formData.get("item") as string) || "");
-
-  await prisma.equipmentItem.update({
-    where: { id, setupOrder: { eventId } },
-    data: {
-      equipmentId,
-      item,
-      quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
-      providerVendorId: (formData.get("providerVendorId") as string) || null,
-      providerContactId: (formData.get("providerContactId") as string) || null,
-      operatorVendorId: (formData.get("operatorVendorId") as string) || null,
-      operatorContactId: (formData.get("operatorContactId") as string) || null,
-      notes: (formData.get("notes") as string) || null,
-    },
-  });
-  await bumpSetupOrder(setupOrderId, session.user.id);
-
+  await updateSetupEquipmentItemCore(id, setupOrderId, eventId, parseSetupEquipmentItemData(formData), session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function deleteSetupEquipmentItem(id: string, setupOrderId: string, eventId: string) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  await prisma.equipmentItem.delete({ where: { id, setupOrder: { eventId } } });
-  await bumpSetupOrder(setupOrderId, session.user.id);
+  await deleteSetupEquipmentItemCore(id, setupOrderId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders/${setupOrderId}`);
 }
 
 export async function deleteSetupOrders(ids: string[], eventId: string) {
-  await requirePermission("SETUP_ORDERS", "DELETE", eventId);
-  await prisma.setupOrder.deleteMany({ where: { id: { in: ids }, eventId } });
+  const session = await requirePermission("SETUP_ORDERS", "DELETE", eventId);
+  await deleteSetupOrdersCore(ids, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders`);
 }
 
 export async function bulkUpdateSetupOrders(
   ids: string[],
   eventId: string,
-  updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }
+  updates: BulkSetupOrderUpdates,
 ) {
   const session = await requirePermission("SETUP_ORDERS", "WRITE", eventId);
-  const { status, substatus, vendorId } = updates;
-
-  if (status !== undefined || substatus !== undefined) {
-    await prisma.setupOrder.updateMany({
-      where: { id: { in: ids }, eventId },
-      data: {
-        ...(status !== undefined ? { status } : {}),
-        ...(substatus !== undefined ? { substatus } : {}),
-        updatedById: session.user.id,
-      },
-    });
-  }
-
-  if (vendorId) {
-    await prisma.setupOrderVendor.deleteMany({ where: { setupOrderId: { in: ids }, setupOrder: { eventId } } });
-    await prisma.setupOrderVendor.createMany({ data: ids.map((id) => ({ setupOrderId: id, vendorId })) });
-    await prisma.setupOrder.updateMany({
-      where: { id: { in: ids }, eventId },
-      data: { updatedById: session.user.id },
-    });
-  }
-
+  await bulkUpdateSetupOrdersCore(ids, eventId, updates, session.user.id);
   revalidatePath(`/events/${eventId}/setup-orders`);
 }
