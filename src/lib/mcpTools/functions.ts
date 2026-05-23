@@ -129,7 +129,7 @@ export const functionTools: McpToolDefinition[] = [
   {
     name: "list_functions",
     description:
-      "List all functions for an event. Includes rooms, schedules (ordered by start time), and breakout group when applicable.",
+      "List all functions for an event. Includes rooms, schedules (ordered by start time), and breakout group when applicable. Returns summary shape — use `get_function` for full detail (contacts).",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string", description: "Event id." } },

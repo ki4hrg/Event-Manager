@@ -56,7 +56,7 @@ export const vendorTools: McpToolDefinition[] = [
   {
     name: "list_vendors",
     description:
-      "List all real (non-system, non-venue-backed) vendors with a contact count summary.",
+      "List all real (non-system, non-venue-backed) vendors with a contact count summary. Returns summary shape — use `get_vendor` for full detail (the actual contacts via VendorContact links).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: async (_args, { userId }) => {
       await requirePermissionForUser(userId, PermissionResource.VENDORS, "VIEW");

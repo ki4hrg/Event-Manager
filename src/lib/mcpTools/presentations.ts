@@ -122,7 +122,7 @@ export const presentationTools: McpToolDefinition[] = [
   {
     name: "list_presentations",
     description:
-      "List presentations for an event. Includes track, speakers (with contacts), and slot/function/room assignments.",
+      "List presentations for an event. Includes track, speakers (with contacts), and slot/function/room assignments. Returns summary shape — use `get_presentation` for full detail (breakout group, room assignments inside each slot's function).",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" } },

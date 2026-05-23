@@ -288,7 +288,7 @@ export const orderTools: McpToolDefinition[] = [
   {
     name: "list_catering_orders",
     description:
-      "List catering orders for an event, including primary function summary and assigned vendors.",
+      "List catering orders for an event, including primary function summary and assigned vendors. Returns summary shape — use `get_catering_order` for full detail (menu sections, line items, equipment items, timeline items, full function include).",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" } },
@@ -372,7 +372,7 @@ export const orderTools: McpToolDefinition[] = [
   {
     name: "list_av_orders",
     description:
-      "List AV orders for an event, including linked functions and presentations and assigned vendors.",
+      "List AV orders for an event, including linked functions and presentations and assigned vendors. Returns summary shape — use `get_av_order` for full detail (audio section with input groups + items + monitor mixes + outputs, video section with equipment items, function schedules).",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" } },
@@ -488,7 +488,7 @@ export const orderTools: McpToolDefinition[] = [
   {
     name: "list_setup_orders",
     description:
-      "List setup orders for an event, including assigned room, linked functions/presentations, tables, equipment, and vendors.",
+      "List setup orders for an event, including assigned room, linked functions/presentations, tables, equipment, and vendors. Returns summary shape — use `get_setup_order` for full detail (table provider vendor, details with responsible-party vendor, equipment with provider/operator vendors+contacts, function schedules).",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" } },
@@ -580,7 +580,7 @@ export const orderTools: McpToolDefinition[] = [
   {
     name: "list_print_orders",
     description:
-      "List print orders for an event, including items, linked functions/presentation, and vendors.",
+      "List print orders for an event, including items, linked functions/presentation, and vendors. Returns summary shape — use `get_print_order` for full detail (item designer/printer vendor+contact attribution, full function include with schedules + contacts).",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" } },
@@ -660,7 +660,7 @@ export const orderTools: McpToolDefinition[] = [
   {
     name: "list_supply_orders",
     description:
-      "List supply orders for an event, including item packing/acquisition state summaries, links, and provider.",
+      "List supply orders for an event, including item packing/acquisition state summaries, links, and provider. Returns summary shape — use `get_supply_order` for full detail (per-item equipment + provider vendor/contact, function schedules + contacts, presentation speakers).",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" } },

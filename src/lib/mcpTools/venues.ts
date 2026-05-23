@@ -64,7 +64,8 @@ const roomWriteProps = {
 export const venueTools: McpToolDefinition[] = [
   {
     name: "list_venues",
-    description: "List all venues with a count of rooms per venue.",
+    description:
+      "List all venues with a count of rooms per venue. Returns summary shape — use `get_venue` for full detail (rooms, room groups, contacts, linked vendor).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: async (_args, { userId }) => {
       await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW");

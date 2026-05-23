@@ -50,7 +50,7 @@ export const eventTools: McpToolDefinition[] = [
   {
     name: "list_events",
     description:
-      "List events visible to the API key's user. Honors the same scope rules as the UI — users without EVENTS:UNASSIGNED:VIEW see only events they are staff on.",
+      "List events visible to the API key's user. Honors the same scope rules as the UI — users without EVENTS:UNASSIGNED:VIEW see only events they are staff on. Returns summary shape — use `get_event` for full detail (updatedBy attribution).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: async (_args, { userId }) => {
       await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW");

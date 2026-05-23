@@ -45,7 +45,8 @@ const writeProps = {
 export const contactTools: McpToolDefinition[] = [
   {
     name: "list_contacts",
-    description: "List all contacts ordered by last name, first name.",
+    description:
+      "List all contacts ordered by last name, first name. Returns the full Contact row per entry — `get_contact` returns the same shape for a single id and is the canonical fetch when you already have one.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: async (_args, { userId }) => {
       await requirePermissionForUser(userId, PermissionResource.CONTACTS, "VIEW");
