@@ -192,50 +192,6 @@ export async function deleteOption(id: string) {
   revalidatePath("/settings");
 }
 
-// Equipment catalog actions
-export async function getEquipment() {
-  await requireAuth();
-  return prisma.equipment.findMany({
-    orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
-  });
-}
-
-export async function createEquipment(formData: FormData) {
-  await requirePermission(PermissionResource.SETTINGS, "WRITE");
-  const name = formData.get("name") as string;
-  const category = formData.get("category") as string;
-
-  const { _max } = await prisma.equipment.aggregate({ where: { category }, _max: { sortOrder: true } });
-
-  await prisma.equipment.create({
-    data: {
-      name,
-      category,
-      sortOrder: (_max.sortOrder ?? -1) + 1,
-    },
-  });
-
-  revalidatePath("/settings");
-}
-
-export async function updateEquipment(id: string, formData: FormData) {
-  await requirePermission(PermissionResource.SETTINGS, "WRITE");
-  await prisma.equipment.update({
-    where: { id },
-    data: {
-      name: formData.get("name") as string,
-      category: formData.get("category") as string,
-    },
-  });
-  revalidatePath("/settings");
-}
-
-export async function deleteEquipment(id: string) {
-  await requirePermission(PermissionResource.SETTINGS, "DELETE");
-  await prisma.equipment.delete({ where: { id } });
-  revalidatePath("/settings");
-}
-
 export async function reorderOptions(category: OptionCategory, orderedIds: string[]) {
   await requirePermission(PermissionResource.SETTINGS, "WRITE");
   // Update sortOrder for each option

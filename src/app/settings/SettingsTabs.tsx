@@ -8,13 +8,9 @@ const tabs = [
   { label: "Presentations", segment: "presentations" },
   { label: "Contacts", segment: "contacts" },
   { label: "Catering", segment: "catering" },
-  { label: "Equipment", segment: "equipment" },
   { label: "Vendors", segment: "vendors" },
   { label: "Files", segment: "files" },
   { label: "Status", segment: "status" },
-  { label: "Email", segment: "email" },
-  { label: "Roles", segment: "roles" },
-  { label: "API Keys", segment: "api-keys" },
 ];
 
 export function SettingsTabs() {

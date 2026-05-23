@@ -34,5 +34,5 @@ export async function adminRevokeApiKey(id: string): Promise<void> {
     where: { id },
     data: { revokedAt: new Date() },
   });
-  revalidatePath("/settings/api-keys");
+  revalidatePath("/users/api-keys");
 }

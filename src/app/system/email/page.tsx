@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Email" };
 
-export default async function SettingsEmailPage() {
-  const session = await requirePermission(PermissionResource.SETTINGS, "VIEW");
+export default async function SystemEmailPage() {
+  const session = await requirePermission(PermissionResource.SYSTEM, "VIEW");
   const status = getEmailConfigStatus();
   const configured = isEmailConfigured();
 

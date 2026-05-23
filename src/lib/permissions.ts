@@ -49,6 +49,17 @@ export const loadPermissionsForUser = cache(async (userId: string) => {
 // loadPermissionsForUser directly with an explicit userId.
 export const loadPermissions = loadPermissionsForUser;
 
+// Returns true if the user has GLOBAL view (or higher) on the given resource.
+// Pre-loaded permissions are passed in so a caller that already invoked
+// loadPermissions/loadPermissionsForUser doesn't pay for a second round-trip.
+export function hasGlobalView(
+  perms: Awaited<ReturnType<typeof loadPermissions>>["permissions"],
+  resource: PermissionResource,
+) {
+  const match = perms.find((p) => p.resource === resource && p.scope === "GLOBAL");
+  return !!match && match.level !== "NONE";
+}
+
 async function resolvePermissionForUser(
   userId: string,
   resource: PermissionResource,

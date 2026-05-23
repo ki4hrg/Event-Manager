@@ -1478,6 +1478,8 @@ enum PermissionResource {
   ROLES
   USERS
   SETTINGS
+  SYSTEM
+  EQUIPMENT
   WORKFLOWS
   VENDORS
   VENUES

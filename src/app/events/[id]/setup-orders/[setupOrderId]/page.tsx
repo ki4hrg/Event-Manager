@@ -25,7 +25,8 @@ import {
   updateSetupOrderDetail,
   deleteSetupOrderDetail,
 } from "../../../setup-orders/actions";
-import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getEquipment } from "@/app/equipment/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import {

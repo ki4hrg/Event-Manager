@@ -25,7 +25,7 @@ export default async function SettingsRolesPage() {
             Admin and User are built-in and cannot be modified.
           </p>
         </div>
-        <Link href="/settings/roles/new" className={btnPrimary}>
+        <Link href="/users/roles/new" className={btnPrimary}>
           New Role
         </Link>
       </div>
@@ -52,7 +52,7 @@ export default async function SettingsRolesPage() {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     <Link
-                      href={`/settings/roles/${role.id}`}
+                      href={`/users/roles/${role.id}`}
                       className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                     >
                       {role.name}
@@ -72,7 +72,7 @@ export default async function SettingsRolesPage() {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <Link
-                    href={`/settings/roles/${role.id}`}
+                    href={`/users/roles/${role.id}`}
                     className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                   >
                     {role.isSystem ? "View" : "Edit"}

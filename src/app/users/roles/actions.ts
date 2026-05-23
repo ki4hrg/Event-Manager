@@ -87,9 +87,9 @@ export async function createRole(formData: FormData) {
     select: { id: true },
   });
 
-  revalidatePath("/settings/roles");
-  revalidatePath(`/settings/roles/${role.id}`);
-  redirect(`/settings/roles/${role.id}?success=Role+created`);
+  revalidatePath("/users/roles");
+  revalidatePath(`/users/roles/${role.id}`);
+  redirect(`/users/roles/${role.id}?success=Role+created`);
 }
 
 export async function updateRole(id: string, formData: FormData) {
@@ -119,9 +119,9 @@ export async function updateRole(id: string, formData: FormData) {
     prisma.rolePermission.createMany({ data: rows.map((r) => ({ roleId: id, ...r })) }),
   ]);
 
-  revalidatePath("/settings/roles");
-  revalidatePath(`/settings/roles/${id}`);
-  redirect(`/settings/roles/${id}?success=Role+updated`);
+  revalidatePath("/users/roles");
+  revalidatePath(`/users/roles/${id}`);
+  redirect(`/users/roles/${id}?success=Role+updated`);
 }
 
 export async function deleteRole(id: string) {
@@ -141,6 +141,6 @@ export async function deleteRole(id: string) {
 
   await prisma.role.delete({ where: { id } });
 
-  revalidatePath("/settings/roles");
-  redirect("/settings/roles?success=Role+deleted");
+  revalidatePath("/users/roles");
+  redirect("/users/roles?success=Role+deleted");
 }

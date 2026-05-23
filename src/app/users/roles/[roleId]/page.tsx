@@ -47,7 +47,7 @@ export default async function EditRolePage({
         <Toast />
       </Suspense>
       <div className="mb-4">
-        <Breadcrumbs items={[{ label: "Roles", href: "/settings/roles" }, { label: role.name }]} />
+        <Breadcrumbs items={[{ label: "Roles", href: "/users/roles" }, { label: role.name }]} />
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mt-2">{role.name}</h2>
         <div className="mt-1">
           <LastUpdated updatedAt={role.updatedAt} updatedBy={role.updatedBy} />

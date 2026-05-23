@@ -44,7 +44,8 @@ import {
   removeVendorFromAVOrder,
   searchAssignedEventVendors,
 } from "@/app/vendors/actions";
-import { getOptions, getEquipment, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getEquipment } from "@/app/equipment/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";

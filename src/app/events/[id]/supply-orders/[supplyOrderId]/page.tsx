@@ -27,7 +27,8 @@ import {
   deleteSupplyOrderItem,
   updateSupplyOrderItemPackingStatus,
 } from "../../../supply-orders/actions";
-import { getEquipment, getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getEquipment } from "@/app/equipment/actions";
 import { getResponsibleParties } from "@/lib/responsibleParties";
 import {
   getWorkflowInstances,
