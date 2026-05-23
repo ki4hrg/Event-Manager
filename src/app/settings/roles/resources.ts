@@ -10,8 +10,11 @@ const GLOBAL_ONLY_RESOURCES: ResourceEntry[] = [
   { value: PermissionResource.VENDORS, label: "Vendors" },
   { value: PermissionResource.VENUES, label: "Venues" },
   { value: PermissionResource.CONTACTS, label: "Contacts" },
-  // API_KEYS exists in the enum but is intentionally absent here — API keys are
-  // self-service per-user under /account/api-keys and don't need a role gate.
+  // API_KEYS gates the /settings/api-keys admin master list (view + revoke any
+  // user's key). Minting stays self-service under /account/api-keys and does
+  // not consult this permission. Granting API_KEYS to a non-admin role gives
+  // them ability to audit and revoke keys without other admin powers.
+  { value: PermissionResource.API_KEYS, label: "API Keys" },
 ];
 
 const EVENT_SCOPED_RESOURCES: ResourceEntry[] = [

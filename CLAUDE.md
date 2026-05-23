@@ -411,7 +411,7 @@ Functions include high-level AV needs (projector, screen, microphone, etc.) as c
 
 ## MCP connector
 
-`src/app/api/mcp/route.ts` exposes a hand-rolled JSON-RPC 2.0 endpoint speaking the MCP protocol (stateless `tools/list` + `tools/call`). API-key bearer auth via `Authorization: Bearer <key>`; users mint their own keys (self-service) at `/account/api-keys`, and each key inherits its owning user's role + event assignments. There is no admin API-key surface — the `API_KEYS` `PermissionResource` enum value remains in the schema for historical/migration reasons but is intentionally absent from `src/app/settings/roles/resources.ts` and `prisma/seed.mjs`; no code checks it.
+`src/app/api/mcp/route.ts` exposes a hand-rolled JSON-RPC 2.0 endpoint speaking the MCP protocol (stateless `tools/list` + `tools/call`). API-key bearer auth via `Authorization: Bearer <key>`; users mint their own keys (self-service) at `/account/api-keys`, and each key inherits its owning user's role + event assignments. Admins can view + revoke any user's key at `/settings/api-keys` — gated by the `API_KEYS` `PermissionResource` (seeded admin-only) so a custom role can grant key audit/revoke without other admin powers. Minting itself never consults `API_KEYS`; it's `requireAuth()` only, scoped to the caller's userId.
 
 ### Where things live
 - **Route** — `src/app/api/mcp/route.ts`. POST-only; dispatches JSON-RPC; maps `PermissionError` → MCP error codes; serializes results through `mcpSerialize`. GET returns 405 (no SSE in stateless mode).

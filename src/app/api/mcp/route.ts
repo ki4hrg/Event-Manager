@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { resolveBearerToUserId } from "@/lib/mcpAuth";
-import { mcpTools, findMcpTool } from "@/lib/mcpTools";
+import { findMcpTool, classifiedTools } from "@/lib/mcpTools";
 import { serializeForMcp } from "@/lib/mcpSerialize";
 import { PermissionError } from "@/lib/permissions";
 
@@ -75,13 +75,14 @@ async function dispatch(
     case "ping":
       return ok(req.id, {});
     case "tools/list": {
-      return ok(req.id, {
-        tools: mcpTools.map((t) => ({
-          name: t.name,
-          description: t.description,
-          inputSchema: t.inputSchema,
-        })),
-      });
+      // classifiedTools() adds per-tool `annotations` (readOnly/destructive/
+      // idempotent/openWorld hints) and a single-element `groups` array
+      // ("read" | "create" | "mutate" | "delete") derived from the tool name
+      // prefix. Annotations influence approval-prompt phrasing in some
+      // clients; `groups` is the SEP-1300 sub-section field that Claude
+      // Desktop is expected to render but doesn't today — included now so
+      // it Just Works when client support lands.
+      return ok(req.id, { tools: classifiedTools() });
     }
     case "tools/call": {
       const params = req.params ?? {};
