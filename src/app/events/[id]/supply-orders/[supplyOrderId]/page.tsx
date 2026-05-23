@@ -74,16 +74,25 @@ export default async function SupplyOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = SUPPLY_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, supplyOrder, workflowInstances, allTemplates, substatuses, equipmentOptions] = await Promise.all([
+  const [event, supplyOrder, workflowInstances, allTemplates, substatuses, equipmentOptions, equipmentCategories] = await Promise.all([
     getEvent(eventId),
     getSupplyOrder(supplyOrderId),
     getWorkflowInstances("supply_order", supplyOrderId, eventId),
     getWorkflowTemplateOptions(),
     getSubstatusOptions(),
     getEquipment(),
+    getOptions("equipment_category"),
   ]);
 
   if (!event || !supplyOrder) notFound();
+
+  const supplyEquipmentCategoryLabels = new Set(
+    equipmentCategories.filter((c) => c.models.includes("SUPPLY_ORDER")).map((c) => c.label)
+  );
+  const hasSupplyEquipmentFilter = supplyEquipmentCategoryLabels.size > 0;
+  const filteredEquipmentOptions = hasSupplyEquipmentFilter
+    ? equipmentOptions.filter((e) => supplyEquipmentCategoryLabels.has(e.category))
+    : equipmentOptions;
 
   const linkedFunctionIds = supplyOrder.functions.map((l) => l.function.id);
   const linkedPresentationIds = supplyOrder.presentations.map((l) => l.presentation.id);
@@ -328,7 +337,8 @@ export default async function SupplyOrderPage({
           <div className="lg:col-span-2">
             <SupplyOrderItemPanel
               items={supplyOrder.items}
-              equipmentOptions={equipmentOptions}
+              equipmentOptions={filteredEquipmentOptions}
+              allEquipmentOptions={hasSupplyEquipmentFilter ? equipmentOptions : undefined}
               pool={pool}
               orderProvider={{
                 providerVendor: supplyOrder.providerVendor,

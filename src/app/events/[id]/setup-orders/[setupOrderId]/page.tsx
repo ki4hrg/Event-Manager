@@ -109,6 +109,14 @@ export default async function SetupOrderPage({
   const tableOptions = equipmentOptions.filter((e) => e.category === TABLE_CAT);
   const chairOptions = equipmentOptions.filter((e) => e.category === CHAIR_CAT);
 
+  const setupEquipmentCategoryLabels = new Set(
+    equipmentCategories.filter((c) => c.models.includes("SETUP_ORDER")).map((c) => c.label)
+  );
+  const hasSetupEquipmentFilter = setupEquipmentCategoryLabels.size > 0;
+  const filteredEquipmentOptions = hasSetupEquipmentFilter
+    ? equipmentOptions.filter((e) => setupEquipmentCategoryLabels.has(e.category))
+    : equipmentOptions;
+
   const [venueRooms, availableFunctions, availablePresentations] = await Promise.all([
     event.venueId
       ? prisma.room.findMany({
@@ -438,7 +446,8 @@ export default async function SetupOrderPage({
             <EquipmentTable
               items={setupOrder.equipmentItems}
               partyVendors={flattenResponsiblePartyOptions(responsiblePartyVendors)}
-              equipmentOptions={equipmentOptions}
+              equipmentOptions={filteredEquipmentOptions}
+              allEquipmentOptions={hasSetupEquipmentFilter ? equipmentOptions : undefined}
               equipmentCategories={equipmentCategories}
               createItem={createEquipmentAction}
               updateItem={updateEquipmentAction}

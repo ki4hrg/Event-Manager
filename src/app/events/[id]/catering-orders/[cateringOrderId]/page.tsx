@@ -168,6 +168,14 @@ export default async function CateringOrderPage({
     notFound();
   }
 
+  const cateringEquipmentCategoryLabels = new Set(
+    equipmentCategories.filter((c) => c.models.includes("CATERING_ORDER")).map((c) => c.label)
+  );
+  const hasCateringEquipmentFilter = cateringEquipmentCategoryLabels.size > 0;
+  const filteredEquipmentOptions = hasCateringEquipmentFilter
+    ? equipmentOptions.filter((e) => cateringEquipmentCategoryLabels.has(e.category))
+    : equipmentOptions;
+
   const availableFunctions = cateringOrder.functionId
     ? []
     : allEventFunctions.filter((fn) => !fn.cateringOrder);
@@ -528,7 +536,8 @@ export default async function CateringOrderPage({
             <EquipmentTable
               items={cateringOrder.equipmentItems}
               partyVendors={flattenResponsiblePartyOptions(responsiblePartyVendors)}
-              equipmentOptions={equipmentOptions}
+              equipmentOptions={filteredEquipmentOptions}
+              allEquipmentOptions={hasCateringEquipmentFilter ? equipmentOptions : undefined}
               equipmentCategories={equipmentCategories}
               createItem={createEquipmentAction}
               updateItem={updateEquipmentAction}

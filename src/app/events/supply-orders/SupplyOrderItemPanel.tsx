@@ -29,6 +29,7 @@ type OrderProvider = {
 type SupplyOrderItemPanelProps = {
   items: ItemWithExtras[];
   equipmentOptions: Equipment[];
+  allEquipmentOptions?: Equipment[];
   pool: ResponsiblePartyPool;
   orderProvider: OrderProvider;
   createItem: (formData: FormData) => Promise<void>;
@@ -201,6 +202,7 @@ function resolveProvider(item: ItemWithExtras, order: OrderProvider): { label: s
 export function SupplyOrderItemPanel({
   items,
   equipmentOptions,
+  allEquipmentOptions,
   pool,
   orderProvider,
   createItem,
@@ -210,6 +212,10 @@ export function SupplyOrderItemPanel({
 }: SupplyOrderItemPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const hasFilter = !!allEquipmentOptions;
+  const activeEquipmentOptions = hasFilter && showAll ? allEquipmentOptions! : equipmentOptions;
 
   const handleCreate = async (formData: FormData) => {
     await createItem(formData);
@@ -225,20 +231,33 @@ export function SupplyOrderItemPanel({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Supply Items</h2>
-        {!showAddForm && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Add Item
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {hasFilter && (
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              Show all equipment
+            </label>
+          )}
+          {!showAddForm && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Item
+            </button>
+          )}
+        </div>
       </div>
 
       {showAddForm && (
         <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <ItemForm
-            equipmentOptions={equipmentOptions}
+            equipmentOptions={activeEquipmentOptions}
             pool={pool}
             onSubmit={handleCreate}
             onCancel={() => setShowAddForm(false)}
@@ -260,7 +279,7 @@ export function SupplyOrderItemPanel({
                   {editingId === item.id ? (
                     <ItemForm
                       item={item}
-                      equipmentOptions={equipmentOptions}
+                      equipmentOptions={activeEquipmentOptions}
                       pool={pool}
                       onSubmit={(fd) => handleUpdate(item.id, fd)}
                       onCancel={() => setEditingId(null)}
@@ -331,7 +350,7 @@ export function SupplyOrderItemPanel({
                   {editingId === item.id ? (
                     <ItemForm
                       item={item}
-                      equipmentOptions={equipmentOptions}
+                      equipmentOptions={activeEquipmentOptions}
                       pool={pool}
                       onSubmit={(fd) => handleUpdate(item.id, fd)}
                       onCancel={() => setEditingId(null)}
