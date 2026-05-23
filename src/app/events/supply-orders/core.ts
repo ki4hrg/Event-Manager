@@ -1,0 +1,369 @@
+// Pure cores for supply-order + supply-item + link mutations.
+// NOT a "use server" file — see src/app/contacts/core.ts for the security rationale.
+
+import type { AcquisitionState, EntityStatus, PackingStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
+import { resolveCreateStatus } from "@/lib/statusDefaults";
+import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
+
+async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) {
+  const found = await prisma.supplyOrder.findUnique({
+    where: { id: supplyOrderId, eventId },
+    select: { id: true },
+  });
+  if (!found) throw new PermissionError("NOT_FOUND");
+}
+
+async function bumpSupplyOrder(supplyOrderId: string, userId: string) {
+  await prisma.supplyOrder.update({ where: { id: supplyOrderId }, data: { updatedById: userId } });
+}
+
+// ---------------------------------------------------------------------------
+// SupplyOrder
+
+export type CreateSupplyOrderArgs = {
+  name: string;
+  roomId: string;
+  specificLocation: string | null;
+  notes: string | null;
+  // Provider is a single-party concept: vendor OR contact, not both.
+  // When both are null we look up the event's default SUPPLY_ORDER vendor.
+  providerVendorId: string | null;
+  providerContactId: string | null;
+  // Optional initial M:M links.
+  functionId: string | null;
+  presentationId: string | null;
+};
+
+export async function createSupplyOrderCore(
+  eventId: string,
+  args: CreateSupplyOrderArgs,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  if (!args.roomId) throw new Error("Destination room is required.");
+
+  let providerVendorId = args.providerVendorId;
+  let providerContactId = args.providerContactId;
+  if (!providerVendorId && !providerContactId) {
+    const fallback = await prisma.eventVendor.findFirst({
+      where: { eventId, defaultFor: { has: "SUPPLY_ORDER" } },
+      select: { vendorId: true },
+    });
+    providerVendorId = fallback?.vendorId ?? null;
+  }
+  if (providerVendorId) providerContactId = null;
+
+  const defaults = await resolveCreateStatus(eventId, "SUPPLY_ORDER");
+  const supplyOrder = await prisma.supplyOrder.create({
+    data: {
+      name: args.name,
+      eventId,
+      roomId: args.roomId,
+      specificLocation: args.specificLocation,
+      notes: args.notes,
+      providerVendorId,
+      providerContactId,
+      status: defaults.status,
+      substatus: defaults.substatus,
+      updatedById: userId,
+    },
+  });
+
+  if (args.functionId) {
+    await prisma.supplyOrderFunction.create({
+      data: { supplyOrderId: supplyOrder.id, functionId: args.functionId },
+    });
+  }
+  if (args.presentationId) {
+    await prisma.supplyOrderPresentation.create({
+      data: { supplyOrderId: supplyOrder.id, presentationId: args.presentationId },
+    });
+  }
+
+  await autoAssignDefaultWorkflowsCore("supply_order", supplyOrder.id);
+  return supplyOrder;
+}
+
+export type UpdateSupplyOrderArgs = {
+  name: string;
+  roomId: string;
+  specificLocation: string | null;
+  notes: string | null;
+  providerVendorId: string | null;
+  providerContactId: string | null;
+};
+
+export async function updateSupplyOrderCore(
+  id: string,
+  eventId: string,
+  args: UpdateSupplyOrderArgs,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  if (!args.roomId) throw new Error("Destination room is required.");
+  let providerVendorId = args.providerVendorId;
+  let providerContactId = args.providerContactId;
+  if (providerVendorId) providerContactId = null;
+  if (providerContactId) providerVendorId = null;
+
+  return prisma.supplyOrder.update({
+    where: { id, eventId },
+    data: {
+      name: args.name,
+      roomId: args.roomId,
+      specificLocation: args.specificLocation,
+      notes: args.notes,
+      providerVendorId,
+      providerContactId,
+      updatedById: userId,
+    },
+  });
+}
+
+export async function deleteSupplyOrderCore(id: string, eventId: string, userId: string) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "DELETE", eventId);
+  await prisma.supplyOrder.delete({ where: { id, eventId } });
+}
+
+export async function deleteSupplyOrdersCore(ids: string[], eventId: string, userId: string) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "DELETE", eventId);
+  const r = await prisma.supplyOrder.deleteMany({ where: { id: { in: ids }, eventId } });
+  return { count: r.count };
+}
+
+// Order-level packing status — cascade to every item in the same transaction.
+export async function updateSupplyOrderPackingStatusCore(
+  supplyOrderId: string,
+  eventId: string,
+  packingStatus: PackingStatus | null,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  await prisma.$transaction(async (tx) => {
+    await tx.supplyOrder.update({
+      where: { id: supplyOrderId },
+      data: { packingStatus, updatedById: userId },
+    });
+    if (packingStatus) {
+      await tx.supplyOrderItem.updateMany({
+        where: { supplyOrderId },
+        data: { packingStatus },
+      });
+    }
+  });
+}
+
+export type BulkSupplyOrderUpdates = {
+  status?: EntityStatus;
+  substatus?: string | null;
+  functionId?: string;
+  presentationId?: string;
+};
+
+export async function bulkUpdateSupplyOrdersCore(
+  ids: string[],
+  eventId: string,
+  updates: BulkSupplyOrderUpdates,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  const { status, substatus, functionId, presentationId } = updates;
+
+  if (status !== undefined || substatus !== undefined) {
+    await prisma.supplyOrder.updateMany({
+      where: { id: { in: ids }, eventId },
+      data: {
+        ...(status !== undefined ? { status } : {}),
+        ...(substatus !== undefined ? { substatus } : {}),
+        updatedById: userId,
+      },
+    });
+  }
+
+  if (functionId) {
+    const existing = await prisma.supplyOrderFunction.findMany({
+      where: { supplyOrderId: { in: ids }, functionId },
+      select: { supplyOrderId: true },
+    });
+    const existingIds = new Set(existing.map((e) => e.supplyOrderId));
+    const toCreate = ids.filter((id) => !existingIds.has(id));
+    if (toCreate.length > 0) {
+      await prisma.supplyOrderFunction.createMany({
+        data: toCreate.map((id) => ({ supplyOrderId: id, functionId })),
+      });
+      await prisma.supplyOrder.updateMany({
+        where: { id: { in: ids }, eventId },
+        data: { updatedById: userId },
+      });
+    }
+  }
+
+  if (presentationId) {
+    const existing = await prisma.supplyOrderPresentation.findMany({
+      where: { supplyOrderId: { in: ids }, presentationId },
+      select: { supplyOrderId: true },
+    });
+    const existingIds = new Set(existing.map((e) => e.supplyOrderId));
+    const toCreate = ids.filter((id) => !existingIds.has(id));
+    if (toCreate.length > 0) {
+      await prisma.supplyOrderPresentation.createMany({
+        data: toCreate.map((id) => ({ supplyOrderId: id, presentationId })),
+      });
+      await prisma.supplyOrder.updateMany({
+        where: { id: { in: ids }, eventId },
+        data: { updatedById: userId },
+      });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Links
+
+export async function linkSupplyOrderToFunctionCore(
+  supplyOrderId: string,
+  functionId: string,
+  eventId: string,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  const link = await prisma.supplyOrderFunction.create({ data: { supplyOrderId, functionId } });
+  await bumpSupplyOrder(supplyOrderId, userId);
+  return link;
+}
+
+export async function unlinkSupplyOrderFromFunctionCore(
+  supplyOrderId: string,
+  functionId: string,
+  eventId: string,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  const r = await prisma.supplyOrderFunction.deleteMany({
+    where: { supplyOrderId, functionId, supplyOrder: { eventId } },
+  });
+  await bumpSupplyOrder(supplyOrderId, userId);
+  return { count: r.count };
+}
+
+export async function linkSupplyOrderToPresentationCore(
+  supplyOrderId: string,
+  presentationId: string,
+  eventId: string,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  const link = await prisma.supplyOrderPresentation.create({
+    data: { supplyOrderId, presentationId },
+  });
+  await bumpSupplyOrder(supplyOrderId, userId);
+  return link;
+}
+
+export async function unlinkSupplyOrderFromPresentationCore(
+  supplyOrderId: string,
+  presentationId: string,
+  eventId: string,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  const r = await prisma.supplyOrderPresentation.deleteMany({
+    where: { supplyOrderId, presentationId, supplyOrder: { eventId } },
+  });
+  await bumpSupplyOrder(supplyOrderId, userId);
+  return { count: r.count };
+}
+
+// ---------------------------------------------------------------------------
+// SupplyOrderItem
+
+export type SupplyItemWriteArgs = {
+  description: string | null;
+  equipmentId: string | null;
+  quantity: number | null;
+  acquisitionState: AcquisitionState;
+  providerVendorId: string | null;
+  providerContactId: string | null;
+  packingStatus: PackingStatus;
+  notes: string | null;
+};
+
+function normalizeItemArgs(args: SupplyItemWriteArgs): SupplyItemWriteArgs {
+  if (!args.description && !args.equipmentId) {
+    throw new Error("Supply item needs a description or an equipment selection.");
+  }
+  // Provider is a single-party concept.
+  let providerVendorId = args.providerVendorId;
+  let providerContactId = args.providerContactId;
+  if (providerVendorId) providerContactId = null;
+  if (providerContactId) providerVendorId = null;
+  return { ...args, providerVendorId, providerContactId };
+}
+
+export async function createSupplyOrderItemCore(
+  supplyOrderId: string,
+  eventId: string,
+  rawArgs: SupplyItemWriteArgs,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  const args = normalizeItemArgs(rawArgs);
+  const { _max } = await prisma.supplyOrderItem.aggregate({
+    where: { supplyOrderId },
+    _max: { sortOrder: true },
+  });
+  const item = await prisma.supplyOrderItem.create({
+    data: { supplyOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
+  });
+  await bumpSupplyOrder(supplyOrderId, userId);
+  return item;
+}
+
+export async function updateSupplyOrderItemCore(
+  id: string,
+  supplyOrderId: string,
+  eventId: string,
+  rawArgs: SupplyItemWriteArgs,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  const args = normalizeItemArgs(rawArgs);
+  const item = await prisma.supplyOrderItem.update({
+    where: { id, supplyOrder: { eventId } },
+    data: args,
+  });
+  await bumpSupplyOrder(supplyOrderId, userId);
+  return item;
+}
+
+export async function deleteSupplyOrderItemCore(
+  id: string,
+  supplyOrderId: string,
+  eventId: string,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await prisma.supplyOrderItem.delete({ where: { id, supplyOrder: { eventId } } });
+  await bumpSupplyOrder(supplyOrderId, userId);
+}
+
+export async function updateSupplyOrderItemPackingStatusCore(
+  id: string,
+  supplyOrderId: string,
+  eventId: string,
+  packingStatus: PackingStatus,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await prisma.supplyOrderItem.update({
+    where: { id, supplyOrder: { eventId } },
+    data: { packingStatus },
+  });
+  await bumpSupplyOrder(supplyOrderId, userId);
+}
