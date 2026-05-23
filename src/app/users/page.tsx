@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageWrapper } from "@/components/PageWrapper";
-import { PageHeader } from "@/components/PageHeader";
+import { redirect } from "next/navigation";
+import { PermissionResource } from "@prisma/client";
+import { hasPermission } from "@/lib/permissions";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { roleBadgeClass } from "@/lib/roleStyles";
 import { getUsers } from "./actions";
@@ -11,18 +12,31 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Users" };
 
 export default async function UsersPage() {
+  // Layout admits anyone with USERS / ROLES / API_KEYS view, but the user list
+  // itself needs USERS.VIEW. If the visitor only has the sibling permissions,
+  // redirect them to the first tab they can actually use rather than letting
+  // getUsers() bounce them to "/".
+  if (!(await hasPermission(PermissionResource.USERS, "VIEW"))) {
+    if (await hasPermission(PermissionResource.ROLES, "VIEW")) redirect("/users/roles");
+    if (await hasPermission(PermissionResource.API_KEYS, "VIEW")) redirect("/users/api-keys");
+    redirect("/");
+  }
+
   const users = await getUsers();
 
   return (
-    <PageWrapper>
-      <PageHeader
-        title="Users"
-        actions={
-          <Link href="/users/new" className={btnPrimary}>
-            New User
-          </Link>
-        }
-      />
+    <div>
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Users</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Internal staff accounts. Each user is assigned a single role that defines their permissions.
+          </p>
+        </div>
+        <Link href="/users/new" className={btnPrimary}>
+          New User
+        </Link>
+      </div>
 
       {users.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
@@ -78,6 +92,6 @@ export default async function UsersPage() {
           </table>
         </div>
       )}
-    </PageWrapper>
+    </div>
   );
 }

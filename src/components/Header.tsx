@@ -1,16 +1,8 @@
 import { auth, signOut } from "@/lib/auth";
 import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
-import { loadPermissions } from "@/lib/permissions";
+import { hasGlobalView, loadPermissions } from "@/lib/permissions";
 import { AdminDropdown } from "./AdminDropdown";
-
-function hasGlobalView(
-  perms: Awaited<ReturnType<typeof loadPermissions>>["permissions"],
-  resource: PermissionResource,
-) {
-  const match = perms.find((p) => p.resource === resource && p.scope === "GLOBAL");
-  return !!match && match.level !== "NONE";
-}
 
 export async function Header() {
   const session = await auth();
@@ -18,10 +10,16 @@ export async function Header() {
     ? await loadPermissions(session.user.id)
     : { permissions: [] };
 
-  const canViewUsers = hasGlobalView(permissions, PermissionResource.USERS);
+  const canViewUsers =
+    hasGlobalView(permissions, PermissionResource.USERS) ||
+    hasGlobalView(permissions, PermissionResource.ROLES) ||
+    hasGlobalView(permissions, PermissionResource.API_KEYS);
+  const canViewEquipment = hasGlobalView(permissions, PermissionResource.EQUIPMENT);
   const canViewSettings = hasGlobalView(permissions, PermissionResource.SETTINGS);
+  const canViewSystem = hasGlobalView(permissions, PermissionResource.SYSTEM);
   const canViewWorkflows = hasGlobalView(permissions, PermissionResource.WORKFLOWS);
-  const showAdminDropdown = canViewUsers || canViewSettings || canViewWorkflows;
+  const showAdminDropdown =
+    canViewUsers || canViewEquipment || canViewSettings || canViewSystem || canViewWorkflows;
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow">
@@ -58,7 +56,9 @@ export async function Header() {
             {showAdminDropdown && (
               <AdminDropdown
                 canViewUsers={canViewUsers}
+                canViewEquipment={canViewEquipment}
                 canViewSettings={canViewSettings}
+                canViewSystem={canViewSystem}
                 canViewWorkflows={canViewWorkflows}
               />
             )}

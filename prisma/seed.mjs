@@ -153,6 +153,8 @@ const NON_EVENT_RESOURCES = [
   "ROLES",
   "USERS",
   "SETTINGS",
+  "SYSTEM",
+  "EQUIPMENT",
   "WORKFLOWS",
   "VENDORS",
   "VENUES",
@@ -175,7 +177,15 @@ const EVENT_RESOURCES = [
 ];
 
 // Resources only granted to the Admin role by default. The seeded User role omits these (implicit NONE).
-const ADMIN_ONLY_RESOURCES = new Set(["ROLES", "USERS", "SETTINGS", "WORKFLOWS", "API_KEYS"]);
+const ADMIN_ONLY_RESOURCES = new Set([
+  "ROLES",
+  "USERS",
+  "SETTINGS",
+  "SYSTEM",
+  "EQUIPMENT",
+  "WORKFLOWS",
+  "API_KEYS",
+]);
 
 function buildPermissions(level, { adminOnly }) {
   const perms = [];

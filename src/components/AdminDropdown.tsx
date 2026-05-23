@@ -6,13 +6,17 @@ import { useClickOutside } from "@/lib/useClickOutside";
 
 type AdminDropdownProps = {
   canViewUsers: boolean;
+  canViewEquipment: boolean;
   canViewSettings: boolean;
+  canViewSystem: boolean;
   canViewWorkflows: boolean;
 };
 
 export function AdminDropdown({
   canViewUsers,
+  canViewEquipment,
   canViewSettings,
+  canViewSystem,
   canViewWorkflows,
 }: AdminDropdownProps) {
   const [open, setOpen] = useState(false);
@@ -40,9 +44,19 @@ export function AdminDropdown({
               Users
             </Link>
           )}
+          {canViewEquipment && (
+            <Link href="/equipment" onClick={() => setOpen(false)} className={linkClass}>
+              Equipment
+            </Link>
+          )}
           {canViewSettings && (
             <Link href="/settings" onClick={() => setOpen(false)} className={linkClass}>
               Settings
+            </Link>
+          )}
+          {canViewSystem && (
+            <Link href="/system" onClick={() => setOpen(false)} className={linkClass}>
+              System
             </Link>
           )}
           {canViewWorkflows && (

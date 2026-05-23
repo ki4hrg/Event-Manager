@@ -6,11 +6,13 @@ const GLOBAL_ONLY_RESOURCES: ResourceEntry[] = [
   { value: PermissionResource.ROLES, label: "Roles" },
   { value: PermissionResource.USERS, label: "Users" },
   { value: PermissionResource.SETTINGS, label: "Settings" },
+  { value: PermissionResource.SYSTEM, label: "System" },
+  { value: PermissionResource.EQUIPMENT, label: "Equipment" },
   { value: PermissionResource.WORKFLOWS, label: "Workflows" },
   { value: PermissionResource.VENDORS, label: "Vendors" },
   { value: PermissionResource.VENUES, label: "Venues" },
   { value: PermissionResource.CONTACTS, label: "Contacts" },
-  // API_KEYS gates the /settings/api-keys admin master list (view + revoke any
+  // API_KEYS gates the /users/api-keys admin master list (view + revoke any
   // user's key). Minting stays self-service under /account/api-keys and does
   // not consult this permission. Granting API_KEYS to a non-admin role gives
   // them ability to audit and revoke keys without other admin powers.

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
 import { roleBadgeClass } from "@/lib/roleStyles";
-import { DEFAULT_ROLE_NAME } from "@/app/settings/roles/resources";
+import { DEFAULT_ROLE_NAME } from "@/app/users/roles/resources";
 
 function SubmitButton({ isCreate }: { isCreate: boolean }) {
   const { pending } = useFormStatus();

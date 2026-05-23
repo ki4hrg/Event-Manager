@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { PermissionResource } from "@prisma/client";
-import { PageWrapper } from "@/components/PageWrapper";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { getUser, updateUser, deleteUser, resendPasswordResetEmail } from "../actions";
-import { getRoleOptions } from "@/app/settings/roles/actions";
+import { getRoleOptions } from "@/app/users/roles/actions";
 import { UserForm } from "../UserForm";
 import { ResendInviteButton } from "../ResendInviteButton";
 import { notFound } from "next/navigation";
@@ -58,12 +57,12 @@ export default async function UserDetailPage({
   };
 
   return (
-    <PageWrapper>
-      <div className="mb-6">
+    <div>
+      <div className="mb-4">
         <Breadcrumbs items={[{ label: "Users", href: "/users" }, { label: user.name || user.email }]} />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mt-2">
           {user.name || user.email}
-        </h1>
+        </h2>
         <div className="mt-1">
           <LastUpdated updatedAt={user.updatedAt} updatedBy={user.updatedBy} />
         </div>
@@ -89,6 +88,6 @@ export default async function UserDetailPage({
         </p>
         <ResendInviteButton action={resendAction} />
       </div>
-    </PageWrapper>
+    </div>
   );
 }

@@ -39,7 +39,8 @@ import {
   searchContactsForCateringOrder,
   createAndAddCateringOrderContact,
 } from "../../../catering-orders/actions";
-import { getOptions, getEquipment, getSubstatusOptions } from "../../../../settings/actions";
+import { getOptions, getSubstatusOptions } from "../../../../settings/actions";
+import { getEquipment } from "@/app/equipment/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
