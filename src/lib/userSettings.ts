@@ -69,6 +69,10 @@ export function agendaRoomPrefsKey(eventId: string): string {
   return `agenda_room_prefs_${eventId}`;
 }
 
+export function packingProviderFilterKey(eventId: string): string {
+  return `packing_provider_filter_${eventId}`;
+}
+
 export type AgendaRoomPrefs = {
   hiddenRoomIds: string[];
   roomOrder: string[];

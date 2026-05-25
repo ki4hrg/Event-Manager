@@ -31,13 +31,17 @@ function compareByDescription(a: PackableItem, b: PackableItem) {
   return a.description.localeCompare(b.description, undefined, { sensitivity: "base" });
 }
 
+const PROVIDER_UNASSIGNED = "__blank__";
+
 type Props = {
   eventId: string;
   payload: PackingListPayload;
   initialState?: string;
   initialHidePacked?: string;
+  initialProvider?: string;
   toggleSupplyItem: ToggleSupply;
   togglePrintItem: TogglePrint;
+  saveProviderFilter: (value: string) => Promise<void>;
 };
 
 export function PackingListClient({
@@ -45,8 +49,10 @@ export function PackingListClient({
   payload,
   initialState,
   initialHidePacked,
+  initialProvider,
   toggleSupplyItem,
   togglePrintItem,
+  saveProviderFilter,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -57,6 +63,47 @@ export function PackingListClient({
       ? (initialState as AcquisitionState)
       : null;
   const hidePacked = initialHidePacked === "1";
+
+  const providerOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const item of payload.items) if (item.provider) names.add(item.provider);
+    return Array.from(names).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }, [payload.items]);
+
+  const hasUnassigned = useMemo(
+    () => payload.items.some((i) => i.provider == null),
+    [payload.items],
+  );
+
+  // Treat an unknown saved/URL value as "All" — happens when an event no longer
+  // has items for the previously selected provider.
+  const providerFilter: string =
+    initialProvider === PROVIDER_UNASSIGNED
+      ? hasUnassigned
+        ? PROVIDER_UNASSIGNED
+        : ""
+      : initialProvider && providerOptions.includes(initialProvider)
+        ? initialProvider
+        : "";
+
+  // If the URL says ?provider=X but X is no longer valid (the saved provider
+  // is gone, or __blank__ with no unassigned items), drop the param so the
+  // address bar matches the actually-applied filter. router.replace avoids
+  // adding a history entry.
+  useEffect(() => {
+    if (initialProvider && initialProvider !== providerFilter) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (params.get("provider")) {
+        params.delete("provider");
+        const qs = params.toString();
+        router.replace(qs ? `${basePath}?${qs}` : basePath);
+      }
+    }
+    // Run on mount and whenever the mismatch could change (initial value vs.
+    // the validated set).
+  }, [initialProvider, providerFilter, router, searchParams, basePath]);
 
   const [q, setQ] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -124,9 +171,26 @@ export function PackingListClient({
     pushWith({ hidePacked: next ? "1" : null });
   }
 
+  // useTransition wraps the save so React tracks it as in-flight work, and
+  // awaiting it before navigating keeps the persisted value durable: even if
+  // the user closes the tab milliseconds after picking, the save has the
+  // first head start. Errors propagate to Next's default handler.
+  const [, startProviderSave] = useTransition();
+
+  function setProvider(next: string) {
+    startProviderSave(async () => {
+      await saveProviderFilter(next);
+      // "" means "All providers" → drop the URL param.
+      pushWith({ provider: next === "" ? null : next });
+    });
+  }
+
   function clearFilters() {
     setQ("");
-    pushWith({ state: null, hidePacked: null });
+    startProviderSave(async () => {
+      await saveProviderFilter("");
+      pushWith({ state: null, hidePacked: null, provider: null });
+    });
   }
 
   // ── Item cycle ──────────────────────────────────────────────────────────────
@@ -182,13 +246,18 @@ export function PackingListClient({
     return payload.items.filter((item) => {
       if (stateFilter && item.acquisitionState !== stateFilter) return false;
       if (hidePacked && item.packingStatus !== "NEEDED") return false;
+      if (providerFilter === PROVIDER_UNASSIGNED) {
+        if (item.provider != null) return false;
+      } else if (providerFilter !== "") {
+        if (item.provider !== providerFilter) return false;
+      }
       if (needle) {
         const hay = `${item.description} ${item.parentOrderName} ${item.provider ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [payload.items, stateFilter, hidePacked, q]);
+  }, [payload.items, stateFilter, hidePacked, providerFilter, q]);
 
   const groups = useMemo(() => {
     const order: AcquisitionState[] = ["ON_HAND", "TO_PROCURE"];
@@ -218,8 +287,13 @@ export function PackingListClient({
         ? `Updated ${stalenessSeconds}s ago`
         : `Updated ${Math.floor(stalenessSeconds / 60)}m ago`;
 
-  const hasFilters = stateFilter !== null || hidePacked || q.trim().length > 0;
-  const filterCount = (stateFilter ? 1 : 0) + (hidePacked ? 1 : 0) + (q.trim() ? 1 : 0);
+  const hasFilters =
+    stateFilter !== null || hidePacked || providerFilter !== "" || q.trim().length > 0;
+  const filterCount =
+    (stateFilter ? 1 : 0) +
+    (hidePacked ? 1 : 0) +
+    (providerFilter !== "" ? 1 : 0) +
+    (q.trim() ? 1 : 0);
 
   const hiddenSliceNote: string | null = (() => {
     if (!payload.canSeeSupply && payload.canSeePrint) return "Supply items hidden — you don't have access to supply orders.";
@@ -296,6 +370,27 @@ export function PackingListClient({
             />
             Hide packed
           </label>
+
+          {(providerOptions.length > 0 || hasUnassigned) && (
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-2">
+              <span>Provider</span>
+              <select
+                value={providerFilter}
+                onChange={(e) => setProvider(e.target.value)}
+                className="text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+              >
+                <option value="">All</option>
+                {hasUnassigned && (
+                  <option value={PROVIDER_UNASSIGNED}>Unassigned</option>
+                )}
+                {providerOptions.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </div>
 

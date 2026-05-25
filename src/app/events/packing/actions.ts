@@ -8,6 +8,11 @@ import {
   PermissionError,
 } from "@/lib/permissions";
 import { partyLabel } from "@/lib/partyLabel";
+import {
+  getUserSetting,
+  setUserSetting,
+  packingProviderFilterKey,
+} from "@/lib/userSettings";
 
 export type PackableItem = {
   kind: "SUPPLY" | "PRINT";
@@ -120,4 +125,17 @@ export async function getPackingListItems(eventId: string): Promise<PackingListP
   ];
 
   return { items, canSeeSupply, canSeePrint, canWriteSupply, canWritePrint };
+}
+
+export async function getSavedProviderFilter(eventId: string): Promise<string | null> {
+  const session = await requirePermission("EVENTS", "VIEW", eventId);
+  return getUserSetting(session.user.id, packingProviderFilterKey(eventId));
+}
+
+export async function savePackingProviderFilter(
+  eventId: string,
+  value: string,
+): Promise<void> {
+  const session = await requirePermission("EVENTS", "VIEW", eventId);
+  await setUserSetting(session.user.id, packingProviderFilterKey(eventId), value);
 }

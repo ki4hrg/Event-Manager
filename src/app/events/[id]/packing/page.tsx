@@ -5,7 +5,11 @@ import type { PackingStatus } from "@prisma/client";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "../../actions";
-import { getPackingListItems } from "../../packing/actions";
+import {
+  getPackingListItems,
+  getSavedProviderFilter,
+  savePackingProviderFilter,
+} from "../../packing/actions";
 import { updateSupplyOrderItemPackingStatus } from "../../supply-orders/actions";
 import { updatePrintItemPackingStatus } from "../../print-orders/actions";
 import { PackingListClient } from "./PackingListClient";
@@ -19,18 +23,26 @@ export default async function PackingListPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ state?: string; hidePacked?: string }>;
+  searchParams?: Promise<{ state?: string; hidePacked?: string; provider?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { state: initialState, hidePacked: initialHidePacked } =
-    (await searchParams) ?? {};
+  const {
+    state: initialState,
+    hidePacked: initialHidePacked,
+    provider: urlProvider,
+  } = (await searchParams) ?? {};
 
-  const [event, payload] = await Promise.all([
+  // URL param wins when present, so skip the saved-setting lookup in that
+  // case (saves a DB query on every 15s polling refresh).
+  const [event, payload, savedProvider] = await Promise.all([
     getEvent(eventId),
     getPackingListItems(eventId),
+    urlProvider == null ? getSavedProviderFilter(eventId) : Promise.resolve<string | null>(null),
   ]);
 
   if (!event) notFound();
+
+  const initialProvider = urlProvider ?? savedProvider ?? "";
 
   const toggleSupplyItem = async (
     itemId: string,
@@ -48,6 +60,11 @@ export default async function PackingListPage({
   ) => {
     "use server";
     await updatePrintItemPackingStatus(itemId, printOrderId, eventId, packingStatus);
+  };
+
+  const saveProviderFilter = async (value: string) => {
+    "use server";
+    await savePackingProviderFilter(eventId, value);
   };
 
   return (
@@ -73,8 +90,10 @@ export default async function PackingListPage({
         payload={payload}
         initialState={initialState}
         initialHidePacked={initialHidePacked}
+        initialProvider={initialProvider}
         toggleSupplyItem={toggleSupplyItem}
         togglePrintItem={togglePrintItem}
+        saveProviderFilter={saveProviderFilter}
       />
     </>
   );
