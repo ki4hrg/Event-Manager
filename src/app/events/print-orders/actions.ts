@@ -21,6 +21,7 @@ import {
   updatePrintItemCore,
   deletePrintItemCore,
   updatePrintItemPackingStatusCore,
+  updatePrintItemAcquisitionStateCore,
   type PrintItemWriteArgs,
   type BulkPrintOrderUpdates,
 } from "./core";
@@ -257,6 +258,18 @@ export async function updatePrintItemPackingStatus(
 ) {
   const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await updatePrintItemPackingStatusCore(id, printOrderId, eventId, packingStatus, session.user.id);
+  revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+  revalidatePath(`/events/${eventId}/packing`);
+}
+
+export async function updatePrintItemAcquisitionState(
+  id: string,
+  printOrderId: string,
+  eventId: string,
+  acquisitionState: AcquisitionState,
+) {
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  await updatePrintItemAcquisitionStateCore(id, printOrderId, eventId, acquisitionState, session.user.id);
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
   revalidatePath(`/events/${eventId}/packing`);
 }

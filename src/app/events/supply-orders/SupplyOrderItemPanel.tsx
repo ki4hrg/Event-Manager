@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
-import type { Equipment, PackingStatus, SupplyOrderItem } from "@prisma/client";
+import type {
+  AcquisitionState,
+  Equipment,
+  PackingStatus,
+  SupplyOrderItem,
+} from "@prisma/client";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { PartyField } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
@@ -14,6 +19,7 @@ import {
   PACKING_STATUS_LABEL,
   PACKING_STATUS_OPTIONS,
 } from "@/lib/statusConstants";
+import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 
 type ItemWithExtras = SupplyOrderItem & {
   equipment: Equipment | null;
@@ -36,6 +42,7 @@ type SupplyOrderItemPanelProps = {
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   updateItemPackingStatus: (id: string, packingStatus: PackingStatus) => Promise<void>;
+  updateItemAcquisitionState: (id: string, acquisitionState: AcquisitionState) => Promise<void>;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -209,6 +216,7 @@ export function SupplyOrderItemPanel({
   updateItem,
   deleteItem,
   updateItemPackingStatus,
+  updateItemAcquisitionState,
 }: SupplyOrderItemPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -305,6 +313,13 @@ export function SupplyOrderItemPanel({
                           {ACQUISITION_LABEL[item.acquisitionState]}
                         </span>
                       </div>
+                      <div className="mt-1">
+                        <PackingProcurementWarning
+                          packingStatus={item.packingStatus}
+                          acquisitionState={item.acquisitionState}
+                          onFix={() => updateItemAcquisitionState(item.id, "ON_HAND")}
+                        />
+                      </div>
                       {provider && (
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           Provider: {provider.label}
@@ -374,6 +389,11 @@ export function SupplyOrderItemPanel({
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {ACQUISITION_LABEL[item.acquisitionState]}
                           </span>
+                          <PackingProcurementWarning
+                            packingStatus={item.packingStatus}
+                            acquisitionState={item.acquisitionState}
+                            onFix={() => updateItemAcquisitionState(item.id, "ON_HAND")}
+                          />
                         </div>
                         <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
                           {item.equipment && item.description && (

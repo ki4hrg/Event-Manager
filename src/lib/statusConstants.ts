@@ -41,28 +41,30 @@ export const STATUS_MODEL_LABEL: Record<StatusModelType, string> = {
 
 export const PACKING_STATUS_LABEL: Record<PackingStatus, string> = {
   NEEDED: "Needed",
-  PACKED: "Packed",
+  IN_TRANSIT: "In Transit",
   DELIVERED: "Delivered",
 };
 
 export const PACKING_STATUS_CLASS: Record<PackingStatus, string> = {
   NEEDED: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  PACKED: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  IN_TRANSIT: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   DELIVERED: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
 };
 
 export const PACKING_STATUS_OPTIONS: { value: PackingStatus; label: string }[] = [
   { value: "NEEDED", label: "Needed" },
-  { value: "PACKED", label: "Packed" },
+  { value: "IN_TRANSIT", label: "In Transit" },
   { value: "DELIVERED", label: "Delivered" },
 ];
 
 export const ACQUISITION_LABEL: Record<AcquisitionState, string> = {
   ON_HAND: "On Hand",
   TO_PROCURE: "To Procure",
+  DROP_SHIP: "Drop Ship",
 };
 
 export const ACQUISITION_OPTIONS: { value: AcquisitionState; label: string }[] = [
   { value: "ON_HAND", label: "On Hand" },
   { value: "TO_PROCURE", label: "To Procure" },
+  { value: "DROP_SHIP", label: "Drop Ship" },
 ];

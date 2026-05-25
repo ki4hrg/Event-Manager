@@ -365,3 +365,18 @@ export async function updatePrintItemPackingStatusCore(
   });
   await bumpPrintOrder(printOrderId, userId);
 }
+
+export async function updatePrintItemAcquisitionStateCore(
+  id: string,
+  printOrderId: string,
+  eventId: string,
+  acquisitionState: AcquisitionState,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  await prisma.printItem.update({
+    where: { id, printOrder: { eventId } },
+    data: { acquisitionState },
+  });
+  await bumpPrintOrder(printOrderId, userId);
+}

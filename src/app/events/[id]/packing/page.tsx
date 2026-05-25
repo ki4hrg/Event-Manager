@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import type { PackingStatus } from "@prisma/client";
+import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "../../actions";
@@ -10,8 +10,14 @@ import {
   getSavedProviderFilter,
   savePackingProviderFilter,
 } from "../../packing/actions";
-import { updateSupplyOrderItemPackingStatus } from "../../supply-orders/actions";
-import { updatePrintItemPackingStatus } from "../../print-orders/actions";
+import {
+  updateSupplyOrderItemPackingStatus,
+  updateSupplyOrderItemAcquisitionState,
+} from "../../supply-orders/actions";
+import {
+  updatePrintItemPackingStatus,
+  updatePrintItemAcquisitionState,
+} from "../../print-orders/actions";
 import { PackingListClient } from "./PackingListClient";
 
 export const dynamic = "force-dynamic";
@@ -23,14 +29,22 @@ export default async function PackingListPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ state?: string; hidePacked?: string; provider?: string }>;
+  searchParams?: Promise<{
+    state?: string;
+    hideHandled?: string;
+    hidePacked?: string;
+    provider?: string;
+  }>;
 }) {
   const { id: eventId } = await params;
   const {
     state: initialState,
-    hidePacked: initialHidePacked,
+    hideHandled: hideHandledParam,
+    hidePacked: legacyHidePacked,
     provider: urlProvider,
   } = (await searchParams) ?? {};
+  // Legacy `?hidePacked=1` bookmarks from before the rename still apply.
+  const initialHideHandled = hideHandledParam ?? legacyHidePacked;
 
   // URL param wins when present, so skip the saved-setting lookup in that
   // case (saves a DB query on every 15s polling refresh).
@@ -62,6 +76,24 @@ export default async function PackingListPage({
     await updatePrintItemPackingStatus(itemId, printOrderId, eventId, packingStatus);
   };
 
+  const toggleSupplyAcquisition = async (
+    itemId: string,
+    supplyOrderId: string,
+    acquisitionState: AcquisitionState,
+  ) => {
+    "use server";
+    await updateSupplyOrderItemAcquisitionState(itemId, supplyOrderId, eventId, acquisitionState);
+  };
+
+  const togglePrintAcquisition = async (
+    itemId: string,
+    printOrderId: string,
+    acquisitionState: AcquisitionState,
+  ) => {
+    "use server";
+    await updatePrintItemAcquisitionState(itemId, printOrderId, eventId, acquisitionState);
+  };
+
   const saveProviderFilter = async (value: string) => {
     "use server";
     await savePackingProviderFilter(eventId, value);
@@ -89,10 +121,12 @@ export default async function PackingListPage({
         eventId={eventId}
         payload={payload}
         initialState={initialState}
-        initialHidePacked={initialHidePacked}
+        initialHideHandled={initialHideHandled}
         initialProvider={initialProvider}
         toggleSupplyItem={toggleSupplyItem}
         togglePrintItem={togglePrintItem}
+        toggleSupplyAcquisition={toggleSupplyAcquisition}
+        togglePrintAcquisition={togglePrintAcquisition}
         saveProviderFilter={saveProviderFilter}
       />
     </>

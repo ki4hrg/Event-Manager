@@ -113,11 +113,12 @@ enum StatusModelType {
 enum AcquisitionState {
   ON_HAND
   TO_PROCURE
+  DROP_SHIP
 }
 
 enum PackingStatus {
   NEEDED
-  PACKED
+  IN_TRANSIT
   DELIVERED
 }
 

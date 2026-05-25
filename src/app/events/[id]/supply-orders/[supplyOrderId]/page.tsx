@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import type { PackingStatus } from "@prisma/client";
+import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
@@ -26,6 +26,7 @@ import {
   updateSupplyOrderItem,
   deleteSupplyOrderItem,
   updateSupplyOrderItemPackingStatus,
+  updateSupplyOrderItemAcquisitionState,
 } from "../../../supply-orders/actions";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getEquipment } from "@/app/equipment/actions";
@@ -188,6 +189,11 @@ export default async function SupplyOrderPage({
     await updateSupplyOrderItemPackingStatus(id, supplyOrderId, eventId, packingStatus);
   };
 
+  const updateItemAcquisitionStateAction = async (id: string, acquisitionState: AcquisitionState) => {
+    "use server";
+    await updateSupplyOrderItemAcquisitionState(id, supplyOrderId, eventId, acquisitionState);
+  };
+
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
 
@@ -348,6 +354,7 @@ export default async function SupplyOrderPage({
               updateItem={updateItemAction}
               deleteItem={deleteItemAction}
               updateItemPackingStatus={updateItemPackingStatusAction}
+              updateItemAcquisitionState={updateItemAcquisitionStateAction}
             />
           </div>
         </div>

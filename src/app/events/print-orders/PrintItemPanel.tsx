@@ -11,6 +11,7 @@ import {
   PACKING_STATUS_LABEL,
   PACKING_STATUS_OPTIONS,
 } from "@/lib/statusConstants";
+import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 
 type PrintItemWithParties = PrintItem & {
   designerVendor?: { name: string } | null;
@@ -27,6 +28,7 @@ type PrintItemPanelProps = {
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
+  updateItemAcquisitionState: (id: string, acquisitionState: AcquisitionState) => Promise<void>;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -217,6 +219,7 @@ export function PrintItemPanel({
   createItem,
   updateItem,
   deleteItem,
+  updateItemAcquisitionState,
 }: PrintItemPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -301,6 +304,11 @@ export function PrintItemPanel({
                       {item.distributionMethod && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">· {item.distributionMethod}</span>
                       )}
+                      <PackingProcurementWarning
+                        packingStatus={item.packingStatus}
+                        acquisitionState={item.acquisitionState}
+                        onFix={() => updateItemAcquisitionState(item.id, "ON_HAND")}
+                      />
                     </div>
                     {item.distributionNotes && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.distributionNotes}</p>

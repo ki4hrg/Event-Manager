@@ -20,6 +20,7 @@ import {
   updateSupplyOrderItemCore,
   deleteSupplyOrderItemCore,
   updateSupplyOrderItemPackingStatusCore,
+  updateSupplyOrderItemAcquisitionStateCore,
   type SupplyItemWriteArgs,
   type BulkSupplyOrderUpdates,
 } from "./core";
@@ -293,6 +294,18 @@ export async function updateSupplyOrderItemPackingStatus(
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
   await updateSupplyOrderItemPackingStatusCore(id, supplyOrderId, eventId, packingStatus, session.user.id);
+  revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+  revalidatePath(`/events/${eventId}/packing`);
+}
+
+export async function updateSupplyOrderItemAcquisitionState(
+  id: string,
+  supplyOrderId: string,
+  eventId: string,
+  acquisitionState: AcquisitionState,
+) {
+  const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
+  await updateSupplyOrderItemAcquisitionStateCore(id, supplyOrderId, eventId, acquisitionState, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
   revalidatePath(`/events/${eventId}/packing`);
 }

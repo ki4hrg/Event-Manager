@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { PackingStatus } from "@prisma/client";
+import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -27,6 +27,7 @@ import {
   createPrintItem,
   updatePrintItem,
   deletePrintItem,
+  updatePrintItemAcquisitionState,
   getPrintOrderPartyOptions,
 } from "../../../print-orders/actions";
 import { PackingStatusPanel } from "../../../supply-orders/PackingStatusPanel";
@@ -196,6 +197,11 @@ export default async function PrintOrderPage({
     await deletePrintItem(id, printOrderId, eventId);
   };
 
+  const updateItemAcquisitionStateAction = async (id: string, acquisitionState: AcquisitionState) => {
+    "use server";
+    await updatePrintItemAcquisitionState(id, printOrderId, eventId, acquisitionState);
+  };
+
   const flatVendors = flattenResponsiblePartyOptions(responsiblePartyVendors);
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
@@ -363,6 +369,7 @@ export default async function PrintOrderPage({
               createItem={createItemAction}
               updateItem={updateItemAction}
               deleteItem={deleteItemAction}
+              updateItemAcquisitionState={updateItemAcquisitionStateAction}
             />
           </div>
         </div>

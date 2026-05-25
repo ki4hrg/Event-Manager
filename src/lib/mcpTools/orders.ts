@@ -30,6 +30,7 @@ import {
   createPrintItemCore,
   updatePrintItemCore,
   deletePrintItemCore,
+  updatePrintItemAcquisitionStateCore,
   type PrintItemWriteArgs,
   type BulkPrintOrderUpdates,
 } from "@/app/events/print-orders/core";
@@ -48,6 +49,7 @@ import {
   updateSupplyOrderItemCore,
   deleteSupplyOrderItemCore,
   updateSupplyOrderItemPackingStatusCore,
+  updateSupplyOrderItemAcquisitionStateCore,
   type SupplyItemWriteArgs,
   type BulkSupplyOrderUpdates,
 } from "@/app/events/supply-orders/core";
@@ -186,8 +188,8 @@ function readPrintItemArgs(args: Record<string, unknown>): PrintItemWriteArgs {
 const printItemProps = {
   description: { type: "string" },
   quantity: { type: "number", description: "Optional integer." },
-  acquisitionState: { type: "string", enum: ["ON_HAND", "TO_PROCURE"], description: "Defaults TO_PROCURE." },
-  packingStatus: { type: "string", enum: ["NEEDED", "PACKED", "DELIVERED"], description: "Defaults NEEDED." },
+  acquisitionState: { type: "string", enum: ["ON_HAND", "TO_PROCURE", "DROP_SHIP"], description: "Defaults TO_PROCURE." },
+  packingStatus: { type: "string", enum: ["NEEDED", "IN_TRANSIT", "DELIVERED"], description: "Defaults NEEDED." },
   distributionMethod: { type: "string", description: "Optional." },
   distributionNotes: { type: "string", description: "Optional." },
   designerVendorId: { type: "string", description: "Optional vendor id." },
@@ -197,8 +199,8 @@ const printItemProps = {
   notes: { type: "string", description: "Optional." },
 } as const;
 
-const ACQUISITION_STATES = ["ON_HAND", "TO_PROCURE"] as const;
-const PACKING_STATUSES = ["NEEDED", "PACKED", "DELIVERED"] as const;
+const ACQUISITION_STATES = ["ON_HAND", "TO_PROCURE", "DROP_SHIP"] as const;
+const PACKING_STATUSES = ["NEEDED", "IN_TRANSIT", "DELIVERED"] as const;
 
 function readSupplyItemArgs(args: Record<string, unknown>): SupplyItemWriteArgs {
   return {
@@ -958,13 +960,13 @@ export const orderTools: McpToolDefinition[] = [
   },
   {
     name: "update_print_order_packing_status",
-    description: "Set or clear order-level packing status. When a concrete value is passed (NEEDED/PACKED/DELIVERED) it cascades to every PrintItem on the order in the same transaction. Pass null to clear without cascade.",
+    description: "Set or clear order-level packing status. When a concrete value is passed (NEEDED/IN_TRANSIT/DELIVERED) it cascades to every PrintItem on the order in the same transaction. Pass null to clear without cascade.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
         eventId: { type: "string" },
-        packingStatus: { type: ["string", "null"], enum: ["NEEDED", "PACKED", "DELIVERED", null] },
+        packingStatus: { type: ["string", "null"], enum: ["NEEDED", "IN_TRANSIT", "DELIVERED", null] },
       },
       required: ["id", "eventId"],
       additionalProperties: false,
@@ -993,7 +995,7 @@ export const orderTools: McpToolDefinition[] = [
           enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"],
         },
         substatus: { type: "string" },
-        packingStatus: { type: "string", enum: ["NEEDED", "PACKED", "DELIVERED"] },
+        packingStatus: { type: "string", enum: ["NEEDED", "IN_TRANSIT", "DELIVERED"] },
         vendorId: { type: "string", description: "When set, replaces all vendor links on the targeted orders." },
         functionId: { type: "string", description: "When set, ensures this function is linked on all targets (skip-existing)." },
       },
@@ -1164,6 +1166,29 @@ export const orderTools: McpToolDefinition[] = [
       const eventId = requireString(args, "eventId");
       await deletePrintItemCore(id, printOrderId, eventId, userId);
       return { id, deleted: true };
+    },
+  },
+  {
+    name: "update_print_item_acquisition_state",
+    description: "Set the acquisition state on a single PrintItem (ON_HAND / TO_PROCURE / DROP_SHIP).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        printOrderId: { type: "string" },
+        eventId: { type: "string" },
+        acquisitionState: { type: "string", enum: ACQUISITION_STATES },
+      },
+      required: ["id", "printOrderId", "eventId", "acquisitionState"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const printOrderId = requireString(args, "printOrderId");
+      const eventId = requireString(args, "eventId");
+      const acquisitionState = requireString(args, "acquisitionState") as AcquisitionState;
+      await updatePrintItemAcquisitionStateCore(id, printOrderId, eventId, acquisitionState, userId);
+      return { ok: true };
     },
   },
   // SupplyOrder writes -----------------------------------------------------
@@ -1500,6 +1525,29 @@ export const orderTools: McpToolDefinition[] = [
       const eventId = requireString(args, "eventId");
       const packingStatus = requireString(args, "packingStatus") as PackingStatus;
       await updateSupplyOrderItemPackingStatusCore(id, supplyOrderId, eventId, packingStatus, userId);
+      return { ok: true };
+    },
+  },
+  {
+    name: "update_supply_order_item_acquisition_state",
+    description: "Set the acquisition state on a single SupplyOrderItem (ON_HAND / TO_PROCURE / DROP_SHIP).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        supplyOrderId: { type: "string" },
+        eventId: { type: "string" },
+        acquisitionState: { type: "string", enum: ACQUISITION_STATES },
+      },
+      required: ["id", "supplyOrderId", "eventId", "acquisitionState"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const supplyOrderId = requireString(args, "supplyOrderId");
+      const eventId = requireString(args, "eventId");
+      const acquisitionState = requireString(args, "acquisitionState") as AcquisitionState;
+      await updateSupplyOrderItemAcquisitionStateCore(id, supplyOrderId, eventId, acquisitionState, userId);
       return { ok: true };
     },
   },

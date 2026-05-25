@@ -5,27 +5,34 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import {
+  ACQUISITION_LABEL,
   PACKING_STATUS_CLASS,
   PACKING_STATUS_LABEL,
 } from "@/lib/statusConstants";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
+import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import type { PackableItem, PackingListPayload } from "../../packing/actions";
 
 type ToggleSupply = (itemId: string, supplyOrderId: string, status: PackingStatus) => Promise<void>;
 type TogglePrint = (itemId: string, printOrderId: string, status: PackingStatus) => Promise<void>;
+type ToggleSupplyAcquisition = (
+  itemId: string,
+  supplyOrderId: string,
+  state: AcquisitionState,
+) => Promise<void>;
+type TogglePrintAcquisition = (
+  itemId: string,
+  printOrderId: string,
+  state: AcquisitionState,
+) => Promise<void>;
 
 const NEXT_STATUS: Record<PackingStatus, PackingStatus> = {
-  NEEDED: "PACKED",
-  PACKED: "DELIVERED",
+  NEEDED: "IN_TRANSIT",
+  IN_TRANSIT: "DELIVERED",
   DELIVERED: "NEEDED",
 };
 
-const ACQUISITION_LABEL: Record<AcquisitionState, string> = {
-  ON_HAND: "On Hand",
-  TO_PROCURE: "To Procure",
-};
-
-const VALID_STATES = new Set<AcquisitionState>(["ON_HAND", "TO_PROCURE"]);
+const VALID_STATES = new Set<AcquisitionState>(["ON_HAND", "TO_PROCURE", "DROP_SHIP"]);
 
 function compareByDescription(a: PackableItem, b: PackableItem) {
   return a.description.localeCompare(b.description, undefined, { sensitivity: "base" });
@@ -37,10 +44,12 @@ type Props = {
   eventId: string;
   payload: PackingListPayload;
   initialState?: string;
-  initialHidePacked?: string;
+  initialHideHandled?: string;
   initialProvider?: string;
   toggleSupplyItem: ToggleSupply;
   togglePrintItem: TogglePrint;
+  toggleSupplyAcquisition: ToggleSupplyAcquisition;
+  togglePrintAcquisition: TogglePrintAcquisition;
   saveProviderFilter: (value: string) => Promise<void>;
 };
 
@@ -48,10 +57,12 @@ export function PackingListClient({
   eventId,
   payload,
   initialState,
-  initialHidePacked,
+  initialHideHandled,
   initialProvider,
   toggleSupplyItem,
   togglePrintItem,
+  toggleSupplyAcquisition,
+  togglePrintAcquisition,
   saveProviderFilter,
 }: Props) {
   const router = useRouter();
@@ -62,7 +73,7 @@ export function PackingListClient({
     initialState && VALID_STATES.has(initialState as AcquisitionState)
       ? (initialState as AcquisitionState)
       : null;
-  const hidePacked = initialHidePacked === "1";
+  const hideHandled = initialHideHandled === "1";
 
   const providerOptions = useMemo(() => {
     const names = new Set<string>();
@@ -167,8 +178,8 @@ export function PackingListClient({
     pushWith({ state: next });
   }
 
-  function setHidePacked(next: boolean) {
-    pushWith({ hidePacked: next ? "1" : null });
+  function setHideHandled(next: boolean) {
+    pushWith({ hideHandled: next ? "1" : null });
   }
 
   // useTransition wraps the save so React tracks it as in-flight work, and
@@ -189,7 +200,7 @@ export function PackingListClient({
     setQ("");
     startProviderSave(async () => {
       await saveProviderFilter("");
-      pushWith({ state: null, hidePacked: null, provider: null });
+      pushWith({ state: null, hideHandled: null, provider: null });
     });
   }
 
@@ -198,6 +209,46 @@ export function PackingListClient({
   // in-flight state. A finishing cycle only clears its own itemId.
   const [pendingItemIds, setPendingItemIds] = useState<Set<string>>(() => new Set());
   const [errorItemIds, setErrorItemIds] = useState<Set<string>>(() => new Set());
+
+  function fixAcquisition(item: PackableItem) {
+    setPendingItemIds((s) => {
+      const n = new Set(s);
+      n.add(item.itemId);
+      return n;
+    });
+    setErrorItemIds((s) => {
+      if (!s.has(item.itemId)) return s;
+      const n = new Set(s);
+      n.delete(item.itemId);
+      return n;
+    });
+    startRefresh(async () => {
+      let failed = false;
+      try {
+        if (item.kind === "SUPPLY") {
+          await toggleSupplyAcquisition(item.itemId, item.parentOrderId, "ON_HAND");
+        } else {
+          await togglePrintAcquisition(item.itemId, item.parentOrderId, "ON_HAND");
+        }
+        router.refresh();
+      } catch {
+        failed = true;
+      } finally {
+        setPendingItemIds((s) => {
+          const n = new Set(s);
+          n.delete(item.itemId);
+          return n;
+        });
+        if (failed) {
+          setErrorItemIds((s) => {
+            const n = new Set(s);
+            n.add(item.itemId);
+            return n;
+          });
+        }
+      }
+    });
+  }
 
   function cycle(item: PackableItem) {
     const next = NEXT_STATUS[item.packingStatus];
@@ -245,7 +296,7 @@ export function PackingListClient({
     const needle = q.trim().toLowerCase();
     return payload.items.filter((item) => {
       if (stateFilter && item.acquisitionState !== stateFilter) return false;
-      if (hidePacked && item.packingStatus !== "NEEDED") return false;
+      if (hideHandled && item.packingStatus !== "NEEDED") return false;
       if (providerFilter === PROVIDER_UNASSIGNED) {
         if (item.provider != null) return false;
       } else if (providerFilter !== "") {
@@ -257,10 +308,10 @@ export function PackingListClient({
       }
       return true;
     });
-  }, [payload.items, stateFilter, hidePacked, providerFilter, q]);
+  }, [payload.items, stateFilter, hideHandled, providerFilter, q]);
 
   const groups = useMemo(() => {
-    const order: AcquisitionState[] = ["ON_HAND", "TO_PROCURE"];
+    const order: AcquisitionState[] = ["ON_HAND", "TO_PROCURE", "DROP_SHIP"];
     return order.map((state) => {
       const rows = filtered
         .filter((item) => item.acquisitionState === state)
@@ -288,10 +339,10 @@ export function PackingListClient({
         : `Updated ${Math.floor(stalenessSeconds / 60)}m ago`;
 
   const hasFilters =
-    stateFilter !== null || hidePacked || providerFilter !== "" || q.trim().length > 0;
+    stateFilter !== null || hideHandled || providerFilter !== "" || q.trim().length > 0;
   const filterCount =
     (stateFilter ? 1 : 0) +
-    (hidePacked ? 1 : 0) +
+    (hideHandled ? 1 : 0) +
     (providerFilter !== "" ? 1 : 0) +
     (q.trim() ? 1 : 0);
 
@@ -361,14 +412,19 @@ export function PackingListClient({
             onClick={() => setStateFilter("TO_PROCURE")}
             label="To Procure"
           />
+          <Chip
+            active={stateFilter === "DROP_SHIP"}
+            onClick={() => setStateFilter("DROP_SHIP")}
+            label="Drop Ship"
+          />
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-2">
             <input
               type="checkbox"
-              checked={hidePacked}
-              onChange={(e) => setHidePacked(e.target.checked)}
+              checked={hideHandled}
+              onChange={(e) => setHideHandled(e.target.checked)}
               className="rounded border-gray-300 dark:border-gray-700"
             />
-            Hide packed
+            Hide handled
           </label>
 
           {(providerOptions.length > 0 || hasUnassigned) && (
@@ -428,7 +484,7 @@ export function PackingListClient({
                 {ACQUISITION_LABEL[group.state]}
               </h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                {group.packed} / {group.total} packed
+                {group.packed} / {group.total} handled
               </span>
             </div>
 
@@ -438,49 +494,62 @@ export function PackingListClient({
               <>
                 {/* Mobile cards */}
                 <ul className="sm:hidden space-y-2">
-                  {group.rows.map((item) => (
-                    <li
-                      key={`${item.kind}-${item.itemId}`}
-                      className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-2 flex-wrap">
-                            <span className="font-medium text-gray-900 dark:text-white">
-                              {item.description}
-                            </span>
-                            {item.quantity != null && (
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                × {item.quantity}
+                  {group.rows.map((item) => {
+                    const canWriteItem =
+                      item.kind === "SUPPLY" ? payload.canWriteSupply : payload.canWritePrint;
+                    return (
+                      <li
+                        key={`${item.kind}-${item.itemId}`}
+                        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                {item.description}
                               </span>
+                              {item.quantity != null && (
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  × {item.quantity}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              <Link
+                                href={item.parentOrderHref}
+                                className="hover:underline"
+                              >
+                                {item.parentOrderName}
+                              </Link>
+                              {item.provider && <span> · {item.provider}</span>}
+                              {item.equipmentCategory && <span> · {item.equipmentCategory}</span>}
+                            </div>
+                            {item.notes && (
+                              <p className="mt-1 text-xs italic text-gray-500 dark:text-gray-400">
+                                {item.notes}
+                              </p>
                             )}
                           </div>
-                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            <Link
-                              href={item.parentOrderHref}
-                              className="hover:underline"
-                            >
-                              {item.parentOrderName}
-                            </Link>
-                            {item.provider && <span> · {item.provider}</span>}
-                            {item.equipmentCategory && <span> · {item.equipmentCategory}</span>}
-                          </div>
-                          {item.notes && (
-                            <p className="mt-1 text-xs italic text-gray-500 dark:text-gray-400">
-                              {item.notes}
-                            </p>
-                          )}
+                          <StatusPill
+                            item={item}
+                            canWrite={canWriteItem}
+                            isPending={pendingItemIds.has(item.itemId)}
+                            hasError={errorItemIds.has(item.itemId)}
+                            onCycle={cycle}
+                          />
                         </div>
-                        <StatusPill
-                          item={item}
-                          canWrite={item.kind === "SUPPLY" ? payload.canWriteSupply : payload.canWritePrint}
-                          isPending={pendingItemIds.has(item.itemId)}
-                          hasError={errorItemIds.has(item.itemId)}
-                          onCycle={cycle}
-                        />
-                      </div>
-                    </li>
-                  ))}
+                        <div className="mt-2">
+                          <PackingProcurementWarning
+                            packingStatus={item.packingStatus}
+                            acquisitionState={item.acquisitionState}
+                            onFix={() => fixAcquisition(item)}
+                            disabled={!canWriteItem}
+                            isPending={pendingItemIds.has(item.itemId)}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 {/* Desktop table */}
@@ -497,7 +566,10 @@ export function PackingListClient({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                      {group.rows.map((item) => (
+                      {group.rows.map((item) => {
+                        const canWriteItem =
+                          item.kind === "SUPPLY" ? payload.canWriteSupply : payload.canWritePrint;
+                        return (
                         <tr key={`${item.kind}-${item.itemId}`}>
                           <td className="py-2 pr-3 text-gray-900 dark:text-white">
                             <div className="font-medium">{item.description}</div>
@@ -506,6 +578,15 @@ export function PackingListClient({
                                 {item.notes}
                               </div>
                             )}
+                            <div className="mt-1">
+                              <PackingProcurementWarning
+                                packingStatus={item.packingStatus}
+                                acquisitionState={item.acquisitionState}
+                                onFix={() => fixAcquisition(item)}
+                                disabled={!canWriteItem}
+                                isPending={pendingItemIds.has(item.itemId)}
+                              />
+                            </div>
                           </td>
                           <td className="py-2 pr-3 text-gray-700 dark:text-gray-300">
                             {item.quantity ?? "—"}
@@ -527,14 +608,15 @@ export function PackingListClient({
                           <td className="py-2 pr-3">
                             <StatusPill
                               item={item}
-                              canWrite={item.kind === "SUPPLY" ? payload.canWriteSupply : payload.canWritePrint}
+                              canWrite={canWriteItem}
                               isPending={pendingItemIds.has(item.itemId)}
                               hasError={errorItemIds.has(item.itemId)}
                               onCycle={cycle}
                             />
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -365,3 +365,18 @@ export async function updateSupplyOrderItemPackingStatusCore(
   });
   await bumpSupplyOrder(supplyOrderId, userId);
 }
+
+export async function updateSupplyOrderItemAcquisitionStateCore(
+  id: string,
+  supplyOrderId: string,
+  eventId: string,
+  acquisitionState: AcquisitionState,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await prisma.supplyOrderItem.update({
+    where: { id, supplyOrder: { eventId } },
+    data: { acquisitionState },
+  });
+  await bumpSupplyOrder(supplyOrderId, userId);
+}
