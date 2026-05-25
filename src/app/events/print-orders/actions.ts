@@ -20,6 +20,7 @@ import {
   createPrintItemCore,
   updatePrintItemCore,
   deletePrintItemCore,
+  updatePrintItemPackingStatusCore,
   type PrintItemWriteArgs,
   type BulkPrintOrderUpdates,
 } from "./core";
@@ -246,6 +247,18 @@ export async function deletePrintItem(id: string, printOrderId: string, eventId:
   const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
   await deletePrintItemCore(id, printOrderId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+}
+
+export async function updatePrintItemPackingStatus(
+  id: string,
+  printOrderId: string,
+  eventId: string,
+  packingStatus: PackingStatus,
+) {
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  await updatePrintItemPackingStatusCore(id, printOrderId, eventId, packingStatus, session.user.id);
+  revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
+  revalidatePath(`/events/${eventId}/packing`);
 }
 
 export async function getPrintOrderPartyOptions(printOrderId: string) {

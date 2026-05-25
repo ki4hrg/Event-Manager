@@ -350,3 +350,18 @@ export async function deletePrintItemCore(
   await prisma.printItem.delete({ where: { id, printOrder: { eventId } } });
   await bumpPrintOrder(printOrderId, userId);
 }
+
+export async function updatePrintItemPackingStatusCore(
+  id: string,
+  printOrderId: string,
+  eventId: string,
+  packingStatus: PackingStatus,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  await prisma.printItem.update({
+    where: { id, printOrder: { eventId } },
+    data: { packingStatus },
+  });
+  await bumpPrintOrder(printOrderId, userId);
+}

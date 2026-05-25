@@ -294,6 +294,7 @@ export async function updateSupplyOrderItemPackingStatus(
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
   await updateSupplyOrderItemPackingStatusCore(id, supplyOrderId, eventId, packingStatus, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+  revalidatePath(`/events/${eventId}/packing`);
 }
 
 export async function bulkUpdateSupplyOrders(
