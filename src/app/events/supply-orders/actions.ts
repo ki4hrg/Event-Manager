@@ -96,7 +96,7 @@ export async function createSupplyOrder(eventId: string, formData: FormData) {
     eventId,
     {
       name: (formData.get("name") as string)?.trim(),
-      roomId: (formData.get("roomId") as string) || "",
+      roomId: (formData.get("roomId") as string) || null,
       specificLocation: (formData.get("specificLocation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       providerVendorId: (formData.get("providerVendorId") as string) || null,
@@ -120,7 +120,7 @@ export async function updateSupplyOrder(id: string, eventId: string, formData: F
     eventId,
     {
       name: (formData.get("name") as string)?.trim(),
-      roomId: (formData.get("roomId") as string) || "",
+      roomId: (formData.get("roomId") as string) || null,
       specificLocation: (formData.get("specificLocation") as string) || null,
       notes: (formData.get("notes") as string) || null,
       providerVendorId: (formData.get("providerVendorId") as string) || null,

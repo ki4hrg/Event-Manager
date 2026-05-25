@@ -17,10 +17,10 @@ export default async function SupplyOrdersPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ status?: string; room?: string }>;
+  searchParams?: Promise<{ status?: string; room?: string; linked?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { status: initialStatus, room: initialRoom } = (await searchParams) ?? {};
+  const { status: initialStatus, room: initialRoom, linked: initialLinked } = (await searchParams) ?? {};
 
   const [event, supplyOrders] = await Promise.all([
     getEvent(eventId),
@@ -62,6 +62,7 @@ export default async function SupplyOrdersPage({
         workflowSummaries={workflowSummaries}
         initialStatus={initialStatus}
         initialRoom={initialRoom}
+        initialLinked={initialLinked}
         deleteSupplyOrder={deleteSupplyOrderAction}
       />
     </>

@@ -625,7 +625,7 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-700 dark:text-gray-300 mb-2">
         <dt className="font-medium">Destination:</dt>
         <dd>
-          {order.room.name}
+          {order.room?.name ?? "—"}
           {order.specificLocation ? ` — ${order.specificLocation}` : ""}
         </dd>
         {orderProvider && (

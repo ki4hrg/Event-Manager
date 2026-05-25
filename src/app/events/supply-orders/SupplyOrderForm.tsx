@@ -11,7 +11,7 @@ import { groupRoomsByGroup } from "@/lib/roomGroups";
 type SupplyOrderData = {
   id: string;
   name: string;
-  roomId: string;
+  roomId?: string | null;
   room?: { id: string; name: string } | null;
   specificLocation?: string | null;
   notes?: string | null;
@@ -119,7 +119,7 @@ export function SupplyOrderForm({
 
           <div>
             <label htmlFor="roomId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Destination Room <span className="text-red-500 ml-1">*</span>
+              Destination Room
             </label>
             {rooms.length === 0 ? (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -129,11 +129,10 @@ export function SupplyOrderForm({
               <select
                 id="roomId"
                 name="roomId"
-                required
                 defaultValue={supplyOrder?.roomId ?? initialRoomId ?? ""}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">— Select room —</option>
+                <option value="">— No room —</option>
                 {hasRoomGroups
                   ? roomBuckets.map((bucket) => (
                       <optgroup key={bucket.key} label={bucket.label}>

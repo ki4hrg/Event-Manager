@@ -148,7 +148,7 @@ export async function getEventOverviewStats(eventId: string) {
       ? prisma.printOrder.count({ where: { eventId, status: notCancelled, vendors: { none: {} } } })
       : Promise.resolve(0),
     canViewPrintOrders && canEditPrintOrders
-      ? prisma.printOrder.count({ where: { eventId, status: notCancelled, functions: { none: {} }, presentationId: null } })
+      ? prisma.printOrder.count({ where: { eventId, status: notCancelled, functions: { none: {} }, presentationId: null, roomId: null } })
       : Promise.resolve(0),
     canViewSupplyOrders
       ? prisma.supplyOrder.findMany({ where: { eventId }, select: { status: true } })
@@ -159,7 +159,7 @@ export async function getEventOverviewStats(eventId: string) {
         })
       : Promise.resolve(0),
     canViewSupplyOrders && canEditSupplyOrders
-      ? prisma.supplyOrder.count({ where: { eventId, status: notCancelled, functions: { none: {} }, presentations: { none: {} } } })
+      ? prisma.supplyOrder.count({ where: { eventId, status: notCancelled, functions: { none: {} }, presentations: { none: {} }, roomId: null } })
       : Promise.resolve(0),
     canViewMediaDeliverables
       ? prisma.mediaDeliverable.findMany({ where: { eventId }, select: { status: true } })
@@ -296,7 +296,7 @@ export async function getEventOverviewStats(eventId: string) {
       attention: canEditSupplyOrders
         ? [
             { label: "missing provider", count: supplyMissingProvider, href: basePath },
-            { label: "unlinked", count: supplyUnlinked, href: basePath },
+            { label: "unlinked", count: supplyUnlinked, href: `${basePath}?linked=none` },
           ]
         : [],
     });

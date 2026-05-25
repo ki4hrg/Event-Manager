@@ -19,6 +19,7 @@ import {
 import {
   createPrintOrderCore,
   updatePrintOrderCore,
+  updatePrintOrderPackingStatusCore,
   deletePrintOrderCore,
   deletePrintOrdersCore,
   bulkUpdatePrintOrdersCore,
@@ -170,6 +171,8 @@ function readPrintItemArgs(args: Record<string, unknown>): PrintItemWriteArgs {
   return {
     description: requireString(args, "description"),
     quantity: optionalInt(args, "quantity"),
+    acquisitionState: (optionalString(args, "acquisitionState") ?? "TO_PROCURE") as AcquisitionState,
+    packingStatus: (optionalString(args, "packingStatus") ?? "NEEDED") as PackingStatus,
     distributionMethod: optionalString(args, "distributionMethod") ?? null,
     distributionNotes: optionalString(args, "distributionNotes") ?? null,
     designerVendorId: optionalString(args, "designerVendorId") ?? null,
@@ -183,6 +186,8 @@ function readPrintItemArgs(args: Record<string, unknown>): PrintItemWriteArgs {
 const printItemProps = {
   description: { type: "string" },
   quantity: { type: "number", description: "Optional integer." },
+  acquisitionState: { type: "string", enum: ["ON_HAND", "TO_PROCURE"], description: "Defaults TO_PROCURE." },
+  packingStatus: { type: "string", enum: ["NEEDED", "PACKED", "DELIVERED"], description: "Defaults NEEDED." },
   distributionMethod: { type: "string", description: "Optional." },
   distributionNotes: { type: "string", description: "Optional." },
   designerVendorId: { type: "string", description: "Optional vendor id." },
@@ -192,8 +197,8 @@ const printItemProps = {
   notes: { type: "string", description: "Optional." },
 } as const;
 
-const ACQUISITION_STATES = ["ON_HAND", "TO_BUY", "TO_RENT", "TO_BORROW", "PROVIDED"] as const;
-const PACKING_STATUSES = ["NEEDED", "PACKED", "LOADED", "DELIVERED", "RETURNED"] as const;
+const ACQUISITION_STATES = ["ON_HAND", "TO_PROCURE"] as const;
+const PACKING_STATUSES = ["NEEDED", "PACKED", "DELIVERED"] as const;
 
 function readSupplyItemArgs(args: Record<string, unknown>): SupplyItemWriteArgs {
   return {
@@ -861,6 +866,8 @@ export const orderTools: McpToolDefinition[] = [
         eventId: { type: "string" },
         name: { type: "string" },
         notes: { type: "string", description: "Optional." },
+        roomId: { type: "string", description: "Optional staging room." },
+        specificLocation: { type: "string", description: "Optional staging detail (e.g. 'Secretarial table')." },
         functionId: { type: "string", description: "Optional initial function link." },
         presentationId: { type: "string", description: "Optional 1:1 presentation link." },
         vendorId: { type: "string", description: "Optional vendor pin. Falls back to event default." },
@@ -875,6 +882,8 @@ export const orderTools: McpToolDefinition[] = [
         {
           name: requireString(args, "name"),
           notes: optionalString(args, "notes") ?? null,
+          roomId: optionalString(args, "roomId") ?? null,
+          specificLocation: optionalString(args, "specificLocation") ?? null,
           functionId: optionalString(args, "functionId") ?? null,
           presentationId: optionalString(args, "presentationId") ?? null,
           vendorId: optionalString(args, "vendorId") ?? null,
@@ -885,7 +894,7 @@ export const orderTools: McpToolDefinition[] = [
   },
   {
     name: "update_print_order",
-    description: "Update name / notes on a print order.",
+    description: "Update name / notes / staging (roomId, specificLocation) on a print order. To change packingStatus use `update_print_order_packing_status` (it cascades to items).",
     inputSchema: {
       type: "object",
       properties: {
@@ -893,6 +902,8 @@ export const orderTools: McpToolDefinition[] = [
         eventId: { type: "string" },
         name: { type: "string" },
         notes: { type: "string" },
+        roomId: { type: "string", description: "Optional staging room (empty string clears)." },
+        specificLocation: { type: "string", description: "Optional staging detail." },
       },
       required: ["id", "eventId", "name"],
       additionalProperties: false,
@@ -904,6 +915,8 @@ export const orderTools: McpToolDefinition[] = [
         {
           name: requireString(args, "name"),
           notes: optionalString(args, "notes") ?? null,
+          roomId: optionalString(args, "roomId") ?? null,
+          specificLocation: optionalString(args, "specificLocation") ?? null,
         },
         userId,
       ),
@@ -944,9 +957,32 @@ export const orderTools: McpToolDefinition[] = [
       ),
   },
   {
+    name: "update_print_order_packing_status",
+    description: "Set or clear order-level packing status. When a concrete value is passed (NEEDED/PACKED/DELIVERED) it cascades to every PrintItem on the order in the same transaction. Pass null to clear without cascade.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        eventId: { type: "string" },
+        packingStatus: { type: ["string", "null"], enum: ["NEEDED", "PACKED", "DELIVERED", null] },
+      },
+      required: ["id", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      const raw = args["packingStatus"];
+      const packingStatus =
+        raw === null || raw === undefined ? null : (raw as PackingStatus);
+      await updatePrintOrderPackingStatusCore(id, eventId, packingStatus, userId);
+      return { ok: true };
+    },
+  },
+  {
     name: "bulk_update_print_orders",
     description:
-      "Update status / substatus / vendor (replace-all) / function link (skip-existing) on multiple print orders at once.",
+      "Update status / substatus / packing status / vendor (replace-all) / function link (skip-existing) on multiple print orders at once. Setting packingStatus to a concrete value cascades to items.",
     inputSchema: {
       type: "object",
       properties: {
@@ -957,6 +993,7 @@ export const orderTools: McpToolDefinition[] = [
           enum: ["TODO", "IN_PROGRESS", "READY", "BLOCKED", "DONE", "CANCELLED"],
         },
         substatus: { type: "string" },
+        packingStatus: { type: "string", enum: ["NEEDED", "PACKED", "DELIVERED"] },
         vendorId: { type: "string", description: "When set, replaces all vendor links on the targeted orders." },
         functionId: { type: "string", description: "When set, ensures this function is linked on all targets (skip-existing)." },
       },
@@ -970,6 +1007,8 @@ export const orderTools: McpToolDefinition[] = [
       const status = optionalString(args, "status");
       if (status) updates.status = status as EntityStatus;
       if ("substatus" in args) updates.substatus = optionalString(args, "substatus") ?? null;
+      const packingStatus = optionalString(args, "packingStatus");
+      if (packingStatus) updates.packingStatus = packingStatus as PackingStatus;
       const vendorId = optionalString(args, "vendorId");
       if (vendorId) updates.vendorId = vendorId;
       const functionId = optionalString(args, "functionId");
@@ -1131,13 +1170,13 @@ export const orderTools: McpToolDefinition[] = [
   {
     name: "create_supply_order",
     description:
-      "Create a supply order on an event. `roomId` (destination room) is required. Provider is a single-party concept: pass either providerVendorId OR providerContactId (passing vendor clears contact). When both are omitted the event's default SUPPLY_ORDER vendor (if any) is auto-assigned. Auto-assigns default workflows. Optionally pin to a function and/or presentation at create.",
+      "Create a supply order on an event. `roomId` (destination room) is optional — orders without a room/function/presentation surface as 'needs attention' on the overview. Provider is a single-party concept: pass either providerVendorId OR providerContactId (passing vendor clears contact). When both are omitted the event's default SUPPLY_ORDER vendor (if any) is auto-assigned. Auto-assigns default workflows. Optionally pin to a function and/or presentation at create.",
     inputSchema: {
       type: "object",
       properties: {
         eventId: { type: "string" },
         name: { type: "string" },
-        roomId: { type: "string", description: "Destination room id (required)." },
+        roomId: { type: "string", description: "Optional destination room id." },
         specificLocation: { type: "string", description: "Optional sub-location within the room." },
         notes: { type: "string" },
         providerVendorId: { type: "string" },
@@ -1145,7 +1184,7 @@ export const orderTools: McpToolDefinition[] = [
         functionId: { type: "string", description: "Optional initial M:M function link." },
         presentationId: { type: "string", description: "Optional initial M:M presentation link." },
       },
-      required: ["eventId", "name", "roomId"],
+      required: ["eventId", "name"],
       additionalProperties: false,
     },
     handler: (args, { userId }) =>
@@ -1153,7 +1192,7 @@ export const orderTools: McpToolDefinition[] = [
         requireString(args, "eventId"),
         {
           name: requireString(args, "name"),
-          roomId: requireString(args, "roomId"),
+          roomId: optionalString(args, "roomId") ?? null,
           specificLocation: optionalString(args, "specificLocation") ?? null,
           notes: optionalString(args, "notes") ?? null,
           providerVendorId: optionalString(args, "providerVendorId") ?? null,
@@ -1166,20 +1205,20 @@ export const orderTools: McpToolDefinition[] = [
   },
   {
     name: "update_supply_order",
-    description: "Update name / room / specific location / notes / provider on a supply order.",
+    description: "Update name / room / specific location / notes / provider on a supply order. `roomId` is optional; pass an empty string to clear it.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
         eventId: { type: "string" },
         name: { type: "string" },
-        roomId: { type: "string" },
+        roomId: { type: "string", description: "Optional. Empty string clears the room." },
         specificLocation: { type: "string" },
         notes: { type: "string" },
         providerVendorId: { type: "string" },
         providerContactId: { type: "string" },
       },
-      required: ["id", "eventId", "name", "roomId"],
+      required: ["id", "eventId", "name"],
       additionalProperties: false,
     },
     handler: (args, { userId }) =>
@@ -1188,7 +1227,7 @@ export const orderTools: McpToolDefinition[] = [
         requireString(args, "eventId"),
         {
           name: requireString(args, "name"),
-          roomId: requireString(args, "roomId"),
+          roomId: optionalString(args, "roomId") ?? null,
           specificLocation: optionalString(args, "specificLocation") ?? null,
           notes: optionalString(args, "notes") ?? null,
           providerVendorId: optionalString(args, "providerVendorId") ?? null,

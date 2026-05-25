@@ -85,7 +85,7 @@ export function PrintOrderList({
       if (filters.vendor === "none" && o.vendors.length > 0) return false;
       if (filters.function === "yes" && o.functions.length === 0) return false;
       if (filters.function === "none" && o.functions.length > 0) return false;
-      const hasLink = o.functions.length > 0 || !!o.presentation;
+      const hasLink = o.functions.length > 0 || !!o.presentation || !!o.room;
       if (filters.linked === "yes" && !hasLink) return false;
       if (filters.linked === "none" && hasLink) return false;
       return true;

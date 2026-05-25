@@ -1047,7 +1047,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
         <div className="flex flex-wrap gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
           <span>Supply Order</span>
           <span>
-            Destination: {order.room.name}
+            Destination: {order.room?.name ?? "—"}
             {order.specificLocation ? ` — ${order.specificLocation}` : ""}
           </span>
           {order.packingStatus && (

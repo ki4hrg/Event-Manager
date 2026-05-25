@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { PrintItem } from "@prisma/client";
+import type { AcquisitionState, PackingStatus, PrintItem } from "@prisma/client";
 import { PartyField, parsePartyValue, type PartyOptions, type ContactOptions } from "@/app/events/av-orders/party-field";
+import {
+  ACQUISITION_LABEL,
+  ACQUISITION_OPTIONS,
+  PACKING_STATUS_CLASS,
+  PACKING_STATUS_LABEL,
+  PACKING_STATUS_OPTIONS,
+} from "@/lib/statusConstants";
 
 type PrintItemWithParties = PrintItem & {
   designerVendor?: { name: string } | null;
@@ -38,6 +45,8 @@ function SubmitButton({ label }: { label: string }) {
 function ItemForm({
   defaultDescription = "",
   defaultQuantity = "",
+  defaultAcquisitionState = "TO_PROCURE",
+  defaultPackingStatus = "NEEDED",
   defaultDistributionMethod = "",
   defaultDistributionNotes = "",
   defaultDesignerVendorId = "",
@@ -54,6 +63,8 @@ function ItemForm({
 }: {
   defaultDescription?: string;
   defaultQuantity?: number | string;
+  defaultAcquisitionState?: AcquisitionState;
+  defaultPackingStatus?: PackingStatus;
   defaultDistributionMethod?: string;
   defaultDistributionNotes?: string;
   defaultDesignerVendorId?: string;
@@ -94,6 +105,30 @@ function ItemForm({
             placeholder="e.g. 250"
             className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Acquisition</label>
+          <select
+            name="acquisitionState"
+            defaultValue={defaultAcquisitionState}
+            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          >
+            {ACQUISITION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Packing</label>
+          <select
+            name="packingStatus"
+            defaultValue={defaultPackingStatus}
+            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          >
+            {PACKING_STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Distribution</label>
@@ -233,6 +268,8 @@ export function PrintItemPanel({
                 <ItemForm
                   defaultDescription={item.description}
                   defaultQuantity={item.quantity ?? ""}
+                  defaultAcquisitionState={item.acquisitionState}
+                  defaultPackingStatus={item.packingStatus}
                   defaultDistributionMethod={item.distributionMethod ?? ""}
                   defaultDistributionNotes={item.distributionNotes ?? ""}
                   defaultDesignerVendorId={item.designerVendorId ?? ""}
@@ -255,6 +292,12 @@ export function PrintItemPanel({
                       {item.quantity && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">× {item.quantity}</span>
                       )}
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        · {ACQUISITION_LABEL[item.acquisitionState]}
+                      </span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${PACKING_STATUS_CLASS[item.packingStatus]}`}>
+                        {PACKING_STATUS_LABEL[item.packingStatus]}
+                      </span>
                       {item.distributionMethod && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">· {item.distributionMethod}</span>
                       )}

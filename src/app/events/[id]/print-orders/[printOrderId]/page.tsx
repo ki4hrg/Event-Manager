@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { PackingStatus } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -12,10 +13,12 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
+import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 import { getEvent } from "../../../actions";
 import {
   getPrintOrder,
   updatePrintOrder,
+  updatePrintOrderPackingStatus,
   deletePrintOrder,
   linkPrintOrderToFunction,
   unlinkPrintOrderFromFunction,
@@ -26,6 +29,7 @@ import {
   deletePrintItem,
   getPrintOrderPartyOptions,
 } from "../../../print-orders/actions";
+import { PackingStatusPanel } from "../../../supply-orders/PackingStatusPanel";
 import {
   getPrintOrderVendors,
   addVendorToPrintOrder,
@@ -81,6 +85,7 @@ export default async function PrintOrderPage({
   const [
     printOrderVendors, fileTypeOptions, printOrderFiles, responsiblePartyVendors, substatuses,
     distributionOptions, availableFunctions, availablePresentations, partyOptions, availableEventVendors,
+    venueRooms,
   ] = await Promise.all([
     getPrintOrderVendors(printOrderId, eventId),
     getOptions("file_type"),
@@ -98,6 +103,13 @@ export default async function PrintOrderPage({
         }),
     getPrintOrderPartyOptions(printOrderId),
     searchAssignedEventVendors("", eventId, "PRINT_ORDER"),
+    event.venueId
+      ? prisma.room.findMany({
+          where: { venueId: event.venueId },
+          include: { group: { select: { id: true, name: true, sortOrder: true } } },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   const linkedFunctionIds = new Set(printOrder.functions.map((f) => f.function.id));
@@ -112,6 +124,11 @@ export default async function PrintOrderPage({
   const deletePrintOrderAction = async () => {
     "use server";
     await deletePrintOrder(printOrderId, eventId);
+  };
+
+  const updatePackingStatusAction = async (packingStatus: PackingStatus | null) => {
+    "use server";
+    await updatePrintOrderPackingStatus(printOrderId, eventId, packingStatus);
   };
 
   const addVendorToFormAction = async (vendorId: string) => {
@@ -280,10 +297,18 @@ export default async function PrintOrderPage({
                   setStatus={setStatusAction}
                 />
               </div>
+              <div className="border-b border-gray-200 dark:border-gray-700 mb-4 pb-4">
+                <PackingStatusPanel
+                  packingStatus={printOrder.packingStatus ?? null}
+                  itemCount={printOrder.items.length}
+                  updatePackingStatus={updatePackingStatusAction}
+                />
+              </div>
               <PrintOrderForm
                 noCard
                 printOrder={printOrder}
                 eventId={eventId}
+                rooms={sortRoomsByGroupThenName(venueRooms)}
                 action={updatePrintOrderAction}
                 vendorLink={{
                   assignedVendors: printOrderVendors,

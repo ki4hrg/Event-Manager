@@ -1,19 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
+import { groupRoomsByGroup } from "@/lib/roomGroups";
 
 type PrintOrderData = {
   id: string;
   name: string;
   notes?: string | null;
+  roomId?: string | null;
+  room?: { id: string; name: string } | null;
+  specificLocation?: string | null;
 };
 
 type PrintOrderFormProps = {
   printOrder?: PrintOrderData | null;
   eventId: string;
+  rooms: { id: string; name: string; group?: { id: string; name: string; sortOrder: number } | null }[];
   action: (formData: FormData) => Promise<void>;
   vendorLink?: VendorLinkEditProps;
   availableVendors?: { id: string; label: string }[];
@@ -38,6 +43,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
 export function PrintOrderForm({
   printOrder,
   eventId,
+  rooms,
   action,
   vendorLink,
   availableVendors = [],
@@ -47,6 +53,9 @@ export function PrintOrderForm({
 }: PrintOrderFormProps) {
   const isEdit = !!printOrder;
   const [editing, setEditing] = useState(false);
+
+  const roomBuckets = useMemo(() => groupRoomsByGroup(rooms), [rooms]);
+  const hasRoomGroups = roomBuckets.some((b) => b.groupId !== null);
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
@@ -64,6 +73,8 @@ export function PrintOrderForm({
         </div>
         <dl className="space-y-4">
           <ReadOnlyField label="Name" value={printOrder.name} />
+          <ReadOnlyField label="Staging Room" value={printOrder.room?.name ?? null} />
+          <ReadOnlyField label="Specific Location" value={printOrder.specificLocation ?? null} />
           <ReadOnlyField label="Notes" value={printOrder.notes ?? null} />
           {vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
         </dl>
@@ -93,6 +104,51 @@ export function PrintOrderForm({
               required
               defaultValue={printOrder?.name ?? defaultName ?? ""}
               placeholder="e.g. Breakout Handouts"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="roomId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Staging Room
+            </label>
+            {rooms.length === 0 ? (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                No rooms available. Add rooms to the event venue first.
+              </p>
+            ) : (
+              <select
+                id="roomId"
+                name="roomId"
+                defaultValue={printOrder?.roomId ?? ""}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— No room —</option>
+                {hasRoomGroups
+                  ? roomBuckets.map((bucket) => (
+                      <optgroup key={bucket.key} label={bucket.label}>
+                        {bucket.rooms.map((r) => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </optgroup>
+                    ))
+                  : rooms.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+              </select>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="specificLocation" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Specific Location
+            </label>
+            <input
+              id="specificLocation"
+              type="text"
+              name="specificLocation"
+              defaultValue={printOrder?.specificLocation ?? ""}
+              placeholder="e.g. Secretarial table, registration desk"
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

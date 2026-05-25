@@ -4,9 +4,11 @@ import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import {
   createPrintOrderCore,
   updatePrintOrderCore,
+  updatePrintOrderPackingStatusCore,
   deletePrintOrderCore,
   deletePrintOrdersCore,
   bulkUpdatePrintOrdersCore,
@@ -28,6 +30,7 @@ export async function getPrintOrders(eventId: string) {
     where: { eventId },
     include: {
       items: true,
+      room: { select: { id: true, name: true } },
       functions: { include: { function: { select: { id: true, name: true } } } },
       presentation: { select: { id: true, title: true } },
       vendors: { include: { vendor: { select: { id: true, name: true } } } },
@@ -51,6 +54,7 @@ export async function getPrintOrder(id: string) {
         },
         orderBy: { function: { name: "asc" } },
       },
+      room: { select: { id: true, name: true } },
       presentation: {
         select: {
           id: true,
@@ -77,6 +81,8 @@ export async function createPrintOrder(eventId: string, formData: FormData) {
     {
       name: (formData.get("name") as string)?.trim(),
       notes: (formData.get("notes") as string) || null,
+      roomId: (formData.get("roomId") as string) || null,
+      specificLocation: (formData.get("specificLocation") as string) || null,
       functionId: (formData.get("functionId") as string) || null,
       presentationId: (formData.get("presentationId") as string) || null,
       vendorId: (formData.get("vendorId") as string) || null,
@@ -95,12 +101,25 @@ export async function updatePrintOrder(id: string, eventId: string, formData: Fo
     {
       name: (formData.get("name") as string)?.trim(),
       notes: (formData.get("notes") as string) || null,
+      roomId: (formData.get("roomId") as string) || null,
+      specificLocation: (formData.get("specificLocation") as string) || null,
     },
     session.user.id,
   );
   revalidatePath(`/events/${eventId}/print-orders`);
   revalidatePath(`/events/${eventId}/print-orders/${id}`);
   redirect(`/events/${eventId}/print-orders/${id}?success=Print Order updated`);
+}
+
+export async function updatePrintOrderPackingStatus(
+  id: string,
+  eventId: string,
+  packingStatus: PackingStatus | null,
+) {
+  const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
+  await updatePrintOrderPackingStatusCore(id, eventId, packingStatus, session.user.id);
+  revalidatePath(`/events/${eventId}/print-orders`);
+  revalidatePath(`/events/${eventId}/print-orders/${id}`);
 }
 
 export async function deletePrintOrder(id: string, eventId: string) {
@@ -198,6 +217,8 @@ function parsePrintItemData(formData: FormData): PrintItemWriteArgs {
   return {
     description: (formData.get("description") as string)?.trim(),
     quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
+    acquisitionState: ((formData.get("acquisitionState") as string) || "TO_PROCURE") as AcquisitionState,
+    packingStatus: ((formData.get("packingStatus") as string) || "NEEDED") as PackingStatus,
     distributionMethod: (formData.get("distributionMethod") as string) || null,
     distributionNotes: (formData.get("distributionNotes") as string) || null,
     designerVendorId: (formData.get("designerVendorId") as string) || null,

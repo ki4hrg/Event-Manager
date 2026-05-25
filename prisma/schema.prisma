@@ -242,6 +242,7 @@ model Room {
   sessionRoomOverrides BreakoutSessionRoomOverride[]
   setupOrders          SetupOrder[]
   supplyOrders         SupplyOrder[]
+  printOrders          PrintOrder[]
   createdAt            DateTime                      @default(now())
   updatedAt            DateTime                      @updatedAt
 
@@ -1211,25 +1212,30 @@ model MediaDeliverableContact {
 }
 
 model PrintOrder {
-  id             String               @id @default(cuid())
-  name           String
-  status         EntityStatus?
-  substatus      String?
-  eventId        String
-  event          Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  presentationId String?              @unique
-  presentation   Presentation?        @relation(fields: [presentationId], references: [id], onDelete: SetNull)
-  notes          String?
-  functions      PrintOrderFunction[]
-  items          PrintItem[]
-  vendors        PrintOrderVendor[]
-  files          FileUpload[]
-  updatedById    String?
-  updatedBy      User?                @relation("PrintOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  id               String               @id @default(cuid())
+  name             String
+  status           EntityStatus?
+  substatus        String?
+  packingStatus    PackingStatus?
+  eventId          String
+  event            Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  roomId           String?
+  room             Room?                @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  specificLocation String?
+  presentationId   String?              @unique
+  presentation     Presentation?        @relation(fields: [presentationId], references: [id], onDelete: SetNull)
+  notes            String?
+  functions        PrintOrderFunction[]
+  items            PrintItem[]
+  vendors          PrintOrderVendor[]
+  files            FileUpload[]
+  updatedById      String?
+  updatedBy        User?                @relation("PrintOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
   @@index([eventId])
+  @@index([roomId])
   @@index([updatedById])
 }
 
@@ -1245,25 +1251,27 @@ model PrintOrderFunction {
 }
 
 model PrintItem {
-  id                 String     @id @default(cuid())
+  id                 String           @id @default(cuid())
   printOrderId       String
-  printOrder         PrintOrder @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
+  printOrder         PrintOrder       @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
   description        String
   quantity           Int?
+  acquisitionState   AcquisitionState @default(TO_PROCURE)
+  packingStatus      PackingStatus    @default(NEEDED)
   distributionMethod String?
   distributionNotes  String?
   designerVendorId   String?
-  designerVendor     Vendor?    @relation("PrintItemDesignerVendor", fields: [designerVendorId], references: [id], onDelete: SetNull)
+  designerVendor     Vendor?          @relation("PrintItemDesignerVendor", fields: [designerVendorId], references: [id], onDelete: SetNull)
   designerContactId  String?
-  designerContact    Contact?   @relation("PrintItemDesignerContact", fields: [designerContactId], references: [id], onDelete: SetNull)
+  designerContact    Contact?         @relation("PrintItemDesignerContact", fields: [designerContactId], references: [id], onDelete: SetNull)
   printerVendorId    String?
-  printerVendor      Vendor?    @relation("PrintItemPrinterVendor", fields: [printerVendorId], references: [id], onDelete: SetNull)
+  printerVendor      Vendor?          @relation("PrintItemPrinterVendor", fields: [printerVendorId], references: [id], onDelete: SetNull)
   printerContactId   String?
-  printerContact     Contact?   @relation("PrintItemPrinterContact", fields: [printerContactId], references: [id], onDelete: SetNull)
+  printerContact     Contact?         @relation("PrintItemPrinterContact", fields: [printerContactId], references: [id], onDelete: SetNull)
   notes              String?
-  sortOrder          Int        @default(0)
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  sortOrder          Int              @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@index([printOrderId])
   @@index([designerVendorId])
@@ -1296,8 +1304,8 @@ model SupplyOrder {
   packingStatus     PackingStatus?
   eventId           String
   event             Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  roomId            String
-  room              Room                      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  roomId            String?
+  room              Room?                     @relation(fields: [roomId], references: [id], onDelete: SetNull)
   specificLocation  String?
   notes             String?
   providerVendorId  String?

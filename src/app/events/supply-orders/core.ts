@@ -24,7 +24,7 @@ async function bumpSupplyOrder(supplyOrderId: string, userId: string) {
 
 export type CreateSupplyOrderArgs = {
   name: string;
-  roomId: string;
+  roomId: string | null;
   specificLocation: string | null;
   notes: string | null;
   // Provider is a single-party concept: vendor OR contact, not both.
@@ -42,7 +42,6 @@ export async function createSupplyOrderCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
-  if (!args.roomId) throw new Error("Destination room is required.");
 
   let providerVendorId = args.providerVendorId;
   let providerContactId = args.providerContactId;
@@ -88,7 +87,7 @@ export async function createSupplyOrderCore(
 
 export type UpdateSupplyOrderArgs = {
   name: string;
-  roomId: string;
+  roomId: string | null;
   specificLocation: string | null;
   notes: string | null;
   providerVendorId: string | null;
@@ -102,7 +101,6 @@ export async function updateSupplyOrderCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
-  if (!args.roomId) throw new Error("Destination room is required.");
   let providerVendorId = args.providerVendorId;
   let providerContactId = args.providerContactId;
   if (providerVendorId) providerContactId = null;

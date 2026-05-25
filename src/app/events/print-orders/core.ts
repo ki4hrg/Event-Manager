@@ -1,7 +1,7 @@
 // Pure cores for print-order + print-item + link mutations.
 // NOT a "use server" file — see src/app/contacts/core.ts for the security rationale.
 
-import type { EntityStatus } from "@prisma/client";
+import type { AcquisitionState, EntityStatus, PackingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
@@ -25,6 +25,8 @@ async function bumpPrintOrder(printOrderId: string, userId: string) {
 export type CreatePrintOrderArgs = {
   name: string;
   notes: string | null;
+  roomId: string | null;
+  specificLocation: string | null;
   // Optional initial function/presentation links and vendor assignment.
   // When vendorId is null we look up the event's default PRINT_ORDER vendor.
   functionId: string | null;
@@ -45,6 +47,8 @@ export async function createPrintOrderCore(
       name: args.name,
       eventId,
       notes: args.notes,
+      roomId: args.roomId,
+      specificLocation: args.specificLocation,
       presentationId: args.presentationId,
       status: defaults.status,
       substatus: defaults.substatus,
@@ -84,6 +88,8 @@ export async function createPrintOrderCore(
 export type UpdatePrintOrderArgs = {
   name: string;
   notes: string | null;
+  roomId: string | null;
+  specificLocation: string | null;
 };
 
 export async function updatePrintOrderCore(
@@ -95,7 +101,36 @@ export async function updatePrintOrderCore(
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
   return prisma.printOrder.update({
     where: { id, eventId },
-    data: { name: args.name, notes: args.notes, updatedById: userId },
+    data: {
+      name: args.name,
+      notes: args.notes,
+      roomId: args.roomId,
+      specificLocation: args.specificLocation,
+      updatedById: userId,
+    },
+  });
+}
+
+// Order-level packing status — cascade to every item in the same transaction.
+export async function updatePrintOrderPackingStatusCore(
+  printOrderId: string,
+  eventId: string,
+  packingStatus: PackingStatus | null,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  await assertPrintOrderInEvent(printOrderId, eventId);
+  await prisma.$transaction(async (tx) => {
+    await tx.printOrder.update({
+      where: { id: printOrderId },
+      data: { packingStatus, updatedById: userId },
+    });
+    if (packingStatus) {
+      await tx.printItem.updateMany({
+        where: { printOrderId },
+        data: { packingStatus },
+      });
+    }
   });
 }
 
@@ -113,6 +148,7 @@ export async function deletePrintOrdersCore(ids: string[], eventId: string, user
 export type BulkPrintOrderUpdates = {
   status?: EntityStatus;
   substatus?: string | null;
+  packingStatus?: PackingStatus | null;
   vendorId?: string;
   functionId?: string;
 };
@@ -124,16 +160,26 @@ export async function bulkUpdatePrintOrdersCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
-  const { status, substatus, vendorId, functionId } = updates;
+  const { status, substatus, packingStatus, vendorId, functionId } = updates;
 
-  if (status !== undefined || substatus !== undefined) {
-    await prisma.printOrder.updateMany({
-      where: { id: { in: ids }, eventId },
-      data: {
-        ...(status !== undefined ? { status } : {}),
-        ...(substatus !== undefined ? { substatus } : {}),
-        updatedById: userId,
-      },
+  if (status !== undefined || substatus !== undefined || packingStatus !== undefined) {
+    await prisma.$transaction(async (tx) => {
+      await tx.printOrder.updateMany({
+        where: { id: { in: ids }, eventId },
+        data: {
+          ...(status !== undefined ? { status } : {}),
+          ...(substatus !== undefined ? { substatus } : {}),
+          ...(packingStatus !== undefined ? { packingStatus } : {}),
+          updatedById: userId,
+        },
+      });
+      // Cascade packing status to items when it changes to a concrete value.
+      if (packingStatus) {
+        await tx.printItem.updateMany({
+          where: { printOrderId: { in: ids } },
+          data: { packingStatus },
+        });
+      }
     });
   }
 
@@ -248,6 +294,8 @@ export async function unlinkPrintOrdersFromPresentationCore(
 export type PrintItemWriteArgs = {
   description: string;
   quantity: number | null;
+  acquisitionState: AcquisitionState;
+  packingStatus: PackingStatus;
   distributionMethod: string | null;
   distributionNotes: string | null;
   designerVendorId: string | null;

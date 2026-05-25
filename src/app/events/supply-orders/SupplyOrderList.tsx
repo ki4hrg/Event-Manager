@@ -24,6 +24,7 @@ type Props = {
   workflowSummaries: Record<string, WorkflowBadgeSummary>;
   initialStatus?: string;
   initialRoom?: string;
+  initialLinked?: string;
   deleteSupplyOrder: (formData: FormData) => Promise<void>;
 };
 
@@ -33,15 +34,19 @@ export function SupplyOrderList({
   workflowSummaries,
   initialStatus,
   initialRoom,
+  initialLinked,
   deleteSupplyOrder,
 }: Props) {
   const [statusFilter, setStatusFilter] = useState(initialStatus ?? "");
   const [roomFilter, setRoomFilter] = useState(initialRoom ?? "");
   const [packingFilter, setPackingFilter] = useState("");
+  const [linkedFilter, setLinkedFilter] = useState(initialLinked ?? "");
 
   const roomOptions = useMemo(() => {
     const map = new Map<string, string>();
-    for (const o of supplyOrders) map.set(o.room.id, o.room.name);
+    for (const o of supplyOrders) {
+      if (o.room) map.set(o.room.id, o.room.name);
+    }
     return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -52,13 +57,18 @@ export function SupplyOrderList({
       if (statusFilter === "__blank__") {
         if (o.status != null) return false;
       } else if (statusFilter && o.status !== statusFilter) return false;
-      if (roomFilter && o.room.id !== roomFilter) return false;
+      if (roomFilter === "__blank__") {
+        if (o.room != null) return false;
+      } else if (roomFilter && o.room?.id !== roomFilter) return false;
       if (packingFilter === "__blank__") {
         if (o.packingStatus != null) return false;
       } else if (packingFilter && o.packingStatus !== packingFilter) return false;
+      const hasLink = !!o.room || o.functions.length > 0 || o.presentations.length > 0;
+      if (linkedFilter === "yes" && !hasLink) return false;
+      if (linkedFilter === "none" && hasLink) return false;
       return true;
     });
-  }, [supplyOrders, statusFilter, roomFilter, packingFilter]);
+  }, [supplyOrders, statusFilter, roomFilter, packingFilter, linkedFilter]);
 
   return (
     <div>
@@ -91,6 +101,7 @@ export function SupplyOrderList({
               className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="">All</option>
+              <option value="__blank__">(no room)</option>
               {roomOptions.map((r) => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
@@ -108,6 +119,18 @@ export function SupplyOrderList({
               {PACKING_STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Anchors:</span>
+            <select
+              value={linkedFilter}
+              onChange={(e) => setLinkedFilter(e.target.value)}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="">All</option>
+              <option value="yes">Linked (room/function/presentation)</option>
+              <option value="none">Anchorless</option>
             </select>
           </div>
         </div>
@@ -147,7 +170,7 @@ export function SupplyOrderList({
                   )}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                  <span>→ {o.room.name}</span>
+                  <span>→ {o.room?.name ?? "No room"}</span>
                   {o.items.length > 0 && (
                     <span>{o.items.length} item{o.items.length !== 1 ? "s" : ""}</span>
                   )}
