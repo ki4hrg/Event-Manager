@@ -749,6 +749,7 @@ export async function getEventProfileData(
     prisma.printOrder.findMany({
       where: { eventId },
       include: {
+        room: { select: { id: true, name: true } },
         vendors: { include: { vendor: { select: { id: true, name: true } } } },
         functions: { include: { function: { select: { id: true, name: true } } } },
         presentation: { select: { id: true, title: true } },
@@ -1267,6 +1268,7 @@ const fdSetupOrderInclude = {
 } satisfies Prisma.SetupOrderInclude;
 
 const fdPrintOrderInclude = {
+  room: { select: { id: true, name: true } },
   vendors: { include: { vendor: fdVendorSelect } },
   items: {
     include: {

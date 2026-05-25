@@ -489,18 +489,32 @@ function SetupOrderCard({
 }
 
 function PrintOrderCard({ order }: { order: PrintOrder }) {
+  const hasStaging = !!order.room || !!order.specificLocation;
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded p-3 mb-3 print:break-inside-avoid">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-2 flex-wrap">
           <span className="font-medium text-gray-900 dark:text-gray-100">
             {order.name}
           </span>
           <StatusBadge status={order.status} />
+          <PackingStatusBadge status={order.packingStatus} />
         </div>
         <VendorPills vendors={order.vendors} />
       </div>
       <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
+
+      {hasStaging && (
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-700 dark:text-gray-300 mb-2">
+          <dt className="font-medium">Staging:</dt>
+          <dd>
+            {order.room && order.specificLocation
+              ? `${order.room.name} — ${order.specificLocation}`
+              : (order.room?.name ?? order.specificLocation ?? "—")}
+          </dd>
+        </dl>
+      )}
+
       {order.notes && (
         <p className="text-xs italic text-gray-600 dark:text-gray-400 mb-2">
           {order.notes}
@@ -522,6 +536,9 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                     </span>
                   )}
                 </div>
+                <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                  {PACKING_STATUS_LABEL[it.packingStatus]} · {ACQUISITION_LABEL[it.acquisitionState]}
+                </p>
                 {partyLabel(it.designerVendor, it.designerContact) && (
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
                     Designer:{" "}
@@ -556,6 +573,8 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                   <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">
                     Qty
                   </th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Packing</th>
+                  <th className="py-1.5 pr-3 text-xs font-medium">Source</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Designer</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Printer</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Distribution</th>
@@ -573,6 +592,12 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                     </td>
                     <td className="py-1.5 pr-3 text-right text-gray-900 dark:text-gray-100">
                       {it.quantity ?? "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {PACKING_STATUS_LABEL[it.packingStatus]}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                      {ACQUISITION_LABEL[it.acquisitionState]}
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                       {partyLabel(it.designerVendor, it.designerContact) ?? "—"}

@@ -12,6 +12,7 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { reportTh as th, reportTd as td, reportSectionCard as sectionCard } from "@/lib/reportStyles";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
+import { PACKING_STATUS_CLASS, PACKING_STATUS_LABEL } from "@/lib/statusConstants";
 
 export const PROFILE_SECTIONS = [
   { value: "contacts", label: "Key Contacts" },
@@ -455,6 +456,12 @@ function CateringCard({
   );
 }
 
+function stagingLabel(room: { name: string } | null | undefined, specificLocation: string | null): string {
+  if (!room && !specificLocation) return "";
+  if (room && specificLocation) return `${room.name} — ${specificLocation}`;
+  return room?.name ?? specificLocation ?? "";
+}
+
 function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
   if (orders.length === 0) {
     return <p className="text-sm text-gray-500 dark:text-gray-400">No print orders.</p>;
@@ -463,25 +470,38 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
   return (
     <>
       <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
-        {orders.map((o) => (
-          <div key={o.id} className="p-2">
-            <div className="flex items-start justify-between gap-2">
-              <p className="font-medium text-gray-900 dark:text-white">{o.name}</p>
-              <EntityStatusBadge status={o.status} substatus={o.substatus} />
+        {orders.map((o) => {
+          const staging = stagingLabel(o.room, o.specificLocation);
+          return (
+            <div key={o.id} className="p-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-medium text-gray-900 dark:text-white">{o.name}</p>
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  <EntityStatusBadge status={o.status} substatus={o.substatus} />
+                  {o.packingStatus && (
+                    <span className={`px-1.5 py-0.5 rounded ${PACKING_STATUS_CLASS[o.packingStatus]}`}>
+                      {PACKING_STATUS_LABEL[o.packingStatus]}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {o.vendors.length > 0 && (
+                <p className="text-gray-500 dark:text-gray-400 mt-0.5">{o.vendors.map((v) => v.vendor.name).join(", ")}</p>
+              )}
+              {staging && (
+                <p className="text-gray-500 dark:text-gray-400 mt-0.5">Staging: {staging}</p>
+              )}
+              {(o.presentation || o.functions.length > 0) && (
+                <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                  {o.presentation
+                    ? `Presentation: ${o.presentation.title}`
+                    : `Function: ${o.functions.map((f) => f.function.name).join(", ")}`}
+                </p>
+              )}
+              <LastUpdated updatedAt={o.updatedAt} updatedBy={o.updatedBy} className="mt-0.5" />
             </div>
-            {o.vendors.length > 0 && (
-              <p className="text-gray-500 dark:text-gray-400 mt-0.5">{o.vendors.map((v) => v.vendor.name).join(", ")}</p>
-            )}
-            {(o.presentation || o.functions.length > 0) && (
-              <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                {o.presentation
-                  ? `Presentation: ${o.presentation.title}`
-                  : `Function: ${o.functions.map((f) => f.function.name).join(", ")}`}
-              </p>
-            )}
-            <LastUpdated updatedAt={o.updatedAt} updatedBy={o.updatedBy} className="mt-0.5" />
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="hidden sm:block print:block overflow-x-auto">
         <table className="w-full text-sm border-collapse">
@@ -489,6 +509,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
             <tr>
               <th className={th}>Title</th>
               <th className={th}>Vendor</th>
+              <th className={th}>Staging</th>
               <th className={th}>Linked to</th>
               <th className={th}>Status</th>
             </tr>
@@ -501,6 +522,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
                   <LastUpdated updatedAt={o.updatedAt} updatedBy={o.updatedBy} className="block mt-0.5 font-normal print:hidden" />
                 </td>
                 <td className={td}>{o.vendors.map((v) => v.vendor.name).join(", ")}</td>
+                <td className={td}>{stagingLabel(o.room, o.specificLocation) || "—"}</td>
                 <td className={td}>
                   {o.presentation
                     ? o.presentation.title
@@ -509,7 +531,14 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
                       : ""}
                 </td>
                 <td className={td}>
-                  <EntityStatusBadge status={o.status} substatus={o.substatus} />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <EntityStatusBadge status={o.status} substatus={o.substatus} />
+                    {o.packingStatus && (
+                      <span className={`px-1.5 py-0.5 rounded text-xs ${PACKING_STATUS_CLASS[o.packingStatus]}`}>
+                        {PACKING_STATUS_LABEL[o.packingStatus]}
+                      </span>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
