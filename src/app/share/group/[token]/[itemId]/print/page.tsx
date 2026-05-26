@@ -25,7 +25,6 @@ import {
   type ProfileSection,
 } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { EventScheduleReport } from "@/app/events/[id]/reports/event-schedule/EventScheduleReport";
-import { ScheduleByDayReport } from "@/app/events/[id]/reports/schedule-by-day/ScheduleByDayReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridPrintView } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridPrintView";
@@ -257,6 +256,11 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         getString(sp.includeNonPublic),
         stored.includeNonPublic
       );
+      const compact = resolveSharedBoolean(
+        item.filtersLocked,
+        getString(sp.compact),
+        stored.compact
+      );
 
       const [event, data, scheduleTypes] = await Promise.all([
         getEvent(eventId).then(stripUpdatedBy),
@@ -280,33 +284,8 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
               data={data}
               scheduleTypes={scheduleTypes}
               includeNonPublic={includeNonPublic}
+              compact={compact}
             />
-          </div>
-        </>
-      );
-    }
-    case "SCHEDULE_BY_DAY": {
-      const includeNonPublic = resolveSharedBoolean(
-        item.filtersLocked,
-        getString(sp.includeNonPublic),
-        stored.includeNonPublic
-      );
-
-      const [event, data] = await Promise.all([
-        getEvent(eventId).then(stripUpdatedBy),
-        getEventScheduleData(eventId, { includeNonPublic }).then(stripUpdatedBy),
-      ]);
-
-      if (!event || !data) notFound();
-
-      return (
-        <>
-          <style>{`@page { margin: 0.5in; }`}</style>
-          <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
-            <div className="print:hidden">
-              <PrintHeader eventName={eventName} title={title} backHref={backHref} />
-            </div>
-            <ScheduleByDayReport data={data} includeNonPublic={includeNonPublic} />
           </div>
         </>
       );

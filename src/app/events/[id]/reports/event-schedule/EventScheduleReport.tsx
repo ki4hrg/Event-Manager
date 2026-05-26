@@ -19,6 +19,7 @@ type Props = {
   data: EventScheduleData;
   scheduleTypes: CustomOption[];
   includeNonPublic?: boolean;
+  compact?: boolean;
 };
 
 function functionLabel(item: EventScheduleItem): string {
@@ -185,10 +186,85 @@ function DayTable({
   );
 }
 
+function CompactDayTable({
+  items,
+  timezone,
+  includeNonPublic,
+}: {
+  items: EventScheduleItem[];
+  timezone: string;
+  includeNonPublic: boolean;
+}) {
+  return (
+    <>
+      <ul className="sm:hidden print:hidden divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+        {items.map((item) => {
+          const room = roomLabel(item);
+          return (
+            <li key={item.id} className="py-1.5">
+              <div className="flex justify-between gap-2">
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {functionLabel(item)}
+                </span>
+                <span className="shrink-0 text-gray-700 dark:text-gray-300 tabular-nums">
+                  {timeRange(item.startTime, item.endTime, timezone)}
+                </span>
+              </div>
+              {(room || (includeNonPublic && !item.isPublic)) && (
+                <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                  {room}
+                  {includeNonPublic && !item.isPublic && (
+                    <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                      Internal
+                    </span>
+                  )}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      <table className="hidden sm:table print:table w-full text-xs border-collapse">
+        <tbody>
+          {items.map((item) => {
+            const room = roomLabel(item);
+            return (
+              <tr
+                key={item.id}
+                className="print:break-inside-avoid border-b border-gray-100 dark:border-gray-700 print:border-gray-200 last:border-b-0"
+              >
+                <td className="py-1 pr-3 align-top whitespace-nowrap font-medium tabular-nums text-gray-900 dark:text-white print:text-black">
+                  {timeRange(item.startTime, item.endTime, timezone)}
+                </td>
+                <td className="py-1 align-top text-gray-900 dark:text-white print:text-black">
+                  <span className="font-medium">{functionLabel(item)}</span>
+                  {room && (
+                    <span className="text-gray-500 dark:text-gray-400 print:text-gray-600">
+                      {" · "}
+                      {room}
+                    </span>
+                  )}
+                  {includeNonPublic && !item.isPublic && (
+                    <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                      Internal
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
 export function EventScheduleReport({
   data,
   scheduleTypes,
   includeNonPublic = false,
+  compact = false,
 }: Props) {
   const { items, timezone } = data;
 
@@ -208,6 +284,28 @@ export function EventScheduleReport({
       })),
     },
   ];
+
+  if (compact) {
+    return (
+      <div className="space-y-4">
+        <ReportNav sections={navSections} itemGroups={itemGroups} />
+        <div className="space-y-5 print:space-y-3">
+          {dayGroups.map(({ dateKey, items }) => (
+            <section key={dateKey} id={`day-${dateKey}`} className="scroll-mt-24">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black pb-0.5 mb-1 border-b border-gray-300 dark:border-gray-600 print:border-gray-500">
+                {formatDateHeading(dateKey, timezone)}
+              </h2>
+              <CompactDayTable
+                items={items}
+                timezone={timezone}
+                includeNonPublic={includeNonPublic}
+              />
+            </section>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

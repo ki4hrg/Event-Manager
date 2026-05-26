@@ -19,17 +19,19 @@ export default async function EventSchedulePrintPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ types?: string; includeNonPublic?: string }>;
+  searchParams: Promise<{ types?: string; includeNonPublic?: string; compact?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { types: typesParam, includeNonPublic: nonPublicParam } = await searchParams;
+  const { types: typesParam, includeNonPublic: nonPublicParam, compact: compactParam } = await searchParams;
 
   const selectedTypes = parseListParam(typesParam);
   const includeNonPublic = nonPublicParam === "true";
+  const compact = compactParam === "true";
 
   const qs = new URLSearchParams({
     ...(typesParam ? { types: typesParam } : {}),
     ...(includeNonPublic ? { includeNonPublic: "true" } : {}),
+    ...(compact ? { compact: "true" } : {}),
   }).toString();
   const backHref = `/events/${eventId}/reports/event-schedule${qs ? `?${qs}` : ""}`;
 
@@ -61,6 +63,7 @@ export default async function EventSchedulePrintPage({
           data={data}
           scheduleTypes={scheduleTypes}
           includeNonPublic={includeNonPublic}
+          compact={compact}
         />
       </div>
     </>

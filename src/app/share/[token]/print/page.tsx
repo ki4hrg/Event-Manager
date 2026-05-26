@@ -11,7 +11,6 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { EventScheduleReport } from "@/app/events/[id]/reports/event-schedule/EventScheduleReport";
-import { ScheduleByDayReport } from "@/app/events/[id]/reports/schedule-by-day/ScheduleByDayReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridPrintView } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridPrintView";
@@ -26,7 +25,6 @@ const REPORT_TITLES: Record<string, string> = {
   VENDOR_HANDOFF: "Vendor handoff",
   EVENT_PROFILE: "Event profile",
   EVENT_SCHEDULE: "Event schedule",
-  SCHEDULE_BY_DAY: "Schedule by day",
   ROOM_SCHEDULE: "Room schedule",
   FUNCTION_DETAIL: "Function detail",
   BREAKOUT_GRID: "Breakout grid",
@@ -269,6 +267,11 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
       getString(sp.includeNonPublic),
       storedFilters.includeNonPublic
     );
+    const effectiveCompact = resolveSharedBoolean(
+      link.filtersLocked,
+      getString(sp.compact),
+      storedFilters.compact
+    );
 
     const [event, data, scheduleTypes] = await Promise.all([
       getEvent(link.eventId).then(stripUpdatedBy),
@@ -292,36 +295,8 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
             data={data}
             scheduleTypes={scheduleTypes}
             includeNonPublic={effectiveIncludeNonPublic}
+            compact={effectiveCompact}
           />
-        </div>
-      </>
-    );
-  }
-
-  if (link.reportType === "SCHEDULE_BY_DAY") {
-    const effectiveIncludeNonPublic = resolveSharedBoolean(
-      link.filtersLocked,
-      getString(sp.includeNonPublic),
-      storedFilters.includeNonPublic
-    );
-
-    const [event, data] = await Promise.all([
-      getEvent(link.eventId).then(stripUpdatedBy),
-      getEventScheduleData(link.eventId, {
-        includeNonPublic: effectiveIncludeNonPublic,
-      }).then(stripUpdatedBy),
-    ]);
-
-    if (!event || !data) notFound();
-
-    return (
-      <>
-        <style>{`@page { margin: 0.5in; }`}</style>
-        <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
-          <div className="print:hidden">
-            <PrintHeader eventName={link.event.name} title="Schedule by Day" backHref={backHref} />
-          </div>
-          <ScheduleByDayReport data={data} includeNonPublic={effectiveIncludeNonPublic} />
         </div>
       </>
     );
