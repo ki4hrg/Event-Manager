@@ -24,13 +24,14 @@ export default async function EventSchedulePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ types?: string; includeNonPublic?: string; addToDashboard?: string }>;
+  searchParams: Promise<{ types?: string; includeNonPublic?: string; compact?: string; addToDashboard?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { types: typesParam, includeNonPublic: nonPublicParam, addToDashboard } = await searchParams;
+  const { types: typesParam, includeNonPublic: nonPublicParam, compact: compactParam, addToDashboard } = await searchParams;
 
   const selectedTypes = parseListParam(typesParam);
   const includeNonPublic = nonPublicParam === "true";
+  const compact = compactParam === "true";
 
   const [event, scheduleTypes, dashboardChoices, data] = await Promise.all([
     getEvent(eventId),
@@ -74,11 +75,12 @@ export default async function EventSchedulePage({
           scheduleTypes={typeOptions}
           selectedTypes={effectiveTypes}
           includeNonPublic={includeNonPublic}
+          compact={compact}
           shareButton={
             <ShareReportButton
               eventId={eventId}
               reportType="EVENT_SCHEDULE"
-              currentFilters={{ types: effectiveTypes, includeNonPublic }}
+              currentFilters={{ types: effectiveTypes, includeNonPublic, compact }}
               dashboardChoices={dashboardChoices}
               addToDashboardId={addToDashboard}
             />
@@ -90,6 +92,7 @@ export default async function EventSchedulePage({
             data={data}
             scheduleTypes={scheduleTypes}
             includeNonPublic={includeNonPublic}
+            compact={compact}
           />
         </ReportPaper>
       </div>

@@ -39,7 +39,6 @@ const REPORT_PATHS: Record<string, string> = {
   VENDOR_HANDOFF: "vendor-handoff",
   EVENT_PROFILE: "event-profile",
   EVENT_SCHEDULE: "event-schedule",
-  SCHEDULE_BY_DAY: "schedule-by-day",
   ROOM_SCHEDULE: "room-schedule",
   FUNCTION_DETAIL: "function-detail",
   BREAKOUT_GRID: "breakout-grid",

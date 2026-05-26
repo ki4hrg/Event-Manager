@@ -154,7 +154,6 @@ const NAV: NavItem[] = [
   { type: "group", label: "Reports" },
   { type: "link",  label: "Event Profile",   segment: "reports/event-profile",           icon: <ChartIcon /> },
   { type: "link",  label: "Event Schedule",   segment: "reports/event-schedule",          icon: <ClockIcon /> },
-  { type: "link",  label: "Schedule by Day",  segment: "reports/schedule-by-day",         icon: <ClockIcon /> },
   { type: "link",  label: "Function Detail",  segment: "reports/function-detail",         icon: <ClipboardIcon /> },
   { type: "link",  label: "Room Schedule",    segment: "reports/room-schedule",           icon: <GridIcon /> },
   { type: "link",  label: "Breakout Grid",    segment: "reports/breakout-grid",           icon: <GridIcon /> },

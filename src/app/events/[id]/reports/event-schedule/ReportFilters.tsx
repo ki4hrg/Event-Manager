@@ -10,6 +10,7 @@ type ReportFiltersProps = {
   scheduleTypes: TypeOption[];
   selectedTypes: string[];
   includeNonPublic: boolean;
+  compact: boolean;
   basePath?: string;
   paramPrefix?: string;
   shareButton?: React.ReactNode;
@@ -25,6 +26,7 @@ export function ReportFilters({
   scheduleTypes,
   selectedTypes,
   includeNonPublic,
+  compact,
   basePath = `/events/${eventId}/reports/event-schedule`,
   paramPrefix = "",
   shareButton,
@@ -36,6 +38,7 @@ export function ReportFilters({
 
   const typesKey = `${paramPrefix}types`;
   const nonPublicKey = `${paramPrefix}includeNonPublic`;
+  const compactKey = `${paramPrefix}compact`;
 
   function pushWith(key: string, next: string[]) {
     const params = new URLSearchParams(searchParams.toString());
@@ -63,16 +66,28 @@ export function ReportFilters({
     router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
-  function clearFilters() {
+  function toggleCompact() {
     const params = new URLSearchParams(searchParams.toString());
-    params.delete(typesKey);
-    params.delete(nonPublicKey);
+    if (compact) {
+      params.delete(compactKey);
+    } else {
+      params.set(compactKey, "true");
+    }
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
-  const hasFilters = selectedTypes.length > 0 || includeNonPublic;
-  const filterCount = selectedTypes.length + (includeNonPublic ? 1 : 0);
+  function clearFilters() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(typesKey);
+    params.delete(nonPublicKey);
+    params.delete(compactKey);
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
+  }
+
+  const hasFilters = selectedTypes.length > 0 || includeNonPublic || compact;
+  const filterCount = selectedTypes.length + (includeNonPublic ? 1 : 0) + (compact ? 1 : 0);
 
   const actions = (
     <>
@@ -100,16 +115,29 @@ export function ReportFilters({
     <>
       <div>
         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Show</p>
-        <button
-          onClick={toggleNonPublic}
-          className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-            includeNonPublic
-              ? "bg-blue-600 border-blue-600 text-white"
-              : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-          }`}
-        >
-          Include non-public
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={toggleNonPublic}
+            className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+              includeNonPublic
+                ? "bg-blue-600 border-blue-600 text-white"
+                : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
+            }`}
+          >
+            Include non-public
+          </button>
+          <button
+            onClick={toggleCompact}
+            title="Two-column layout, no forced page break per day. Best for handouts."
+            className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+              compact
+                ? "bg-blue-600 border-blue-600 text-white"
+                : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
+            }`}
+          >
+            Compact
+          </button>
+        </div>
       </div>
 
       {scheduleTypes.length > 0 && (
