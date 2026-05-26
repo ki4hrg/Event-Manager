@@ -10,6 +10,7 @@ import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipme
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { EventScheduleReport } from "@/app/events/[id]/reports/event-schedule/EventScheduleReport";
+import { ScheduleByDayReport } from "@/app/events/[id]/reports/schedule-by-day/ScheduleByDayReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
@@ -18,6 +19,7 @@ import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equi
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
 import { ReportFilters as EsReportFilters } from "@/app/events/[id]/reports/event-schedule/ReportFilters";
+import { ReportFilters as SbdReportFilters } from "@/app/events/[id]/reports/schedule-by-day/ReportFilters";
 import { ReportFilters as RsReportFilters } from "@/app/events/[id]/reports/room-schedule/ReportFilters";
 import { ReportFilters as FdReportFilters } from "@/app/events/[id]/reports/function-detail/ReportFilters";
 import { ReportFilters as BgReportFilters } from "@/app/events/[id]/reports/breakout-grid/ReportFilters";
@@ -43,6 +45,7 @@ const REPORT_TITLES: Record<string, string> = {
   VENDOR_HANDOFF: "Vendor handoff",
   EVENT_PROFILE: "Event profile",
   EVENT_SCHEDULE: "Event schedule",
+  SCHEDULE_BY_DAY: "Schedule by day",
   ROOM_SCHEDULE: "Room schedule",
   FUNCTION_DETAIL: "Function detail",
   BREAKOUT_GRID: "Breakout grid",
@@ -342,6 +345,44 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           scheduleTypes={scheduleTypes}
           includeNonPublic={effectiveIncludeNonPublic}
         />
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "SCHEDULE_BY_DAY") {
+    const effectiveIncludeNonPublic = resolveSharedBoolean(
+      link.filtersLocked,
+      getString(sp.includeNonPublic),
+      storedFilters.includeNonPublic
+    );
+
+    const dataRaw = await getEventScheduleData(link.eventId, {
+      includeNonPublic: effectiveIncludeNonPublic,
+    });
+
+    const data = stripUpdatedBy(dataRaw);
+    if (!data) notFound();
+
+    const printParams = new URLSearchParams();
+    if (effectiveIncludeNonPublic) printParams.set("includeNonPublic", "true");
+    const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
+
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Schedule by Day"
+        label={link.label}
+        printHref={printHref}
+      >
+        {!link.filtersLocked && (
+          <SbdReportFilters
+            eventId={link.eventId}
+            includeNonPublic={effectiveIncludeNonPublic}
+            basePath={`/share/${token}`}
+            hidePrint
+          />
+        )}
+        <ScheduleByDayReport data={data} includeNonPublic={effectiveIncludeNonPublic} />
       </ShareShell>
     );
   }

@@ -20,6 +20,7 @@ export const SHARE_REPORT_LABELS: Record<string, string> = {
   VENDOR_HANDOFF: "Vendor Handoff",
   EVENT_PROFILE: "Event Profile",
   EVENT_SCHEDULE: "Event Schedule",
+  SCHEDULE_BY_DAY: "Schedule by Day",
   ROOM_SCHEDULE: "Room Schedule",
   FUNCTION_DETAIL: "Function Detail",
   BREAKOUT_GRID: "Breakout Grid",
