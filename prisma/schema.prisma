@@ -1302,7 +1302,6 @@ model SupplyOrder {
   name              String
   status            EntityStatus?
   substatus         String?
-  packingStatus     PackingStatus?
   eventId           String
   event             Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
   roomId            String?

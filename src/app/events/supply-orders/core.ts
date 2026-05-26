@@ -131,26 +131,43 @@ export async function deleteSupplyOrdersCore(ids: string[], eventId: string, use
   return { count: r.count };
 }
 
-// Order-level packing status — cascade to every item in the same transaction.
-export async function updateSupplyOrderPackingStatusCore(
+export async function bulkSetSupplyOrderItemsPackingStatusCore(
   supplyOrderId: string,
   eventId: string,
-  packingStatus: PackingStatus | null,
+  packingStatus: PackingStatus,
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   await assertSupplyOrderInEvent(supplyOrderId, eventId);
   await prisma.$transaction(async (tx) => {
+    await tx.supplyOrderItem.updateMany({
+      where: { supplyOrderId },
+      data: { packingStatus },
+    });
     await tx.supplyOrder.update({
       where: { id: supplyOrderId },
-      data: { packingStatus, updatedById: userId },
+      data: { updatedById: userId },
     });
-    if (packingStatus) {
-      await tx.supplyOrderItem.updateMany({
-        where: { supplyOrderId },
-        data: { packingStatus },
-      });
-    }
+  });
+}
+
+export async function bulkSetSupplyOrderItemsAcquisitionStateCore(
+  supplyOrderId: string,
+  eventId: string,
+  acquisitionState: AcquisitionState,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  await prisma.$transaction(async (tx) => {
+    await tx.supplyOrderItem.updateMany({
+      where: { supplyOrderId },
+      data: { acquisitionState },
+    });
+    await tx.supplyOrder.update({
+      where: { id: supplyOrderId },
+      data: { updatedById: userId },
+    });
   });
 }
 

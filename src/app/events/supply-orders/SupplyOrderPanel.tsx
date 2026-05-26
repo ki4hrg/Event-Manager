@@ -3,7 +3,7 @@
 import type { EntityStatus, PackingStatus } from "@prisma/client";
 import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { OrderMeta } from "@/components/OrderMeta";
-import { PACKING_STATUS_LABEL } from "@/lib/statusConstants";
+import { packingRollupSummary } from "@/components/PackingStatusRollup";
 
 type SupplyOrderSummary = {
   id: string;
@@ -11,7 +11,7 @@ type SupplyOrderSummary = {
   status?: EntityStatus | null;
   substatus?: string | null;
   notes?: string | null;
-  packingStatus?: PackingStatus | null;
+  items?: { packingStatus: PackingStatus }[];
   room?: { name: string } | null;
   providerVendor?: { name: string } | null;
   providerContact?: { firstName: string; lastName: string } | null;
@@ -67,7 +67,7 @@ export function SupplyOrderPanel({
             status={o.status}
             substatus={o.substatus}
             vendors={providerAsVendors(o)}
-            fields={[{ label: "Packing", value: o.packingStatus ? PACKING_STATUS_LABEL[o.packingStatus] : null }]}
+            fields={[{ label: "Packing", value: packingRollupSummary(o.items ?? []) }]}
             notes={o.notes}
           />
         ),

@@ -30,7 +30,7 @@ import {
   updatePrintItemAcquisitionState,
   getPrintOrderPartyOptions,
 } from "../../../print-orders/actions";
-import { PackingStatusPanel } from "../../../supply-orders/PackingStatusPanel";
+import { PackingStatusPanel } from "../../../print-orders/PackingStatusPanel";
 import {
   getPrintOrderVendors,
   addVendorToPrintOrder,

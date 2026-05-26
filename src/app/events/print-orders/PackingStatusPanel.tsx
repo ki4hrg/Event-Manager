@@ -20,7 +20,6 @@ export function PackingStatusPanel({ packingStatus, itemCount, updatePackingStat
 
   const onSelect = (value: string) => {
     if (value === "") {
-      // Clear the order-level packing status (no cascade)
       startTransition(async () => {
         await updatePackingStatus(null);
       });

@@ -15,9 +15,9 @@ import {
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { LastUpdated } from "@/components/LastUpdated";
+import { PackingStatusRollup } from "@/components/PackingStatusRollup";
 import {
   ACQUISITION_LABEL,
-  PACKING_STATUS_CLASS,
   PACKING_STATUS_LABEL,
 } from "@/lib/statusConstants";
 
@@ -1050,11 +1050,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
             Destination: {order.room?.name ?? "—"}
             {order.specificLocation ? ` — ${order.specificLocation}` : ""}
           </span>
-          {order.packingStatus && (
-            <span className={`px-1.5 py-0.5 rounded ${PACKING_STATUS_CLASS[order.packingStatus]}`}>
-              {PACKING_STATUS_LABEL[order.packingStatus]}
-            </span>
-          )}
+          <PackingStatusRollup items={order.items} />
           {orderProviderName !== "—" && <span>Provider: {orderProviderName}</span>}
         </div>
         <LastUpdated

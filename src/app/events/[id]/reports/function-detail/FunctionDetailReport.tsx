@@ -1,3 +1,4 @@
+import type { PackingStatus } from "@prisma/client";
 import type {
   FunctionDetailData,
   FunctionDetailFunction,
@@ -6,6 +7,7 @@ import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
 import { LastUpdated } from "@/components/LastUpdated";
+import { PackingStatusRollup } from "@/components/PackingStatusRollup";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { cateringRelationshipLabel, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { formatPhone } from "@/lib/format-phone";
@@ -622,7 +624,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
   );
 }
 
-function PackingStatusBadge({ status }: { status: SupplyOrder["packingStatus"] }) {
+function PackingStatusBadge({ status }: { status: PackingStatus | null }) {
   if (!status) return null;
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${PACKING_STATUS_CLASS[status]}`}>
@@ -639,7 +641,7 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="font-medium text-gray-900 dark:text-gray-100">{order.name}</span>
           <StatusBadge status={order.status} />
-          <PackingStatusBadge status={order.packingStatus} />
+          <PackingStatusRollup items={order.items} />
           {order.substatus && (
             <span className="text-xs text-gray-500 dark:text-gray-400">{order.substatus}</span>
           )}

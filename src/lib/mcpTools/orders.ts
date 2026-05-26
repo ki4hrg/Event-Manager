@@ -40,7 +40,8 @@ import {
   deleteSupplyOrderCore,
   deleteSupplyOrdersCore,
   bulkUpdateSupplyOrdersCore,
-  updateSupplyOrderPackingStatusCore,
+  bulkSetSupplyOrderItemsPackingStatusCore,
+  bulkSetSupplyOrderItemsAcquisitionStateCore,
   linkSupplyOrderToFunctionCore,
   unlinkSupplyOrderFromFunctionCore,
   linkSupplyOrderToPresentationCore,
@@ -1297,26 +1298,48 @@ export const orderTools: McpToolDefinition[] = [
       ),
   },
   {
-    name: "update_supply_order_packing_status",
+    name: "bulk_set_supply_order_items_packing_status",
     description:
-      "Set the order-level packing status. When a status is provided, the change cascades to every item in a single transaction (one-way: item-level changes do NOT bubble back up).",
+      "Set the same packing status on every SupplyOrderItem in a supply order, in a single transaction. Item-level status is the canonical state; there is no order-level packing field.",
     inputSchema: {
       type: "object",
       properties: {
         supplyOrderId: { type: "string" },
         eventId: { type: "string" },
-        packingStatus: { type: "string", enum: [...PACKING_STATUSES, ""], description: "Pass empty string to clear." },
+        packingStatus: { type: "string", enum: PACKING_STATUSES },
       },
-      required: ["supplyOrderId", "eventId"],
+      required: ["supplyOrderId", "eventId", "packingStatus"],
       additionalProperties: false,
     },
     handler: async (args, { userId }) => {
-      const raw = optionalString(args, "packingStatus") ?? "";
-      const packingStatus = raw ? (raw as PackingStatus) : null;
-      await updateSupplyOrderPackingStatusCore(
+      await bulkSetSupplyOrderItemsPackingStatusCore(
         requireString(args, "supplyOrderId"),
         requireString(args, "eventId"),
-        packingStatus,
+        requireString(args, "packingStatus") as PackingStatus,
+        userId,
+      );
+      return { ok: true };
+    },
+  },
+  {
+    name: "bulk_set_supply_order_items_acquisition_state",
+    description:
+      "Set the same acquisition state on every SupplyOrderItem in a supply order, in a single transaction (ON_HAND / TO_PROCURE / DROP_SHIP).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        supplyOrderId: { type: "string" },
+        eventId: { type: "string" },
+        acquisitionState: { type: "string", enum: ACQUISITION_STATES },
+      },
+      required: ["supplyOrderId", "eventId", "acquisitionState"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      await bulkSetSupplyOrderItemsAcquisitionStateCore(
+        requireString(args, "supplyOrderId"),
+        requireString(args, "eventId"),
+        requireString(args, "acquisitionState") as AcquisitionState,
         userId,
       );
       return { ok: true };

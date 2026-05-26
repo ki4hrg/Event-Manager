@@ -11,7 +11,8 @@ import {
   deleteSupplyOrderCore,
   deleteSupplyOrdersCore,
   bulkUpdateSupplyOrdersCore,
-  updateSupplyOrderPackingStatusCore,
+  bulkSetSupplyOrderItemsPackingStatusCore,
+  bulkSetSupplyOrderItemsAcquisitionStateCore,
   linkSupplyOrderToFunctionCore,
   unlinkSupplyOrderFromFunctionCore,
   linkSupplyOrderToPresentationCore,
@@ -147,14 +148,26 @@ export async function deleteSupplyOrders(ids: string[], eventId: string) {
   revalidatePath(`/events/${eventId}/supply-orders`);
 }
 
-export async function updateSupplyOrderPackingStatus(
+export async function bulkSetSupplyOrderItemsPackingStatus(
   supplyOrderId: string,
   eventId: string,
-  packingStatus: PackingStatus | null,
+  packingStatus: PackingStatus,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await updateSupplyOrderPackingStatusCore(supplyOrderId, eventId, packingStatus, session.user.id);
+  await bulkSetSupplyOrderItemsPackingStatusCore(supplyOrderId, eventId, packingStatus, session.user.id);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+  revalidatePath(`/events/${eventId}/packing`);
+}
+
+export async function bulkSetSupplyOrderItemsAcquisitionState(
+  supplyOrderId: string,
+  eventId: string,
+  acquisitionState: AcquisitionState,
+) {
+  const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
+  await bulkSetSupplyOrderItemsAcquisitionStateCore(supplyOrderId, eventId, acquisitionState, session.user.id);
+  revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
+  revalidatePath(`/events/${eventId}/packing`);
 }
 
 // Function link/unlink (many-to-many via junction)

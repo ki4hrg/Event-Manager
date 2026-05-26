@@ -17,7 +17,8 @@ import {
   getSupplyOrder,
   updateSupplyOrder,
   deleteSupplyOrder,
-  updateSupplyOrderPackingStatus,
+  bulkSetSupplyOrderItemsPackingStatus,
+  bulkSetSupplyOrderItemsAcquisitionState,
   linkSupplyOrderToFunction,
   unlinkSupplyOrderFromFunction,
   linkSupplyOrderToPresentation,
@@ -47,7 +48,8 @@ import { SupplyOrderTabs, SUPPLY_ORDER_TABS } from "../../../supply-orders/Suppl
 import { SupplyOrderForm } from "../../../supply-orders/SupplyOrderForm";
 import { SupplyOrderItemPanel } from "../../../supply-orders/SupplyOrderItemPanel";
 import { SupplyOrderLinkPanel } from "../../../supply-orders/SupplyOrderLinkPanel";
-import { PackingStatusPanel } from "../../../supply-orders/PackingStatusPanel";
+import { BulkItemStatusPanel } from "../../../supply-orders/BulkItemStatusPanel";
+import { PackingStatusRollup } from "@/components/PackingStatusRollup";
 
 export const dynamic = "force-dynamic";
 
@@ -144,9 +146,14 @@ export default async function SupplyOrderPage({
     await deleteSupplyOrder(supplyOrderId, eventId);
   };
 
-  const updatePackingStatusAction = async (status: PackingStatus | null) => {
+  const bulkSetPackingAction = async (status: PackingStatus) => {
     "use server";
-    await updateSupplyOrderPackingStatus(supplyOrderId, eventId, status);
+    await bulkSetSupplyOrderItemsPackingStatus(supplyOrderId, eventId, status);
+  };
+
+  const bulkSetAcquisitionAction = async (state: AcquisitionState) => {
+    "use server";
+    await bulkSetSupplyOrderItemsAcquisitionState(supplyOrderId, eventId, state);
   };
 
   const linkToFunctionAction = async (functionId: string) => {
@@ -293,13 +300,12 @@ export default async function SupplyOrderPage({
                   setStatus={setStatusAction}
                 />
               </div>
-              <div className="border-b border-gray-200 dark:border-gray-700 mb-4 pb-4">
-                <PackingStatusPanel
-                  packingStatus={supplyOrder.packingStatus ?? null}
-                  itemCount={supplyOrder.items.length}
-                  updatePackingStatus={updatePackingStatusAction}
-                />
-              </div>
+              {supplyOrder.items.length > 0 && (
+                <div className="border-b border-gray-200 dark:border-gray-700 mb-4 pb-4 flex items-center gap-2">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Packing:</span>
+                  <PackingStatusRollup items={supplyOrder.items} />
+                </div>
+              )}
               <SupplyOrderForm
                 noCard
                 supplyOrder={supplyOrder}
@@ -340,7 +346,12 @@ export default async function SupplyOrderPage({
             />
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-4">
+            <BulkItemStatusPanel
+              itemCount={supplyOrder.items.length}
+              bulkSetPacking={bulkSetPackingAction}
+              bulkSetAcquisition={bulkSetAcquisitionAction}
+            />
             <SupplyOrderItemPanel
               items={supplyOrder.items}
               equipmentOptions={filteredEquipmentOptions}

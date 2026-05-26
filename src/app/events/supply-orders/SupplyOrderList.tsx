@@ -9,12 +9,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { partyLabel } from "@/lib/partyLabel";
-import {
-  EDIT_STATUS_OPTIONS,
-  PACKING_STATUS_CLASS,
-  PACKING_STATUS_LABEL,
-  PACKING_STATUS_OPTIONS,
-} from "@/lib/statusConstants";
+import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
+import { PackingStatusRollup } from "@/components/PackingStatusRollup";
 
 type SupplyOrder = Awaited<ReturnType<typeof getSupplyOrders>>[number];
 
@@ -39,7 +35,6 @@ export function SupplyOrderList({
 }: Props) {
   const [statusFilter, setStatusFilter] = useState(initialStatus ?? "");
   const [roomFilter, setRoomFilter] = useState(initialRoom ?? "");
-  const [packingFilter, setPackingFilter] = useState("");
   const [linkedFilter, setLinkedFilter] = useState(initialLinked ?? "");
 
   const roomOptions = useMemo(() => {
@@ -60,15 +55,12 @@ export function SupplyOrderList({
       if (roomFilter === "__blank__") {
         if (o.room != null) return false;
       } else if (roomFilter && o.room?.id !== roomFilter) return false;
-      if (packingFilter === "__blank__") {
-        if (o.packingStatus != null) return false;
-      } else if (packingFilter && o.packingStatus !== packingFilter) return false;
       const hasLink = !!o.room || o.functions.length > 0 || o.presentations.length > 0;
       if (linkedFilter === "yes" && !hasLink) return false;
       if (linkedFilter === "none" && hasLink) return false;
       return true;
     });
-  }, [supplyOrders, statusFilter, roomFilter, packingFilter, linkedFilter]);
+  }, [supplyOrders, statusFilter, roomFilter, linkedFilter]);
 
   return (
     <div>
@@ -104,20 +96,6 @@ export function SupplyOrderList({
               <option value="__blank__">(no room)</option>
               {roomOptions.map((r) => (
                 <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Packing:</span>
-            <select
-              value={packingFilter}
-              onChange={(e) => setPackingFilter(e.target.value)}
-              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            >
-              <option value="">All</option>
-              <option value="__blank__">(not set)</option>
-              {PACKING_STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
           </div>
@@ -163,11 +141,7 @@ export function SupplyOrderList({
                   </Link>
                   <WorkflowBadge summary={workflowSummaries[o.id]} />
                   <EntityStatusBadge status={o.status} substatus={o.substatus} />
-                  {o.packingStatus && (
-                    <span className={`text-xs rounded px-2 py-0.5 font-medium ${PACKING_STATUS_CLASS[o.packingStatus]}`}>
-                      {PACKING_STATUS_LABEL[o.packingStatus]}
-                    </span>
-                  )}
+                  <PackingStatusRollup items={o.items} />
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                   <span>→ {o.room?.name ?? "No room"}</span>
