@@ -30,6 +30,7 @@ import {
   type ProfileSection,
 } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
 import { EventScheduleReport } from "@/app/events/[id]/reports/event-schedule/EventScheduleReport";
+import { ScheduleByDayReport } from "@/app/events/[id]/reports/schedule-by-day/ScheduleByDayReport";
 import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/RoomScheduleReport";
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
@@ -38,6 +39,7 @@ import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equi
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
 import { ReportFilters as EsReportFilters } from "@/app/events/[id]/reports/event-schedule/ReportFilters";
+import { ReportFilters as SbdReportFilters } from "@/app/events/[id]/reports/schedule-by-day/ReportFilters";
 import { ReportFilters as RsReportFilters } from "@/app/events/[id]/reports/room-schedule/ReportFilters";
 import { ReportFilters as FdReportFilters } from "@/app/events/[id]/reports/function-detail/ReportFilters";
 import { ReportFilters as BgReportFilters } from "@/app/events/[id]/reports/breakout-grid/ReportFilters";
@@ -370,6 +372,44 @@ async function renderItem(
               scheduleTypes={scheduleTypes}
               includeNonPublic={effectiveIncludeNonPublic}
             />
+          </>
+        ),
+      };
+    }
+    case "SCHEDULE_BY_DAY": {
+      const effectiveIncludeNonPublic = resolveSharedBoolean(
+        item.filtersLocked,
+        getString(sp[`${prefix}includeNonPublic`]),
+        stored.includeNonPublic
+      );
+
+      const dataRaw = await getEventScheduleData(eventId, {
+        includeNonPublic: effectiveIncludeNonPublic,
+      });
+
+      const data = stripUpdatedBy(dataRaw);
+      if (!data) notFound();
+
+      const printParams = new URLSearchParams();
+      if (effectiveIncludeNonPublic) printParams.set("includeNonPublic", "true");
+      const printHref = printParams.size > 0 ? `${printBase}?${printParams}` : printBase;
+
+      return {
+        id: item.id,
+        title,
+        printHref,
+        body: (
+          <>
+            {!item.filtersLocked && (
+              <SbdReportFilters
+                eventId={eventId}
+                includeNonPublic={effectiveIncludeNonPublic}
+                basePath={sharePath}
+                paramPrefix={prefix}
+                hidePrint
+              />
+            )}
+            <ScheduleByDayReport data={data} includeNonPublic={effectiveIncludeNonPublic} />
           </>
         ),
       };
