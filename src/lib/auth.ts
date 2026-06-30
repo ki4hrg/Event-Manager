@@ -77,6 +77,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (nextUrl.pathname.startsWith("/reset-password/")) return true;
       // /api/mcp does its own bearer-token auth via @/lib/mcpAuth.
       if (nextUrl.pathname.startsWith("/api/mcp")) return true;
+      // OAuth 2.1 endpoints backing the remote MCP connector are public by
+      // design: register (anonymous DCR), authorize (own credential form),
+      // token/revoke (PKCE / token-based). Discovery docs are public metadata,
+      // served both at the spec /.well-known/* paths and their /api/well-known/*
+      // rewrite targets.
+      if (nextUrl.pathname.startsWith("/api/oauth/")) return true;
+      if (nextUrl.pathname.startsWith("/api/well-known/")) return true;
+      if (nextUrl.pathname.startsWith("/.well-known/")) return true;
 
       return isLoggedIn;
     },
@@ -103,4 +111,14 @@ export async function requireAuth() {
     redirect("/login");
   }
   return session;
+}
+
+// HS256 signing key for the OAuth MCP access tokens (see @/lib/mcpOAuth).
+// Reuses AUTH_SECRET — the secret next-auth v5 already requires for its own JWT
+// sessions — so there's no second secret to provision. Funnelled through this
+// module because env access is restricted to lib/prisma, lib/auth, lib/uploads.
+export function getOAuthSigningSecret(): Uint8Array {
+  const raw = process.env.AUTH_SECRET;
+  if (!raw) throw new Error("AUTH_SECRET is not set");
+  return new TextEncoder().encode(raw);
 }

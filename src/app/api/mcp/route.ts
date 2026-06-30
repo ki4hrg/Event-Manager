@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { resolveBearerToUserId } from "@/lib/mcpAuth";
+import { verifyMcpAccessToken, getRequestBaseUrl } from "@/lib/mcpOAuth";
 import { findMcpTool, classifiedTools } from "@/lib/mcpTools";
 import { serializeForMcp } from "@/lib/mcpSerialize";
 import { PermissionError } from "@/lib/permissions";
@@ -47,10 +48,33 @@ function err(
   return { jsonrpc: "2.0", id: id ?? null, error: { code, message, data } };
 }
 
-function unauthorized(): Response {
+// Two bearer schemes are accepted. OAuth 2.1 access tokens (HS256 JWTs minted by
+// /api/oauth/token) are tried first — verification is a signature check, no DB
+// hit. If the token isn't a valid JWT we fall back to the legacy API-key path
+// (SHA-256 lookup against ApiKey.hashedKey). Either resolves to a userId; tools
+// then enforce per-call permissions via requirePermissionForUser.
+async function resolveMcpUserId(
+  authorizationHeader: string | null,
+): Promise<string | null> {
+  if (!authorizationHeader) return null;
+  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+  if (match) {
+    const token = match[1].trim();
+    const payload = await verifyMcpAccessToken(token);
+    if (payload) return payload.sub;
+  }
+  // Not an OAuth token — try an API key.
+  return resolveBearerToUserId(authorizationHeader);
+}
+
+async function unauthorized(): Promise<Response> {
+  // Point clients at the protected-resource metadata so claude.ai can discover
+  // the OAuth authorization server (MCP auth spec / RFC 9728).
+  const base = await getRequestBaseUrl();
+  const wwwAuth = `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`;
   return new Response(JSON.stringify({ error: "Unauthorized" }), {
     status: 401,
-    headers: { "content-type": "application/json", "www-authenticate": "Bearer" },
+    headers: { "content-type": "application/json", "www-authenticate": wwwAuth },
   });
 }
 
@@ -124,7 +148,7 @@ async function dispatch(
 }
 
 export async function POST(request: NextRequest) {
-  const userId = await resolveBearerToUserId(request.headers.get("authorization"));
+  const userId = await resolveMcpUserId(request.headers.get("authorization"));
   if (!userId) return unauthorized();
 
   let body: unknown;
