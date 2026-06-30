@@ -169,6 +169,10 @@ export async function POST(request: NextRequest) {
       const resp = await dispatch(item as JsonRpcRequest, userId);
       if (resp) responses.push(resp);
     }
+    // A batch of only notifications/responses produces no replies. Per the MCP
+    // Streamable HTTP spec the server MUST answer 202 Accepted with no body —
+    // not a 200 with an empty array.
+    if (responses.length === 0) return new Response(null, { status: 202 });
     return Response.json(responses);
   }
 
@@ -179,7 +183,11 @@ export async function POST(request: NextRequest) {
   }
 
   const resp = await dispatch(body as JsonRpcRequest, userId);
-  if (!resp) return new Response(null, { status: 204 });
+  // No reply means the input was a notification (e.g. notifications/initialized,
+  // sent right after initialize). The MCP Streamable HTTP spec requires 202
+  // Accepted with no body here; claude.ai's connector rejects a 204 and reports
+  // a generic "couldn't connect", whereas lenient stdio proxies tolerate it.
+  if (!resp) return new Response(null, { status: 202 });
   return Response.json(resp);
 }
 
