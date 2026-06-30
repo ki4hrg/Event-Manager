@@ -64,6 +64,68 @@ model ApiKey {
   @@index([userId])
 }
 
+// OAuth 2.1 authorization-server tables backing the remote MCP connector
+// (claude.ai web/mobile custom connectors). The hand-rolled OAuth endpoints live
+// under src/app/api/oauth/*; access tokens are HS256 JWTs (see src/lib/mcpOAuth.ts)
+// that the MCP route verifies without a DB round-trip. These tables only persist
+// the registration, the short-lived authorization code, and the refresh-token
+// rotation family. API-key auth (ApiKey above) remains supported in parallel.
+
+// A dynamically-registered OAuth client (RFC 7591). claude.ai self-registers
+// anonymously via /api/oauth/register. PKCE is the only client authentication
+// (token_endpoint_auth_method = "none"); no client secret is issued.
+model OAuthClient {
+  id                      String   @id @default(cuid())
+  clientId                String   @unique @default(cuid())
+  clientSecret            String?
+  clientName              String?
+  redirectUris            String[]
+  grantTypes              String[] @default(["authorization_code", "refresh_token"])
+  responseTypes           String[] @default(["code"])
+  tokenEndpointAuthMethod String   @default("none")
+  createdAt               DateTime @default(now())
+}
+
+// A single-use authorization code (10-minute TTL). codeChallenge is the S256
+// PKCE challenge; usedAt is stamped on redemption to block replay.
+model OAuthAuthorizationCode {
+  id                  String    @id @default(cuid())
+  code                String    @unique @default(cuid())
+  clientId            String
+  userId              String
+  redirectUri         String
+  codeChallenge       String
+  codeChallengeMethod String    @default("S256")
+  scope               String?
+  expiresAt           DateTime
+  usedAt              DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@index([code])
+  @@index([expiresAt])
+}
+
+// A rotating refresh token (30-day TTL). Only the SHA-256 hash is stored.
+// familyId groups a rotation lineage: presenting a revoked token from a family
+// is treated as theft and revokes the whole family. replacedById points at the
+// token that superseded this one on rotation.
+model OAuthRefreshToken {
+  id           String    @id @default(cuid())
+  tokenHash    String    @unique
+  familyId     String
+  clientId     String
+  userId       String
+  scope        String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([familyId])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 // One-time tokens used for both initial invite and password reset flows.
 model PasswordResetToken {
   id        String    @id @default(cuid())

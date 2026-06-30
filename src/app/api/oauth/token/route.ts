@@ -1,0 +1,252 @@
+import { prisma } from "@/lib/prisma";
+import {
+  createAccessToken,
+  verifyCodeChallengeAsync,
+  generateRefreshToken,
+  hashToken,
+  ACCESS_TOKEN_TTL_SECONDS,
+  REFRESH_TOKEN_TTL_SECONDS,
+} from "@/lib/mcpOAuth";
+
+// OAuth 2.1 token endpoint. Supports the authorization_code grant (with PKCE)
+// and refresh_token grant (with rotation + reuse detection).
+
+type IssuedUser = { id: string };
+
+function oauthError(error: string, description: string, status = 400) {
+  return Response.json({ error, error_description: description }, { status });
+}
+
+// Issue a fresh access + refresh token pair. When `familyId` is omitted the new
+// refresh token starts its own rotation family (adopting its own id as the
+// family id); on rotation the caller threads the existing family through.
+async function issueTokens(
+  user: IssuedUser,
+  clientId: string,
+  scope: string | null,
+  familyId?: string,
+) {
+  const rawRefresh = generateRefreshToken();
+  const refresh = await prisma.oAuthRefreshToken.create({
+    data: {
+      tokenHash: hashToken(rawRefresh),
+      familyId: familyId ?? "",
+      clientId,
+      userId: user.id,
+      scope,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+    },
+  });
+  if (!familyId) {
+    await prisma.oAuthRefreshToken.update({
+      where: { id: refresh.id },
+      data: { familyId: refresh.id },
+    });
+  }
+  const accessToken = await createAccessToken(user, refresh.id);
+  return { accessToken, refreshToken: rawRefresh, refreshId: refresh.id };
+}
+
+function tokenResponse(
+  accessToken: string,
+  refreshToken: string,
+  scope: string | null,
+) {
+  return Response.json({
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: ACCESS_TOKEN_TTL_SECONDS,
+    refresh_token: refreshToken,
+    scope: scope || "",
+  });
+}
+
+async function handleAuthorizationCode(params: URLSearchParams) {
+  const code = params.get("code");
+  const redirectUri = params.get("redirect_uri");
+  const codeVerifier = params.get("code_verifier");
+  const clientId = params.get("client_id");
+
+  if (!code || !redirectUri || !codeVerifier) {
+    return oauthError(
+      "invalid_request",
+      "Missing code, redirect_uri, or code_verifier.",
+    );
+  }
+
+  const authCode = await prisma.oAuthAuthorizationCode.findUnique({
+    where: { code },
+  });
+
+  if (!authCode) {
+    return oauthError("invalid_grant", "Unknown authorization code.");
+  }
+
+  if (authCode.usedAt) {
+    // Code replay — revoke by deleting it.
+    await prisma.oAuthAuthorizationCode.delete({ where: { id: authCode.id } });
+    return oauthError("invalid_grant", "Authorization code already used.");
+  }
+
+  if (authCode.expiresAt < new Date()) {
+    await prisma.oAuthAuthorizationCode.delete({ where: { id: authCode.id } });
+    return oauthError("invalid_grant", "Authorization code expired.");
+  }
+
+  if (authCode.redirectUri !== redirectUri) {
+    return oauthError("invalid_grant", "redirect_uri mismatch.");
+  }
+
+  if (clientId && authCode.clientId !== clientId) {
+    return oauthError("invalid_grant", "client_id mismatch.");
+  }
+
+  const pkceValid = await verifyCodeChallengeAsync(
+    codeVerifier,
+    authCode.codeChallenge,
+  );
+  if (!pkceValid) {
+    return oauthError("invalid_grant", "PKCE verification failed.");
+  }
+
+  // Atomically claim the code (single-use). The `usedAt: null` guard makes the
+  // claim conditional, so two concurrent redemptions can't both pass the earlier
+  // `authCode.usedAt` check and both issue tokens — exactly one update lands.
+  const claim = await prisma.oAuthAuthorizationCode.updateMany({
+    where: { id: authCode.id, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+  if (claim.count === 0) {
+    return oauthError("invalid_grant", "Authorization code already used.");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: authCode.userId },
+    select: { id: true },
+  });
+
+  if (!user) {
+    return oauthError("invalid_grant", "User no longer exists.");
+  }
+
+  const { accessToken, refreshToken } = await issueTokens(
+    user,
+    authCode.clientId,
+    authCode.scope,
+  );
+  return tokenResponse(accessToken, refreshToken, authCode.scope);
+}
+
+async function handleRefreshToken(params: URLSearchParams) {
+  const presented = params.get("refresh_token");
+  const clientId = params.get("client_id");
+
+  if (!presented) {
+    return oauthError("invalid_request", "Missing refresh_token.");
+  }
+
+  const stored = await prisma.oAuthRefreshToken.findUnique({
+    where: { tokenHash: hashToken(presented) },
+  });
+
+  if (!stored) {
+    return oauthError("invalid_grant", "Unknown refresh token.");
+  }
+
+  // Reuse detection: a token that was already rotated/revoked is presented
+  // again. Treat as theft and revoke the entire family.
+  if (stored.revokedAt) {
+    await prisma.oAuthRefreshToken.updateMany({
+      where: { familyId: stored.familyId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return oauthError("invalid_grant", "Refresh token has been revoked.");
+  }
+
+  if (stored.expiresAt < new Date()) {
+    await prisma.oAuthRefreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() },
+    });
+    return oauthError("invalid_grant", "Refresh token expired.");
+  }
+
+  if (clientId && stored.clientId !== clientId) {
+    return oauthError("invalid_grant", "client_id mismatch.");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: stored.userId },
+    select: { id: true },
+  });
+
+  if (!user) {
+    await prisma.oAuthRefreshToken.updateMany({
+      where: { familyId: stored.familyId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return oauthError("invalid_grant", "User no longer exists.");
+  }
+
+  // Atomically claim (revoke) the presented token before minting anything. The
+  // `revokedAt: null` guard means two concurrent rotations of the same token
+  // can't both proceed — the loser sees count === 0 and is treated as reuse,
+  // revoking the whole family (theft response). This invalidates the presented
+  // token before the new pair exists, closing the rotation race.
+  const claim = await prisma.oAuthRefreshToken.updateMany({
+    where: { id: stored.id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  if (claim.count === 0) {
+    await prisma.oAuthRefreshToken.updateMany({
+      where: { familyId: stored.familyId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return oauthError("invalid_grant", "Refresh token has been revoked.");
+  }
+
+  // Rotate: mint a new pair in the same family, then point the old token at it.
+  const { accessToken, refreshToken, refreshId } = await issueTokens(
+    user,
+    stored.clientId,
+    stored.scope,
+    stored.familyId,
+  );
+  await prisma.oAuthRefreshToken.update({
+    where: { id: stored.id },
+    data: { replacedById: refreshId },
+  });
+
+  return tokenResponse(accessToken, refreshToken, stored.scope);
+}
+
+async function readParams(request: Request): Promise<URLSearchParams | null> {
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    return new URLSearchParams(await request.text());
+  }
+  if (contentType.includes("application/json")) {
+    const body = await request.json();
+    return new URLSearchParams(body as Record<string, string>);
+  }
+  return null;
+}
+
+export async function POST(request: Request) {
+  const params = await readParams(request);
+  if (!params) {
+    return oauthError("invalid_request", "Unsupported content type.");
+  }
+
+  const grantType = params.get("grant_type");
+  if (grantType === "authorization_code") {
+    return handleAuthorizationCode(params);
+  }
+  if (grantType === "refresh_token") {
+    return handleRefreshToken(params);
+  }
+  return oauthError(
+    "unsupported_grant_type",
+    "Only authorization_code and refresh_token are supported.",
+  );
+}
