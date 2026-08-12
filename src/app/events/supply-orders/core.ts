@@ -306,10 +306,18 @@ export type SupplyItemWriteArgs = {
   providerContactId: string | null;
   packingStatus: PackingStatus;
   notes: string | null;
+  // Where this item comes from. On a container line this means something else:
+  // where that container sits for this event, overriding its durable home.
+  sourceLocationId: string | null;
+  // Set when this line *is* a container being shipped rather than an item
+  // inside one.
+  containerLocationId: string | null;
 };
 
 function normalizeItemArgs(args: SupplyItemWriteArgs): SupplyItemWriteArgs {
-  if (!args.description && !args.equipmentId) {
+  // A container line is identified by its container, so it needs neither a
+  // description nor an equipment selection.
+  if (!args.containerLocationId && !args.description && !args.equipmentId) {
     throw new Error("Supply item needs a description or an equipment selection.");
   }
   // Provider is a single-party concept.
@@ -317,7 +325,46 @@ function normalizeItemArgs(args: SupplyItemWriteArgs): SupplyItemWriteArgs {
   let providerContactId = args.providerContactId;
   if (providerVendorId) providerContactId = null;
   if (providerContactId) providerVendorId = null;
-  return { ...args, providerVendorId, providerContactId };
+  // A container can't be its own placement.
+  const sourceLocationId =
+    args.containerLocationId && args.sourceLocationId === args.containerLocationId
+      ? null
+      : args.sourceLocationId;
+  return { ...args, providerVendorId, providerContactId, sourceLocationId };
+}
+
+/**
+ * Container lines claim a container for one event. The claim can't be a schema
+ * unique constraint: nodes are durable and reused across events, so uniqueness
+ * is per (container, event) and the event lives on the parent order.
+ */
+async function assertContainerUsable(
+  containerLocationId: string,
+  eventId: string,
+  exceptItemId?: string,
+) {
+  const location = await prisma.storageLocation.findUnique({
+    where: { id: containerLocationId },
+    select: { name: true, kind: true },
+  });
+  if (!location) throw new Error("Container not found.");
+  if (location.kind !== "CONTAINER") {
+    throw new Error(`"${location.name}" is a place, not a container.`);
+  }
+
+  const claimed = await prisma.supplyOrderItem.findFirst({
+    where: {
+      containerLocationId,
+      supplyOrder: { eventId },
+      ...(exceptItemId ? { id: { not: exceptItemId } } : {}),
+    },
+    select: { supplyOrder: { select: { name: true } } },
+  });
+  if (claimed) {
+    throw new Error(
+      `"${location.name}" is already on the "${claimed.supplyOrder.name}" order for this event.`,
+    );
+  }
 }
 
 export async function createSupplyOrderItemCore(
@@ -329,6 +376,9 @@ export async function createSupplyOrderItemCore(
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   await assertSupplyOrderInEvent(supplyOrderId, eventId);
   const args = normalizeItemArgs(rawArgs);
+  if (args.containerLocationId) {
+    await assertContainerUsable(args.containerLocationId, eventId);
+  }
   const { _max } = await prisma.supplyOrderItem.aggregate({
     where: { supplyOrderId },
     _max: { sortOrder: true },
@@ -349,6 +399,9 @@ export async function updateSupplyOrderItemCore(
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   const args = normalizeItemArgs(rawArgs);
+  if (args.containerLocationId) {
+    await assertContainerUsable(args.containerLocationId, eventId, id);
+  }
   const item = await prisma.supplyOrderItem.update({
     where: { id, supplyOrder: { eventId } },
     data: args,

@@ -73,6 +73,10 @@ export function packingProviderFilterKey(eventId: string): string {
   return `packing_provider_filter_${eventId}`;
 }
 
+export function packingLocationFilterKey(eventId: string): string {
+  return `packing_location_filter_${eventId}`;
+}
+
 export type AgendaRoomPrefs = {
   hiddenRoomIds: string[];
   roomOrder: string[];

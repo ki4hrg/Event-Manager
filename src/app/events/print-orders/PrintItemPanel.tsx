@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { AcquisitionState, PackingStatus, PrintItem } from "@prisma/client";
 import { PartyField, parsePartyValue, type PartyOptions, type ContactOptions } from "@/app/events/av-orders/party-field";
+import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import {
   ACQUISITION_LABEL,
   ACQUISITION_OPTIONS,
@@ -18,10 +19,12 @@ type PrintItemWithParties = PrintItem & {
   designerContact?: { firstName: string; lastName: string } | null;
   printerVendor?: { name: string } | null;
   printerContact?: { firstName: string; lastName: string } | null;
+  sourceLocation?: { id: string; name: string } | null;
 };
 
 type PrintItemPanelProps = {
   items: PrintItemWithParties[];
+  locationOptions: LocationOption[];
   distributionOptions: { id: string; label: string }[];
   vendors: PartyOptions;
   contacts: ContactOptions;
@@ -56,6 +59,8 @@ function ItemForm({
   defaultPrinterVendorId = "",
   defaultPrinterContactId = "",
   defaultNotes = "",
+  defaultSourceLocationId = "",
+  locationOptions,
   distributionOptions,
   vendors,
   contacts,
@@ -74,6 +79,8 @@ function ItemForm({
   defaultPrinterVendorId?: string;
   defaultPrinterContactId?: string;
   defaultNotes?: string;
+  defaultSourceLocationId?: string;
+  locationOptions: LocationOption[];
   distributionOptions: { id: string; label: string }[];
   vendors: PartyOptions;
   contacts: ContactOptions;
@@ -177,6 +184,16 @@ function ItemForm({
             defaultContactId={defaultPrinterContactId || null}
           />
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Comes from
+          </label>
+          <LocationSelect
+            name="sourceLocationId"
+            options={locationOptions}
+            defaultValue={defaultSourceLocationId}
+          />
+        </div>
         <div className="md:col-span-2">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
           <input
@@ -213,6 +230,7 @@ function partyDisplay(
 
 export function PrintItemPanel({
   items,
+  locationOptions,
   distributionOptions,
   vendors,
   contacts,
@@ -251,6 +269,7 @@ export function PrintItemPanel({
       {showAddForm && (
         <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <ItemForm
+            locationOptions={locationOptions}
             distributionOptions={distributionOptions}
             vendors={vendors}
             contacts={contacts}
@@ -280,6 +299,8 @@ export function PrintItemPanel({
                   defaultPrinterVendorId={item.printerVendorId ?? ""}
                   defaultPrinterContactId={item.printerContactId ?? ""}
                   defaultNotes={item.notes ?? ""}
+                  defaultSourceLocationId={item.sourceLocationId ?? ""}
+                  locationOptions={locationOptions}
                   distributionOptions={distributionOptions}
                   vendors={vendors}
                   contacts={contacts}
@@ -320,6 +341,7 @@ export function PrintItemPanel({
                       {partyDisplay(item.printerVendor, item.printerContact) && (
                         <span>Printer: {partyDisplay(item.printerVendor, item.printerContact)}</span>
                       )}
+                      {item.sourceLocation && <span>From: {item.sourceLocation.name}</span>}
                     </div>
                     {item.notes && (
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{item.notes}</p>

@@ -558,6 +558,11 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                     Distribution: {it.distributionMethod}
                   </p>
                 )}
+                {it.sourceLocation && (
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    From: {it.sourceLocation.name}
+                  </p>
+                )}
                 {it.notes && (
                   <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">
                     {it.notes}
@@ -577,6 +582,8 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                   </th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Packing</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Source</th>
+                  {/* "Source" is acquisition state; storage location is "From". */}
+                  <th className="py-1.5 pr-3 text-xs font-medium">From</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Designer</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Printer</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Distribution</th>
@@ -600,6 +607,12 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                       {ACQUISITION_LABEL[it.acquisitionState]}
+                    </td>
+                    <td
+                      className="py-1.5 pr-3 text-gray-700 dark:text-gray-300"
+                      title={it.sourceLocation?.name ?? undefined}
+                    >
+                      {it.sourceLocation?.name ?? "—"}
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                       {partyLabel(it.designerVendor, it.designerContact) ?? "—"}
@@ -688,6 +701,11 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
                   {providerOverride && (
                     <p className="text-gray-500 dark:text-gray-400 mt-0.5">Provider: {itemProvider}</p>
                   )}
+                  {it.sourceLocation && (
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                      From: {it.sourceLocation.name}
+                    </p>
+                  )}
                   {it.notes && (
                     <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">{it.notes}</p>
                   )}
@@ -704,6 +722,8 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
                   <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">Qty</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Packing</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Source</th>
+                  {/* "Source" is acquisition state; storage location is "From". */}
+                  <th className="py-1.5 pr-3 text-xs font-medium">From</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Provider</th>
                   <th className="py-1.5 text-xs font-medium">Notes</th>
                 </tr>
@@ -724,6 +744,9 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
                       </td>
                       <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                         {ACQUISITION_LABEL[it.acquisitionState]}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+                        {it.sourceLocation?.name ?? "—"}
                       </td>
                       <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                         {providerOverride ? itemProvider : "—"}

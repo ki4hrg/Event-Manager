@@ -303,6 +303,9 @@ export type PrintItemWriteArgs = {
   printerVendorId: string | null;
   printerContactId: string | null;
   notes: string | null;
+  // Where this item comes from. Print items can be sourced from a container but
+  // can't be one — container lines are supply-side only.
+  sourceLocationId: string | null;
 };
 
 export async function createPrintItemCore(

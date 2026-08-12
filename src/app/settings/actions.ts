@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type";
 
 // No requireAuth() — reused by /share/[token] (see CLAUDE.md share-link carve-out).
 export async function getOptions(category: OptionCategory) {
@@ -128,6 +128,9 @@ async function propagateLabelRename(
       break;
     case "equipment_category":
       await tx.equipment.updateMany({ where: { category: oldLabel }, data: { category: newLabel } });
+      break;
+    case "location_type":
+      await tx.storageLocation.updateMany({ where: { type: oldLabel }, data: { type: newLabel } });
       break;
     case "vendor_contact_type":
       await tx.vendorContact.updateMany({ where: { contactType: oldLabel }, data: { contactType: newLabel } });

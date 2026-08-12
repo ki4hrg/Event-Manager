@@ -41,6 +41,12 @@ import {
 } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getStorageLocations } from "@/app/storage-locations/actions";
+import {
+  buildLocationIndex,
+  flattenLocations,
+  toLocationOption,
+} from "@/lib/storageLocations";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { PrintOrderTabs, PRINT_ORDER_TABS } from "../../../print-orders/PrintOrderTabs";
@@ -86,7 +92,7 @@ export default async function PrintOrderPage({
   const [
     printOrderVendors, fileTypeOptions, printOrderFiles, responsiblePartyVendors, substatuses,
     distributionOptions, availableFunctions, availablePresentations, partyOptions, availableEventVendors,
-    venueRooms,
+    venueRooms, storageLocations,
   ] = await Promise.all([
     getPrintOrderVendors(printOrderId, eventId),
     getOptions("file_type"),
@@ -111,7 +117,13 @@ export default async function PrintOrderPage({
           orderBy: { name: "asc" },
         })
       : Promise.resolve([]),
+    getStorageLocations(),
   ]);
+
+  // Flattened server-side so the prisma-importing tree helpers stay off the client.
+  const locationOptions = flattenLocations(buildLocationIndex(storageLocations)).map(
+    toLocationOption,
+  );
 
   const linkedFunctionIds = new Set(printOrder.functions.map((f) => f.function.id));
   const unlinkableFunctions = availableFunctions.filter((f) => !linkedFunctionIds.has(f.id));
@@ -363,6 +375,7 @@ export default async function PrintOrderPage({
           <div className="lg:col-span-2">
             <PrintItemPanel
               items={printOrder.items}
+              locationOptions={locationOptions}
               distributionOptions={distributionOptions}
               vendors={flatVendors}
               contacts={partyOptions.contacts}

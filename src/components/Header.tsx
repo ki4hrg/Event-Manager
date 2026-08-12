@@ -18,6 +18,12 @@ export async function Header() {
   const canViewSettings = hasGlobalView(permissions, PermissionResource.SETTINGS);
   const canViewSystem = hasGlobalView(permissions, PermissionResource.SYSTEM);
   const canViewWorkflows = hasGlobalView(permissions, PermissionResource.WORKFLOWS);
+  // Main nav rather than the Admin dropdown: the default User role carries
+  // STORAGE_LOCATIONS WRITE for load-out, so this isn't an admin surface.
+  const canViewStorageLocations = hasGlobalView(
+    permissions,
+    PermissionResource.STORAGE_LOCATIONS,
+  );
   const showAdminDropdown =
     canViewUsers || canViewEquipment || canViewSettings || canViewSystem || canViewWorkflows;
 
@@ -53,6 +59,14 @@ export async function Header() {
             >
               Vendors
             </Link>
+            {canViewStorageLocations && (
+              <Link
+                href="/storage-locations"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                Storage
+              </Link>
+            )}
             {showAdminDropdown && (
               <AdminDropdown
                 canViewUsers={canViewUsers}
