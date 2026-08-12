@@ -77,6 +77,20 @@ const defaultMediaTypes = [
   { label: "Presentation", sortOrder: 1 },
 ];
 
+// Display taxonomy for StorageLocation.type. The PLACE/CONTAINER split is the
+// hard-coded LocationKind enum; these labels are free for admins to extend.
+const defaultLocationTypes = [
+  { label: "Building", sortOrder: 0 },
+  { label: "Room", sortOrder: 1 },
+  { label: "Shelf", sortOrder: 2 },
+  { label: "Rack", sortOrder: 3 },
+  { label: "Pallet", sortOrder: 4 },
+  { label: "Case", sortOrder: 5 },
+  { label: "Box", sortOrder: 6 },
+  { label: "Tote", sortOrder: 7 },
+  { label: "Trailer", sortOrder: 8 },
+];
+
 const defaultFileTypes = [
   { label: "Proposal", sortOrder: 0 },
   { label: "Invoice", sortOrder: 1 },
@@ -146,7 +160,7 @@ const defaultEquipment = [
   { name: "Recording Deck / Encoder", category: "Video Outputs", sortOrder: 4 },
 ];
 
-// Mirrored by src/app/settings/roles/resources.ts PERMISSION_GROUPS. The seed
+// Mirrored by src/app/users/roles/resources.ts PERMISSION_GROUPS. The seed
 // runs outside the Next runtime so it can't import the TS module — when a new
 // PermissionResource lands in schema.prisma, update both files.
 const NON_EVENT_RESOURCES = [
@@ -155,6 +169,7 @@ const NON_EVENT_RESOURCES = [
   "SETTINGS",
   "SYSTEM",
   "EQUIPMENT",
+  "STORAGE_LOCATIONS",
   "WORKFLOWS",
   "VENDORS",
   "VENUES",
@@ -177,6 +192,9 @@ const EVENT_RESOURCES = [
 ];
 
 // Resources only granted to the Admin role by default. The seeded User role omits these (implicit NONE).
+// STORAGE_LOCATIONS is deliberately absent: packers add and re-place containers
+// during load-out, so the User role gets WRITE. DELETE stays admin-only, which
+// leaves archiving as the field-safe way to retire a container.
 const ADMIN_ONLY_RESOURCES = new Set([
   "ROLES",
   "USERS",
@@ -297,6 +315,7 @@ async function seedOptions() {
   totalCreated += await seedOptionsForCategory("setup_type", defaultSetupTypes);
   totalCreated += await seedOptionsForCategory("file_type", defaultFileTypes);
   totalCreated += await seedOptionsForCategory("delivery_method", defaultDeliveryMethods);
+  totalCreated += await seedOptionsForCategory("location_type", defaultLocationTypes);
   totalCreated += await seedOptionsForCategory("media_type", defaultMediaTypes);
   totalCreated += await seedOptionsForCategory("substatus", defaultSubstatuses);
   totalCreated += await seedOptionsForCategory("print_distribution", defaultPrintDistributions);

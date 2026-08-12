@@ -65,7 +65,10 @@ export async function getPrintOrder(id: string) {
           speakers: { include: { contact: true }, orderBy: { sortOrder: "asc" } },
         },
       },
-      items: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
+      items: {
+        include: { sourceLocation: { select: { id: true, name: true } } },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      },
       vendors: { include: { vendor: true }, orderBy: { vendor: { name: "asc" } } },
       files: { orderBy: { createdAt: "asc" } },
       updatedBy: { select: { name: true, email: true } },
@@ -228,6 +231,7 @@ function parsePrintItemData(formData: FormData): PrintItemWriteArgs {
     printerVendorId: (formData.get("printerVendorId") as string) || null,
     printerContactId: (formData.get("printerContactId") as string) || null,
     notes: (formData.get("notes") as string) || null,
+    sourceLocationId: (formData.get("sourceLocationId") as string) || null,
   };
 }
 

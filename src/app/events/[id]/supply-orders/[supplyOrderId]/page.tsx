@@ -31,6 +31,22 @@ import {
 } from "../../../supply-orders/actions";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getEquipment } from "@/app/equipment/actions";
+import {
+  getStorageLocations,
+  getLocationTypes,
+  createContainerInline,
+} from "@/app/storage-locations/actions";
+import {
+  previewContainerCascade,
+  markContainerContents,
+} from "@/app/events/packing/actions";
+import {
+  buildLocationIndex,
+  flattenLocations,
+  toLocationOption,
+} from "@/lib/storageLocations";
+import { hasPermission } from "@/lib/permissions";
+import { PermissionResource } from "@prisma/client";
 import { getResponsibleParties } from "@/lib/responsibleParties";
 import {
   getWorkflowInstances,
@@ -77,7 +93,18 @@ export default async function SupplyOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = SUPPLY_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, supplyOrder, workflowInstances, allTemplates, substatuses, equipmentOptions, equipmentCategories] = await Promise.all([
+  const [
+    event,
+    supplyOrder,
+    workflowInstances,
+    allTemplates,
+    substatuses,
+    equipmentOptions,
+    equipmentCategories,
+    storageLocations,
+    locationTypes,
+    canManageLocations,
+  ] = await Promise.all([
     getEvent(eventId),
     getSupplyOrder(supplyOrderId),
     getWorkflowInstances("supply_order", supplyOrderId, eventId),
@@ -85,9 +112,31 @@ export default async function SupplyOrderPage({
     getSubstatusOptions(),
     getEquipment(),
     getOptions("equipment_category"),
+    getStorageLocations(),
+    getLocationTypes(),
+    hasPermission(PermissionResource.STORAGE_LOCATIONS, "WRITE"),
   ]);
 
   if (!event || !supplyOrder) notFound();
+
+  // Flattened server-side: the tree helpers import prisma, so only plain
+  // options cross into the client panel.
+  const locationIndex = buildLocationIndex(storageLocations);
+  const allLocationOptions = flattenLocations(locationIndex).map(toLocationOption);
+  const containerOptions = flattenLocations(locationIndex, { kind: "CONTAINER" }).map(
+    toLocationOption,
+  );
+  // Everyday scope for the "comes from" picker: every place, plus the
+  // containers this order owns. A pallet full of other orders' boxes lives
+  // behind "Show all containers" — see the signage-box case.
+  const ownContainerIds = new Set(
+    supplyOrder.items
+      .map((i) => i.containerLocationId)
+      .filter((id): id is string => id !== null),
+  );
+  const locationOptions = allLocationOptions.filter(
+    (o) => o.kind === "PLACE" || ownContainerIds.has(o.id),
+  );
 
   const supplyEquipmentCategoryLabels = new Set(
     equipmentCategories.filter((c) => c.models.includes("SUPPLY_ORDER")).map((c) => c.label)
@@ -179,6 +228,28 @@ export default async function SupplyOrderPage({
   const createItemAction = async (formData: FormData) => {
     "use server";
     await createSupplyOrderItem(supplyOrderId, eventId, formData);
+  };
+
+  const createContainerAction = async (
+    name: string,
+    parentId: string | null,
+    type: string | null,
+  ) => {
+    "use server";
+    return createContainerInline(name, parentId, type);
+  };
+
+  const previewContainerCascadeAction = async (containerLocationId: string) => {
+    "use server";
+    return previewContainerCascade(containerLocationId, eventId);
+  };
+
+  const markContainerContentsAction = async (
+    containerLocationId: string,
+    packingStatus: PackingStatus,
+  ) => {
+    "use server";
+    return markContainerContents(containerLocationId, eventId, packingStatus);
   };
 
   const updateItemAction = async (id: string, formData: FormData) => {
@@ -356,6 +427,14 @@ export default async function SupplyOrderPage({
               items={supplyOrder.items}
               equipmentOptions={filteredEquipmentOptions}
               allEquipmentOptions={hasSupplyEquipmentFilter ? equipmentOptions : undefined}
+              locationOptions={locationOptions}
+              allLocationOptions={allLocationOptions}
+              containerOptions={containerOptions}
+              locationTypes={locationTypes}
+              canManageLocations={canManageLocations}
+              createContainer={createContainerAction}
+              previewContainerCascade={previewContainerCascadeAction}
+              markContainerContents={markContainerContentsAction}
               pool={pool}
               orderProvider={{
                 providerVendor: supplyOrder.providerVendor,

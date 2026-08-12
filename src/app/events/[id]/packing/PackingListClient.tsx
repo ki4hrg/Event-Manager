@@ -39,6 +39,9 @@ function compareByDescription(a: PackableItem, b: PackableItem) {
 }
 
 const PROVIDER_UNASSIGNED = "__blank__";
+const LOCATION_UNASSIGNED = "__blank__";
+
+type GroupBy = "acquisition" | "location";
 
 type Props = {
   eventId: string;
@@ -46,11 +49,14 @@ type Props = {
   initialState?: string;
   initialHideHandled?: string;
   initialProvider?: string;
+  initialLocation?: string;
+  initialGroupBy?: string;
   toggleSupplyItem: ToggleSupply;
   togglePrintItem: TogglePrint;
   toggleSupplyAcquisition: ToggleSupplyAcquisition;
   togglePrintAcquisition: TogglePrintAcquisition;
   saveProviderFilter: (value: string) => Promise<void>;
+  saveLocationFilter: (value: string) => Promise<void>;
 };
 
 export function PackingListClient({
@@ -59,11 +65,14 @@ export function PackingListClient({
   initialState,
   initialHideHandled,
   initialProvider,
+  initialLocation,
+  initialGroupBy,
   toggleSupplyItem,
   togglePrintItem,
   toggleSupplyAcquisition,
   togglePrintAcquisition,
   saveProviderFilter,
+  saveLocationFilter,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -115,6 +124,26 @@ export function PackingListClient({
     // Run on mount and whenever the mismatch could change (initial value vs.
     // the validated set).
   }, [initialProvider, providerFilter, router, searchParams, basePath]);
+
+  // Same validate-then-degrade shape as the provider filter: a location that no
+  // longer holds anything falls back to "All" rather than emptying the list.
+  const locationFilter: string =
+    initialLocation && payload.locations.some((l) => l.id === initialLocation)
+      ? initialLocation
+      : "";
+
+  useEffect(() => {
+    if (initialLocation && initialLocation !== locationFilter) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (params.get("location")) {
+        params.delete("location");
+        const qs = params.toString();
+        router.replace(qs ? `${basePath}?${qs}` : basePath);
+      }
+    }
+  }, [initialLocation, locationFilter, router, searchParams, basePath]);
+
+  const groupBy: GroupBy = initialGroupBy === "location" ? "location" : "acquisition";
 
   const [q, setQ] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -196,11 +225,22 @@ export function PackingListClient({
     });
   }
 
+  function setLocation(next: string) {
+    startProviderSave(async () => {
+      await saveLocationFilter(next);
+      pushWith({ location: next === "" ? null : next });
+    });
+  }
+
+  function setGroupBy(next: GroupBy) {
+    pushWith({ groupBy: next === "acquisition" ? null : next });
+  }
+
   function clearFilters() {
     setQ("");
     startProviderSave(async () => {
-      await saveProviderFilter("");
-      pushWith({ state: null, hideHandled: null, provider: null });
+      await Promise.all([saveProviderFilter(""), saveLocationFilter("")]);
+      pushWith({ state: null, hideHandled: null, provider: null, location: null });
     });
   }
 
@@ -302,13 +342,25 @@ export function PackingListClient({
       } else if (providerFilter !== "") {
         if (item.provider !== providerFilter) return false;
       }
+      if (locationFilter === LOCATION_UNASSIGNED) {
+        if (item.sourceLocationId != null) return false;
+      } else if (locationFilter !== "") {
+        // Filtering a pallet means everything nested under it, not just its
+        // direct contents.
+        const subtree = payload.locationSubtrees[locationFilter];
+        if (!item.sourceLocationId) return false;
+        if (subtree ? !subtree.includes(item.sourceLocationId) : item.sourceLocationId !== locationFilter) {
+          return false;
+        }
+      }
       if (needle) {
-        const hay = `${item.description} ${item.parentOrderName} ${item.provider ?? ""}`.toLowerCase();
+        const hay =
+          `${item.description} ${item.parentOrderName} ${item.provider ?? ""} ${item.sourceLocationName ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [payload.items, stateFilter, hideHandled, providerFilter, q]);
+  }, [payload.items, payload.locationSubtrees, stateFilter, hideHandled, providerFilter, locationFilter, q]);
 
   const groups = useMemo(() => {
     const order: AcquisitionState[] = ["ON_HAND", "TO_PROCURE", "DROP_SHIP"];
@@ -316,6 +368,8 @@ export function PackingListClient({
       const rows = filtered
         .filter((item) => item.acquisitionState === state)
         .sort(compareByDescription);
+      // Totals come from the unfiltered set so the "x / y handled" counter
+      // stays stable while filters move.
       const total = payload.items.filter((i) => i.acquisitionState === state).length;
       const packed = payload.items.filter(
         (i) => i.acquisitionState === state && i.packingStatus !== "NEEDED",
@@ -323,6 +377,45 @@ export function PackingListClient({
       return { state, rows, total, packed };
     });
   }, [filtered, payload.items]);
+
+  // Location grouping: one section per location that actually holds something,
+  // in tree order, plus a trailing bucket for items with no location.
+  const locationGroups = useMemo(() => {
+    const countsFor = (predicate: (item: PackableItem) => boolean) => ({
+      total: payload.items.filter(predicate).length,
+      packed: payload.items.filter((i) => predicate(i) && i.packingStatus !== "NEEDED").length,
+    });
+
+    const sections = payload.locations
+      .map((location) => {
+        const atLocation = (item: PackableItem) => item.sourceLocationId === location.id;
+        return {
+          key: location.id,
+          label: location.name,
+          path: location.path,
+          depth: location.depth,
+          isContainer: location.isContainer,
+          rows: filtered.filter(atLocation).sort(compareByDescription),
+          ...countsFor(atLocation),
+        };
+      })
+      .filter((section) => section.total > 0);
+
+    const unplaced = (item: PackableItem) => item.sourceLocationId == null;
+    const unplacedCounts = countsFor(unplaced);
+    if (unplacedCounts.total > 0) {
+      sections.push({
+        key: LOCATION_UNASSIGNED,
+        label: "No location set",
+        path: "",
+        depth: 0,
+        isContainer: false,
+        rows: filtered.filter(unplaced).sort(compareByDescription),
+        ...unplacedCounts,
+      });
+    }
+    return sections;
+  }, [filtered, payload.items, payload.locations]);
 
   const stalenessSeconds = Math.max(0, Math.floor((now - lastSyncedAt) / 1000));
   const stalenessDot =
@@ -447,6 +540,39 @@ export function PackingListClient({
               </select>
             </label>
           )}
+
+          {payload.locations.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-2">
+              <span>Location</span>
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocation(e.target.value)}
+                className="text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+              >
+                <option value="">All</option>
+                <option value={LOCATION_UNASSIGNED}>No location set</option>
+                {payload.locations.map((l) => (
+                  <option key={l.id} value={l.id} title={l.path}>
+                    {`${"  ".repeat(l.depth)}${l.name}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {payload.locations.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-2">
+              <span>Group by</span>
+              <select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value as GroupBy)}
+                className="text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+              >
+                <option value="acquisition">Acquisition state</option>
+                <option value="location">Location</option>
+              </select>
+            </label>
+          )}
         </div>
       </div>
 
@@ -474,16 +600,47 @@ export function PackingListClient({
       )}
 
       {/* Groups */}
-      {groups.map((group) => {
-        if (stateFilter && group.state !== stateFilter) return null;
-        if (group.total === 0) return null;
+      {(groupBy === "acquisition"
+        ? groups
+            .filter((group) => !(stateFilter && group.state !== stateFilter))
+            .filter((group) => group.total > 0)
+            .map((group) => ({
+              key: group.state as string,
+              heading: ACQUISITION_LABEL[group.state],
+              subheading: null as string | null,
+              depth: 0,
+              rows: group.rows,
+              packed: group.packed,
+              total: group.total,
+            }))
+        : locationGroups.map((section) => ({
+            key: section.key,
+            heading: section.label,
+            subheading: section.path && section.depth > 0 ? section.path : null,
+            depth: section.depth,
+            rows: section.rows,
+            packed: section.packed,
+            total: section.total,
+          }))
+      ).map((group) => {
         return (
-          <section key={group.state} className="space-y-2">
-            <div className="flex items-baseline justify-between border-b border-gray-200 dark:border-gray-800 pb-1">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {ACQUISITION_LABEL[group.state]}
-              </h2>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+          <section
+            key={group.key}
+            className="space-y-2"
+            style={groupBy === "location" ? { marginLeft: `${group.depth * 0.75}rem` } : undefined}
+          >
+            <div className="flex items-baseline justify-between border-b border-gray-200 dark:border-gray-800 pb-1 gap-3">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {group.heading}
+                </h2>
+                {group.subheading && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {group.subheading}
+                  </p>
+                )}
+              </div>
+              <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
                 {group.packed} / {group.total} handled
               </span>
             </div>
@@ -523,6 +680,12 @@ export function PackingListClient({
                               </Link>
                               {item.provider && <span> · {item.provider}</span>}
                               {item.equipmentCategory && <span> · {item.equipmentCategory}</span>}
+                              {groupBy !== "location" && item.sourceLocationName && (
+                                <span title={item.sourceLocationPath ?? undefined}>
+                                  {" "}
+                                  · {item.sourceLocationName}
+                                </span>
+                              )}
                             </div>
                             {item.notes && (
                               <p className="mt-1 text-xs italic text-gray-500 dark:text-gray-400">
@@ -562,6 +725,8 @@ export function PackingListClient({
                         <th className="py-2 pr-3">Order</th>
                         <th className="py-2 pr-3">Provider</th>
                         <th className="py-2 pr-3">Category</th>
+                        {/* "Source" is already taken by acquisition state elsewhere. */}
+                        <th className="py-2 pr-3">From</th>
                         <th className="py-2 pr-3">Status</th>
                       </tr>
                     </thead>
@@ -604,6 +769,12 @@ export function PackingListClient({
                           </td>
                           <td className="py-2 pr-3 text-gray-700 dark:text-gray-300">
                             {item.equipmentCategory ?? "—"}
+                          </td>
+                          <td
+                            className="py-2 pr-3 text-gray-700 dark:text-gray-300"
+                            title={item.sourceLocationPath ?? undefined}
+                          >
+                            {item.sourceLocationName ?? "—"}
                           </td>
                           <td className="py-2 pr-3">
                             <StatusPill

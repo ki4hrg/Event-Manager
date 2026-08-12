@@ -76,6 +76,8 @@ export async function getSupplyOrder(id: string) {
       items: {
         include: {
           equipment: true,
+          sourceLocation: { select: { id: true, name: true, kind: true } },
+          containerLocation: { select: { id: true, name: true, kind: true, type: true } },
           providerVendor: { select: { id: true, name: true } },
           providerContact: { select: { id: true, firstName: true, lastName: true } },
         },
@@ -278,6 +280,8 @@ function parseSupplyItemData(formData: FormData): SupplyItemWriteArgs {
     providerContactId: (formData.get("providerContactId") as string) || null,
     packingStatus: ((formData.get("packingStatus") as string) || "NEEDED") as PackingStatus,
     notes: (formData.get("notes") as string) || null,
+    sourceLocationId: (formData.get("sourceLocationId") as string) || null,
+    containerLocationId: (formData.get("containerLocationId") as string) || null,
   };
 }
 

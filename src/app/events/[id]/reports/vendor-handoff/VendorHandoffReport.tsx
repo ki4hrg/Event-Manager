@@ -366,6 +366,9 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
     // provider. Matches resolveProvider in SupplyOrderItemPanel.
     const orderLevelVendor = order.providerVendor ?? null;
     for (const item of order.items) {
+      // A container line is the box itself, not equipment a vendor provides —
+      // it would otherwise show up as a row beside its own contents.
+      if (item.containerLocationId) continue;
       const provider = item.providerVendor ?? orderLevelVendor;
       const itemLabel = item.equipment?.name ?? item.description ?? "";
       if (!itemLabel) continue;
@@ -1092,6 +1095,11 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
                   {itemProviderName && itemProviderName !== "—" && (
                     <p className="text-gray-500 dark:text-gray-400 mt-0.5">Provider: {itemProviderName}</p>
                   )}
+                  {item.sourceLocation && (
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                      From: {item.sourceLocation.name}
+                    </p>
+                  )}
                   {item.notes && (
                     <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">{item.notes}</p>
                   )}
@@ -1107,6 +1115,8 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
                   <th className={th}>Qty</th>
                   <th className={th}>Packing</th>
                   <th className={th}>Source</th>
+                  {/* "Source" above is acquisition state; this is where it lives. */}
+                  <th className={th}>From</th>
                   <th className={th}>Provider</th>
                   <th className={th}>Notes</th>
                 </tr>
@@ -1125,6 +1135,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
                       <td className={td}>{item.quantity ?? "—"}</td>
                       <td className={td}>{PACKING_STATUS_LABEL[item.packingStatus]}</td>
                       <td className={td}>{ACQUISITION_LABEL[item.acquisitionState]}</td>
+                      <td className={td}>{item.sourceLocation?.name ?? "—"}</td>
                       <td className={td}>{itemProviderName}</td>
                       <td className={td}>{item.notes ?? ""}</td>
                     </tr>

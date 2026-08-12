@@ -184,6 +184,14 @@ enum PackingStatus {
   DELIVERED
 }
 
+// PLACE nodes are fixed (a building, a shelf); CONTAINER nodes travel to the
+// venue and are packed as a unit. Only this distinction is hard-coded — the
+// display taxonomy (Pallet, Tote, Trailer...) is a location_type CustomOption.
+enum LocationKind {
+  PLACE
+  CONTAINER
+}
+
 // Customizable options for dropdowns
 model CustomOption {
   id        String   @id @default(cuid())
@@ -217,6 +225,38 @@ model Equipment {
 
   @@unique([category, name])
   @@index([category])
+}
+
+// Global, durable catalog of where things live: Off-Site Storage -> Logistics
+// Pallet -> Registration Box. `parentId` is the durable home. A CONTAINER's
+// placement for a given event is the per-event override carried on its
+// SupplyOrderItem container line (SupplyOrderItem.sourceLocationId), so the
+// effective parent is `containerLine.sourceLocationId ?? parentId`.
+//
+// The tree encodes home, not current whereabouts — a box on a truck still sits
+// under Off-Site Storage here. Where it is right now is the container line's
+// packingStatus.
+model StorageLocation {
+  id        String            @id @default(cuid())
+  name      String
+  kind      LocationKind      @default(PLACE)
+  type      String? // references a location_type CustomOption label
+  parentId  String?
+  parent    StorageLocation?  @relation("StorageLocationTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  StorageLocation[] @relation("StorageLocationTree")
+  notes     String?
+  sortOrder Int               @default(0)
+  archived  Boolean           @default(false)
+
+  sourcedSupplyItems   SupplyOrderItem[] @relation("SupplyItemSourceLocation")
+  containerSupplyItems SupplyOrderItem[] @relation("SupplyItemContainer")
+  sourcedPrintItems    PrintItem[]       @relation("PrintItemSourceLocation")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([kind])
 }
 
 // Core entities
@@ -1333,14 +1373,21 @@ model PrintItem {
   printerContact     Contact?         @relation("PrintItemPrinterContact", fields: [printerContactId], references: [id], onDelete: SetNull)
   notes              String?
   sortOrder          Int              @default(0)
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+
+  // Where this item comes from. Print items can be sourced from a container but
+  // can't *be* one — container lines are supply-side only.
+  sourceLocationId String?
+  sourceLocation   StorageLocation? @relation("PrintItemSourceLocation", fields: [sourceLocationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([printOrderId])
   @@index([designerVendorId])
   @@index([designerContactId])
   @@index([printerVendorId])
   @@index([printerContactId])
+  @@index([sourceLocationId])
 }
 
 // Junction: PrintOrder <-> Vendor
@@ -1406,13 +1453,26 @@ model SupplyOrderItem {
   packingStatus     PackingStatus    @default(NEEDED)
   notes             String?
   sortOrder         Int              @default(0)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+
+  // Where this item comes from. On a container line (containerLocationId set)
+  // it means something else: where that container sits for this event.
+  sourceLocationId String?
+  sourceLocation   StorageLocation? @relation("SupplyItemSourceLocation", fields: [sourceLocationId], references: [id], onDelete: SetNull)
+
+  // Set when this line *is* a container being shipped, rather than an item
+  // inside one. Container lines are excluded from equipment aggregates.
+  containerLocationId String?
+  containerLocation   StorageLocation? @relation("SupplyItemContainer", fields: [containerLocationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([supplyOrderId])
   @@index([equipmentId])
   @@index([providerVendorId])
   @@index([providerContactId])
+  @@index([sourceLocationId])
+  @@index([containerLocationId])
 }
 
 model SupplyOrderFunction {
@@ -1550,6 +1610,7 @@ enum PermissionResource {
   SETTINGS
   SYSTEM
   EQUIPMENT
+  STORAGE_LOCATIONS
   WORKFLOWS
   VENDORS
   VENUES

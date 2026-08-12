@@ -8,6 +8,11 @@ const GLOBAL_ONLY_RESOURCES: ResourceEntry[] = [
   { value: PermissionResource.SETTINGS, label: "Settings" },
   { value: PermissionResource.SYSTEM, label: "System" },
   { value: PermissionResource.EQUIPMENT, label: "Equipment" },
+  // Unlike the other global catalogs, STORAGE_LOCATIONS is granted to the
+  // default User role (WRITE) by the seed. Load-out is the reason: boxes get
+  // added and re-placed on the pallet in the field, by whoever is packing.
+  // DELETE stays admin-only, so packers archive rather than remove.
+  { value: PermissionResource.STORAGE_LOCATIONS, label: "Storage Locations" },
   { value: PermissionResource.WORKFLOWS, label: "Workflows" },
   { value: PermissionResource.VENDORS, label: "Vendors" },
   { value: PermissionResource.VENUES, label: "Venues" },

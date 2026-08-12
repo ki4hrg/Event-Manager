@@ -12,7 +12,7 @@ Mark a surface ✗ if it's relevant to the new entity but not yet wired. Some li
 - `prisma/seed.mjs` — seed any default options the entity depends on
 
 ## Auth and permissions
-- `src/app/settings/roles/resources.ts` — add a `PermissionResource` entry; if it's event-scoped, append to `EVENT_SCOPED_RESOURCES`
+- `src/app/users/roles/resources.ts` — add a `PermissionResource` entry to `GLOBAL_ONLY_RESOURCES` or `EVENT_SCOPED_RESOURCES`; mirror it in `prisma/seed.mjs` (`NON_EVENT_RESOURCES` / `EVENT_RESOURCES`, plus `ADMIN_ONLY_RESOURCES` if the default User role shouldn't get it) — the seed runs outside the Next runtime and can't import the TS module
 - Server Actions: every exported action starts with `await requireAuth()` (or `requireAdmin()` for admin-gated)
 
 ## Routes

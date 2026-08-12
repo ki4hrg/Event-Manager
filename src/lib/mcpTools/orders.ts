@@ -183,6 +183,7 @@ function readPrintItemArgs(args: Record<string, unknown>): PrintItemWriteArgs {
     printerVendorId: optionalString(args, "printerVendorId") ?? null,
     printerContactId: optionalString(args, "printerContactId") ?? null,
     notes: optionalString(args, "notes") ?? null,
+    sourceLocationId: optionalString(args, "sourceLocationId") ?? null,
   };
 }
 
@@ -198,6 +199,7 @@ const printItemProps = {
   printerVendorId: { type: "string", description: "Optional vendor id." },
   printerContactId: { type: "string", description: "Optional contact id." },
   notes: { type: "string", description: "Optional." },
+  sourceLocationId: { type: "string", description: "Optional storage location this item comes from. See `list_storage_locations`." },
 } as const;
 
 const ACQUISITION_STATES = ["ON_HAND", "TO_PROCURE", "DROP_SHIP"] as const;
@@ -213,6 +215,8 @@ function readSupplyItemArgs(args: Record<string, unknown>): SupplyItemWriteArgs 
     providerContactId: optionalString(args, "providerContactId") ?? null,
     packingStatus: (optionalString(args, "packingStatus") ?? "NEEDED") as PackingStatus,
     notes: optionalString(args, "notes") ?? null,
+    sourceLocationId: optionalString(args, "sourceLocationId") ?? null,
+    containerLocationId: optionalString(args, "containerLocationId") ?? null,
   };
 }
 
@@ -225,6 +229,8 @@ const supplyItemProps = {
   providerContactId: { type: "string", description: "Optional. Single-party (see providerVendorId)." },
   packingStatus: { type: "string", enum: PACKING_STATUSES, description: "Defaults NEEDED." },
   notes: { type: "string" },
+  sourceLocationId: { type: "string", description: "Optional storage location this item comes from. On a container line it means where that container sits for this event. See `list_storage_locations`." },
+  containerLocationId: { type: "string", description: "Set when this line IS a container being shipped (a box, a pallet) rather than an item inside one. Must reference a CONTAINER location, and only one order per event may claim a given container. Container lines need no description or equipment." },
 } as const;
 
 function readSetupTableArgs(args: Record<string, unknown>): SetupTableWriteArgs {

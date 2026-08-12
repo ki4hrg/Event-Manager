@@ -256,7 +256,9 @@ export async function getEquipmentResponsibilityData(
       },
     }),
     prisma.supplyOrderItem.findMany({
-      where: { supplyOrder: { eventId } },
+      // Container lines are shipping units, not equipment — this report
+      // aggregates equipment by responsible party.
+      where: { supplyOrder: { eventId }, containerLocationId: null },
       include: {
         equipment: { select: { id: true, name: true, category: true } },
         providerVendor: { select: { id: true, name: true } },
@@ -1018,6 +1020,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
         items: {
           include: {
             equipment: { select: { id: true, name: true, category: true } },
+            sourceLocation: { select: { id: true, name: true } },
             providerVendor: { select: { id: true, name: true } },
             providerContact: { select: { id: true, firstName: true, lastName: true } },
           },
@@ -1276,6 +1279,7 @@ const fdPrintOrderInclude = {
       designerContact: fdContactSelect,
       printerVendor: fdVendorSelect,
       printerContact: fdContactSelect,
+      sourceLocation: { select: { id: true, name: true } },
     },
     orderBy: { sortOrder: "asc" },
   },
@@ -1298,6 +1302,7 @@ const fdSupplyOrderInclude = {
       equipment: { select: { id: true, name: true, category: true } },
       providerVendor: fdVendorSelect,
       providerContact: fdContactSelect,
+      sourceLocation: { select: { id: true, name: true } },
     },
     orderBy: { sortOrder: "asc" },
   },

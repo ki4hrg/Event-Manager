@@ -9,6 +9,8 @@ import {
   getPackingListItems,
   getSavedProviderFilter,
   savePackingProviderFilter,
+  getSavedLocationFilter,
+  savePackingLocationFilter,
 } from "../../packing/actions";
 import {
   updateSupplyOrderItemPackingStatus,
@@ -34,6 +36,8 @@ export default async function PackingListPage({
     hideHandled?: string;
     hidePacked?: string;
     provider?: string;
+    location?: string;
+    groupBy?: string;
   }>;
 }) {
   const { id: eventId } = await params;
@@ -42,21 +46,25 @@ export default async function PackingListPage({
     hideHandled: hideHandledParam,
     hidePacked: legacyHidePacked,
     provider: urlProvider,
+    location: urlLocation,
+    groupBy: urlGroupBy,
   } = (await searchParams) ?? {};
   // Legacy `?hidePacked=1` bookmarks from before the rename still apply.
   const initialHideHandled = hideHandledParam ?? legacyHidePacked;
 
   // URL param wins when present, so skip the saved-setting lookup in that
   // case (saves a DB query on every 15s polling refresh).
-  const [event, payload, savedProvider] = await Promise.all([
+  const [event, payload, savedProvider, savedLocation] = await Promise.all([
     getEvent(eventId),
     getPackingListItems(eventId),
     urlProvider == null ? getSavedProviderFilter(eventId) : Promise.resolve<string | null>(null),
+    urlLocation == null ? getSavedLocationFilter(eventId) : Promise.resolve<string | null>(null),
   ]);
 
   if (!event) notFound();
 
   const initialProvider = urlProvider ?? savedProvider ?? "";
+  const initialLocation = urlLocation ?? savedLocation ?? "";
 
   const toggleSupplyItem = async (
     itemId: string,
@@ -99,6 +107,11 @@ export default async function PackingListPage({
     await savePackingProviderFilter(eventId, value);
   };
 
+  const saveLocationFilter = async (value: string) => {
+    "use server";
+    await savePackingLocationFilter(eventId, value);
+  };
+
   return (
     <>
       <Suspense fallback={null}>
@@ -123,11 +136,14 @@ export default async function PackingListPage({
         initialState={initialState}
         initialHideHandled={initialHideHandled}
         initialProvider={initialProvider}
+        initialLocation={initialLocation}
+        initialGroupBy={urlGroupBy}
         toggleSupplyItem={toggleSupplyItem}
         togglePrintItem={togglePrintItem}
         toggleSupplyAcquisition={toggleSupplyAcquisition}
         togglePrintAcquisition={togglePrintAcquisition}
         saveProviderFilter={saveProviderFilter}
+        saveLocationFilter={saveLocationFilter}
       />
     </>
   );
