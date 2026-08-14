@@ -130,6 +130,22 @@ export async function setStorageLocationArchivedCore(
 
 export async function deleteStorageLocationCore(id: string, userId: string) {
   await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "DELETE");
+
+  // InventoryItem.location is Restrict, so this would fail at the database
+  // anyway — the pre-check exists to turn a foreign key error into a sentence
+  // that says which location and how many items.
+  const location = await prisma.storageLocation.findUnique({
+    where: { id },
+    select: { name: true, _count: { select: { inventoryItems: true } } },
+  });
+  if (!location) throw new Error("Location not found.");
+  const held = location._count.inventoryItems;
+  if (held > 0) {
+    throw new Error(
+      `"${location.name}" still holds ${held} item${held === 1 ? "" : "s"}. Move or delete them first.`,
+    );
+  }
+
   // Children are promoted to roots by onDelete: SetNull, matching how deleting
   // a RoomGroup leaves its rooms ungrouped rather than destroying them.
   await prisma.storageLocation.delete({ where: { id } });
