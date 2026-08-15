@@ -136,7 +136,9 @@ function parseInventoryData(formData: FormData): InventoryItemWriteArgs {
   const quantity = rawQuantity ? parseInt(rawQuantity) : null;
 
   return {
-    name: ((formData.get("name") as string) || "").trim() || null,
+    // Form field is `detail`, column is `name` — see the input in ItemFields for
+    // why they differ.
+    name: ((formData.get("detail") as string) || "").trim() || null,
     equipmentId: (formData.get("equipmentId") as string) || "",
     quantity: quantity !== null && Number.isNaN(quantity) ? null : quantity,
     notes: (formData.get("notes") as string) || null,
