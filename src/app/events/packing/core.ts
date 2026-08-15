@@ -136,3 +136,138 @@ export async function markContainerContentsCore(
 
   return { supplyUpdated, printUpdated };
 }
+
+export type ReturnToLocationResult = {
+  locationName: string;
+  /** Items that had no durable record and got one. */
+  created: number;
+  /** Items already linked to inventory, re-filed at the new location. */
+  rehomed: number;
+  /** Ids that aren't loose supply items on this event. */
+  skipped: number;
+  /**
+   * Descriptions of items skipped specifically for having no equipment link.
+   * Named rather than counted because the fix is per-item: catalogue the thing,
+   * then file it. Capped so a bulk mistake doesn't produce a wall of text.
+   */
+  needCatalogued: string[];
+};
+
+const NEED_CATALOGUED_SHOWN = 5;
+
+/**
+ * File loose items back into a container after an event — the post-event half of
+ * the inventory loop.
+ *
+ * An inventory item has exactly one home, so re-filing an already-linked item is
+ * a move, not a copy; that is why this can't double up rows when the same repack
+ * gets recorded twice. Print items are deliberately unsupported: print collateral
+ * is given away rather than kept, so there is nothing durable to record.
+ *
+ * The order item's own sourceLocationId is left untouched. It records where the
+ * item came from *for that event*; rewriting it to where the item ended up would
+ * falsify a past order. inventoryItemId is the forward link.
+ */
+export async function returnItemsToLocationCore(
+  supplyItemIds: string[],
+  targetLocationId: string,
+  eventId: string,
+  userId: string,
+): Promise<ReturnToLocationResult> {
+  await requirePermissionForUser(userId, "EVENTS", "VIEW", eventId);
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+
+  const location = await prisma.storageLocation.findUnique({
+    where: { id: targetLocationId },
+    select: { name: true, archived: true },
+  });
+  if (!location) throw new Error("Location not found.");
+  if (location.archived) {
+    throw new Error(`"${location.name}" is archived — restore it before filing items there.`);
+  }
+
+  // The permission check says the caller may write supply items on this event;
+  // it says nothing about these particular ids belonging to it. Scoping the read
+  // by eventId is the ownership half — anything that doesn't come back is
+  // reported as skipped rather than trusted from the client's list.
+  const items = await prisma.supplyOrderItem.findMany({
+    where: { id: { in: supplyItemIds }, supplyOrder: { eventId } },
+    select: {
+      id: true,
+      description: true,
+      quantity: true,
+      equipmentId: true,
+      inventoryItemId: true,
+      containerLocationId: true,
+      equipment: { select: { name: true } },
+    },
+  });
+
+  // A container line *is* the box, not something inside it — filing it into a
+  // location would make the box its own contents.
+  const loose = items.filter((item) => !item.containerLocationId);
+
+  // Inventory is catalogued gear, so a line with only free text has nothing to
+  // file. Naming these lets someone catalogue them and retry, rather than
+  // wondering which of the selection didn't land.
+  //
+  // Testing `equipment` rather than `equipmentId` closes a narrow window: the
+  // ids were read before the transaction, and an admin deleting that equipment
+  // in between nulls the order line's FK but not the copy in hand, which would
+  // fail the create with a foreign key error instead of a skip.
+  const isCatalogued = (item: (typeof loose)[number]) => !!item.equipmentId && !!item.equipment;
+  const uncatalogued = loose.filter((item) => !isCatalogued(item) && !item.inventoryItemId);
+  const filable = loose.filter((item) => isCatalogued(item) || item.inventoryItemId);
+  const skipped = supplyItemIds.length - filable.length;
+
+  const toRehome = filable.filter((item) => item.inventoryItemId);
+  const toCreate = filable.filter((item) => !item.inventoryItemId);
+
+  await prisma.$transaction(async (tx) => {
+    if (toRehome.length > 0) {
+      await tx.inventoryItem.updateMany({
+        where: { id: { in: toRehome.map((item) => item.inventoryItemId!) } },
+        data: { locationId: targetLocationId },
+      });
+    }
+
+    const { _max } = await tx.inventoryItem.aggregate({
+      where: { locationId: targetLocationId },
+      _max: { sortOrder: true },
+    });
+    let sortOrder = (_max.sortOrder ?? -1) + 1;
+
+    for (const item of toCreate) {
+      const created = await tx.inventoryItem.create({
+        data: {
+          locationId: targetLocationId,
+          // Equipment carries the identity, so the order line's free-text
+          // description survives only as the qualifier — and only when it says
+          // something the equipment name doesn't already.
+          name:
+            item.description && item.description !== item.equipment?.name
+              ? item.description
+              : null,
+          equipmentId: item.equipmentId!,
+          quantity: item.quantity,
+          sortOrder: sortOrder++,
+        },
+      });
+      await tx.supplyOrderItem.update({
+        where: { id: item.id },
+        data: { inventoryItemId: created.id },
+      });
+    }
+  });
+
+  return {
+    locationName: location.name,
+    created: toCreate.length,
+    rehomed: toRehome.length,
+    skipped,
+    needCatalogued: uncatalogued
+      .slice(0, NEED_CATALOGUED_SHOWN)
+      .map((item) => item.description ?? "Untitled item"),
+  };
+}

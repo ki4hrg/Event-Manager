@@ -11,7 +11,9 @@ import {
 } from "@/lib/statusConstants";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
+import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import type { PackableItem, PackingListPayload } from "../../packing/actions";
+import type { ReturnToLocationResult } from "../../packing/core";
 
 type ToggleSupply = (itemId: string, supplyOrderId: string, status: PackingStatus) => Promise<void>;
 type TogglePrint = (itemId: string, printOrderId: string, status: PackingStatus) => Promise<void>;
@@ -57,7 +59,26 @@ type Props = {
   togglePrintAcquisition: TogglePrintAcquisition;
   saveProviderFilter: (value: string) => Promise<void>;
   saveLocationFilter: (value: string) => Promise<void>;
+  returnItemsToLocation: (
+    supplyItemIds: string[],
+    targetLocationId: string,
+  ) => Promise<ReturnToLocationResult>;
 };
+
+/**
+ * Only loose supply items can be filed into storage. Print collateral is given
+ * away rather than kept, and a container line *is* the box — filing it into a
+ * location would make the box its own contents.
+ */
+function isFilable(item: PackableItem) {
+  return item.kind === "SUPPLY" && item.containerLocationId == null;
+}
+
+function filableReason(item: PackableItem): string | undefined {
+  if (item.kind === "PRINT") return "Print collateral isn't kept in storage.";
+  if (item.containerLocationId != null) return "This line is the container itself.";
+  return undefined;
+}
 
 export function PackingListClient({
   eventId,
@@ -73,6 +94,7 @@ export function PackingListClient({
   togglePrintAcquisition,
   saveProviderFilter,
   saveLocationFilter,
+  returnItemsToLocation,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -241,6 +263,60 @@ export function PackingListClient({
     startProviderSave(async () => {
       await Promise.all([saveProviderFilter(""), saveLocationFilter("")]);
       pushWith({ state: null, hideHandled: null, provider: null, location: null });
+    });
+  }
+
+  // ── Return to storage ───────────────────────────────────────────────────────
+  // Post-event repack: file loose supply items back into a container so the next
+  // event can pull from inventory instead of retyping.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [returnTarget, setReturnTarget] = useState("");
+  const [returnResult, setReturnResult] = useState<ReturnToLocationResult | null>(null);
+  const [returnError, setReturnError] = useState<string | null>(null);
+  const [isReturning, startReturn] = useTransition();
+
+  const canReturn = payload.canWriteSupply && payload.canWriteStorage;
+
+  const returnOptions: LocationOption[] = useMemo(
+    () =>
+      payload.locations.map((l) => ({
+        id: l.id,
+        name: l.name,
+        kind: l.isContainer ? "CONTAINER" : "PLACE",
+        depth: l.depth,
+        path: l.path,
+        archived: false,
+      })),
+    [payload.locations],
+  );
+
+  function toggleSelected(itemId: string) {
+    setReturnResult(null);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+    setReturnTarget("");
+    setReturnError(null);
+  }
+
+  function applyReturn() {
+    startReturn(async () => {
+      setReturnError(null);
+      try {
+        const result = await returnItemsToLocation(Array.from(selected), returnTarget);
+        setReturnResult(result);
+        clearSelection();
+        router.refresh();
+      } catch (e) {
+        setReturnError(e instanceof Error ? e.message : "Couldn't file those items.");
+      }
     });
   }
 
@@ -599,6 +675,72 @@ export function PackingListClient({
         </p>
       )}
 
+      {returnResult && (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-3 text-sm">
+          <p className="text-gray-700 dark:text-gray-300">
+            Filed {returnResult.created + returnResult.rehomed} item
+            {returnResult.created + returnResult.rehomed === 1 ? "" : "s"} into{" "}
+            {returnResult.locationName}
+            {returnResult.rehomed > 0 && returnResult.created > 0 && (
+              <span className="text-gray-500 dark:text-gray-400">
+                {" "}
+                ({returnResult.created} new, {returnResult.rehomed} moved)
+              </span>
+            )}
+            .
+          </p>
+          {returnResult.skipped > 0 && (
+            <p className="mt-1 text-amber-700 dark:text-amber-300">
+              {returnResult.skipped} skipped.
+              {returnResult.needCatalogued.length > 0 && (
+                <>
+                  {" "}
+                  These need an equipment link first:{" "}
+                  {returnResult.needCatalogued.join(", ")}
+                  {returnResult.skipped > returnResult.needCatalogued.length && "…"}
+                </>
+              )}
+            </p>
+          )}
+        </div>
+      )}
+
+      {selected.size > 0 && (
+        <div className="rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 p-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {selected.size} selected
+            </span>
+            <div className="min-w-56 flex-1">
+              <LocationSelect
+                options={returnOptions}
+                value={returnTarget}
+                onChange={setReturnTarget}
+                placeholder="— Return to… —"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={isReturning || !returnTarget}
+              onClick={applyReturn}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isReturning ? "..." : "File"}
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
+            >
+              Clear selection
+            </button>
+          </div>
+          {returnError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{returnError}</p>
+          )}
+        </div>
+      )}
+
       {/* Groups */}
       {(groupBy === "acquisition"
         ? groups
@@ -660,6 +802,17 @@ export function PackingListClient({
                         className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3"
                       >
                         <div className="flex items-start justify-between gap-2">
+                          {canReturn && (
+                            <input
+                              type="checkbox"
+                              checked={selected.has(item.itemId)}
+                              disabled={!isFilable(item)}
+                              onChange={() => toggleSelected(item.itemId)}
+                              title={filableReason(item)}
+                              aria-label={`Select ${item.description}`}
+                              className="mt-1 rounded border-gray-300 dark:border-gray-600 disabled:opacity-40"
+                            />
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-baseline gap-2 flex-wrap">
                               <span className="font-medium text-gray-900 dark:text-white">
@@ -720,6 +873,7 @@ export function PackingListClient({
                   <table className="min-w-full text-sm">
                     <thead>
                       <tr className="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {canReturn && <th className="py-2 pr-3 w-8"><span className="sr-only">Select</span></th>}
                         <th className="py-2 pr-3">Description</th>
                         <th className="py-2 pr-3">Qty</th>
                         <th className="py-2 pr-3">Order</th>
@@ -736,6 +890,19 @@ export function PackingListClient({
                           item.kind === "SUPPLY" ? payload.canWriteSupply : payload.canWritePrint;
                         return (
                         <tr key={`${item.kind}-${item.itemId}`}>
+                          {canReturn && (
+                            <td className="py-2 pr-3 align-top">
+                              <input
+                                type="checkbox"
+                                checked={selected.has(item.itemId)}
+                                disabled={!isFilable(item)}
+                                onChange={() => toggleSelected(item.itemId)}
+                                title={filableReason(item)}
+                                aria-label={`Select ${item.description}`}
+                                className="mt-1 rounded border-gray-300 dark:border-gray-600 disabled:opacity-40"
+                              />
+                            </td>
+                          )}
                           <td className="py-2 pr-3 text-gray-900 dark:text-white">
                             <div className="font-medium">{item.description}</div>
                             {item.notes && (
