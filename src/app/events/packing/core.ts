@@ -212,13 +212,15 @@ export async function returnItemsToLocationCore(
   // file. Naming these lets someone catalogue them and retry, rather than
   // wondering which of the selection didn't land.
   //
-  // Testing `equipment` rather than `equipmentId` closes a narrow window: the
-  // ids were read before the transaction, and an admin deleting that equipment
-  // in between nulls the order line's FK but not the copy in hand, which would
-  // fail the create with a foreign key error instead of a skip.
-  const isCatalogued = (item: (typeof loose)[number]) => !!item.equipmentId && !!item.equipment;
-  const uncatalogued = loose.filter((item) => !isCatalogued(item) && !item.inventoryItemId);
-  const filable = loose.filter((item) => isCatalogued(item) || item.inventoryItemId);
+  // Deleting equipment mid-repack would still fail the create with a foreign key
+  // error, and no read-time check can prevent that — SupplyOrderItem.equipment is
+  // SetNull, so the id and the relation go null together and neither reveals a
+  // delete that lands after this query. The FK is what protects integrity here;
+  // the failure mode is one opaque error and a retry. deleteEquipment already
+  // refuses to delete equipment that is stocked anywhere, which leaves only
+  // never-inventoried equipment in the window.
+  const uncatalogued = loose.filter((item) => !item.equipmentId && !item.inventoryItemId);
+  const filable = loose.filter((item) => item.equipmentId || item.inventoryItemId);
   const skipped = supplyItemIds.length - filable.length;
 
   const toRehome = filable.filter((item) => item.inventoryItemId);
