@@ -7,6 +7,8 @@ import type { Equipment, InventoryItem, LocationKind } from "@prisma/client";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
+import type { SupplyOrderTarget } from "../../actions";
+import type { AddInventoryResult } from "@/app/events/supply-orders/core";
 
 type ItemWithEquipment = InventoryItem & {
   equipment: { id: string; name: string; category: string };
@@ -33,6 +35,12 @@ type Props = {
   canDelete: boolean;
   canManageEquipment: boolean;
   createEquipment: (name: string, category: string) => Promise<string>;
+  /** Empty when the caller can't write supply orders anywhere; hides the bridge. */
+  supplyOrderTargets: SupplyOrderTarget[];
+  addToSupplyOrder: (
+    inventoryItemIds: string[],
+    supplyOrderId: string,
+  ) => Promise<AddInventoryResult>;
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
@@ -434,6 +442,8 @@ export function LocationContents({
   canDelete,
   canManageEquipment,
   createEquipment,
+  supplyOrderTargets,
+  addToSupplyOrder,
   createItem,
   updateItem,
   setArchived,
@@ -447,6 +457,9 @@ export function LocationContents({
   const [showArchived, setShowArchived] = useState(false);
   const [moveTarget, setMoveTarget] = useState("");
   const [showMove, setShowMove] = useState(false);
+  const [showOrder, setShowOrder] = useState(false);
+  const [orderTarget, setOrderTarget] = useState("");
+  const [addResult, setAddResult] = useState<AddInventoryResult | null>(null);
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -455,6 +468,9 @@ export function LocationContents({
   const visible = showArchived ? items : items.filter((i) => !i.archived);
 
   const toggle = (id: string) => {
+    // Starting a new selection retires the last result, so the banner can't
+    // describe one set of items while a different set is checked.
+    setAddResult(null);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -467,6 +483,8 @@ export function LocationContents({
     setSelected(new Set());
     setShowMove(false);
     setMoveTarget("");
+    setShowOrder(false);
+    setOrderTarget("");
     setConfirmingBulkDelete(false);
   };
 
@@ -552,6 +570,15 @@ export function LocationContents({
                 Move selected to…
               </button>
             )}
+            {supplyOrderTargets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowOrder((v) => !v)}
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Add to supply order…
+              </button>
+            )}
             {canDelete &&
               (confirmingBulkDelete ? (
                 <button
@@ -599,6 +626,61 @@ export function LocationContents({
                 {isPending ? "..." : "Move"}
               </button>
             </div>
+          )}
+
+          {showOrder && supplyOrderTargets.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              {/* Grouped by event rather than a two-step event-then-order pair:
+                  most people are looking for one order by name, and optgroup
+                  gives the event context without a second control. */}
+              <select
+                value={orderTarget}
+                onChange={(e) => setOrderTarget(e.target.value)}
+                className="min-w-56 flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+              >
+                <option value="">— Select a supply order —</option>
+                {supplyOrderTargets.map((target) => (
+                  <optgroup key={target.eventId} label={target.eventName}>
+                    {target.orders.map((order) => (
+                      <option key={order.id} value={order.id}>
+                        {order.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={isPending || !orderTarget}
+                onClick={() =>
+                  startTransition(async () => {
+                    setError(null);
+                    try {
+                      setAddResult(await addToSupplyOrder(Array.from(selected), orderTarget));
+                      clearSelection();
+                      router.refresh();
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Couldn't add those items.");
+                    }
+                  })
+                }
+                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isPending ? "..." : "Add"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {addResult && (
+        <div className="mb-3 p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300">
+          Added {addResult.added} item{addResult.added === 1 ? "" : "s"} to {addResult.orderName}.
+          {addResult.skipped > 0 && (
+            <span className="text-amber-700 dark:text-amber-300">
+              {" "}
+              {addResult.skipped} no longer exist and were skipped.
+            </span>
           )}
         </div>
       )}

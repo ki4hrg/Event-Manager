@@ -282,6 +282,10 @@ function parseSupplyItemData(formData: FormData): SupplyItemWriteArgs {
     notes: (formData.get("notes") as string) || null,
     sourceLocationId: (formData.get("sourceLocationId") as string) || null,
     containerLocationId: (formData.get("containerLocationId") as string) || null,
+    // Not a form field: provenance is written by the location-side bridge and by
+    // a post-event repack, never typed. Editing a line by hand clears it, which
+    // is right — the description no longer necessarily describes that inventory.
+    inventoryItemId: null,
   };
 }
 

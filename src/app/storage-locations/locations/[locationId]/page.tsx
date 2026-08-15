@@ -20,6 +20,8 @@ import {
   setInventoryItemArchived,
   moveInventoryItems,
   deleteInventoryItems,
+  getSupplyOrderTargets,
+  addInventoryToSupplyOrder,
 } from "../../actions";
 import { LocationContents } from "./LocationContents";
 
@@ -54,6 +56,7 @@ export default async function LocationDetailPage({
     canWrite,
     canDelete,
     canManageEquipment,
+    supplyOrderTargets,
   ] = await Promise.all([
     prisma.storageLocation.findUnique({ where: { id: locationId } }),
     getStorageLocations(),
@@ -63,6 +66,7 @@ export default async function LocationDetailPage({
     hasPermission(PermissionResource.STORAGE_LOCATIONS, "WRITE"),
     hasPermission(PermissionResource.STORAGE_LOCATIONS, "DELETE"),
     hasPermission(PermissionResource.EQUIPMENT, "WRITE"),
+    getSupplyOrderTargets(),
   ]);
 
   if (!location) notFound();
@@ -110,6 +114,14 @@ export default async function LocationDetailPage({
     return createEquipmentInline(name, category);
   };
 
+  const addToSupplyOrderAction = async (
+    inventoryItemIds: string[],
+    supplyOrderId: string,
+  ) => {
+    "use server";
+    return addInventoryToSupplyOrder(inventoryItemIds, supplyOrderId, locationId);
+  };
+
   return (
     <LocationContents
       location={{
@@ -129,6 +141,8 @@ export default async function LocationDetailPage({
       canDelete={canDelete}
       canManageEquipment={canManageEquipment}
       createEquipment={createEquipmentAction}
+      supplyOrderTargets={supplyOrderTargets}
+      addToSupplyOrder={addToSupplyOrderAction}
       createItem={createItemAction}
       updateItem={updateItemAction}
       setArchived={setArchivedAction}

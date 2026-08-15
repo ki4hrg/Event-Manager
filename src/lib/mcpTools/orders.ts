@@ -217,6 +217,7 @@ function readSupplyItemArgs(args: Record<string, unknown>): SupplyItemWriteArgs 
     notes: optionalString(args, "notes") ?? null,
     sourceLocationId: optionalString(args, "sourceLocationId") ?? null,
     containerLocationId: optionalString(args, "containerLocationId") ?? null,
+    inventoryItemId: optionalString(args, "inventoryItemId") ?? null,
   };
 }
 
@@ -230,6 +231,7 @@ const supplyItemProps = {
   packingStatus: { type: "string", enum: PACKING_STATUSES, description: "Defaults NEEDED." },
   notes: { type: "string" },
   sourceLocationId: { type: "string", description: "Optional storage location this item comes from. On a container line it means where that container sits for this event. See `list_storage_locations`." },
+  inventoryItemId: { type: "string", description: "Optional provenance link to the durable inventory row this line was pulled from. Records origin only — it never decrements or reserves the inventory. See `list_inventory_items`." },
   containerLocationId: { type: "string", description: "Set when this line IS a container being shipped (a box, a pallet) rather than an item inside one. Must reference a CONTAINER location, and only one order per event may claim a given container. Container lines need no description or equipment." },
 } as const;
 

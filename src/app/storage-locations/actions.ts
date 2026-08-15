@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { LocationKind, PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, hasPermissionForUser } from "@/lib/permissions";
+import {
+  addInventoryToSupplyOrderCore,
+  type AddInventoryResult,
+} from "@/app/events/supply-orders/core";
 import {
   createStorageLocationCore,
   updateStorageLocationCore,
@@ -186,6 +190,60 @@ export async function deleteInventoryItems(ids: string[]) {
   const { locationIds } = await deleteInventoryItemsCore(ids, session.user.id);
   revalidatePath("/storage-locations");
   for (const id of locationIds) revalidatePath(locationPath(id));
+}
+
+export type SupplyOrderTarget = {
+  eventId: string;
+  eventName: string;
+  orders: { id: string; name: string }[];
+};
+
+/**
+ * Events the caller can actually add supply items to, with their orders.
+ *
+ * This page is global but supply orders are event-scoped, and STORAGE_LOCATIONS
+ * VIEW implies nothing about SUPPLY_ORDERS WRITE on any given event — so the
+ * list is filtered per event rather than shown whole. loadPermissionsForUser is
+ * cache()d, so the per-event checks cost one query regardless of event count.
+ * An empty result hides the affordance entirely.
+ */
+export async function getSupplyOrderTargets(): Promise<SupplyOrderTarget[]> {
+  const session = await requireAuth();
+
+  const events = await prisma.event.findMany({
+    select: {
+      id: true,
+      name: true,
+      supplyOrders: { select: { id: true, name: true }, orderBy: { name: "asc" } },
+    },
+    orderBy: { startDate: "desc" },
+  });
+
+  const allowed = await Promise.all(
+    events.map((event) =>
+      hasPermissionForUser(session.user.id, "SUPPLY_ORDERS", "WRITE", event.id),
+    ),
+  );
+
+  return events
+    .filter((event, i) => allowed[i] && event.supplyOrders.length > 0)
+    .map((event) => ({ eventId: event.id, eventName: event.name, orders: event.supplyOrders }));
+}
+
+export async function addInventoryToSupplyOrder(
+  inventoryItemIds: string[],
+  supplyOrderId: string,
+  locationId: string,
+): Promise<AddInventoryResult> {
+  const session = await requireAuth();
+  const result = await addInventoryToSupplyOrderCore(
+    inventoryItemIds,
+    supplyOrderId,
+    session.user.id,
+  );
+  revalidatePath(locationPath(locationId));
+  revalidatePath("/events");
+  return result;
 }
 
 // Location types are CustomOption rows with category="location_type". Managed
