@@ -1,15 +1,26 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import type { Equipment, InventoryItem, LocationKind } from "@prisma/client";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
+import type { SupplyOrderTarget } from "../../actions";
+import type { AddInventoryResult } from "@/app/events/supply-orders/core";
 
 type ItemWithEquipment = InventoryItem & {
   equipment: { id: string; name: string; category: string };
+};
+
+type NestedLocation = {
+  id: string;
+  name: string;
+  kind: LocationKind;
+  type: string | null;
+  itemCount: number;
+  childCount: number;
 };
 
 type LocationSummary = {
@@ -26,6 +37,8 @@ type Props = {
   /** Root-first, excluding the location itself. */
   ancestors: { id: string; name: string }[];
   items: ItemWithEquipment[];
+  /** Direct child locations — the boxes on this pallet, not the whole subtree. */
+  nested: NestedLocation[];
   equipmentOptions: Equipment[];
   equipmentCategories: { id: string; label: string }[];
   moveOptions: LocationOption[];
@@ -33,6 +46,12 @@ type Props = {
   canDelete: boolean;
   canManageEquipment: boolean;
   createEquipment: (name: string, category: string) => Promise<string>;
+  /** Empty when the caller can't write supply orders anywhere; hides the bridge. */
+  supplyOrderTargets: SupplyOrderTarget[];
+  addToSupplyOrder: (
+    inventoryItemIds: string[],
+    supplyOrderId: string,
+  ) => Promise<AddInventoryResult>;
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
@@ -157,7 +176,7 @@ function ItemFields({
   createEquipment,
   equipmentId,
   onEquipmentChange,
-  qualifierRef,
+  detailRef,
 }: {
   item?: ItemWithEquipment;
   equipmentOptions: Equipment[];
@@ -166,7 +185,7 @@ function ItemFields({
   createEquipment: (name: string, category: string) => Promise<string>;
   equipmentId: string;
   onEquipmentChange: (value: string) => void;
-  qualifierRef?: React.RefObject<HTMLInputElement | null>;
+  detailRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
@@ -203,24 +222,23 @@ function ItemFields({
             </optgroup>
           ))}
         </select>
-        {canManageEquipment && (
-          <InlineEquipmentCreate
-            categories={equipmentCategories}
-            createEquipment={createEquipment}
-            onCreated={onEquipmentChange}
-          />
-        )}
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Qualifier
+          Detail
         </label>
         <input
-          ref={qualifierRef}
+          ref={detailRef}
           type="text"
-          name="name"
+          // Field named `detail`, column named `name`: password managers key off
+          // input names, and `name="name"` reliably summons an autofill overlay.
+          // parseInventoryData maps it back.
+          name="detail"
           defaultValue={item?.name ?? ""}
           placeholder="e.g. blue"
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
           className={inputClass}
         />
       </div>
@@ -237,6 +255,17 @@ function ItemFields({
           className={inputClass}
         />
       </div>
+      {/* Below the fields, not inside the equipment cell: tabbing out of the
+          equipment select should land on Detail, not on a secondary affordance. */}
+      {canManageEquipment && (
+        <div className="sm:col-span-4">
+          <InlineEquipmentCreate
+            categories={equipmentCategories}
+            createEquipment={createEquipment}
+            onCreated={onEquipmentChange}
+          />
+        </div>
+      )}
       <div className="sm:col-span-4">
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
           Notes
@@ -263,7 +292,7 @@ type FieldProps = {
 /**
  * Stays open after submit and refocuses, because initial inventory is a long
  * typing session rather than a one-off create. Equipment persists between
- * submits — consecutive rows are usually the same category — while the qualifier
+ * submits — consecutive rows are usually the same category — while the detail
  * and quantity clear.
  */
 function AddItemForm({
@@ -274,7 +303,7 @@ function AddItemForm({
   createItem: (formData: FormData) => Promise<void>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const qualifierRef = useRef<HTMLInputElement>(null);
+  const detailRef = useRef<HTMLInputElement>(null);
   const [equipmentId, setEquipmentId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -287,7 +316,7 @@ function AddItemForm({
         try {
           await createItem(formData);
           formRef.current?.reset();
-          qualifierRef.current?.focus();
+          detailRef.current?.focus();
           router.refresh();
         } catch (e) {
           setError(e instanceof Error ? e.message : "Couldn't add that item.");
@@ -299,7 +328,7 @@ function AddItemForm({
         {...fieldProps}
         equipmentId={equipmentId}
         onEquipmentChange={setEquipmentId}
-        qualifierRef={qualifierRef}
+        detailRef={detailRef}
       />
       {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       <SubmitButton label="Add item" />
@@ -427,6 +456,7 @@ export function LocationContents({
   location,
   ancestors,
   items,
+  nested,
   equipmentOptions,
   equipmentCategories,
   moveOptions,
@@ -434,6 +464,8 @@ export function LocationContents({
   canDelete,
   canManageEquipment,
   createEquipment,
+  supplyOrderTargets,
+  addToSupplyOrder,
   createItem,
   updateItem,
   setArchived,
@@ -447,6 +479,9 @@ export function LocationContents({
   const [showArchived, setShowArchived] = useState(false);
   const [moveTarget, setMoveTarget] = useState("");
   const [showMove, setShowMove] = useState(false);
+  const [showOrder, setShowOrder] = useState(false);
+  const [orderTarget, setOrderTarget] = useState("");
+  const [addResult, setAddResult] = useState<AddInventoryResult | null>(null);
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -455,6 +490,9 @@ export function LocationContents({
   const visible = showArchived ? items : items.filter((i) => !i.archived);
 
   const toggle = (id: string) => {
+    // Starting a new selection retires the last result, so the banner can't
+    // describe one set of items while a different set is checked.
+    setAddResult(null);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -467,6 +505,8 @@ export function LocationContents({
     setSelected(new Set());
     setShowMove(false);
     setMoveTarget("");
+    setShowOrder(false);
+    setOrderTarget("");
     setConfirmingBulkDelete(false);
   };
 
@@ -552,6 +592,15 @@ export function LocationContents({
                 Move selected to…
               </button>
             )}
+            {supplyOrderTargets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowOrder((v) => !v)}
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Add to supply order…
+              </button>
+            )}
             {canDelete &&
               (confirmingBulkDelete ? (
                 <button
@@ -600,12 +649,102 @@ export function LocationContents({
               </button>
             </div>
           )}
+
+          {showOrder && supplyOrderTargets.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              {/* Grouped by event rather than a two-step event-then-order pair:
+                  most people are looking for one order by name, and optgroup
+                  gives the event context without a second control. */}
+              <select
+                value={orderTarget}
+                onChange={(e) => setOrderTarget(e.target.value)}
+                className="min-w-56 flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+              >
+                <option value="">— Select a supply order —</option>
+                {supplyOrderTargets.map((target) => (
+                  <optgroup key={target.eventId} label={target.eventName}>
+                    {target.orders.map((order) => (
+                      <option key={order.id} value={order.id}>
+                        {order.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={isPending || !orderTarget}
+                onClick={() =>
+                  startTransition(async () => {
+                    setError(null);
+                    try {
+                      setAddResult(await addToSupplyOrder(Array.from(selected), orderTarget));
+                      clearSelection();
+                      router.refresh();
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Couldn't add those items.");
+                    }
+                  })
+                }
+                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isPending ? "..." : "Add"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {addResult && (
+        <div className="mb-3 p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300">
+          Added {addResult.added} item{addResult.added === 1 ? "" : "s"} to {addResult.orderName}.
+          {addResult.skipped > 0 && (
+            <span className="text-amber-700 dark:text-amber-300">
+              {" "}
+              {addResult.skipped} no longer exist and were skipped.
+            </span>
+          )}
+        </div>
+      )}
+
+      {nested.length > 0 && (
+        <div className="mb-4">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Inside</h3>
+          <div className="border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700">
+            {nested.map((child) => (
+              <Link
+                key={child.id}
+                href={`/storage-locations/locations/${child.id}`}
+                className="flex items-baseline justify-between gap-2 p-3 hover:bg-gray-50 dark:hover:bg-gray-900"
+              >
+                <span className="min-w-0 flex items-baseline gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {child.name}
+                  </span>
+                  {child.kind === "CONTAINER" && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                      {child.type ?? "Container"}
+                    </span>
+                  )}
+                  {child.kind === "PLACE" && child.type && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{child.type}</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                  {child.itemCount} item{child.itemCount === 1 ? "" : "s"}
+                  {child.childCount > 0 && ` · ${child.childCount} inside`}
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
       {visible.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-          Nothing recorded here yet.
+          {nested.length > 0
+            ? "No items filed directly here."
+            : "Nothing recorded here yet."}
         </p>
       ) : (
         <div className="border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700">

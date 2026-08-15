@@ -312,6 +312,11 @@ export type SupplyItemWriteArgs = {
   // Set when this line *is* a container being shipped rather than an item
   // inside one.
   containerLocationId: string | null;
+  // Provenance: which durable inventory row this line was pulled from. Written
+  // by the location-side "Add to supply order" bridge and by a post-event
+  // repack. Never decrements the inventory row — see the InventoryItem comment
+  // in schema.prisma.
+  inventoryItemId: string | null;
 };
 
 function normalizeItemArgs(args: SupplyItemWriteArgs): SupplyItemWriteArgs {
@@ -388,6 +393,84 @@ export async function createSupplyOrderItemCore(
   });
   await bumpSupplyOrder(supplyOrderId, userId);
   return item;
+}
+
+export type AddInventoryResult = {
+  orderName: string;
+  added: number;
+  /** Ids that no longer resolve to an inventory item. */
+  skipped: number;
+};
+
+/**
+ * Pull durable inventory onto a supply order — the movement-to-event half of the
+ * inventory loop, and the reverse of the packing list's "Return to…".
+ *
+ * Provenance only: the inventory row is untouched, and nothing is decremented.
+ * The same item can be pulled onto two events at once, which is truthful — the
+ * catalogue records where a thing lives, not whether it is currently spoken for.
+ *
+ * Resolving eventId from the order rather than accepting it is the ownership
+ * check: a caller can't name an order they can reach and an event they can't.
+ */
+export async function addInventoryToSupplyOrderCore(
+  inventoryItemIds: string[],
+  supplyOrderId: string,
+  userId: string,
+): Promise<AddInventoryResult> {
+  const order = await prisma.supplyOrder.findUnique({
+    where: { id: supplyOrderId },
+    select: { id: true, name: true, eventId: true },
+  });
+  if (!order) throw new PermissionError("NOT_FOUND");
+
+  await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", order.eventId);
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "VIEW");
+
+  const items = await prisma.inventoryItem.findMany({
+    where: { id: { in: inventoryItemIds } },
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      equipmentId: true,
+      locationId: true,
+      equipment: { select: { name: true } },
+    },
+  });
+  const skipped = inventoryItemIds.length - items.length;
+
+  const { _max } = await prisma.supplyOrderItem.aggregate({
+    where: { supplyOrderId },
+    _max: { sortOrder: true },
+  });
+  let sortOrder = (_max.sortOrder ?? -1) + 1;
+
+  await prisma.$transaction([
+    prisma.supplyOrderItem.createMany({
+      data: items.map((item) => ({
+        supplyOrderId,
+        // Equipment carries the identity; the qualifier only earns a place in
+        // the description when there is one.
+        description: item.name ? `${item.equipment.name} — ${item.name}` : item.equipment.name,
+        equipmentId: item.equipmentId,
+        quantity: item.quantity,
+        // It is in a box on a shelf, so it is on hand by definition, and it
+        // still has to be loaded.
+        acquisitionState: "ON_HAND" as const,
+        packingStatus: "NEEDED" as const,
+        sourceLocationId: item.locationId,
+        inventoryItemId: item.id,
+        sortOrder: sortOrder++,
+      })),
+    }),
+    prisma.supplyOrder.update({
+      where: { id: supplyOrderId },
+      data: { updatedById: userId },
+    }),
+  ]);
+
+  return { orderName: order.name, added: items.length, skipped };
 }
 
 export async function updateSupplyOrderItemCore(

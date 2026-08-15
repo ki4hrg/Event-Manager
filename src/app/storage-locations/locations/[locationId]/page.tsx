@@ -20,6 +20,8 @@ import {
   setInventoryItemArchived,
   moveInventoryItems,
   deleteInventoryItems,
+  getSupplyOrderTargets,
+  addInventoryToSupplyOrder,
 } from "../../actions";
 import { LocationContents } from "./LocationContents";
 
@@ -54,6 +56,8 @@ export default async function LocationDetailPage({
     canWrite,
     canDelete,
     canManageEquipment,
+    supplyOrderTargets,
+    children,
   ] = await Promise.all([
     prisma.storageLocation.findUnique({ where: { id: locationId } }),
     getStorageLocations(),
@@ -63,6 +67,21 @@ export default async function LocationDetailPage({
     hasPermission(PermissionResource.STORAGE_LOCATIONS, "WRITE"),
     hasPermission(PermissionResource.STORAGE_LOCATIONS, "DELETE"),
     hasPermission(PermissionResource.EQUIPMENT, "WRITE"),
+    getSupplyOrderTargets(),
+    // Direct children only. The tree page is where the whole hierarchy lives;
+    // here the question is "what else is in this one", and a deep rollup would
+    // reprint the tree inside every location.
+    prisma.storageLocation.findMany({
+      where: { parentId: locationId, archived: false },
+      select: {
+        id: true,
+        name: true,
+        kind: true,
+        type: true,
+        _count: { select: { inventoryItems: true, children: true } },
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
   ]);
 
   if (!location) notFound();
@@ -110,6 +129,14 @@ export default async function LocationDetailPage({
     return createEquipmentInline(name, category);
   };
 
+  const addToSupplyOrderAction = async (
+    inventoryItemIds: string[],
+    supplyOrderId: string,
+  ) => {
+    "use server";
+    return addInventoryToSupplyOrder(inventoryItemIds, supplyOrderId, locationId);
+  };
+
   return (
     <LocationContents
       location={{
@@ -122,6 +149,14 @@ export default async function LocationDetailPage({
       }}
       ancestors={ancestors.map((node) => ({ id: node.id, name: node.name }))}
       items={items}
+      nested={children.map((child) => ({
+        id: child.id,
+        name: child.name,
+        kind: child.kind,
+        type: child.type,
+        itemCount: child._count.inventoryItems,
+        childCount: child._count.children,
+      }))}
       equipmentOptions={equipmentOptions}
       equipmentCategories={equipmentCategories.map((c) => ({ id: c.id, label: c.label }))}
       moveOptions={moveOptions}
@@ -129,6 +164,8 @@ export default async function LocationDetailPage({
       canDelete={canDelete}
       canManageEquipment={canManageEquipment}
       createEquipment={createEquipmentAction}
+      supplyOrderTargets={supplyOrderTargets}
+      addToSupplyOrder={addToSupplyOrderAction}
       createItem={createItemAction}
       updateItem={updateItemAction}
       setArchived={setArchivedAction}

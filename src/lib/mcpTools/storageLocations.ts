@@ -122,6 +122,8 @@ export const storageLocationTools: McpToolDefinition[] = [
               sourcedSupplyItems: true,
               sourcedPrintItems: true,
               containerSupplyItems: true,
+              // Durable contents, as opposed to the per-event order lines above.
+              inventoryItems: true,
             },
           },
         },

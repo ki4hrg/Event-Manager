@@ -8,6 +8,7 @@ import { venueTools } from "./venues";
 import { orderTools } from "./orders";
 import { reportTools } from "./reports";
 import { storageLocationTools } from "./storageLocations";
+import { inventoryTools } from "./inventory";
 
 export const mcpTools: McpToolDefinition[] = [
   ...eventTools,
@@ -19,6 +20,7 @@ export const mcpTools: McpToolDefinition[] = [
   ...orderTools,
   ...reportTools,
   ...storageLocationTools,
+  ...inventoryTools,
 ];
 
 const toolsByName: Map<string, McpToolDefinition> = new Map(
