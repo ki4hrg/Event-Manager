@@ -11,6 +11,7 @@ import {
   savePackingProviderFilter,
   getSavedLocationFilter,
   savePackingLocationFilter,
+  returnItemsToLocation,
 } from "../../packing/actions";
 import {
   updateSupplyOrderItemPackingStatus,
@@ -112,6 +113,11 @@ export default async function PackingListPage({
     await savePackingLocationFilter(eventId, value);
   };
 
+  const returnItems = async (supplyItemIds: string[], targetLocationId: string) => {
+    "use server";
+    return returnItemsToLocation(supplyItemIds, targetLocationId, eventId);
+  };
+
   return (
     <>
       <Suspense fallback={null}>
@@ -144,6 +150,7 @@ export default async function PackingListPage({
         togglePrintAcquisition={togglePrintAcquisition}
         saveProviderFilter={saveProviderFilter}
         saveLocationFilter={saveLocationFilter}
+        returnItemsToLocation={returnItems}
       />
     </>
   );

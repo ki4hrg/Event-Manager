@@ -268,14 +268,18 @@ model StorageLocation {
 // lanyards are two rows, not one row with a placement table.
 model InventoryItem {
   id String @id @default(cuid())
-  // Nullable for the same reason SupplyOrderItem.description is: a row can be
-  // identified by its Equipment link instead. At least one is required, enforced
-  // in normalizeInventoryArgs rather than by the schema.
+  // Inventory is catalogued gear, so the Equipment link is the item's identity
+  // and `name` is only a qualifier — "blue", "spare", "left case". Requiring the
+  // link is what makes stock answerable across locations ("how many easels do we
+  // own, and where?"), which free text can't do.
   name        String?
-  equipmentId String?
-  equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
-  quantity    Int?
-  notes       String?
+  equipmentId String
+  // Restrict rather than SetNull now that the link can't be absent: deleting an
+  // Equipment row that is inventoried somewhere should be blocked, not silently
+  // orphan the inventory record.
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  quantity  Int?
+  notes     String?
   // Packers carry WRITE but not DELETE, so archiving is their retire path for a
   // consumed item — the same split the location tree itself uses.
   archived  Boolean @default(false)

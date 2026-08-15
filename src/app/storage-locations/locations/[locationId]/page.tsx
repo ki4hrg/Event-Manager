@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
-import { getEquipment } from "@/app/equipment/actions";
+import { getEquipment, createEquipmentInline } from "@/app/equipment/actions";
+import { getOptions } from "@/app/settings/actions";
 import {
   ancestorIds,
   buildLocationIndex,
@@ -44,15 +45,25 @@ export default async function LocationDetailPage({
 }) {
   const { locationId } = await params;
 
-  const [location, storageLocations, items, equipmentOptions, canWrite, canDelete] =
-    await Promise.all([
-      prisma.storageLocation.findUnique({ where: { id: locationId } }),
-      getStorageLocations(),
-      getLocationContents(locationId),
-      getEquipment(),
-      hasPermission(PermissionResource.STORAGE_LOCATIONS, "WRITE"),
-      hasPermission(PermissionResource.STORAGE_LOCATIONS, "DELETE"),
-    ]);
+  const [
+    location,
+    storageLocations,
+    items,
+    equipmentOptions,
+    equipmentCategories,
+    canWrite,
+    canDelete,
+    canManageEquipment,
+  ] = await Promise.all([
+    prisma.storageLocation.findUnique({ where: { id: locationId } }),
+    getStorageLocations(),
+    getLocationContents(locationId),
+    getEquipment(),
+    getOptions("equipment_category"),
+    hasPermission(PermissionResource.STORAGE_LOCATIONS, "WRITE"),
+    hasPermission(PermissionResource.STORAGE_LOCATIONS, "DELETE"),
+    hasPermission(PermissionResource.EQUIPMENT, "WRITE"),
+  ]);
 
   if (!location) notFound();
 
@@ -94,6 +105,11 @@ export default async function LocationDetailPage({
     await deleteInventoryItems(ids);
   };
 
+  const createEquipmentAction = async (name: string, category: string) => {
+    "use server";
+    return createEquipmentInline(name, category);
+  };
+
   return (
     <LocationContents
       location={{
@@ -107,9 +123,12 @@ export default async function LocationDetailPage({
       ancestors={ancestors.map((node) => ({ id: node.id, name: node.name }))}
       items={items}
       equipmentOptions={equipmentOptions}
+      equipmentCategories={equipmentCategories.map((c) => ({ id: c.id, label: c.label }))}
       moveOptions={moveOptions}
       canWrite={canWrite}
       canDelete={canDelete}
+      canManageEquipment={canManageEquipment}
+      createEquipment={createEquipmentAction}
       createItem={createItemAction}
       updateItem={updateItemAction}
       setArchived={setArchivedAction}

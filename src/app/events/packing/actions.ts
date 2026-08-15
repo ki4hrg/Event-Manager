@@ -6,7 +6,9 @@ import { prisma } from "@/lib/prisma";
 import {
   markContainerContentsCore,
   previewContainerCascadeCore,
+  returnItemsToLocationCore,
   type ContainerCascadePreview,
+  type ReturnToLocationResult,
 } from "./core";
 import {
   buildChildrenMap,
@@ -62,6 +64,8 @@ export type PackingListPayload = {
   canSeePrint: boolean;
   canWriteSupply: boolean;
   canWritePrint: boolean;
+  /** Gates "Return to…", which writes durable inventory rather than order data. */
+  canWriteStorage: boolean;
   locations: PackingLocationOption[];
   /** locationId -> every id at or below it on this event's effective graph. */
   locationSubtrees: Record<string, string[]>;
@@ -70,12 +74,14 @@ export type PackingListPayload = {
 export async function getPackingListItems(eventId: string): Promise<PackingListPayload> {
   await requirePermission("EVENTS", "VIEW", eventId);
 
-  const [canSeeSupply, canSeePrint, canWriteSupply, canWritePrint] = await Promise.all([
-    hasPermission("SUPPLY_ORDERS", "VIEW", eventId),
-    hasPermission("PRINT_ORDERS", "VIEW", eventId),
-    hasPermission("SUPPLY_ORDERS", "WRITE", eventId),
-    hasPermission("PRINT_ORDERS", "WRITE", eventId),
-  ]);
+  const [canSeeSupply, canSeePrint, canWriteSupply, canWritePrint, canWriteStorage] =
+    await Promise.all([
+      hasPermission("SUPPLY_ORDERS", "VIEW", eventId),
+      hasPermission("PRINT_ORDERS", "VIEW", eventId),
+      hasPermission("SUPPLY_ORDERS", "WRITE", eventId),
+      hasPermission("PRINT_ORDERS", "WRITE", eventId),
+      hasPermission("STORAGE_LOCATIONS", "WRITE"),
+    ]);
 
   if (!canSeeSupply && !canSeePrint) {
     throw new PermissionError("FORBIDDEN");
@@ -210,6 +216,7 @@ export async function getPackingListItems(eventId: string): Promise<PackingListP
     canSeePrint,
     canWriteSupply,
     canWritePrint,
+    canWriteStorage,
     locations,
     locationSubtrees,
   };
@@ -238,6 +245,24 @@ export async function markContainerContents(
   revalidatePath(`/events/${eventId}/packing`);
   revalidatePath(`/events/${eventId}/supply-orders`);
   revalidatePath(`/events/${eventId}/print-orders`);
+  return result;
+}
+
+export async function returnItemsToLocation(
+  supplyItemIds: string[],
+  targetLocationId: string,
+  eventId: string,
+): Promise<ReturnToLocationResult> {
+  const session = await requirePermission("EVENTS", "VIEW", eventId);
+  const result = await returnItemsToLocationCore(
+    supplyItemIds,
+    targetLocationId,
+    eventId,
+    session.user.id,
+  );
+  revalidatePath(`/events/${eventId}/packing`);
+  revalidatePath("/storage-locations");
+  revalidatePath(`/storage-locations/locations/${targetLocationId}`);
   return result;
 }
 

@@ -9,7 +9,7 @@ import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 
 type ItemWithEquipment = InventoryItem & {
-  equipment: { id: string; name: string; category: string } | null;
+  equipment: { id: string; name: string; category: string };
 };
 
 type LocationSummary = {
@@ -27,9 +27,12 @@ type Props = {
   ancestors: { id: string; name: string }[];
   items: ItemWithEquipment[];
   equipmentOptions: Equipment[];
+  equipmentCategories: { id: string; label: string }[];
   moveOptions: LocationOption[];
   canWrite: boolean;
   canDelete: boolean;
+  canManageEquipment: boolean;
+  createEquipment: (name: string, category: string) => Promise<string>;
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
@@ -40,9 +43,9 @@ type Props = {
 const inputClass =
   "w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm";
 
-/** Container lines carry their identity in the equipment link when unnamed. */
+/** Equipment is the identity; name only qualifies it ("Lanyards — blue"). */
 function itemTitle(item: ItemWithEquipment): string {
-  return item.name ?? item.equipment?.name ?? "Untitled item";
+  return item.name ? `${item.equipment.name} — ${item.name}` : item.equipment.name;
 }
 
 function SubmitButton({ label }: { label: string }) {
@@ -58,27 +61,166 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
+/**
+ * Inline catalog extension for admins. EQUIPMENT is admin-only in the seed, so a
+ * packer holding STORAGE_LOCATIONS WRITE can file catalogued gear but not add to
+ * the catalog — the affordance is simply absent for them.
+ */
+function InlineEquipmentCreate({
+  categories,
+  createEquipment,
+  onCreated,
+}: {
+  categories: { id: string; label: string }[];
+  createEquipment: (name: string, category: string) => Promise<string>;
+  onCreated: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState(categories[0]?.label ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        ＋ New equipment
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 p-2 rounded border border-gray-200 dark:border-gray-700 space-y-2">
+      <input
+        value={name}
+        autoFocus
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g. Lanyards"
+        className={inputClass}
+      />
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        className={inputClass}
+      >
+        {categories.map((c) => (
+          <option key={c.id} value={c.label}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={isPending || !name.trim() || !category}
+          onClick={() =>
+            startTransition(async () => {
+              setError(null);
+              try {
+                onCreated(await createEquipment(name.trim(), category));
+                setOpen(false);
+                setName("");
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Couldn't create that equipment.");
+              }
+            })
+          }
+          className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+        >
+          {isPending ? "..." : "Create"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          className="px-2 py-1 text-gray-600 dark:text-gray-400 text-xs"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ItemFields({
   item,
   equipmentOptions,
-  nameRef,
+  equipmentCategories,
+  canManageEquipment,
+  createEquipment,
+  equipmentId,
+  onEquipmentChange,
+  qualifierRef,
 }: {
   item?: ItemWithEquipment;
   equipmentOptions: Equipment[];
-  nameRef?: React.RefObject<HTMLInputElement | null>;
+  equipmentCategories: { id: string; label: string }[];
+  canManageEquipment: boolean;
+  createEquipment: (name: string, category: string) => Promise<string>;
+  equipmentId: string;
+  onEquipmentChange: (value: string) => void;
+  qualifierRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
       <div className="sm:col-span-2">
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Name
+          Equipment <span className="text-red-600 dark:text-red-400">*</span>
+        </label>
+        {/* Controlled: inline create has to select an option that didn't exist a
+            moment ago, the same reason SupplyOrderItemPanel's form is controlled. */}
+        <select
+          name="equipmentId"
+          required
+          value={equipmentId}
+          onChange={(e) => onEquipmentChange(e.target.value)}
+          className={inputClass}
+        >
+          <option value="">— Select equipment —</option>
+          {Object.entries(
+            equipmentOptions.reduce(
+              (acc, e) => {
+                const cat = e.category || "Other";
+                (acc[cat] ||= []).push(e);
+                return acc;
+              },
+              {} as Record<string, Equipment[]>,
+            ),
+          ).map(([cat, entries]) => (
+            <optgroup key={cat} label={cat}>
+              {entries.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {canManageEquipment && (
+          <InlineEquipmentCreate
+            categories={equipmentCategories}
+            createEquipment={createEquipment}
+            onCreated={onEquipmentChange}
+          />
+        )}
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Qualifier
         </label>
         <input
-          ref={nameRef}
+          ref={qualifierRef}
           type="text"
           name="name"
           defaultValue={item?.name ?? ""}
-          placeholder="e.g. Lanyards, blue"
+          placeholder="e.g. blue"
           className={inputClass}
         />
       </div>
@@ -94,12 +236,6 @@ function ItemFields({
           placeholder="e.g. 200"
           className={inputClass}
         />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Equipment (optional)
-        </label>
-        <GroupedEquipmentSelect options={equipmentOptions} defaultValue={item?.equipmentId ?? null} />
       </div>
       <div className="sm:col-span-4">
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -117,21 +253,29 @@ function ItemFields({
   );
 }
 
+type FieldProps = {
+  equipmentOptions: Equipment[];
+  equipmentCategories: { id: string; label: string }[];
+  canManageEquipment: boolean;
+  createEquipment: (name: string, category: string) => Promise<string>;
+};
+
 /**
- * Stays open after a submit and refocuses the name field: initial inventory is a
- * long typing session, not a one-off create. The action returns void without a
- * redirect, the same shape the supply order item panel uses, which is what makes
- * staying open possible.
+ * Stays open after submit and refocuses, because initial inventory is a long
+ * typing session rather than a one-off create. Equipment persists between
+ * submits — consecutive rows are usually the same category — while the qualifier
+ * and quantity clear.
  */
 function AddItemForm({
-  equipmentOptions,
+  fieldProps,
   createItem,
 }: {
-  equipmentOptions: Equipment[];
+  fieldProps: FieldProps;
   createItem: (formData: FormData) => Promise<void>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
+  const qualifierRef = useRef<HTMLInputElement>(null);
+  const [equipmentId, setEquipmentId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -143,7 +287,7 @@ function AddItemForm({
         try {
           await createItem(formData);
           formRef.current?.reset();
-          nameRef.current?.focus();
+          qualifierRef.current?.focus();
           router.refresh();
         } catch (e) {
           setError(e instanceof Error ? e.message : "Couldn't add that item.");
@@ -151,29 +295,30 @@ function AddItemForm({
       }}
       className="space-y-2"
     >
-      <ItemFields equipmentOptions={equipmentOptions} nameRef={nameRef} />
+      <ItemFields
+        {...fieldProps}
+        equipmentId={equipmentId}
+        onEquipmentChange={setEquipmentId}
+        qualifierRef={qualifierRef}
+      />
       {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-      <div className="flex items-center gap-3">
-        <SubmitButton label="Add item" />
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          Stays open so you can keep going.
-        </span>
-      </div>
+      <SubmitButton label="Add item" />
     </form>
   );
 }
 
 function EditItemForm({
   item,
-  equipmentOptions,
+  fieldProps,
   onSubmit,
   onCancel,
 }: {
   item: ItemWithEquipment;
-  equipmentOptions: Equipment[];
+  fieldProps: FieldProps;
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
 }) {
+  const [equipmentId, setEquipmentId] = useState(item.equipmentId);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -188,7 +333,12 @@ function EditItemForm({
       }}
       className="space-y-2"
     >
-      <ItemFields item={item} equipmentOptions={equipmentOptions} />
+      <ItemFields
+        {...fieldProps}
+        item={item}
+        equipmentId={equipmentId}
+        onEquipmentChange={setEquipmentId}
+      />
       <input type="hidden" name="archived" value={item.archived ? "true" : "false"} />
       {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       <div className="flex gap-2">
@@ -278,9 +428,12 @@ export function LocationContents({
   ancestors,
   items,
   equipmentOptions,
+  equipmentCategories,
   moveOptions,
   canWrite,
   canDelete,
+  canManageEquipment,
+  createEquipment,
   createItem,
   updateItem,
   setArchived,
@@ -288,6 +441,7 @@ export function LocationContents({
   deleteItems,
 }: Props) {
   const router = useRouter();
+  const fieldProps = { equipmentOptions, equipmentCategories, canManageEquipment, createEquipment };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [showArchived, setShowArchived] = useState(false);
@@ -460,7 +614,7 @@ export function LocationContents({
               {editingId === item.id ? (
                 <EditItemForm
                   item={item}
-                  equipmentOptions={equipmentOptions}
+                  fieldProps={fieldProps}
                   onSubmit={async (formData) => {
                     await updateItem(item.id, formData);
                     setEditingId(null);
@@ -493,11 +647,9 @@ export function LocationContents({
                         </span>
                       )}
                     </div>
-                    {item.equipment && item.name && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {item.equipment.category} · {item.equipment.name}
-                      </p>
-                    )}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {item.equipment.category}
+                    </p>
                     {item.notes && (
                       <p className="text-xs italic text-gray-400 dark:text-gray-500 mt-0.5">
                         {item.notes}
@@ -522,7 +674,7 @@ export function LocationContents({
       {canWrite && (
         <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Add item</h3>
-          <AddItemForm equipmentOptions={equipmentOptions} createItem={createItem} />
+          <AddItemForm fieldProps={fieldProps} createItem={createItem} />
         </div>
       )}
     </div>

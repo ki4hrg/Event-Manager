@@ -133,7 +133,7 @@ function parseInventoryData(formData: FormData): InventoryItemWriteArgs {
 
   return {
     name: ((formData.get("name") as string) || "").trim() || null,
-    equipmentId: (formData.get("equipmentId") as string) || null,
+    equipmentId: (formData.get("equipmentId") as string) || "",
     quantity: quantity !== null && Number.isNaN(quantity) ? null : quantity,
     notes: (formData.get("notes") as string) || null,
     archived: formData.get("archived") === "true",
