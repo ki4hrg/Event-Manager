@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { CustomOption, LocationKind } from "@prisma/client";
 
@@ -17,6 +18,10 @@ export type LocationRow = {
   // Ids in this row's subtree — the parent picker uses it so a location can't
   // be moved inside itself.
   subtree: string[];
+  /** Unarchived inventory items filed at this location itself. */
+  itemCount: number;
+  /** Same, counting everything nested below it. */
+  subtreeItemCount: number;
 };
 
 type Props = {
@@ -43,6 +48,28 @@ function SubmitButton({ label }: { label: string }) {
     >
       {pending ? "..." : label}
     </button>
+  );
+}
+
+/**
+ * The direct count leads because it matches what the detail page will list; the
+ * nested total only appears when it adds something the direct count doesn't say.
+ */
+function ContentsBadge({ location }: { location: LocationRow }) {
+  const { itemCount, subtreeItemCount } = location;
+  if (subtreeItemCount === 0) return null;
+
+  const nested = subtreeItemCount - itemCount;
+  return (
+    <Link
+      href={`/storage-locations/locations/${location.id}`}
+      className="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+    >
+      {itemCount} item{itemCount === 1 ? "" : "s"}
+      {nested > 0 && (
+        <span className="text-gray-500 dark:text-gray-400"> · {nested} nested</span>
+      )}
+    </Link>
   );
 }
 
@@ -285,7 +312,13 @@ export function StorageLocationTree({
               ) : (
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex items-baseline gap-2 flex-wrap">
-                    <span className="text-sm text-gray-900 dark:text-white">{location.name}</span>
+                    <Link
+                      href={`/storage-locations/locations/${location.id}`}
+                      className="text-sm text-gray-900 dark:text-white hover:underline"
+                    >
+                      {location.name}
+                    </Link>
+                    <ContentsBadge location={location} />
                     {location.kind === "CONTAINER" && (
                       <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                         Container
@@ -327,7 +360,7 @@ export function StorageLocationTree({
                           onClick={async () => {
                             if (
                               confirm(
-                                `Delete "${location.name}"? Anything inside it moves to the top level.`,
+                                `Delete "${location.name}"? Locations inside it move to the top level. It can't be deleted while it still holds inventory items.`,
                               )
                             ) {
                               await deleteLocation(location.id);

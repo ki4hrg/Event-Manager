@@ -12,6 +12,14 @@ import {
   deleteStorageLocationCore,
   type StorageLocationWriteArgs,
 } from "./core";
+import {
+  createInventoryItemCore,
+  updateInventoryItemCore,
+  setInventoryItemArchivedCore,
+  moveInventoryItemsCore,
+  deleteInventoryItemsCore,
+  type InventoryItemWriteArgs,
+} from "./inventory-core";
 
 const LOCATION_TYPE_CATEGORY = "location_type";
 
@@ -95,6 +103,89 @@ export async function reorderStorageLocations(orderedIds: string[]) {
     ),
   );
   revalidatePath("/storage-locations");
+}
+
+// ---------------------------------------------------------------------------
+// Inventory items — what durably lives at a location.
+
+function locationPath(locationId: string) {
+  return `/storage-locations/locations/${locationId}`;
+}
+
+// Auth-only for the same reason as getStorageLocations above: the supply order
+// side reads inventory to prefill lines, and gating it would force every
+// order-editing role to also carry STORAGE_LOCATIONS.VIEW.
+export async function getLocationContents(locationId: string) {
+  await requireAuth();
+  return prisma.inventoryItem.findMany({
+    where: { locationId },
+    include: { equipment: { select: { id: true, name: true, category: true } } },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+}
+
+function parseInventoryData(formData: FormData): InventoryItemWriteArgs {
+  const rawQuantity = formData.get("quantity") as string;
+  // Nullable int: don't blanket-apply `|| null`, it would turn "0" into null.
+  // A non-numeric entry reads as "no count" rather than sending NaN to Prisma,
+  // which would surface as an opaque error instead of a countless item.
+  const quantity = rawQuantity ? parseInt(rawQuantity) : null;
+
+  return {
+    name: ((formData.get("name") as string) || "").trim() || null,
+    equipmentId: (formData.get("equipmentId") as string) || null,
+    quantity: quantity !== null && Number.isNaN(quantity) ? null : quantity,
+    notes: (formData.get("notes") as string) || null,
+    archived: formData.get("archived") === "true",
+  };
+}
+
+export async function createInventoryItem(locationId: string, formData: FormData) {
+  const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
+  await createInventoryItemCore(locationId, parseInventoryData(formData), session.user.id);
+  revalidatePath("/storage-locations");
+  revalidatePath(locationPath(locationId));
+}
+
+export async function updateInventoryItem(
+  id: string,
+  locationId: string,
+  formData: FormData,
+) {
+  const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
+  await updateInventoryItemCore(id, parseInventoryData(formData), session.user.id);
+  revalidatePath("/storage-locations");
+  revalidatePath(locationPath(locationId));
+}
+
+export async function setInventoryItemArchived(
+  id: string,
+  locationId: string,
+  archived: boolean,
+) {
+  const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
+  await setInventoryItemArchivedCore(id, archived, session.user.id);
+  revalidatePath("/storage-locations");
+  revalidatePath(locationPath(locationId));
+}
+
+export async function moveInventoryItems(ids: string[], targetLocationId: string) {
+  const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
+  const { sourceLocationIds } = await moveInventoryItemsCore(
+    ids,
+    targetLocationId,
+    session.user.id,
+  );
+  revalidatePath("/storage-locations");
+  revalidatePath(locationPath(targetLocationId));
+  for (const id of sourceLocationIds) revalidatePath(locationPath(id));
+}
+
+export async function deleteInventoryItems(ids: string[]) {
+  const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
+  const { locationIds } = await deleteInventoryItemsCore(ids, session.user.id);
+  revalidatePath("/storage-locations");
+  for (const id of locationIds) revalidatePath(locationPath(id));
 }
 
 // Location types are CustomOption rows with category="location_type". Managed

@@ -220,6 +220,7 @@ model Equipment {
   monitorOutputs   MonitorOutput[]   @relation("MonitorOutputEquipment")
   equipmentItems   EquipmentItem[]
   supplyOrderItems SupplyOrderItem[]
+  inventoryItems   InventoryItem[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -251,12 +252,50 @@ model StorageLocation {
   sourcedSupplyItems   SupplyOrderItem[] @relation("SupplyItemSourceLocation")
   containerSupplyItems SupplyOrderItem[] @relation("SupplyItemContainer")
   sourcedPrintItems    PrintItem[]       @relation("PrintItemSourceLocation")
+  inventoryItems       InventoryItem[]   @relation("InventoryItemLocation")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([parentId])
   @@index([kind])
+}
+
+// What durably lives at a StorageLocation between events. The tree above is
+// *where*; this is *what's in it*. Deliberately coarse — one row per line you
+// would write on a packing list — with a single home and no per-event state.
+// Splitting one quantity across locations is out of scope, so two boxes of
+// lanyards are two rows, not one row with a placement table.
+model InventoryItem {
+  id String @id @default(cuid())
+  // Nullable for the same reason SupplyOrderItem.description is: a row can be
+  // identified by its Equipment link instead. At least one is required, enforced
+  // in normalizeInventoryArgs rather than by the schema.
+  name        String?
+  equipmentId String?
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  quantity    Int?
+  notes       String?
+  // Packers carry WRITE but not DELETE, so archiving is their retire path for a
+  // consumed item — the same split the location tree itself uses.
+  archived  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  // Restrict, not SetNull: the tree promotes orphaned child *locations* to roots,
+  // but an inventory item without a location is meaningless, and Cascade would
+  // silently destroy a box's contents behind a confirm that only warns about
+  // child locations. deleteStorageLocationCore pre-checks so the user gets a
+  // sentence rather than a foreign key error.
+  locationId String
+  location   StorageLocation @relation("InventoryItemLocation", fields: [locationId], references: [id], onDelete: Restrict)
+
+  supplyOrderItems SupplyOrderItem[] @relation("SupplyItemInventoryItem")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([locationId])
+  @@index([equipmentId])
 }
 
 // Core entities
@@ -1464,6 +1503,12 @@ model SupplyOrderItem {
   containerLocationId String?
   containerLocation   StorageLocation? @relation("SupplyItemContainer", fields: [containerLocationId], references: [id], onDelete: SetNull)
 
+  // Provenance only — set when this line was pulled from durable inventory, or
+  // when a post-event repack filed it back. Never decrements the inventory row.
+  // SetNull so retiring an inventory record doesn't erase order history.
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation("SupplyItemInventoryItem", fields: [inventoryItemId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1473,6 +1518,7 @@ model SupplyOrderItem {
   @@index([providerContactId])
   @@index([sourceLocationId])
   @@index([containerLocationId])
+  @@index([inventoryItemId])
 }
 
 model SupplyOrderFunction {
