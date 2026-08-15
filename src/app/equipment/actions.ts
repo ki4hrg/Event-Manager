@@ -85,6 +85,24 @@ export async function updateEquipment(id: string, formData: FormData) {
 
 export async function deleteEquipment(id: string) {
   await requirePermission(PermissionResource.EQUIPMENT, "DELETE");
+
+  // Every other reference to Equipment is SetNull, so deleting one has always
+  // been safe. InventoryItem is the exception — its equipment link is required,
+  // so the FK is Restrict and this delete would fail at the database. The
+  // pre-check turns that into a sentence naming where the stock sits, the same
+  // shape as deleteStorageLocationCore's contents check.
+  const equipment = await prisma.equipment.findUnique({
+    where: { id },
+    select: { name: true, _count: { select: { inventoryItems: true } } },
+  });
+  if (!equipment) throw new Error("Equipment not found.");
+  const inventoried = equipment._count.inventoryItems;
+  if (inventoried > 0) {
+    throw new Error(
+      `"${equipment.name}" is stocked in ${inventoried} location${inventoried === 1 ? "" : "s"}. Remove those inventory items first.`,
+    );
+  }
+
   await prisma.equipment.delete({ where: { id } });
   revalidatePath("/equipment");
 }
