@@ -34,6 +34,43 @@ export async function createEquipment(formData: FormData) {
   revalidatePath("/equipment");
 }
 
+/**
+ * Used by the inline "＋ New equipment" affordance when inventorying a location,
+ * which needs the new id back rather than a redirect. Gated on EQUIPMENT WRITE
+ * like every other write here, which is admin-only in the seed — so a packer
+ * holding STORAGE_LOCATIONS WRITE can file catalogued gear but not extend the
+ * catalog itself.
+ */
+export async function createEquipmentInline(
+  name: string,
+  category: string,
+): Promise<string> {
+  await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Equipment needs a name.");
+  if (!category) throw new Error("Equipment needs a category.");
+
+  const existing = await prisma.equipment.findFirst({
+    where: { name: trimmed, category },
+    select: { id: true },
+  });
+  // @@unique([category, name]) — reuse rather than erroring, since the point is
+  // to get an id back and the caller doesn't care whether it just got created.
+  if (existing) return existing.id;
+
+  const { _max } = await prisma.equipment.aggregate({
+    where: { category },
+    _max: { sortOrder: true },
+  });
+  const created = await prisma.equipment.create({
+    data: { name: trimmed, category, sortOrder: (_max.sortOrder ?? -1) + 1 },
+  });
+
+  revalidatePath("/equipment");
+  return created.id;
+}
+
 export async function updateEquipment(id: string, formData: FormData) {
   await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
   await prisma.equipment.update({

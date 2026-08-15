@@ -5,23 +5,28 @@ import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
 
 export type InventoryItemWriteArgs = {
+  /** Optional qualifier only — "blue", "spare". The Equipment link is identity. */
   name: string | null;
-  equipmentId: string | null;
+  equipmentId: string;
   quantity: number | null;
   notes: string | null;
   archived: boolean;
 };
 
-/**
- * A row is identified by its name or by its Equipment link, mirroring the rule
- * normalizeItemArgs applies to supply items.
- */
 function normalizeInventoryArgs(args: InventoryItemWriteArgs): InventoryItemWriteArgs {
-  const name = args.name?.trim() || null;
-  if (!name && !args.equipmentId) {
-    throw new Error("An inventory item needs a name or an equipment selection.");
+  if (!args.equipmentId) {
+    throw new Error("An inventory item needs an equipment selection.");
   }
-  return { ...args, name };
+  return { ...args, name: args.name?.trim() || null };
+}
+
+/** Pre-checked so a bad id reads as a sentence rather than a foreign key error. */
+async function assertEquipmentExists(equipmentId: string) {
+  const equipment = await prisma.equipment.findUnique({
+    where: { id: equipmentId },
+    select: { id: true },
+  });
+  if (!equipment) throw new Error("That equipment no longer exists — refresh and try again.");
 }
 
 async function assertLocationUsable(locationId: string) {
@@ -60,7 +65,7 @@ export async function createInventoryItemCore(
   await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
 
   const args = normalizeInventoryArgs(rawArgs);
-  await assertLocationUsable(locationId);
+  await Promise.all([assertLocationUsable(locationId), assertEquipmentExists(args.equipmentId)]);
 
   const { _max } = await prisma.inventoryItem.aggregate({
     where: { locationId },
@@ -88,10 +93,10 @@ export async function updateInventoryItemCore(
   await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
 
   const args = normalizeInventoryArgs(rawArgs);
-  const existing = await prisma.inventoryItem.findUnique({
-    where: { id },
-    select: { id: true },
-  });
+  const [existing] = await Promise.all([
+    prisma.inventoryItem.findUnique({ where: { id }, select: { id: true } }),
+    assertEquipmentExists(args.equipmentId),
+  ]);
   if (!existing) throw new Error("Inventory item not found.");
 
   return prisma.inventoryItem.update({
