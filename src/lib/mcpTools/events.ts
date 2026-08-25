@@ -6,6 +6,7 @@ import {
   updateEventSeriesCore,
   deleteEventSeriesCore,
 } from "@/app/events/series/core";
+import { importFromEventCore, getDefaultImportSource } from "@/app/events/import/core";
 import {
   addEventStaffCore,
   setEventStaffLevelCore,
@@ -446,6 +447,70 @@ export const eventTools: McpToolDefinition[] = [
           accessLevel: parseAccessCap(optionalString(args, "accessLevel") ?? null),
         },
         actorId,
+      ),
+  },
+  {
+    name: "get_import_source",
+    description:
+      "Find the event a new event should import from: the most recent prior edition in the same series. Returns null when the event has no series or is the first in it.",
+    inputSchema: {
+      type: "object",
+      properties: { eventId: { type: "string", description: "The NEW event." } },
+      required: ["eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW", eventId);
+      return getDefaultImportSource(eventId);
+    },
+  },
+  {
+    name: "import_from_event",
+    description:
+      "Seed a new event from a previous one. Copies the chosen functions and presentations (with their breakout groups and tracks), and optionally event vendors, key staff, and status defaults. This is a DRAFT seed, not a clone: functions arrive UNSCHEDULED unless includeSchedules is true, statuses come from the target event's own defaults rather than the source, and room assignments are dropped when the two events are at different venues. Re-runnable — pick the ids you want each time. Returns per-category counts plus `notes` describing anything that did not carry over.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sourceEventId: { type: "string" },
+        targetEventId: { type: "string" },
+        functionIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Function ids to copy. Omit or empty to copy no functions.",
+        },
+        presentationIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Presentation ids to copy. Omit or empty to copy no presentations.",
+        },
+        includeSchedules: {
+          type: "boolean",
+          description:
+            "Carry the source's times over. Default false — the unscheduled bucket is the point, it reads as the to-do list for building the new schedule. Breakout slot assignments only come across when this is true and both endpoints were copied.",
+        },
+        includeContacts: { type: "boolean", description: "Function contacts and presentation speakers. Default false." },
+        includeVendors: { type: "boolean", description: "Event vendor list with its per-order-type defaults. Default false." },
+        includeKeyStaff: { type: "boolean", description: "Event key staff (Contacts in event roles). Default false." },
+        includeStatusDefaults: { type: "boolean", description: "Per-order-type default statuses. Default false." },
+      },
+      required: ["sourceEventId", "targetEventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      importFromEventCore(
+        {
+          sourceEventId: requireString(args, "sourceEventId"),
+          targetEventId: requireString(args, "targetEventId"),
+          functionIds: optionalStringArray(args, "functionIds"),
+          presentationIds: optionalStringArray(args, "presentationIds"),
+          includeSchedules: args.includeSchedules === true,
+          includeContacts: args.includeContacts === true,
+          includeVendors: args.includeVendors === true,
+          includeKeyStaff: args.includeKeyStaff === true,
+          includeStatusDefaults: args.includeStatusDefaults === true,
+        },
+        userId,
       ),
   },
 ];
