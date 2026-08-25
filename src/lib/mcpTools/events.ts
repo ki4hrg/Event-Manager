@@ -7,6 +7,13 @@ import {
   deleteEventSeriesCore,
 } from "@/app/events/series/core";
 import {
+  addEventStaffCore,
+  setEventStaffLevelCore,
+  removeEventStaffCore,
+  grantSeriesAccessCore,
+  parseAccessCap,
+} from "@/app/events/[id]/staff/core";
+import {
   eventScopeWhere,
   createEventCore,
   updateEventCore,
@@ -303,5 +310,142 @@ export const eventTools: McpToolDefinition[] = [
       additionalProperties: false,
     },
     handler: (args, { userId }) => deleteEventSeriesCore(requireString(args, "id"), userId),
+  },
+  {
+    name: "list_event_staff",
+    description:
+      "List the APP USERS assigned to an event, with each one's per-event access cap (null = their role's level applies unchanged). Distinct from event KEY staff (the `*_event_key_staff` tools), which assign Contacts to event roles and have nothing to do with login permissions.",
+    inputSchema: {
+      type: "object",
+      properties: { eventId: { type: "string" } },
+      required: ["eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW", eventId);
+      return prisma.eventStaff.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          accessLevel: true,
+          addedAt: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              roleRef: { select: { id: true, name: true } },
+            },
+          },
+        },
+        orderBy: [{ user: { name: "asc" } }, { user: { email: "asc" } }],
+      });
+    },
+  },
+  {
+    name: "add_event_staff",
+    description:
+      "Assign an app user to an event, optionally capping what they can do there. accessLevel caps the user's role-derived ASSIGNED level for this event only — it can narrow (a WRITE role held to VIEW here) but never widen. Omit or pass null for uncapped. Idempotent: re-adding an existing assignment updates the cap only if accessLevel is supplied, so it never silently widens access.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        userId: { type: "string", description: "The User id being granted access." },
+        accessLevel: {
+          type: "string",
+          enum: ["VIEW", "WRITE", "DELETE"],
+          description:
+            "Optional cap. Omit for uncapped. There is no NONE — remove the assignment to revoke access.",
+        },
+      },
+      required: ["eventId", "userId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId: actorId }) =>
+      addEventStaffCore(
+        {
+          eventId: requireString(args, "eventId"),
+          userId: requireString(args, "userId"),
+          // undefined (omitted) leaves an existing cap alone; see addEventStaffCore.
+          accessLevel:
+            args.accessLevel === undefined
+              ? undefined
+              : parseAccessCap(optionalString(args, "accessLevel") ?? null),
+        },
+        actorId,
+      ),
+  },
+  {
+    name: "set_event_staff_level",
+    description:
+      "Change the per-event access cap on an existing staff assignment. Pass null to clear the cap so the user's role level applies in full.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        staffId: { type: "string", description: "EventStaff id from `list_event_staff`." },
+        eventId: { type: "string" },
+        accessLevel: { type: "string", enum: ["VIEW", "WRITE", "DELETE"] },
+      },
+      required: ["staffId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId: actorId }) =>
+      setEventStaffLevelCore(
+        {
+          staffId: requireString(args, "staffId"),
+          eventId: requireString(args, "eventId"),
+          accessLevel: parseAccessCap(optionalString(args, "accessLevel") ?? null),
+        },
+        actorId,
+      ),
+  },
+  {
+    name: "remove_event_staff",
+    description:
+      "Remove an app user's assignment to an event, revoking their access to it. This is how access is revoked — there is no NONE access level.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        staffId: { type: "string", description: "EventStaff id from `list_event_staff`." },
+        eventId: { type: "string" },
+      },
+      required: ["staffId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId: actorId }) =>
+      removeEventStaffCore(
+        requireString(args, "staffId"),
+        requireString(args, "eventId"),
+        actorId,
+      ),
+  },
+  {
+    name: "grant_series_access",
+    description:
+      "Assign one app user to every event in a series at a single access cap — the provisioning move for someone who needs to read the past years of a conference. Events the caller cannot write are skipped rather than failing the batch; returns { granted, skipped } as event-name lists.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: { type: "string", description: "The User id being granted access." },
+        seriesId: { type: "string", description: "EventSeries id from `list_event_series`." },
+        accessLevel: {
+          type: "string",
+          enum: ["VIEW", "WRITE", "DELETE"],
+          description: "Optional cap applied to every grant. Omit for uncapped.",
+        },
+      },
+      required: ["userId", "seriesId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId: actorId }) =>
+      grantSeriesAccessCore(
+        {
+          userId: requireString(args, "userId"),
+          seriesId: requireString(args, "seriesId"),
+          accessLevel: parseAccessCap(optionalString(args, "accessLevel") ?? null),
+        },
+        actorId,
+      ),
   },
 ];
