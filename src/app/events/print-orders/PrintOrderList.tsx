@@ -171,7 +171,7 @@ export function PrintOrderList({
   return (
     <div>
       <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-wrap">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {sorted.length}{sorted.length !== printOrders.length ? ` of ${printOrders.length}` : ""} print order{printOrders.length !== 1 ? "s" : ""}
           </p>

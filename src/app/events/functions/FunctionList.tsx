@@ -224,7 +224,7 @@ export function FunctionList({
   return (
     <div>
       <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-wrap">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">
             Functions ({filteredFunctions.length}{filteredFunctions.length !== functions.length ? ` of ${functions.length}` : ""})
           </h2>

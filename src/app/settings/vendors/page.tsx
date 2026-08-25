@@ -19,7 +19,7 @@ export default async function SettingsVendorsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="grid items-start gap-8 lg:grid-cols-2">
       <OptionList
         title="Vendor Contact Types"
         description="Roles for vendor contacts (e.g., Sales, Billing, Technical)"

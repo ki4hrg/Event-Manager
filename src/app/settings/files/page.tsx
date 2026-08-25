@@ -19,7 +19,7 @@ export default async function SettingsFilesPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="grid items-start gap-8 lg:grid-cols-2">
       <OptionList
         title="File Types"
         description="Categories for file attachments (e.g., Proposal, Invoice, Contract)"

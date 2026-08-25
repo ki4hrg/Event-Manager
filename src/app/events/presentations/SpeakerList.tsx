@@ -415,7 +415,7 @@ export function SpeakerList({
                 </form>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
                     <span className="text-gray-900 dark:text-white font-medium">
                       {speaker.contact.firstName} {speaker.contact.lastName}
                     </span>
@@ -435,7 +435,7 @@ export function SpeakerList({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 ml-2">
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
                     <button
                       onClick={() => setEditingId(speaker.id)}
                       className="text-blue-600 dark:text-blue-400 hover:underline text-sm"

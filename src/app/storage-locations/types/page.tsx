@@ -16,17 +16,19 @@ export default async function LocationTypesPage() {
   const types = await getLocationTypes();
 
   return (
-    <OptionList
-      title="Location Types"
-      description="Labels for what a location is — Shelf, Pallet, Tote, Trailer. Purely descriptive: whether something travels is set per location by its Place/Container setting."
-      category="location_type"
-      options={types}
-      showColor={true}
-      showModels={false}
-      createOption={createLocationType}
-      updateOption={updateLocationType}
-      deleteOption={deleteLocationType}
-      reorderOptions={reorderLocationTypes}
-    />
+    <div className="max-w-2xl">
+      <OptionList
+        title="Location Types"
+        description="Labels for what a location is — Shelf, Pallet, Tote, Trailer. Purely descriptive: whether something travels is set per location by its Place/Container setting."
+        category="location_type"
+        options={types}
+        showColor={true}
+        showModels={false}
+        createOption={createLocationType}
+        updateOption={updateLocationType}
+        deleteOption={deleteLocationType}
+        reorderOptions={reorderLocationTypes}
+      />
+    </div>
   );
 }

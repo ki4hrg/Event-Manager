@@ -60,7 +60,7 @@ export default async function EventStaffPage({
         title="Staff"
         description="App users assigned to this event. Access caps what their role allows them to do here — it can narrow, never widen."
       />
-      <div className="max-w-2xl">
+      <div>
         <EventStaffList
           staff={staff}
           addStaff={addStaffAction}

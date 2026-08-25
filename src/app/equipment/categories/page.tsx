@@ -16,17 +16,19 @@ export default async function EquipmentCategoriesPage() {
   const categories = await getEquipmentCategories();
 
   return (
-    <OptionList
-      title="Equipment Categories"
-      description="Categories for organizing equipment (e.g., AV, Tables, Chairs). Tables and Chairs are system categories and cannot be deleted."
-      category="equipment_category"
-      options={categories}
-      showColor={false}
-      showModels={true}
-      createOption={createEquipmentCategory}
-      updateOption={updateEquipmentCategory}
-      deleteOption={deleteEquipmentCategory}
-      reorderOptions={reorderEquipmentCategories}
-    />
+    <div className="max-w-2xl">
+      <OptionList
+        title="Equipment Categories"
+        description="Categories for organizing equipment (e.g., AV, Tables, Chairs). Tables and Chairs are system categories and cannot be deleted."
+        category="equipment_category"
+        options={categories}
+        showColor={false}
+        showModels={true}
+        createOption={createEquipmentCategory}
+        updateOption={updateEquipmentCategory}
+        deleteOption={deleteEquipmentCategory}
+        reorderOptions={reorderEquipmentCategories}
+      />
+    </div>
   );
 }

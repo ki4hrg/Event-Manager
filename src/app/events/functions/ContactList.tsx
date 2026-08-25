@@ -359,7 +359,7 @@ export function ContactList({
                 </form>
               ) : (
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <a
                         href={`/contacts/${item.contact.id}`}
@@ -379,19 +379,19 @@ export function ContactList({
                       )}
                     </div>
                     {(item.contact.email || item.contact.phone) && (
-                      <div className="flex items-center gap-3 mt-0.5">
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                         {item.contact.email && (
                           <a href={`mailto:${item.contact.email}`} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">
                             {item.contact.email}
                           </a>
                         )}
                         {item.contact.phone && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{formatPhone(item.contact.phone)}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPhone(item.contact.phone)}</span>
                         )}
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 ml-2">
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
                     <button
                       onClick={() => setEditingId(item.id)}
                       className="text-blue-600 dark:text-blue-400 hover:underline text-sm"

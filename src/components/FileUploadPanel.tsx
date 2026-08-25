@@ -74,7 +74,7 @@ export function FileUploadPanel({
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{title}</h2>
 
       <div className="space-y-3 mb-4">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select
             value={selectedFileType}
             onChange={(e) => setSelectedFileType(e.target.value)}
@@ -91,7 +91,7 @@ export function FileUploadPanel({
             ref={fileInputRef}
             type="file"
             multiple
-            className="flex-1 text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-600"
+            className="flex-1 min-w-0 text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-600"
           />
           <button
             onClick={handleUpload}
