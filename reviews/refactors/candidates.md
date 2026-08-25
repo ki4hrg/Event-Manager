@@ -29,3 +29,4 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 ## Resolved
 
 <!-- Move entries here once landed, with the commit hash. Prune entries older than ~6 months. -->
+- [events-list] `EventListClient`'s `hideCompleted` is local `useState` where CLAUDE.md calls for filter state in URL search params; the series filter added alongside it does use a URL param, so the two filters on one toolbar now disagree on mechanism. Migrate `hideCompleted` to `?completed=` when that page is next touched. (commit 8cfa6f8)
