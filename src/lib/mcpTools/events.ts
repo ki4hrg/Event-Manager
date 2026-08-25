@@ -1,7 +1,13 @@
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { loadPermissionsForUser, requirePermissionForUser } from "@/lib/permissions";
+import { requirePermissionForUser } from "@/lib/permissions";
 import {
+  createEventSeriesCore,
+  updateEventSeriesCore,
+  deleteEventSeriesCore,
+} from "@/app/events/series/core";
+import {
+  eventScopeWhere,
   createEventCore,
   updateEventCore,
   deleteEventCore,
@@ -31,6 +37,7 @@ function readEventArgs(args: Record<string, unknown>): EventWriteArgs {
     endDate: requireDate(args, "endDate"),
     timezone: optionalString(args, "timezone") ?? "America/Chicago",
     venueId: optionalString(args, "venueId") ?? null,
+    seriesId: optionalString(args, "seriesId") ?? null,
   };
 }
 
@@ -44,6 +51,11 @@ const eventWriteProps = {
     description: "IANA tz name (e.g. America/Chicago). Defaults to America/Chicago.",
   },
   venueId: { type: "string", description: "Optional Venue id." },
+  seriesId: {
+    type: "string",
+    description:
+      "Optional EventSeries id grouping the yearly editions of one conference. Use `list_event_series` to resolve a name to an id.",
+  },
 } as const;
 
 export const eventTools: McpToolDefinition[] = [
@@ -54,15 +66,9 @@ export const eventTools: McpToolDefinition[] = [
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: async (_args, { userId }) => {
       await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW");
-      const { permissions } = await loadPermissionsForUser(userId);
-      const unassigned = permissions.find(
-        (p) => p.resource === PermissionResource.EVENTS && p.scope === "UNASSIGNED",
-      );
-      const canSeeUnassigned = unassigned && unassigned.level !== "NONE";
-
       return prisma.event.findMany({
-        where: canSeeUnassigned ? undefined : { staff: { some: { userId } } },
-        include: { venue: true },
+        where: await eventScopeWhere(userId),
+        include: { venue: true, series: { select: { id: true, name: true } } },
         orderBy: { startDate: "desc" },
       });
     },
@@ -85,6 +91,7 @@ export const eventTools: McpToolDefinition[] = [
         where: { id },
         include: {
           venue: true,
+          series: { select: { id: true, name: true } },
           updatedBy: { select: { name: true, email: true } },
         },
       });
@@ -238,5 +245,63 @@ export const eventTools: McpToolDefinition[] = [
         },
         userId,
       ),
+  },
+  {
+    name: "list_event_series",
+    description:
+      "List event series — the groupings that tie the yearly editions of one conference together. Each row includes its events (id, name, startDate) newest first — scoped to events the key's user may see, same as `list_events` — so this doubles as the lookup for \"the previous event in this series\".",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    handler: async (_args, { userId }) => {
+      await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW");
+      const scopeWhere = await eventScopeWhere(userId);
+      return prisma.eventSeries.findMany({
+        select: {
+          id: true,
+          name: true,
+          events: {
+            where: scopeWhere,
+            select: { id: true, name: true, startDate: true },
+            orderBy: { startDate: "desc" },
+          },
+        },
+        orderBy: { name: "asc" },
+      });
+    },
+  },
+  {
+    name: "create_event_series",
+    description:
+      "Create an event series. Names are unique. Assign events to it with the seriesId field on create_event / update_event.",
+    inputSchema: {
+      type: "object",
+      properties: { name: { type: "string" } },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => createEventSeriesCore(requireString(args, "name"), userId),
+  },
+  {
+    name: "update_event_series",
+    description: "Rename an event series. Returns the updated series.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, name: { type: "string" } },
+      required: ["id", "name"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      updateEventSeriesCore(requireString(args, "id"), requireString(args, "name"), userId),
+  },
+  {
+    name: "delete_event_series",
+    description:
+      "Delete an event series. Refuses while the series still has events — move them to another series first.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => deleteEventSeriesCore(requireString(args, "id"), userId),
   },
 ];

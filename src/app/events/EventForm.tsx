@@ -8,6 +8,7 @@ import { btnSecondary } from "@/lib/buttonStyles";
 type EventFormProps = {
   event?: Event;
   venues: Venue[];
+  series: { id: string; name: string }[];
   action: (formData: FormData) => Promise<void>;
   cancelHref?: string;
 };
@@ -26,7 +27,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function EventForm({ event, venues, action, cancelHref }: EventFormProps) {
+export function EventForm({ event, venues, series, action, cancelHref }: EventFormProps) {
   const isEdit = !!event;
   const formatDateForInput = (date: Date) => {
     return new Date(date).toISOString().split("T")[0];
@@ -143,6 +144,36 @@ export function EventForm({ event, venues, action, cancelHref }: EventFormProps)
           {venues.map((venue) => (
             <option key={venue.id} value={venue.id}>
               {venue.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <div className="flex items-baseline justify-between">
+          <label
+            htmlFor="seriesId"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Series
+          </label>
+          <Link
+            href="/events/series"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Manage series
+          </Link>
+        </div>
+        <select
+          id="seriesId"
+          name="seriesId"
+          defaultValue={event?.seriesId || ""}
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">No series</option>
+          {series.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
             </option>
           ))}
         </select>
