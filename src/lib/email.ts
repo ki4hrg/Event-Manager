@@ -127,7 +127,15 @@ export async function consumePasswordResetToken(
   return { id: row.id, userId: row.userId };
 }
 
-type InviteRecipient = { id: string; email: string; name: string | null };
+type InviteRecipient = {
+  id: string;
+  email: string;
+  name: string | null;
+  // Says what kind of account this is. "An account has been created for you"
+  // alone gives an outside collaborator nothing to act on. Not listing their
+  // events: a user has no assignments at the moment they're invited.
+  roleName?: string | null;
+};
 
 export async function sendInviteEmail(user: InviteRecipient): Promise<void> {
   const { url } = await generatePasswordResetToken(user.id, {
@@ -136,12 +144,15 @@ export async function sendInviteEmail(user: InviteRecipient): Promise<void> {
   const loginUrl = appUrl("/login");
   const greeting = user.name ? `Hi ${user.name},` : "Hi,";
 
+  const roleLine = user.roleName ? `Your access level: ${user.roleName}` : null;
+
   const text = [
     greeting,
     "",
     "An account has been created for you in Event Manager.",
     "",
     `Your username: ${user.email}`,
+    ...(roleLine ? [roleLine] : []),
     `Set your password: ${url}`,
     `Sign-in page: ${loginUrl}`,
     "",
@@ -152,6 +163,7 @@ export async function sendInviteEmail(user: InviteRecipient): Promise<void> {
     <p>${escapeHtml(greeting)}</p>
     <p>An account has been created for you in Event Manager.</p>
     <p><strong>Your username:</strong> ${escapeHtml(user.email)}</p>
+    ${roleLine ? `<p>${escapeHtml(roleLine)}</p>` : ""}
     <p><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none">Set your password</a></p>
     <p>Or paste this link into your browser:<br><span style="word-break:break-all;color:#555">${escapeHtml(url)}</span></p>
     <p>Once your password is set, sign in here: <a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>

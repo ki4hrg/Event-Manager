@@ -1,8 +1,9 @@
 "use client";
 
-import { startTransition, useState, useEffect, useRef } from "react";
+import { startTransition, useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { PermissionResource } from "@prisma/client";
 import {
   getSidebarItems,
   type SidebarSection,
@@ -127,6 +128,10 @@ type NavLink = {
   segment: string | null;
   icon: React.ReactNode;
   sidebarSection?: SidebarSection;
+  // The resource whose VIEW this link requires. Links without one are always
+  // shown: reports and the agenda read across many entities and gate on their
+  // own pages, and Overview must stay reachable for anyone who can open the event.
+  resource?: PermissionResource;
 };
 type NavGroup = { type: "group"; label: string };
 type NavItem = NavLink | NavGroup;
@@ -136,21 +141,21 @@ const NAV: NavItem[] = [
   { type: "group", label: "Schedule" },
   { type: "link",  label: "Agenda",           segment: "agenda",                          icon: <CalendarIcon /> },
   { type: "link",  label: "Schedule Items",   segment: "schedule-items",                  icon: <ClockIcon /> },
-  { type: "link",  label: "Functions",        segment: "functions",                       icon: <ListIcon />,      sidebarSection: "functions" },
+  { type: "link",  label: "Functions",        segment: "functions",                       icon: <ListIcon />,      sidebarSection: "functions", resource: "FUNCTIONS" },
   { type: "link",  label: "Breakouts",        segment: "breakout-schedule",               icon: <GridIcon /> },
   { type: "group", label: "Content" },
-  { type: "link",  label: "Presentations",    segment: "presentations",                   icon: <ChartIcon />,     sidebarSection: "presentations" },
+  { type: "link",  label: "Presentations",    segment: "presentations",                   icon: <ChartIcon />,     sidebarSection: "presentations", resource: "PRESENTATIONS" },
   { type: "group", label: "Orders" },
-  { type: "link",  label: "Packing List",     segment: "packing",                         icon: <ChecklistIcon /> },
-  { type: "link",  label: "AV Orders",        segment: "av-orders",                       icon: <VideoIcon />,     sidebarSection: "av-orders" },
-  { type: "link",  label: "Catering Orders",  segment: "catering-orders",                 icon: <UtensilsIcon />,  sidebarSection: "catering-orders" },
-  { type: "link",  label: "Print Orders",     segment: "print-orders",                    icon: <PrinterIcon />,   sidebarSection: "print-orders" },
-  { type: "link",  label: "Setup Orders",     segment: "setup-orders",                    icon: <WrenchIcon />,    sidebarSection: "setup-orders" },
-  { type: "link",  label: "Supply Orders",    segment: "supply-orders",                   icon: <PackageIcon />,   sidebarSection: "supply-orders" },
-  { type: "link",  label: "Media Deliverables", segment: "media-deliverables",            icon: <VideoIcon />,     sidebarSection: "media-deliverables" },
+  { type: "link",  label: "Packing List",     segment: "packing",                         icon: <ChecklistIcon />, resource: "SUPPLY_ORDERS" },
+  { type: "link",  label: "AV Orders",        segment: "av-orders",                       icon: <VideoIcon />,     sidebarSection: "av-orders", resource: "AV_ORDERS" },
+  { type: "link",  label: "Catering Orders",  segment: "catering-orders",                 icon: <UtensilsIcon />,  sidebarSection: "catering-orders", resource: "CATERING_ORDERS" },
+  { type: "link",  label: "Print Orders",     segment: "print-orders",                    icon: <PrinterIcon />,   sidebarSection: "print-orders", resource: "PRINT_ORDERS" },
+  { type: "link",  label: "Setup Orders",     segment: "setup-orders",                    icon: <WrenchIcon />,    sidebarSection: "setup-orders", resource: "SETUP_ORDERS" },
+  { type: "link",  label: "Supply Orders",    segment: "supply-orders",                   icon: <PackageIcon />,   sidebarSection: "supply-orders", resource: "SUPPLY_ORDERS" },
+  { type: "link",  label: "Media Deliverables", segment: "media-deliverables",            icon: <VideoIcon />,     sidebarSection: "media-deliverables", resource: "MEDIA_DELIVERABLES" },
   { type: "group", label: "Resources" },
-  { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon /> },
-  { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon /> },
+  { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon />,  resource: "VENDORS" },
+  { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon />,    resource: "FILES" },
   { type: "group", label: "Reports" },
   { type: "link",  label: "Event Profile",   segment: "reports/event-profile",           icon: <ChartIcon /> },
   { type: "link",  label: "Event Schedule",   segment: "reports/event-schedule",          icon: <ClockIcon /> },
@@ -160,13 +165,22 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Breakout Assignments", segment: "reports/breakout-assignments", icon: <ClipboardIcon /> },
   { type: "link",  label: "Equipment",        segment: "reports/equipment-responsibility", icon: <ClipboardIcon /> },
   { type: "link",  label: "Vendor Handoff",   segment: "reports/vendor-handoff",          icon: <HandoffIcon /> },
-  { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon /> },
+  { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon />,      resource: "SHARE_LINKS" },
   { type: "group", label: "Configuration" },
   { type: "link",  label: "Staff",            segment: "staff",                           icon: <ClipboardIcon /> },
   { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon /> },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Hide links the user can't open, then drop any group header left with no links
+// under it — a "Orders" heading above nothing reads as a broken page.
+function visibleNav(denied: Set<string>): NavItem[] {
+  const kept = NAV.filter((i) => i.type !== "link" || !i.resource || !denied.has(i.resource));
+  // A group owns every link between it and the next group, so "has any link
+  // left" is exactly "the item right after it is a link".
+  return kept.filter((item, idx) => item.type !== "group" || kept[idx + 1]?.type === "link");
+}
 
 function isLinkActive(segment: string | null, pathname: string, basePath: string): boolean {
   if (segment === null) return pathname === basePath;
@@ -202,6 +216,7 @@ function SidebarInner({
   onToggleCollapse,
   currentSection,
   items,
+  nav,
 }: {
   eventName: string;
   basePath: string;
@@ -210,6 +225,7 @@ function SidebarInner({
   onToggleCollapse?: () => void;
   currentSection: SidebarSection | null;
   items: SidebarItem[];
+  nav: NavItem[];
 }) {
   const hasActiveItems = currentSection !== null && items.length > 0;
 
@@ -242,7 +258,7 @@ function SidebarInner({
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-1.5">
-        {NAV.map((item, idx) => {
+        {nav.map((item, idx) => {
           if (item.type === "group") {
             if (collapsed) return null;
             return (
@@ -329,6 +345,10 @@ type EventSidebarProps = {
   eventName: string;
   mobileOpen: boolean;
   onMobileClose: () => void;
+  // Resources this user can't VIEW on this event, computed server-side in the
+  // event layout. Hiding is cosmetic — every page and the sidebar's own item
+  // fetch still enforce their own checks.
+  deniedResources: string[];
 };
 
 export function EventSidebar({
@@ -336,6 +356,7 @@ export function EventSidebar({
   eventName,
   mobileOpen,
   onMobileClose,
+  deniedResources,
 }: EventSidebarProps) {
   const pathname = usePathname();
   const basePath = `/events/${eventId}`;
@@ -404,6 +425,7 @@ export function EventSidebar({
     pathname,
     currentSection,
     items,
+    nav: useMemo(() => visibleNav(new Set(deniedResources)), [deniedResources]),
   };
 
   return (
