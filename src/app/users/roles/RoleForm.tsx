@@ -5,7 +5,12 @@ import { useFormStatus } from "react-dom";
 import { PermissionLevel, PermissionScope, type PermissionResource, type RolePermission } from "@prisma/client";
 import { DeleteButton } from "@/components/DeleteButton";
 import { btnPrimary } from "@/lib/buttonStyles";
-import { PERMISSION_GROUPS, PERMISSION_LEVELS, permissionFieldName } from "./resources";
+import {
+  PERMISSION_GROUPS,
+  PERMISSION_LEVELS,
+  EVENT_SCOPES,
+  permissionFieldName,
+} from "./resources";
 
 function buildPermissionMap(perms: RolePermission[] | undefined): Map<string, PermissionLevel> {
   const map = new Map<string, PermissionLevel>();
@@ -119,12 +124,6 @@ function DeleteRoleControls({ deleteAction }: { deleteAction?: () => Promise<voi
   return <DeleteButton action={deleteAction} label="Delete Role" />;
 }
 
-const ALL_SCOPES: PermissionScope[] = [
-  PermissionScope.GLOBAL,
-  PermissionScope.ASSIGNED,
-  PermissionScope.UNASSIGNED,
-];
-
 function PermissionMatrix({
   permMap,
   readOnly,
@@ -137,8 +136,6 @@ function PermissionMatrix({
       <div className="mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Permissions</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Each event-scoped resource grants three levels — global (no event context, e.g. listing
-          events), assigned (events the user is on staff for), and unassigned (events they are not).
           Levels are ordinal: View &lt; Write &lt; Delete.
         </p>
       </div>
@@ -147,9 +144,14 @@ function PermissionMatrix({
           <thead>
             <tr className="border-b border-gray-200 dark:border-gray-700">
               <th className="text-left font-medium text-gray-500 dark:text-gray-400 py-2 pr-4">Resource</th>
-              <th className="text-left font-medium text-gray-500 dark:text-gray-400 py-2 px-2">Global</th>
-              <th className="text-left font-medium text-gray-500 dark:text-gray-400 py-2 px-2">Assigned</th>
-              <th className="text-left font-medium text-gray-500 dark:text-gray-400 py-2 px-2">Unassigned</th>
+              {EVENT_SCOPES.map((s) => (
+                <th
+                  key={s.value}
+                  className="text-left font-medium text-gray-500 dark:text-gray-400 py-2 px-2"
+                >
+                  {s.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -163,7 +165,7 @@ function PermissionMatrix({
                 {group.resources.map(({ value: resource, label }) => (
                   <tr key={resource}>
                     <td className="py-2 pr-4 text-gray-900 dark:text-white">{label}</td>
-                    {ALL_SCOPES.map((scope) =>
+                    {EVENT_SCOPES.map(({ value: scope }) =>
                       group.scopes.includes(scope) ? (
                         <td key={scope} className="py-2 px-2">
                           <LevelCell

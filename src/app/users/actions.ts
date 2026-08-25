@@ -53,7 +53,10 @@ export async function createUser(formData: FormData) {
     throw new Error("Role is required");
   }
 
-  const role = await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } });
+  const role = await prisma.role.findUnique({
+    where: { id: roleId },
+    select: { id: true, name: true },
+  });
   if (!role) throw new Error("Selected role no longer exists");
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -74,7 +77,7 @@ export async function createUser(formData: FormData) {
 
   let sendFailed = false;
   try {
-    await sendInviteEmail(newUser);
+    await sendInviteEmail({ ...newUser, roleName: role.name });
   } catch {
     sendFailed = true;
   }

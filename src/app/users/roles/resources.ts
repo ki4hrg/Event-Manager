@@ -65,10 +65,15 @@ export const PERMISSION_LEVELS: { value: PermissionLevel; label: string }[] = [
   { value: PermissionLevel.DELETE, label: "Delete" },
 ];
 
+// Column headers for the permission matrix. Named for what they control rather
+// than for the enum: on an event-scoped resource GLOBAL does not mean "all
+// events", it means "may open this section at all" — reading it as the former
+// leads an admin to set it NONE for a restricted role and lock the user out of
+// their own events entirely.
 export const EVENT_SCOPES: { value: PermissionScope; label: string }[] = [
-  { value: PermissionScope.GLOBAL, label: "Global" },
-  { value: PermissionScope.ASSIGNED, label: "Assigned" },
-  { value: PermissionScope.UNASSIGNED, label: "Unassigned" },
+  { value: PermissionScope.GLOBAL, label: "Section" },
+  { value: PermissionScope.ASSIGNED, label: "Assigned events" },
+  { value: PermissionScope.UNASSIGNED, label: "Other events" },
 ];
 
 // Name of the seeded default role assigned to new users when no role is specified.

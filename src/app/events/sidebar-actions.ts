@@ -1,18 +1,12 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/permissions";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getSetupOrderDisplayName } from "./setup-orders/utils";
+import { SECTION_RESOURCE, type SidebarSection } from "./sidebar-sections";
 
-export type SidebarSection =
-  | "functions"
-  | "av-orders"
-  | "catering-orders"
-  | "print-orders"
-  | "setup-orders"
-  | "supply-orders"
-  | "media-deliverables"
-  | "presentations";
+export type { SidebarSection };
 
 export type SidebarItem =
   | { kind: "header"; id: string; label: string }
@@ -22,6 +16,13 @@ export async function getSidebarItems(
   eventId: string,
   section: SidebarSection
 ): Promise<SidebarItem[]> {
+  // This is an exported Server Action, so both arguments are caller-controlled
+  // and it is reachable by any signed-in user. Without this it listed the
+  // functions and orders of events the caller has no access to.
+  const resource = SECTION_RESOURCE[section];
+  if (!resource) throw new Error(`Unknown sidebar section: ${section}`);
+  await requirePermission(resource, "VIEW", eventId);
+
   const base = `/events/${eventId}`;
 
   if (section === "functions") {

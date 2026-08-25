@@ -205,21 +205,25 @@ const ADMIN_ONLY_RESOURCES = new Set([
   "API_KEYS",
 ]);
 
-function buildPermissions(level, { adminOnly }) {
+// `level` is either a flat PermissionLevel applied everywhere, or a per-scope
+// map { GLOBAL, ASSIGNED, UNASSIGNED } — the Viewer role needs to see the
+// events it is assigned to and nothing else, which a single level can't express.
+function buildPermissions(level, { adminOnly, globalLevel }) {
+  const at = (scope) => (typeof level === "string" ? level : level[scope]);
   const perms = [];
   for (const resource of NON_EVENT_RESOURCES) {
     if (!adminOnly && ADMIN_ONLY_RESOURCES.has(resource)) continue;
-    perms.push({ resource, scope: "GLOBAL", level });
+    perms.push({ resource, scope: "GLOBAL", level: globalLevel ?? at("GLOBAL") });
   }
   for (const resource of EVENT_RESOURCES) {
     for (const scope of ["GLOBAL", "ASSIGNED", "UNASSIGNED"]) {
-      perms.push({ resource, scope, level });
+      perms.push({ resource, scope, level: at(scope) });
     }
   }
   return perms;
 }
 
-async function syncSystemRole(name, description, level, { adminOnly }) {
+async function syncSystemRole(name, description, level, { adminOnly, globalLevel }) {
   const role = await prisma.role.upsert({
     where: { name },
     update: { description, isSystem: true },
@@ -228,7 +232,7 @@ async function syncSystemRole(name, description, level, { adminOnly }) {
   // Rewrite system-role permissions on every run so the matrix stays in sync with the seed definition.
   // System roles are read-only in the UI; user-created roles are untouched.
   await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
-  const perms = buildPermissions(level, { adminOnly });
+  const perms = buildPermissions(level, { adminOnly, globalLevel });
   await prisma.rolePermission.createMany({
     data: perms.map((p) => ({ roleId: role.id, ...p })),
   });
@@ -247,6 +251,20 @@ async function seedRoles() {
     "Default role: edit access on all events; no access to admin settings, roles, or user management.",
     "WRITE",
     { adminOnly: false },
+  );
+  // Starting point for outside collaborators — a venue rep, a sponsor, an
+  // auditor. Read-only, and only on the events they are explicitly assigned to.
+  // GLOBAL is VIEW rather than NONE on purpose: for an event-scoped resource
+  // GLOBAL means "may open this section at all", so NONE would leave them
+  // unable to reach the events list even for their own events.
+  //
+  // System roles are rewritten on every seed and read-only in the UI, so this
+  // is a template: duplicate it to customize (see /users/roles).
+  await syncSystemRole(
+    "Viewer",
+    "Read-only access to assigned events only. No editing, and no access to unassigned events or admin settings.",
+    { GLOBAL: "VIEW", ASSIGNED: "VIEW", UNASSIGNED: "NONE" },
+    { adminOnly: false, globalLevel: "VIEW" },
   );
 }
 

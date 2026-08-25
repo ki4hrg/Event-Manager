@@ -144,3 +144,54 @@ export async function deleteRole(id: string) {
   revalidatePath("/users/roles");
   redirect("/users/roles?success=Role+deleted");
 }
+
+/**
+ * Copy a role and all its permission rows.
+ *
+ * This is the only way to customize a system role: syncSystemRole rewrites
+ * Admin / User / Viewer on every seed run, and the UI holds them read-only.
+ * Duplicating Viewer is the intended path to a narrow role like "Venue Rep" —
+ * far cheaper than filling a 21-resource by 3-scope matrix by hand.
+ */
+export async function duplicateRole(id: string) {
+  const session = await requirePermission(PermissionResource.ROLES, "WRITE");
+
+  const source = await prisma.role.findUnique({
+    where: { id },
+    include: { permissions: true },
+  });
+  if (!source) throw new Error("Role not found");
+
+  // Names are unique, so a second copy of the same role needs its own suffix.
+  const base = `${source.name} (Copy)`;
+  const taken = new Set(
+    (
+      await prisma.role.findMany({
+        where: { name: { startsWith: base } },
+        select: { name: true },
+      })
+    ).map((r) => r.name),
+  );
+  let name = base;
+  for (let n = 2; taken.has(name); n++) name = `${base} ${n}`;
+
+  const created = await prisma.role.create({
+    data: {
+      name,
+      description: source.description,
+      isSystem: false,
+      updatedById: session.user.id,
+      permissions: {
+        create: source.permissions.map((p) => ({
+          resource: p.resource,
+          scope: p.scope,
+          level: p.level,
+        })),
+      },
+    },
+    select: { id: true },
+  });
+
+  revalidatePath("/users/roles");
+  redirect(`/users/roles/${created.id}?success=Role duplicated`);
+}

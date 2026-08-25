@@ -10,6 +10,13 @@ export async function Header() {
     ? await loadPermissions(session.user.id)
     : { permissions: [] };
 
+  // Main-nav links are gated the same way the Admin dropdown already was.
+  // An ungated link is worse than a missing one: clicking it bounces the user
+  // to "/" with no explanation, which reads as the app being broken.
+  const canViewEvents = hasGlobalView(permissions, PermissionResource.EVENTS);
+  const canViewVenues = hasGlobalView(permissions, PermissionResource.VENUES);
+  const canViewContacts = hasGlobalView(permissions, PermissionResource.CONTACTS);
+  const canViewVendors = hasGlobalView(permissions, PermissionResource.VENDORS);
   const canViewUsers =
     hasGlobalView(permissions, PermissionResource.USERS) ||
     hasGlobalView(permissions, PermissionResource.ROLES) ||
@@ -35,30 +42,38 @@ export async function Header() {
             Event Manager
           </Link>
           <nav className="hidden md:flex gap-6">
-            <Link
-              href="/events"
-              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              Events
-            </Link>
-            <Link
-              href="/venues"
-              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              Venues
-            </Link>
-            <Link
-              href="/contacts"
-              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              Contacts
-            </Link>
-            <Link
-              href="/vendors"
-              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              Vendors
-            </Link>
+            {canViewEvents && (
+              <Link
+                href="/events"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                Events
+              </Link>
+            )}
+            {canViewVenues && (
+              <Link
+                href="/venues"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                Venues
+              </Link>
+            )}
+            {canViewContacts && (
+              <Link
+                href="/contacts"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                Contacts
+              </Link>
+            )}
+            {canViewVendors && (
+              <Link
+                href="/vendors"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                Vendors
+              </Link>
+            )}
             {canViewStorageLocations && (
               <Link
                 href="/storage-locations"

@@ -7,11 +7,18 @@ import { EventSidebar, HamburgerIcon } from "@/components/EventSidebar";
 type EventLayoutClientProps = {
   eventId: string;
   eventName: string;
+  deniedResources: string[];
   header: React.ReactNode;
   children: React.ReactNode;
 };
 
-export function EventLayoutClient({ eventId, eventName, header, children }: EventLayoutClientProps) {
+export function EventLayoutClient({
+  eventId,
+  eventName,
+  deniedResources,
+  header,
+  children,
+}: EventLayoutClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname() ?? "";
   const isPrintView = pathname.endsWith("/print") || pathname.endsWith("/table-print");
@@ -33,6 +40,7 @@ export function EventLayoutClient({ eventId, eventName, header, children }: Even
         <EventSidebar
           eventId={eventId}
           eventName={eventName}
+          deniedResources={deniedResources}
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}
         />

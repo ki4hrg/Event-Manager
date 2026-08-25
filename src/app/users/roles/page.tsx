@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Toast } from "@/components/Toast";
 import { btnPrimary } from "@/lib/buttonStyles";
-import { getRoles } from "./actions";
+import { getRoles, duplicateRole } from "./actions";
+import { DuplicateRoleButton } from "./DuplicateRoleButton";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function SettingsRolesPage() {
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Roles</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Roles define what a user can see and edit. Each user is assigned a single role.
-            Admin and User are built-in and cannot be modified.
+            Built-in roles are rewritten on every deploy — duplicate one to customize it.
           </p>
         </div>
         <Link href="/users/roles/new" className={btnPrimary}>
@@ -71,12 +72,20 @@ export default async function SettingsRolesPage() {
                   {role._count.users}
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <Link
-                    href={`/users/roles/${role.id}`}
-                    className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                  >
-                    {role.isSystem ? "View" : "Edit"}
-                  </Link>
+                  <div className="flex items-center justify-end gap-3">
+                    <DuplicateRoleButton
+                      duplicate={async () => {
+                        "use server";
+                        await duplicateRole(role.id);
+                      }}
+                    />
+                    <Link
+                      href={`/users/roles/${role.id}`}
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                    >
+                      {role.isSystem ? "View" : "Edit"}
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}
