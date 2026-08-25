@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Toast } from "@/components/Toast";
 import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/DeleteButton";
-import { getEvent, updateEvent, deleteEvent } from "../../actions";
+import { getEvent, updateEvent, deleteEvent, getEventSeriesOptions } from "../../actions";
 import { EventForm } from "../../EventForm";
 import { getStatusDefaults, clearStatusDefault, saveAllStatusDefaults } from "@/app/events/status-defaults/actions";
 import { getSubstatusOptions } from "@/app/settings/actions";
@@ -18,9 +18,10 @@ export const metadata: Metadata = { title: "Event settings" };
 
 export default async function EventSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, venues, statusDefaults, substatuses] = await Promise.all([
+  const [event, venues, series, statusDefaults, substatuses] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
+    getEventSeriesOptions(),
     getStatusDefaults(id),
     getSubstatusOptions(),
   ]);
@@ -69,10 +70,11 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
             Event Details
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Name, dates, timezone, and venue.
+            Name, dates, timezone, venue, and series.
           </p>
           <EventForm
             venues={venues}
+            series={series}
             event={event}
             action={updateEventAction}
             cancelHref={`/events/${id}`}

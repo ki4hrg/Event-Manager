@@ -303,6 +303,18 @@ model InventoryItem {
 }
 
 // Core entities
+
+// Groups the recurring editions of one conference (2024/2025/2026) so the app can
+// answer "the previous event in this series" — for the import source default and
+// for granting a venue rep access to every prior year in one action.
+model EventSeries {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  events    Event[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Event {
   id                 String               @id @default(cuid())
   name               String
@@ -310,6 +322,8 @@ model Event {
   startDate          DateTime
   endDate            DateTime
   timezone           String               @default("America/Chicago")
+  seriesId           String?
+  series             EventSeries?         @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   venueId            String?
   venue              Venue?               @relation(fields: [venueId], references: [id])
   functions          Function[]
@@ -335,6 +349,7 @@ model Event {
   updatedAt          DateTime             @updatedAt
 
   @@index([updatedById])
+  @@index([seriesId])
 }
 
 model Venue {

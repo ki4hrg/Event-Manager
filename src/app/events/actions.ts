@@ -2,13 +2,14 @@
 
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { loadPermissions, requirePermission } from "@/lib/permissions";
+import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createEventCore,
   updateEventCore,
   deleteEventCore,
+  eventScopeWhere,
   addEventKeyStaffCore,
   updateEventKeyStaffCore,
   removeEventKeyStaffCore,
@@ -16,18 +17,25 @@ import {
   type EventWriteArgs,
 } from "./core";
 
-export async function getEvents() {
+// `series`: undefined/"" = all, "__blank__" = events with no series, otherwise a series id.
+export async function getEvents(series?: string) {
   const session = await requirePermission("EVENTS", "VIEW");
-  const { permissions } = await loadPermissions(session.user.id);
-  const unassigned = permissions.find(
-    (p) => p.resource === "EVENTS" && p.scope === "UNASSIGNED",
-  );
-  const canSeeUnassigned = unassigned && unassigned.level !== "NONE";
+  const scopeWhere = await eventScopeWhere(session.user.id);
+  const seriesWhere =
+    series === "__blank__" ? { seriesId: null } : series ? { seriesId: series } : {};
 
   return prisma.event.findMany({
-    where: canSeeUnassigned ? undefined : { staff: { some: { userId: session.user.id } } },
-    include: { venue: true },
+    where: { ...scopeWhere, ...seriesWhere },
+    include: { venue: true, series: { select: { id: true, name: true } } },
     orderBy: { startDate: "desc" },
+  });
+}
+
+export async function getEventSeriesOptions() {
+  await requirePermission("EVENTS", "VIEW");
+  return prisma.eventSeries.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
   });
 }
 
@@ -50,6 +58,7 @@ function readEventArgs(formData: FormData): EventWriteArgs {
     endDate: new Date(formData.get("endDate") as string),
     timezone: (formData.get("timezone") as string) || "America/Chicago",
     venueId: (formData.get("venueId") as string) || null,
+    seriesId: (formData.get("seriesId") as string) || null,
   };
 }
 

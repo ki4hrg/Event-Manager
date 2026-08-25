@@ -3,7 +3,21 @@
 
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermissionForUser } from "@/lib/permissions";
+import { loadPermissionsForUser, requirePermissionForUser } from "@/lib/permissions";
+
+// The single definition of "which events may this user see". A role with
+// EVENTS:UNASSIGNED above NONE sees everything; everyone else sees only the
+// events they are staff on. Every list that returns events — the events page,
+// the series page, and their MCP equivalents — must AND this in, or it becomes
+// a way to enumerate events the caller has no access to.
+export async function eventScopeWhere(userId: string) {
+  const { permissions } = await loadPermissionsForUser(userId);
+  const unassigned = permissions.find(
+    (p) => p.resource === PermissionResource.EVENTS && p.scope === "UNASSIGNED",
+  );
+  const canSeeUnassigned = unassigned && unassigned.level !== "NONE";
+  return canSeeUnassigned ? {} : { staff: { some: { userId } } };
+}
 
 // ---------------------------------------------------------------------------
 // Event
@@ -15,6 +29,7 @@ export type EventWriteArgs = {
   endDate: Date;
   timezone: string;
   venueId: string | null;
+  seriesId: string | null;
 };
 
 export async function createEventCore(args: EventWriteArgs, userId: string) {
@@ -29,6 +44,7 @@ export async function createEventCore(args: EventWriteArgs, userId: string) {
       endDate: args.endDate,
       timezone: args.timezone || "America/Chicago",
       venueId: args.venueId,
+      seriesId: args.seriesId,
       staff: { create: { userId } },
     },
   });
@@ -45,6 +61,7 @@ export async function updateEventCore(id: string, args: EventWriteArgs, userId: 
       endDate: args.endDate,
       timezone: args.timezone || "America/Chicago",
       venueId: args.venueId,
+      seriesId: args.seriesId,
       updatedById: userId,
     },
   });
