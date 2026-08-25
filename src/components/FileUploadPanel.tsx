@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { FileUpload, CustomOption } from "@prisma/client";
 import { deleteFile } from "@/app/files/actions";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { formatFileSize, type EntityType } from "@/lib/uploads";
 
 type FileUploadPanelProps = {
@@ -24,6 +25,11 @@ export function FileUploadPanel({
   title = "Files",
 }: FileUploadPanelProps) {
   const router = useRouter();
+  // Upload gates on FILES.WRITE (src/app/api/upload/route.ts), removal on
+  // FILES.DELETE (src/app/files/actions.ts) — mirror both rather than
+  // collapsing them, so a WRITE-capped user can still attach files.
+  const canUpload = useCanWrite("FILES");
+  const canRemove = useCanDelete("FILES");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFileType, setSelectedFileType] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -73,6 +79,7 @@ export function FileUploadPanel({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{title}</h2>
 
+      {canUpload && (
       <div className="space-y-3 mb-4">
         <div className="flex flex-wrap gap-2">
           <select
@@ -106,6 +113,7 @@ export function FileUploadPanel({
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
       </div>
+      )}
 
       {files.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">No files attached.</p>
@@ -129,13 +137,15 @@ export function FileUploadPanel({
                     <span>{new Date(file.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDelete(file.id, file.fileName)}
-                  disabled={isPending}
-                  className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 shrink-0 disabled:opacity-50"
-                >
-                  Remove
-                </button>
+                {canRemove && (
+                  <button
+                    onClick={() => handleDelete(file.id, file.fileName)}
+                    disabled={isPending}
+                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 shrink-0 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                )}
               </li>
             );
           })}

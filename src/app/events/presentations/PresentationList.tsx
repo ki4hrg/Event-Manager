@@ -12,6 +12,7 @@ import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import type {
   Presentation,
   PresentationContact,
@@ -74,6 +75,11 @@ export function PresentationList({
   deletePresentations,
   bulkUpdatePresentations,
 }: PresentationListProps) {
+  const canWrite = useCanWrite("PRESENTATIONS");
+  const canDelete = useCanDelete("PRESENTATIONS");
+  // Selection only exists to feed bulk edit and bulk delete, so it goes
+  // away entirely when the user has neither.
+  const canSelect = canWrite || canDelete;
   const router = useRouter();
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("title");
@@ -234,36 +240,44 @@ export function PresentationList({
           <PresenceFilterSelect label="Speaker" value={filters.speaker} onChange={(v) => setFilter("speaker", v)} />
         </div>
         <div className="flex gap-2 shrink-0">
-          <Link
-            href={`/events/${eventId}/presentations/import`}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            Import CSV
-          </Link>
-          <Link
-            href={`/events/${eventId}/presentations/new`}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Add Presentation
-          </Link>
+          {canWrite && (
+            <Link
+              href={`/events/${eventId}/presentations/import`}
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Import CSV
+            </Link>
+          )}
+          {canWrite && (
+            <Link
+              href={`/events/${eventId}/presentations/new`}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Add Presentation
+            </Link>
+          )}
         </div>
       </div>
 
-      {selected.size > 0 && (
+      {canSelect && selected.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-sm">
           <span className="font-medium text-blue-700 dark:text-blue-300">{selected.size} selected</span>
-          <button
-            onClick={() => setShowBulkEdit((v) => !v)}
-            className="rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/40"
-          >
-            {showBulkEdit ? "Hide bulk edit" : "Bulk edit"}
-          </button>
-          <button
-            onClick={handleBulkDelete}
-            className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-          >
-            Delete selected
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowBulkEdit((v) => !v)}
+              className="rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/40"
+            >
+              {showBulkEdit ? "Hide bulk edit" : "Bulk edit"}
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={handleBulkDelete}
+              className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              Delete selected
+            </button>
+          )}
           <button
             onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}
             className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -272,7 +286,7 @@ export function PresentationList({
           </button>
         </div>
       )}
-      {showBulkEdit && selected.size > 0 && (
+      {canWrite && showBulkEdit && selected.size > 0 && (
         <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
@@ -370,19 +384,23 @@ export function PresentationList({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <form action={() => duplicatePresentation(p.id)}>
-                        <button type="submit" className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm">
-                          Duplicate
+                      {canWrite && (
+                        <form action={() => duplicatePresentation(p.id)}>
+                          <button type="submit" className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm">
+                            Duplicate
+                          </button>
+                        </form>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={async () => {
+                            if (confirm("Delete this presentation?")) await deletePresentation(p.id);
+                          }}
+                          className="text-red-600 hover:underline text-sm"
+                        >
+                          Delete
                         </button>
-                      </form>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this presentation?")) await deletePresentation(p.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -396,7 +414,7 @@ export function PresentationList({
             <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
-                  <th className={`${thBase} w-8`}><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" /></th>
+                  {canSelect && <th className={`${thBase} w-8`}><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" /></th>}
                   <th className={thSortable} onClick={() => handleSort("title")}>Title{sortIndicator(sortField === "title", sortDir)}</th>
                   <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>
                   <th className={thSortable} onClick={() => handleSort("type")}>Type{sortIndicator(sortField === "type", sortDir)}</th>
@@ -405,7 +423,8 @@ export function PresentationList({
                   <th className={thSortable} onClick={() => handleSort("slots")}>Schedule{sortIndicator(sortField === "slots", sortDir)}</th>
                 </tr>
                 <tr>
-                  <td className={filterCell} />
+                  {/* Spacer under the select-all column; drops with it. */}
+                  {canSelect && <td className={filterCell} />}
                   <td className={filterCell}><input type="text" placeholder="Filter…" value={filters.title} onChange={(e) => setFilter("title", e.target.value)} className={filterInput} /></td>
                   <td className={filterCell}>
                     <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
@@ -437,7 +456,7 @@ export function PresentationList({
                   const speaker = primarySpeakerName(p.speakers);
                   return (
                     <tr key={p.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
-                      <td className="px-3 py-3 w-8"><input type="checkbox" checked={isSelected} onChange={() => toggleRow(p.id)} className="rounded" /></td>
+                      {canSelect && <td className="px-3 py-3 w-8"><input type="checkbox" checked={isSelected} onChange={() => toggleRow(p.id)} className="rounded" /></td>}
                       <td className="px-3 py-3 font-medium">
                         <Link href={`/events/${eventId}/presentations/${p.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{p.title}</Link>
                       </td>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type LinkedFunction = { id: string; name: string; path: string };
 type LinkedPresentation = { id: string; title: string; path: string } | null;
@@ -29,6 +30,7 @@ export function PrintOrderLinkPanel({
   linkPresentation,
   unlinkPresentation,
 }: PrintOrderLinkPanelProps) {
+  const canWrite = useCanWrite("PRINT_ORDERS");
   const [showFunctionForm, setShowFunctionForm] = useState(false);
   const [selectedFunctionId, setSelectedFunctionId] = useState("");
   const [isLinkingFunction, setIsLinkingFunction] = useState(false);
@@ -98,19 +100,21 @@ export function PrintOrderLinkPanel({
               <Link href={f.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
                 {f.name}
               </Link>
-              <button
-                type="button"
-                onClick={() => handleUnlinkFunction(f.id, f.name)}
-                disabled={unlinkingFunctionId === f.id}
-                className="text-xs text-red-600 hover:underline disabled:opacity-50"
-              >
-                Unlink
-              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  onClick={() => handleUnlinkFunction(f.id, f.name)}
+                  disabled={unlinkingFunctionId === f.id}
+                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                >
+                  Unlink
+                </button>
+              )}
             </div>
           ))}
         </div>
 
-        {showFunctionForm ? (
+        {!canWrite ? null : showFunctionForm ? (
           <div className="space-y-2">
             {availableFunctions.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">No additional functions available.</p>
@@ -164,20 +168,22 @@ export function PrintOrderLinkPanel({
             <Link href={linkedPresentation.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
               {linkedPresentation.title}
             </Link>
-            <button
-              type="button"
-              onClick={handleUnlinkPresentation}
-              disabled={isUnlinkingPresentation}
-              className="text-sm text-red-600 hover:underline disabled:opacity-50"
-            >
-              Unlink
-            </button>
+            {canWrite && (
+              <button
+                type="button"
+                onClick={handleUnlinkPresentation}
+                disabled={isUnlinkingPresentation}
+                className="text-sm text-red-600 hover:underline disabled:opacity-50"
+              >
+                Unlink
+              </button>
+            )}
           </div>
         ) : (
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Not linked to a presentation.</p>
 
-            {showPresentationForm ? (
+            {!canWrite ? null : showPresentationForm ? (
               <div className="space-y-2">
                 {availablePresentations.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">

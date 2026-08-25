@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type LinkedFunction = {
   id: string;
@@ -22,6 +23,7 @@ export function AVOrderFunctionList({
   linkFunction,
   unlinkFunction,
 }: AVOrderFunctionListProps) {
+  const canWrite = useCanWrite("AV_ORDERS");
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
@@ -66,13 +68,15 @@ export function AVOrderFunctionList({
               >
                 {fn.name}
               </Link>
-              <button
-                onClick={() => handleUnlink(fn.id, fn.name)}
-                disabled={unlinkingId === fn.id}
-                className="text-red-600 hover:underline text-sm disabled:opacity-50"
-              >
-                Unlink
-              </button>
+              {canWrite && (
+                <button
+                  onClick={() => handleUnlink(fn.id, fn.name)}
+                  disabled={unlinkingId === fn.id}
+                  className="text-red-600 hover:underline text-sm disabled:opacity-50"
+                >
+                  Unlink
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -82,7 +86,7 @@ export function AVOrderFunctionList({
         </p>
       )}
 
-      {showLinkForm ? (
+      {!canWrite ? null : showLinkForm ? (
         <div className="space-y-3">
           {availableFunctions.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">

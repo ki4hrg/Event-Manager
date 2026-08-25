@@ -56,6 +56,7 @@ export function SupplyOrderPanel({
 }: SupplyOrderPanelProps) {
   return (
     <LinkedItemsPanel
+      resource="SUPPLY_ORDERS"
       title={title}
       fillHeight={fillHeight}
       items={supplyOrders.map((o) => ({

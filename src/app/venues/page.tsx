@@ -4,6 +4,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { getVenues } from "./actions";
+import { hasPermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -11,24 +12,32 @@ export const metadata: Metadata = { title: "Venues" };
 
 export default async function VenuesPage() {
   const venues = await getVenues();
+  const canWrite = await hasPermission("VENUES", "WRITE");
 
   return (
     <PageWrapper>
       <PageHeader
         title="Venues"
         actions={
-          <Link href="/venues/new" className={btnPrimary}>
-            New Venue
-          </Link>
+          canWrite ? (
+            <Link href="/venues/new" className={btnPrimary}>
+              New Venue
+            </Link>
+          ) : null
         }
       />
 
       {venues.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
-          No venues yet.{" "}
-          <Link href="/venues/new" className="text-blue-600 dark:text-blue-400 hover:underline">
-            Create your first venue
-          </Link>
+          No venues yet.
+          {canWrite && (
+            <>
+              {" "}
+              <Link href="/venues/new" className="text-blue-600 dark:text-blue-400 hover:underline">
+                Create your first venue
+              </Link>
+            </>
+          )}
         </p>
       ) : (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">

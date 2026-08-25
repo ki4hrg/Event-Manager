@@ -433,6 +433,7 @@ export default async function AVOrderPage({
             Print
           </a>
           <CancelOrDeleteButton
+            resource="AV_ORDERS"
             status={avOrder.status ?? null}
             substatuses={substatuses}
             cancel={cancelAction}
@@ -484,6 +485,7 @@ export default async function AVOrderPage({
               unlinkFunction={unlinkFromFunctionAction}
             />
             <LinkedItemsPanel
+              resource="AV_ORDERS"
               title="Linked Presentations"
               items={avOrder.presentations.map((p) => ({
                 id: p.id,
@@ -497,6 +499,7 @@ export default async function AVOrderPage({
               unlinkItem={unlinkFromPresentationAction}
             />
             <WorkflowPanel
+              entityType="av_order"
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
               entityStatus={avOrder.status ?? null}

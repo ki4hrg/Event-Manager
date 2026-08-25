@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import type { Function, Room, FunctionRoom, CustomOption, BreakoutGroup } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
@@ -170,6 +171,8 @@ function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: RoomW
 
 export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaultType, breakoutGroupId, breakoutGroups, timezone, noCard = false }: FunctionFormProps) {
   const isEdit = !!fn;
+  // Read-only users get the detail view with no way back into edit mode.
+  const canWrite = useCanWrite("FUNCTIONS");
   const [editing, setEditing] = useState(!isEdit);
   const selectedRoomIds = fn?.rooms.map((r) => r.roomId) || [];
   const isBreakoutType = defaultType === "BREAKOUT_BLOCK" || fn?.type === "BREAKOUT_BLOCK";
@@ -186,7 +189,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
   const dividerClass = "border-t border-gray-200 dark:border-gray-700 pt-4";
 
   // Read-only view for existing functions
-  if (isEdit && !editing) {
+  if (isEdit && (!editing || !canWrite)) {
     const typeLabel = fn.type
       ? fn.type
       : "—";
@@ -206,12 +209,14 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
             <h2 className="text-lg font-medium text-gray-900 dark:text-white">
               Basic Information
             </h2>
-            <button
-              onClick={() => setEditing(true)}
-              className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-950"
-            >
-              Edit
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setEditing(true)}
+                className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-950"
+              >
+                Edit
+              </button>
+            )}
           </div>
           <dl className="space-y-4">
             <ReadOnlyField label={isBreakoutType ? "Block Name" : "Function Name"} value={fn.name} />

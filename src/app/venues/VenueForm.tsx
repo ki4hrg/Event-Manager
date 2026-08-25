@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Venue } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type VenueFormProps = {
   venue?: Venue;
@@ -27,9 +28,10 @@ function SaveButton({ isEdit }: { isEdit: boolean }) {
 
 export function VenueForm({ venue, action }: VenueFormProps) {
   const isEdit = !!venue;
+  const canWrite = useCanWrite("VENUES");
   const [editing, setEditing] = useState(false);
 
-  if (isEdit && !editing) {
+  if (isEdit && (!editing || !canWrite)) {
     const addressParts = [venue.address, venue.city, venue.state, venue.zip, venue.country].filter(Boolean);
     const addressDisplay = addressParts.length > 0 ? addressParts.join(", ") : null;
 
@@ -37,12 +39,14 @@ export function VenueForm({ venue, action }: VenueFormProps) {
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Venue Details</h2>
-          <button
-            onClick={() => setEditing(true)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Edit
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Edit
+            </button>
+          )}
         </div>
         <dl className="space-y-4">
           <ReadOnlyField label="Name" value={venue.name} />

@@ -1,19 +1,29 @@
 "use client";
 
 import { useState } from "react";
+import type { PermissionResource } from "@prisma/client";
+import { useCanDo } from "@/components/PermissionsProvider";
 
 type InlineDeleteButtonProps = {
   action: (formData: FormData) => Promise<void>;
   hiddenInputs: Record<string, string>;
   label?: string;
+  // Required — see the notes in DeleteButton.
+  resource: PermissionResource;
+  requiredLevel?: "WRITE" | "DELETE";
 };
 
 export function InlineDeleteButton({
   action,
   hiddenInputs,
   label = "Delete",
+  resource,
+  requiredLevel = "DELETE",
 }: InlineDeleteButtonProps) {
   const [confirming, setConfirming] = useState(false);
+  const allowed = useCanDo(resource, requiredLevel);
+
+  if (!allowed) return null;
 
   async function handleConfirm() {
     const formData = new FormData();

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { PermissionResource } from "@prisma/client";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 export type AssignedVendor = { id: string; vendor: { id: string; name: string } };
 export type AvailableVendor = { id: string; label: string };
@@ -23,11 +25,15 @@ type EditMode = {
   availableVendors: AvailableVendor[];
   addVendor: (vendorId: string) => Promise<void>;
   removeVendor: (junctionId: string) => Promise<void>;
+  // The owning order's resource — add/remove gate on that order's WRITE, not on
+  // VENDORS (which governs the vendor catalog, not this junction).
+  resource: PermissionResource;
 };
 
 type VendorLinkControlProps = CreateMode | EditMode;
 
 export function VendorLinkControl(props: VendorLinkControlProps) {
+  const canWrite = useCanWrite(props.mode === "edit" ? props.resource : "VENDORS");
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
@@ -91,19 +97,25 @@ export function VendorLinkControl(props: VendorLinkControlProps) {
           {assignedVendors.map((av) => (
             <li key={av.id} className="flex items-center gap-3">
               <span className="text-sm text-gray-900 dark:text-white">{av.vendor.name}</span>
-              <button
-                type="button"
-                onClick={() => handleRemove(av.id)}
-                disabled={removingId === av.id}
-                className="text-xs text-red-600 hover:underline disabled:opacity-50"
-              >
-                Remove
-              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  onClick={() => handleRemove(av.id)}
+                  disabled={removingId === av.id}
+                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              )}
             </li>
           ))}
         </ul>
       )}
-      {showLinkForm ? (
+      {!canWrite ? (
+        assignedVendors.length === 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">None assigned.</p>
+        )
+      ) : showLinkForm ? (
         <div className="space-y-2">
           {unassignedVendors.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">No additional vendors available.</p>

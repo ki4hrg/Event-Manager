@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createShareLink, revokeShareLink, listShareLinksForReport } from "@/app/events/share-links/actions";
 import { addShareLinkGroupItem, createShareLinkGroup } from "@/app/events/share-link-groups/actions";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type ExistingLink = {
   id: string;
@@ -49,6 +50,9 @@ function linkStatus(link: ExistingLink): { label: string; cls: string } {
 type Mode = "single" | "dashboard";
 
 export function ShareReportButton({ eventId, reportType, currentFilters, dashboardChoices, addToDashboardId }: ShareReportButtonProps) {
+  // Creating a share link is a SHARE_LINKS write, so the button disappears for
+  // a read-only viewer rather than offering a dialog that can't be submitted.
+  const canWrite = useCanWrite("SHARE_LINKS");
   const router = useRouter();
   const hasDashboards = !!dashboardChoices;
   const isAddingToDashboard = !!addToDashboardId;
@@ -170,6 +174,8 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
   }
 
   const activeLinks = existingLinks.filter((l) => !l.revokedAt && !(l.expiresAt && new Date(l.expiresAt) < new Date()));
+
+  if (!canWrite) return null;
 
   return (
     <>

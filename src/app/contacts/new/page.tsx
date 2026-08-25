@@ -3,12 +3,15 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { createContact } from "../actions";
 import { ContactForm } from "../ContactForm";
 import { getOptions } from "@/app/settings/actions";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "New contact" };
 
 export default async function NewContactPage() {
+  // A VIEW-only user has no business on a create form.
+  await requirePermission("CONTACTS", "WRITE");
   const contactRoles = await getOptions("contact_role");
 
   return (

@@ -344,6 +344,7 @@ export default async function SetupOrderPage({
             </button>
           </form>
           <CancelOrDeleteButton
+            resource="SETUP_ORDERS"
             status={setupOrder.status ?? null}
             substatuses={substatuses}
             cancel={cancelAction}
@@ -390,6 +391,7 @@ export default async function SetupOrderPage({
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Linked Functions</h2>
               <FunctionMultiLinkControl
+                resource="SETUP_ORDERS"
                 linkedFunctions={setupOrder.functions.map((f) => ({
                   id: f.id,
                   name: f.name,
@@ -402,6 +404,7 @@ export default async function SetupOrderPage({
             </div>
 
             <LinkedItemsPanel
+              resource="SETUP_ORDERS"
               title="Linked Presentations"
               items={setupOrder.presentations.map((p) => ({
                 id: p.id,
@@ -416,6 +419,7 @@ export default async function SetupOrderPage({
             />
 
             <WorkflowPanel
+              entityType="setup_order"
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
               entityStatus={setupOrder.status ?? null}

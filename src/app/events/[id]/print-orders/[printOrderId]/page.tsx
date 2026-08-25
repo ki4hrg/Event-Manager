@@ -288,6 +288,7 @@ export default async function PrintOrderPage({
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           <CancelOrDeleteButton
+            resource="PRINT_ORDERS"
             status={printOrder.status ?? null}
             substatuses={substatuses}
             cancel={cancelAction}
@@ -362,6 +363,7 @@ export default async function PrintOrderPage({
             />
 
             <WorkflowPanel
+              entityType="print_order"
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
               entityStatus={printOrder.status ?? null}

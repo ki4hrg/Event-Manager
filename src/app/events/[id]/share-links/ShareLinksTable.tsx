@@ -4,6 +4,7 @@ import { useState } from "react";
 import { revokeShareLink } from "@/app/events/share-links/actions";
 import { useRouter } from "next/navigation";
 import { SHARE_REPORT_LABELS } from "@/lib/shareLinks";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type Link = {
   id: string;
@@ -36,6 +37,7 @@ function shareUrl(token: string): string {
 }
 
 export function ShareLinksTable({ links }: { links: Link[] }) {
+  const canWrite = useCanWrite("SHARE_LINKS");
   const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -127,7 +129,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
                               {copied === link.token ? "Copied!" : "Copy URL"}
                             </button>
                           )}
-                          {!link.revokedAt && !(link.expiresAt && new Date(link.expiresAt) < new Date()) && (
+                          {canWrite && !link.revokedAt && !(link.expiresAt && new Date(link.expiresAt) < new Date()) && (
                             <button
                               onClick={() => handleRevoke(link.id)}
                               disabled={revoking === link.id}

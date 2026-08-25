@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { OrderMeta, type OrderMetaFields } from "@/components/OrderMeta";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type PrintOrderSummary = OrderMetaFields & {
   id: string;
@@ -104,6 +105,7 @@ function LinkForm({
 }
 
 export function PrintOrderPanel(props: Props) {
+  const canWrite = useCanWrite("PRINT_ORDERS");
   const [showLinkForm, setShowLinkForm] = useState(false);
 
   if (props.mode === "function") {
@@ -141,12 +143,14 @@ export function PrintOrderPanel(props: Props) {
                     />
                   </div>
                 </div>
-                <button
-                  onClick={() => handleUnlink(po.id)}
-                  className="text-red-600 hover:underline text-sm flex-shrink-0"
-                >
-                  Unlink
-                </button>
+                {canWrite && (
+                  <button
+                    onClick={() => handleUnlink(po.id)}
+                    className="text-red-600 hover:underline text-sm flex-shrink-0"
+                  >
+                    Unlink
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -156,7 +160,7 @@ export function PrintOrderPanel(props: Props) {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No Print Orders linked.</p>
         )}
 
-        {showLinkForm ? (
+        {!canWrite ? null : showLinkForm ? (
           <LinkForm
             available={availablePrintOrders}
             onLink={linkPrintOrder}
@@ -214,18 +218,20 @@ export function PrintOrderPanel(props: Props) {
               />
             </div>
           </div>
-          <button
-            onClick={handleUnlink}
-            className="text-red-600 hover:underline text-sm flex-shrink-0"
-          >
-            Unlink
-          </button>
+          {canWrite && (
+            <button
+              onClick={handleUnlink}
+              className="text-red-600 hover:underline text-sm flex-shrink-0"
+            >
+              Unlink
+            </button>
+          )}
         </div>
       ) : (
         <div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No Print Order linked.</p>
 
-          {showLinkForm ? (
+          {!canWrite ? null : showLinkForm ? (
             <LinkForm
               available={availablePrintOrders}
               onLink={linkPrintOrder}

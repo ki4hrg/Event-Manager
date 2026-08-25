@@ -335,6 +335,7 @@ export default async function FunctionPage({
             </button>
           </form>
           <CancelOrDeleteButton
+            resource="FUNCTIONS"
             status={fn.status ?? null}
             substatuses={substatuses}
             cancel={cancelAction}
@@ -378,6 +379,7 @@ export default async function FunctionPage({
             createContact={createContactAction}
           />
           <WorkflowPanel
+            entityType="function"
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}
             entityStatus={fn.status ?? null}

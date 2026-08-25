@@ -85,7 +85,7 @@ export function UserForm({ user, roles, saveAction, deleteAction, currentUserId 
               Edit
             </button>
             {deleteAction && !isSelf && (
-              <DeleteButton
+              <DeleteButton resource="USERS"
                 action={deleteAction}
               />
             )}

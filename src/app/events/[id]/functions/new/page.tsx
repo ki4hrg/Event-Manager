@@ -7,6 +7,7 @@ import { createFunction } from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
 import { getOptions } from "@/app/settings/actions";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ export default async function NewFunctionPage({
   searchParams: Promise<{ type?: string; groupId?: string }>;
 }) {
   const { id: eventId } = await params;
+  // A VIEW-only user has no business on a create form; gate the page so they
+  // never reach a form whose action would refuse the submit.
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const { type: defaultType, groupId: breakoutGroupId } = await searchParams;
   const [event, functionTypes] = await Promise.all([
     getEvent(eventId),

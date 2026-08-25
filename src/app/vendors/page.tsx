@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { getVendors } from "./actions";
 import { MODEL_LABELS } from "./model-types";
+import { hasPermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,24 +13,32 @@ export const metadata: Metadata = { title: "Vendors" };
 
 export default async function VendorsPage() {
   const vendors = await getVendors();
+  const canWrite = await hasPermission("VENDORS", "WRITE");
 
   return (
     <PageWrapper>
       <PageHeader
         title="Vendors"
         actions={
-          <Link href="/vendors/new" className={btnPrimary}>
-            New Vendor
-          </Link>
+          canWrite ? (
+            <Link href="/vendors/new" className={btnPrimary}>
+              New Vendor
+            </Link>
+          ) : null
         }
       />
 
       {vendors.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
-          No vendors yet.{" "}
-          <Link href="/vendors/new" className="text-blue-600 dark:text-blue-400 hover:underline">
-            Create your first vendor
-          </Link>
+          No vendors yet.
+          {canWrite && (
+            <>
+              {" "}
+              <Link href="/vendors/new" className="text-blue-600 dark:text-blue-400 hover:underline">
+                Create your first vendor
+              </Link>
+            </>
+          )}
         </p>
       ) : (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">

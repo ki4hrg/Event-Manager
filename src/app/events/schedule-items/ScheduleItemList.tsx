@@ -11,6 +11,7 @@ import { ViewToggle } from "@/components/ui/ViewToggle";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { colorClasses } from "@/lib/colors";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type ScheduleItemRow = Awaited<ReturnType<typeof getScheduleItems>>[number];
 
@@ -63,6 +64,9 @@ export function ScheduleItemList({
   deleteScheduleItems,
   bulkUpdateScheduleItems,
 }: Props) {
+  const canWrite = useCanWrite("FUNCTIONS");
+  const canDelete = useCanDelete("FUNCTIONS");
+  const canSelect = canWrite || canDelete;
   const router = useRouter();
   const [view, setView] = useState<"list" | "table">("table");
   const [sortField, setSortField] = useState<SortField>("startTime");
@@ -195,23 +199,27 @@ export function ScheduleItemList({
       </div>
 
       {/* Selection bar */}
-      {selected.size > 0 && (
+      {canSelect && selected.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-sm">
           <span className="font-medium text-blue-700 dark:text-blue-300">
             {selected.size} selected
           </span>
-          <button
-            onClick={() => setShowBulkEdit((v) => !v)}
-            className="rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/40"
-          >
-            {showBulkEdit ? "Hide bulk edit" : "Bulk edit"}
-          </button>
-          <button
-            onClick={handleBulkDelete}
-            className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-          >
-            Delete selected
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowBulkEdit((v) => !v)}
+              className="rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/40"
+            >
+              {showBulkEdit ? "Hide bulk edit" : "Bulk edit"}
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={handleBulkDelete}
+              className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              Delete selected
+            </button>
+          )}
           <button
             onClick={() => setSelected(new Set())}
             className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -222,7 +230,7 @@ export function ScheduleItemList({
       )}
 
       {/* Bulk edit panel */}
-      {showBulkEdit && selected.size > 0 && (
+      {canWrite && showBulkEdit && selected.size > 0 && (
         <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
@@ -271,12 +279,14 @@ export function ScheduleItemList({
                 className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-start justify-between gap-3"
               >
                 <div className="flex items-start gap-3 min-w-0">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(item.id)}
-                    onChange={() => toggleRow(item.id)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 shrink-0"
-                  />
+                  {canSelect && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(item.id)}
+                      onChange={() => toggleRow(item.id)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 shrink-0"
+                    />
+                  )}
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span
@@ -301,6 +311,7 @@ export function ScheduleItemList({
                   </div>
                 </div>
                 <InlineDeleteButton
+                  resource="FUNCTIONS"
                   action={deleteScheduleItem}
                   hiddenInputs={{ scheduleItemId: item.id }}
                 />
@@ -314,14 +325,16 @@ export function ScheduleItemList({
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
-                  <th className={`${thBase} w-8`}>
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
-                    />
-                  </th>
+                  {canSelect && (
+                    <th className={`${thBase} w-8`}>
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
+                      />
+                    </th>
+                  )}
                   <th className={thSortable} onClick={() => handleSort("startTime")}>
                     Date / Time{sortIndicator(sortField === "startTime", sortDir)}
                   </th>
@@ -339,7 +352,8 @@ export function ScheduleItemList({
                 </tr>
                 {/* Filter row */}
                 <tr>
-                  <td className={filterCell} />
+                  {/* Spacer under the select-all column; drops with it. */}
+                  {canSelect && <td className={filterCell} />}
                   <td className={filterCell} />
                   <td className={filterCell}>
                     <select
@@ -380,7 +394,7 @@ export function ScheduleItemList({
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <td colSpan={canSelect ? 7 : 6} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                       No schedule items match the current filters.
                     </td>
                   </tr>
@@ -395,14 +409,16 @@ export function ScheduleItemList({
                           selected.has(item.id) ? "bg-blue-50 dark:bg-blue-900/20" : ""
                         }`}
                       >
-                        <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(item.id)}
-                            onChange={() => toggleRow(item.id)}
-                            className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
-                          />
-                        </td>
+                        {canSelect && (
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(item.id)}
+                              onChange={() => toggleRow(item.id)}
+                              className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
+                            />
+                          </td>
+                        )}
                         <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           {formatRange(item)}
                         </td>
@@ -435,6 +451,7 @@ export function ScheduleItemList({
                         </td>
                         <td className="px-3 py-2">
                           <InlineDeleteButton
+                            resource="FUNCTIONS"
                             action={deleteScheduleItem}
                             hiddenInputs={{ scheduleItemId: item.id }}
                           />

@@ -7,6 +7,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { isRichTextEmpty } from "@/lib/richText";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type DetailWithVendor = SetupOrderDetail & {
   responsiblePartyVendor: { id: string; name: string } | null;
@@ -40,6 +41,8 @@ export function SetupOrderDetailTable({
   updateDetail,
   deleteDetail,
 }: SetupOrderDetailTableProps) {
+  const canWrite = useCanWrite("SETUP_ORDERS");
+  const canDelete = useCanDelete("SETUP_ORDERS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState(false);
@@ -60,12 +63,14 @@ export function SetupOrderDetailTable({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Setup Details</h2>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Detail
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Detail
+          </button>
+        )}
       </div>
 
       {showAddForm && (
@@ -182,15 +187,19 @@ export function SetupOrderDetailTable({
                       )}
                     </div>
                     <div className="flex gap-2 shrink-0">
-                      <button onClick={() => setEditingId(detail.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this setup detail?")) await deleteDetail(detail.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                      {canWrite && (
+                        <button onClick={() => setEditingId(detail.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={async () => {
+                            if (confirm("Delete this setup detail?")) await deleteDetail(detail.id);
+                          }}
+                          className="text-red-600 hover:underline text-sm"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div

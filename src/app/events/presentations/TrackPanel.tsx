@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { colorClasses, COLOR_OPTIONS } from "@/lib/colors";
 import type { PresentationTrack } from "@prisma/client";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 const inputClass =
   "flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white";
@@ -66,6 +67,8 @@ function TrackRow({
   updateTrack: (trackId: string, formData: FormData) => Promise<void>;
   deleteTrack: (trackId: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("PRESENTATIONS");
+  const canDelete = useCanDelete("PRESENTATIONS");
   const [editing, setEditing] = useState(false);
 
   if (editing) {
@@ -103,30 +106,37 @@ function TrackRow({
         {track.name}
       </span>
       <div className="flex-1" />
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-      >
-        Edit
-      </button>
-      <button
-        type="button"
-        onClick={async () => {
-          if (confirm(`Delete track "${track.name}"? Presentations will become untracked.`)) {
-            await deleteTrack(track.id);
-          }
-        }}
-        className="text-sm text-red-600 hover:underline"
-      >
-        Delete
-      </button>
+      {canWrite && (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Edit
+        </button>
+      )}
+      {canDelete && (
+        <button
+          type="button"
+          onClick={async () => {
+            if (confirm(`Delete track "${track.name}"? Presentations will become untracked.`)) {
+              await deleteTrack(track.id);
+            }
+          }}
+          className="text-sm text-red-600 hover:underline"
+        >
+          Delete
+        </button>
+      )}
     </div>
   );
 }
 
 function AddTrackForm({ createTrack }: { createTrack: (formData: FormData) => Promise<void> }) {
+  const canWrite = useCanWrite("PRESENTATIONS");
   const [open, setOpen] = useState(false);
+
+  if (!canWrite) return null;
 
   if (!open) {
     return (

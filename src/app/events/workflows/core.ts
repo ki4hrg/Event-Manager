@@ -4,15 +4,8 @@
 
 import { prisma } from "@/lib/prisma";
 
-export type WorkflowEntityType =
-  | "function"
-  | "catering_order"
-  | "av_order"
-  | "print_order"
-  | "presentation"
-  | "setup_order"
-  | "supply_order"
-  | "media_deliverable";
+export type { WorkflowEntityType } from "./entity-types";
+import type { WorkflowEntityType } from "./entity-types";
 
 // Best-effort: stamps default workflow instances onto a freshly created entity.
 // Permission and ownership are assumed to already be checked by the caller's

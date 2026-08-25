@@ -21,6 +21,7 @@ import {
   PACKING_STATUS_OPTIONS,
 } from "@/lib/statusConstants";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type ItemWithExtras = SupplyOrderItem & {
   equipment: Equipment | null;
@@ -367,11 +368,12 @@ function PackingStatusToggle({
   current: PackingStatus;
   onChange: (id: string, status: PackingStatus) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("SUPPLY_ORDERS");
   const [isPending, startTransition] = useTransition();
   return (
     <select
       value={current}
-      disabled={isPending}
+      disabled={isPending || !canWrite}
       onChange={(e) => {
         const next = e.target.value as PackingStatus;
         startTransition(async () => {
@@ -404,6 +406,7 @@ function ContainerContentsAction({
     packingStatus: PackingStatus,
   ) => Promise<{ supplyUpdated: number; printUpdated: number }>;
 }) {
+  const canWrite = useCanWrite("SUPPLY_ORDERS");
   const [open, setOpen] = useState(false);
   const [counts, setCounts] = useState<ContainerCascadeCounts | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -422,6 +425,8 @@ function ContainerContentsAction({
       }
     });
   };
+
+  if (!canWrite) return null;
 
   if (!open) {
     return (
@@ -542,6 +547,8 @@ export function SupplyOrderItemPanel({
   previewContainerCascade,
   markContainerContents,
 }: SupplyOrderItemPanelProps) {
+  const canWrite = useCanWrite("SUPPLY_ORDERS");
+  const canDelete = useCanDelete("SUPPLY_ORDERS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -600,7 +607,7 @@ export function SupplyOrderItemPanel({
               Show all containers
             </label>
           )}
-          {!showAddForm && (
+          {!showAddForm && canWrite && (
             <button
               onClick={() => setShowAddForm(true)}
               className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
@@ -703,17 +710,21 @@ export function SupplyOrderItemPanel({
                         </div>
                       )}
                       <div className="mt-2 flex gap-3">
-                        <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
-                          Edit
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this item?")) await deleteItem(item.id);
-                          }}
-                          className="text-red-600 hover:underline text-xs"
-                        >
-                          Delete
-                        </button>
+                        {canWrite && (
+                          <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
+                            Edit
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={async () => {
+                              if (confirm("Delete this item?")) await deleteItem(item.id);
+                            }}
+                            className="text-red-600 hover:underline text-xs"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -799,17 +810,21 @@ export function SupplyOrderItemPanel({
                         )}
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
-                          Edit
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this item?")) await deleteItem(item.id);
-                          }}
-                          className="text-red-600 hover:underline text-sm"
-                        >
-                          Delete
-                        </button>
+                        {canWrite && (
+                          <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
+                            Edit
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={async () => {
+                              if (confirm("Delete this item?")) await deleteItem(item.id);
+                            }}
+                            className="text-red-600 hover:underline text-sm"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

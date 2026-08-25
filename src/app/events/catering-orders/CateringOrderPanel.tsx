@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { CateringOrder } from "@prisma/client";
 import { OrderMeta } from "@/components/OrderMeta";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type CateringOrderWithVendors = CateringOrder & {
   vendors?: { vendor: { name: string } }[];
@@ -33,6 +34,7 @@ export function CateringOrderPanel({
   linkCateringOrder,
   unlinkCateringOrder,
 }: CateringOrderPanelProps) {
+  const canWrite = useCanWrite("CATERING_ORDERS");
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
@@ -88,13 +90,15 @@ export function CateringOrderPanel({
               />
             </div>
           </div>
-          <button
-            onClick={handleUnlink}
-            disabled={isUnlinking}
-            className="text-red-600 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
-          >
-            Unlink
-          </button>
+          {canWrite && (
+            <button
+              onClick={handleUnlink}
+              disabled={isUnlinking}
+              className="text-red-600 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
+            >
+              Unlink
+            </button>
+          )}
         </div>
       ) : (
         <div>
@@ -102,7 +106,7 @@ export function CateringOrderPanel({
             No Catering Order linked.
           </p>
 
-          {showLinkForm ? (
+          {!canWrite ? null : showLinkForm ? (
             <div className="space-y-3">
               {availableCateringOrders.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">

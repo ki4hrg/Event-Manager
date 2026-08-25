@@ -6,6 +6,7 @@ import { roleBadgeClass } from "@/lib/roleStyles";
 import { UNCAPPED } from "@/lib/accessLevels";
 import { AccessLevelSelect } from "@/components/AccessLevelSelect";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type StaffEntry = {
   id: string;
@@ -48,6 +49,8 @@ function SubmitButton({ label }: { label: string }) {
 }
 
 export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchUsers }: Props) {
+  // Staff assignment gates on EVENTS.WRITE — see src/app/events/[id]/staff/actions.ts.
+  const canWrite = useCanWrite("EVENTS");
   const [showAdd, setShowAdd] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
@@ -91,7 +94,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Assigned Staff
         </p>
-        {!showAdd && (
+        {!showAdd && canWrite && (
           <button
             onClick={() => setShowAdd(true)}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
@@ -230,7 +233,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
                 <AccessLevelSelect
                   ariaLabel={`Access for ${entry.user.name || entry.user.email}`}
                   value={entry.accessLevel ?? UNCAPPED}
-                  disabled={isPending}
+                  disabled={isPending || !canWrite}
                   onChange={(next) => {
                     startTransition(async () => {
                       await setLevel(entry.id, next);
@@ -238,6 +241,8 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
                   }}
                 />
                 <InlineDeleteButton
+                  resource="EVENTS"
+                  requiredLevel="WRITE"
                   action={async () => {
                     await removeStaff(entry.id);
                   }}

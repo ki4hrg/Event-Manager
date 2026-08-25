@@ -6,6 +6,7 @@ import { Toast } from "@/components/Toast";
 import { getEvent } from "@/app/events/actions";
 import { getShareLinkGroup } from "@/app/events/share-link-groups/actions";
 import { DashboardEditor } from "./DashboardEditor";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export default async function DashboardEditorPage({
   params: Promise<{ id: string; groupId: string }>;
 }) {
   const { id: eventId, groupId } = await params;
+  // The whole page is the dashboard's editor — there is no read-only form of it.
+  await requirePermission("SHARE_LINKS", "WRITE", eventId);
   const [event, group] = await Promise.all([getEvent(eventId), getShareLinkGroup(groupId)]);
   if (!event || !group || group.eventId !== eventId) notFound();
 

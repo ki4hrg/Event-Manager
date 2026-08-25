@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import type { EventKeyStaff, Contact } from "@prisma/client";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { formatPhone } from "@/lib/format-phone";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
 
@@ -63,6 +64,7 @@ export function KeyStaffList({
   searchContacts,
   createContact,
 }: KeyStaffListProps) {
+  const canWrite = useCanWrite("EVENTS");
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -124,16 +126,18 @@ export function KeyStaffList({
         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Key Staff
         </p>
-        <button
-          onClick={() => {
-            setSelectedContact(null);
-            setSearchQuery("");
-            setFormView("search");
-          }}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => {
+              setSelectedContact(null);
+              setSearchQuery("");
+              setFormView("search");
+            }}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add
+          </button>
+        )}
       </div>
 
       {formView === "search" && (
@@ -381,24 +385,26 @@ export function KeyStaffList({
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 ml-2 shrink-0">
-                    <button
-                      onClick={() => setEditingId(entry.id)}
-                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (confirm("Remove this key staff entry?")) {
-                          await removeKeyStaff(entry.id);
-                        }
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  {canWrite && (
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <button
+                        onClick={() => setEditingId(entry.id)}
+                        className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm("Remove this key staff entry?")) {
+                            await removeKeyStaff(entry.id);
+                          }
+                        }}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

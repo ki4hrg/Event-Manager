@@ -6,6 +6,7 @@ import type { Vendor } from "@prisma/client";
 import type { ModelType, EventVendorEntry } from "@/app/vendors/actions";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { colorClasses } from "@/lib/colors";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type EventVendorListProps = {
   eventVendors: EventVendorEntry[];
@@ -30,6 +31,8 @@ export function EventVendorList({
   setDefault,
   removeDefault,
 }: EventVendorListProps) {
+  const canWrite = useCanWrite("VENDORS");
+  const canDelete = useCanDelete("VENDORS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Vendor[]>([]);
@@ -85,16 +88,18 @@ export function EventVendorList({
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendors</h2>
-        <button
-          onClick={() => {
-            setShowAddForm(true);
-            setSearchQuery("");
-            setSearchResults([]);
-          }}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Vendor
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => {
+              setShowAddForm(true);
+              setSearchQuery("");
+              setSearchResults([]);
+            }}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Vendor
+          </button>
+        )}
       </div>
 
       {showAddForm && (
@@ -218,7 +223,7 @@ export function EventVendorList({
                               <input
                                 type="checkbox"
                                 checked={isChecked}
-                                disabled={isPending}
+                                disabled={isPending || !canWrite}
                                 onChange={() => handleToggleDefault(entry, value)}
                                 className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 disabled:opacity-50"
                               />
@@ -229,7 +234,7 @@ export function EventVendorList({
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {entry.kind === "regular" && entry.eventVendorId && (
+                      {canDelete && entry.kind === "regular" && entry.eventVendorId && (
                         <button
                           onClick={async () => {
                             if (confirm(`Remove ${entry.vendor.name} from this event?`)) {

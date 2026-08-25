@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useCallback, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { PresentationContact, Contact, CustomOption } from "@prisma/client";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type SpeakerWithContact = PresentationContact & { contact: Contact };
 
@@ -41,6 +42,7 @@ export function SpeakerList({
   searchContacts,
   createContact,
 }: SpeakerListProps) {
+  const canWrite = useCanWrite("PRESENTATIONS");
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,16 +107,18 @@ export function SpeakerList({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Speakers</h2>
-        <button
-          onClick={() => {
-            setSelectedContact(null);
-            setSearchQuery("");
-            setFormView("search");
-          }}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Speaker
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => {
+              setSelectedContact(null);
+              setSearchQuery("");
+              setFormView("search");
+            }}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Speaker
+          </button>
+        )}
       </div>
 
       {formView === "search" && (
@@ -435,24 +439,26 @@ export function SpeakerList({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 ml-2 shrink-0">
-                    <button
-                      onClick={() => setEditingId(speaker.id)}
-                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (confirm("Remove this speaker?")) {
-                          await removeSpeaker(speaker.id);
-                        }
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  {canWrite && (
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <button
+                        onClick={() => setEditingId(speaker.id)}
+                        className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm("Remove this speaker?")) {
+                            await removeSpeaker(speaker.id);
+                          }
+                        }}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -8,6 +8,7 @@ import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendor
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type SetupOrderData = {
   id: string;
@@ -65,6 +66,8 @@ export function SetupOrderForm({
   noCard = false,
 }: SetupOrderFormProps) {
   const isEdit = !!setupOrder;
+  // Read-only users get the detail view with no way back into edit mode.
+  const canWrite = useCanWrite("SETUP_ORDERS");
   const [editing, setEditing] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState(
     setupOrder?.roomId ?? initialRoomId ?? ""
@@ -79,24 +82,26 @@ export function SetupOrderForm({
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
-  if (isEdit && !editing) {
+  if (isEdit && (!editing || !canWrite)) {
     return (
       <div className={cardClass}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Setup Order Details</h2>
-          <button
-            onClick={() => setEditing(true)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Edit
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Edit
+            </button>
+          )}
         </div>
         <dl className="space-y-4">
           <ReadOnlyField label="Name" value={setupOrder.name ?? null} />
           <ReadOnlyField label="Room" value={setupOrder.room?.name ?? null} />
           <ReadOnlyField label="Setup Type" value={setupOrder.setupType ?? null} />
           <ReadOnlyField label="Notes" value={setupOrder.notes ?? null} />
-          {vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
+          {vendorLink && <VendorLinkControl mode="edit" resource="SETUP_ORDERS" {...vendorLink} />}
         </dl>
       </div>
     );
@@ -239,7 +244,7 @@ export function SetupOrderForm({
           </div>
 
           {isEdit && vendorLink ? (
-            <VendorLinkControl mode="edit" {...vendorLink} />
+            <VendorLinkControl mode="edit" resource="SETUP_ORDERS" {...vendorLink} />
           ) : !isEdit && responsiblePartyOptions ? (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vendor</label>

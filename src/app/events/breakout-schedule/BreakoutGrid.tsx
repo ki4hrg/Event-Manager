@@ -7,6 +7,7 @@ import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
+import { useCanWrite } from "@/components/PermissionsProvider";
 import {
   DndContext,
   DragOverlay,
@@ -145,6 +146,7 @@ function GroupRoomManager({
   addRoom: (groupId: string, roomId: string) => Promise<void>;
   removeRoom: (groupId: string, roomId: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("FUNCTIONS");
   const [isPending, startTransition] = useTransition();
   const assignedRoomIds = new Set(group.rooms.map((r) => r.roomId));
   const availableRooms = venueRooms.filter((r) => !assignedRoomIds.has(r.id));
@@ -169,21 +171,23 @@ function GroupRoomManager({
             className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm text-gray-700 dark:text-gray-300"
           >
             {gr.room.name}
-            <button
-              onClick={() => startTransition(() => removeRoom(group.id, gr.roomId))}
-              disabled={isPending}
-              className="text-gray-400 hover:text-red-500 ml-1 disabled:opacity-50"
-              title="Remove room"
-            >
-              &times;
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => startTransition(() => removeRoom(group.id, gr.roomId))}
+                disabled={isPending}
+                className="text-gray-400 hover:text-red-500 ml-1 disabled:opacity-50"
+                title="Remove room"
+              >
+                &times;
+              </button>
+            )}
           </span>
         ))}
         {group.rooms.length === 0 && (
           <span className="text-sm text-gray-400 dark:text-gray-500 italic">No rooms assigned</span>
         )}
       </div>
-      {availableRooms.length > 0 && (
+      {canWrite && availableRooms.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <select
             value=""
@@ -242,6 +246,7 @@ function SessionManager({
   createSession: (groupId: string, formData: FormData) => Promise<void>;
   deleteSession: (functionId: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("FUNCTIONS");
   const [showAdd, setShowAdd] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -263,21 +268,23 @@ function SessionManager({
                   {formatSessionTime(session.schedules, timezone)}
                 </span>
               </div>
-              <button
-                onClick={() => {
-                  if (confirm(`Delete session "${formatBreakoutSessionName(session.name, group.name)}"?`))
-                    startTransition(() => deleteSession(session.id));
-                }}
-                disabled={isPending}
-                className="text-red-400 hover:text-red-600 text-xs disabled:opacity-50"
-              >
-                Delete
-              </button>
+              {canWrite && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete session "${formatBreakoutSessionName(session.name, group.name)}"?`))
+                      startTransition(() => deleteSession(session.id));
+                  }}
+                  disabled={isPending}
+                  className="text-red-400 hover:text-red-600 text-xs disabled:opacity-50"
+                >
+                  Delete
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
-      {showAdd ? (
+      {!canWrite ? null : showAdd ? (
         <form
           action={(formData) => {
             startTransition(async () => {
@@ -356,6 +363,7 @@ function PresentationManager({
   getAvailablePresentations: (groupId: string) => Promise<AvailablePresentation[]>;
   assignExistingPresentation: (presentationId: string, groupId: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("FUNCTIONS");
   const [open, setOpen] = useState(false);
   const [available, setAvailable] = useState<AvailablePresentation[] | null>(null);
   const [filter, setFilter] = useState("");
@@ -438,7 +446,7 @@ function PresentationManager({
         </div>
       )}
 
-      {!open && (
+      {!open && canWrite && (
         <button
           onClick={openPicker}
           disabled={isPending}
@@ -564,8 +572,11 @@ function DraggableSidebarCard({
   instanceLabel: string;
   instanceIndex: number;
 }) {
+  // Read-only keeps the card and its information; only the drag handle goes.
+  const canWrite = useCanWrite("FUNCTIONS");
   const dragId = `sidebar:${presentation.id}:${instanceIndex}`;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    disabled: !canWrite,
     id: dragId,
     data: {
       type: "sidebar",
@@ -583,9 +594,9 @@ function DraggableSidebarCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`px-3 py-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded text-xs cursor-grab active:cursor-grabbing select-none ${
-        isDragging ? "opacity-40" : ""
-      }`}
+      className={`px-3 py-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded text-xs select-none ${
+        canWrite ? "cursor-grab active:cursor-grabbing" : ""
+      } ${isDragging ? "opacity-40" : ""}`}
       {...listeners}
       {...attributes}
     >
@@ -628,8 +639,10 @@ function DraggableCellCard({
   sessionId: string;
   onRemove: (slotId: string) => void;
 }) {
+  const canWrite = useCanWrite("FUNCTIONS");
   const dragId = `cell:${slot.id}`;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    disabled: !canWrite,
     id: dragId,
     data: {
       type: "cell",
@@ -660,9 +673,9 @@ function DraggableCellCard({
       ref={setNodeRef}
       style={style}
       title={titleParts.join("\n")}
-      className={`flex items-start justify-between gap-1 cursor-grab active:cursor-grabbing ${
-        isDragging ? "opacity-40" : ""
-      }`}
+      className={`flex items-start justify-between gap-1 ${
+        canWrite ? "cursor-grab active:cursor-grabbing" : ""
+      } ${isDragging ? "opacity-40" : ""}`}
       {...listeners}
       {...attributes}
     >
@@ -682,16 +695,18 @@ function DraggableCellCard({
             </div>
           )}
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(slot.id);
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="text-red-400 hover:text-red-600 text-xs shrink-0"
-        >
-          &times;
-        </button>
+        {canWrite && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(slot.id);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="text-red-400 hover:text-red-600 text-xs shrink-0"
+          >
+            &times;
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1154,6 +1169,7 @@ function GroupPanel({
   getAvailablePresentations: (groupId: string) => Promise<AvailablePresentation[]>;
   assignExistingPresentation: (presentationId: string, groupId: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("FUNCTIONS");
   const [isRenaming, setIsRenaming] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -1161,7 +1177,7 @@ function GroupPanel({
     <div className="mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       {/* Group Header */}
       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        {isRenaming ? (
+        {isRenaming && canWrite ? (
           <form
             action={(formData) => {
               startTransition(async () => {
@@ -1190,7 +1206,7 @@ function GroupPanel({
             )}
           </div>
         )}
-        {!isRenaming && (
+        {!isRenaming && canWrite && (
           <div className="flex items-center gap-2">
             <button onClick={() => setIsRenaming(true)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">Rename</button>
             <button
@@ -1267,6 +1283,7 @@ export function BreakoutGrid({
   getAvailablePresentations,
   assignExistingPresentation,
 }: BreakoutGridProps) {
+  const canWrite = useCanWrite("FUNCTIONS");
   const [showAddGroup, setShowAddGroup] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -1327,7 +1344,7 @@ export function BreakoutGrid({
 
       {/* Add Group */}
       <div className="mb-8">
-        {showAddGroup ? (
+        {!canWrite ? null : showAddGroup ? (
           <form
             action={(formData) => {
               startTransition(async () => {

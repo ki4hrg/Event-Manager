@@ -246,6 +246,8 @@ export function EventAccessPanel({
                   onChange={(next) => run(() => setLevel(a.id, a.event.id, next))}
                 />
                 <InlineDeleteButton
+                  resource="USERS"
+                  requiredLevel="WRITE"
                   action={async () => {
                     await revoke(a.id, a.event.id);
                     router.refresh();

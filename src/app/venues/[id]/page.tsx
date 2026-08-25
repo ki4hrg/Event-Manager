@@ -133,7 +133,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
         breadcrumbs={[{ label: "Venues", href: "/venues" }, { label: venue.name }]}
         title={venue.name}
         meta={<LastUpdated updatedAt={venue.updatedAt} updatedBy={venue.updatedBy} />}
-        actions={<DeleteButton action={deleteVenueAction} />}
+        actions={<DeleteButton resource="VENUES" action={deleteVenueAction} />}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

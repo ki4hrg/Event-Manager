@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
+import { useCanWrite } from "@/components/PermissionsProvider";
 import {
   ACQUISITION_LABEL,
   ACQUISITION_OPTIONS,
@@ -16,12 +17,14 @@ type Props = {
 };
 
 export function BulkItemStatusPanel({ itemCount, bulkSetPacking, bulkSetAcquisition }: Props) {
+  const canWrite = useCanWrite("SUPPLY_ORDERS");
   const [pendingPacking, setPendingPacking] = useState<PackingStatus | null>(null);
   const [pendingAcquisition, setPendingAcquisition] = useState<AcquisitionState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  if (itemCount === 0) return null;
+  // The panel does nothing but write, so it has no read-only form.
+  if (itemCount === 0 || !canWrite) return null;
 
   const onPackingSelect = (value: string) => {
     if (!value) return;

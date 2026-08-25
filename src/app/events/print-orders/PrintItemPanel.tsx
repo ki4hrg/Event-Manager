@@ -13,6 +13,7 @@ import {
   PACKING_STATUS_OPTIONS,
 } from "@/lib/statusConstants";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type PrintItemWithParties = PrintItem & {
   designerVendor?: { name: string } | null;
@@ -239,6 +240,8 @@ export function PrintItemPanel({
   deleteItem,
   updateItemAcquisitionState,
 }: PrintItemPanelProps) {
+  const canWrite = useCanWrite("PRINT_ORDERS");
+  const canDelete = useCanDelete("PRINT_ORDERS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -256,7 +259,7 @@ export function PrintItemPanel({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Print Items</h2>
-        {!showAddForm && (
+        {!showAddForm && canWrite && (
           <button
             onClick={() => setShowAddForm(true)}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
@@ -348,17 +351,21 @@ export function PrintItemPanel({
                     )}
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (confirm("Delete this item?")) await deleteItem(item.id);
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Delete
-                    </button>
+                    {canWrite && (
+                      <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
+                        Edit
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={async () => {
+                          if (confirm("Delete this item?")) await deleteItem(item.id);
+                        }}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

@@ -28,6 +28,7 @@ export function MediaDeliverableLinkPanel({
   return (
     <div className="space-y-6">
       <LinkedItemsPanel
+        resource="MEDIA_DELIVERABLES"
         title="Linked Functions"
         items={linkedFunctions}
         availableItems={availableFunctions}
@@ -37,6 +38,7 @@ export function MediaDeliverableLinkPanel({
         unlinkItem={unlinkFunction}
       />
       <LinkedItemsPanel
+        resource="MEDIA_DELIVERABLES"
         title="Linked Presentations"
         items={linkedPresentations}
         availableItems={availablePresentations}

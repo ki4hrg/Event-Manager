@@ -16,6 +16,7 @@ import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { EDIT_STATUS_OPTIONS, STATUS_LABEL } from "@/lib/statusConstants";
 import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type AVOrder = Awaited<ReturnType<typeof getAVOrders>>[number];
 
@@ -53,6 +54,11 @@ export function AVOrderList({
   deleteAVOrders,
   bulkUpdateAVOrders,
 }: Props) {
+  const canWrite = useCanWrite("AV_ORDERS");
+  const canDelete = useCanDelete("AV_ORDERS");
+  // Selection only exists to feed bulk edit and bulk delete, so it goes
+  // away entirely when the user has neither.
+  const canSelect = canWrite || canDelete;
   const router = useRouter();
   const [view, setView] = useState<"list" | "table">("list");
   const [sortField, setSortField] = useState<SortField>("name");
@@ -203,30 +209,36 @@ export function AVOrderList({
           >
             Print All
           </a>
-          <Link
-            href={`/events/${eventId}/av-orders/new`}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Create AV Order
-          </Link>
+          {canWrite && (
+            <Link
+              href={`/events/${eventId}/av-orders/new`}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Create AV Order
+            </Link>
+          )}
         </div>
       </div>
 
-      {selected.size > 0 && (
+      {canSelect && selected.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-sm">
           <span className="font-medium text-blue-700 dark:text-blue-300">{selected.size} selected</span>
-          <button
-            onClick={() => setShowBulkEdit((v) => !v)}
-            className="rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/40"
-          >
-            {showBulkEdit ? "Hide bulk edit" : "Bulk edit"}
-          </button>
-          <button
-            onClick={handleBulkDelete}
-            className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-          >
-            Delete selected
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowBulkEdit((v) => !v)}
+              className="rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/40"
+            >
+              {showBulkEdit ? "Hide bulk edit" : "Bulk edit"}
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={handleBulkDelete}
+              className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              Delete selected
+            </button>
+          )}
           <button
             onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}
             className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -235,7 +247,7 @@ export function AVOrderList({
           </button>
         </div>
       )}
-      {showBulkEdit && selected.size > 0 && (
+      {canWrite && showBulkEdit && selected.size > 0 && (
         <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
@@ -310,6 +322,7 @@ export function AVOrderList({
                 </div>
               </div>
               <InlineDeleteButton
+                resource="AV_ORDERS"
                 action={deleteAVOrder}
                 hiddenInputs={{ avOrderId: avOrder.id }}
               />
@@ -322,9 +335,11 @@ export function AVOrderList({
             <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
-                  <th className={`${thBase} w-8`}>
-                    <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" />
-                  </th>
+                  {canSelect && (
+                    <th className={`${thBase} w-8`}>
+                      <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" />
+                    </th>
+                  )}
                   <th className={thSortable} onClick={() => handleSort("name")}>Name{sortIndicator(sortField === "name", sortDir)}</th>
                   <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>
                   <th className={thBase}>Workflow</th>
@@ -333,7 +348,8 @@ export function AVOrderList({
                   <th className={thSortable} onClick={() => handleSort("presentation")}>Presentation{sortIndicator(sortField === "presentation", sortDir)}</th>
                 </tr>
                 <tr>
-                  <td className={filterCell} />
+                  {/* Spacer under the select-all column; drops with it. */}
+                  {canSelect && <td className={filterCell} />}
                   <td className={filterCell}>
                     <input type="text" placeholder="Filter…" value={filters.name} onChange={(e) => setFilter("name", e.target.value)} className={filterInput} />
                   </td>
@@ -355,9 +371,11 @@ export function AVOrderList({
                   const isSelected = selected.has(o.id);
                   return (
                     <tr key={o.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
-                      <td className="px-3 py-3 w-8">
-                        <input type="checkbox" checked={isSelected} onChange={() => toggleRow(o.id)} className="rounded" />
-                      </td>
+                      {canSelect && (
+                        <td className="px-3 py-3 w-8">
+                          <input type="checkbox" checked={isSelected} onChange={() => toggleRow(o.id)} className="rounded" />
+                        </td>
+                      )}
                       <td className="px-3 py-3 font-medium">
                         <Link href={`/events/${eventId}/av-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                           {o.name}

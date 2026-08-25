@@ -5,6 +5,7 @@ import { getEvent } from "../../../actions";
 import { createPresentation, getTracks, searchContacts } from "../../../presentations/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
 import { getOptions } from "@/app/settings/actions";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ export default async function NewPresentationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
+  // A VIEW-only user has no business on a create form; gate the page so they
+  // never reach a form whose action would refuse the submit.
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const [event, tracks, presenterRoles, presentationTypes] = await Promise.all([
     getEvent(eventId),
     getTracks(eventId),

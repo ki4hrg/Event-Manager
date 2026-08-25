@@ -11,6 +11,7 @@ import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { partyLabel } from "@/lib/partyLabel";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { PackingStatusRollup } from "@/components/PackingStatusRollup";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type SupplyOrder = Awaited<ReturnType<typeof getSupplyOrders>>[number];
 
@@ -33,6 +34,9 @@ export function SupplyOrderList({
   initialLinked,
   deleteSupplyOrder,
 }: Props) {
+  // This list ships lean — no selection or bulk edit — so only the create link
+  // needs gating; per-row delete gates itself inside InlineDeleteButton.
+  const canWrite = useCanWrite("SUPPLY_ORDERS");
   const [statusFilter, setStatusFilter] = useState(initialStatus ?? "");
   const [roomFilter, setRoomFilter] = useState(initialRoom ?? "");
   const [linkedFilter, setLinkedFilter] = useState(initialLinked ?? "");
@@ -112,12 +116,14 @@ export function SupplyOrderList({
             </select>
           </div>
         </div>
-        <Link
-          href={`/events/${eventId}/supply-orders/new`}
-          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 shrink-0"
-        >
-          Create Supply Order
-        </Link>
+        {canWrite && (
+          <Link
+            href={`/events/${eventId}/supply-orders/new`}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 shrink-0"
+          >
+            Create Supply Order
+          </Link>
+        )}
       </div>
 
       {supplyOrders.length === 0 ? (
@@ -168,6 +174,7 @@ export function SupplyOrderList({
                 </div>
               </div>
               <InlineDeleteButton
+                resource="SUPPLY_ORDERS"
                 action={deleteSupplyOrder}
                 hiddenInputs={{ supplyOrderId: o.id }}
               />

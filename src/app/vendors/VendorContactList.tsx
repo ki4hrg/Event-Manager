@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { useFormStatus } from "react-dom";
 import type { VendorContact, Contact, CustomOption } from "@prisma/client";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type VendorContactWithContact = VendorContact & { contact: Contact };
 
@@ -74,6 +75,7 @@ export function VendorContactList({
   searchContacts,
   createContact,
 }: VendorContactListProps) {
+  const canWrite = useCanWrite("VENDORS");
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -136,16 +138,18 @@ export function VendorContactList({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Contacts</h2>
-        <button
-          onClick={() => {
-            setSelectedContact(null);
-            setSearchQuery("");
-            setFormView("search");
-          }}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Contact
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => {
+              setSelectedContact(null);
+              setSearchQuery("");
+              setFormView("search");
+            }}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Contact
+          </button>
+        )}
       </div>
 
       {formView === "search" && (
@@ -388,24 +392,26 @@ export function VendorContactList({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 ml-2 shrink-0">
-                    <button
-                      onClick={() => setEditingId(item.id)}
-                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (confirm("Remove this contact?")) {
-                          await removeContact(item.id);
-                        }
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  {canWrite && (
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <button
+                        onClick={() => setEditingId(item.id)}
+                        className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm("Remove this contact?")) {
+                            await removeContact(item.id);
+                          }
+                        }}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
