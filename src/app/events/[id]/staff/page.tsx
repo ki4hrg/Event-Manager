@@ -8,6 +8,7 @@ import {
   getEventStaff,
   addEventStaff,
   removeEventStaff,
+  setEventStaffLevel,
   searchUsersForStaff,
 } from "./actions";
 import { EventStaffList } from "./EventStaffList";
@@ -35,6 +36,11 @@ export default async function EventStaffPage({
     await removeEventStaff(staffId, id);
   };
 
+  const setLevelAction = async (staffId: string, accessLevel: string) => {
+    "use server";
+    await setEventStaffLevel(staffId, id, accessLevel);
+  };
+
   const searchUsersAction = async (query: string) => {
     "use server";
     return searchUsersForStaff(id, query);
@@ -52,13 +58,14 @@ export default async function EventStaffPage({
           { label: "Staff" },
         ]}
         title="Staff"
-        description="App users who can access and edit this event under their assigned-scope permissions."
+        description="App users assigned to this event. Access caps what their role allows them to do here — it can narrow, never widen."
       />
       <div className="max-w-2xl">
         <EventStaffList
           staff={staff}
           addStaff={addStaffAction}
           removeStaff={removeStaffAction}
+          setLevel={setLevelAction}
           searchUsers={searchUsersAction}
         />
       </div>

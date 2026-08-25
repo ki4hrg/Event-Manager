@@ -36,12 +36,16 @@ export const loadPermissionsForUser = cache(async (userId: string) => {
     }),
     prisma.eventStaff.findMany({
       where: { userId },
-      select: { eventId: true },
+      select: { eventId: true, accessLevel: true },
     }),
   ]);
   return {
     permissions,
-    assignedEventIds: new Set(assignments.map((s) => s.eventId)),
+    // eventId -> per-event cap (null when uncapped). Presence of the key is the
+    // ASSIGNED/UNASSIGNED test; the value narrows the level. Carried on this
+    // cached read rather than fetched per check — one page render issues
+    // dozens of permission checks.
+    assignedEvents: new Map(assignments.map((s) => [s.eventId, s.accessLevel])),
   };
 });
 
@@ -66,19 +70,30 @@ async function resolvePermissionForUser(
   action: PermissionAction,
   eventId?: string | null,
 ) {
-  const { permissions, assignedEventIds } = await loadPermissionsForUser(userId);
+  const { permissions, assignedEvents } = await loadPermissionsForUser(userId);
 
   let scope: PermissionScope;
   if (eventId == null) {
     scope = PermissionScope.GLOBAL;
   } else {
-    scope = assignedEventIds.has(eventId)
+    scope = assignedEvents.has(eventId)
       ? PermissionScope.ASSIGNED
       : PermissionScope.UNASSIGNED;
   }
 
   const granted = permissions.find((p) => p.resource === resource && p.scope === scope);
-  const allowed = !!granted && LEVEL_ORDER[granted.level] >= LEVEL_ORDER[action];
+  let level: PermissionLevel = granted?.level ?? PermissionLevel.NONE;
+
+  // Per-event cap. Only narrows, so a cap can never grant access the role
+  // doesn't already carry. Sitting here means it applies to every event-scoped
+  // resource for this event — functions, every order type, files, share links,
+  // workflows — and to MCP as well as the UI.
+  if (eventId != null && scope === PermissionScope.ASSIGNED) {
+    const cap = assignedEvents.get(eventId);
+    if (cap != null && LEVEL_ORDER[cap] < LEVEL_ORDER[level]) level = cap;
+  }
+
+  const allowed = LEVEL_ORDER[level] >= LEVEL_ORDER[action];
   return { scope, allowed } as const;
 }
 

@@ -9,6 +9,17 @@ import { UserForm } from "../UserForm";
 import { ResendInviteButton } from "../ResendInviteButton";
 import { notFound } from "next/navigation";
 import { LastUpdated } from "@/components/LastUpdated";
+import { formatEventDate } from "@/lib/agendaUtils";
+import { EventAccessPanel } from "@/app/users/event-access/EventAccessPanel";
+import {
+  getUserEventAccess,
+  getSeriesGrantOptions,
+  searchEventsForUserAccess,
+  grantUserEventAccess,
+  setUserEventAccessLevel,
+  revokeUserEventAccess,
+  grantUserSeriesAccess,
+} from "@/app/users/event-access/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +46,12 @@ export default async function UserDetailPage({
   const session = await requirePermission(PermissionResource.USERS, "VIEW");
   const { userId } = await params;
   const { error } = await searchParams;
-  const [user, roles] = await Promise.all([getUser(userId), getRoleOptions()]);
+  const [user, roles, assignments, seriesOptions] = await Promise.all([
+    getUser(userId),
+    getRoleOptions(),
+    getUserEventAccess(userId),
+    getSeriesGrantOptions(),
+  ]);
 
   if (!user) {
     notFound();
@@ -54,6 +70,41 @@ export default async function UserDetailPage({
   const resendAction = async () => {
     "use server";
     await resendPasswordResetEmail(userId);
+  };
+
+  const grantEventAction = async (eventId: string, accessLevel: string) => {
+    "use server";
+    await grantUserEventAccess(userId, eventId, accessLevel);
+  };
+
+  const setLevelAction = async (
+    staffId: string,
+    eventId: string,
+    accessLevel: string,
+  ) => {
+    "use server";
+    await setUserEventAccessLevel(userId, staffId, eventId, accessLevel);
+  };
+
+  const revokeAction = async (staffId: string, eventId: string) => {
+    "use server";
+    await revokeUserEventAccess(userId, staffId, eventId);
+  };
+
+  const grantSeriesAction = async (seriesId: string, accessLevel: string) => {
+    "use server";
+    return grantUserSeriesAccess(userId, seriesId, accessLevel);
+  };
+
+  const searchEventsAction = async (query: string) => {
+    "use server";
+    const rows = await searchEventsForUserAccess(userId, query);
+    return rows.map((e) => ({
+      id: e.id,
+      name: e.name,
+      year: formatEventDate(e.startDate, e.timezone, { year: "numeric" }),
+      seriesName: e.series?.name ?? null,
+    }));
   };
 
   return (
@@ -88,6 +139,30 @@ export default async function UserDetailPage({
         </p>
         <ResendInviteButton action={resendAction} />
       </div>
+      <EventAccessPanel
+        assignments={assignments.map((a) => ({
+          id: a.id,
+          accessLevel: a.accessLevel,
+          event: {
+            id: a.event.id,
+            name: a.event.name,
+            year: formatEventDate(a.event.startDate, a.event.timezone, {
+              year: "numeric",
+            }),
+            seriesName: a.event.series?.name ?? null,
+          },
+        }))}
+        seriesOptions={seriesOptions.map((s) => ({
+          id: s.id,
+          name: s.name,
+          eventCount: s._count.events,
+        }))}
+        grantEvent={grantEventAction}
+        setLevel={setLevelAction}
+        revoke={revokeAction}
+        grantSeries={grantSeriesAction}
+        searchEvents={searchEventsAction}
+      />
     </div>
   );
 }

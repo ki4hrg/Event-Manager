@@ -3,6 +3,12 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
+import {
+  addEventStaffCore,
+  setEventStaffLevelCore,
+  removeEventStaffCore,
+  parseAccessCap,
+} from "./core";
 
 export async function getEventStaff(eventId: string) {
   await requirePermission("EVENTS", "VIEW", eventId);
@@ -10,6 +16,7 @@ export async function getEventStaff(eventId: string) {
     where: { eventId },
     select: {
       id: true,
+      accessLevel: true,
       user: {
         select: {
           id: true,
@@ -49,23 +56,41 @@ export async function searchUsersForStaff(eventId: string, query: string) {
   });
 }
 
-export async function addEventStaff(eventId: string, formData: FormData) {
-  await requirePermission("EVENTS", "WRITE", eventId);
-  const userId = formData.get("userId") as string;
-  if (!userId) throw new Error("User is required");
-
-  await prisma.eventStaff.upsert({
-    where: { userId_eventId: { userId, eventId } },
-    create: { userId, eventId },
-    update: {},
-  });
+function revalidateStaff(eventId: string) {
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/events/${eventId}/staff`);
 }
 
+export async function addEventStaff(eventId: string, formData: FormData) {
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
+  await addEventStaffCore(
+    {
+      eventId,
+      userId: formData.get("userId") as string,
+      // New assignments default to View — the safe end of the range, and the
+      // common case for someone being added to an event they don't run.
+      accessLevel: parseAccessCap(formData.get("accessLevel") ?? "VIEW"),
+    },
+    session.user.id,
+  );
+  revalidateStaff(eventId);
+}
+
+export async function setEventStaffLevel(
+  staffId: string,
+  eventId: string,
+  accessLevel: string | null,
+) {
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
+  await setEventStaffLevelCore(
+    { staffId, eventId, accessLevel: parseAccessCap(accessLevel) },
+    session.user.id,
+  );
+  revalidateStaff(eventId);
+}
+
 export async function removeEventStaff(staffId: string, eventId: string) {
-  await requirePermission("EVENTS", "WRITE", eventId);
-  await prisma.eventStaff.delete({ where: { id: staffId, eventId } });
-  revalidatePath(`/events/${eventId}`);
-  revalidatePath(`/events/${eventId}/staff`);
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
+  await removeEventStaffCore(staffId, eventId, session.user.id);
+  revalidateStaff(eventId);
 }

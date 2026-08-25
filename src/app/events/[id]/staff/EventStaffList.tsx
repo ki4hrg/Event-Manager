@@ -3,9 +3,13 @@
 import { useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { roleBadgeClass } from "@/lib/roleStyles";
+import { UNCAPPED } from "@/lib/accessLevels";
+import { AccessLevelSelect } from "@/components/AccessLevelSelect";
+import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 
 type StaffEntry = {
   id: string;
+  accessLevel: string | null;
   user: {
     id: string;
     email: string;
@@ -25,8 +29,10 @@ type Props = {
   staff: StaffEntry[];
   addStaff: (formData: FormData) => Promise<void>;
   removeStaff: (staffId: string) => Promise<void>;
+  setLevel: (staffId: string, accessLevel: string) => Promise<void>;
   searchUsers: (query: string) => Promise<UserSearchResult[]>;
 };
+
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -41,7 +47,7 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-export function EventStaffList({ staff, addStaff, removeStaff, searchUsers }: Props) {
+export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchUsers }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
@@ -171,6 +177,21 @@ export function EventStaffList({ staff, addStaff, removeStaff, searchUsers }: Pr
             </div>
           )}
 
+          <div>
+            <label
+              htmlFor="new-staff-access"
+              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Access
+            </label>
+            <AccessLevelSelect
+              ariaLabel="Access level for new assignment"
+              id="new-staff-access"
+              name="accessLevel"
+              defaultValue="VIEW"
+            />
+          </div>
+
           <div className="flex gap-2 pt-1">
             <SubmitButton label="Assign" />
             <button
@@ -205,18 +226,25 @@ export function EventStaffList({ staff, addStaff, removeStaff, searchUsers }: Pr
                   </span>
                 )}
               </div>
-              <button
-                onClick={() => {
-                  if (!confirm(`Remove ${entry.user.name || entry.user.email} from this event?`)) return;
-                  startTransition(async () => {
+              <div className="flex items-center gap-3 ml-2 shrink-0">
+                <AccessLevelSelect
+                  ariaLabel={`Access for ${entry.user.name || entry.user.email}`}
+                  value={entry.accessLevel ?? UNCAPPED}
+                  disabled={isPending}
+                  onChange={(next) => {
+                    startTransition(async () => {
+                      await setLevel(entry.id, next);
+                    });
+                  }}
+                />
+                <InlineDeleteButton
+                  action={async () => {
                     await removeStaff(entry.id);
-                  });
-                }}
-                disabled={isPending}
-                className="text-red-600 hover:underline text-sm ml-2 shrink-0 disabled:opacity-50"
-              >
-                Remove
-              </button>
+                  }}
+                  hiddenInputs={{}}
+                  label="Remove"
+                />
+              </div>
             </div>
           ))}
         </div>

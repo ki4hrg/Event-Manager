@@ -1744,6 +1744,13 @@ model EventStaff {
   event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   addedAt DateTime @default(now())
 
+  // Caps the user's role-derived ASSIGNED level for THIS event only. Cap-only:
+  // it can narrow (WRITE role -> VIEW here) but never widen, so setting one can
+  // never escalate anyone past their role. null = uncapped, role level applies.
+  // Applied in resolvePermissionForUser, so it covers every event-scoped
+  // resource for the event, not just EVENTS.
+  accessLevel PermissionLevel?
+
   @@unique([userId, eventId])
   @@index([eventId])
   @@index([userId])
