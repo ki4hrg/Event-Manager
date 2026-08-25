@@ -8,6 +8,7 @@ import { MediaDeliverableForm } from "../../../media-deliverables/MediaDeliverab
 import { getResponsibleParties } from "@/lib/responsibleParties";
 import { getOptions } from "@/app/settings/actions";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export default async function NewMediaDeliverablePage({
   searchParams: Promise<{ functionId?: string; presentationId?: string }>;
 }) {
   const { id: eventId } = await params;
+  // A VIEW-only user has no business on a create form; gate the page so they
+  // never reach a form whose action would refuse the submit.
+  await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   const { functionId, presentationId } = await searchParams;
 
   const [event, pool, mediaTypeOptions, deliveryOptions, sourceData] = await Promise.all([

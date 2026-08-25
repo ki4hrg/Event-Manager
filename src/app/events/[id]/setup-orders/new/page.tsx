@@ -9,6 +9,7 @@ import { getOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,9 @@ export default async function NewSetupOrderPage({
   searchParams: Promise<{ functionId?: string; roomId?: string; presentationId?: string }>;
 }) {
   const { id: eventId } = await params;
+  // A VIEW-only user has no business on a create form; gate the page so they
+  // never reach a form whose action would refuse the submit.
+  await requirePermission("SETUP_ORDERS", "WRITE", eventId);
   const { functionId, roomId, presentationId } = await searchParams;
 
   const isFromSource = !!(functionId || presentationId);

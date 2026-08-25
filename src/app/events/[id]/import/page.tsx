@@ -12,6 +12,7 @@ import {
   importFromEvent,
 } from "@/app/events/import/actions";
 import { ImportClient } from "./ImportClient";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,8 @@ function toItems(content: Content) {
 
 export default async function ImportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Import writes into this event; a VIEW-only user should not reach the picker.
+  await requirePermission("EVENTS", "WRITE", id);
   const [event, sources, defaultSource] = await Promise.all([
     getEvent(id),
     getImportSourceOptions(id),

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { revokeShareLinkGroup } from "@/app/events/share-link-groups/actions";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type Group = {
   id: string;
@@ -40,6 +41,7 @@ function shareUrl(token: string): string {
 }
 
 export function ShareLinkGroupsTable({ eventId, groups }: Props) {
+  const canWrite = useCanWrite("SHARE_LINKS");
   const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -48,14 +50,19 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
   if (groups.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        No dashboards yet.{" "}
-        <Link
-          href={`/events/${eventId}/share-links/dashboards/new`}
-          className="text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          Create one
-        </Link>{" "}
-        to bundle multiple reports under a single link.
+        No dashboards yet.
+        {canWrite && (
+          <>
+            {" "}
+            <Link
+              href={`/events/${eventId}/share-links/dashboards/new`}
+              className="text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Create one
+            </Link>{" "}
+            to bundle multiple reports under a single link.
+          </>
+        )}
       </p>
     );
   }
@@ -135,7 +142,7 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
                         {copied === g.token ? "Copied!" : "Copy URL"}
                       </button>
                     )}
-                    {active && (
+                    {canWrite && active && (
                       <button
                         onClick={() => handleRevoke(g.id)}
                         disabled={revoking === g.id}

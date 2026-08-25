@@ -6,6 +6,7 @@ import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { PartyField } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyPool } from "@/lib/responsibleParties";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type MediaDeliverableData = {
   id: string;
@@ -59,21 +60,25 @@ export function MediaDeliverableForm({
   noCard = false,
 }: MediaDeliverableFormProps) {
   const isEdit = !!mediaDeliverable;
+  // Read-only users get the detail view with no way back into edit mode.
+  const canWrite = useCanWrite("MEDIA_DELIVERABLES");
   const [editing, setEditing] = useState(false);
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
-  if (isEdit && !editing) {
+  if (isEdit && (!editing || !canWrite)) {
     return (
       <div className={cardClass}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Media Deliverable Details</h2>
-          <button
-            onClick={() => setEditing(true)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Edit
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Edit
+            </button>
+          )}
         </div>
         <dl className="space-y-4">
           <ReadOnlyField label="Name" value={mediaDeliverable.name} />

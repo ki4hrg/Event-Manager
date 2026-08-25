@@ -35,6 +35,7 @@ export function SetupOrderPanel({
 }: SetupOrderPanelProps) {
   return (
     <LinkedItemsPanel
+      resource="SETUP_ORDERS"
       title={title}
       fillHeight={fillHeight}
       items={setupOrders.map((o) => ({

@@ -411,6 +411,7 @@ export default async function CateringOrderPage({
             Print
           </a>
           <CancelOrDeleteButton
+            resource="CATERING_ORDERS"
             status={cateringOrder.status ?? null}
             substatuses={substatuses}
             cancel={cancelAction}
@@ -461,6 +462,7 @@ export default async function CateringOrderPage({
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Linked Function</h2>
               <FunctionLinkControl
+                resource="CATERING_ORDERS"
                 linkedFunctionId={cateringOrder.functionId}
                 linkedFunctionName={cateringOrder.function?.name ?? null}
                 linkedFunctionPath={
@@ -482,6 +484,7 @@ export default async function CateringOrderPage({
             />
 
             <WorkflowPanel
+              entityType="catering_order"
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
               entityStatus={cateringOrder.status ?? null}

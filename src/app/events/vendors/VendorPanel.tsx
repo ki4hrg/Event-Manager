@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Vendor } from "@prisma/client";
 import { MODEL_LABELS } from "@/app/vendors/model-types";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type AssignedVendor = {
   id: string;
@@ -32,6 +33,10 @@ export function VendorPanel({
   updateVendor,
   removeVendor,
 }: VendorPanelProps) {
+  // These junction writes gate on the VENDORS catalog, not the order — see
+  // addVendorToOrder cores in src/app/vendors/core.ts.
+  const canWrite = useCanWrite("VENDORS");
+  const canDelete = useCanDelete("VENDORS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Vendor[]>([]);
@@ -92,17 +97,19 @@ export function VendorPanel({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendors</h2>
-        <button
-          onClick={() => {
-            setShowAddForm(true);
-            setSelectedVendor(null);
-            setSearchQuery("");
-            setNotes("");
-          }}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Vendor
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => {
+              setShowAddForm(true);
+              setSelectedVendor(null);
+              setSearchQuery("");
+              setNotes("");
+            }}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Vendor
+          </button>
+        )}
       </div>
 
       {showAddForm && (
@@ -292,22 +299,26 @@ export function VendorPanel({
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
-                    <button
-                      onClick={() => handleEditStart(item)}
-                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (confirm("Remove this vendor?")) {
-                          await removeVendor(item.id);
-                        }
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Remove
-                    </button>
+                    {canWrite && (
+                      <button
+                        onClick={() => handleEditStart(item)}
+                        className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={async () => {
+                          if (confirm("Remove this vendor?")) {
+                            await removeVendor(item.id);
+                          }
+                        }}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

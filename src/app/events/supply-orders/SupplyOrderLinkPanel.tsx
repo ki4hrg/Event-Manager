@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type LinkedItem = { id: string; label: string; path: string };
 
@@ -36,6 +37,7 @@ function MultiLinkSection({
   const [showForm, setShowForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
+  const canWrite = useCanWrite("SUPPLY_ORDERS");
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
 
   const handleLink = async () => {
@@ -73,19 +75,21 @@ function MultiLinkSection({
             <Link href={item.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
               {item.label}
             </Link>
-            <button
-              type="button"
-              onClick={() => handleUnlink(item.id, item.label)}
-              disabled={unlinkingId === item.id}
-              className="text-xs text-red-600 hover:underline disabled:opacity-50"
-            >
-              Unlink
-            </button>
+            {canWrite && (
+              <button
+                type="button"
+                onClick={() => handleUnlink(item.id, item.label)}
+                disabled={unlinkingId === item.id}
+                className="text-xs text-red-600 hover:underline disabled:opacity-50"
+              >
+                Unlink
+              </button>
+            )}
           </div>
         ))}
       </div>
 
-      {showForm ? (
+      {!canWrite ? null : showForm ? (
         <div className="space-y-2">
           {available.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">No additional options available.</p>

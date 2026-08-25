@@ -9,6 +9,7 @@ import { PartyField, parsePartyValue, type ContactOptions } from "@/app/events/a
 import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type RoomBasic = {
   id: string;
@@ -120,6 +121,7 @@ export function BreakoutSlotPanel({
   clearSlotAdvancer,
 }: BreakoutSlotPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
+  const canWrite = useCanWrite("PRESENTATIONS");
   const [editingCount, setEditingCount] = useState(false);
   const [countValue, setCountValue] = useState(String(instanceCount));
   const [addGroupId, setAddGroupId] = useState("");
@@ -306,12 +308,14 @@ export function BreakoutSlotPanel({
               <span className={`text-xs px-2 py-0.5 rounded ${placementBadge}`}>
                 {slots.length}/{instanceCount} placed
               </span>
-              <button
-                onClick={() => setEditingCount(true)}
-                className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                Edit
-              </button>
+              {canWrite && (
+                <button
+                  onClick={() => setEditingCount(true)}
+                  className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  Edit
+                </button>
+              )}
             </>
           )}
         </div>
@@ -325,13 +329,15 @@ export function BreakoutSlotPanel({
             <span className="text-gray-500 dark:text-gray-400">
               Group: <span className="font-medium text-gray-900 dark:text-white">{currentGroup?.name ?? currentGroupId}</span>
             </span>
-            <button
-              onClick={handleRemoveAll}
-              disabled={isPending}
-              className="text-red-600 hover:underline text-sm disabled:opacity-50"
-            >
-              Remove all
-            </button>
+            {canWrite && (
+              <button
+                onClick={handleRemoveAll}
+                disabled={isPending}
+                className="text-red-600 hover:underline text-sm disabled:opacity-50"
+              >
+                Remove all
+              </button>
+            )}
           </div>
 
           {/* Slot rows */}
@@ -421,6 +427,7 @@ export function BreakoutSlotPanel({
                       );
                     })()}
                   </div>
+                  {canWrite && (
                   <div className="flex flex-col items-end gap-1 shrink-0 ml-3">
                     <button
                       onClick={() => startEdit(slot)}
@@ -437,6 +444,7 @@ export function BreakoutSlotPanel({
                       {slot.advancerVendorId || slot.advancerContactId ? "Edit advancer" : "Override advancer"}
                     </button>
                   </div>
+                  )}
                 </div>
                 {advancerSlotId === slot.id && (
                   <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
@@ -481,7 +489,7 @@ export function BreakoutSlotPanel({
       )}
 
       {/* Add form */}
-      {showAddForm ? (
+      {!canWrite ? null : showAddForm ? (
         <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

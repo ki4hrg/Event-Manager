@@ -3,12 +3,15 @@ import { PageWrapper } from "@/components/PageWrapper";
 import Link from "next/link";
 import { createVendor } from "../actions";
 import { VendorForm } from "../VendorForm";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "New vendor" };
 
 export default async function NewVendorPage() {
+  // A VIEW-only user has no business on a create form.
+  await requirePermission("VENDORS", "WRITE");
   return (
     <PageWrapper>
       <div className="mb-6">

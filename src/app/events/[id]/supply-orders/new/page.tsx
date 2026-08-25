@@ -8,6 +8,7 @@ import { SupplyOrderForm } from "../../../supply-orders/SupplyOrderForm";
 import { getResponsibleParties } from "@/lib/responsibleParties";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export default async function NewSupplyOrderPage({
   searchParams: Promise<{ functionId?: string; presentationId?: string; roomId?: string }>;
 }) {
   const { id: eventId } = await params;
+  // A VIEW-only user has no business on a create form; gate the page so they
+  // never reach a form whose action would refuse the submit.
+  await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
   const { functionId, presentationId, roomId } = await searchParams;
 
   const [event, pool, sourceData] = await Promise.all([

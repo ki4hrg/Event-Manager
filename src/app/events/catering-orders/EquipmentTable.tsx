@@ -7,6 +7,7 @@ import { PartyField } from "@/app/events/av-orders/party-field";
 import type { ContactOptions } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type EquipmentItemFull = EquipmentItem & {
   providerVendor: Vendor | null;
@@ -112,6 +113,8 @@ export function EquipmentTable({
   deleteItem,
   readOnlyItems,
 }: EquipmentTableProps) {
+  const canWrite = useCanWrite("CATERING_ORDERS");
+  const canDelete = useCanDelete("CATERING_ORDERS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -145,12 +148,14 @@ export function EquipmentTable({
               Show all equipment
             </label>
           )}
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Add Item
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Item
+            </button>
+          )}
         </div>
       </div>
 
@@ -306,15 +311,19 @@ export function EquipmentTable({
                     </div>
                   </div>
                   <div className="flex gap-2 ml-2 shrink-0">
-                    <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
-                    <button
-                      onClick={async () => {
-                        if (confirm("Delete this item?")) await deleteItem(item.id);
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Delete
-                    </button>
+                    {canWrite && (
+                      <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={async () => {
+                          if (confirm("Delete this item?")) await deleteItem(item.id);
+                        }}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

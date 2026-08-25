@@ -9,6 +9,7 @@ import { listShareLinksForEvent } from "@/app/events/share-links/actions";
 import { listShareLinkGroupsForEvent } from "@/app/events/share-link-groups/actions";
 import { ShareLinksTable } from "./ShareLinksTable";
 import { ShareLinkGroupsTable } from "./ShareLinkGroupsTable";
+import { hasPermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = { title: "Share links" };
 
 export default async function ShareLinksPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
+  const canWrite = await hasPermission("SHARE_LINKS", "WRITE", eventId);
   const [event, links, groups] = await Promise.all([
     getEvent(eventId),
     listShareLinksForEvent(eventId),
@@ -42,12 +44,14 @@ export default async function ShareLinksPage({ params }: { params: Promise<{ id:
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white">Dashboards</h2>
-            <Link
-              href={`/events/${eventId}/share-links/dashboards/new`}
-              className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
-            >
-              + New dashboard
-            </Link>
+            {canWrite && (
+              <Link
+                href={`/events/${eventId}/share-links/dashboards/new`}
+                className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+              >
+                + New dashboard
+              </Link>
+            )}
           </div>
           <ShareLinkGroupsTable eventId={eventId} groups={groups} />
         </div>

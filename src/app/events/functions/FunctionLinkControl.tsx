@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
+import type { PermissionResource } from "@prisma/client";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 export type FunctionLinkProps = {
   linkedFunctionId: string | null | undefined;
@@ -11,6 +13,9 @@ export type FunctionLinkProps = {
   availableFunctions: { id: string; label: string }[];
   linkFunction: (id: string) => Promise<void>;
   unlinkFunction: () => Promise<void>;
+  // The owning order's resource — linking is a write on the order, not on the
+  // function it points at.
+  resource: PermissionResource;
 };
 
 export function FunctionLinkControl({
@@ -20,7 +25,9 @@ export function FunctionLinkControl({
   availableFunctions,
   linkFunction,
   unlinkFunction,
+  resource,
 }: FunctionLinkProps) {
+  const canWrite = useCanWrite(resource);
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
@@ -58,15 +65,19 @@ export function FunctionLinkControl({
           <Link href={linkedFunctionPath!} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
             {linkedFunctionName}
           </Link>
-          <button
-            type="button"
-            onClick={handleUnlink}
-            disabled={isUnlinking}
-            className="text-xs text-red-600 hover:underline disabled:opacity-50"
-          >
-            Unlink
-          </button>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={handleUnlink}
+              disabled={isUnlinking}
+              className="text-xs text-red-600 hover:underline disabled:opacity-50"
+            >
+              Unlink
+            </button>
+          )}
         </div>
+      ) : !canWrite ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">None linked.</p>
       ) : showLinkForm ? (
         <div className="space-y-2">
           {availableFunctions.length === 0 ? (

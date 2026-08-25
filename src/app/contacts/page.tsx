@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { getContacts } from "./actions";
 import { formatPhone } from "@/lib/format-phone";
+import { hasPermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,24 +13,32 @@ export const metadata: Metadata = { title: "Contacts" };
 
 export default async function ContactsPage() {
   const contacts = await getContacts();
+  const canWrite = await hasPermission("CONTACTS", "WRITE");
 
   return (
     <PageWrapper>
       <PageHeader
         title="Contacts"
         actions={
-          <Link href="/contacts/new" className={btnPrimary}>
-            New Contact
-          </Link>
+          canWrite ? (
+            <Link href="/contacts/new" className={btnPrimary}>
+              New Contact
+            </Link>
+          ) : null
         }
       />
 
       {contacts.length === 0 ? (
         <p className="text-gray-600 dark:text-gray-400">
-          No contacts yet.{" "}
-          <Link href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
-            Create your first contact
-          </Link>
+          No contacts yet.
+          {canWrite && (
+            <>
+              {" "}
+              <Link href="/contacts/new" className="text-blue-600 dark:text-blue-400 hover:underline">
+                Create your first contact
+              </Link>
+            </>
+          )}
         </p>
       ) : (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">

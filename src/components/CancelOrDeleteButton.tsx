@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { EntityStatus } from "@prisma/client";
+import type { EntityStatus, PermissionResource } from "@prisma/client";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { btnDanger, btnSecondary } from "@/lib/buttonStyles";
 
 type SubstatusOption = { id: string; label: string; group: string | null };
@@ -12,6 +13,7 @@ type Props = {
   cancel: (substatus: string) => Promise<void>;
   restore: () => Promise<void>;
   deleteAction: () => Promise<void>;
+  resource: PermissionResource;
 };
 
 export function CancelOrDeleteButton({
@@ -20,11 +22,18 @@ export function CancelOrDeleteButton({
   cancel,
   restore,
   deleteAction,
+  resource,
 }: Props) {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [cancelSubstatus, setCancelSubstatus] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // Cancel and Restore are status edits (WRITE); Delete removes the record
+  // (DELETE). A WRITE-capped user keeps the reversible half and loses the
+  // destructive one, which is the whole point of having two levels.
+  const canWrite = useCanWrite(resource);
+  const canDelete = useCanDelete(resource);
 
   const isCancelled = status === "CANCELLED";
   const cancelledSubstatuses = substatuses.filter((s) => s.group === "CANCELLED");
@@ -49,18 +58,22 @@ export function CancelOrDeleteButton({
     });
   }
 
+  if (!canWrite && !canDelete) return null;
+
   if (isCancelled) {
     return (
       <>
-        <button
-          type="button"
-          onClick={handleRestore}
-          disabled={isPending}
-          className={`${btnSecondary} disabled:opacity-50`}
-        >
-          Restore
-        </button>
-        {confirmingDelete ? (
+        {canWrite && (
+          <button
+            type="button"
+            onClick={handleRestore}
+            disabled={isPending}
+            className={`${btnSecondary} disabled:opacity-50`}
+          >
+            Restore
+          </button>
+        )}
+        {!canDelete ? null : confirmingDelete ? (
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 dark:text-gray-400">Are you sure?</span>
             <button
@@ -92,6 +105,8 @@ export function CancelOrDeleteButton({
       </>
     );
   }
+
+  if (!canWrite) return null;
 
   return (
     <>

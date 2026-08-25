@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import type { PermissionResource } from "@prisma/client";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type LinkedItem = {
   id: string;
@@ -19,6 +21,10 @@ type LinkedItemsPanelProps = {
   newItemPath?: string;
   newItemLabel?: string;
   fillHeight?: boolean;
+  // The resource whose WRITE the link/unlink actions gate on — always the
+  // linked entity's own resource, not the page's (linking an AV order to a
+  // function is an AV_ORDERS write).
+  resource: PermissionResource;
   linkItem: (id: string) => Promise<void>;
   unlinkItem: (id: string) => Promise<void>;
 };
@@ -32,9 +38,11 @@ export function LinkedItemsPanel({
   newItemPath,
   newItemLabel,
   fillHeight = false,
+  resource,
   linkItem,
   unlinkItem,
 }: LinkedItemsPanelProps) {
+  const canWrite = useCanWrite(resource);
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
@@ -84,13 +92,15 @@ export function LinkedItemsPanel({
                   <div className="mt-1">{item.metadata}</div>
                 )}
               </div>
-              <button
-                onClick={() => handleUnlink(item.id, item.label)}
-                disabled={unlinkingId === item.id}
-                className="text-red-600 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
-              >
-                Unlink
-              </button>
+              {canWrite && (
+                <button
+                  onClick={() => handleUnlink(item.id, item.label)}
+                  disabled={unlinkingId === item.id}
+                  className="text-red-600 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
+                >
+                  Unlink
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -98,7 +108,7 @@ export function LinkedItemsPanel({
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{emptyMessage}</p>
       )}
 
-      {showLinkForm ? (
+      {!canWrite ? null : showLinkForm ? (
         <div className="space-y-3">
           {availableItems.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">

@@ -357,6 +357,7 @@ export default async function PresentationPage({
             </button>
           </form>
           <CancelOrDeleteButton
+            resource="PRESENTATIONS"
             status={presentation.status ?? null}
             substatuses={substatuses}
             cancel={cancelAction}
@@ -395,6 +396,7 @@ export default async function PresentationPage({
           </div>
 
           <WorkflowPanel
+            entityType="presentation"
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}
             entityStatus={presentation.status ?? null}

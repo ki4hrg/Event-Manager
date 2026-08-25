@@ -8,6 +8,7 @@ type EventLayoutClientProps = {
   eventId: string;
   eventName: string;
   deniedResources: string[];
+  deniedWriteResources: string[];
   header: React.ReactNode;
   children: React.ReactNode;
 };
@@ -16,6 +17,7 @@ export function EventLayoutClient({
   eventId,
   eventName,
   deniedResources,
+  deniedWriteResources,
   header,
   children,
 }: EventLayoutClientProps) {
@@ -41,6 +43,7 @@ export function EventLayoutClient({
           eventId={eventId}
           eventName={eventName}
           deniedResources={deniedResources}
+          deniedWriteResources={deniedWriteResources}
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}
         />

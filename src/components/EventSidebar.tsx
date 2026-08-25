@@ -132,6 +132,10 @@ type NavLink = {
   // shown: reports and the agenda read across many entities and gate on their
   // own pages, and Overview must stay reachable for anyone who can open the event.
   resource?: PermissionResource;
+  // The resource whose WRITE this link requires, for pages that exist only to
+  // edit. Import and Settings are edit-only end to end, so a read-only user
+  // gets no link rather than a link that redirects them home.
+  writeResource?: PermissionResource;
 };
 type NavGroup = { type: "group"; label: string };
 type NavItem = NavLink | NavGroup;
@@ -167,17 +171,22 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Vendor Handoff",   segment: "reports/vendor-handoff",          icon: <HandoffIcon /> },
   { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon />,      resource: "SHARE_LINKS" },
   { type: "group", label: "Configuration" },
-  { type: "link",  label: "Import",           segment: "import",                          icon: <HandoffIcon /> },
+  { type: "link",  label: "Import",           segment: "import",                          icon: <HandoffIcon />,   writeResource: "EVENTS" },
   { type: "link",  label: "Staff",            segment: "staff",                           icon: <ClipboardIcon /> },
-  { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon /> },
+  { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon />,   writeResource: "EVENTS" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // Hide links the user can't open, then drop any group header left with no links
 // under it — a "Orders" heading above nothing reads as a broken page.
-function visibleNav(denied: Set<string>): NavItem[] {
-  const kept = NAV.filter((i) => i.type !== "link" || !i.resource || !denied.has(i.resource));
+function visibleNav(denied: Set<string>, deniedWrite: Set<string>): NavItem[] {
+  const kept = NAV.filter(
+    (i) =>
+      i.type !== "link" ||
+      ((!i.resource || !denied.has(i.resource)) &&
+        (!i.writeResource || !deniedWrite.has(i.writeResource))),
+  );
   // A group owns every link between it and the next group, so "has any link
   // left" is exactly "the item right after it is a link".
   return kept.filter((item, idx) => item.type !== "group" || kept[idx + 1]?.type === "link");
@@ -350,6 +359,8 @@ type EventSidebarProps = {
   // event layout. Hiding is cosmetic — every page and the sidebar's own item
   // fetch still enforce their own checks.
   deniedResources: string[];
+  // Same, for WRITE — drives the edit-only links (Import, Settings).
+  deniedWriteResources: string[];
 };
 
 export function EventSidebar({
@@ -358,6 +369,7 @@ export function EventSidebar({
   mobileOpen,
   onMobileClose,
   deniedResources,
+  deniedWriteResources,
 }: EventSidebarProps) {
   const pathname = usePathname();
   const basePath = `/events/${eventId}`;
@@ -426,7 +438,10 @@ export function EventSidebar({
     pathname,
     currentSection,
     items,
-    nav: useMemo(() => visibleNav(new Set(deniedResources)), [deniedResources]),
+    nav: useMemo(
+      () => visibleNav(new Set(deniedResources), new Set(deniedWriteResources)),
+      [deniedResources, deniedWriteResources],
+    ),
   };
 
   return (

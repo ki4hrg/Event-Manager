@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Room, RoomGroup } from "@prisma/client";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type RoomListProps = {
   rooms: Room[];
@@ -62,6 +63,8 @@ function RoomRow({
   updateRoom: (roomId: string, formData: FormData) => Promise<void>;
   deleteRoom: (roomId: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("VENUES");
+  const canDelete = useCanDelete("VENUES");
   if (isEditing) {
     return (
       <tr>
@@ -120,17 +123,21 @@ function RoomRow({
         </td>
       )}
       <td className="px-6 py-4 text-right space-x-3">
-        <button onClick={onEdit} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
-          Edit
-        </button>
-        <button
-          onClick={async () => {
-            if (confirm("Delete this room?")) await deleteRoom(room.id);
-          }}
-          className="text-red-600 hover:underline text-sm"
-        >
-          Delete
-        </button>
+        {canWrite && (
+          <button onClick={onEdit} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
+            Edit
+          </button>
+        )}
+        {canDelete && (
+          <button
+            onClick={async () => {
+              if (confirm("Delete this room?")) await deleteRoom(room.id);
+            }}
+            className="text-red-600 hover:underline text-sm"
+          >
+            Delete
+          </button>
+        )}
       </td>
     </tr>
   );
@@ -194,6 +201,8 @@ export function RoomList({
   updateRoomGroup,
   deleteRoomGroup,
 }: RoomListProps) {
+  const canWrite = useCanWrite("VENUES");
+  const canDelete = useCanDelete("VENUES");
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [activeForm, setActiveForm] = useState<"room" | "group" | null>(null);
@@ -205,20 +214,22 @@ export function RoomList({
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Rooms</h2>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveForm("group")}
-            className="px-3 py-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            Add Group
-          </button>
-          <button
-            onClick={() => setActiveForm("room")}
-            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Add Room
-          </button>
-        </div>
+        {canWrite && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveForm("group")}
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Add Group
+            </button>
+            <button
+              onClick={() => setActiveForm("room")}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Room
+            </button>
+          </div>
+        )}
       </div>
 
       {activeForm === "group" && (

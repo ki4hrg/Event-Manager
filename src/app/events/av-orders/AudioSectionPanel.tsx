@@ -20,6 +20,7 @@ import {
 import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 // ============================================================================
 // Types
@@ -121,6 +122,8 @@ function InputItemRow({
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("AV_ORDERS");
+  const canDelete = useCanDelete("AV_ORDERS");
   const [editing, setEditing] = useState(false);
 
   const effectiveVendorGroups = useMemo(
@@ -209,11 +212,15 @@ function InputItemRow({
             )}
           </div>
           <div className="flex gap-2 ml-2 shrink-0">
-            <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
-            <button
-              onClick={async () => { if (confirm("Delete this input?")) await deleteItem(item.id); }}
-              className="text-red-600 hover:underline text-xs"
-            >Delete</button>
+            {canWrite && (
+              <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
+            )}
+            {canDelete && (
+              <button
+                onClick={async () => { if (confirm("Delete this input?")) await deleteItem(item.id); }}
+                className="text-red-600 hover:underline text-xs"
+              >Delete</button>
+            )}
           </div>
         </div>
       )}
@@ -246,6 +253,8 @@ function InputGroupCard({
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("AV_ORDERS");
+  const canDelete = useCanDelete("AV_ORDERS");
   const [editingGroup, setEditingGroup] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
 
@@ -311,11 +320,15 @@ function InputGroupCard({
             {group.notes && <span className="ml-3 text-xs text-gray-400 dark:text-gray-500">· {group.notes}</span>}
           </div>
           <div className="flex gap-2 shrink-0">
-            <button onClick={() => setEditingGroup(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
-            <button
-              onClick={async () => { if (confirm(`Delete group "${group.name}" and all its inputs?`)) await deleteGroup(group.id); }}
-              className="text-red-600 hover:underline text-xs"
-            >Delete</button>
+            {canWrite && (
+              <button onClick={() => setEditingGroup(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
+            )}
+            {canDelete && (
+              <button
+                onClick={async () => { if (confirm(`Delete group "${group.name}" and all its inputs?`)) await deleteGroup(group.id); }}
+                className="text-red-600 hover:underline text-xs"
+              >Delete</button>
+            )}
           </div>
         </div>
       )}
@@ -391,14 +404,14 @@ function InputGroupCard({
               <button type="button" onClick={() => setShowAddItem(false)} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm">Cancel</button>
             </div>
           </form>
-        ) : (
+        ) : canWrite ? (
           <button
             onClick={() => setShowAddItem(true)}
             className="ml-4 text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
             + Add Input
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -423,6 +436,8 @@ function MonitorOutputRow({
   updateOutput: (id: string, formData: FormData) => Promise<void>;
   deleteOutput: (id: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("AV_ORDERS");
+  const canDelete = useCanDelete("AV_ORDERS");
   const [editing, setEditing] = useState(false);
 
   const effectiveVendorGroups = useMemo(
@@ -491,11 +506,15 @@ function MonitorOutputRow({
             {output.notes && <span className="ml-2 text-gray-400 dark:text-gray-500">· {output.notes}</span>}
           </div>
           <div className="flex gap-2 ml-2 shrink-0">
-            <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
-            <button
-              onClick={async () => { if (confirm("Delete this output?")) await deleteOutput(output.id); }}
-              className="text-red-600 hover:underline text-xs"
-            >Delete</button>
+            {canWrite && (
+              <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
+            )}
+            {canDelete && (
+              <button
+                onClick={async () => { if (confirm("Delete this output?")) await deleteOutput(output.id); }}
+                className="text-red-600 hover:underline text-xs"
+              >Delete</button>
+            )}
           </div>
         </div>
       )}
@@ -528,6 +547,8 @@ function MonitorMixGroupCard({
   updateOutput: (id: string, formData: FormData) => Promise<void>;
   deleteOutput: (id: string) => Promise<void>;
 }) {
+  const canWrite = useCanWrite("AV_ORDERS");
+  const canDelete = useCanDelete("AV_ORDERS");
   const [editingGroup, setEditingGroup] = useState(false);
   const [showAddOutput, setShowAddOutput] = useState(false);
 
@@ -575,12 +596,18 @@ function MonitorMixGroupCard({
             {mix.notes && <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 font-normal">· {mix.notes}</span>}
           </span>
           <div className="flex gap-2 shrink-0">
-            <button onClick={() => setShowAddOutput(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Add Output</button>
-            <button onClick={() => setEditingGroup(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
-            <button
-              onClick={async () => { if (confirm("Delete this mix and all its outputs?")) await deleteMix(mix.id); }}
-              className="text-red-600 hover:underline text-xs"
-            >Delete</button>
+            {canWrite && (
+              <>
+                <button onClick={() => setShowAddOutput(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Add Output</button>
+                <button onClick={() => setEditingGroup(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
+              </>
+            )}
+            {canDelete && (
+              <button
+                onClick={async () => { if (confirm("Delete this mix and all its outputs?")) await deleteMix(mix.id); }}
+                className="text-red-600 hover:underline text-xs"
+              >Delete</button>
+            )}
           </div>
         </div>
       )}
@@ -681,6 +708,8 @@ export function AudioSectionPanel({
   updateMonitorOutput,
   deleteMonitorOutput,
 }: AudioSectionPanelProps) {
+  const canWrite = useCanWrite("AV_ORDERS");
+  const canDelete = useCanDelete("AV_ORDERS");
   const [editingNotes, setEditingNotes] = useState(false);
   const [showAddGroup, setShowAddGroup] = useState(false);
   const [showAddMix, setShowAddMix] = useState(false);
@@ -696,11 +725,11 @@ export function AudioSectionPanel({
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Audio Notes</h2>
-          {!editingNotes && (
+          {!editingNotes && canWrite && (
             <button onClick={() => setEditingNotes(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">Edit</button>
           )}
         </div>
-        {editingNotes ? (
+        {editingNotes && canWrite ? (
           <form action={handleUpdateNotes} className="space-y-3">
             <textarea
               name="notes"
@@ -725,12 +754,14 @@ export function AudioSectionPanel({
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Input List</h2>
-          <button
-            onClick={() => setShowAddGroup(true)}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Add Group
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowAddGroup(true)}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Group
+            </button>
+          )}
         </div>
 
         {showAddGroup && (
@@ -802,12 +833,14 @@ export function AudioSectionPanel({
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Monitor Mixes</h2>
-          <button
-            onClick={() => setShowAddMix(true)}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Add Mix
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowAddMix(true)}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add Mix
+            </button>
+          )}
         </div>
 
         {showAddMix && (

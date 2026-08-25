@@ -121,7 +121,7 @@ export function RoleForm({ role, saveAction, deleteAction }: RoleFormProps) {
 
 function DeleteRoleControls({ deleteAction }: { deleteAction?: () => Promise<void> }) {
   if (!deleteAction) return null;
-  return <DeleteButton action={deleteAction} label="Delete Role" />;
+  return <DeleteButton resource="ROLES" action={deleteAction} label="Delete Role" />;
 }
 
 function PermissionMatrix({

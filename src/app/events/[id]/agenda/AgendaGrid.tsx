@@ -41,6 +41,7 @@ import { DateTabs } from "./DateTabs";
 import { AgendaViewOptions, type AgendaViewSettings } from "./AgendaViewOptions";
 import { DEFAULT_AGENDA_VIEW_SETTINGS, type AgendaRoomPrefs } from "@/lib/userSettings";
 import { saveAgendaRoomPrefs } from "./actions";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type AgendaGridProps = {
   eventId: string;
@@ -212,7 +213,9 @@ function DraggableCard({
   const draggedRef = useRef(false);
   const isSegment = !!entry.originalStartTime;
   const isOffSite = sourceRoomId === "__offsite__";
-  const isDragDisabled = isSegment || entry.isBreakout || isOffSite;
+  // Dragging an entry reschedules it (FUNCTIONS.WRITE), as does resizing.
+  const canWrite = useCanWrite("FUNCTIONS");
+  const isDragDisabled = !canWrite || isSegment || entry.isBreakout || isOffSite;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `${entry.scheduleId}:${sourceRoomId}`,
     data: { entry, sourceRoomId } satisfies DragData,
@@ -223,8 +226,8 @@ function DraggableCard({
     if (isDragging) draggedRef.current = true;
   }, [isDragging]);
 
-  const showTopHandle = !entry.isBreakout && (!isSegment || entry.segmentPosition === "first");
-  const showBottomHandle = !entry.isBreakout && (!isSegment || entry.segmentPosition === "last");
+  const showTopHandle = canWrite && !entry.isBreakout && (!isSegment || entry.segmentPosition === "first");
+  const showBottomHandle = canWrite && !entry.isBreakout && (!isSegment || entry.segmentPosition === "last");
 
   // Sub-slot precision: offset top/bottom when entry doesn't align to slot boundaries
   const slotMs = slotTime.getTime();
@@ -298,10 +301,11 @@ function DroppableCell({
   isEmpty: boolean;
   disabled?: boolean;
 }) {
+  const canWrite = useCanWrite("FUNCTIONS");
   const { setNodeRef, isOver } = useDroppable({
     id: `${roomId}:${slotTime.toISOString()}`,
     data: { roomId, slotTime } satisfies DropData,
-    disabled,
+    disabled: disabled || !canWrite,
   });
 
   const base = "border border-gray-200 dark:border-gray-700 align-top p-0";
@@ -570,9 +574,11 @@ function DraggableUnscheduledCard({
   fn: { id: string; name: string; rooms: { roomId: string; room: { name: string } }[]; schedules: { id: string }[] };
   eventId: string;
 }) {
+  const canWrite = useCanWrite("FUNCTIONS");
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `unscheduled:${fn.id}`,
     data: { unscheduled: true, functionId: fn.id, functionName: fn.name } satisfies DragData,
+    disabled: !canWrite,
   });
 
   const missingInfo = fn.rooms.length === 0 && fn.schedules.length === 0
@@ -585,7 +591,7 @@ function DraggableUnscheduledCard({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
-      className={`px-4 py-3 bg-white dark:bg-gray-900 flex items-center justify-between gap-4 cursor-grab active:cursor-grabbing${isDragging ? " opacity-40" : ""}`}
+      className={`px-4 py-3 bg-white dark:bg-gray-900 flex items-center justify-between gap-4${canWrite ? " cursor-grab active:cursor-grabbing" : ""}${isDragging ? " opacity-40" : ""}`}
       {...listeners}
       {...attributes}
     >

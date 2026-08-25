@@ -219,6 +219,7 @@ export default async function MediaDeliverablePage({
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           <CancelOrDeleteButton
+            resource="MEDIA_DELIVERABLES"
             status={mediaDeliverable.status ?? null}
             substatuses={substatuses}
             cancel={cancelAction}
@@ -285,6 +286,7 @@ export default async function MediaDeliverablePage({
           />
 
           <WorkflowPanel
+            entityType="media_deliverable"
             instances={workflowInstances}
             availableTemplates={availableWorkflowTemplates}
             entityStatus={mediaDeliverable.status ?? null}

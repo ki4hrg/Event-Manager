@@ -7,6 +7,7 @@ import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type AssignedVendor, type AvailableVendor } from "@/app/events/vendors/VendorLinkControl";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type CateringOrderFormProps = {
   cateringOrder?: CateringOrder | null;
@@ -52,21 +53,25 @@ export function CateringOrderForm({
   noCard = false,
 }: CateringOrderFormProps) {
   const isEdit = !!cateringOrder;
+  // Read-only users get the detail view with no way back into edit mode.
+  const canWrite = useCanWrite("CATERING_ORDERS");
   const [editing, setEditing] = useState(false);
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
-  if (isEdit && !editing) {
+  if (isEdit && (!editing || !canWrite)) {
     return (
       <div className={cardClass}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
-          <button
-            onClick={() => setEditing(true)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Edit
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Edit
+            </button>
+          )}
         </div>
         <dl className="space-y-4">
           <ReadOnlyField label="Name" value={cateringOrder.name} />
@@ -75,6 +80,7 @@ export function CateringOrderForm({
           {addVendor && removeVendor && (
             <VendorLinkControl
               mode="edit"
+              resource="CATERING_ORDERS"
               assignedVendors={assignedVendors}
               availableVendors={availableVendors}
               addVendor={addVendor}
@@ -167,6 +173,7 @@ export function CateringOrderForm({
           ) : addVendor && removeVendor ? (
             <VendorLinkControl
               mode="edit"
+              resource="CATERING_ORDERS"
               assignedVendors={assignedVendors}
               availableVendors={availableVendors}
               addVendor={addVendor}

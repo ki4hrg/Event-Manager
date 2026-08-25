@@ -201,6 +201,7 @@ export function SeriesList({
                     )}
                     {canDelete && s.totalEvents === 0 && (
                       <InlineDeleteButton
+                        resource="EVENTS"
                         action={async () => {
                           await handleDelete(s.id);
                         }}

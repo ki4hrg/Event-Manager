@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { CateringOrderLineItem } from "@prisma/client";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type LineItemTableProps = {
   items: CateringOrderLineItem[];
@@ -30,6 +31,8 @@ function formatCurrency(value: unknown): string {
 }
 
 export function LineItemTable({ items, createItem, updateItem, deleteItem }: LineItemTableProps) {
+  const canWrite = useCanWrite("CATERING_ORDERS");
+  const canDelete = useCanDelete("CATERING_ORDERS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -54,12 +57,14 @@ export function LineItemTable({ items, createItem, updateItem, deleteItem }: Lin
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Pricing</h2>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Line Item
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Line Item
+          </button>
+        )}
       </div>
 
       {showAddForm && (
@@ -213,15 +218,19 @@ export function LineItemTable({ items, createItem, updateItem, deleteItem }: Lin
                       </div>
                     </div>
                     <div className="flex gap-2 ml-2 shrink-0">
-                      <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this line item?")) await deleteItem(item.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                      {canWrite && (
+                        <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={async () => {
+                            if (confirm("Delete this line item?")) await deleteItem(item.id);
+                          }}
+                          className="text-red-600 hover:underline text-sm"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

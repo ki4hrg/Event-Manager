@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Toast } from "@/components/Toast";
 import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/DeleteButton";
+import { requirePermission } from "@/lib/permissions";
 import { getEvent, updateEvent, deleteEvent, getEventSeriesOptions } from "../../actions";
 import { EventForm } from "../../EventForm";
 import { getStatusDefaults, clearStatusDefault, saveAllStatusDefaults } from "@/app/events/status-defaults/actions";
@@ -18,6 +19,9 @@ export const metadata: Metadata = { title: "Event settings" };
 
 export default async function EventSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // The page is edit-only end to end — event details, status defaults, delete —
+  // so it gates as a whole rather than hiding three panels individually.
+  await requirePermission("EVENTS", "WRITE", id);
   const [event, venues, series, statusDefaults, substatuses] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ orderBy: { name: "asc" } }),
@@ -95,7 +99,7 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Permanently delete this event and everything associated with it.
           </p>
-          <DeleteButton action={deleteEventAction} label="Delete Event" />
+          <DeleteButton resource="EVENTS" action={deleteEventAction} label="Delete Event" />
         </div>
       </div>
     </>

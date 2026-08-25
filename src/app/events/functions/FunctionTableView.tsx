@@ -17,6 +17,7 @@ import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { getSetupOrderDisplayName } from "../setup-orders/utils";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type SortField = "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 
@@ -91,6 +92,9 @@ export function FunctionTableView({
   deleteFunctions,
   bulkUpdateFunctions,
 }: Props) {
+  const canWrite = useCanWrite("FUNCTIONS");
+  const canDelete = useCanDelete("FUNCTIONS");
+  const canSelect = canWrite || canDelete;
   const router = useRouter();
   const [sortField, setSortField] = useState<SortField>("earliestStart");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -267,24 +271,28 @@ export function FunctionTableView({
 
   return (
     <div className="space-y-2">
-      {selected.size > 0 && (
+      {canSelect && selected.size > 0 && (
         <div className="flex flex-col gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-3">
             <span className="text-sm text-blue-700 dark:text-blue-300">
               {selected.size} selected
             </span>
-            <button
-              onClick={() => setShowBulkEdit((v) => !v)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Bulk edit
-            </button>
-            <button
-              onClick={handleBulkDelete}
-              className="text-sm text-red-600 dark:text-red-400 hover:underline"
-            >
-              Delete selected
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setShowBulkEdit((v) => !v)}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Bulk edit
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={handleBulkDelete}
+                className="text-sm text-red-600 dark:text-red-400 hover:underline"
+              >
+                Delete selected
+              </button>
+            )}
             <button
               onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}
               className="text-sm text-gray-500 dark:text-gray-400 hover:underline ml-auto"
@@ -292,7 +300,7 @@ export function FunctionTableView({
               Clear selection
             </button>
           </div>
-          {showBulkEdit && (
+          {canWrite && showBulkEdit && (
             <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-blue-200 dark:border-blue-700">
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-gray-600 dark:text-gray-400">Status</label>
@@ -354,14 +362,16 @@ export function FunctionTableView({
         <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
           <thead>
             <tr>
-              <th className={`${thBase} w-8`}>
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleSelectAll}
-                  className="rounded"
-                />
-              </th>
+              {canSelect && (
+                <th className={`${thBase} w-8`}>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="rounded"
+                  />
+                </th>
+              )}
               <th className={thSortable} onClick={() => handleSort("name")}>
                 Name{sortIndicator(sortField === "name", sortDir)}
               </th>
@@ -386,7 +396,8 @@ export function FunctionTableView({
               <th className={thBase}>Workflow</th>
             </tr>
             <tr>
-              <td className={filterCell} />
+              {/* Spacer under the select-all column; drops with it. */}
+              {canSelect && <td className={filterCell} />}
               <td className={filterCell}>
                 <input
                   type="text"
@@ -497,14 +508,16 @@ export function FunctionTableView({
                   key={fn.id}
                   className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
                 >
-                  <td className="px-3 py-3 w-8">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleRow(fn.id)}
-                      className="rounded"
-                    />
-                  </td>
+                  {canSelect && (
+                    <td className="px-3 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleRow(fn.id)}
+                        className="rounded"
+                      />
+                    </td>
+                  )}
                   <td className="px-3 py-3 font-medium">
                     <Link
                       href={`/events/${eventId}/functions/${fn.id}`}

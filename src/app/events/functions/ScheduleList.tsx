@@ -7,6 +7,7 @@ import { colorClasses } from "@/lib/colors";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type ScheduleListProps = {
   schedules: FunctionSchedule[];
@@ -86,6 +87,8 @@ export function ScheduleList({
   updateSchedule,
   deleteSchedule,
 }: ScheduleListProps) {
+  const canWrite = useCanWrite("FUNCTIONS");
+  const canDelete = useCanDelete("FUNCTIONS");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [pendingConflict, setPendingConflict] = useState<PendingConflict | null>(null);
@@ -144,12 +147,14 @@ export function ScheduleList({
             Times shown in {tzAbbrev}
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          Add Time Slot
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Add Time Slot
+          </button>
+        )}
       </div>
 
       {scheduleTypes.length === 0 && (
@@ -422,22 +427,26 @@ export function ScheduleList({
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
-                    <button
-                      onClick={() => setEditingId(schedule.id)}
-                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (confirm("Delete this schedule item?")) {
-                          await deleteSchedule(schedule.id);
-                        }
-                      }}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Delete
-                    </button>
+                    {canWrite && (
+                      <button
+                        onClick={() => setEditingId(schedule.id)}
+                        className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={async () => {
+                          if (confirm("Delete this schedule item?")) {
+                            await deleteSchedule(schedule.id);
+                          }
+                        }}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

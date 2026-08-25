@@ -344,6 +344,7 @@ export default async function SupplyOrderPage({
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           <CancelOrDeleteButton
+            resource="SUPPLY_ORDERS"
             status={supplyOrder.status ?? null}
             substatuses={substatuses}
             cancel={cancelAction}
@@ -407,6 +408,7 @@ export default async function SupplyOrderPage({
             />
 
             <WorkflowPanel
+              entityType="supply_order"
               instances={workflowInstances}
               availableTemplates={availableWorkflowTemplates}
               entityStatus={supplyOrder.status ?? null}

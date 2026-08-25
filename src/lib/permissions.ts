@@ -4,6 +4,7 @@ import { PermissionLevel, PermissionScope } from "@prisma/client";
 import type { PermissionResource } from "@prisma/client";
 import { auth } from "./auth";
 import { prisma } from "./prisma";
+import type { PermissionMap } from "./eventPermissions";
 
 export type PermissionAction = Exclude<PermissionLevel, "NONE">;
 
@@ -64,10 +65,14 @@ export function hasGlobalView(
   return !!match && match.level !== "NONE";
 }
 
-async function resolvePermissionForUser(
+// Effective level for one (user, resource, event) triple, before any action is
+// compared against it. Split out from resolvePermissionForUser so callers that
+// need the level itself — the UI's read-only gating, which asks "what can this
+// user do here?" rather than "may they do X?" — don't have to probe with one
+// call per action.
+async function resolveLevelForUser(
   userId: string,
   resource: PermissionResource,
-  action: PermissionAction,
   eventId?: string | null,
 ) {
   const { permissions, assignedEvents } = await loadPermissionsForUser(userId);
@@ -93,6 +98,16 @@ async function resolvePermissionForUser(
     if (cap != null && LEVEL_ORDER[cap] < LEVEL_ORDER[level]) level = cap;
   }
 
+  return { scope, level } as const;
+}
+
+async function resolvePermissionForUser(
+  userId: string,
+  resource: PermissionResource,
+  action: PermissionAction,
+  eventId?: string | null,
+) {
+  const { scope, level } = await resolveLevelForUser(userId, resource, eventId);
   const allowed = LEVEL_ORDER[level] >= LEVEL_ORDER[action];
   return { scope, allowed } as const;
 }
@@ -111,6 +126,25 @@ export async function hasPermission(
     eventId,
   );
   return allowed;
+}
+
+// Effective level for many resources at once, for the signed-in user. The
+// event layout calls this once per request and hands the result to the UI so
+// pages and panels can hide actions the server would refuse. Cheap: every
+// lookup rides the same cache()d loadPermissionsForUser read.
+export async function permissionLevels(
+  resources: PermissionResource[],
+  eventId?: string | null,
+): Promise<PermissionMap> {
+  const session = await auth();
+  if (!session?.user?.id) return {};
+  const entries = await Promise.all(
+    resources.map(
+      async (resource) =>
+        [resource, (await resolveLevelForUser(session.user.id, resource, eventId)).level] as const,
+    ),
+  );
+  return Object.fromEntries(entries);
 }
 
 export async function hasPermissionForUser(

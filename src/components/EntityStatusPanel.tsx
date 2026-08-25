@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import type { EntityStatus } from "@prisma/client";
+import { ENTITY_TYPE_RESOURCE, type WorkflowEntityType } from "@/app/events/workflows/entity-types";
+import { useCanWrite } from "@/components/PermissionsProvider";
 import { STATUS_LABEL, STATUS_CLASS, EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 
 type SubstatusOption = { id: string; label: string; group: string | null };
 
 type Props = {
-  entityType: string;
+  entityType: WorkflowEntityType;
   entityId: string;
   eventId: string;
   status: EntityStatus | null;
@@ -18,12 +20,16 @@ type Props = {
 };
 
 export function EntityStatusPanel({
+  entityType,
   status,
   substatus,
   substatuses,
   setStatus,
   standalone = true,
 }: Props) {
+  // entityType already names the entity, so the resource is derivable rather
+  // than a second prop that could disagree with it.
+  const canWrite = useCanWrite(ENTITY_TYPE_RESOURCE[entityType]);
   const [editing, setEditing] = useState(false);
   const [editStatus, setEditStatus] = useState<EntityStatus | "">(status && status !== "CANCELLED" ? status : "");
   const [editSubstatus, setEditSubstatus] = useState<string>(substatus ?? "");
@@ -121,7 +127,7 @@ export function EntityStatusPanel({
           <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</span>
           {statusBadge}
         </div>
-        {!isCancelled && (
+        {!isCancelled && canWrite && (
           <button
             type="button"
             onClick={handleEditOpen}
@@ -138,7 +144,7 @@ export function EntityStatusPanel({
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Status</h2>
-        {!isCancelled && !editing && (
+        {!isCancelled && !editing && canWrite && (
           <button
             type="button"
             onClick={handleEditOpen}

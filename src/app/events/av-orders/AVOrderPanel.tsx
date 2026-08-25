@@ -31,6 +31,7 @@ export function AVOrderPanel({
 }: AVOrderPanelProps) {
   return (
     <LinkedItemsPanel
+      resource="AV_ORDERS"
       title={title}
       fillHeight={fillHeight}
       items={avOrders.map((o) => ({

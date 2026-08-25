@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
 import { importPresentationsFromCSV, type ColumnMapping } from "../../../presentations/actions";
 import { ImportForm } from "./ImportForm";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,8 @@ export default async function ImportPresentationsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
+  // CSV import is a bulk create; a VIEW-only user should not reach the form.
+  await requirePermission("PRESENTATIONS", "WRITE", eventId);
   const event = await getEvent(eventId);
 
   if (!event) notFound();

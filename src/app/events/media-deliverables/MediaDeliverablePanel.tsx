@@ -41,6 +41,7 @@ export function MediaDeliverablePanel({
 }: MediaDeliverablePanelProps) {
   return (
     <LinkedItemsPanel
+      resource="MEDIA_DELIVERABLES"
       title={title}
       fillHeight={fillHeight}
       items={mediaDeliverables.map((d) => ({

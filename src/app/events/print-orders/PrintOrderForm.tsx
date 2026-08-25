@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { VendorLinkControl, type VendorLinkEditProps } from "@/app/events/vendors/VendorLinkControl";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type PrintOrderData = {
   id: string;
@@ -52,6 +53,8 @@ export function PrintOrderForm({
   noCard = false,
 }: PrintOrderFormProps) {
   const isEdit = !!printOrder;
+  // Read-only users get the detail view with no way back into edit mode.
+  const canWrite = useCanWrite("PRINT_ORDERS");
   const [editing, setEditing] = useState(false);
 
   const roomBuckets = useMemo(() => groupRoomsByGroup(rooms), [rooms]);
@@ -59,24 +62,26 @@ export function PrintOrderForm({
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
-  if (isEdit && !editing) {
+  if (isEdit && (!editing || !canWrite)) {
     return (
       <div className={cardClass}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Print Order Details</h2>
-          <button
-            onClick={() => setEditing(true)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Edit
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Edit
+            </button>
+          )}
         </div>
         <dl className="space-y-4">
           <ReadOnlyField label="Name" value={printOrder.name} />
           <ReadOnlyField label="Staging Room" value={printOrder.room?.name ?? null} />
           <ReadOnlyField label="Specific Location" value={printOrder.specificLocation ?? null} />
           <ReadOnlyField label="Notes" value={printOrder.notes ?? null} />
-          {vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
+          {vendorLink && <VendorLinkControl mode="edit" resource="PRINT_ORDERS" {...vendorLink} />}
         </dl>
       </div>
     );
@@ -167,7 +172,7 @@ export function PrintOrderForm({
             />
           </div>
 
-          {isEdit && vendorLink && <VendorLinkControl mode="edit" {...vendorLink} />}
+          {isEdit && vendorLink && <VendorLinkControl mode="edit" resource="PRINT_ORDERS" {...vendorLink} />}
           {!isEdit && <VendorLinkControl mode="create" availableVendors={availableVendors} />}
         </div>
       </div>

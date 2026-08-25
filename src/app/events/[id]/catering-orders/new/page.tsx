@@ -7,6 +7,7 @@ import { createCateringOrder } from "../../../catering-orders/actions";
 import { getOptions } from "../../../../settings/actions";
 import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
+import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ export default async function NewCateringOrderPage({
   searchParams: Promise<{ functionId?: string }>;
 }) {
   const { id: eventId } = await params;
+  // A VIEW-only user has no business on a create form; gate the page so they
+  // never reach a form whose action would refuse the submit.
+  await requirePermission("CATERING_ORDERS", "WRITE", eventId);
   const { functionId } = await searchParams;
 
   const [event, serviceStyleOptions, responsiblePartyVendors, eventFunctions] = await Promise.all([

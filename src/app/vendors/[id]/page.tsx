@@ -90,7 +90,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
         breadcrumbs={[{ label: "Vendors", href: "/vendors" }, { label: vendor.name }]}
         title={vendor.name}
         meta={<LastUpdated updatedAt={vendor.updatedAt} updatedBy={vendor.updatedBy} />}
-        actions={!vendor.isSystemVendor ? <DeleteButton action={deleteVendorAction} /> : undefined}
+        actions={!vendor.isSystemVendor ? <DeleteButton resource="VENDORS" action={deleteVendorAction} /> : undefined}
       />
       {vendor.models.length > 0 && (
         <div className="flex flex-wrap gap-1 -mt-4 mb-6">

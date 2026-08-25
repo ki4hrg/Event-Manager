@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 type GuestCountsCardProps = {
   expectedCount: number | null;
@@ -30,21 +31,24 @@ export function GuestCountsCard({
   guaranteeCount,
   action,
 }: GuestCountsCardProps) {
+  const canWrite = useCanWrite("CATERING_ORDERS");
   const [editing, setEditing] = useState(false);
 
   const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6";
 
-  if (!editing) {
+  if (!editing || !canWrite) {
     return (
       <div className={cardClass}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Guest Counts</h2>
-          <button
-            onClick={() => setEditing(true)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Edit
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Edit
+            </button>
+          )}
         </div>
         <dl className="grid grid-cols-3 gap-4">
           <ReadOnlyField label="Expected" value={expectedCount != null ? String(expectedCount) : null} />

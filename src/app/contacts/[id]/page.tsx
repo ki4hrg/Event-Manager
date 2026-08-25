@@ -57,7 +57,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         breadcrumbs={[{ label: "Contacts", href: "/contacts" }, { label: `${contact.firstName} ${contact.lastName}` }]}
         title={`${contact.firstName} ${contact.lastName}`}
         meta={<LastUpdated updatedAt={contact.updatedAt} updatedBy={contact.updatedBy} />}
-        actions={<DeleteButton action={deleteContactAction} />}
+        actions={<DeleteButton resource="CONTACTS" action={deleteContactAction} />}
       />
 
       <ContactForm contact={contact} contactRoles={contactRoles} action={updateContactWithId} />

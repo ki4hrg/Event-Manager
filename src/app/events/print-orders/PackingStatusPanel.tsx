@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { PackingStatus } from "@prisma/client";
+import { useCanWrite } from "@/components/PermissionsProvider";
 import {
   PACKING_STATUS_CLASS,
   PACKING_STATUS_LABEL,
@@ -15,6 +16,7 @@ type PackingStatusPanelProps = {
 };
 
 export function PackingStatusPanel({ packingStatus, itemCount, updatePackingStatus }: PackingStatusPanelProps) {
+  const canWrite = useCanWrite("PRINT_ORDERS");
   const [pendingStatus, setPendingStatus] = useState<PackingStatus | "" | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -52,7 +54,7 @@ export function PackingStatusPanel({ packingStatus, itemCount, updatePackingStat
       <div className="flex items-center gap-2">
         <select
           value={packingStatus ?? ""}
-          disabled={isPending || pendingStatus !== null}
+          disabled={isPending || pendingStatus !== null || !canWrite}
           onChange={(e) => onSelect(e.target.value)}
           className={`text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 ${packingStatus ? PACKING_STATUS_CLASS[packingStatus] : ""}`}
         >

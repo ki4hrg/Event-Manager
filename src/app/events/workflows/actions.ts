@@ -4,23 +4,11 @@ import { notFound } from "next/navigation";
 import { requirePermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import type { EntityStatus, PermissionResource } from "@prisma/client";
+import type { EntityStatus } from "@prisma/client";
+import { ENTITY_TYPE_RESOURCE } from "./entity-types";
 import { autoAssignDefaultWorkflowsCore, type WorkflowEntityType as CoreWorkflowEntityType } from "./core";
 
 export type WorkflowEntityType = CoreWorkflowEntityType;
-
-function entityResource(entityType: WorkflowEntityType): PermissionResource {
-  switch (entityType) {
-    case "function": return "FUNCTIONS";
-    case "catering_order": return "CATERING_ORDERS";
-    case "av_order": return "AV_ORDERS";
-    case "print_order": return "PRINT_ORDERS";
-    case "presentation": return "PRESENTATIONS";
-    case "setup_order": return "SETUP_ORDERS";
-    case "supply_order": return "SUPPLY_ORDERS";
-    case "media_deliverable": return "MEDIA_DELIVERABLES";
-  }
-}
 
 // Confirms the entity actually belongs to the claimed event before mutation.
 // Without this, a caller with ASSIGNED scope on event A could pass entityId from
@@ -88,7 +76,7 @@ async function gateWorkflowAction(
   eventId: string,
   action: PermissionAction,
 ) {
-  return requirePermission(entityResource(entityType), action, eventId);
+  return requirePermission(ENTITY_TYPE_RESOURCE[entityType], action, eventId);
 }
 
 function revalidateEntity(entityType: WorkflowEntityType, entityId: string, eventId: string) {

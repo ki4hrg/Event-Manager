@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ENTITY_TYPE_RESOURCE, type WorkflowEntityType } from "@/app/events/workflows/entity-types";
+import { useCanWrite } from "@/components/PermissionsProvider";
 import type {
   WorkflowInstance as PrismaWorkflowInstance,
   WorkflowTemplate,
@@ -31,6 +33,7 @@ type AvailableTemplate = { id: string; name: string };
 type WorkflowPanelProps = {
   instances: InstanceWithData[];
   availableTemplates: AvailableTemplate[];
+  entityType: WorkflowEntityType;
   entityStatus?: EntityStatus | null;
   assignWorkflow: (templateId: string) => Promise<void>;
   removeWorkflow: (instanceId: string) => Promise<void>;
@@ -89,12 +92,14 @@ function isStepComplete(
 function WorkflowInstancePanel({
   instance,
   isCancelled,
+  canWrite,
   removeWorkflow,
   toggleStep,
   toggleItem,
 }: {
   instance: InstanceWithData;
   isCancelled: boolean;
+  canWrite: boolean;
   removeWorkflow: (instanceId: string) => Promise<void>;
   toggleStep: (instanceId: string, stepId: string) => Promise<void>;
   toggleItem: (instanceId: string, itemId: string) => Promise<void>;
@@ -136,16 +141,18 @@ function WorkflowInstancePanel({
             </span>
           )}
         </div>
-        <button
-          onClick={async () => {
-            if (confirm(`Remove workflow "${instance.template.name}" from this item?`)) {
-              await removeWorkflow(instance.id);
-            }
-          }}
-          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 text-xs"
-        >
-          Remove
-        </button>
+        {canWrite && (
+          <button
+            onClick={async () => {
+              if (confirm(`Remove workflow "${instance.template.name}" from this item?`)) {
+                await removeWorkflow(instance.id);
+              }
+            }}
+            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 text-xs"
+          >
+            Remove
+          </button>
+        )}
       </div>
 
       {instance.template.steps.length > 0 && (
@@ -156,7 +163,9 @@ function WorkflowInstancePanel({
             const stepPending = pending === `step:${step.id}`;
             const prevStep = index > 0 ? instance.template.steps[index - 1] : null;
             const prevDone = prevStep ? isStepComplete(prevStep, completedStepIds, completedItemIds) : true;
-            const isLocked = isCancelled || (!stepDone && !prevDone);
+            // Read-only reuses the lock the cancelled state already defines:
+            // checkboxes render as static markers rather than buttons.
+            const isLocked = isCancelled || !canWrite || (!stepDone && !prevDone);
 
             return (
               <div key={step.id} className={isLocked && !stepDone ? "opacity-50" : undefined}>
@@ -284,6 +293,7 @@ function WorkflowInstancePanel({
 export function WorkflowPanel({
   instances,
   availableTemplates,
+  entityType,
   entityStatus,
   assignWorkflow,
   removeWorkflow,
@@ -293,6 +303,7 @@ export function WorkflowPanel({
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const isCancelled = entityStatus === "CANCELLED";
+  const canWrite = useCanWrite(ENTITY_TYPE_RESOURCE[entityType]);
 
   const handleAssign = async () => {
     if (!selectedTemplateId) return;
@@ -312,13 +323,20 @@ export function WorkflowPanel({
             key={instance.id}
             instance={instance}
             isCancelled={isCancelled}
+            canWrite={canWrite}
             removeWorkflow={removeWorkflow}
             toggleStep={toggleStep}
             toggleItem={toggleItem}
           />
         ))}
 
-        {availableTemplates.length > 0 ? (
+        {!canWrite ? (
+          instances.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 pt-1">
+              No workflows assigned.
+            </p>
+          )
+        ) : availableTemplates.length > 0 ? (
           <div className="flex items-center gap-2 pt-1">
             <select
               value={selectedTemplateId}
