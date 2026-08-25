@@ -41,7 +41,7 @@ export default async function SettingsFunctionsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="grid items-start gap-8 lg:grid-cols-2">
       <OptionList
         title="Function Types"
         description="Categories for scheduled functions (e.g., Meal, Breakout, Plenary)"

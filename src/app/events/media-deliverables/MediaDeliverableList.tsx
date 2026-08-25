@@ -207,7 +207,7 @@ export function MediaDeliverableList({
   return (
     <div>
       <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-wrap">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {sorted.length}{sorted.length !== mediaDeliverables.length ? ` of ${mediaDeliverables.length}` : ""} media deliverable{mediaDeliverables.length !== 1 ? "s" : ""}
           </p>

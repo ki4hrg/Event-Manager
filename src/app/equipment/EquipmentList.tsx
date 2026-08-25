@@ -139,7 +139,7 @@ export function EquipmentList({
             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
               {group.label}
             </h3>
-            <div className="space-y-1">
+            <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
               {group.items.map((item) => (
                 <div key={item.id} className="p-2 bg-gray-50 dark:bg-gray-900 rounded">
                   {editingId === item.id ? (

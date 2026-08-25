@@ -21,7 +21,7 @@ export default async function SettingsStatusPage() {
   const optionsByGroup = { PENDING: pending, IN_PROGRESS: inProgress, COMPLETE: complete, CANCELLED: cancelled };
 
   return (
-    <div className="space-y-8">
+    <div className="grid items-start gap-8 lg:grid-cols-2">
       {GROUPS.map(({ group, label, description }) => {
         const createSubstatus = async (formData: FormData) => {
           "use server";

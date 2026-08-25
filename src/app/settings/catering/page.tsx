@@ -19,7 +19,7 @@ export default async function SettingsCateringPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="grid items-start gap-8 lg:grid-cols-2">
       <OptionList
         title="Service Styles"
         description="Catering service styles for Catering Orders (e.g., Plated, Buffet, Stations)"

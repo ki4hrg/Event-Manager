@@ -19,7 +19,7 @@ export default async function SettingsContactsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="grid items-start gap-8 lg:grid-cols-2">
       <OptionList
         title="Contact Roles"
         description="Roles that can be assigned to contacts (e.g., Speaker, Vendor, Staff)"

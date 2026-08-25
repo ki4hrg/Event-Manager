@@ -129,7 +129,7 @@ function EntryContent({
             {entry.breakoutGroupName}
           </div>
         )}
-        <div className={`font-medium ${colors.title} leading-tight line-clamp-2`}>
+        <div className={`font-medium ${colors.title} leading-tight line-clamp-2 break-words`}>
           {entry.functionName}
         </div>
         <div className={`${colors.text} leading-tight mt-0.5 truncate`}>

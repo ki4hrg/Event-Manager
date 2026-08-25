@@ -355,7 +355,7 @@ export function ContactList({
                 </form>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
                     <span className="text-gray-900 dark:text-white font-medium">
                       {item.contact.firstName} {item.contact.lastName}
                     </span>
@@ -370,7 +370,7 @@ export function ContactList({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 ml-2">
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
                     <button
                       onClick={() => setEditingId(item.id)}
                       className="text-blue-600 dark:text-blue-400 hover:underline text-sm"

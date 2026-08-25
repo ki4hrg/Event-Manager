@@ -401,7 +401,7 @@ export function ScheduleList({
                 </>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 flex-wrap min-w-0">
                     <span
                       className={`px-2 py-0.5 text-xs rounded ${
                         colorClasses[resolveOptionColor(schedule.type, scheduleTypes)] || colorClasses.gray
@@ -421,7 +421,7 @@ export function ScheduleList({
                       <span className="text-xs text-gray-500 dark:text-gray-400">Public</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 ml-2">
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
                     <button
                       onClick={() => setEditingId(schedule.id)}
                       className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
