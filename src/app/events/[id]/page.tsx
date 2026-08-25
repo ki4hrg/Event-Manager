@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -15,9 +16,12 @@ import { KeyStaffList } from "../KeyStaffList";
 import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
+import { getDefaultSource } from "@/app/events/import/actions";
+import { hasPermission } from "@/lib/permissions";
 import { EntityOverviewCard } from "./EntityOverviewCard";
 import { LastUpdated } from "@/components/LastUpdated";
 import { formatEventDate } from "@/lib/agendaUtils";
+import { btnPrimary } from "@/lib/buttonStyles";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +52,7 @@ function getCountdown(start: Date, end: Date) {
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, stats, keyStaff] = await Promise.all([
+  const [event, stats, keyStaff, importSource, canWriteEvent] = await Promise.all([
     getEvent(id),
     getEventOverviewStats(id),
     prisma.eventKeyStaff.findMany({
@@ -56,6 +60,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       include: { contact: true },
       orderBy: { sortOrder: "asc" },
     }),
+    getDefaultSource(id),
+    hasPermission("EVENTS", "WRITE", id),
   ]);
 
   if (!event) {
@@ -91,6 +97,13 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     "use server";
     await createContactAndAddKeyStaff(id, formData);
   };
+
+  // "Empty" means nothing has been built yet, so the import offer is useful
+  // rather than noise. Requires at least one visible card: with none, `every`
+  // is vacuously true and someone who simply can't see any entity type would be
+  // told the event is empty and offered an import they can't complete.
+  const isEmpty =
+    stats.entities.length > 0 && stats.entities.every((e) => e.total === 0);
 
   const countdown = getCountdown(event.startDate, event.endDate);
   const dateRange = `${formatEventDate(event.startDate, event.timezone)} – ${formatEventDate(event.endDate, event.timezone)}`;
@@ -143,6 +156,16 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         </div>
 
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
+          {isEmpty && importSource && canWriteEvent && (
+            <div className="sm:col-span-2 bg-white dark:bg-gray-800 shadow rounded-lg p-6 text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Nothing scheduled yet.
+              </p>
+              <Link href={`/events/${id}/import`} className={`${btnPrimary} inline-block mt-3`}>
+                Import from {importSource.name}
+              </Link>
+            </div>
+          )}
           {stats.entities.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400 sm:col-span-2">
               No content available for this event.
