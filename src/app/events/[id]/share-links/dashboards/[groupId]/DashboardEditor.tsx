@@ -43,6 +43,7 @@ const REPORT_PATHS: Record<string, string> = {
   FUNCTION_DETAIL: "function-detail",
   BREAKOUT_GRID: "breakout-grid",
   BREAKOUT_ASSIGNMENTS: "breakout-assignments",
+  PACKING_LIST: "packing-list",
 };
 
 function toDateInput(iso: string | null): string {

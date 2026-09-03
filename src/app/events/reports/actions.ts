@@ -2,7 +2,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import type { ModelType } from "@/app/vendors/actions";
+import { buildPackingItems, type PackableItem } from "@/lib/packingItems";
+import { ACQUISITION_OPTIONS, PACKING_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { compareRoomsByGroup } from "@/lib/roomGroups";
@@ -1672,3 +1675,289 @@ export async function getEventScheduleData(
 
 export type EventScheduleData = NonNullable<Awaited<ReturnType<typeof getEventScheduleData>>>;
 export type EventScheduleItem = EventScheduleData["items"][number];
+
+// ── Packing List report ───────────────────────────────────────────────────────
+//
+// Destination-centric counterpart to the interactive packing list at
+// /events/[id]/packing. Both read the same lines through
+// `buildPackingItems` (@/lib/packingItems) so they can never disagree about
+// what is on the event; this one is read-only, filterable, printable and
+// shareable. Auth-free like every action in this file.
+
+// Absence sentinel, shared verbatim with the report's URL params and filter
+// chips (§ Order list § Absence sentinels). Not exported: a "use server" module
+// may only export async functions.
+const BLANK = "__blank__";
+
+export type PackingListFilters = {
+  /** Room ids; `__blank__` selects orders with no room. */
+  rooms?: string[];
+  packingStatuses?: string[];
+  acquisitionStates?: string[];
+  /** Provider labels; `__blank__` selects items with no provider. */
+  providers?: string[];
+  /** Drops IN_TRANSIT and DELIVERED rows — the "what's still open" view. */
+  hidePacked?: boolean;
+};
+
+export type PackingListOrderBlock = {
+  anchorId: string;
+  kind: "SUPPLY" | "PRINT";
+  orderId: string;
+  orderName: string;
+  orderHref: string;
+  provider: string | null;
+  specificLocation: string | null;
+  functionNames: string[];
+  presentationNames: string[];
+  items: PackableItem[];
+};
+
+export type PackingListRoomSection = {
+  anchorId: string;
+  roomId: string | null;
+  roomName: string;
+  venueName: string | null;
+  orders: PackingListOrderBlock[];
+  itemCount: number;
+};
+
+export type PackingProcurementRow = {
+  item: PackableItem;
+  roomName: string | null;
+  orderName: string;
+};
+
+export type PackingProcurementGroup = {
+  anchorId: string;
+  provider: string | null;
+  rows: PackingProcurementRow[];
+};
+
+export type PackingListSummary = {
+  orderCount: number;
+  itemCount: number;
+  byPackingStatus: Record<PackingStatus, number>;
+  byAcquisitionState: Record<AcquisitionState, number>;
+  toProcureCount: number;
+};
+
+export type PackingRoomOption = {
+  value: string;
+  label: string;
+  groupName: string | null;
+  groupSortOrder: number;
+};
+
+const UNASSIGNED_ROOM_LABEL = "No room assigned";
+const NO_PROVIDER_LABEL = "No provider";
+
+const VALID_PACKING_STATUS = new Set<string>(PACKING_STATUS_OPTIONS.map((o) => o.value));
+const VALID_ACQUISITION_STATE = new Set<string>(ACQUISITION_OPTIONS.map((o) => o.value));
+
+function enumFilterSet(values: string[] | undefined, valid: Set<string>): Set<string> | null {
+  if (!values || values.length === 0) return null;
+  const kept = values.filter((v) => valid.has(v));
+  return kept.length > 0 ? new Set(kept) : null;
+}
+
+function compareRoomSections(a: PackingListRoomSection, b: PackingListRoomSection): number {
+  // Unassigned always sinks to the bottom — it's a residual bucket, not a room.
+  if (a.roomId === null) return b.roomId === null ? 0 : 1;
+  if (b.roomId === null) return -1;
+  const av = a.venueName ?? "";
+  const bv = b.venueName ?? "";
+  if (av !== bv) return av.localeCompare(bv);
+  return a.roomName.localeCompare(b.roomName);
+}
+
+export async function getPackingListData(
+  eventId: string,
+  opts: PackingListFilters = {}
+) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true },
+  });
+  if (!event) return null;
+
+  const { items: allItems } = await buildPackingItems(eventId, {
+    includeDestinations: true,
+  });
+
+  // Options come off the unfiltered set so a chip never disappears because it
+  // is currently deselected.
+  const roomOptionMap = new Map<string, PackingRoomOption>();
+  let hasUnassignedRoom = false;
+  const providerLabels = new Set<string>();
+  let hasBlankProvider = false;
+  for (const item of allItems) {
+    if (item.roomId) {
+      if (!roomOptionMap.has(item.roomId)) {
+        roomOptionMap.set(item.roomId, {
+          value: item.roomId,
+          label: item.venueName ? `${item.roomName} · ${item.venueName}` : (item.roomName ?? ""),
+          groupName: item.roomGroupName,
+          groupSortOrder: item.roomGroupSortOrder ?? Number.MAX_SAFE_INTEGER,
+        });
+      }
+    } else {
+      hasUnassignedRoom = true;
+    }
+    if (item.provider) providerLabels.add(item.provider);
+    else hasBlankProvider = true;
+  }
+
+  const roomOptions: PackingRoomOption[] = Array.from(roomOptionMap.values()).sort((a, b) => {
+    if (a.groupSortOrder !== b.groupSortOrder) return a.groupSortOrder - b.groupSortOrder;
+    const ag = a.groupName ?? "";
+    const bg = b.groupName ?? "";
+    if (ag !== bg) return ag.localeCompare(bg);
+    return a.label.localeCompare(b.label);
+  });
+  if (hasUnassignedRoom) {
+    roomOptions.push({
+      value: BLANK,
+      label: UNASSIGNED_ROOM_LABEL,
+      groupName: null,
+      groupSortOrder: Number.MAX_SAFE_INTEGER,
+    });
+  }
+
+  const providerOptions = Array.from(providerLabels)
+    .sort((a, b) => a.localeCompare(b))
+    .map((label) => ({ value: label, label }));
+  if (hasBlankProvider) {
+    providerOptions.push({ value: BLANK, label: NO_PROVIDER_LABEL });
+  }
+
+  const roomFilter = opts.rooms && opts.rooms.length > 0 ? new Set(opts.rooms) : null;
+  // The two enum-backed filters drop values that aren't real enum members, so a
+  // hand-edited `?packing=banana` reads as "no filter" instead of silently
+  // emptying the report and looking like a backend bug.
+  const statusFilter = enumFilterSet(opts.packingStatuses, VALID_PACKING_STATUS);
+  const acquisitionFilter = enumFilterSet(opts.acquisitionStates, VALID_ACQUISITION_STATE);
+  const providerFilter =
+    opts.providers && opts.providers.length > 0 ? new Set(opts.providers) : null;
+  const hidePacked = opts.hidePacked === true;
+
+  const items = allItems.filter((item) => {
+    if (roomFilter && !roomFilter.has(item.roomId ?? BLANK)) return false;
+    if (statusFilter && !statusFilter.has(item.packingStatus)) return false;
+    if (acquisitionFilter && !acquisitionFilter.has(item.acquisitionState)) return false;
+    if (providerFilter && !providerFilter.has(item.provider ?? BLANK)) return false;
+    if (hidePacked && item.packingStatus !== "NEEDED") return false;
+    return true;
+  });
+
+  // Room → order → items. Insertion order preserves the item query's
+  // sortOrder, so an order's lines read the way they do on its detail page.
+  const sections = new Map<string, PackingListRoomSection>();
+  const orderBlocks = new Map<string, PackingListOrderBlock>();
+
+  for (const item of items) {
+    const roomKey = item.roomId ?? BLANK;
+    let section = sections.get(roomKey);
+    if (!section) {
+      section = {
+        anchorId: item.roomId ? `room-${item.roomId}` : "room-unassigned",
+        roomId: item.roomId,
+        roomName: item.roomName ?? UNASSIGNED_ROOM_LABEL,
+        venueName: item.venueName,
+        orders: [],
+        itemCount: 0,
+      };
+      sections.set(roomKey, section);
+    }
+
+    const orderKey = `${roomKey}|${item.kind}|${item.parentOrderId}`;
+    let block = orderBlocks.get(orderKey);
+    if (!block) {
+      block = {
+        anchorId: `${item.kind === "SUPPLY" ? "supply" : "print"}-order-${item.parentOrderId}`,
+        kind: item.kind,
+        orderId: item.parentOrderId,
+        orderName: item.parentOrderName,
+        orderHref: item.parentOrderHref,
+        provider: item.orderProvider,
+        specificLocation: item.orderSpecificLocation,
+        functionNames: item.functionNames,
+        presentationNames: item.presentationNames,
+        items: [],
+      };
+      orderBlocks.set(orderKey, block);
+      section.orders.push(block);
+    }
+    block.items.push(item);
+    section.itemCount += 1;
+  }
+
+  const roomSections = Array.from(sections.values()).sort(compareRoomSections);
+  for (const section of roomSections) {
+    section.orders.sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === "SUPPLY" ? -1 : 1;
+      return a.orderName.localeCompare(b.orderName);
+    });
+  }
+
+  // Procurement rollup: the shopping list. Grouped by the item's effective
+  // provider so a buyer can work one supplier at a time.
+  const procurementMap = new Map<string, PackingProcurementRow[]>();
+  for (const item of items) {
+    if (item.acquisitionState !== "TO_PROCURE") continue;
+    const key = item.provider ?? BLANK;
+    const rows = procurementMap.get(key) ?? [];
+    rows.push({
+      item,
+      roomName: item.roomName,
+      orderName: item.parentOrderName,
+    });
+    procurementMap.set(key, rows);
+  }
+  const procurement: PackingProcurementGroup[] = Array.from(procurementMap.entries())
+    .sort(([a], [b]) => {
+      if (a === BLANK) return b === BLANK ? 0 : 1;
+      if (b === BLANK) return -1;
+      return a.localeCompare(b);
+    })
+    // Provider labels are free text, so the anchor is positional rather than
+    // derived from the name — kebab-case and unique on the page.
+    .map(([key, rows], i) => ({
+      anchorId: `procurement-group-${i}`,
+      provider: key === BLANK ? null : key,
+      rows,
+    }));
+
+  const byPackingStatus: Record<PackingStatus, number> = {
+    NEEDED: 0,
+    IN_TRANSIT: 0,
+    DELIVERED: 0,
+  };
+  const byAcquisitionState: Record<AcquisitionState, number> = {
+    ON_HAND: 0,
+    TO_PROCURE: 0,
+    DROP_SHIP: 0,
+  };
+  for (const item of items) {
+    byPackingStatus[item.packingStatus] += 1;
+    byAcquisitionState[item.acquisitionState] += 1;
+  }
+
+  const summary: PackingListSummary = {
+    orderCount: new Set(items.map((i) => `${i.kind}:${i.parentOrderId}`)).size,
+    itemCount: items.length,
+    byPackingStatus,
+    byAcquisitionState,
+    toProcureCount: byAcquisitionState.TO_PROCURE,
+  };
+
+  return {
+    summary,
+    roomSections,
+    procurement,
+    roomOptions,
+    providerOptions,
+  };
+}
+
+export type PackingListData = NonNullable<Awaited<ReturnType<typeof getPackingListData>>>;

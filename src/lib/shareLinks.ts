@@ -14,6 +14,11 @@ export type ShareLinkFilters = {
   breakoutGroupIds?: string[];
   includeNonPublic?: boolean;
   compact?: boolean;
+  packingStatuses?: string[];
+  acquisitionStates?: string[];
+  /** Provider labels (vendor or contact name); `__blank__` means "no provider". */
+  providers?: string[];
+  hidePacked?: boolean;
 };
 
 export const SHARE_REPORT_LABELS: Record<string, string> = {
@@ -25,6 +30,7 @@ export const SHARE_REPORT_LABELS: Record<string, string> = {
   FUNCTION_DETAIL: "Function Detail",
   BREAKOUT_GRID: "Breakout Grid",
   BREAKOUT_ASSIGNMENTS: "Breakout Assignments",
+  PACKING_LIST: "Packing List",
 };
 
 export function generateShareToken(): string {
