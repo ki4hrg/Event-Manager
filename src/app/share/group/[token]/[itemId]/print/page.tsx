@@ -12,6 +12,7 @@ import {
   getRoomScheduleData,
   getFunctionDetailData,
   getBreakoutScheduleData,
+  getPackingListData,
 } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
@@ -29,6 +30,7 @@ import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/Room
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridPrintView } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridPrintView";
 import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
+import { PackingListReport } from "@/app/events/[id]/reports/packing-list/PackingListReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 
 export const dynamic = "force-dynamic";
@@ -411,6 +413,57 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         <div className="p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <BreakoutAssignmentsReport data={data} />
+        </div>
+      );
+    }
+    case "PACKING_LIST": {
+      const roomsParam = getString(sp.rooms);
+      const packingParam = getString(sp.packing);
+      const acquisitionParam = getString(sp.acquisition);
+      const providersParam = getString(sp.providers);
+      const rooms = item.filtersLocked
+        ? stored.rooms
+        : roomsParam
+          ? roomsParam.split(",").filter(Boolean)
+          : stored.rooms;
+      const packingStatuses = item.filtersLocked
+        ? stored.packingStatuses
+        : packingParam
+          ? packingParam.split(",").filter(Boolean)
+          : stored.packingStatuses;
+      const acquisitionStates = item.filtersLocked
+        ? stored.acquisitionStates
+        : acquisitionParam
+          ? acquisitionParam.split(",").filter(Boolean)
+          : stored.acquisitionStates;
+      const providers = item.filtersLocked
+        ? stored.providers
+        : providersParam
+          ? providersParam.split(",").filter(Boolean)
+          : stored.providers;
+      const hidePacked = resolveSharedBoolean(
+        item.filtersLocked,
+        getString(sp.hidePacked),
+        stored.hidePacked
+      );
+
+      const [event, data] = await Promise.all([
+        getEvent(eventId).then(stripUpdatedBy),
+        getPackingListData(eventId, {
+          rooms,
+          packingStatuses,
+          acquisitionStates,
+          providers,
+          hidePacked,
+        }).then(stripUpdatedBy),
+      ]);
+
+      if (!event || !data) notFound();
+
+      return (
+        <div className="p-6 max-w-5xl mx-auto">
+          <PrintHeader eventName={eventName} title={title} backHref={backHref} />
+          <PackingListReport data={data} />
         </div>
       );
     }

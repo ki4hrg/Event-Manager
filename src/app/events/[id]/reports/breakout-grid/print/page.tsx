@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/actions";
 import { getBreakoutScheduleData } from "@/app/events/reports/actions";
+import { PrintHeader } from "@/components/print/PrintHeader";
 import { BreakoutGridPrintView } from "../BreakoutGridPrintView";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,11 @@ export default async function BreakoutGridPrintPage({
 
   const selectedGroupIds = parseListParam(groupsParam);
 
+  const qs = new URLSearchParams({
+    ...(groupsParam ? { groups: groupsParam } : {}),
+  }).toString();
+  const backHref = `/events/${eventId}/reports/breakout-grid${qs ? `?${qs}` : ""}`;
+
   const [event, data] = await Promise.all([
     getEvent(eventId),
     getBreakoutScheduleData(eventId, {
@@ -33,5 +39,12 @@ export default async function BreakoutGridPrintPage({
 
   if (!event || !data) notFound();
 
-  return <BreakoutGridPrintView data={data} eventName={event.name} />;
+  return (
+    <>
+      <div className="p-6 print:hidden">
+        <PrintHeader eventName={event.name} title="Breakout Grid" backHref={backHref} />
+      </div>
+      <BreakoutGridPrintView data={data} eventName={event.name} />
+    </>
+  );
 }

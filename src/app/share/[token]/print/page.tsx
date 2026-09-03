@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import React from "react";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
-import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData } from "@/app/events/reports/actions";
+import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData, getPackingListData } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
@@ -15,6 +15,7 @@ import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/Room
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridPrintView } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridPrintView";
 import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
+import { PackingListReport } from "@/app/events/[id]/reports/packing-list/PackingListReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 
@@ -29,6 +30,7 @@ const REPORT_TITLES: Record<string, string> = {
   FUNCTION_DETAIL: "Function detail",
   BREAKOUT_GRID: "Breakout grid",
   BREAKOUT_ASSIGNMENTS: "Breakout assignments",
+  PACKING_LIST: "Packing list",
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -429,6 +431,54 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
           backHref={backHref}
         />
         <BreakoutAssignmentsReport data={data} />
+      </div>
+    );
+  }
+
+  if (link.reportType === "PACKING_LIST") {
+    const roomsParam = getString(sp.rooms);
+    const packingParam = getString(sp.packing);
+    const acquisitionParam = getString(sp.acquisition);
+    const providersParam = getString(sp.providers);
+    const rooms = link.filtersLocked
+      ? storedFilters.rooms
+      : roomsParam
+        ? roomsParam.split(",").filter(Boolean)
+        : storedFilters.rooms;
+    const packingStatuses = link.filtersLocked
+      ? storedFilters.packingStatuses
+      : packingParam
+        ? packingParam.split(",").filter(Boolean)
+        : storedFilters.packingStatuses;
+    const acquisitionStates = link.filtersLocked
+      ? storedFilters.acquisitionStates
+      : acquisitionParam
+        ? acquisitionParam.split(",").filter(Boolean)
+        : storedFilters.acquisitionStates;
+    const providers = link.filtersLocked
+      ? storedFilters.providers
+      : providersParam
+        ? providersParam.split(",").filter(Boolean)
+        : storedFilters.providers;
+    const hidePacked = resolveSharedBoolean(
+      link.filtersLocked,
+      getString(sp.hidePacked),
+      storedFilters.hidePacked
+    );
+
+    const data = stripUpdatedBy(await getPackingListData(link.eventId, {
+      rooms,
+      packingStatuses,
+      acquisitionStates,
+      providers,
+      hidePacked,
+    }));
+    if (!data) notFound();
+
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <PrintHeader eventName={link.event.name} title="Packing List" backHref={backHref} />
+        <PackingListReport data={data} />
       </div>
     );
   }

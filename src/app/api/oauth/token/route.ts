@@ -13,8 +13,15 @@ import {
 
 type IssuedUser = { id: string };
 
+// RFC 6749 §5.1/§5.2: token endpoint responses — successes and errors alike —
+// must not be cached, since they carry (or deny) bearer credentials.
+const NO_STORE = { "Cache-Control": "no-store", Pragma: "no-cache" };
+
 function oauthError(error: string, description: string, status = 400) {
-  return Response.json({ error, error_description: description }, { status });
+  return Response.json(
+    { error, error_description: description },
+    { status, headers: NO_STORE },
+  );
 }
 
 // Issue a fresh access + refresh token pair. When `familyId` is omitted the new
@@ -52,13 +59,16 @@ function tokenResponse(
   refreshToken: string,
   scope: string | null,
 ) {
-  return Response.json({
-    access_token: accessToken,
-    token_type: "Bearer",
-    expires_in: ACCESS_TOKEN_TTL_SECONDS,
-    refresh_token: refreshToken,
-    scope: scope || "",
-  });
+  return Response.json(
+    {
+      access_token: accessToken,
+      token_type: "Bearer",
+      expires_in: ACCESS_TOKEN_TTL_SECONDS,
+      refresh_token: refreshToken,
+      scope: scope || "",
+    },
+    { headers: NO_STORE },
+  );
 }
 
 async function handleAuthorizationCode(params: URLSearchParams) {

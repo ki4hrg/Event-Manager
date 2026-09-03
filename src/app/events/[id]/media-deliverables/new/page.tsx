@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getEvent } from "../../../actions";
-import { createMediaDeliverable } from "../../../media-deliverables/actions";
+import { createMediaDeliverable, getMediaDeliverableProviderPool } from "../../../media-deliverables/actions";
 import { MediaDeliverableForm } from "../../../media-deliverables/MediaDeliverableForm";
 import { getResponsibleParties } from "@/lib/responsibleParties";
 import { getOptions } from "@/app/settings/actions";
@@ -26,6 +26,7 @@ export default async function NewMediaDeliverablePage({
   // never reach a form whose action would refuse the submit.
   await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   const { functionId, presentationId } = await searchParams;
+  const isFromSource = !!(functionId || presentationId);
 
   const [event, pool, mediaTypeOptions, deliveryOptions, sourceData] = await Promise.all([
     getEvent(eventId),
@@ -46,14 +47,26 @@ export default async function NewMediaDeliverablePage({
 
   if (!event) notFound();
 
+  // Arriving from a specific Function/Presentation locks that one link; a
+  // plain "New" navigation instead offers pickers for all of the event's
+  // functions/presentations so the provider suggestions can be seeded here.
+  const [eventFunctions, eventPresentations] = isFromSource
+    ? [[], []]
+    : await Promise.all([
+        prisma.function.findMany({ where: { eventId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+        prisma.presentation.findMany({
+          where: { eventId },
+          select: { id: true, title: true },
+          orderBy: { title: "asc" },
+        }),
+      ]);
+
   const cancelPath = getSourceCancelPath(eventId, functionId, presentationId, `/events/${eventId}/media-deliverables`);
   const backLabel = getSourceBackLabel(functionId, presentationId, "Back to Media Deliverables");
   const defaultName = extractSourceName(sourceData);
 
   const createAction = async (formData: FormData) => {
     "use server";
-    if (functionId) formData.set("functionId", functionId);
-    if (presentationId) formData.set("presentationId", presentationId);
     await createMediaDeliverable(eventId, formData);
   };
 
@@ -74,6 +87,11 @@ export default async function NewMediaDeliverablePage({
         pool={pool}
         mediaTypeOptions={mediaTypeOptions}
         deliveryOptions={deliveryOptions}
+        availableFunctions={eventFunctions.map((f) => ({ id: f.id, label: f.name }))}
+        availablePresentations={eventPresentations.map((p) => ({ id: p.id, label: p.title }))}
+        lockedFunctionId={functionId}
+        lockedPresentationId={presentationId}
+        getProviderPool={getMediaDeliverableProviderPool}
       />
     </>
   );

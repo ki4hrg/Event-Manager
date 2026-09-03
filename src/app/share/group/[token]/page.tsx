@@ -18,6 +18,7 @@ import {
   getFunctionPickerOptions,
   getBreakoutScheduleData,
   getBreakoutGroupOptions,
+  getPackingListData,
 } from "@/app/events/reports/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
@@ -34,6 +35,12 @@ import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/Room
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
 import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
+import { PackingListReport } from "@/app/events/[id]/reports/packing-list/PackingListReport";
+import { ReportFilters as PlReportFilters } from "@/app/events/[id]/reports/packing-list/ReportFilters";
+import {
+  VALID_ACQUISITION_STATES,
+  VALID_PACKING_STATUSES,
+} from "@/app/events/[id]/reports/packing-list/params";
 import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equipment-responsibility/ReportFilters";
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
@@ -607,6 +614,102 @@ async function renderItem(
             ) : (
               <BreakoutAssignmentsReport data={data} />
             )}
+          </>
+        ),
+      };
+    }
+    case "PACKING_LIST": {
+      let effectiveRoomIds: string[] | undefined;
+      let effectivePackingStatuses: string[] | undefined;
+      let effectiveAcquisitionStates: string[] | undefined;
+      let effectiveProviders: string[] | undefined;
+      if (item.filtersLocked) {
+        effectiveRoomIds = stored.rooms;
+        effectivePackingStatuses = stored.packingStatuses;
+        effectiveAcquisitionStates = stored.acquisitionStates;
+        effectiveProviders = stored.providers;
+      } else {
+        const roomsParam = getString(sp[`${prefix}rooms`]);
+        const packingParam = getString(sp[`${prefix}packing`]);
+        const acquisitionParam = getString(sp[`${prefix}acquisition`]);
+        const providersParam = getString(sp[`${prefix}providers`]);
+        effectiveRoomIds = roomsParam ? roomsParam.split(",").filter(Boolean) : stored.rooms;
+        effectivePackingStatuses = packingParam
+          ? packingParam.split(",").filter(Boolean)
+          : stored.packingStatuses;
+        effectiveAcquisitionStates = acquisitionParam
+          ? acquisitionParam.split(",").filter(Boolean)
+          : stored.acquisitionStates;
+        effectiveProviders = providersParam
+          ? providersParam.split(",").filter(Boolean)
+          : stored.providers;
+      }
+      const effectiveHidePacked = resolveSharedBoolean(
+        item.filtersLocked,
+        getString(sp[`${prefix}hidePacked`]),
+        stored.hidePacked
+      );
+
+      const data = stripUpdatedBy(await getPackingListData(eventId, {
+        rooms: effectiveRoomIds,
+        packingStatuses: effectivePackingStatuses,
+        acquisitionStates: effectiveAcquisitionStates,
+        providers: effectiveProviders,
+        hidePacked: effectiveHidePacked,
+      }));
+
+      if (!data) notFound();
+
+      if (!item.filtersLocked) {
+        effectiveRoomIds = intersect(
+          effectiveRoomIds,
+          new Set(data.roomOptions.map((r) => r.value))
+        );
+        effectivePackingStatuses = intersect(effectivePackingStatuses, VALID_PACKING_STATUSES);
+        effectiveAcquisitionStates = intersect(
+          effectiveAcquisitionStates,
+          VALID_ACQUISITION_STATES
+        );
+        effectiveProviders = intersect(
+          effectiveProviders,
+          new Set(data.providerOptions.map((p) => p.value))
+        );
+      }
+
+      const printParams = new URLSearchParams();
+      if (effectiveRoomIds?.length) printParams.set("rooms", effectiveRoomIds.join(","));
+      if (effectivePackingStatuses?.length) {
+        printParams.set("packing", effectivePackingStatuses.join(","));
+      }
+      if (effectiveAcquisitionStates?.length) {
+        printParams.set("acquisition", effectiveAcquisitionStates.join(","));
+      }
+      if (effectiveProviders?.length) printParams.set("providers", effectiveProviders.join(","));
+      if (effectiveHidePacked) printParams.set("hidePacked", "true");
+      const printHref = printParams.size > 0 ? `${printBase}?${printParams}` : printBase;
+
+      return {
+        id: item.id,
+        title,
+        printHref,
+        body: (
+          <>
+            {!item.filtersLocked && (
+              <PlReportFilters
+                eventId={eventId}
+                rooms={data.roomOptions}
+                providers={data.providerOptions}
+                selectedRoomIds={effectiveRoomIds ?? []}
+                selectedPackingStatuses={effectivePackingStatuses ?? []}
+                selectedAcquisitionStates={effectiveAcquisitionStates ?? []}
+                selectedProviders={effectiveProviders ?? []}
+                hidePacked={effectiveHidePacked}
+                basePath={sharePath}
+                paramPrefix={prefix}
+                hidePrint
+              />
+            )}
+            <PackingListReport data={data} />
           </>
         ),
       };

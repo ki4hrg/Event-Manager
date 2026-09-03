@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect, notFound } from "next/navigation";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
+import { defaultScheduleType } from "@/lib/scheduleTypes";
 
 async function assertBreakoutGroupInEvent(groupId: string, eventId: string) {
   const found = await prisma.breakoutGroup.findUnique({ where: { id: groupId, eventId }, select: { id: true } });
@@ -267,7 +268,7 @@ export async function createSessionInGroup(
   await prisma.functionSchedule.create({
     data: {
       functionId: fn.id,
-      type: "SESSION",
+      type: await defaultScheduleType(),
       startTime: parseDateTimeInTimezone(startTime, timezone),
       endTime: parseDateTimeInTimezone(endTime, timezone),
       sortOrder: 0,

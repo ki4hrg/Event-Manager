@@ -320,8 +320,6 @@ export default async function FunctionPage({
           </a>
           <a
             href={`/events/${eventId}/functions/${functionId}/print`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Print
@@ -396,6 +394,8 @@ export default async function FunctionPage({
             scheduleTypes={scheduleTypes}
             functionId={functionId}
             timezone={event.timezone}
+            eventStartDate={event.startDate}
+            eventEndDate={event.endDate}
             createSchedule={createScheduleAction}
             updateSchedule={updateScheduleAction}
             deleteSchedule={deleteScheduleAction}

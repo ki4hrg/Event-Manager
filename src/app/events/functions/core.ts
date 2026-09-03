@@ -10,6 +10,7 @@ import {
 } from "@/lib/permissions";
 import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
+import { defaultScheduleType } from "@/lib/scheduleTypes";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
@@ -83,7 +84,7 @@ export async function createFunctionCore(
     await prisma.functionSchedule.create({
       data: {
         functionId: fn.id,
-        type: "SESSION",
+        type: await defaultScheduleType(),
         startTime: parseDateTimeInTimezone(args.startTime, timezone),
         endTime: parseDateTimeInTimezone(args.endTime, timezone),
         sortOrder: 0,
@@ -454,7 +455,7 @@ export async function scheduleUnscheduledFunctionCore(
   await prisma.functionSchedule.create({
     data: {
       functionId,
-      type: "MAIN",
+      type: await defaultScheduleType(),
       startTime: start,
       endTime: end,
       sortOrder: 0,

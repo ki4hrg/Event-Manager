@@ -51,21 +51,25 @@ export function SetupInstructions({ mcpUrl }: Props) {
           </p>
           <p className="mb-2">
             In Claude, add a <strong>custom connector</strong> and paste the MCP
-            endpoint URL above. Claude opens an Event Manager sign-in page — log
-            in with your normal <strong>email and password</strong>. No API key
-            needed; the connector authenticates over OAuth and inherits your role
-            and event assignments automatically.
+            endpoint URL above. Claude sends you to Event Manager: sign in the
+            same way you always do (or skip straight past it if you&apos;re
+            already signed in), then review the approval screen and choose{" "}
+            <strong>Allow access</strong>. No API key needed.
+          </p>
+          <p className="mb-2">
+            The connector acts as you — same role, same event assignments — and
+            never gets more than that. Permissions are re-checked on every
+            request, so a change to your access takes effect immediately.
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            This is the only option that works on Claude mobile. The API keys
-            below are for local stdio clients (Claude Desktop) that can&apos;t do
-            the OAuth browser flow.
+            Start here. The API keys below exist for non-Claude and local stdio
+            clients that can&apos;t run the OAuth browser flow.
           </p>
         </section>
 
         <section>
           <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-2">
-            Claude Desktop (API key)
+            Claude Desktop and other stdio clients (API key)
           </p>
           <p className="mb-2">
             Edit <code>claude_desktop_config.json</code>. The config key
@@ -129,11 +133,12 @@ export function SetupInstructions({ mcpUrl }: Props) {
             Which method should I use?
           </p>
           <p>
-            Use the <strong>custom connector (OAuth)</strong> for Claude mobile
-            and claude.ai — it&apos;s the only path that works there, and
-            needs no API key. Use an <strong>API key</strong> with the local
-            config above for Claude Desktop and other stdio clients that can&apos;t
-            run the OAuth browser flow.
+            Use the <strong>custom connector (OAuth)</strong> whenever you can —
+            it&apos;s the only path that works on Claude mobile and claude.ai, it
+            needs no API key, and there&apos;s no long-lived secret to paste into
+            a config file or leak. Fall back to an <strong>API key</strong> with
+            the local config above only for clients that can&apos;t run the OAuth
+            browser flow.
           </p>
         </section>
       </div>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
-import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions, getBreakoutScheduleData, getBreakoutGroupOptions } from "@/app/events/reports/actions";
+import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions, getBreakoutScheduleData, getBreakoutGroupOptions, getPackingListData } from "@/app/events/reports/actions";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
@@ -14,6 +14,12 @@ import { RoomScheduleReport } from "@/app/events/[id]/reports/room-schedule/Room
 import { FunctionDetailReport } from "@/app/events/[id]/reports/function-detail/FunctionDetailReport";
 import { BreakoutGridReport } from "@/app/events/[id]/reports/breakout-grid/BreakoutGridReport";
 import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-assignments/BreakoutAssignmentsReport";
+import { PackingListReport } from "@/app/events/[id]/reports/packing-list/PackingListReport";
+import { ReportFilters as PlReportFilters } from "@/app/events/[id]/reports/packing-list/ReportFilters";
+import {
+  VALID_ACQUISITION_STATES,
+  VALID_PACKING_STATUSES,
+} from "@/app/events/[id]/reports/packing-list/params";
 import { ReportFilters as EqReportFilters } from "@/app/events/[id]/reports/equipment-responsibility/ReportFilters";
 import { ReportFilters as VhReportFilters } from "@/app/events/[id]/reports/vendor-handoff/ReportFilters";
 import { ReportFilters as EpReportFilters } from "@/app/events/[id]/reports/event-profile/ReportFilters";
@@ -47,6 +53,7 @@ const REPORT_TITLES: Record<string, string> = {
   FUNCTION_DETAIL: "Function detail",
   BREAKOUT_GRID: "Breakout grid",
   BREAKOUT_ASSIGNMENTS: "Breakout assignments",
+  PACKING_LIST: "Packing list",
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -576,6 +583,104 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         ) : (
           <BreakoutAssignmentsReport data={data} />
         )}
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "PACKING_LIST") {
+    let effectiveRoomIds: string[] | undefined;
+    let effectivePackingStatuses: string[] | undefined;
+    let effectiveAcquisitionStates: string[] | undefined;
+    let effectiveProviders: string[] | undefined;
+
+    if (link.filtersLocked) {
+      effectiveRoomIds = storedFilters.rooms;
+      effectivePackingStatuses = storedFilters.packingStatuses;
+      effectiveAcquisitionStates = storedFilters.acquisitionStates;
+      effectiveProviders = storedFilters.providers;
+    } else {
+      const roomsParam = getString(sp.rooms);
+      const packingParam = getString(sp.packing);
+      const acquisitionParam = getString(sp.acquisition);
+      const providersParam = getString(sp.providers);
+      effectiveRoomIds = roomsParam
+        ? roomsParam.split(",").filter(Boolean)
+        : storedFilters.rooms;
+      effectivePackingStatuses = packingParam
+        ? packingParam.split(",").filter(Boolean)
+        : storedFilters.packingStatuses;
+      effectiveAcquisitionStates = acquisitionParam
+        ? acquisitionParam.split(",").filter(Boolean)
+        : storedFilters.acquisitionStates;
+      effectiveProviders = providersParam
+        ? providersParam.split(",").filter(Boolean)
+        : storedFilters.providers;
+    }
+    const effectiveHidePacked = resolveSharedBoolean(
+      link.filtersLocked,
+      getString(sp.hidePacked),
+      storedFilters.hidePacked
+    );
+
+    const data = stripUpdatedBy(await getPackingListData(link.eventId, {
+      rooms: effectiveRoomIds,
+      packingStatuses: effectivePackingStatuses,
+      acquisitionStates: effectiveAcquisitionStates,
+      providers: effectiveProviders,
+      hidePacked: effectiveHidePacked,
+    }));
+    if (!data) notFound();
+
+    if (!link.filtersLocked) {
+      effectiveRoomIds = intersect(
+        effectiveRoomIds,
+        new Set(data.roomOptions.map((r) => r.value))
+      );
+      effectivePackingStatuses = intersect(effectivePackingStatuses, VALID_PACKING_STATUSES);
+      effectiveAcquisitionStates = intersect(
+        effectiveAcquisitionStates,
+        VALID_ACQUISITION_STATES
+      );
+      effectiveProviders = intersect(
+        effectiveProviders,
+        new Set(data.providerOptions.map((p) => p.value))
+      );
+    }
+
+    const printParams = new URLSearchParams();
+    if (effectiveRoomIds?.length) printParams.set("rooms", effectiveRoomIds.join(","));
+    if (effectivePackingStatuses?.length) {
+      printParams.set("packing", effectivePackingStatuses.join(","));
+    }
+    if (effectiveAcquisitionStates?.length) {
+      printParams.set("acquisition", effectiveAcquisitionStates.join(","));
+    }
+    if (effectiveProviders?.length) printParams.set("providers", effectiveProviders.join(","));
+    if (effectiveHidePacked) printParams.set("hidePacked", "true");
+    const printHref = printParams.size > 0 ? `${printBase}?${printParams.toString()}` : printBase;
+
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Packing List"
+        label={link.label}
+        printHref={printHref}
+      >
+        {!link.filtersLocked && (
+          <PlReportFilters
+            eventId={link.eventId}
+            rooms={data.roomOptions}
+            providers={data.providerOptions}
+            selectedRoomIds={effectiveRoomIds ?? []}
+            selectedPackingStatuses={effectivePackingStatuses ?? []}
+            selectedAcquisitionStates={effectiveAcquisitionStates ?? []}
+            selectedProviders={effectiveProviders ?? []}
+            hidePacked={effectiveHidePacked}
+            basePath={`/share/${token}`}
+            hidePrint
+          />
+        )}
+        <PackingListReport data={data} />
       </ShareShell>
     );
   }

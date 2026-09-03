@@ -149,6 +149,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Breakouts",        segment: "breakout-schedule",               icon: <GridIcon /> },
   { type: "group", label: "Content" },
   { type: "link",  label: "Presentations",    segment: "presentations",                   icon: <ChartIcon />,     sidebarSection: "presentations", resource: "PRESENTATIONS" },
+  { type: "link",  label: "Media Deliverables", segment: "media-deliverables",            icon: <VideoIcon />,     sidebarSection: "media-deliverables", resource: "MEDIA_DELIVERABLES" },
   { type: "group", label: "Orders" },
   { type: "link",  label: "Packing List",     segment: "packing",                         icon: <ChecklistIcon />, resource: "SUPPLY_ORDERS" },
   { type: "link",  label: "AV Orders",        segment: "av-orders",                       icon: <VideoIcon />,     sidebarSection: "av-orders", resource: "AV_ORDERS" },
@@ -156,7 +157,6 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Print Orders",     segment: "print-orders",                    icon: <PrinterIcon />,   sidebarSection: "print-orders", resource: "PRINT_ORDERS" },
   { type: "link",  label: "Setup Orders",     segment: "setup-orders",                    icon: <WrenchIcon />,    sidebarSection: "setup-orders", resource: "SETUP_ORDERS" },
   { type: "link",  label: "Supply Orders",    segment: "supply-orders",                   icon: <PackageIcon />,   sidebarSection: "supply-orders", resource: "SUPPLY_ORDERS" },
-  { type: "link",  label: "Media Deliverables", segment: "media-deliverables",            icon: <VideoIcon />,     sidebarSection: "media-deliverables", resource: "MEDIA_DELIVERABLES" },
   { type: "group", label: "Resources" },
   { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon />,  resource: "VENDORS" },
   { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon />,    resource: "FILES" },
@@ -168,6 +168,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Breakout Grid",    segment: "reports/breakout-grid",           icon: <GridIcon /> },
   { type: "link",  label: "Breakout Assignments", segment: "reports/breakout-assignments", icon: <ClipboardIcon /> },
   { type: "link",  label: "Equipment",        segment: "reports/equipment-responsibility", icon: <ClipboardIcon /> },
+  { type: "link",  label: "Packing List",     segment: "reports/packing-list",            icon: <PackageIcon /> },
   { type: "link",  label: "Vendor Handoff",   segment: "reports/vendor-handoff",          icon: <HandoffIcon /> },
   { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon />,      resource: "SHARE_LINKS" },
   { type: "group", label: "Configuration" },
@@ -201,13 +202,13 @@ function isLinkActive(segment: string | null, pathname: string, basePath: string
 function getActiveSection(pathname: string, basePath: string): SidebarSection | null {
   const sections: SidebarSection[] = [
     "functions",
+    "presentations",
+    "media-deliverables",
     "av-orders",
     "catering-orders",
     "print-orders",
     "setup-orders",
     "supply-orders",
-    "media-deliverables",
-    "presentations",
   ];
   for (const s of sections) {
     const base = `${basePath}/${s}`;
