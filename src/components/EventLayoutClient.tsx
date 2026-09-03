@@ -23,16 +23,10 @@ export function EventLayoutClient({
 }: EventLayoutClientProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname() ?? "";
-  const isPrintView = pathname.endsWith("/print") || pathname.endsWith("/table-print");
+  const isPrintView = /\/print(\/|$)/.test(pathname) || /\/table-print(\/|$)/.test(pathname);
 
   if (isPrintView) {
-    return (
-      <main className="flex-1 min-w-0 py-8 px-4 print:p-0 print:bg-white">
-        <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded print:shadow-none print:rounded-none print:max-w-none print:bg-white">
-          {children}
-        </div>
-      </main>
-    );
+    return <>{children}</>;
   }
 
   return (

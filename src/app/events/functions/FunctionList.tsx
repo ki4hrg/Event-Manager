@@ -281,16 +281,12 @@ export function FunctionList({
         <div className="flex gap-2">
           <a
             href={`/events/${eventId}/functions/print`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Print All
           </a>
           <a
             href={`/events/${eventId}/functions/table-print`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Print Table
