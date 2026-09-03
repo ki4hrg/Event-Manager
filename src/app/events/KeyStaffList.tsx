@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import type { EventKeyStaff, Contact } from "@prisma/client";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
@@ -36,7 +36,7 @@ function ModelCheckboxes({ defaultValues = [] }: { defaultValues?: string[] }) {
   return (
     <div>
       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-        Model Links
+        Model links for this event staff entry
       </label>
       <div className="flex flex-wrap gap-3">
         {MODEL_TYPES.map(({ value, label }) => (
@@ -53,6 +53,14 @@ function ModelCheckboxes({ defaultValues = [] }: { defaultValues?: string[] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+      {children}
+    </p>
   );
 }
 
@@ -249,63 +257,69 @@ export function KeyStaffList({
       )}
 
       {formView === "create" && (
-        <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+        <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
+          <div className="space-y-3">
+            <SectionLabel>New contact</SectionLabel>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  name="firstName"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  name="lastName"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+            </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                First Name *
+                Email
               </label>
               <input
-                type="text"
-                name="firstName"
-                required
+                type="email"
+                name="email"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Last Name *
+                Organization
               </label>
               <input
                 type="text"
-                name="lastName"
-                required
+                name="organization"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-            />
+          <div className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <SectionLabel>Event staff entry</SectionLabel>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Title
+              </label>
+              <input
+                type="text"
+                name="title"
+                placeholder="e.g. Logistics Team Lead, Communications Lead..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <ModelCheckboxes />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Organization
-            </label>
-            <input
-              type="text"
-              name="organization"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Title
-            </label>
-            <input
-              type="text"
-              name="title"
-              placeholder="e.g. Logistics Team Lead, Communications Lead..."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-            />
-          </div>
-          <ModelCheckboxes />
           <div className="flex gap-2 pt-1">
             <SubmitButton label="Create & Add" />
             <button
