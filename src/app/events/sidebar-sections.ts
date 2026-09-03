@@ -7,13 +7,13 @@ import type { PermissionResource } from "@prisma/client";
 
 export type SidebarSection =
   | "functions"
+  | "presentations"
+  | "media-deliverables"
   | "av-orders"
   | "catering-orders"
   | "print-orders"
   | "setup-orders"
-  | "supply-orders"
-  | "media-deliverables"
-  | "presentations";
+  | "supply-orders";
 
 // Each section lists one entity type, so it is gated on that entity's own VIEW
 // rather than on EVENTS — a user who can open an event but has no access to,
@@ -21,12 +21,12 @@ export type SidebarSection =
 export const SECTION_RESOURCE: Record<SidebarSection, PermissionResource> = {
   functions: "FUNCTIONS",
   presentations: "PRESENTATIONS",
+  "media-deliverables": "MEDIA_DELIVERABLES",
   "av-orders": "AV_ORDERS",
   "catering-orders": "CATERING_ORDERS",
   "print-orders": "PRINT_ORDERS",
   "setup-orders": "SETUP_ORDERS",
   "supply-orders": "SUPPLY_ORDERS",
-  "media-deliverables": "MEDIA_DELIVERABLES",
 };
 
 export const SIDEBAR_SECTIONS = Object.keys(SECTION_RESOURCE) as SidebarSection[];

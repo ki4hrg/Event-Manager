@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -463,6 +463,45 @@ function DayGrid({
     hasScrolled.current = false;
   }, [day.dateKey]);
 
+  // Current-time indicator: recomputed every 60s so the line drifts with the
+  // clock while the tab stays open. Only meaningful when this day is today in
+  // the event's own timezone — a UTC/local "today" would misplace the line for
+  // events outside the viewer's timezone.
+  const [now, setNow] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const isToday =
+    day.timeSlots.length > 0 && getDateKeyInTimezone(now, timezone) === day.dateKey;
+
+  const [nowTopPx, setNowTopPx] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isToday || !scrollRef.current) {
+      startTransition(() => setNowTopPx(null));
+      return;
+    }
+    const dayMidnightMs = day.timeSlots[0].getTime();
+    const rawIndex = (now.getTime() - dayMidnightMs) / SLOT_INTERVAL_MS;
+    const displayedIndex = rawIndex - sliceStart;
+    // Outside the rendered slot range (before/after the day, or sliced away by
+    // "collapse empty hours") — hide rather than clamp to an edge.
+    if (displayedIndex < 0 || displayedIndex > rowData.length) {
+      startTransition(() => setNowTopPx(null));
+      return;
+    }
+    const rows = scrollRef.current.querySelectorAll("tbody tr");
+    if (rows.length === 0) {
+      startTransition(() => setNowTopPx(null));
+      return;
+    }
+    const wholeIdx = Math.min(rows.length - 1, Math.floor(displayedIndex));
+    const frac = displayedIndex - wholeIdx;
+    const row = rows[wholeIdx] as HTMLElement | undefined;
+    startTransition(() => setNowTopPx(row ? row.offsetTop + frac * ROW_HEIGHT_PX : null));
+  }, [now, isToday, day.dateKey, day.timeSlots, sliceStart, rowData.length]);
+
   if (day.timeSlots.length === 0 || visibleRooms.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -475,7 +514,10 @@ function DayGrid({
 
   return (
     <div ref={scrollRef} className="overflow-auto max-h-[80vh]">
-      <table className="w-full border-collapse text-sm table-fixed" style={{ minWidth: tableMinWidth }}>
+      {/* Sized to match the table so the current-time line spans the full
+          (possibly horizontally-scrolled) grid width, not just the viewport. */}
+      <div className="relative w-full" style={{ minWidth: tableMinWidth }}>
+        <table className="w-full border-collapse text-sm table-fixed">
         <colgroup>
           <col style={{ width: TIME_COL_PX }} />
         </colgroup>
@@ -545,7 +587,19 @@ function DayGrid({
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+        {nowTopPx !== null && (
+          <div
+            className="pointer-events-none absolute inset-x-0 z-10 print:hidden"
+            style={{ top: nowTopPx }}
+          >
+            <div className="absolute inset-x-0 top-0 h-px bg-red-500 dark:bg-red-400" />
+            <span className="absolute left-1 -top-2.5 whitespace-nowrap rounded bg-red-500 dark:bg-red-400 px-1 py-0.5 text-[10px] font-medium leading-none text-white">
+              {formatTime(now, timezone)}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
