@@ -14,6 +14,12 @@ type ScheduleListProps = {
   scheduleTypes: CustomOption[];
   functionId: string;
   timezone: string;
+  // Event.startDate / Event.endDate — plain calendar dates (UTC midnight,
+  // populated from a date input; see the comment on formatEventDate in
+  // agendaUtils.ts). Used only to bound the day picker below, so only the
+  // YYYY-MM-DD portion is read — no timezone conversion needed.
+  eventStartDate: Date;
+  eventEndDate: Date;
   createSchedule: (formData: FormData) => Promise<{ conflicts: RoomConflict[] } | undefined>;
   updateSchedule: (scheduleId: string, formData: FormData) => Promise<{ conflicts: RoomConflict[] } | undefined>;
   deleteSchedule: (scheduleId: string) => Promise<void>;
@@ -83,6 +89,8 @@ export function ScheduleList({
   scheduleTypes,
   functionId,
   timezone,
+  eventStartDate,
+  eventEndDate,
   createSchedule,
   updateSchedule,
   deleteSchedule,
@@ -92,6 +100,15 @@ export function ScheduleList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [pendingConflict, setPendingConflict] = useState<PendingConflict | null>(null);
+
+  // Bound the datetime-local inputs to the event's own days, and default a new
+  // time slot to the event's first day rather than an empty/today's-date field.
+  const minDateKey = new Date(eventStartDate).toISOString().slice(0, 10);
+  const maxDateKey = new Date(eventEndDate).toISOString().slice(0, 10);
+  const minDateTimeLocal = `${minDateKey}T00:00`;
+  const maxDateTimeLocal = `${maxDateKey}T23:59`;
+  const defaultStartDateTimeLocal = `${minDateKey}T09:00`;
+  const defaultEndDateTimeLocal = `${minDateKey}T10:00`;
 
   // Sort schedules by start time, then end time
   const sortedSchedules = [...schedules].sort((a, b) => {
@@ -230,6 +247,9 @@ export function ScheduleList({
                     type="datetime-local"
                     name="startTime"
                     required
+                    defaultValue={defaultStartDateTimeLocal}
+                    min={minDateTimeLocal}
+                    max={maxDateTimeLocal}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
@@ -241,6 +261,9 @@ export function ScheduleList({
                     type="datetime-local"
                     name="endTime"
                     required
+                    defaultValue={defaultEndDateTimeLocal}
+                    min={minDateTimeLocal}
+                    max={maxDateTimeLocal}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
@@ -356,6 +379,8 @@ export function ScheduleList({
                           name="startTime"
                           required
                           defaultValue={formatDateTimeForInput(schedule.startTime, timezone)}
+                          min={minDateTimeLocal}
+                          max={maxDateTimeLocal}
                           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                         />
                       </div>
@@ -368,6 +393,8 @@ export function ScheduleList({
                           name="endTime"
                           required
                           defaultValue={formatDateTimeForInput(schedule.endTime, timezone)}
+                          min={minDateTimeLocal}
+                          max={maxDateTimeLocal}
                           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                         />
                       </div>
