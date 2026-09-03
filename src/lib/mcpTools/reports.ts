@@ -11,9 +11,10 @@ import {
   getBreakoutScheduleData,
   getBreakoutGroupOptions,
   getEventScheduleData,
+  getPackingListData,
 } from "@/app/events/reports/actions";
 import type { McpToolDefinition } from "./types";
-import { requireString } from "./types";
+import { optionalStringArray, requireString } from "./types";
 
 // The underlying report actions are deliberately auth-free (reused by the
 // unauthenticated /share/[token] route per the carve-out documented in
@@ -146,6 +147,35 @@ export const reportTools: McpToolDefinition[] = [
       const eventId = requireString(args, "eventId");
       await gate(userId, eventId);
       return getEventScheduleData(eventId);
+    },
+  },
+  {
+    name: "get_packing_list_report",
+    description:
+      "Destination-centric packing list: every supply and print item on the event grouped room -> order, with packing status (NEEDED/IN_TRANSIT/DELIVERED), acquisition state (ON_HAND/TO_PROCURE/DROP_SHIP), a counts summary, and a procurement rollup of everything still TO_PROCURE grouped by provider. Optional filters narrow by room id (\"__blank__\" for no room), packing status, acquisition state, provider label (\"__blank__\" for none), and hidePacked (drops anything past NEEDED). Mirrors the Packing List report.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        rooms: { type: "array", items: { type: "string" } },
+        packingStatuses: { type: "array", items: { type: "string" } },
+        acquisitionStates: { type: "array", items: { type: "string" } },
+        providers: { type: "array", items: { type: "string" } },
+        hidePacked: { type: "boolean" },
+      },
+      required: ["eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      await gate(userId, eventId);
+      return getPackingListData(eventId, {
+        rooms: optionalStringArray(args, "rooms"),
+        packingStatuses: optionalStringArray(args, "packingStatuses"),
+        acquisitionStates: optionalStringArray(args, "acquisitionStates"),
+        providers: optionalStringArray(args, "providers"),
+        hidePacked: args.hidePacked === true,
+      });
     },
   },
 ];
