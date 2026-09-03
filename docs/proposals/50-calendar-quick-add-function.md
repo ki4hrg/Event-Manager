@@ -148,3 +148,5 @@ takes `selectedRoomIds` (`FunctionForm.tsx:45`), so the room half is nearly free
 **(B): Medium** — ~350 lines: one new component (~180), grid wiring (~100), core +
 action (~70). No migration. The schedule-type and `isPublic` fixes are a handful of
 lines but touch two existing create paths, so they should land as their own commit.
+
+> **Update:** the `"SESSION"` / `"MAIN"` schedule-type bug noted above was fixed alongside this proposal. All three writers now call `defaultScheduleType()` from `src/lib/scheduleTypes.ts`, and `scripts/repair-schedule-types.ts` rewrites existing rows.
