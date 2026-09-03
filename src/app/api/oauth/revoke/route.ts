@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   } else {
     return Response.json(
       { error: "invalid_request", error_description: "Unsupported content type." },
-      { status: 400 },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
 
@@ -57,12 +57,15 @@ export async function POST(request: Request) {
   if (!token) {
     return Response.json(
       { error: "invalid_request", error_description: "Missing token." },
-      { status: 400 },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
 
   await revokeToken(token, params.get("token_type_hint"));
 
   // Always 200, regardless of whether the token existed (RFC 7009 §2.2).
-  return new Response(null, { status: 200 });
+  return new Response(null, {
+    status: 200,
+    headers: { "Cache-Control": "no-store" },
+  });
 }
