@@ -7,6 +7,7 @@ import { redirect, notFound } from "next/navigation";
 import type { EntityStatus } from "@prisma/client";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
+import { getResponsibleParties, type ResponsiblePartyPool } from "@/lib/responsibleParties";
 
 async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId: string) {
   const found = await prisma.mediaDeliverable.findUnique({
@@ -100,8 +101,8 @@ export async function getMediaDeliverable(id: string) {
 export async function createMediaDeliverable(eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   const name = (formData.get("name") as string)?.trim();
-  const functionId = (formData.get("functionId") as string) || null;
-  const presentationId = (formData.get("presentationId") as string) || null;
+  const functionIds = (formData.getAll("functionIds") as string[]).filter(Boolean);
+  const presentationIds = (formData.getAll("presentationIds") as string[]).filter(Boolean);
 
   const defaults = await resolveCreateStatus(eventId, "MEDIA_DELIVERABLE");
   const data = parseDeliverableData(formData);
@@ -118,17 +119,21 @@ export async function createMediaDeliverable(eventId: string, formData: FormData
   });
 
   await Promise.all([
-    functionId
-      ? prisma.mediaDeliverableFunction.create({ data: { mediaDeliverableId: deliverable.id, functionId } })
+    functionIds.length
+      ? prisma.mediaDeliverableFunction.createMany({
+          data: functionIds.map((functionId) => ({ mediaDeliverableId: deliverable.id, functionId })),
+        })
       : Promise.resolve(null),
-    presentationId
-      ? prisma.mediaDeliverablePresentation.create({ data: { mediaDeliverableId: deliverable.id, presentationId } })
+    presentationIds.length
+      ? prisma.mediaDeliverablePresentation.createMany({
+          data: presentationIds.map((presentationId) => ({ mediaDeliverableId: deliverable.id, presentationId })),
+        })
       : Promise.resolve(null),
     autoAssignDefaultWorkflows("media_deliverable", deliverable.id, eventId),
   ]);
 
-  if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
-  if (presentationId) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
+  for (const functionId of functionIds) revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  for (const presentationId of presentationIds) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
   revalidatePath(`/events/${eventId}/media-deliverables`);
   redirect(`/events/${eventId}/media-deliverables/${deliverable.id}`);
 }
@@ -338,6 +343,24 @@ export async function createAndAddMediaDeliverableContact(
   });
   await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
+}
+
+// Recomputes the provider (vendor/contact) pool for the create form as the
+// user toggles which functions/presentations to link — function contacts and
+// presentation speakers become suggested providers once their function or
+// presentation is selected. See getResponsibleParties for scope rules.
+export async function getMediaDeliverableProviderPool(
+  eventId: string,
+  functionIds: string[],
+  presentationIds: string[]
+): Promise<ResponsiblePartyPool> {
+  await requirePermission("MEDIA_DELIVERABLES", "VIEW", eventId);
+  return getResponsibleParties({
+    eventId,
+    modelType: "MEDIA_DELIVERABLE",
+    functionIds: functionIds.length ? functionIds : undefined,
+    presentationIds: presentationIds.length ? presentationIds : undefined,
+  });
 }
 
 export async function searchContactsForMediaDeliverable(query: string) {

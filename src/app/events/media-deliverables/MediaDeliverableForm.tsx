@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { PartyField } from "@/app/events/av-orders/party-field";
@@ -33,7 +33,54 @@ type MediaDeliverableFormProps = {
   cancelPath?: string;
   defaultName?: string;
   noCard?: boolean;
+  // Create-only: pick function(s)/presentation(s) up front so the links are
+  // created in the same submit and the Provider pool below can be refreshed
+  // from them (function contacts / presentation speakers become candidates).
+  availableFunctions?: OptionEntry[];
+  availablePresentations?: OptionEntry[];
+  lockedFunctionId?: string;
+  lockedPresentationId?: string;
+  getProviderPool?: (
+    eventId: string,
+    functionIds: string[],
+    presentationIds: string[]
+  ) => Promise<ResponsiblePartyPool>;
 };
+
+function LinkCheckboxes({
+  fieldName,
+  label,
+  options,
+  selectedIds,
+  onToggle,
+}: {
+  fieldName: string;
+  label: string;
+  options: OptionEntry[];
+  selectedIds: string[];
+  onToggle: (id: string, checked: boolean) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
+      <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-700 rounded-md p-2 space-y-1 bg-white dark:bg-gray-900">
+        {options.map((o) => (
+          <label key={o.id} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              name={fieldName}
+              value={o.id}
+              checked={selectedIds.includes(o.id)}
+              onChange={(e) => onToggle(o.id, e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+            />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
@@ -52,17 +99,46 @@ export function MediaDeliverableForm({
   mediaDeliverable,
   eventId,
   action,
-  pool,
+  pool: initialPool,
   mediaTypeOptions,
   deliveryOptions,
   cancelPath,
   defaultName,
   noCard = false,
+  availableFunctions,
+  availablePresentations,
+  lockedFunctionId,
+  lockedPresentationId,
+  getProviderPool,
 }: MediaDeliverableFormProps) {
   const isEdit = !!mediaDeliverable;
   // Read-only users get the detail view with no way back into edit mode.
   const canWrite = useCanWrite("MEDIA_DELIVERABLES");
   const [editing, setEditing] = useState(false);
+  const [pool, setPool] = useState(initialPool);
+  const [selectedFunctionIds, setSelectedFunctionIds] = useState<string[]>([]);
+  const [selectedPresentationIds, setSelectedPresentationIds] = useState<string[]>([]);
+  const [, startTransition] = useTransition();
+
+  const refreshPool = (functionIds: string[], presentationIds: string[]) => {
+    if (!getProviderPool) return;
+    startTransition(async () => {
+      const updated = await getProviderPool(eventId, functionIds, presentationIds);
+      setPool(updated);
+    });
+  };
+
+  const toggleFunction = (id: string, checked: boolean) => {
+    const next = checked ? [...selectedFunctionIds, id] : selectedFunctionIds.filter((v) => v !== id);
+    setSelectedFunctionIds(next);
+    refreshPool(next, selectedPresentationIds);
+  };
+
+  const togglePresentation = (id: string, checked: boolean) => {
+    const next = checked ? [...selectedPresentationIds, id] : selectedPresentationIds.filter((v) => v !== id);
+    setSelectedPresentationIds(next);
+    refreshPool(selectedFunctionIds, next);
+  };
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 
@@ -174,8 +250,43 @@ export function MediaDeliverableForm({
             />
           </div>
 
+          {!isEdit && (lockedFunctionId ? (
+            <input type="hidden" name="functionIds" value={lockedFunctionId} />
+          ) : (
+            availableFunctions &&
+            availableFunctions.length > 0 && (
+              <LinkCheckboxes
+                fieldName="functionIds"
+                label="Link to Function(s)"
+                options={availableFunctions}
+                selectedIds={selectedFunctionIds}
+                onToggle={toggleFunction}
+              />
+            )
+          ))}
+
+          {!isEdit && (lockedPresentationId ? (
+            <input type="hidden" name="presentationIds" value={lockedPresentationId} />
+          ) : (
+            availablePresentations &&
+            availablePresentations.length > 0 && (
+              <LinkCheckboxes
+                fieldName="presentationIds"
+                label="Link to Presentation(s)"
+                options={availablePresentations}
+                selectedIds={selectedPresentationIds}
+                onToggle={togglePresentation}
+              />
+            )
+          ))}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+            {!isEdit && (selectedFunctionIds.length > 0 || selectedPresentationIds.length > 0) && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Suggested from the function/presentation contacts linked above.
+              </p>
+            )}
             <PartyField
               fieldPrefix="provider"
               vendorGroups={pool.vendorGroups}

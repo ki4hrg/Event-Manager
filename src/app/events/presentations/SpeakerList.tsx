@@ -372,6 +372,15 @@ export function SpeakerList({
                   action={(formData) => handleUpdateSubmit(speaker.id, formData)}
                   className="space-y-4"
                 >
+                  <div className="text-gray-900 dark:text-white font-medium">
+                    {speaker.contact.firstName} {speaker.contact.lastName}
+                    {speaker.contact.organization && (
+                      <span className="text-sm text-gray-400 dark:text-gray-500">
+                        {" "}
+                        ({speaker.contact.organization})
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
