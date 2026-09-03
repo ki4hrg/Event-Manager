@@ -9,41 +9,43 @@ datasource db {
 
 // Authentication
 model User {
-  id                       String               @id @default(cuid())
-  email                    String               @unique
+  id                       String                   @id @default(cuid())
+  email                    String                   @unique
   name                     String?
   // Nullable: new users start without a password until they consume an invite token.
   password                 String?
   // FK to the RBAC Role table. Source of truth for permissions.
   roleId                   String?
-  roleRef                  Role?                @relation(fields: [roleId], references: [id])
+  roleRef                  Role?                    @relation(fields: [roleId], references: [id])
   // Self-ref for "last updated by" attribution.
   updatedById              String?
-  updatedBy                User?                @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  updatesByUser            User[]               @relation("UserUpdatedBy")
-  createdAt                DateTime             @default(now())
-  updatedAt                DateTime             @updatedAt
+  updatedBy                User?                    @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatesByUser            User[]                   @relation("UserUpdatedBy")
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
   settings                 UserSetting[]
   shareLinks               ShareLink[]
   shareLinkGroups          ShareLinkGroup[]
   passwordResetTokens      PasswordResetToken[]
   staffAssignments         EventStaff[]
   // Inverse relations for "last updated by" attribution across all editable entities.
-  updatedEvents            Event[]              @relation("EventUpdatedBy")
-  updatedVenues            Venue[]              @relation("VenueUpdatedBy")
-  updatedContacts          Contact[]            @relation("ContactUpdatedBy")
-  updatedVendors           Vendor[]             @relation("VendorUpdatedBy")
-  updatedFunctions         Function[]           @relation("FunctionUpdatedBy")
-  updatedPresentations     Presentation[]       @relation("PresentationUpdatedBy")
-  updatedCateringOrders    CateringOrder[]      @relation("CateringOrderUpdatedBy")
-  updatedAVOrders          AVOrder[]            @relation("AVOrderUpdatedBy")
-  updatedSetupOrders       SetupOrder[]         @relation("SetupOrderUpdatedBy")
-  updatedPrintOrders       PrintOrder[]         @relation("PrintOrderUpdatedBy")
-  updatedSupplyOrders      SupplyOrder[]        @relation("SupplyOrderUpdatedBy")
-  updatedMediaDeliverables MediaDeliverable[]   @relation("MediaDeliverableUpdatedBy")
-  updatedWorkflowTemplates WorkflowTemplate[]   @relation("WorkflowTemplateUpdatedBy")
-  updatedRoles             Role[]               @relation("RoleUpdatedBy")
+  updatedEvents            Event[]                  @relation("EventUpdatedBy")
+  updatedVenues            Venue[]                  @relation("VenueUpdatedBy")
+  updatedContacts          Contact[]                @relation("ContactUpdatedBy")
+  updatedVendors           Vendor[]                 @relation("VendorUpdatedBy")
+  updatedFunctions         Function[]               @relation("FunctionUpdatedBy")
+  updatedPresentations     Presentation[]           @relation("PresentationUpdatedBy")
+  updatedCateringOrders    CateringOrder[]          @relation("CateringOrderUpdatedBy")
+  updatedAVOrders          AVOrder[]                @relation("AVOrderUpdatedBy")
+  updatedSetupOrders       SetupOrder[]             @relation("SetupOrderUpdatedBy")
+  updatedPrintOrders       PrintOrder[]             @relation("PrintOrderUpdatedBy")
+  updatedSupplyOrders      SupplyOrder[]            @relation("SupplyOrderUpdatedBy")
+  updatedMediaDeliverables MediaDeliverable[]       @relation("MediaDeliverableUpdatedBy")
+  updatedWorkflowTemplates WorkflowTemplate[]       @relation("WorkflowTemplateUpdatedBy")
+  updatedRoles             Role[]                   @relation("RoleUpdatedBy")
   apiKeys                  ApiKey[]
+  oauthAuthorizationCodes  OAuthAuthorizationCode[]
+  oauthRefreshTokens       OAuthRefreshToken[]
 }
 
 // Bearer tokens for programmatic access via the MCP connector (/api/mcp).
@@ -93,6 +95,10 @@ model OAuthAuthorizationCode {
   code                String    @unique @default(cuid())
   clientId            String
   userId              String
+  // Cascade so deleting a user tears down their outstanding grants with them,
+  // matching ApiKey / PasswordResetToken. Without the FK a deleted user left
+  // orphan rows behind (inert, but they never got collected).
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   redirectUri         String
   codeChallenge       String
   codeChallengeMethod String    @default("S256")
@@ -102,6 +108,7 @@ model OAuthAuthorizationCode {
   createdAt           DateTime  @default(now())
 
   @@index([code])
+  @@index([userId])
   @@index([expiresAt])
 }
 
@@ -115,6 +122,7 @@ model OAuthRefreshToken {
   familyId     String
   clientId     String
   userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   scope        String?
   expiresAt    DateTime
   revokedAt    DateTime?
@@ -267,7 +275,7 @@ model StorageLocation {
 // Splitting one quantity across locations is out of scope, so two boxes of
 // lanyards are two rows, not one row with a placement table.
 model InventoryItem {
-  id String @id @default(cuid())
+  id          String    @id @default(cuid())
   // Inventory is catalogued gear, so the Equipment link is the item's identity
   // and `name` is only a qualifier — "blue", "spare", "left case". Requiring the
   // link is what makes stock answerable across locations ("how many easels do we
@@ -277,13 +285,13 @@ model InventoryItem {
   // Restrict rather than SetNull now that the link can't be absent: deleting an
   // Equipment row that is inventoried somewhere should be blocked, not silently
   // orphan the inventory record.
-  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
-  quantity  Int?
-  notes     String?
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  quantity    Int?
+  notes       String?
   // Packers carry WRITE but not DELETE, so archiving is their retire path for a
   // consumed item — the same split the location tree itself uses.
-  archived  Boolean @default(false)
-  sortOrder Int     @default(0)
+  archived    Boolean   @default(false)
+  sortOrder   Int       @default(0)
 
   // Restrict, not SetNull: the tree promotes orphaned child *locations* to roots,
   // but an inventory item without a location is meaningless, and Cascade would
