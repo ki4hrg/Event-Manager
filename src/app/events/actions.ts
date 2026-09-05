@@ -20,7 +20,7 @@ import {
 // `series`: undefined/"" = all, "__blank__" = events with no series, otherwise a series id.
 export async function getEvents(series?: string) {
   const session = await requirePermission("EVENTS", "VIEW");
-  const scopeWhere = await eventScopeWhere(session.user.id);
+  const scopeWhere = await eventScopeWhere(session.user.id, session.tenantId);
   const seriesWhere =
     series === "__blank__" ? { seriesId: null } : series ? { seriesId: series } : {};
 
@@ -32,8 +32,9 @@ export async function getEvents(series?: string) {
 }
 
 export async function getEventSeriesOptions() {
-  await requirePermission("EVENTS", "VIEW");
+  const session = await requirePermission("EVENTS", "VIEW");
   return prisma.eventSeries.findMany({
+    where: { tenantId: session.tenantId },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
@@ -64,7 +65,7 @@ function readEventArgs(formData: FormData): EventWriteArgs {
 
 export async function createEvent(formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
-  await createEventCore(readEventArgs(formData), session.user.id);
+  await createEventCore(readEventArgs(formData), session.user.id, session.tenantId);
   revalidatePath("/events");
   redirect("/events");
 }
@@ -85,10 +86,11 @@ export async function deleteEvent(id: string) {
 }
 
 export async function searchContactsForKeyStaff(query: string) {
-  await requirePermission("CONTACTS", "VIEW");
+  const session = await requirePermission("CONTACTS", "VIEW");
   if (!query || query.length < 2) return [];
   return prisma.contact.findMany({
     where: {
+      tenantId: session.tenantId,
       OR: [
         { firstName: { contains: query, mode: "insensitive" } },
         { lastName: { contains: query, mode: "insensitive" } },

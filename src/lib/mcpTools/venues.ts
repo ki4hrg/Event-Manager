@@ -67,9 +67,10 @@ export const venueTools: McpToolDefinition[] = [
     description:
       "List all venues with a count of rooms per venue. Returns summary shape — use `get_venue` for full detail (rooms, room groups, contacts, linked vendor).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    handler: async (_args, { userId }) => {
-      await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW");
+    handler: async (_args, { userId, tenantId }) => {
+      await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW", { tenantId });
       return prisma.venue.findMany({
+        where: { tenantId },
         include: { _count: { select: { rooms: true } } },
         orderBy: { name: "asc" },
       });
@@ -84,11 +85,11 @@ export const venueTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
-      await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW");
-      return prisma.venue.findUnique({
-        where: { id },
+      await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW", { tenantId });
+      return prisma.venue.findFirst({
+        where: { id, tenantId },
         include: {
           rooms: { orderBy: { name: "asc" } },
           roomGroups: { orderBy: { sortOrder: "asc" } },
@@ -107,11 +108,11 @@ export const venueTools: McpToolDefinition[] = [
       required: ["venueId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const venueId = requireString(args, "venueId");
-      await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW");
+      await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW", { tenantId });
       return prisma.room.findMany({
-        where: { venueId },
+        where: { venueId, venue: { tenantId } },
         include: { group: true },
         orderBy: { name: "asc" },
       });
@@ -127,7 +128,7 @@ export const venueTools: McpToolDefinition[] = [
       required: ["name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => createVenueCore(readVenueArgs(args), userId),
+    handler: (args, { userId, tenantId }) => createVenueCore(readVenueArgs(args), userId, tenantId),
   },
   {
     name: "update_venue",
@@ -139,9 +140,9 @@ export const venueTools: McpToolDefinition[] = [
       required: ["id", "name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => {
+    handler: (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
-      return updateVenueCore(id, readVenueArgs(args), userId);
+      return updateVenueCore(id, readVenueArgs(args), userId, tenantId);
     },
   },
   {
@@ -157,9 +158,9 @@ export const venueTools: McpToolDefinition[] = [
       required: ["venueId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const venueId = requireString(args, "venueId");
-      await updateVenueVendorDetailsCore(venueId, optionalString(args, "notes") ?? null, userId);
+      await updateVenueVendorDetailsCore(venueId, optionalString(args, "notes") ?? null, userId, tenantId);
       return { venueId, ok: true };
     },
   },
@@ -172,9 +173,9 @@ export const venueTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
-      await deleteVenueCore(id, userId);
+      await deleteVenueCore(id, userId, tenantId);
       return { id, deleted: true };
     },
   },
@@ -188,9 +189,9 @@ export const venueTools: McpToolDefinition[] = [
       required: ["venueId", "name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => {
+    handler: (args, { userId, tenantId }) => {
       const venueId = requireString(args, "venueId");
-      return createRoomCore(venueId, readRoomArgs(args), userId);
+      return createRoomCore(venueId, readRoomArgs(args), userId, tenantId);
     },
   },
   {
@@ -206,10 +207,10 @@ export const venueTools: McpToolDefinition[] = [
       required: ["roomId", "venueId", "name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => {
+    handler: (args, { userId, tenantId }) => {
       const roomId = requireString(args, "roomId");
       const venueId = requireString(args, "venueId");
-      return updateRoomCore(roomId, venueId, readRoomArgs(args), userId);
+      return updateRoomCore(roomId, venueId, readRoomArgs(args), userId, tenantId);
     },
   },
   {
@@ -221,10 +222,10 @@ export const venueTools: McpToolDefinition[] = [
       required: ["roomId", "venueId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const roomId = requireString(args, "roomId");
       const venueId = requireString(args, "venueId");
-      await deleteRoomCore(roomId, venueId, userId);
+      await deleteRoomCore(roomId, venueId, userId, tenantId);
       return { roomId, deleted: true };
     },
   },
@@ -238,8 +239,8 @@ export const venueTools: McpToolDefinition[] = [
       required: ["venueId", "name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
-      createRoomGroupCore(requireString(args, "venueId"), requireString(args, "name"), userId),
+    handler: (args, { userId, tenantId }) =>
+      createRoomGroupCore(requireString(args, "venueId"), requireString(args, "name"), userId, tenantId),
   },
   {
     name: "update_room_group",
@@ -254,12 +255,13 @@ export const venueTools: McpToolDefinition[] = [
       required: ["groupId", "venueId", "name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       updateRoomGroupCore(
         requireString(args, "groupId"),
         requireString(args, "venueId"),
         requireString(args, "name"),
         userId,
+        tenantId,
       ),
   },
   {
@@ -271,10 +273,10 @@ export const venueTools: McpToolDefinition[] = [
       required: ["groupId", "venueId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const groupId = requireString(args, "groupId");
       const venueId = requireString(args, "venueId");
-      await deleteRoomGroupCore(groupId, venueId, userId);
+      await deleteRoomGroupCore(groupId, venueId, userId, tenantId);
       return { groupId, deleted: true };
     },
   },
@@ -292,12 +294,13 @@ export const venueTools: McpToolDefinition[] = [
       required: ["venueId", "contactId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       addVenueContactCore(
         requireString(args, "venueId"),
         requireString(args, "contactId"),
         optionalString(args, "role") ?? null,
         userId,
+        tenantId,
       ),
   },
   {
@@ -313,12 +316,13 @@ export const venueTools: McpToolDefinition[] = [
       required: ["venueContactId", "venueId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       updateVenueContactCore(
         requireString(args, "venueContactId"),
         requireString(args, "venueId"),
         optionalString(args, "role") ?? null,
         userId,
+        tenantId,
       ),
   },
   {
@@ -333,10 +337,10 @@ export const venueTools: McpToolDefinition[] = [
       required: ["venueContactId", "venueId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const venueContactId = requireString(args, "venueContactId");
       const venueId = requireString(args, "venueId");
-      await removeVenueContactCore(venueContactId, venueId, userId);
+      await removeVenueContactCore(venueContactId, venueId, userId, tenantId);
       return { venueContactId, removed: true };
     },
   },
@@ -357,7 +361,7 @@ export const venueTools: McpToolDefinition[] = [
       required: ["venueId", "firstName", "lastName"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       createAndAddVenueContactCore(
         {
           venueId: requireString(args, "venueId"),
@@ -368,6 +372,7 @@ export const venueTools: McpToolDefinition[] = [
           role: optionalString(args, "role") ?? null,
         },
         userId,
+        tenantId,
       ),
   },
 ];

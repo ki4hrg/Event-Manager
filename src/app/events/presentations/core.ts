@@ -3,7 +3,7 @@
 
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
+import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
@@ -116,7 +116,7 @@ export async function createPresentationCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("presentation", presentation.id);
+  await autoAssignDefaultWorkflowsCore("presentation", presentation.id, presentation.eventId);
   return presentation;
 }
 
@@ -347,6 +347,7 @@ export async function createAndAddPresentationSpeakerCore(
 
   const contact = await prisma.contact.create({
     data: {
+      tenantId: await requireEventTenantId(args.eventId),
       firstName: args.firstName,
       lastName: args.lastName,
       email: args.email,

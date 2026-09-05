@@ -76,8 +76,9 @@ export const storageLocationTools: McpToolDefinition[] = [
       additionalProperties: false,
     },
     handler: async (args, ctx) => {
-      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW");
+      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW", { tenantId: ctx.tenantId });
       const rows = await prisma.storageLocation.findMany({
+        where: { tenantId: ctx.tenantId },
         select: {
           id: true,
           name: true,
@@ -107,10 +108,10 @@ export const storageLocationTools: McpToolDefinition[] = [
       additionalProperties: false,
     },
     handler: async (args, ctx) => {
-      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW");
+      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW", { tenantId: ctx.tenantId });
       const id = requireString(args, "id");
-      const location = await prisma.storageLocation.findUnique({
-        where: { id },
+      const location = await prisma.storageLocation.findFirst({
+        where: { id, tenantId: ctx.tenantId },
         include: {
           parent: { select: { id: true, name: true } },
           children: {
@@ -131,6 +132,7 @@ export const storageLocationTools: McpToolDefinition[] = [
       if (!location) throw new Error("Storage location not found.");
 
       const rows = await prisma.storageLocation.findMany({
+        where: { tenantId: ctx.tenantId },
         select: {
           id: true,
           name: true,
@@ -155,7 +157,7 @@ export const storageLocationTools: McpToolDefinition[] = [
       additionalProperties: false,
     },
     handler: async (args, ctx) =>
-      createStorageLocationCore(readLocationArgs(args), ctx.userId),
+      createStorageLocationCore(readLocationArgs(args), ctx.userId, ctx.tenantId),
   },
   {
     name: "update_storage_location",
@@ -168,7 +170,7 @@ export const storageLocationTools: McpToolDefinition[] = [
       additionalProperties: false,
     },
     handler: async (args, ctx) =>
-      updateStorageLocationCore(requireString(args, "id"), readLocationArgs(args), ctx.userId),
+      updateStorageLocationCore(requireString(args, "id"), readLocationArgs(args), ctx.userId, ctx.tenantId),
   },
   {
     name: "move_storage_location",
@@ -188,6 +190,7 @@ export const storageLocationTools: McpToolDefinition[] = [
         requireString(args, "id"),
         optionalString(args, "parentId") ?? null,
         ctx.userId,
+        ctx.tenantId,
       ),
   },
   {
@@ -208,6 +211,7 @@ export const storageLocationTools: McpToolDefinition[] = [
         requireString(args, "id"),
         args.archived !== false,
         ctx.userId,
+        ctx.tenantId,
       ),
   },
   {
@@ -221,7 +225,7 @@ export const storageLocationTools: McpToolDefinition[] = [
       additionalProperties: false,
     },
     handler: async (args, ctx) => {
-      await deleteStorageLocationCore(requireString(args, "id"), ctx.userId);
+      await deleteStorageLocationCore(requireString(args, "id"), ctx.userId, ctx.tenantId);
       return { deleted: true };
     },
   },

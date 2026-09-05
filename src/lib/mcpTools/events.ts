@@ -72,10 +72,10 @@ export const eventTools: McpToolDefinition[] = [
     description:
       "List events visible to the API key's user. Honors the same scope rules as the UI — users without EVENTS:UNASSIGNED:VIEW see only events they are staff on. Returns summary shape — use `get_event` for full detail (updatedBy attribution).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    handler: async (_args, { userId }) => {
-      await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW");
+    handler: async (_args, { userId, tenantId }) => {
+      await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW", { tenantId });
       return prisma.event.findMany({
-        where: await eventScopeWhere(userId),
+        where: await eventScopeWhere(userId, tenantId),
         include: { venue: true, series: { select: { id: true, name: true } } },
         orderBy: { startDate: "desc" },
       });
@@ -92,7 +92,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
       await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW", id);
       return prisma.event.findUnique({
@@ -115,7 +115,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["name", "startDate", "endDate"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => createEventCore(readEventArgs(args), userId),
+    handler: (args, { userId, tenantId }) => createEventCore(readEventArgs(args), userId, tenantId),
   },
   {
     name: "update_event",
@@ -126,7 +126,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["id", "name", "startDate", "endDate"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => {
+    handler: (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
       return updateEventCore(id, readEventArgs(args), userId);
     },
@@ -140,7 +140,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
       await deleteEventCore(id, userId);
       return { id, deleted: true };
@@ -167,7 +167,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["eventId", "contactId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       addEventKeyStaffCore(
         {
           eventId: requireString(args, "eventId"),
@@ -192,7 +192,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["keyStaffId", "eventId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       updateEventKeyStaffCore(
         {
           keyStaffId: requireString(args, "keyStaffId"),
@@ -215,7 +215,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["keyStaffId", "eventId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const keyStaffId = requireString(args, "keyStaffId");
       const eventId = requireString(args, "eventId");
       await removeEventKeyStaffCore(keyStaffId, eventId, userId);
@@ -240,7 +240,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["eventId", "firstName", "lastName"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       createContactAndAddKeyStaffCore(
         {
           eventId: requireString(args, "eventId"),
@@ -259,10 +259,11 @@ export const eventTools: McpToolDefinition[] = [
     description:
       "List event series — the groupings that tie the yearly editions of one conference together. Each row includes its events (id, name, startDate) newest first — scoped to events the key's user may see, same as `list_events` — so this doubles as the lookup for \"the previous event in this series\".",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    handler: async (_args, { userId }) => {
-      await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW");
-      const scopeWhere = await eventScopeWhere(userId);
+    handler: async (_args, { userId, tenantId }) => {
+      await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW", { tenantId });
+      const scopeWhere = await eventScopeWhere(userId, tenantId);
       return prisma.eventSeries.findMany({
+        where: { tenantId },
         select: {
           id: true,
           name: true,
@@ -286,7 +287,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => createEventSeriesCore(requireString(args, "name"), userId),
+    handler: (args, { userId, tenantId }) => createEventSeriesCore(requireString(args, "name"), userId, tenantId),
   },
   {
     name: "update_event_series",
@@ -297,8 +298,8 @@ export const eventTools: McpToolDefinition[] = [
       required: ["id", "name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
-      updateEventSeriesCore(requireString(args, "id"), requireString(args, "name"), userId),
+    handler: (args, { userId, tenantId }) =>
+      updateEventSeriesCore(requireString(args, "id"), requireString(args, "name"), userId, tenantId),
   },
   {
     name: "delete_event_series",
@@ -310,7 +311,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => deleteEventSeriesCore(requireString(args, "id"), userId),
+    handler: (args, { userId, tenantId }) => deleteEventSeriesCore(requireString(args, "id"), userId, tenantId),
   },
   {
     name: "list_event_staff",
@@ -322,10 +323,11 @@ export const eventTools: McpToolDefinition[] = [
       required: ["eventId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const eventId = requireString(args, "eventId");
       await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW", eventId);
-      return prisma.eventStaff.findMany({
+      // Role is per tenant: report the one held in the event's tenant.
+      const rows = await prisma.eventStaff.findMany({
         where: { eventId },
         select: {
           id: true,
@@ -336,12 +338,20 @@ export const eventTools: McpToolDefinition[] = [
               id: true,
               email: true,
               name: true,
-              roleRef: { select: { id: true, name: true } },
+              memberships: {
+                where: { tenant: { events: { some: { id: eventId } } } },
+                select: { role: { select: { id: true, name: true } } },
+                take: 1,
+              },
             },
           },
         },
         orderBy: [{ user: { name: "asc" } }, { user: { email: "asc" } }],
       });
+      return rows.map(({ user: { memberships, ...user }, ...row }) => ({
+        ...row,
+        user: { ...user, role: memberships[0]?.role ?? null },
+      }));
     },
   },
   {
@@ -459,7 +469,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["eventId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const eventId = requireString(args, "eventId");
       await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW", eventId);
       return getDefaultImportSource(eventId);
@@ -497,7 +507,7 @@ export const eventTools: McpToolDefinition[] = [
       required: ["sourceEventId", "targetEventId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       importFromEventCore(
         {
           sourceEventId: requireString(args, "sourceEventId"),

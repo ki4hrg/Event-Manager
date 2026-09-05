@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantId } from "@/lib/tenant";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/DeleteButton";
@@ -19,8 +20,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const contact = await prisma.contact.findUnique({
-    where: { id },
+  const contact = await prisma.contact.findFirst({
+    where: { id, tenantId: (await getActiveTenantId()) ?? "" },
     select: { firstName: true, lastName: true },
   });
   if (!contact) return { title: "Contact" };

@@ -42,6 +42,14 @@ export async function addEventStaffCore(
   );
   if (!args.userId) throw new Error("User is required");
 
+  // Staff must belong to the event's tenant; a user id from elsewhere reads as
+  // not-found rather than granting an outsider a foothold on the event.
+  const member = await prisma.tenantMembership.findFirst({
+    where: { userId: args.userId, tenant: { events: { some: { id: args.eventId } } } },
+    select: { id: true },
+  });
+  if (!member) throw new PermissionError("NOT_FOUND", "User is not a member of this tenant");
+
   return prisma.eventStaff.upsert({
     where: { userId_eventId: { userId: args.userId, eventId: args.eventId } },
     create: {
@@ -97,12 +105,20 @@ export async function grantSeriesAccessCore(
   args: { userId: string; seriesId: string; accessLevel: AccessCap | null },
   actorUserId: string,
 ) {
-  // Global gate first, so a caller with no event write at all gets a clean
-  // refusal instead of an empty "skipped everything" result.
-  await requirePermissionForUser(actorUserId, PermissionResource.EVENTS, "WRITE");
+  // The series decides the tenant; a global gate there first, so a caller with
+  // no event write at all gets a clean refusal instead of an empty "skipped
+  // everything" result.
+  const series = await prisma.eventSeries.findUnique({
+    where: { id: args.seriesId },
+    select: { tenantId: true },
+  });
+  if (!series) throw new PermissionError("NOT_FOUND");
+  await requirePermissionForUser(actorUserId, PermissionResource.EVENTS, "WRITE", {
+    tenantId: series.tenantId,
+  });
 
   const events = await prisma.event.findMany({
-    where: { seriesId: args.seriesId },
+    where: { seriesId: args.seriesId, tenantId: series.tenantId },
     select: { id: true, name: true },
     orderBy: { startDate: "desc" },
   });

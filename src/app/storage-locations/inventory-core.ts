@@ -21,17 +21,17 @@ function normalizeInventoryArgs(args: InventoryItemWriteArgs): InventoryItemWrit
 }
 
 /** Pre-checked so a bad id reads as a sentence rather than a foreign key error. */
-async function assertEquipmentExists(equipmentId: string) {
-  const equipment = await prisma.equipment.findUnique({
-    where: { id: equipmentId },
+async function assertEquipmentExists(equipmentId: string, tenantId: string) {
+  const equipment = await prisma.equipment.findFirst({
+    where: { id: equipmentId, tenantId },
     select: { id: true },
   });
   if (!equipment) throw new Error("That equipment no longer exists — refresh and try again.");
 }
 
-async function assertLocationUsable(locationId: string) {
-  const location = await prisma.storageLocation.findUnique({
-    where: { id: locationId },
+async function assertLocationUsable(locationId: string, tenantId: string) {
+  const location = await prisma.storageLocation.findFirst({
+    where: { id: locationId, tenantId },
     select: { name: true, archived: true },
   });
   if (!location) throw new Error("Location not found.");
@@ -46,10 +46,10 @@ async function assertLocationUsable(locationId: string) {
  * about these particular ids existing. Resolving them up front turns a silent
  * partial write into an error the caller can act on.
  */
-async function assertItemsExist(ids: string[]) {
+async function assertItemsExist(ids: string[], tenantId: string) {
   if (ids.length === 0) throw new Error("No items selected.");
   const found = await prisma.inventoryItem.findMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, tenantId },
     select: { id: true },
   });
   if (found.length !== ids.length) {
@@ -61,11 +61,15 @@ export async function createInventoryItemCore(
   locationId: string,
   rawArgs: InventoryItemWriteArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
   const args = normalizeInventoryArgs(rawArgs);
-  await Promise.all([assertLocationUsable(locationId), assertEquipmentExists(args.equipmentId)]);
+  await Promise.all([
+    assertLocationUsable(locationId, tenantId),
+    assertEquipmentExists(args.equipmentId, tenantId),
+  ]);
 
   const { _max } = await prisma.inventoryItem.aggregate({
     where: { locationId },
@@ -74,6 +78,7 @@ export async function createInventoryItemCore(
 
   return prisma.inventoryItem.create({
     data: {
+      tenantId,
       locationId,
       name: args.name,
       equipmentId: args.equipmentId,
@@ -89,18 +94,19 @@ export async function updateInventoryItemCore(
   id: string,
   rawArgs: InventoryItemWriteArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
   const args = normalizeInventoryArgs(rawArgs);
   const [existing] = await Promise.all([
-    prisma.inventoryItem.findUnique({ where: { id }, select: { id: true } }),
-    assertEquipmentExists(args.equipmentId),
+    prisma.inventoryItem.findFirst({ where: { id, tenantId }, select: { id: true } }),
+    assertEquipmentExists(args.equipmentId, tenantId),
   ]);
   if (!existing) throw new Error("Inventory item not found.");
 
   return prisma.inventoryItem.update({
-    where: { id },
+    where: { id, tenantId },
     data: {
       name: args.name,
       equipmentId: args.equipmentId,
@@ -115,16 +121,17 @@ export async function setInventoryItemArchivedCore(
   id: string,
   archived: boolean,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
-  const existing = await prisma.inventoryItem.findUnique({
-    where: { id },
+  const existing = await prisma.inventoryItem.findFirst({
+    where: { id, tenantId },
     select: { id: true },
   });
   if (!existing) throw new Error("Inventory item not found.");
 
-  return prisma.inventoryItem.update({ where: { id }, data: { archived } });
+  return prisma.inventoryItem.update({ where: { id, tenantId }, data: { archived } });
 }
 
 /**
@@ -136,37 +143,40 @@ export async function moveInventoryItemsCore(
   ids: string[],
   targetLocationId: string,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
-  await assertItemsExist(ids);
-  await assertLocationUsable(targetLocationId);
+  await assertItemsExist(ids, tenantId);
+  await assertLocationUsable(targetLocationId, tenantId);
 
   const items = await prisma.inventoryItem.findMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, tenantId },
     select: { locationId: true },
   });
   const sourceLocationIds = Array.from(new Set(items.map((i) => i.locationId)));
 
   const { count } = await prisma.inventoryItem.updateMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, tenantId },
     data: { locationId: targetLocationId },
   });
 
   return { count, sourceLocationIds };
 }
 
-export async function deleteInventoryItemsCore(ids: string[], userId: string) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "DELETE");
+export async function deleteInventoryItemsCore(ids: string[], userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "DELETE", { tenantId });
 
-  await assertItemsExist(ids);
+  await assertItemsExist(ids, tenantId);
 
   const items = await prisma.inventoryItem.findMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, tenantId },
     select: { locationId: true },
   });
   const locationIds = Array.from(new Set(items.map((i) => i.locationId)));
 
-  const { count } = await prisma.inventoryItem.deleteMany({ where: { id: { in: ids } } });
+  const { count } = await prisma.inventoryItem.deleteMany({
+    where: { id: { in: ids }, tenantId },
+  });
   return { count, locationIds };
 }

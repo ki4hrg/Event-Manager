@@ -6,7 +6,14 @@
 
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
+import { requirePermissionForUser, requireEventTenantId, PermissionError } from "@/lib/permissions";
+
+// Vendor-scoped cores assert the vendor is the tenant's own before touching its
+// contacts; a foreign id reads as not-found.
+async function assertVendorInTenant(vendorId: string, tenantId: string) {
+  const vendor = await prisma.vendor.findFirst({ where: { id: vendorId, tenantId }, select: { id: true } });
+  if (!vendor) throw new PermissionError("NOT_FOUND");
+}
 
 // Valid defaultFor values. Add new model types here when wiring up vendor auto-assignment.
 export type ModelType =
@@ -26,10 +33,11 @@ export type VendorWriteArgs = {
   notes: string | null;
 };
 
-export async function createVendorCore(args: VendorWriteArgs, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE");
+export async function createVendorCore(args: VendorWriteArgs, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
   return prisma.vendor.create({
     data: {
+      tenantId,
       name: args.name.trim(),
       models: args.models,
       notes: args.notes,
@@ -42,10 +50,11 @@ export async function updateVendorCore(
   id: string,
   args: VendorWriteArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE");
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
   return prisma.vendor.update({
-    where: { id },
+    where: { id, tenantId },
     data: {
       name: args.name.trim(),
       models: args.models,
@@ -55,9 +64,9 @@ export async function updateVendorCore(
   });
 }
 
-export async function deleteVendorCore(id: string, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "DELETE");
-  await prisma.vendor.delete({ where: { id } });
+export async function deleteVendorCore(id: string, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "DELETE", { tenantId });
+  await prisma.vendor.delete({ where: { id, tenantId } });
 }
 
 // ---------------------------------------------------------------------------
@@ -83,10 +92,13 @@ export type CreateAndAddVendorContactArgs = {
 export async function createAndAddVendorContactCore(
   args: CreateAndAddVendorContactArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE");
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
+  await assertVendorInTenant(args.vendorId, tenantId);
   const contact = await prisma.contact.create({
     data: {
+      tenantId,
       firstName: args.firstName,
       lastName: args.lastName,
       email: args.email,
@@ -117,8 +129,9 @@ export type AddVendorContactArgs = {
   isPrimary: boolean;
 };
 
-export async function addVendorContactCore(args: AddVendorContactArgs, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE");
+export async function addVendorContactCore(args: AddVendorContactArgs, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
+  await assertVendorInTenant(args.vendorId, tenantId);
   if (args.isPrimary) await clearOtherPrimaries(args.vendorId);
   const vc = await prisma.vendorContact.create({
     data: {
@@ -142,11 +155,12 @@ export type UpdateVendorContactArgs = {
   isPrimary: boolean;
 };
 
-export async function updateVendorContactCore(args: UpdateVendorContactArgs, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE");
+export async function updateVendorContactCore(args: UpdateVendorContactArgs, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
+  await assertVendorInTenant(args.vendorId, tenantId);
   if (args.isPrimary) await clearOtherPrimaries(args.vendorId, args.vendorContactId);
   const vc = await prisma.vendorContact.update({
-    where: { id: args.vendorContactId },
+    where: { id: args.vendorContactId, vendorId: args.vendorId },
     data: { contactType: args.contactType, isPrimary: args.isPrimary },
   });
   await prisma.vendor.update({
@@ -160,9 +174,11 @@ export async function removeVendorContactCore(
   vendorContactId: string,
   vendorId: string,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "DELETE");
-  await prisma.vendorContact.delete({ where: { id: vendorContactId } });
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "DELETE", { tenantId });
+  await assertVendorInTenant(vendorId, tenantId);
+  await prisma.vendorContact.delete({ where: { id: vendorContactId, vendorId } });
   await prisma.vendor.update({
     where: { id: vendorId },
     data: { updatedById: userId },
@@ -177,7 +193,9 @@ export async function addVendorToEventCore(
   vendorId: string,
   userId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE");
+  const tenantId = await requireEventTenantId(eventId);
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
+  await assertVendorInTenant(vendorId, tenantId);
   return prisma.eventVendor.create({ data: { eventId, vendorId } });
 }
 
@@ -185,7 +203,13 @@ export async function removeVendorFromEventCore(
   eventVendorId: string,
   userId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "DELETE");
+  const row = await prisma.eventVendor.findUnique({
+    where: { id: eventVendorId },
+    select: { eventId: true },
+  });
+  if (!row) throw new PermissionError("NOT_FOUND");
+  const tenantId = await requireEventTenantId(row.eventId);
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "DELETE", { tenantId });
   await prisma.eventVendor.delete({ where: { id: eventVendorId } });
 }
 
@@ -195,7 +219,9 @@ export async function setDefaultVendorCore(
   modelType: ModelType,
   userId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE");
+  const tenantId = await requireEventTenantId(eventId);
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
+  await assertVendorInTenant(vendorId, tenantId);
   await prisma.eventVendor.upsert({
     where: { eventId_vendorId: { eventId, vendorId } },
     create: { eventId, vendorId },
@@ -213,7 +239,8 @@ export async function removeDefaultVendorCore(
   modelType: ModelType,
   userId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE");
+  const tenantId = await requireEventTenantId(eventId);
+  await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
   await prisma.$executeRaw`UPDATE "EventVendor" SET "defaultFor" = array_remove("defaultFor", ${modelType}) WHERE "eventId" = ${eventId} AND "vendorId" = ${vendorId}`;
 }
 

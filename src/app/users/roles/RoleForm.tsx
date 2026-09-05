@@ -40,11 +40,14 @@ type RoleFormProps = {
   };
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: () => Promise<void>;
+  // Role definitions are shared by every organization, so only super admins
+  // edit them; everyone else gets the matrix read-only.
+  canEdit?: boolean;
 };
 
-export function RoleForm({ role, saveAction, deleteAction }: RoleFormProps) {
+export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: RoleFormProps) {
   const isCreate = !role;
-  const readOnly = !!role?.isSystem;
+  const readOnly = !!role && (role.isSystem || !canEdit);
   const [error, setError] = useState<string | null>(null);
   const permMap = buildPermissionMap(role?.permissions);
 
@@ -66,7 +69,9 @@ export function RoleForm({ role, saveAction, deleteAction }: RoleFormProps) {
       )}
       {readOnly && (
         <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-300 text-sm">
-          This is a system role and cannot be edited or deleted.
+          {role?.isSystem
+            ? "This is a system role and cannot be edited or deleted."
+            : "Role definitions are shared by every organization; only a super admin can change them."}
         </div>
       )}
       <form action={handleSubmit} className="space-y-6">

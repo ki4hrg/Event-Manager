@@ -25,5 +25,5 @@ EXPOSE ${PORT}
 
 RUN mkdir -p /data/uploads
 
-# Run migrations, seed, then start
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node prisma/seed.mjs && npm run start"]
+# Baseline pre-Migrate databases, apply migrations, seed, then start
+CMD ["sh", "-c", "node prisma/baseline.mjs && npx prisma migrate deploy && node prisma/seed.mjs && npm run start"]

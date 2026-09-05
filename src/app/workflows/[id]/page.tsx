@@ -4,6 +4,7 @@ import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantId } from "@/lib/tenant";
 import { requirePermission } from "@/lib/permissions";
 import {
   getWorkflowTemplate,
@@ -28,8 +29,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const template = await prisma.workflowTemplate.findUnique({
-    where: { id },
+  const template = await prisma.workflowTemplate.findFirst({
+    where: { id, tenantId: (await getActiveTenantId()) ?? "" },
     select: { name: true },
   });
   return { title: template?.name ?? "Workflow" };

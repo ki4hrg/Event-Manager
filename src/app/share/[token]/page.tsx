@@ -4,7 +4,7 @@ import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from 
 import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
 import { getVendorHandoffData, getOrderAssignedVendors, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getFunctionPickerOptions, getBreakoutScheduleData, getBreakoutGroupOptions, getPackingListData } from "@/app/events/reports/actions";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
-import { getOptions } from "@/app/settings/actions";
+import { getOptionsForTenant } from "@/lib/options";
 import { getEvent } from "@/app/events/actions";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
@@ -149,7 +149,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
     const [event, vendors, functionTypes] = await Promise.all([
       getEvent(link.eventId).then(stripUpdatedBy),
       link.filtersLocked ? Promise.resolve(null) : getOrderAssignedVendors(link.eventId),
-      getOptions("function_type"),
+      getOptionsForTenant(link.event.tenantId, "function_type"),
     ]);
 
     if (!event) notFound();
@@ -228,8 +228,8 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
       }).then(stripUpdatedBy),
-      getOptions("service_style"),
-      getOptions("schedule_type"),
+      getOptionsForTenant(link.event.tenantId, "service_style"),
+      getOptionsForTenant(link.event.tenantId, "schedule_type"),
     ]);
 
     if (!data) notFound();
@@ -311,7 +311,7 @@ export default async function SharePage({ params, searchParams }: PageProps) {
     );
 
     const [scheduleTypes, dataRaw] = await Promise.all([
-      getOptions("schedule_type"),
+      getOptionsForTenant(link.event.tenantId, "schedule_type"),
       getEventScheduleData(link.eventId, {
         types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
         includeNonPublic: effectiveIncludeNonPublic,
@@ -393,8 +393,8 @@ export default async function SharePage({ params, searchParams }: PageProps) {
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         roomIds: effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
       }).then(stripUpdatedBy),
-      getOptions("function_type"),
-      getOptions("schedule_type"),
+      getOptionsForTenant(link.event.tenantId, "function_type"),
+      getOptionsForTenant(link.event.tenantId, "schedule_type"),
     ]);
 
     if (!data) notFound();
@@ -469,10 +469,10 @@ export default async function SharePage({ params, searchParams }: PageProps) {
       await Promise.all([
         getEvent(link.eventId).then(stripUpdatedBy),
         link.filtersLocked ? Promise.resolve(null) : getFunctionPickerOptions(link.eventId),
-        getOptions("function_type"),
-        getOptions("schedule_type"),
-        getOptions("service_style"),
-        getOptions("setup_type"),
+        getOptionsForTenant(link.event.tenantId, "function_type"),
+        getOptionsForTenant(link.event.tenantId, "schedule_type"),
+        getOptionsForTenant(link.event.tenantId, "service_style"),
+        getOptionsForTenant(link.event.tenantId, "setup_type"),
       ]);
 
     if (!event) notFound();

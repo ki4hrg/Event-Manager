@@ -1,6 +1,10 @@
 import type { PackingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hasPermissionForUser, requirePermissionForUser } from "@/lib/permissions";
+import {
+  hasPermissionForUser,
+  requireEventTenantId,
+  requirePermissionForUser,
+} from "@/lib/permissions";
 import {
   buildLocationIndex,
   resolvePlacements,
@@ -24,6 +28,7 @@ export type ContainerCascadePreview = {
 async function containerSubtree(containerLocationId: string, eventId: string) {
   const [rows, containerLines] = await Promise.all([
     prisma.storageLocation.findMany({
+      where: { tenant: { events: { some: { id: eventId } } } },
       select: {
         id: true,
         name: true,
@@ -176,10 +181,11 @@ export async function returnItemsToLocationCore(
 ): Promise<ReturnToLocationResult> {
   await requirePermissionForUser(userId, "EVENTS", "VIEW", eventId);
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+  const tenantId = await requireEventTenantId(eventId);
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
-  const location = await prisma.storageLocation.findUnique({
-    where: { id: targetLocationId },
+  const location = await prisma.storageLocation.findFirst({
+    where: { id: targetLocationId, tenantId },
     select: { name: true, archived: true },
   });
   if (!location) throw new Error("Location not found.");
@@ -243,6 +249,7 @@ export async function returnItemsToLocationCore(
     for (const item of toCreate) {
       const created = await tx.inventoryItem.create({
         data: {
+          tenantId,
           locationId: targetLocationId,
           // Equipment carries the identity, so the order line's free-text
           // description survives only as the qualifier — and only when it says

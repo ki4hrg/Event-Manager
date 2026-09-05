@@ -25,17 +25,18 @@ import {
 } from "./core";
 
 export async function getVenues() {
-  await requirePermission(PermissionResource.VENUES, "VIEW");
+  const session = await requirePermission(PermissionResource.VENUES, "VIEW");
   return prisma.venue.findMany({
+    where: { tenantId: session.tenantId },
     include: { _count: { select: { rooms: true } } },
     orderBy: { name: "asc" },
   });
 }
 
 export async function getVenue(id: string) {
-  await requirePermission(PermissionResource.VENUES, "VIEW");
-  return prisma.venue.findUnique({
-    where: { id },
+  const session = await requirePermission(PermissionResource.VENUES, "VIEW");
+  return prisma.venue.findFirst({
+    where: { id, tenantId: session.tenantId },
     include: {
       rooms: { orderBy: { name: "asc" } },
       roomGroups: { orderBy: { sortOrder: "asc" } },
@@ -60,14 +61,14 @@ function readVenueArgs(formData: FormData): VenueWriteArgs {
 
 export async function createVenue(formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await createVenueCore(readVenueArgs(formData), session.user.id);
+  await createVenueCore(readVenueArgs(formData), session.user.id, session.tenantId);
   revalidatePath("/venues");
   redirect("/venues");
 }
 
 export async function updateVenue(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await updateVenueCore(id, readVenueArgs(formData), session.user.id);
+  await updateVenueCore(id, readVenueArgs(formData), session.user.id, session.tenantId);
   revalidatePath("/venues");
   revalidatePath(`/venues/${id}`);
   redirect(`/venues/${id}?success=Venue updated`);
@@ -76,13 +77,13 @@ export async function updateVenue(id: string, formData: FormData) {
 export async function updateVenueVendorDetails(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
   const notes = (formData.get("notes") as string) || null;
-  await updateVenueVendorDetailsCore(venueId, notes, session.user.id);
+  await updateVenueVendorDetailsCore(venueId, notes, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function deleteVenue(id: string) {
   const session = await requirePermission(PermissionResource.VENUES, "DELETE");
-  await deleteVenueCore(id, session.user.id);
+  await deleteVenueCore(id, session.user.id, session.tenantId);
   revalidatePath("/venues");
   redirect("/venues");
 }
@@ -99,37 +100,37 @@ function readRoomArgs(formData: FormData): RoomWriteArgs {
 
 export async function createRoom(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await createRoomCore(venueId, readRoomArgs(formData), session.user.id);
+  await createRoomCore(venueId, readRoomArgs(formData), session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function updateRoom(roomId: string, venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await updateRoomCore(roomId, venueId, readRoomArgs(formData), session.user.id);
+  await updateRoomCore(roomId, venueId, readRoomArgs(formData), session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function deleteRoom(roomId: string, venueId: string) {
   const session = await requirePermission(PermissionResource.VENUES, "DELETE");
-  await deleteRoomCore(roomId, venueId, session.user.id);
+  await deleteRoomCore(roomId, venueId, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function createRoomGroup(venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await createRoomGroupCore(venueId, formData.get("name") as string, session.user.id);
+  await createRoomGroupCore(venueId, formData.get("name") as string, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function updateRoomGroup(groupId: string, venueId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await updateRoomGroupCore(groupId, venueId, formData.get("name") as string, session.user.id);
+  await updateRoomGroupCore(groupId, venueId, formData.get("name") as string, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function deleteRoomGroup(groupId: string, venueId: string) {
   const session = await requirePermission(PermissionResource.VENUES, "DELETE");
-  await deleteRoomGroupCore(groupId, venueId, session.user.id);
+  await deleteRoomGroupCore(groupId, venueId, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
@@ -138,13 +139,14 @@ export async function deleteRoomGroup(groupId: string, venueId: string) {
 // ============================================================================
 
 export async function searchContacts(query: string) {
-  await requirePermission(PermissionResource.CONTACTS, "VIEW");
+  const session = await requirePermission(PermissionResource.CONTACTS, "VIEW");
   if (!query || query.length < 2) {
     return [];
   }
 
   return prisma.contact.findMany({
     where: {
+      tenantId: session.tenantId,
       OR: [
         { firstName: { contains: query, mode: "insensitive" } },
         { lastName: { contains: query, mode: "insensitive" } },
@@ -164,6 +166,7 @@ export async function addVenueContact(venueId: string, formData: FormData) {
     formData.get("contactId") as string,
     (formData.get("role") as string) || null,
     session.user.id,
+    session.tenantId,
   );
   revalidatePath(`/venues/${venueId}`);
 }
@@ -175,13 +178,14 @@ export async function updateVenueContact(contactId: string, venueId: string, for
     venueId,
     (formData.get("role") as string) || null,
     session.user.id,
+    session.tenantId,
   );
   revalidatePath(`/venues/${venueId}`);
 }
 
 export async function removeVenueContact(contactId: string, venueId: string) {
   const session = await requirePermission(PermissionResource.VENUES, "DELETE");
-  await removeVenueContactCore(contactId, venueId, session.user.id);
+  await removeVenueContactCore(contactId, venueId, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 
@@ -197,6 +201,7 @@ export async function createAndAddVenueContact(venueId: string, formData: FormDa
       role: (formData.get("role") as string) || null,
     },
     session.user.id,
+    session.tenantId,
   );
   revalidatePath(`/venues/${venueId}`);
 }

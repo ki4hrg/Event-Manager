@@ -9,8 +9,10 @@ import { orderTools } from "./orders";
 import { reportTools } from "./reports";
 import { storageLocationTools } from "./storageLocations";
 import { inventoryTools } from "./inventory";
+import { tenantTools } from "./tenants";
 
 export const mcpTools: McpToolDefinition[] = [
+  ...tenantTools,
   ...eventTools,
   ...functionTools,
   ...presentationTools,
@@ -30,6 +32,19 @@ const toolsByName: Map<string, McpToolDefinition> = new Map(
 export function findMcpTool(name: string): McpToolDefinition | undefined {
   return toolsByName.get(name);
 }
+
+// Tools that run without a tenant. Everything else is dispatched inside one.
+export const TENANT_FREE_TOOLS = new Set<string>(tenantTools.map((t) => t.name));
+
+// Advertised on every tenant-bound tool. Read and stripped by the dispatcher
+// before the handler sees the arguments, so individual tool definitions stay
+// tenant-agnostic.
+export const TENANT_ARG = "tenant";
+const tenantArgSchema = {
+  type: "string",
+  description:
+    "Organization to act in — a tenant slug or id from `list_tenants`. Required when the user belongs to more than one organization; otherwise optional.",
+} as const;
 
 // ---------------------------------------------------------------------------
 // Tool classification — applied at serialize time so individual tool defs
@@ -93,10 +108,16 @@ function classify(name: string): { annotations: ToolAnnotations; group: ToolGrou
 export function classifiedTools(): ClassifiedTool[] {
   return mcpTools.map((t) => {
     const { annotations, group } = classify(t.name);
+    const inputSchema = TENANT_FREE_TOOLS.has(t.name)
+      ? t.inputSchema
+      : {
+          ...t.inputSchema,
+          properties: { ...(t.inputSchema.properties ?? {}), [TENANT_ARG]: tenantArgSchema },
+        };
     return {
       name: t.name,
       description: t.description,
-      inputSchema: t.inputSchema,
+      inputSchema,
       annotations,
       groups: [group],
     };

@@ -8,9 +8,11 @@ import { prisma } from "@/lib/prisma";
 // type-filtered view.
 export const PREFERRED_DEFAULT_SCHEDULE_TYPE = "Main Event";
 
-export async function defaultScheduleType(): Promise<string> {
+//
+// Options are per tenant; `eventId` selects the tenant whose list applies.
+export async function defaultScheduleType(eventId: string): Promise<string> {
   const options = await prisma.customOption.findMany({
-    where: { category: "schedule_type" },
+    where: { category: "schedule_type", tenant: { events: { some: { id: eventId } } } },
     orderBy: { sortOrder: "asc" },
     select: { label: true },
   });

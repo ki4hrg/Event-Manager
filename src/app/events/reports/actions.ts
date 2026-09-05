@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { optionsWhereForEvent } from "@/lib/options";
 import { Prisma } from "@prisma/client";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import type { ModelType } from "@/app/vendors/actions";
@@ -278,7 +279,10 @@ export async function getEquipmentResponsibilityData(
         },
       },
     }),
-    prisma.customOption.findMany({ where: { category: "function_type" }, select: { label: true } }),
+    prisma.customOption.findMany({
+      where: optionsWhereForEvent(eventId, "function_type"),
+      select: { label: true },
+    }),
   ]);
 
   const normalized: NormalizedItem[] = [];
@@ -872,8 +876,10 @@ const functionInclude = {
 
 export async function getVendorHandoffData(eventId: string, vendorId: string) {
   const [vendor, cateringOrders, avOrders, setupOrders, supplyOrders] = await Promise.all([
-    prisma.vendor.findUnique({
-      where: { id: vendorId },
+    // Scoped to the event's tenant so a share link can't be pointed at another
+    // tenant's vendor by swapping the id in the URL.
+    prisma.vendor.findFirst({
+      where: { id: vendorId, tenant: { events: { some: { id: eventId } } } },
       include: {
         contacts: {
           include: {
@@ -1493,7 +1499,7 @@ export async function getFunctionPickerOptions(eventId: string): Promise<Functio
       },
     }),
     prisma.customOption.findMany({
-      where: { category: "function_type" },
+      where: optionsWhereForEvent(eventId, "function_type"),
       select: { label: true, sortOrder: true },
     }),
   ]);

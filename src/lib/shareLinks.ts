@@ -55,7 +55,7 @@ export function resolveSharedBoolean(
 export async function getActiveShareLink(token: string) {
   const link = await prisma.shareLink.findUnique({
     where: { token },
-    include: { event: { select: { id: true, name: true, timezone: true } } },
+    include: { event: { select: { id: true, name: true, timezone: true, tenantId: true } } },
   });
   if (!link) return null;
   if (link.revokedAt) return null;
@@ -76,7 +76,7 @@ export async function getActiveShareLinkGroup(token: string) {
   const group = await prisma.shareLinkGroup.findUnique({
     where: { token },
     include: {
-      event: { select: { id: true, name: true, timezone: true } },
+      event: { select: { id: true, name: true, timezone: true, tenantId: true } },
       items: { orderBy: { sortOrder: "asc" } },
     },
   });

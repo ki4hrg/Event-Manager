@@ -5,6 +5,7 @@ import { LocationKind, PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { requirePermission, hasPermissionForUser } from "@/lib/permissions";
+import { requireActiveTenantId } from "@/lib/tenant";
 import {
   addInventoryToSupplyOrderCore,
   type AddInventoryResult,
@@ -33,7 +34,9 @@ const LOCATION_TYPE_CATEGORY = "location_type";
 // Same reasoning as getEquipment in src/app/equipment/actions.ts.
 export async function getStorageLocations() {
   await requireAuth();
+  const tenantId = await requireActiveTenantId();
   return prisma.storageLocation.findMany({
+    where: { tenantId },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 }
@@ -52,7 +55,7 @@ function parseLocationData(formData: FormData): StorageLocationWriteArgs {
 
 export async function createStorageLocation(formData: FormData) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await createStorageLocationCore(parseLocationData(formData), session.user.id);
+  await createStorageLocationCore(parseLocationData(formData), session.user.id, session.tenantId);
   revalidatePath("/storage-locations");
 }
 
@@ -76,6 +79,7 @@ export async function createContainerInline(
       archived: false,
     },
     session.user.id,
+    session.tenantId,
   );
   revalidatePath("/storage-locations");
   return created.id;
@@ -83,27 +87,27 @@ export async function createContainerInline(
 
 export async function updateStorageLocation(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await updateStorageLocationCore(id, parseLocationData(formData), session.user.id);
+  await updateStorageLocationCore(id, parseLocationData(formData), session.user.id, session.tenantId);
   revalidatePath("/storage-locations");
 }
 
 export async function setStorageLocationArchived(id: string, archived: boolean) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await setStorageLocationArchivedCore(id, archived, session.user.id);
+  await setStorageLocationArchivedCore(id, archived, session.user.id, session.tenantId);
   revalidatePath("/storage-locations");
 }
 
 export async function deleteStorageLocation(id: string) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
-  await deleteStorageLocationCore(id, session.user.id);
+  await deleteStorageLocationCore(id, session.user.id, session.tenantId);
   revalidatePath("/storage-locations");
 }
 
 export async function reorderStorageLocations(orderedIds: string[]) {
-  await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
+  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
   await Promise.all(
     orderedIds.map((id, index) =>
-      prisma.storageLocation.update({ where: { id }, data: { sortOrder: index } }),
+      prisma.storageLocation.update({ where: { id, tenantId }, data: { sortOrder: index } }),
     ),
   );
   revalidatePath("/storage-locations");
@@ -121,8 +125,9 @@ function locationPath(locationId: string) {
 // order-editing role to also carry STORAGE_LOCATIONS.VIEW.
 export async function getLocationContents(locationId: string) {
   await requireAuth();
+  const tenantId = await requireActiveTenantId();
   return prisma.inventoryItem.findMany({
-    where: { locationId },
+    where: { locationId, tenantId },
     include: { equipment: { select: { id: true, name: true, category: true } } },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
@@ -148,7 +153,7 @@ function parseInventoryData(formData: FormData): InventoryItemWriteArgs {
 
 export async function createInventoryItem(locationId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await createInventoryItemCore(locationId, parseInventoryData(formData), session.user.id);
+  await createInventoryItemCore(locationId, parseInventoryData(formData), session.user.id, session.tenantId);
   revalidatePath("/storage-locations");
   revalidatePath(locationPath(locationId));
 }
@@ -159,7 +164,7 @@ export async function updateInventoryItem(
   formData: FormData,
 ) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await updateInventoryItemCore(id, parseInventoryData(formData), session.user.id);
+  await updateInventoryItemCore(id, parseInventoryData(formData), session.user.id, session.tenantId);
   revalidatePath("/storage-locations");
   revalidatePath(locationPath(locationId));
 }
@@ -170,7 +175,7 @@ export async function setInventoryItemArchived(
   archived: boolean,
 ) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await setInventoryItemArchivedCore(id, archived, session.user.id);
+  await setInventoryItemArchivedCore(id, archived, session.user.id, session.tenantId);
   revalidatePath("/storage-locations");
   revalidatePath(locationPath(locationId));
 }
@@ -181,6 +186,7 @@ export async function moveInventoryItems(ids: string[], targetLocationId: string
     ids,
     targetLocationId,
     session.user.id,
+    session.tenantId,
   );
   revalidatePath("/storage-locations");
   revalidatePath(locationPath(targetLocationId));
@@ -189,7 +195,7 @@ export async function moveInventoryItems(ids: string[], targetLocationId: string
 
 export async function deleteInventoryItems(ids: string[]) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
-  const { locationIds } = await deleteInventoryItemsCore(ids, session.user.id);
+  const { locationIds } = await deleteInventoryItemsCore(ids, session.user.id, session.tenantId);
   revalidatePath("/storage-locations");
   for (const id of locationIds) revalidatePath(locationPath(id));
 }
@@ -211,8 +217,10 @@ export type SupplyOrderTarget = {
  */
 export async function getSupplyOrderTargets(): Promise<SupplyOrderTarget[]> {
   const session = await requireAuth();
+  const tenantId = await requireActiveTenantId();
 
   const events = await prisma.event.findMany({
+    where: { tenantId },
     select: {
       id: true,
       name: true,
@@ -253,25 +261,27 @@ export async function addInventoryToSupplyOrder(
 // only STORAGE_LOCATIONS, not SETTINGS — same split as equipment categories.
 export async function getLocationTypes() {
   await requireAuth();
+  const tenantId = await requireActiveTenantId();
   return prisma.customOption.findMany({
-    where: { category: LOCATION_TYPE_CATEGORY },
+    where: { tenantId, category: LOCATION_TYPE_CATEGORY },
     orderBy: { sortOrder: "asc" },
   });
 }
 
 export async function createLocationType(formData: FormData) {
-  await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
+  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
   const label = formData.get("label") as string;
   const color = formData.get("color") as string;
 
   const maxOrder = await prisma.customOption.findFirst({
-    where: { category: LOCATION_TYPE_CATEGORY },
+    where: { tenantId, category: LOCATION_TYPE_CATEGORY },
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
   });
 
   await prisma.customOption.create({
     data: {
+      tenantId,
       category: LOCATION_TYPE_CATEGORY,
       label,
       color: color || null,
@@ -283,12 +293,12 @@ export async function createLocationType(formData: FormData) {
 }
 
 export async function updateLocationType(id: string, formData: FormData) {
-  await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
+  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
   const label = formData.get("label") as string;
   const color = formData.get("color") as string;
 
-  const existing = await prisma.customOption.findUnique({
-    where: { id },
+  const existing = await prisma.customOption.findFirst({
+    where: { id, tenantId },
     select: { label: true, category: true },
   });
   if (!existing) throw new Error("Location type not found");
@@ -297,11 +307,11 @@ export async function updateLocationType(id: string, formData: FormData) {
   const labelChanged = existing.label !== label;
 
   await prisma.$transaction(async (tx) => {
-    await tx.customOption.update({ where: { id }, data: { label, color: color || null } });
+    await tx.customOption.update({ where: { id, tenantId }, data: { label, color: color || null } });
     if (labelChanged) {
       // StorageLocation.type is stored by label, not FK — rewrite to keep rows in sync.
       await tx.storageLocation.updateMany({
-        where: { type: existing.label },
+        where: { tenantId, type: existing.label },
         data: { type: label },
       });
     }
@@ -311,23 +321,23 @@ export async function updateLocationType(id: string, formData: FormData) {
 }
 
 export async function deleteLocationType(id: string) {
-  await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
-  const option = await prisma.customOption.findUnique({
-    where: { id },
+  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
+  const option = await prisma.customOption.findFirst({
+    where: { id, tenantId },
     select: { isSystem: true, category: true },
   });
   if (option?.isSystem) throw new Error("Cannot delete a system option.");
   if (option?.category !== LOCATION_TYPE_CATEGORY) throw new Error("Not a location type");
 
-  await prisma.customOption.delete({ where: { id } });
+  await prisma.customOption.delete({ where: { id, tenantId } });
   revalidatePath("/storage-locations");
 }
 
 export async function reorderLocationTypes(orderedIds: string[]) {
-  await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
+  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
   await Promise.all(
     orderedIds.map((id, index) =>
-      prisma.customOption.update({ where: { id }, data: { sortOrder: index } }),
+      prisma.customOption.update({ where: { id, tenantId }, data: { sortOrder: index } }),
     ),
   );
   revalidatePath("/storage-locations");

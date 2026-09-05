@@ -135,6 +135,8 @@ type InviteRecipient = {
   // alone gives an outside collaborator nothing to act on. Not listing their
   // events: a user has no assignments at the moment they're invited.
   roleName?: string | null;
+  // Which organization the invite grants access to.
+  tenantName?: string | null;
 };
 
 export async function sendInviteEmail(user: InviteRecipient): Promise<void> {
@@ -144,7 +146,9 @@ export async function sendInviteEmail(user: InviteRecipient): Promise<void> {
   const loginUrl = appUrl("/login");
   const greeting = user.name ? `Hi ${user.name},` : "Hi,";
 
-  const roleLine = user.roleName ? `Your access level: ${user.roleName}` : null;
+  const roleLine = user.roleName
+    ? `Your access level: ${user.roleName}${user.tenantName ? ` (${user.tenantName})` : ""}`
+    : null;
 
   const text = [
     greeting,

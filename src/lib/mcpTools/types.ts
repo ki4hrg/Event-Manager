@@ -11,6 +11,10 @@ export type McpToolHandler = (args: Record<string, unknown>, ctx: McpToolContext
 
 export type McpToolContext = {
   userId: string;
+  // The tenant this call runs in, resolved by the dispatcher from the `tenant`
+  // argument (or the user's only tenant). Global checks and creates use it;
+  // event-scoped tools still derive the tenant from the event itself.
+  tenantId: string;
 };
 
 export type McpToolDefinition = {

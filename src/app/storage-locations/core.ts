@@ -12,8 +12,9 @@ export type StorageLocationWriteArgs = {
   archived: boolean;
 };
 
-async function loadIndex() {
+async function loadIndex(tenantId: string) {
   const rows = await prisma.storageLocation.findMany({
+    where: { tenantId },
     select: {
       id: true,
       name: true,
@@ -27,14 +28,25 @@ async function loadIndex() {
   return buildLocationIndex(rows);
 }
 
+// A parent must be one of the tenant's own locations; the tenant-scoped index
+// is the lookup, so a foreign id simply isn't there.
+function assertParentInIndex(index: ReturnType<typeof buildLocationIndex>, parentId: string | null) {
+  if (parentId && !index.byId.has(parentId)) throw new Error("Parent location not found.");
+}
+
 /**
  * @@unique([parentId, name]) can't cover roots — Postgres treats NULLs as
  * distinct, so two top-level locations could share a name without the
  * constraint firing. Enforced here instead.
  */
-async function assertNameFree(name: string, parentId: string | null, exceptId?: string) {
+async function assertNameFree(
+  tenantId: string,
+  name: string,
+  parentId: string | null,
+  exceptId?: string,
+) {
   const clash = await prisma.storageLocation.findFirst({
-    where: { name, parentId, ...(exceptId ? { id: { not: exceptId } } : {}) },
+    where: { tenantId, name, parentId, ...(exceptId ? { id: { not: exceptId } } : {}) },
     select: { id: true },
   });
   if (clash) {
@@ -49,20 +61,23 @@ async function assertNameFree(name: string, parentId: string | null, exceptId?: 
 export async function createStorageLocationCore(
   args: StorageLocationWriteArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
   const name = args.name.trim();
   if (!name) throw new Error("A location needs a name.");
-  await assertNameFree(name, args.parentId);
+  if (args.parentId) assertParentInIndex(await loadIndex(tenantId), args.parentId);
+  await assertNameFree(tenantId, name, args.parentId);
 
   const { _max } = await prisma.storageLocation.aggregate({
-    where: { parentId: args.parentId },
+    where: { tenantId, parentId: args.parentId },
     _max: { sortOrder: true },
   });
 
   return prisma.storageLocation.create({
     data: {
+      tenantId,
       name,
       kind: args.kind,
       type: args.type,
@@ -78,19 +93,21 @@ export async function updateStorageLocationCore(
   id: string,
   args: StorageLocationWriteArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
   const name = args.name.trim();
   if (!name) throw new Error("A location needs a name.");
 
-  const index = await loadIndex();
+  const index = await loadIndex(tenantId);
   if (!index.byId.has(id)) throw new Error("Location not found.");
+  assertParentInIndex(index, args.parentId);
   assertNoCycle(index, id, args.parentId);
-  await assertNameFree(name, args.parentId, id);
+  await assertNameFree(tenantId, name, args.parentId, id);
 
   return prisma.storageLocation.update({
-    where: { id },
+    where: { id, tenantId },
     data: {
       name,
       kind: args.kind,
@@ -107,35 +124,38 @@ export async function moveStorageLocationCore(
   id: string,
   parentId: string | null,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
-  const index = await loadIndex();
+  const index = await loadIndex(tenantId);
   const node = index.byId.get(id);
   if (!node) throw new Error("Location not found.");
+  assertParentInIndex(index, parentId);
   assertNoCycle(index, id, parentId);
-  await assertNameFree(node.name, parentId, id);
+  await assertNameFree(tenantId, node.name, parentId, id);
 
-  return prisma.storageLocation.update({ where: { id }, data: { parentId } });
+  return prisma.storageLocation.update({ where: { id, tenantId }, data: { parentId } });
 }
 
 export async function setStorageLocationArchivedCore(
   id: string,
   archived: boolean,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE");
-  return prisma.storageLocation.update({ where: { id }, data: { archived } });
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
+  return prisma.storageLocation.update({ where: { id, tenantId }, data: { archived } });
 }
 
-export async function deleteStorageLocationCore(id: string, userId: string) {
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "DELETE");
+export async function deleteStorageLocationCore(id: string, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "DELETE", { tenantId });
 
   // InventoryItem.location is Restrict, so this would fail at the database
   // anyway — the pre-check exists to turn a foreign key error into a sentence
   // that says which location and how many items.
-  const location = await prisma.storageLocation.findUnique({
-    where: { id },
+  const location = await prisma.storageLocation.findFirst({
+    where: { id, tenantId },
     select: { name: true, _count: { select: { inventoryItems: true } } },
   });
   if (!location) throw new Error("Location not found.");
@@ -148,5 +168,5 @@ export async function deleteStorageLocationCore(id: string, userId: string) {
 
   // Children are promoted to roots by onDelete: SetNull, matching how deleting
   // a RoomGroup leaves its rooms ungrouped rather than destroying them.
-  await prisma.storageLocation.delete({ where: { id } });
+  await prisma.storageLocation.delete({ where: { id, tenantId } });
 }

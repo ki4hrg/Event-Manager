@@ -5,6 +5,10 @@
 // other user. Callers (the Server Action wrappers in ./actions.ts and the
 // MCP tools in @/lib/mcpTools/contacts) resolve userId from a trusted source
 // (cookie session / bearer token) and pass it through.
+//
+// `tenantId` is trusted the same way: the wrapper resolves it from the session
+// (the active tenant) or the MCP `tenant` argument, and the permission check
+// confirms the user actually holds a role there.
 
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -20,10 +24,11 @@ export type ContactWriteArgs = {
   roles: string[];
 };
 
-export async function createContactCore(args: ContactWriteArgs, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.CONTACTS, "WRITE");
+export async function createContactCore(args: ContactWriteArgs, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.CONTACTS, "WRITE", { tenantId });
   return prisma.contact.create({
     data: {
+      tenantId,
       firstName: args.firstName,
       lastName: args.lastName,
       email: args.email,
@@ -40,10 +45,13 @@ export async function updateContactCore(
   id: string,
   args: ContactWriteArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.CONTACTS, "WRITE");
+  await requirePermissionForUser(userId, PermissionResource.CONTACTS, "WRITE", { tenantId });
+  // `tenantId` in the unique where makes a foreign id a not-found rather than
+  // a cross-tenant write.
   return prisma.contact.update({
-    where: { id },
+    where: { id, tenantId },
     data: {
       firstName: args.firstName,
       lastName: args.lastName,
@@ -57,7 +65,7 @@ export async function updateContactCore(
   });
 }
 
-export async function deleteContactCore(id: string, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.CONTACTS, "DELETE");
-  await prisma.contact.delete({ where: { id } });
+export async function deleteContactCore(id: string, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.CONTACTS, "DELETE", { tenantId });
+  await prisma.contact.delete({ where: { id, tenantId } });
 }

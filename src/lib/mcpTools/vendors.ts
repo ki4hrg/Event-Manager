@@ -58,10 +58,10 @@ export const vendorTools: McpToolDefinition[] = [
     description:
       "List all real (non-system, non-venue-backed) vendors with a contact count summary. Returns summary shape — use `get_vendor` for full detail (the actual contacts via VendorContact links).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    handler: async (_args, { userId }) => {
-      await requirePermissionForUser(userId, PermissionResource.VENDORS, "VIEW");
+    handler: async (_args, { userId, tenantId }) => {
+      await requirePermissionForUser(userId, PermissionResource.VENDORS, "VIEW", { tenantId });
       return prisma.vendor.findMany({
-        where: { isSystemVendor: false, venueId: null },
+        where: { tenantId, isSystemVendor: false, venueId: null },
         include: { _count: { select: { contacts: true } } },
         orderBy: { name: "asc" },
       });
@@ -76,11 +76,11 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
-      await requirePermissionForUser(userId, PermissionResource.VENDORS, "VIEW");
-      return prisma.vendor.findUnique({
-        where: { id },
+      await requirePermissionForUser(userId, PermissionResource.VENDORS, "VIEW", { tenantId });
+      return prisma.vendor.findFirst({
+        where: { id, tenantId },
         include: {
           contacts: { include: { contact: true }, orderBy: { id: "asc" } },
         },
@@ -97,11 +97,11 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["query"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const query = optionalString(args, "query") ?? "";
-      await requirePermissionForUser(userId, PermissionResource.VENDORS, "VIEW");
+      await requirePermissionForUser(userId, PermissionResource.VENDORS, "VIEW", { tenantId });
       return prisma.vendor.findMany({
-        where: { name: { contains: query, mode: "insensitive" } },
+        where: { tenantId, name: { contains: query, mode: "insensitive" } },
         orderBy: { name: "asc" },
         take: 20,
       });
@@ -116,7 +116,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       createVendorCore(
         {
           name: requireString(args, "name"),
@@ -124,6 +124,7 @@ export const vendorTools: McpToolDefinition[] = [
           notes: optionalString(args, "notes") ?? null,
         },
         userId,
+        tenantId,
       ),
   },
   {
@@ -135,7 +136,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["id", "name"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => {
+    handler: (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
       return updateVendorCore(
         id,
@@ -145,6 +146,7 @@ export const vendorTools: McpToolDefinition[] = [
           notes: optionalString(args, "notes") ?? null,
         },
         userId,
+        tenantId,
       );
     },
   },
@@ -157,9 +159,9 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
-      await deleteVendorCore(id, userId);
+      await deleteVendorCore(id, userId, tenantId);
       return { id, deleted: true };
     },
   },
@@ -189,7 +191,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["vendorId", "firstName", "lastName"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       createAndAddVendorContactCore(
         {
           vendorId: requireString(args, "vendorId"),
@@ -201,6 +203,7 @@ export const vendorTools: McpToolDefinition[] = [
           isPrimary: optionalBoolean(args, "isPrimary"),
         },
         userId,
+        tenantId,
       ),
   },
   {
@@ -218,7 +221,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["vendorId", "contactId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       addVendorContactCore(
         {
           vendorId: requireString(args, "vendorId"),
@@ -227,6 +230,7 @@ export const vendorTools: McpToolDefinition[] = [
           isPrimary: optionalBoolean(args, "isPrimary"),
         },
         userId,
+        tenantId,
       ),
   },
   {
@@ -244,7 +248,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["vendorContactId", "vendorId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       updateVendorContactCore(
         {
           vendorContactId: requireString(args, "vendorContactId"),
@@ -253,6 +257,7 @@ export const vendorTools: McpToolDefinition[] = [
           isPrimary: optionalBoolean(args, "isPrimary"),
         },
         userId,
+        tenantId,
       ),
   },
   {
@@ -267,10 +272,10 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["vendorContactId", "vendorId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const vendorContactId = requireString(args, "vendorContactId");
       const vendorId = requireString(args, "vendorId");
-      await removeVendorContactCore(vendorContactId, vendorId, userId);
+      await removeVendorContactCore(vendorContactId, vendorId, userId, tenantId);
       return { vendorContactId, vendorId, removed: true };
     },
   },
@@ -285,7 +290,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["eventId", "vendorId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) =>
+    handler: (args, { userId, tenantId }) =>
       addVendorToEventCore(
         requireString(args, "eventId"),
         requireString(args, "vendorId"),
@@ -302,7 +307,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["eventVendorId"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const eventVendorId = requireString(args, "eventVendorId");
       await removeVendorFromEventCore(eventVendorId, userId);
       return { eventVendorId, removed: true };
@@ -322,7 +327,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["eventId", "vendorId", "modelType"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       await setDefaultVendorCore(
         requireString(args, "eventId"),
         requireString(args, "vendorId"),
@@ -346,7 +351,7 @@ export const vendorTools: McpToolDefinition[] = [
       required: ["eventId", "vendorId", "modelType"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       await removeDefaultVendorCore(
         requireString(args, "eventId"),
         requireString(args, "vendorId"),

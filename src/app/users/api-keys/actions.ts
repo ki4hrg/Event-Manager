@@ -14,8 +14,11 @@ import { requirePermission } from "@/lib/permissions";
 // versa, a role with SETTINGS:WRITE for dropdown management can't
 // accidentally revoke other users' API keys.
 export async function getAllApiKeys() {
-  await requirePermission(PermissionResource.API_KEYS, "VIEW");
+  const { tenantId } = await requirePermission(PermissionResource.API_KEYS, "VIEW");
+  // Keys belong to users, not tenants; the audit list is the keys of this
+  // organization's members. A key spans every tenant its owner belongs to.
   return prisma.apiKey.findMany({
+    where: { user: { memberships: { some: { tenantId } } } },
     include: { user: { select: { id: true, name: true, email: true } } },
     orderBy: [
       { revokedAt: { sort: "asc", nulls: "first" } },
@@ -26,12 +29,12 @@ export async function getAllApiKeys() {
 }
 
 export async function adminRevokeApiKey(id: string): Promise<void> {
-  await requirePermission(PermissionResource.API_KEYS, "DELETE");
-  // Set revokedAt unconditionally — no scope filter, since admins can revoke
-  // any key. updateMany returns count 0 if id is unknown; we don't surface a
-  // 404 (consistent with the self-service action's behavior).
+  const { tenantId } = await requirePermission(PermissionResource.API_KEYS, "DELETE");
+  // Scoped to keys owned by this organization's members. updateMany returns
+  // count 0 if id is unknown; we don't surface a 404 (consistent with the
+  // self-service action's behavior).
   await prisma.apiKey.updateMany({
-    where: { id },
+    where: { id, user: { memberships: { some: { tenantId } } } },
     data: { revokedAt: new Date() },
   });
   revalidatePath("/users/api-keys");

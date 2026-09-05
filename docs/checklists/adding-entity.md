@@ -9,11 +9,12 @@ Mark a surface ✗ if it's relevant to the new entity but not yet wired. Some li
 - `StatusModelType` enum — entry for the new entity (drives status defaults)
 - `EntityStatus?` field on the model if it has a workflow status
 - `FileUpload` model — add an optional FK + index if the entity supports attachments
-- `prisma/seed.mjs` — seed any default options the entity depends on
+- `prisma/tenantDefaults.mjs` — seed any default options the entity depends on (per tenant; the seed and tenant creation both run it)
+- Tenant scoping — a new *top-level* entity needs `tenantId` + `tenant` relation + `@@index([tenantId])`, a back-relation on `Tenant`, and a backfill migration; event-scoped children inherit the tenant through the event. See `docs/multi-tenancy.md`
 
 ## Auth and permissions
 - `src/app/users/roles/resources.ts` — add a `PermissionResource` entry to `GLOBAL_ONLY_RESOURCES` or `EVENT_SCOPED_RESOURCES`; mirror it in `prisma/seed.mjs` (`NON_EVENT_RESOURCES` / `EVENT_RESOURCES`, plus `ADMIN_ONLY_RESOURCES` if the default User role shouldn't get it) — the seed runs outside the Next runtime and can't import the TS module
-- Server Actions: every exported action starts with `await requireAuth()` (or `requireAdmin()` for admin-gated)
+- Server Actions: every exported action starts with `await requirePermission(RESOURCE, ACTION, eventId?)`; global checks return `session.tenantId` for the `*Core` call, event-scoped checks derive the tenant from the event
 
 ## Routes
 - `src/app/events/<entity>/` — colocated `actions.ts` + list/form/panel components (Archetypes A–C in CLAUDE.md § Route archetypes)

@@ -20,7 +20,7 @@ import {
   getBreakoutGroupOptions,
   getPackingListData,
 } from "@/app/events/reports/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptionsForEvent } from "@/lib/options";
 import { getEvent } from "@/app/events/actions";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
@@ -184,7 +184,7 @@ async function renderItem(
       const [event, vendors, functionTypes] = await Promise.all([
         getEvent(eventId).then(stripUpdatedBy),
         item.filtersLocked ? Promise.resolve(null) : getOrderAssignedVendors(eventId),
-        getOptions("function_type"),
+        getOptionsForEvent(eventId, "function_type"),
       ]);
 
       if (!event) notFound();
@@ -258,8 +258,8 @@ async function renderItem(
           days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
           types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
         }).then(stripUpdatedBy),
-        getOptions("service_style"),
-        getOptions("schedule_type"),
+        getOptionsForEvent(eventId, "service_style"),
+        getOptionsForEvent(eventId, "schedule_type"),
       ]);
 
       if (!data) notFound();
@@ -339,7 +339,7 @@ async function renderItem(
       );
 
       const [scheduleTypes, dataRaw] = await Promise.all([
-        getOptions("schedule_type"),
+        getOptionsForEvent(eventId, "schedule_type"),
         getEventScheduleData(eventId, {
           types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
           includeNonPublic: effectiveIncludeNonPublic,
@@ -417,8 +417,8 @@ async function renderItem(
           roomIds:
             effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
         }).then(stripUpdatedBy),
-        getOptions("function_type"),
-        getOptions("schedule_type"),
+        getOptionsForEvent(eventId, "function_type"),
+        getOptionsForEvent(eventId, "schedule_type"),
       ]);
 
       if (!data) notFound();
@@ -492,10 +492,10 @@ async function renderItem(
         await Promise.all([
           getEvent(eventId).then(stripUpdatedBy),
           item.filtersLocked ? Promise.resolve(null) : getFunctionPickerOptions(eventId),
-          getOptions("function_type"),
-          getOptions("schedule_type"),
-          getOptions("service_style"),
-          getOptions("setup_type"),
+          getOptionsForEvent(eventId, "function_type"),
+          getOptionsForEvent(eventId, "schedule_type"),
+          getOptionsForEvent(eventId, "service_style"),
+          getOptionsForEvent(eventId, "setup_type"),
         ]);
 
       if (!event) notFound();

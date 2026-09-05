@@ -14,8 +14,8 @@ export default async function AdminApiKeysPage() {
     <div>
       <div className="mb-4">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          All API keys across all users. Each key inherits its owning user&apos;s
-          role and event assignments. Revoke a key here to disable it
+          API keys owned by members of this organization. Each key inherits its
+          owning user&apos;s memberships, roles, and event assignments. Revoke a key here to disable it
           immediately. Users mint their own keys under{" "}
           <Link
             href="/account/api-keys"

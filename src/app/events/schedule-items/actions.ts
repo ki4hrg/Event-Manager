@@ -18,9 +18,9 @@ export async function getScheduleItems(eventId: string) {
 export async function getScheduleTypes() {
   // schedule_type CustomOption is reused by every event-scoped schedule form;
   // gate on FUNCTIONS:VIEW (GLOBAL) so non-admin Users can render the type picker.
-  await requirePermission("FUNCTIONS", "VIEW");
+  const session = await requirePermission("FUNCTIONS", "VIEW");
   return prisma.customOption.findMany({
-    where: { category: "schedule_type" },
+    where: { tenantId: session.tenantId, category: "schedule_type" },
     orderBy: { sortOrder: "asc" },
   });
 }

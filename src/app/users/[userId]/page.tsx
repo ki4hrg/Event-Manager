@@ -3,7 +3,10 @@ import { PermissionResource } from "@prisma/client";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { getUser, updateUser, deleteUser, resendPasswordResetEmail } from "../actions";
+import { getUser, updateUser, deleteUser, removeUserFromTenant, resendPasswordResetEmail } from "../actions";
+import { getTenantContext } from "@/lib/tenant";
+import { getTenants, addMembership, setMembershipRole, removeMembership } from "@/app/tenants/actions";
+import { MembershipEditor } from "@/app/tenants/MembershipEditor";
 import { getRoleOptions } from "@/app/users/roles/actions";
 import { UserForm } from "../UserForm";
 import { ResendInviteButton } from "../ResendInviteButton";
@@ -46,16 +49,21 @@ export default async function UserDetailPage({
   const session = await requirePermission(PermissionResource.USERS, "VIEW");
   const { userId } = await params;
   const { error } = await searchParams;
-  const [user, roles, assignments, seriesOptions] = await Promise.all([
+  const [user, roles, assignments, seriesOptions, ctx] = await Promise.all([
     getUser(userId),
     getRoleOptions(),
     getUserEventAccess(userId),
     getSeriesGrantOptions(),
+    getTenantContext(),
   ]);
 
-  if (!user) {
+  if (!user || !ctx?.active) {
     notFound();
   }
+
+  const isSuperAdmin = ctx.isSuperAdmin;
+  const allTenants = isSuperAdmin ? await getTenants() : [];
+  const memberTenantIds = new Set(user.memberships.map((m) => m.tenant.id));
 
   const updateAction = async (formData: FormData) => {
     "use server";
@@ -65,6 +73,24 @@ export default async function UserDetailPage({
   const deleteAction = async () => {
     "use server";
     await deleteUser(userId);
+  };
+
+  const removeAction = async () => {
+    "use server";
+    await removeUserFromTenant(userId);
+  };
+
+  const addMembershipAction = async (tenantId: string, roleId: string) => {
+    "use server";
+    await addMembership(tenantId, userId, roleId);
+  };
+  const setMembershipRoleAction = async (tenantId: string, roleId: string) => {
+    "use server";
+    await setMembershipRole(tenantId, userId, roleId);
+  };
+  const removeMembershipAction = async (tenantId: string) => {
+    "use server";
+    await removeMembership(tenantId, userId);
   };
 
   const resendAction = async () => {
@@ -127,9 +153,36 @@ export default async function UserDetailPage({
         user={user}
         roles={roles}
         saveAction={updateAction}
-        deleteAction={deleteAction}
+        deleteAction={isSuperAdmin ? deleteAction : undefined}
+        removeAction={removeAction}
         currentUserId={session.user.id}
+        tenantName={ctx.active.name}
+        canManageSuperAdmin={isSuperAdmin}
       />
+      {isSuperAdmin && (
+        <div className="mt-6">
+          <MembershipEditor
+            title="Organizations"
+            description="Every organization this account can enter, with the role held in each. Only super admins see this panel."
+            rows={user.memberships.map((m) => ({
+              id: m.tenant.id,
+              label: m.tenant.name,
+              sublabel: m.tenant.slug,
+              href: `/tenants/${m.tenant.id}`,
+              roleId: m.role.id,
+              roleName: m.role.name,
+            }))}
+            candidates={allTenants
+              .filter((t) => !memberTenantIds.has(t.id))
+              .map((t) => ({ id: t.id, label: t.name }))}
+            candidateLabel="Organization"
+            roles={roles}
+            add={addMembershipAction}
+            setRole={setMembershipRoleAction}
+            remove={removeMembershipAction}
+          />
+        </div>
+      )}
       <div className="mt-6 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Password

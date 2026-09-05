@@ -3,6 +3,7 @@
 import { PermissionLevel, PermissionResource, PermissionScope } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { requireSuperAdmin } from "@/lib/tenant";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PERMISSION_GROUPS, permissionFieldName } from "./resources";
@@ -10,7 +11,7 @@ import { PERMISSION_GROUPS, permissionFieldName } from "./resources";
 export async function getRoles() {
   await requirePermission(PermissionResource.ROLES, "VIEW");
   return prisma.role.findMany({
-    include: { _count: { select: { users: true } } },
+    include: { _count: { select: { memberships: true } } },
     orderBy: [{ isSystem: "desc" }, { name: "asc" }],
   });
 }
@@ -65,8 +66,12 @@ function readLevel(
   return PermissionLevel.NONE;
 }
 
+// Role definitions are global — one Admin/User/Viewer matrix shared by every
+// tenant. Editing one changes what the role means in every organization, so
+// every mutation is super-admin only; ROLES VIEW/WRITE on a tenant role only
+// lets a tenant admin read the matrix and assign roles.
 export async function createRole(formData: FormData) {
-  const session = await requirePermission(PermissionResource.ROLES, "WRITE");
+  const session = await requireSuperAdmin();
 
   const name = ((formData.get("name") as string) || "").trim();
   const description = (formData.get("description") as string)?.trim() || null;
@@ -81,7 +86,7 @@ export async function createRole(formData: FormData) {
       name,
       description,
       isSystem: false,
-      updatedById: session.user.id,
+      updatedById: session.userId,
       permissions: { create: rows },
     },
     select: { id: true },
@@ -93,7 +98,7 @@ export async function createRole(formData: FormData) {
 }
 
 export async function updateRole(id: string, formData: FormData) {
-  const session = await requirePermission(PermissionResource.ROLES, "WRITE");
+  const session = await requireSuperAdmin();
 
   const role = await prisma.role.findUnique({
     where: { id },
@@ -114,7 +119,7 @@ export async function updateRole(id: string, formData: FormData) {
   const rows = parsePermissions(formData);
 
   await prisma.$transaction([
-    prisma.role.update({ where: { id }, data: { name, description, updatedById: session.user.id } }),
+    prisma.role.update({ where: { id }, data: { name, description, updatedById: session.userId } }),
     prisma.rolePermission.deleteMany({ where: { roleId: id } }),
     prisma.rolePermission.createMany({ data: rows.map((r) => ({ roleId: id, ...r })) }),
   ]);
@@ -125,17 +130,17 @@ export async function updateRole(id: string, formData: FormData) {
 }
 
 export async function deleteRole(id: string) {
-  await requirePermission(PermissionResource.ROLES, "DELETE");
+  await requireSuperAdmin();
 
   const role = await prisma.role.findUnique({
     where: { id },
-    select: { isSystem: true, _count: { select: { users: true } } },
+    select: { isSystem: true, _count: { select: { memberships: true } } },
   });
   if (!role) throw new Error("Role not found");
   if (role.isSystem) throw new Error("System roles cannot be deleted");
-  if (role._count.users > 0) {
+  if (role._count.memberships > 0) {
     throw new Error(
-      `Cannot delete: ${role._count.users} user(s) are assigned this role. Reassign them first.`,
+      `Cannot delete: ${role._count.memberships} membership(s) use this role. Reassign them first.`,
     );
   }
 
@@ -154,7 +159,7 @@ export async function deleteRole(id: string) {
  * far cheaper than filling a 21-resource by 3-scope matrix by hand.
  */
 export async function duplicateRole(id: string) {
-  const session = await requirePermission(PermissionResource.ROLES, "WRITE");
+  const session = await requireSuperAdmin();
 
   const source = await prisma.role.findUnique({
     where: { id },
@@ -180,7 +185,7 @@ export async function duplicateRole(id: string) {
       name,
       description: source.description,
       isSystem: false,
-      updatedById: session.user.id,
+      updatedById: session.userId,
       permissions: {
         create: source.permissions.map((p) => ({
           resource: p.resource,

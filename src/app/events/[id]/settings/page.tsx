@@ -21,10 +21,10 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
   const { id } = await params;
   // The page is edit-only end to end — event details, status defaults, delete —
   // so it gates as a whole rather than hiding three panels individually.
-  await requirePermission("EVENTS", "WRITE", id);
+  const { tenantId } = await requirePermission("EVENTS", "WRITE", id);
   const [event, venues, series, statusDefaults, substatuses] = await Promise.all([
     getEvent(id),
-    prisma.venue.findMany({ orderBy: { name: "asc" } }),
+    prisma.venue.findMany({ where: { tenantId }, orderBy: { name: "asc" } }),
     getEventSeriesOptions(),
     getStatusDefaults(id),
     getSubstatusOptions(),

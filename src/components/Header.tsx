@@ -1,14 +1,19 @@
 import { auth, signOut } from "@/lib/auth";
 import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
-import { hasGlobalView, loadPermissions } from "@/lib/permissions";
+import { hasGlobalView, loadPermissionsForUser, type PermissionGrant } from "@/lib/permissions";
+import { getTenantContext } from "@/lib/tenant";
 import { AdminDropdown } from "./AdminDropdown";
+import { TenantSwitcher } from "./TenantSwitcher";
 
 export async function Header() {
   const session = await auth();
-  const { permissions } = session?.user?.id
-    ? await loadPermissions(session.user.id)
-    : { permissions: [] };
+  const ctx = await getTenantContext();
+  // No active tenant (an account with no memberships yet) renders a bare
+  // header: nothing to navigate to, but account and sign-out still work.
+  const permissions: PermissionGrant[] =
+    ctx?.active ? (await loadPermissionsForUser(ctx.userId, ctx.active.id)).permissions : [];
+  const isSuperAdmin = ctx?.isSuperAdmin ?? false;
 
   // Main-nav links are gated the same way the Admin dropdown already was.
   // An ungated link is worse than a missing one: clicking it bounces the user
@@ -32,7 +37,12 @@ export async function Header() {
     PermissionResource.STORAGE_LOCATIONS,
   );
   const showAdminDropdown =
-    canViewUsers || canViewEquipment || canViewSettings || canViewSystem || canViewWorkflows;
+    canViewUsers ||
+    canViewEquipment ||
+    canViewSettings ||
+    canViewSystem ||
+    canViewWorkflows ||
+    isSuperAdmin;
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow">
@@ -89,11 +99,19 @@ export async function Header() {
                 canViewSettings={canViewSettings}
                 canViewSystem={canViewSystem}
                 canViewWorkflows={canViewWorkflows}
+                canViewTenants={isSuperAdmin}
               />
             )}
           </nav>
         </div>
         <div className="flex items-center gap-4">
+          {ctx && ctx.tenants.length > 1 && ctx.active ? (
+            <TenantSwitcher tenants={ctx.tenants} activeId={ctx.active.id} />
+          ) : ctx?.active ? (
+            <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 truncate max-w-[12rem]">
+              {ctx.active.name}
+            </span>
+          ) : null}
           <Link
             href="/account"
             className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"

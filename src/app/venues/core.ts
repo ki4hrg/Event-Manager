@@ -4,7 +4,14 @@
 
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermissionForUser } from "@/lib/permissions";
+import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
+
+// Every venue-scoped core asserts the venue is the tenant's own before touching
+// its rooms, groups, or contacts; a foreign id reads as not-found.
+async function assertVenueInTenant(venueId: string, tenantId: string) {
+  const venue = await prisma.venue.findFirst({ where: { id: venueId, tenantId }, select: { id: true } });
+  if (!venue) throw new PermissionError("NOT_FOUND");
+}
 
 // ---------------------------------------------------------------------------
 // Venue
@@ -19,13 +26,14 @@ export type VenueWriteArgs = {
   notes: string | null;
 };
 
-export async function createVenueCore(args: VenueWriteArgs, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+export async function createVenueCore(args: VenueWriteArgs, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
   // Creating a venue also creates a backing Vendor row linked via venueId, so
   // the venue can appear as a "vendor" in order pickers. Keeping these in a
   // single core preserves the existing invariant: every Venue has one Vendor.
   const venue = await prisma.venue.create({
     data: {
+      tenantId,
       name: args.name,
       address: args.address,
       city: args.city,
@@ -37,17 +45,17 @@ export async function createVenueCore(args: VenueWriteArgs, userId: string) {
     },
   });
   await prisma.vendor.create({
-    data: { name: args.name, venueId: venue.id, updatedById: userId },
+    data: { tenantId, name: args.name, venueId: venue.id, updatedById: userId },
   });
   return venue;
 }
 
-export async function updateVenueCore(id: string, args: VenueWriteArgs, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+export async function updateVenueCore(id: string, args: VenueWriteArgs, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
   // Keeps the backing Vendor.name in sync with the Venue.name rename.
   const [venue] = await Promise.all([
     prisma.venue.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         name: args.name,
         address: args.address,
@@ -60,7 +68,7 @@ export async function updateVenueCore(id: string, args: VenueWriteArgs, userId: 
       },
     }),
     prisma.vendor.updateMany({
-      where: { venueId: id },
+      where: { venueId: id, tenantId },
       data: { name: args.name, updatedById: userId },
     }),
   ]);
@@ -71,18 +79,20 @@ export async function updateVenueVendorDetailsCore(
   venueId: string,
   notes: string | null,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
   await prisma.vendor.updateMany({
-    where: { venueId },
+    where: { venueId, tenantId },
     data: { notes, updatedById: userId },
   });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
 }
 
-export async function deleteVenueCore(id: string, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "DELETE");
-  await prisma.venue.delete({ where: { id } });
+export async function deleteVenueCore(id: string, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "DELETE", { tenantId });
+  await prisma.venue.delete({ where: { id, tenantId } });
 }
 
 // ---------------------------------------------------------------------------
@@ -95,8 +105,9 @@ export type RoomWriteArgs = {
   groupId: string | null;
 };
 
-export async function createRoomCore(venueId: string, args: RoomWriteArgs, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+export async function createRoomCore(venueId: string, args: RoomWriteArgs, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
   const room = await prisma.room.create({
     data: {
       name: args.name,
@@ -115,10 +126,12 @@ export async function updateRoomCore(
   venueId: string,
   args: RoomWriteArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
   const room = await prisma.room.update({
-    where: { id: roomId },
+    where: { id: roomId, venueId },
     data: {
       name: args.name,
       capacity: args.capacity,
@@ -130,17 +143,19 @@ export async function updateRoomCore(
   return room;
 }
 
-export async function deleteRoomCore(roomId: string, venueId: string, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "DELETE");
-  await prisma.room.delete({ where: { id: roomId } });
+export async function deleteRoomCore(roomId: string, venueId: string, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "DELETE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
+  await prisma.room.delete({ where: { id: roomId, venueId } });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
 }
 
 // ---------------------------------------------------------------------------
 // RoomGroup
 
-export async function createRoomGroupCore(venueId: string, name: string, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+export async function createRoomGroupCore(venueId: string, name: string, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
   const group = await prisma.roomGroup.create({ data: { name, venueId } });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
   return group;
@@ -151,16 +166,19 @@ export async function updateRoomGroupCore(
   venueId: string,
   name: string,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
-  const group = await prisma.roomGroup.update({ where: { id: groupId }, data: { name } });
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
+  const group = await prisma.roomGroup.update({ where: { id: groupId, venueId }, data: { name } });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
   return group;
 }
 
-export async function deleteRoomGroupCore(groupId: string, venueId: string, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "DELETE");
-  await prisma.roomGroup.delete({ where: { id: groupId } });
+export async function deleteRoomGroupCore(groupId: string, venueId: string, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "DELETE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
+  await prisma.roomGroup.delete({ where: { id: groupId, venueId } });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
 }
 
@@ -172,8 +190,10 @@ export async function addVenueContactCore(
   contactId: string,
   role: string | null,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
   const link = await prisma.venueContact.create({
     data: { venueId, contactId, role },
   });
@@ -186,10 +206,12 @@ export async function updateVenueContactCore(
   venueId: string,
   role: string | null,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
   const link = await prisma.venueContact.update({
-    where: { id: venueContactId },
+    where: { id: venueContactId, venueId },
     data: { role },
   });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
@@ -200,9 +222,11 @@ export async function removeVenueContactCore(
   venueContactId: string,
   venueId: string,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "DELETE");
-  await prisma.venueContact.delete({ where: { id: venueContactId } });
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "DELETE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
+  await prisma.venueContact.delete({ where: { id: venueContactId, venueId } });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
 }
 
@@ -218,10 +242,13 @@ export type CreateAndAddVenueContactArgs = {
 export async function createAndAddVenueContactCore(
   args: CreateAndAddVenueContactArgs,
   userId: string,
+  tenantId: string,
 ) {
-  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE");
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(args.venueId, tenantId);
   const contact = await prisma.contact.create({
     data: {
+      tenantId,
       firstName: args.firstName,
       lastName: args.lastName,
       email: args.email,

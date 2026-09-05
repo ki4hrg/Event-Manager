@@ -302,13 +302,14 @@ export async function deleteSchedule(scheduleId: string, functionId: string, eve
 // ============================================================================
 
 export async function searchContacts(query: string) {
-  await requirePermission("CONTACTS", "VIEW");
+  const session = await requirePermission("CONTACTS", "VIEW");
   if (!query || query.length < 2) {
     return [];
   }
 
   return prisma.contact.findMany({
     where: {
+      tenantId: session.tenantId,
       OR: [
         { firstName: { contains: query, mode: "insensitive" } },
         { lastName: { contains: query, mode: "insensitive" } },

@@ -143,7 +143,10 @@ export default async function AVOrderPage({
     [avOrderPartyOptions, audioEquipmentItems] = await Promise.all([
       getAVOrderResponsiblePartyOptions(avOrderId, eventId),
       prisma.equipment.findMany({
-        where: { category: { in: ["Audio Inputs", "Audio Outputs"] } },
+        where: {
+          category: { in: ["Audio Inputs", "Audio Outputs"] },
+          tenant: { events: { some: { id: eventId } } },
+        },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
       }),
     ]);
@@ -151,7 +154,10 @@ export default async function AVOrderPage({
     [avOrderPartyOptions, videoEquipmentItems] = await Promise.all([
       getAVOrderResponsiblePartyOptions(avOrderId, eventId),
       prisma.equipment.findMany({
-        where: { category: { in: ["Video Inputs", "Video Outputs"] } },
+        where: {
+          category: { in: ["Video Inputs", "Video Outputs"] },
+          tenant: { events: { some: { id: eventId } } },
+        },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
       }),
     ]);

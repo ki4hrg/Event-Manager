@@ -80,7 +80,7 @@ export async function createPrintOrderCore(
           data: { printOrderId: printOrder.id, vendorId: vendorIdToAssign },
         })
       : Promise.resolve(null),
-    autoAssignDefaultWorkflowsCore("print_order", printOrder.id),
+    autoAssignDefaultWorkflowsCore("print_order", printOrder.id, printOrder.eventId),
   ]);
   return printOrder;
 }

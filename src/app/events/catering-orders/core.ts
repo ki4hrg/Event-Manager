@@ -3,7 +3,7 @@
 
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
+import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
@@ -101,7 +101,7 @@ export async function createCateringOrderCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("catering_order", cateringOrder.id);
+  await autoAssignDefaultWorkflowsCore("catering_order", cateringOrder.id, cateringOrder.eventId);
   return cateringOrder;
 }
 
@@ -633,6 +633,7 @@ export async function createAndAddCateringOrderContactCore(
 
   const contact = await prisma.contact.create({
     data: {
+      tenantId: await requireEventTenantId(args.eventId),
       firstName: args.firstName,
       lastName: args.lastName,
       email: args.email,
