@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export const SETTING_KEYS = {
   LANDING_PAGE: "landing_page",
+  ACTIVE_TENANT_ID: "active_tenant_id",
   LAST_EVENT_ID: "last_event_id",
   AGENDA_SHOW_UNUSED_ROOMS: "agenda_show_unused_rooms",
   AGENDA_SHOW_FULL_DAY_ROOMS: "agenda_show_full_day_rooms",

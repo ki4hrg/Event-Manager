@@ -43,7 +43,7 @@ export type ResponsiblePartyOptions = {
 };
 
 export async function getResponsiblePartyVendors(eventId: string, modelType?: string): Promise<ResponsiblePartyOptions> {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
@@ -53,7 +53,7 @@ export async function getResponsiblePartyVendors(eventId: string, modelType?: st
       select: { vendor: { select: { id: true, name: true } } },
     }),
     prisma.event.findUnique({ where: { id: eventId }, select: { venue: { select: { vendor: { select: { id: true, name: true } } } } } }),
-    prisma.vendor.findFirst({ where: { isSystemVendor: true }, select: { id: true, name: true } }),
+    prisma.vendor.findFirst({ where: { tenantId: session.tenantId, isSystemVendor: true }, select: { id: true, name: true } }),
   ]);
 
   const venueVendor = event?.venue?.vendor ?? null;
@@ -70,9 +70,9 @@ export async function getResponsiblePartyVendors(eventId: string, modelType?: st
 }
 
 export async function getVendors() {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.vendor.findMany({
-    where: { isSystemVendor: false, venueId: null },
+    where: { tenantId: session.tenantId, isSystemVendor: false, venueId: null },
     include: {
       _count: { select: { contacts: true } },
     },
@@ -81,9 +81,9 @@ export async function getVendors() {
 }
 
 export async function getVendor(id: string) {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
-  return prisma.vendor.findUnique({
-    where: { id },
+  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
+  return prisma.vendor.findFirst({
+    where: { id, tenantId: session.tenantId },
     include: {
       contacts: { include: { contact: true }, orderBy: [{ isPrimary: "desc" }, { id: "asc" }] },
       updatedBy: { select: { name: true, email: true } },
@@ -92,9 +92,10 @@ export async function getVendor(id: string) {
 }
 
 export async function searchVendors(query: string) {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.vendor.findMany({
     where: {
+      tenantId: session.tenantId,
       name: { contains: query, mode: "insensitive" },
     },
     orderBy: { name: "asc" },
@@ -111,6 +112,7 @@ export async function createVendor(formData: FormData) {
       notes: (formData.get("notes") as string) || null,
     },
     session.user.id,
+    session.tenantId,
   );
   revalidatePath("/vendors");
   redirect(`/vendors/${vendor.id}`);
@@ -126,6 +128,7 @@ export async function updateVendor(id: string, formData: FormData) {
       notes: (formData.get("notes") as string) || null,
     },
     session.user.id,
+    session.tenantId,
   );
   revalidatePath(`/vendors/${id}`);
   revalidatePath("/vendors");
@@ -133,7 +136,7 @@ export async function updateVendor(id: string, formData: FormData) {
 
 export async function deleteVendor(id: string) {
   const session = await requirePermission(PermissionResource.VENDORS, "DELETE");
-  await deleteVendorCore(id, session.user.id);
+  await deleteVendorCore(id, session.user.id, session.tenantId);
   revalidatePath("/vendors");
   redirect("/vendors");
 }
@@ -141,9 +144,10 @@ export async function deleteVendor(id: string) {
 // Vendor contact management
 
 export async function searchContactsForVendor(query: string) {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
   return prisma.contact.findMany({
     where: {
+      tenantId: session.tenantId,
       OR: [
         { firstName: { contains: query, mode: "insensitive" } },
         { lastName: { contains: query, mode: "insensitive" } },
@@ -169,6 +173,7 @@ export async function createAndAddVendorContact(vendorId: string, formData: Form
       isPrimary: formData.get("isPrimary") === "true",
     },
     session.user.id,
+    session.tenantId,
   );
   revalidatePath(`/vendors/${vendorId}`);
 }
@@ -183,6 +188,7 @@ export async function addVendorContact(vendorId: string, formData: FormData) {
       isPrimary: formData.get("isPrimary") === "true",
     },
     session.user.id,
+    session.tenantId,
   );
   revalidatePath(`/vendors/${vendorId}`);
 }
@@ -197,13 +203,14 @@ export async function updateVendorContact(contactId: string, vendorId: string, f
       isPrimary: formData.get("isPrimary") === "true",
     },
     session.user.id,
+    session.tenantId,
   );
   revalidatePath(`/vendors/${vendorId}`);
 }
 
 export async function removeVendorContact(contactId: string, vendorId: string) {
   const session = await requirePermission(PermissionResource.VENDORS, "DELETE");
-  await removeVendorContactCore(contactId, vendorId, session.user.id);
+  await removeVendorContactCore(contactId, vendorId, session.user.id, session.tenantId);
   revalidatePath(`/vendors/${vendorId}`);
 }
 
@@ -225,14 +232,14 @@ export type EventVendorEntry = {
 // and the event's venue vendor as virtual entries when they don't yet have an EventVendor row,
 // so they can be tagged as defaults like any other vendor.
 export async function getEventVendors(eventId: string): Promise<EventVendorEntry[]> {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
 
   const [eventVendors, systemVendor, eventData] = await Promise.all([
     prisma.eventVendor.findMany({
       where: { eventId },
       include: { vendor: true },
     }),
-    prisma.vendor.findFirst({ where: { isSystemVendor: true } }),
+    prisma.vendor.findFirst({ where: { tenantId: session.tenantId, isSystemVendor: true } }),
     prisma.event.findUnique({
       where: { id: eventId },
       select: { venue: { select: { vendor: true } } },
@@ -281,7 +288,7 @@ export async function getEventVendors(eventId: string): Promise<EventVendorEntry
 }
 
 export async function searchVendorsForEvent(query: string, eventId: string) {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
   // Returns vendors not already assigned to this event. Excludes system / venue-linked
   // vendors because those are always surfaced as virtual entries on the page.
   const assigned = await prisma.eventVendor.findMany({
@@ -292,6 +299,7 @@ export async function searchVendorsForEvent(query: string, eventId: string) {
 
   return prisma.vendor.findMany({
     where: {
+      tenantId: session.tenantId,
       name: { contains: query, mode: "insensitive" },
       id: { notIn: assignedIds },
       isSystemVendor: false,
@@ -349,7 +357,7 @@ export async function getEventVendorsForPicker(eventId: string) {
 // Also includes the venue vendor and system (event team) vendor when they match the query,
 // since those are valid order vendors even when not registered via EventVendor.
 export async function searchAssignedEventVendors(query: string, eventId: string, modelType?: ModelType) {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
@@ -367,7 +375,7 @@ export async function searchAssignedEventVendors(query: string, eventId: string,
       where: { id: eventId },
       select: { venue: { select: { vendor: true } } },
     }),
-    prisma.vendor.findFirst({ where: { isSystemVendor: true } }),
+    prisma.vendor.findFirst({ where: { tenantId: session.tenantId, isSystemVendor: true } }),
   ]);
 
   const results = rows.map((r) => r.vendor);

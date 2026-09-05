@@ -17,9 +17,9 @@ import {
 // event through the shared core — being able to see the panel doesn't grant the
 // ability to change any particular row.
 export async function getUserEventAccess(userId: string) {
-  await requirePermission(PermissionResource.USERS, "VIEW");
+  const { tenantId } = await requirePermission(PermissionResource.USERS, "VIEW");
   return prisma.eventStaff.findMany({
-    where: { userId },
+    where: { userId, event: { tenantId } },
     select: {
       id: true,
       accessLevel: true,
@@ -38,19 +38,21 @@ export async function getUserEventAccess(userId: string) {
 }
 
 export async function getSeriesGrantOptions() {
-  await requirePermission(PermissionResource.USERS, "VIEW");
+  const { tenantId } = await requirePermission(PermissionResource.USERS, "VIEW");
   return prisma.eventSeries.findMany({
+    where: { tenantId },
     select: { id: true, name: true, _count: { select: { events: true } } },
     orderBy: { name: "asc" },
   });
 }
 
 export async function searchEventsForUserAccess(userId: string, query: string) {
-  await requirePermission(PermissionResource.USERS, "VIEW");
+  const { tenantId } = await requirePermission(PermissionResource.USERS, "VIEW");
   if (!query || query.length < 2) return [];
   return prisma.event.findMany({
     where: {
       AND: [
+        { tenantId },
         { name: { contains: query, mode: "insensitive" } },
         { staff: { none: { userId } } },
       ],

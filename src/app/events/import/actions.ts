@@ -14,7 +14,7 @@ import {
 /** Events that can be imported FROM, newest first, scoped to what the user may see. */
 export async function getImportSourceOptions(targetEventId: string) {
   const session = await requirePermission("EVENTS", "VIEW", targetEventId);
-  const scopeWhere = await eventScopeWhere(session.user.id);
+  const scopeWhere = await eventScopeWhere(session.user.id, session.tenantId);
   return prisma.event.findMany({
     where: { ...scopeWhere, id: { not: targetEventId } },
     select: {

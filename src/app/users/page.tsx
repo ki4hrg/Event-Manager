@@ -30,11 +30,11 @@ export default async function UsersPage() {
         <div>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Users</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Internal staff accounts. Each user is assigned a single role that defines their permissions.
+            Members of this organization. Each holds one role here that defines their permissions; the same account may belong to other organizations with a different role.
           </p>
         </div>
         <Link href="/users/new" className={btnPrimary}>
-          New User
+          Add User
         </Link>
       </div>
 
@@ -82,6 +82,11 @@ export default async function UsersPage() {
                     <span className={roleBadgeClass(user.roleRef?.name)}>
                       {user.roleRef?.name ?? "—"}
                     </span>
+                    {user.isSuperAdmin && (
+                      <span className="ml-2 px-2 py-0.5 text-xs rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300">
+                        Super admin
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                     {user.createdAt.toLocaleDateString()}

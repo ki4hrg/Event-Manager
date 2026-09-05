@@ -1,6 +1,6 @@
 # Event Manager Tool
 
-Internal tool for managing conferences and events: contracts, vendors, facility/room scheduling, speaker logistics, catering, and AV planning. Not attendee-facing — internal staff use only, single-tenant.
+Internal tool for managing conferences and events: contracts, vendors, facility/room scheduling, speaker logistics, catering, and AV planning. Not attendee-facing — internal staff use only. Multi-tenant: every domain row belongs to a `Tenant` (an "organization"), users are global and hold a role per tenant membership. See § Multi-tenancy.
 
 **Stack**: Next.js 14 (App Router) · TypeScript · PostgreSQL · Prisma 6 · Tailwind v4 · NextAuth 5 (Credentials + JWT). Deployed via Docker Compose.
 
@@ -10,8 +10,9 @@ Internal tool for managing conferences and events: contracts, vendors, facility/
 npm run dev         # Start development server
 npm run build       # Production build
 npm run lint        # next lint (ESLint)
-npm run db:push     # Push schema changes to database
-npm run db:migrate  # Create + apply a dev migration
+npm run db:migrate  # Create + apply a dev migration (schema changes ship as prisma/migrations)
+npm run db:deploy   # Apply pending migrations (what the Docker CMD runs)
+npm run db:push     # Throwaway dev databases only — never on a populated one
 npm run db:studio   # Open Prisma Studio
 npm run db:seed     # Seed default options + admin user
 docker compose up   # Run full stack in containers
@@ -26,9 +27,9 @@ These are the load-bearing rules. Breaking one breaks the model the rest of the 
 - **App Router only.** Routes live under `src/app/`. Do not create a `pages/` directory.
 - **Server Actions are the mutation channel for the UI.** Route handlers (`route.ts`) are reserved for cases Server Actions can't express: NextAuth callbacks (`src/app/api/auth/[...nextauth]/route.ts`), `multipart/form-data` uploads (`src/app/api/upload/route.ts`), binary file streaming (`src/app/api/files/[fileId]/route.ts`), and the MCP connector (`src/app/api/mcp/route.ts`) which speaks JSON-RPC to programmatic callers via API-key bearer auth. Do not add other JSON CRUD route handlers.
 - **No repository / DAL.** Pages, Server Actions, and `src/lib/` helpers all call Prisma directly via the singleton from `@/lib/prisma`. Never `new PrismaClient()` at runtime (`prisma/seed.mjs` and `scripts/*.ts` are the only exceptions — they run outside the Next runtime).
-- **Auth is defense-in-depth.** Middleware (`src/middleware.ts`) gates every request except `/login`, `/api/auth/*`, `/share/*`, and `/api/mcp` (which does its own bearer-token auth via `@/lib/mcpAuth`). Admin route segments add a `layout.tsx` that calls `requireAdmin()`. Every Server Action also self-protects with `await requireAuth()` (or `await requireAdmin()`) as its first line — with one carve-out for report data actions, documented in § Server Actions.
+- **Auth is defense-in-depth.** Middleware (`src/middleware.ts`) gates every request except `/login`, `/api/auth/*`, `/share/*`, and `/api/mcp` (which does its own bearer-token auth via `@/lib/mcpAuth`). Admin route segments add a `layout.tsx` that calls `requirePermission(<RESOURCE>, "VIEW")` (`requireSuperAdmin()` for `/tenants`). Every Server Action also self-protects with `await requirePermission(...)` as its first line — with one carve-out for report data actions, documented in § Server Actions.
 - **No global client state.** No Zustand / Jotai / Redux / SWR / React Query. Use React built-ins (`useState`, `useTransition`, `useRef`). Cross-request preferences go in the `UserSetting` table.
-- **Single-tenant.** No organization / workspace model exists in `prisma/schema.prisma`. Don't introduce multi-org access controls.
+- **Tenant-scoped data.** Every top-level domain model (Event, EventSeries, Venue, Contact, Vendor, CustomOption, Equipment, StorageLocation, InventoryItem, WorkflowTemplate) carries `tenantId`; event-scoped children inherit the tenant through the event. Every read on those models filters by tenant and every write sets or asserts it — see § Multi-tenancy. Users, Roles, API keys, and OAuth tables are global.
 
 ## Route archetypes
 
@@ -50,7 +51,7 @@ Three files plus a `print/` route: server `page.tsx`, `ReportFilters.tsx` (clien
 Validates `getActiveShareLink(token)` (revoke / expiry), fires `recordShareLinkAccess` as a fire-and-forget update, and branches on `link.reportType` to render the matching report component. Auth is bypassed by the `authorized` callback in `src/lib/auth.ts` for the `/share/*` prefix.
 
 ### F. Admin-only segment — `src/app/{settings,users,workflows}/`
-The segment's `layout.tsx` calls `requireAdmin()`. Child pages do not re-check (`requireAdmin()` inside the Server Actions covers mutations). Pure-redirect pages can stay plain (`src/app/settings/page.tsx`).
+The segment's `layout.tsx` calls `requirePermission(<RESOURCE>, "VIEW")` — or `requireSuperAdmin()` for `/tenants`. Child pages do not re-check (the permission check inside each Server Action covers mutations). Pure-redirect pages can stay plain (`src/app/settings/page.tsx`).
 
 ### G. API route handler — `src/app/api/`
 Only four exist; add a fifth only when a Server Action can't satisfy the requirement (binary stream, multipart upload, framework callback, MCP). When you do, follow Next 14 async-params (`params: Promise<...>`) as in pages.
@@ -87,7 +88,7 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 ### Server Actions
 
 - Co-locate in a sibling `actions.ts` whose first directive is `"use server"`.
-- Start every exported action with `await requireAuth()` (or `await requireAdmin()`). **Carve-out:** read-only report actions in `src/app/events/reports/actions.ts` are deliberately auth-free — the unauthenticated `/share/[token]/` route reuses them.
+- Start every exported action with `await requirePermission(RESOURCE, ACTION, eventId?)` from `@/lib/permissions` (or `await requireSuperAdmin()` from `@/lib/tenant` for platform administration). It returns the session plus `tenantId` — the event's tenant when an event id was given, the active tenant otherwise — which the action hands to the `*Core` it calls. **Carve-out:** read-only report actions in `src/app/events/reports/actions.ts` are deliberately auth-free — the unauthenticated `/share/[token]/` route reuses them.
 - Read inputs by type. Strings: `(formData.get("field") as string) || null`. Numbers: `parseInt(formData.get("field") as string)` for required ints, or `formData.get("field") ? parseInt(...) : null` for nullable ints — don't blanket-apply `|| null` to numerics, it turns `"0"` into `null`. Booleans: `formData.get("field") === "true"`. Multi-value: `formData.getAll("field") as string[]`.
 - After a mutation, call `revalidatePath(...)` for the entity's own list + detail routes, then `redirect(...)`. Cross-cutting changes (e.g. an option rename propagating across dozens of consumers) rely on `force-dynamic` — don't enumerate every consumer. Don't use `revalidateTag` (the project doesn't tag fetches).
 - **Redirect target.** Thin top-level entities (User, Event, Venue, Contact) redirect to the list view after create. Entities that need further setup (Vendor, every order type, Presentation, Function) redirect to the detail view. Duplicates always redirect to the new copy's detail view. Updates always stay on the detail view.
@@ -113,6 +114,7 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 ### Data layer
 
 - Use the singleton `prisma` from `@/lib/prisma`. Pages, Server Actions, and `src/lib/` helpers may call `prisma.<model>.<op>()` directly. Prefer a sibling `get*` action when the same query lands in two or more places; one-off lookups may stay inline.
+- Tenant-owned lookups by id use `findFirst({ where: { id, tenantId } })` and `update`/`delete({ where: { id, tenantId } })` (extendedWhereUnique) rather than a bare `findUnique` — a foreign id is a not-found, never a cross-tenant read or write. Readers that only hold an event id use the relation filter `tenant: { events: { some: { id: eventId } } }` (`optionsWhereForEvent` in `src/lib/options.ts`).
 - Domain types come from `@prisma/client`. For derived list/detail payloads, alias with `Awaited<ReturnType<typeof getX>>[number]`.
 - Persist per-user preferences via `setUserSetting` / `getUserSetting` from `@/lib/userSettings` (backed by the `UserSetting` table). Don't add cookies or localStorage for the same need.
 - When discriminating on a TypeScript union or Prisma enum, close the chain with an exhaustiveness check: `default: { const _exhaustive: never = value; throw new Error(\`Unhandled: ${value}\`); }` on a `switch`, or `const _exhaustive: never = link.reportType; throw new Error(...);` after the last `if` branch. Reference call sites: `OptionCategory` switch in `src/app/settings/actions.ts`, `ShareLink.reportType` if-chain in `src/app/share/[token]/page.tsx`.
@@ -137,8 +139,9 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 ## Security and validation
 
 - **Authentication** is enforced first at middleware (`src/middleware.ts` re-exports the NextAuth `auth` callback). The `authorized` callback in `src/lib/auth.ts:74-85` exempts `/login`, `/api/auth/*`, and `/share/*`. Every authenticated page can assume `session.user` exists.
-- **Server Actions self-protect** with `await requireAuth()` or `await requireAdmin()` (see § Server Actions for the report-actions carve-out). Reasoning: defense in depth, and a reviewer sees the protection at the top of the file without auditing middleware coverage.
-- **Admin authorization.** Admin-only route segments (`/settings`, `/users`, `/workflows`) have a `layout.tsx` that calls `requireAdmin()`. Pages inside don't re-check; Server Actions still call `requireAdmin()` themselves.
+- **Server Actions self-protect** with `await requirePermission(...)` (see § Server Actions for the report-actions carve-out). Reasoning: defense in depth, and a reviewer sees the protection at the top of the file without auditing middleware coverage.
+- **Admin authorization.** Admin-only route segments (`/settings`, `/users`, `/workflows`, `/system`) have a `layout.tsx` that calls `requirePermission(<RESOURCE>, "VIEW")`; `/tenants` calls `requireSuperAdmin()`. Pages inside don't re-check; Server Actions still gate themselves.
+- **Tenant isolation** is enforced in the data layer, not middleware: the permission layer picks the tenant (§ Multi-tenancy) and every query on a tenant-owned model carries it.
 - **Input handling.** No runtime schema library (no zod / yup / valibot). Trust the TypeScript types for FormData shape. Use `throw new Error(...)` for runtime invariants (uniqueness preview, cross-field invariants — see `src/app/users/actions.ts:46-55`, `src/app/account/actions.ts:11-13`). Empty strings normalize to `null` with `|| null`.
 - **Share links.** Tokens are validated by `getActiveShareLink` (`src/lib/shareLinks.ts:18-26`), which checks `revokedAt` and `expiresAt`. The share branch in `src/app/share/[token]/page.tsx` is the only public surface that reads event data.
 
@@ -198,6 +201,19 @@ Five surfaces to wire — see [docs/checklists/share-report-integration.md](./do
 | `ShareShell` | `src/app/share/[token]/ShareShell.tsx` | Layout shell for the share route |
 | Report style classes | `src/lib/reportStyles.ts` | `reportTh`, `reportTd`, etc. |
 
+## Multi-tenancy
+
+Full reference: [docs/multi-tenancy.md](./docs/multi-tenancy.md). The load-bearing rules:
+
+- **Model.** `Tenant { id, name, slug }`; `TenantMembership { tenantId, userId, roleId }` is the only source of a user's permissions inside a tenant. `User.isSuperAdmin` marks platform admins (every permission everywhere, `/tenants`, role definitions). Role definitions are global, so `createRole`/`updateRole`/`deleteRole`/`duplicateRole` call `requireSuperAdmin()`, not `requirePermission(ROLES, ...)`.
+- **Which tenant.** `src/lib/tenant.ts` owns it. The *active* tenant is a `UserSetting` (`active_tenant_id`) switched from the header (`TenantSwitcher` → `switchTenant`); `getTenantContext()` is the request-cached read, `requireActiveTenantId()` redirects to `/no-tenant` for accounts with no membership. Event-scoped checks ignore the active tenant and use the event's own (`getEventTenantId`, cached); the event layout re-points the active tenant to match and redirects once.
+- **Permission API.** `requirePermission(resource, action, eventId?)` (session) returns `session.tenantId`. `requirePermissionForUser(userId, resource, action, target)` (cores, MCP) takes a `PermissionTarget`. `loadPermissionsForUser(userId, tenantId)`. `hasGlobalView(perms, resource)` unchanged. `requireEventTenantId(eventId)` for a core that hangs a global check or a contact create off an event.
+- **Cores.** Global cores take `(args, userId, tenantId)`; event-scoped cores keep `(args, userId)`. Child rows (rooms, vendor contacts, workflow steps/items) are guarded by asserting the parent is the tenant's own first (`assertVenueInTenant`, `assertVendorInTenant`, `assertTemplateInTenant`) — never by trusting the child id.
+- **Uniqueness** is per tenant: `EventSeries (tenantId, name)`, `CustomOption (tenantId, category, label)`, `Equipment (tenantId, category, name)`.
+- **Defaults.** New tenants are seeded inside `createTenantCore`'s transaction from `prisma/tenantDefaults.mjs`; the seed runs the same function for every existing tenant.
+- **Users admin** (`/users`) is the active tenant's member list; "Add User" adds an existing account as a member or invites a new one. Removing a member deletes the membership plus their staff rows on that tenant's events; deleting the account is super-admin only. Event staff pickers only offer tenant members.
+- **Migrations.** Schema changes touching populated tables ship in `prisma/migrations/` (`0_init` baseline + `prisma/baseline.mjs` for db-push-era databases); the Docker CMD runs `migrate deploy`.
+
 ## Vendor model types
 
 Vendors are tagged with one or more "model types" (`CATERING_ORDER`, `AV_ORDER`, `SETUP_ORDER`, `PRINT_ORDER`) indicating which order types they service; this drives vendor picker filtering. The union lives in `src/app/vendors/actions.ts`; display labels in `src/app/vendors/model-types.ts` (no `"use server"` directive, so client components can import). Always import `MODEL_TYPES` / `MODEL_LABELS` from `model-types.ts` for display — never re-declare inline.
@@ -254,7 +270,7 @@ The helper falls back to just the session name when no group is provided. When a
 
 ## MCP connector
 
-`src/app/api/mcp/route.ts` exposes a hand-rolled JSON-RPC 2.0 endpoint speaking the MCP protocol (stateless `tools/list` + `tools/call`). API-key bearer auth via `Authorization: Bearer <key>`; users mint their own keys at `/account/api-keys`, and each key inherits its owning user's role + event assignments. Admins audit/revoke any user's key at `/settings/api-keys` — gated by the `API_KEYS` `PermissionResource` (seeded admin-only). Minting itself is `requireAuth()` only, scoped to the caller's userId.
+`src/app/api/mcp/route.ts` exposes a hand-rolled JSON-RPC 2.0 endpoint speaking the MCP protocol (stateless `tools/list` + `tools/call`). API-key bearer auth via `Authorization: Bearer <key>`; users mint their own keys at `/account/api-keys`, and each key inherits its owning user's memberships, roles, and event assignments across every tenant. Every tool except `list_tenants` takes a `tenant` argument (slug or id): `classifiedTools()` injects it into each schema and the dispatcher resolves it via `resolveTenantForUser` and strips it before the handler runs (`TENANT_ARG` / `TENANT_FREE_TOOLS` in `src/lib/mcpTools/index.ts`). It may be omitted only when the user belongs to exactly one tenant; unknown and off-limits handles fail identically. `McpToolContext` is `{ userId, tenantId }`. Admins audit/revoke any user's key at `/settings/api-keys` — gated by the `API_KEYS` `PermissionResource` (seeded admin-only). Minting itself is `requireAuth()` only, scoped to the caller's userId.
 
 ### Where things live
 - **Route** — `src/app/api/mcp/route.ts`. POST-only; dispatches JSON-RPC; maps `PermissionError` → MCP error codes; serializes results through `mcpSerialize`. GET returns 405.
@@ -264,7 +280,7 @@ The helper falls back to just the session name when no group is provided. When a
 - **Self-service UI** — `src/app/account/api-keys/` (page + actions + form + list). Linked from `/account`.
 
 ### Permission boundary
-MCP tools resolve a userId from the bearer token and call `requirePermissionForUser(userId, resource, action, eventId?)` from `@/lib/permissions`, which **throws `PermissionError`** on denial (it never calls `redirect()`/`notFound()` — those are Next-navigation throws and can't fire from a non-render context). The session-bound `requirePermission()` is a thin wrapper that catches `PermissionError` and translates to the legacy redirect/notFound behavior for the UI. **Don't bypass the wrapper from a UI page** — an uncaught `PermissionError` surfaces as an opaque 500.
+MCP tools resolve a userId from the bearer token and call `requirePermissionForUser(userId, resource, action, target)` from `@/lib/permissions` — `target` is a `PermissionTarget`: an event id string (tenant derived from the event) or `{ tenantId }` for a global check, never omitted — which **throws `PermissionError`** on denial (it never calls `redirect()`/`notFound()` — those are Next-navigation throws and can't fire from a non-render context). The session-bound `requirePermission()` is a thin wrapper that catches `PermissionError` and translates to the legacy redirect/notFound behavior for the UI. **Don't bypass the wrapper from a UI page** — an uncaught `PermissionError` surfaces as an opaque 500.
 
 The eight report actions in `src/app/events/reports/actions.ts` remain auth-free (the share-route carve-out). The MCP tools in `src/lib/mcpTools/reports.ts` call `requirePermissionForUser(userId, EVENTS, VIEW, eventId)` before delegating — keeping access enforcement at the MCP boundary while leaving the underlying actions reusable by the share route.
 
@@ -278,7 +294,7 @@ The eight report actions in `src/app/events/reports/actions.ts` remain auth-free
 Every entity exposes a pair: `list_<entity>` returns the list-page summary include (one or two levels of nested IDs/labels and a few flat fields); `get_<entity>` returns the full detail include. End every `list_*` tool's description with: `Returns summary shape — use \`get_<entity>\` for full detail (<short comma list of the extra includes>).` Descriptions are the only signal the LLM has — keep them specific and in sync.
 
 ### Writes — `*Core(args, userId)` extraction pattern
-When wiring an MCP write tool that mirrors an existing Server Action, factor out a pure `xxxCore(args, userId)` function from the action body. The Server Action wrapper retains `FormData` parsing, `revalidatePath`, and `redirect`; the core owns `requirePermissionForUser` and the Prisma op (including any `$transaction`). MCP tools call the core directly with typed args. Single source of truth for business rules; no drift between UI and MCP behavior.
+When wiring an MCP write tool that mirrors an existing Server Action, factor out a pure `xxxCore(args, userId)` function from the action body (`xxxCore(args, userId, tenantId)` for cores that do a global check or create a top-level tenant-owned row; event-scoped cores derive the tenant from the event). The Server Action wrapper retains `FormData` parsing, `revalidatePath`, and `redirect`; the core owns `requirePermissionForUser` and the Prisma op (including any `$transaction`). MCP tools call the core directly with typed args. Single source of truth for business rules; no drift between UI and MCP behavior.
 
 ### Documented exceptions
 - `mintApiKey` in `src/app/account/api-keys/actions.ts` **returns** a `{ fullKey, ... }` object — the deliberate exception to the "actions return void / redirect" convention. The plaintext key is shown once (we only persist `SHA-256(fullKey)`); the client renders a copy-once panel. Don't replicate unless you have an equivalent one-time-reveal requirement.
@@ -302,7 +318,10 @@ When wiring an MCP write tool that mirrors an existing Server Action, factor out
 | Composite keys like `${a}:${b}` as HTML IDs | Compute a clean anchor id separately from the React `key` | Colon is not a CSS-friendly id char. |
 | `process.env.X` outside `lib/prisma`, `lib/auth`, `lib/uploads` | Funnel new env access through one of those modules | Three touchpoints, 0 `NEXT_PUBLIC_*`. |
 | Cookies or `localStorage` for per-user preferences | `setUserSetting` / `getUserSetting` (`@/lib/userSettings`) | Server-side `UserSetting` table is the single store. |
-| Adding zod / yup / valibot for FormData parsing | Trust TS types; `throw new Error(...)` for runtime invariants | Single-tenant trust model. |
+| Adding zod / yup / valibot for FormData parsing | Trust TS types; `throw new Error(...)` for runtime invariants | Trusted-staff trust model; tenant isolation lives in the queries, not in input validation. |
+| `findUnique({ where: { id } })` on a tenant-owned model | `findFirst({ where: { id, tenantId } })` | A foreign id must read as not-found. |
+| `getOptions(category, tenantId)` or any tenant-explicit Server Action | Active tenant inside the action; `getOptionsForTenant` / `getOptionsForEvent` (`src/lib/options.ts`) for share routes | A client could pass any tenant id to a "use server" export. |
+| Adding default options/equipment to `prisma/seed.mjs` | `prisma/tenantDefaults.mjs` | Shared by the seed (every tenant) and `createTenantCore`. |
 | Adding a state library (Zustand / Jotai / Redux / SWR / React Query) | React built-ins + URL search params + `UserSetting` | Zero global client state. |
 | Building a modal `<Dialog>` for delete/cancel confirmation | Inline confirm state on the trigger | See `DeleteButton.tsx` / `InlineDeleteButton.tsx`. |
 
@@ -333,7 +352,8 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 ## Further reading
 
 - `prisma/schema.prisma` — full data model (Event, Venue, Room, Function and subtypes, Contact, all order types).
-- `src/lib/auth.ts` — `authorized` callback, `requireAuth`, `requireAdmin`, cookie config.
+- `src/lib/auth.ts` — `authorized` callback, `requireAuth`, cookie config.
+- `src/lib/tenant.ts`, `src/lib/permissions.ts`, `docs/multi-tenancy.md` — active tenant, `PermissionTarget`, super admin.
 - `src/lib/conflicts.ts`, `src/app/events/breakout-schedule/actions.ts` — the riskiest logic in the codebase (time-zone math, scheduling conflicts).
 - `docs/checklists/adding-entity.md` — full checklist for new entities/order types.
 - `docs/checklists/share-report-integration.md` — five-surface wiring for new shareable reports.

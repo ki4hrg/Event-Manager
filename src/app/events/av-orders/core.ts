@@ -87,7 +87,7 @@ export async function createAVOrderCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("av_order", avOrder.id);
+  await autoAssignDefaultWorkflowsCore("av_order", avOrder.id, avOrder.eventId);
   return avOrder;
 }
 

@@ -268,7 +268,7 @@ export async function createSessionInGroup(
   await prisma.functionSchedule.create({
     data: {
       functionId: fn.id,
-      type: await defaultScheduleType(),
+      type: await defaultScheduleType(eventId),
       startTime: parseDateTimeInTimezone(startTime, timezone),
       endTime: parseDateTimeInTimezone(endTime, timezone),
       sortOrder: 0,

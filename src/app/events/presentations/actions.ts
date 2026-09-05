@@ -345,13 +345,14 @@ export async function reorderSpeakers(
 // ============================================================================
 
 export async function searchContacts(query: string) {
-  await requirePermission("CONTACTS", "VIEW");
+  const session = await requirePermission("CONTACTS", "VIEW");
   if (!query || query.length < 2) {
     return [];
   }
 
   return prisma.contact.findMany({
     where: {
+      tenantId: session.tenantId,
       OR: [
         { firstName: { contains: query, mode: "insensitive" } },
         { lastName: { contains: query, mode: "insensitive" } },
@@ -407,7 +408,9 @@ export async function importPresentationsFromCSV(
     new Set(rows.flatMap((r) => emailHeaders.map((h) => (r[h] ?? "").trim()).filter(Boolean)))
   );
   const existingContacts = uniqueEmails.length
-    ? await prisma.contact.findMany({ where: { email: { in: uniqueEmails } } })
+    ? await prisma.contact.findMany({
+        where: { tenantId: session.tenantId, email: { in: uniqueEmails } },
+      })
     : [];
   const contactByEmail = new Map(existingContacts.map((c) => [c.email as string, c]));
 
@@ -449,7 +452,13 @@ export async function importPresentationsFromCSV(
         let contact = email ? (contactByEmail.get(email) ?? null) : null;
         if (!contact) {
           contact = await prisma.contact.create({
-            data: { firstName: firstName || "Unknown", lastName, email, updatedById: session.user.id },
+            data: {
+              tenantId: session.tenantId,
+              firstName: firstName || "Unknown",
+              lastName,
+              email,
+              updatedById: session.user.id,
+            },
           });
           if (email) contactByEmail.set(email, contact);
         }

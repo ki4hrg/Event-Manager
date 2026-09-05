@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { hasGlobalView, hasPermission, loadPermissions } from "@/lib/permissions";
+import { hasGlobalView, hasPermission, loadPermissionsForUser } from "@/lib/permissions";
+import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { EmptyState } from "@/components/EmptyState";
@@ -21,8 +22,10 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const ctx = await getTenantContext();
+  if (!ctx?.active) redirect("/no-tenant");
 
-  const { permissions } = await loadPermissions(session.user.id);
+  const { permissions } = await loadPermissionsForUser(session.user.id, ctx.active.id);
   const canViewEvents = hasGlobalView(permissions, PermissionResource.EVENTS);
   const canViewVenues = hasGlobalView(permissions, PermissionResource.VENUES);
   const canViewContacts = hasGlobalView(permissions, PermissionResource.CONTACTS);

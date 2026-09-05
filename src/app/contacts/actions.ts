@@ -13,16 +13,17 @@ import {
 } from "./core";
 
 export async function getContacts() {
-  await requirePermission(PermissionResource.CONTACTS, "VIEW");
+  const session = await requirePermission(PermissionResource.CONTACTS, "VIEW");
   return prisma.contact.findMany({
+    where: { tenantId: session.tenantId },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 }
 
 export async function getContact(id: string) {
-  await requirePermission(PermissionResource.CONTACTS, "VIEW");
-  return prisma.contact.findUnique({
-    where: { id },
+  const session = await requirePermission(PermissionResource.CONTACTS, "VIEW");
+  return prisma.contact.findFirst({
+    where: { id, tenantId: session.tenantId },
     include: { updatedBy: { select: { name: true, email: true } } },
   });
 }
@@ -41,14 +42,14 @@ function readContactArgs(formData: FormData): ContactWriteArgs {
 
 export async function createContact(formData: FormData) {
   const session = await requirePermission(PermissionResource.CONTACTS, "WRITE");
-  await createContactCore(readContactArgs(formData), session.user.id);
+  await createContactCore(readContactArgs(formData), session.user.id, session.tenantId);
   revalidatePath("/contacts");
   redirect("/contacts");
 }
 
 export async function updateContact(id: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.CONTACTS, "WRITE");
-  await updateContactCore(id, readContactArgs(formData), session.user.id);
+  await updateContactCore(id, readContactArgs(formData), session.user.id, session.tenantId);
   revalidatePath("/contacts");
   revalidatePath(`/contacts/${id}`);
   redirect(`/contacts/${id}?success=Contact updated`);
@@ -56,7 +57,7 @@ export async function updateContact(id: string, formData: FormData) {
 
 export async function deleteContact(id: string) {
   const session = await requirePermission(PermissionResource.CONTACTS, "DELETE");
-  await deleteContactCore(id, session.user.id);
+  await deleteContactCore(id, session.user.id, session.tenantId);
   revalidatePath("/contacts");
   redirect("/contacts");
 }

@@ -14,8 +14,9 @@ export async function getEventSeries() {
   const session = await requirePermission("EVENTS", "VIEW");
   // Scope the embedded events the same way the events list does — otherwise this
   // page enumerates the name of every event to anyone who can open it.
-  const scopeWhere = await eventScopeWhere(session.user.id);
+  const scopeWhere = await eventScopeWhere(session.user.id, session.tenantId);
   return prisma.eventSeries.findMany({
+    where: { tenantId: session.tenantId },
     select: {
       id: true,
       name: true,
@@ -40,18 +41,18 @@ function revalidateSeries() {
 
 export async function createEventSeries(formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
-  await createEventSeriesCore((formData.get("name") as string) || "", session.user.id);
+  await createEventSeriesCore((formData.get("name") as string) || "", session.user.id, session.tenantId);
   revalidateSeries();
 }
 
 export async function updateEventSeries(id: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
-  await updateEventSeriesCore(id, (formData.get("name") as string) || "", session.user.id);
+  await updateEventSeriesCore(id, (formData.get("name") as string) || "", session.user.id, session.tenantId);
   revalidateSeries();
 }
 
 export async function deleteEventSeries(id: string) {
   const session = await requirePermission("EVENTS", "DELETE");
-  await deleteEventSeriesCore(id, session.user.id);
+  await deleteEventSeriesCore(id, session.user.id, session.tenantId);
   revalidateSeries();
 }

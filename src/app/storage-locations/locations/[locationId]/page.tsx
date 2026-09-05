@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantId, requireActiveTenantId } from "@/lib/tenant";
 import { hasPermission } from "@/lib/permissions";
 import { getEquipment, createEquipmentInline } from "@/app/equipment/actions";
 import { getOptions } from "@/app/settings/actions";
@@ -33,8 +34,8 @@ export async function generateMetadata({
   params: Promise<{ locationId: string }>;
 }): Promise<Metadata> {
   const { locationId } = await params;
-  const location = await prisma.storageLocation.findUnique({
-    where: { id: locationId },
+  const location = await prisma.storageLocation.findFirst({
+    where: { id: locationId, tenantId: (await getActiveTenantId()) ?? "" },
     select: { name: true },
   });
   return { title: location?.name ?? "Location" };
@@ -46,6 +47,7 @@ export default async function LocationDetailPage({
   params: Promise<{ locationId: string }>;
 }) {
   const { locationId } = await params;
+  const tenantId = await requireActiveTenantId();
 
   const [
     location,
@@ -59,7 +61,7 @@ export default async function LocationDetailPage({
     supplyOrderTargets,
     children,
   ] = await Promise.all([
-    prisma.storageLocation.findUnique({ where: { id: locationId } }),
+    prisma.storageLocation.findFirst({ where: { id: locationId, tenantId } }),
     getStorageLocations(),
     getLocationContents(locationId),
     getEquipment(),
@@ -72,7 +74,7 @@ export default async function LocationDetailPage({
     // here the question is "what else is in this one", and a deep rollup would
     // reprint the tree inside every location.
     prisma.storageLocation.findMany({
-      where: { parentId: locationId, archived: false },
+      where: { tenantId, parentId: locationId, archived: false },
       select: {
         id: true,
         name: true,

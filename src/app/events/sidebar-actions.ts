@@ -21,7 +21,7 @@ export async function getSidebarItems(
   // functions and orders of events the caller has no access to.
   const resource = SECTION_RESOURCE[section];
   if (!resource) throw new Error(`Unknown sidebar section: ${section}`);
-  await requirePermission(resource, "VIEW", eventId);
+  const session = await requirePermission(resource, "VIEW", eventId);
 
   const base = `/events/${eventId}`;
 
@@ -32,7 +32,7 @@ export async function getSidebarItems(
         select: { id: true, name: true, type: true },
       }),
       prisma.customOption.findMany({
-        where: { category: "function_type" },
+        where: { tenantId: session.tenantId, category: "function_type" },
         select: { label: true, sortOrder: true },
         orderBy: { sortOrder: "asc" },
       }),

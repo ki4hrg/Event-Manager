@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { createRole } from "../actions";
 import { RoleForm } from "../RoleForm";
+import { requireSuperAdmin } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "New role" };
 
 export default async function NewRolePage() {
+  await requireSuperAdmin();
   return (
     <div>
       <div className="mb-4">

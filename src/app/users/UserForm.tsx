@@ -29,14 +29,29 @@ interface UserFormProps {
     name: string | null;
     roleId: string | null;
     roleRef: { id: string; name: string } | null;
+    isSuperAdmin?: boolean;
   };
   roles: RoleOption[];
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: () => Promise<void>;
+  // Removes the membership in the active tenant without deleting the account.
+  removeAction?: () => Promise<void>;
   currentUserId?: string;
+  tenantName?: string | null;
+  // Only super admins may grant or revoke platform-admin status.
+  canManageSuperAdmin?: boolean;
 }
 
-export function UserForm({ user, roles, saveAction, deleteAction, currentUserId }: UserFormProps) {
+export function UserForm({
+  user,
+  roles,
+  saveAction,
+  deleteAction,
+  removeAction,
+  currentUserId,
+  tenantName,
+  canManageSuperAdmin = false,
+}: UserFormProps) {
   const isCreate = !user;
   const [editing, setEditing] = useState(isCreate);
   const [error, setError] = useState<string | null>(null);
@@ -69,25 +84,38 @@ export function UserForm({ user, roles, saveAction, deleteAction, currentUserId 
               <dd className="mt-1 text-gray-900 dark:text-white">{user.email}</dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Role</dt>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Role{tenantName ? ` in ${tenantName}` : ""}
+              </dt>
               <dd className="mt-1">
                 <span className={roleBadgeClass(user.roleRef?.name ?? null)}>
-                  {user.roleRef?.name ?? "—"}
+                  {user.roleRef?.name ?? "Not a member"}
                 </span>
               </dd>
             </div>
+            {user.isSuperAdmin && (
+              <div>
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Platform</dt>
+                <dd className="mt-1">
+                  <span className="px-2 py-0.5 text-xs rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300">
+                    Super admin
+                  </span>
+                </dd>
+              </div>
+            )}
           </dl>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => setEditing(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Edit
             </button>
+            {removeAction && !isSelf && user.roleRef && (
+              <DeleteButton resource="USERS" action={removeAction} label="Remove from organization" />
+            )}
             {deleteAction && !isSelf && (
-              <DeleteButton resource="USERS"
-                action={deleteAction}
-              />
+              <DeleteButton resource="USERS" action={deleteAction} label="Delete account" />
             )}
           </div>
         </div>
@@ -132,7 +160,7 @@ export function UserForm({ user, roles, saveAction, deleteAction, currentUserId 
 
         <div>
           <label htmlFor="roleId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Role *
+            Role{tenantName ? ` in ${tenantName}` : ""} *
           </label>
           <select
             id="roleId"
@@ -155,6 +183,23 @@ export function UserForm({ user, roles, saveAction, deleteAction, currentUserId 
             </p>
           )}
         </div>
+
+        {canManageSuperAdmin && !isSelf && (
+          <div>
+            {/* Marker so the server can tell "unchecked" from "field absent" */}
+            <input type="hidden" name="isSuperAdminField" value="1" />
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                name="isSuperAdmin"
+                value="true"
+                defaultChecked={user?.isSuperAdmin ?? false}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              Super admin (every permission in every organization; can manage organizations)
+            </label>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-2">
           <SubmitButton isCreate={isCreate} />

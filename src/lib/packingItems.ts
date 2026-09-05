@@ -255,6 +255,7 @@ export async function buildPackingItems(
   // The location tree plus this event's container placements, so a filter on a
   // pallet can include everything nested under it.
   const locationRows = await prisma.storageLocation.findMany({
+    where: { tenant: { events: { some: { id: eventId } } } },
     select: {
       id: true,
       name: true,

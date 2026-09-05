@@ -7,6 +7,7 @@ import { Toast } from "@/components/Toast";
 import { deleteRole, getRole, updateRole } from "../actions";
 import { RoleForm } from "../RoleForm";
 import { LastUpdated } from "@/components/LastUpdated";
+import { isSuperAdmin } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function EditRolePage({
   params: Promise<{ roleId: string }>;
 }) {
   const { roleId } = await params;
-  const role = await getRole(roleId);
+  const [role, superAdmin] = await Promise.all([getRole(roleId), isSuperAdmin()]);
   if (!role) notFound();
 
   const saveAction = async (formData: FormData) => {
@@ -34,7 +35,7 @@ export default async function EditRolePage({
     await updateRole(roleId, formData);
   };
 
-  const deleteAction = role.isSystem
+  const deleteAction = role.isSystem || !superAdmin
     ? undefined
     : async () => {
         "use server";
@@ -53,7 +54,7 @@ export default async function EditRolePage({
           <LastUpdated updatedAt={role.updatedAt} updatedBy={role.updatedBy} />
         </div>
       </div>
-      <RoleForm role={role} saveAction={saveAction} deleteAction={deleteAction} />
+      <RoleForm role={role} saveAction={saveAction} deleteAction={deleteAction} canEdit={superAdmin} />
     </div>
   );
 }

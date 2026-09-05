@@ -3,7 +3,7 @@
 
 import type { AcquisitionState, EntityStatus, PackingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
+import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
@@ -81,7 +81,7 @@ export async function createSupplyOrderCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("supply_order", supplyOrder.id);
+  await autoAssignDefaultWorkflowsCore("supply_order", supplyOrder.id, supplyOrder.eventId);
   return supplyOrder;
 }
 
@@ -348,8 +348,8 @@ async function assertContainerUsable(
   eventId: string,
   exceptItemId?: string,
 ) {
-  const location = await prisma.storageLocation.findUnique({
-    where: { id: containerLocationId },
+  const location = await prisma.storageLocation.findFirst({
+    where: { id: containerLocationId, tenant: { events: { some: { id: eventId } } } },
     select: { name: true, kind: true },
   });
   if (!location) throw new Error("Container not found.");
@@ -425,10 +425,11 @@ export async function addInventoryToSupplyOrderCore(
   if (!order) throw new PermissionError("NOT_FOUND");
 
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", order.eventId);
-  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "VIEW");
+  const tenantId = await requireEventTenantId(order.eventId);
+  await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "VIEW", { tenantId });
 
   const items = await prisma.inventoryItem.findMany({
-    where: { id: { in: inventoryItemIds } },
+    where: { id: { in: inventoryItemIds }, tenantId },
     select: {
       id: true,
       name: true,

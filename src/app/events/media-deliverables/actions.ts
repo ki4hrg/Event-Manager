@@ -330,6 +330,7 @@ export async function createAndAddMediaDeliverableContact(
 
   const contact = await prisma.contact.create({
     data: {
+      tenantId: session.tenantId,
       firstName,
       lastName,
       email: email || null,
@@ -364,9 +365,10 @@ export async function getMediaDeliverableProviderPool(
 }
 
 export async function searchContactsForMediaDeliverable(query: string) {
-  await requirePermission("CONTACTS", "VIEW");
+  const session = await requirePermission("CONTACTS", "VIEW");
   return prisma.contact.findMany({
     where: {
+      tenantId: session.tenantId,
       OR: [
         { firstName: { contains: query, mode: "insensitive" } },
         { lastName: { contains: query, mode: "insensitive" } },

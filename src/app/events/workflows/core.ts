@@ -11,12 +11,19 @@ import type { WorkflowEntityType } from "./entity-types";
 // Permission and ownership are assumed to already be checked by the caller's
 // core (which just created the entity in the same flow, so re-checking would
 // be redundant).
+//
+// `eventId` picks the tenant whose templates apply — every workflow-bearing
+// entity hangs off an event.
 export async function autoAssignDefaultWorkflowsCore(
   entityType: WorkflowEntityType,
   entityId: string,
+  eventId: string,
 ) {
   const templates = await prisma.workflowTemplate.findMany({
-    where: { defaultForEntityTypes: { has: entityType } },
+    where: {
+      defaultForEntityTypes: { has: entityType },
+      tenant: { events: { some: { id: eventId } } },
+    },
     select: { id: true },
   });
   if (templates.length === 0) return;

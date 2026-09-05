@@ -476,9 +476,10 @@ export async function createAndAddCateringOrderContact(cateringOrderId: string, 
 }
 
 export async function searchContactsForCateringOrder(query: string) {
-  await requirePermission("CONTACTS", "VIEW");
+  const session = await requirePermission("CONTACTS", "VIEW");
   return prisma.contact.findMany({
     where: {
+      tenantId: session.tenantId,
       OR: [
         { firstName: { contains: query, mode: "insensitive" } },
         { lastName: { contains: query, mode: "insensitive" } },

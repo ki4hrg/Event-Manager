@@ -80,7 +80,7 @@ export async function createSetupOrderCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("setup_order", setupOrder.id);
+  await autoAssignDefaultWorkflowsCore("setup_order", setupOrder.id, setupOrder.eventId);
   return setupOrder;
 }
 
@@ -173,7 +173,7 @@ export async function duplicateSetupOrderCore(id: string, eventId: string, userI
     }),
   ]);
 
-  await autoAssignDefaultWorkflowsCore("setup_order", duplicate.id);
+  await autoAssignDefaultWorkflowsCore("setup_order", duplicate.id, duplicate.eventId);
   return duplicate;
 }
 

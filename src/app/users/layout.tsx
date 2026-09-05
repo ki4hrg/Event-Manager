@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { hasGlobalView, loadPermissions } from "@/lib/permissions";
+import { hasGlobalView, loadPermissionsForUser } from "@/lib/permissions";
+import { getTenantContext } from "@/lib/tenant";
 import { PageWrapper } from "@/components/PageWrapper";
 import { UsersTabs } from "./UsersTabs";
 
@@ -19,7 +20,9 @@ export default async function UsersLayout({ children }: { children: React.ReactN
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const { permissions } = await loadPermissions(session.user.id);
+  const ctx = await getTenantContext();
+  if (!ctx?.active) redirect("/no-tenant");
+  const { permissions } = await loadPermissionsForUser(session.user.id, ctx.active.id);
   const canEnter =
     hasGlobalView(permissions, PermissionResource.USERS) ||
     hasGlobalView(permissions, PermissionResource.ROLES) ||
@@ -31,7 +34,7 @@ export default async function UsersLayout({ children }: { children: React.ReactN
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Users</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Manage users, roles, and API keys.
+          Manage this organization&apos;s members, roles, and API keys.
         </p>
       </div>
       <UsersTabs />

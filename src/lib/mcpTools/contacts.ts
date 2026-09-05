@@ -48,9 +48,10 @@ export const contactTools: McpToolDefinition[] = [
     description:
       "List all contacts ordered by last name, first name. Returns the full Contact row per entry — `get_contact` returns the same shape for a single id and is the canonical fetch when you already have one.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    handler: async (_args, { userId }) => {
-      await requirePermissionForUser(userId, PermissionResource.CONTACTS, "VIEW");
+    handler: async (_args, { userId, tenantId }) => {
+      await requirePermissionForUser(userId, PermissionResource.CONTACTS, "VIEW", { tenantId });
       return prisma.contact.findMany({
+        where: { tenantId },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       });
     },
@@ -64,10 +65,10 @@ export const contactTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
-      await requirePermissionForUser(userId, PermissionResource.CONTACTS, "VIEW");
-      return prisma.contact.findUnique({ where: { id } });
+      await requirePermissionForUser(userId, PermissionResource.CONTACTS, "VIEW", { tenantId });
+      return prisma.contact.findFirst({ where: { id, tenantId } });
     },
   },
   {
@@ -80,12 +81,13 @@ export const contactTools: McpToolDefinition[] = [
       required: ["query"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
-      await requirePermissionForUser(userId, PermissionResource.CONTACTS, "VIEW");
+    handler: async (args, { userId, tenantId }) => {
+      await requirePermissionForUser(userId, PermissionResource.CONTACTS, "VIEW", { tenantId });
       const query = optionalString(args, "query") ?? "";
       if (query.length < 2) return [];
       return prisma.contact.findMany({
         where: {
+          tenantId,
           OR: [
             { firstName: { contains: query, mode: "insensitive" } },
             { lastName: { contains: query, mode: "insensitive" } },
@@ -108,7 +110,7 @@ export const contactTools: McpToolDefinition[] = [
       required: ["firstName", "lastName"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => createContactCore(readWriteArgs(args, true), userId),
+    handler: (args, { userId, tenantId }) => createContactCore(readWriteArgs(args, true), userId, tenantId),
   },
   {
     name: "update_contact",
@@ -120,9 +122,9 @@ export const contactTools: McpToolDefinition[] = [
       required: ["id", "firstName", "lastName"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => {
+    handler: (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
-      return updateContactCore(id, readWriteArgs(args, true), userId);
+      return updateContactCore(id, readWriteArgs(args, true), userId, tenantId);
     },
   },
   {
@@ -135,9 +137,9 @@ export const contactTools: McpToolDefinition[] = [
       required: ["id"],
       additionalProperties: false,
     },
-    handler: async (args, { userId }) => {
+    handler: async (args, { userId, tenantId }) => {
       const id = requireString(args, "id");
-      await deleteContactCore(id, userId);
+      await deleteContactCore(id, userId, tenantId);
       return { id, deleted: true };
     },
   },

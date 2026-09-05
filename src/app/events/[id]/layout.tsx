@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import type { PermissionResource } from "@prisma/client";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Header } from "@/components/Header";
 import { EventLayoutClient } from "@/components/EventLayoutClient";
 import { permissionLevels, requirePermission } from "@/lib/permissions";
+import { getTenantContext, setActiveTenantForUser } from "@/lib/tenant";
 import { PermissionsProvider } from "@/components/PermissionsProvider";
 import {
   EVENT_SCOPED_PERMISSION_RESOURCES,
@@ -60,6 +61,16 @@ export default async function EventLayout({
     requirePermission("EVENTS", "VIEW", id),
   ]);
   if (!event) notFound();
+
+  // A link into another organization's event (a bookmark, the last-event
+  // landing preference) re-points the active tenant so the header, pickers,
+  // and every global lookup below agree with the event. The permission check
+  // above already proved membership; the redirect lands on the event overview
+  // so the next request renders inside the right tenant from the first byte.
+  const ctx = await getTenantContext();
+  if (ctx?.active && ctx.active.id !== event.tenantId) {
+    if (await setActiveTenantForUser(ctx.userId, event.tenantId)) redirect(`/events/${id}`);
+  }
 
   // One resolution pass for the whole subtree: the sidebar needs VIEW to decide
   // what to render, and every page and panel below needs WRITE/DELETE to decide

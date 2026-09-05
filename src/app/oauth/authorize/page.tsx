@@ -3,6 +3,7 @@ import { PermissionResource } from "@prisma/client";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasGlobalView, loadPermissionsForUser } from "@/lib/permissions";
+import { accessibleTenantsForUser } from "@/lib/tenant";
 import { validateAuthorizationRequest } from "@/lib/mcpOAuth";
 import { ConsentActions } from "./ConsentActions";
 import { approveAuthorization, denyAuthorization } from "./actions";
@@ -77,12 +78,19 @@ export default async function AuthorizeConnectorPage({ searchParams }: Props) {
 
   const request = result.request;
 
-  const [user, perms, assignments] = await Promise.all([
+  const [user, { tenants, isSuperAdmin }, assignments] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { email: true, name: true, roleRef: { select: { name: true } } },
+      select: {
+        email: true,
+        name: true,
+        memberships: {
+          select: { tenant: { select: { id: true, name: true } }, role: { select: { name: true } } },
+          orderBy: { tenant: { name: "asc" } },
+        },
+      },
     }),
-    loadPermissionsForUser(session.user.id),
+    accessibleTenantsForUser(session.user.id),
     prisma.eventStaff.findMany({
       where: { userId: session.user.id },
       select: { event: { select: { id: true, name: true } } },
@@ -91,14 +99,28 @@ export default async function AuthorizeConnectorPage({ searchParams }: Props) {
   ]);
 
   // Tokens carry no scope of their own — every MCP tool call re-resolves the
-  // user's permissions at call time (requirePermissionForUser). So "what the
-  // connector gets" is exactly "what this user can already do", and that's what
-  // this screen describes rather than a scope list.
-  const seesAllEvents = hasGlobalView(
-    perms.permissions,
-    PermissionResource.EVENTS,
-  );
+  // user's permissions at call time (requirePermissionForUser) inside whichever
+  // tenant the call names. So "what the connector gets" is exactly "what this
+  // user can already do" in each organization, and that's what this screen
+  // describes rather than a scope list.
+  const seesAllEvents = isSuperAdmin
+    ? true
+    : (
+        await Promise.all(
+          tenants.map(async (t) =>
+            hasGlobalView(
+              (await loadPermissionsForUser(session.user.id, t.id)).permissions,
+              PermissionResource.EVENTS,
+            ),
+          ),
+        )
+      ).some(Boolean);
   const eventNames = assignments.map((a) => a.event.name);
+  const membershipSummary = isSuperAdmin
+    ? "every organization, as a super admin"
+    : (user?.memberships ?? [])
+        .map((m) => `${m.tenant.name} (${m.role.name})`)
+        .join(", ");
 
   let redirectHost = request.redirectUri;
   try {
@@ -130,12 +152,12 @@ export default async function AuthorizeConnectorPage({ searchParams }: Props) {
         </p>
         <ul className="mt-2 space-y-2 text-sm text-gray-700 dark:text-gray-300">
           <li>
-            Everything your{" "}
+            Everything your role allows in{" "}
             <strong className="text-gray-900 dark:text-gray-100">
-              {user?.roleRef?.name || "assigned"}
+              {membershipSummary || "the organizations you belong to"}
             </strong>{" "}
-            role allows — read and write alike. It gets no more access than you
-            have, and no less.
+            — read and write alike. It gets no more access than you have, and no
+            less.
           </li>
           <li>
             {seesAllEvents ? (

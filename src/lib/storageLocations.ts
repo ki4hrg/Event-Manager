@@ -53,8 +53,9 @@ function indexNodes(rows: LocationNode[]): LocationIndex {
  * Cached per request so a page and its child components share one read
  * (same reasoning as getEvent in src/app/events/actions.ts).
  */
-export const getLocationIndex = cache(async (): Promise<LocationIndex> => {
+export const getLocationIndex = cache(async (tenantId: string): Promise<LocationIndex> => {
   const rows = await prisma.storageLocation.findMany({
+    where: { tenantId },
     select: {
       id: true,
       name: true,

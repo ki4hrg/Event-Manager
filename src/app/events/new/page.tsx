@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantId } from "@/lib/tenant";
 import { PageWrapper } from "@/components/PageWrapper";
 import { createEvent, getEventSeriesOptions } from "../actions";
 import { EventForm } from "../EventForm";
@@ -9,8 +10,9 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "New event" };
 
 export default async function NewEventPage() {
+  const tenantId = await requireActiveTenantId();
   const [venues, series] = await Promise.all([
-    prisma.venue.findMany({ orderBy: { name: "asc" } }),
+    prisma.venue.findMany({ where: { tenantId }, orderBy: { name: "asc" } }),
     getEventSeriesOptions(),
   ]);
 

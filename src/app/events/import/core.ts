@@ -92,14 +92,18 @@ export async function importFromEventCore(
   const [source, target] = await Promise.all([
     prisma.event.findUnique({
       where: { id: sourceEventId },
-      select: { id: true, name: true, venueId: true },
+      select: { id: true, name: true, venueId: true, tenantId: true },
     }),
     prisma.event.findUnique({
       where: { id: targetEventId },
-      select: { id: true, venueId: true },
+      select: { id: true, venueId: true, tenantId: true },
     }),
   ]);
   if (!source || !target) throw new PermissionError("NOT_FOUND");
+  // Functions carry vendor, contact, and room references that only resolve
+  // inside their own tenant; a cross-tenant copy would wire one tenant's rows
+  // into another's event.
+  if (source.tenantId !== target.tenantId) throw new PermissionError("NOT_FOUND");
 
   // Rooms belong to a venue, not an event. Carrying a room assignment to an
   // event at a different venue would point at a room that isn't there.
@@ -412,10 +416,10 @@ export async function importFromEventCore(
   // wait on locks the transaction still holds. duplicateSetupOrderCore already
   // sequences it this way.
   for (const id of result.functionIds) {
-    await autoAssignDefaultWorkflowsCore("function", id);
+    await autoAssignDefaultWorkflowsCore("function", id, targetEventId);
   }
   for (const id of result.presentationIds) {
-    await autoAssignDefaultWorkflowsCore("presentation", id);
+    await autoAssignDefaultWorkflowsCore("presentation", id, targetEventId);
   }
 
   if (args.includeSchedules && result.droppedSlots > 0) {

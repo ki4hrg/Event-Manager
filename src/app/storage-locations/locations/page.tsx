@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantId } from "@/lib/tenant";
 import { hasPermission } from "@/lib/permissions";
 import {
   buildLocationIndex,
@@ -23,12 +24,13 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Locations" };
 
 export default async function LocationsPage() {
+  const tenantId = await requireActiveTenantId();
   const [locations, types, itemCounts, canWrite, canDelete] = await Promise.all([
     getStorageLocations(),
     getLocationTypes(),
     prisma.inventoryItem.groupBy({
       by: ["locationId"],
-      where: { archived: false },
+      where: { tenantId, archived: false },
       _count: { _all: true },
     }),
     hasPermission(PermissionResource.STORAGE_LOCATIONS, "WRITE"),

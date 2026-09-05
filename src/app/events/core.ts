@@ -3,20 +3,43 @@
 
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { loadPermissionsForUser, requirePermissionForUser } from "@/lib/permissions";
+import {
+  loadPermissionsForUser,
+  requireEventTenantId,
+  requirePermissionForUser,
+  PermissionError,
+} from "@/lib/permissions";
 
 // The single definition of "which events may this user see". A role with
 // EVENTS:UNASSIGNED above NONE sees everything; everyone else sees only the
 // events they are staff on. Every list that returns events — the events page,
 // the series page, and their MCP equivalents — must AND this in, or it becomes
 // a way to enumerate events the caller has no access to.
-export async function eventScopeWhere(userId: string) {
-  const { permissions } = await loadPermissionsForUser(userId);
+//
+// Always tenant-bound: the events of a tenant the user isn't a member of are
+// never listed, whatever their role elsewhere says.
+export async function eventScopeWhere(userId: string, tenantId: string) {
+  const { permissions } = await loadPermissionsForUser(userId, tenantId);
   const unassigned = permissions.find(
     (p) => p.resource === PermissionResource.EVENTS && p.scope === "UNASSIGNED",
   );
   const canSeeUnassigned = unassigned && unassigned.level !== "NONE";
-  return canSeeUnassigned ? {} : { staff: { some: { userId } } };
+  return canSeeUnassigned ? { tenantId } : { tenantId, staff: { some: { userId } } };
+}
+
+// Venue and series are tenant-owned lookups; a foreign id is a not-found, not
+// a cross-tenant link.
+async function assertEventRefsInTenant(args: EventWriteArgs, tenantId: string) {
+  const [venue, series] = await Promise.all([
+    args.venueId
+      ? prisma.venue.findFirst({ where: { id: args.venueId, tenantId }, select: { id: true } })
+      : null,
+    args.seriesId
+      ? prisma.eventSeries.findFirst({ where: { id: args.seriesId, tenantId }, select: { id: true } })
+      : null,
+  ]);
+  if (args.venueId && !venue) throw new PermissionError("NOT_FOUND", "Venue not found");
+  if (args.seriesId && !series) throw new PermissionError("NOT_FOUND", "Series not found");
 }
 
 // ---------------------------------------------------------------------------
@@ -32,12 +55,14 @@ export type EventWriteArgs = {
   seriesId: string | null;
 };
 
-export async function createEventCore(args: EventWriteArgs, userId: string) {
-  await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE");
+export async function createEventCore(args: EventWriteArgs, userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", { tenantId });
+  await assertEventRefsInTenant(args, tenantId);
   // Auto-assign the creator as event staff so a role with EVENTS:UNASSIGNED:NONE
   // doesn't lose access to events they just created.
   return prisma.event.create({
     data: {
+      tenantId,
       name: args.name,
       description: args.description,
       startDate: args.startDate,
@@ -52,6 +77,7 @@ export async function createEventCore(args: EventWriteArgs, userId: string) {
 
 export async function updateEventCore(id: string, args: EventWriteArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", id);
+  await assertEventRefsInTenant(args, await requireEventTenantId(id));
   return prisma.event.update({
     where: { id },
     data: {
@@ -138,9 +164,11 @@ export async function createContactAndAddKeyStaffCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", args.eventId);
+  const tenantId = await requireEventTenantId(args.eventId);
   return prisma.$transaction(async (tx) => {
     const contact = await tx.contact.create({
       data: {
+        tenantId,
         firstName: args.firstName,
         lastName: args.lastName,
         email: args.email,

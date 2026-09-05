@@ -6,8 +6,7 @@ import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   requirePermissionForUser,
-  PermissionError,
-} from "@/lib/permissions";
+  PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
@@ -84,7 +83,7 @@ export async function createFunctionCore(
     await prisma.functionSchedule.create({
       data: {
         functionId: fn.id,
-        type: await defaultScheduleType(),
+        type: await defaultScheduleType(eventId),
         startTime: parseDateTimeInTimezone(args.startTime, timezone),
         endTime: parseDateTimeInTimezone(args.endTime, timezone),
         sortOrder: 0,
@@ -92,7 +91,7 @@ export async function createFunctionCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("function", fn.id);
+  await autoAssignDefaultWorkflowsCore("function", fn.id, eventId);
   return fn;
 }
 
@@ -379,6 +378,7 @@ export async function createAndAddFunctionContactCore(
 
   const contact = await prisma.contact.create({
     data: {
+      tenantId: await requireEventTenantId(args.eventId),
       firstName: args.firstName,
       lastName: args.lastName,
       email: args.email,
@@ -455,7 +455,7 @@ export async function scheduleUnscheduledFunctionCore(
   await prisma.functionSchedule.create({
     data: {
       functionId,
-      type: await defaultScheduleType(),
+      type: await defaultScheduleType(eventId),
       startTime: start,
       endTime: end,
       sortOrder: 0,

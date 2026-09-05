@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { resolveBearerToUserId } from "@/lib/mcpAuth";
 import { verifyMcpAccessToken, getRequestBaseUrl } from "@/lib/mcpOAuth";
-import { findMcpTool, classifiedTools } from "@/lib/mcpTools";
+import { findMcpTool, classifiedTools, TENANT_ARG, TENANT_FREE_TOOLS } from "@/lib/mcpTools";
+import { accessibleTenantsForUser, resolveTenantForUser } from "@/lib/tenant";
 import { serializeForMcp } from "@/lib/mcpSerialize";
 import { PermissionError } from "@/lib/permissions";
 
@@ -116,8 +117,35 @@ async function dispatch(
       if (!name) return err(req.id, ERROR_INVALID_PARAMS, "Missing tool name");
       const tool = findMcpTool(name);
       if (!tool) return err(req.id, ERROR_METHOD_NOT_FOUND, `Unknown tool: ${name}`);
+      // Which organization the call acts in. A key spans every tenant its user
+      // belongs to, so each call names one — except when there is only one to
+      // name. Unknown or off-limits handles read the same as an absent one, so
+      // a caller can't probe which slugs exist.
+      const { [TENANT_ARG]: tenantArg, ...toolArgs } = args;
+      let tenantId = "";
+      if (!TENANT_FREE_TOOLS.has(name)) {
+        if (typeof tenantArg === "string" && tenantArg.length > 0) {
+          const tenant = await resolveTenantForUser(userId, tenantArg);
+          if (!tenant) {
+            return err(req.id, ERROR_INVALID_PARAMS, `Unknown tenant: ${tenantArg}. Call list_tenants.`);
+          }
+          tenantId = tenant.id;
+        } else {
+          const { tenants } = await accessibleTenantsForUser(userId);
+          if (tenants.length !== 1) {
+            return err(
+              req.id,
+              ERROR_INVALID_PARAMS,
+              tenants.length === 0
+                ? "This user belongs to no organization."
+                : `Missing \`${TENANT_ARG}\` argument: this user belongs to ${tenants.length} organizations. Call list_tenants and pass one's slug.`,
+            );
+          }
+          tenantId = tenants[0].id;
+        }
+      }
       try {
-        const result = await tool.handler(args, { userId });
+        const result = await tool.handler(toolArgs, { userId, tenantId });
         return ok(req.id, {
           content: [
             { type: "text", text: JSON.stringify(serializeForMcp(result), null, 2) },

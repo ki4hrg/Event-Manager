@@ -14,9 +14,15 @@ model User {
   name                     String?
   // Nullable: new users start without a password until they consume an invite token.
   password                 String?
-  // FK to the RBAC Role table. Source of truth for permissions.
-  roleId                   String?
-  roleRef                  Role?                    @relation(fields: [roleId], references: [id])
+  // Platform administrator: may create tenants, manage every tenant's
+  // memberships, and carries every permission in every tenant. Deliberately a
+  // flag rather than a Role — roles are tenant memberships, and a super admin
+  // needs to act before any membership exists.
+  isSuperAdmin             Boolean                  @default(false)
+  // Which tenants this user may enter, and with what role in each. A user's
+  // permissions are always resolved through the membership for the tenant in
+  // question — there is no global role anymore.
+  memberships              TenantMembership[]
   // Self-ref for "last updated by" attribution.
   updatedById              String?
   updatedBy                User?                    @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -46,6 +52,46 @@ model User {
   apiKeys                  ApiKey[]
   oauthAuthorizationCodes  OAuthAuthorizationCode[]
   oauthRefreshTokens       OAuthRefreshToken[]
+}
+
+// Multi-tenancy. A Tenant owns every domain row (events, venues, contacts,
+// vendors, catalogs, dropdown options); Users and Roles are global so one login
+// can belong to several tenants with a different role in each.
+model Tenant {
+  id                String             @id @default(cuid())
+  name              String
+  // URL-safe handle used by the MCP `tenant` argument and shown in the switcher.
+  slug              String             @unique
+  memberships       TenantMembership[]
+  events            Event[]
+  eventSeries       EventSeries[]
+  venues            Venue[]
+  contacts          Contact[]
+  vendors           Vendor[]
+  customOptions     CustomOption[]
+  equipment         Equipment[]
+  storageLocations  StorageLocation[]
+  inventoryItems    InventoryItem[]
+  workflowTemplates WorkflowTemplate[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+// Junction: which Users may enter which Tenant, and the Role they hold there.
+model TenantMembership {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@index([roleId])
 }
 
 // Bearer tokens for programmatic access via the MCP connector (/api/mcp).
@@ -203,6 +249,8 @@ enum LocationKind {
 // Customizable options for dropdowns
 model CustomOption {
   id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category  String // "function_type", "contact_role", "av_equipment", "equipment_category", "setup_type", "substatus"
   label     String // The display label and stored value (e.g., "Meal / BEO", "Speaker")
   color     String? // Optional color for badges (e.g., "orange", "blue")
@@ -213,13 +261,16 @@ model CustomOption {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([category, label])
+  @@unique([tenantId, category, label])
+  @@index([tenantId])
   @@index([category])
 }
 
 // Equipment catalog with category grouping
 model Equipment {
   id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name             String
   category         String // references equipment_category CustomOption label
   sortOrder        Int               @default(0)
@@ -232,7 +283,8 @@ model Equipment {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  @@unique([category, name])
+  @@unique([tenantId, category, name])
+  @@index([tenantId])
   @@index([category])
 }
 
@@ -247,6 +299,8 @@ model Equipment {
 // packingStatus.
 model StorageLocation {
   id        String            @id @default(cuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   kind      LocationKind      @default(PLACE)
   type      String? // references a location_type CustomOption label
@@ -265,6 +319,7 @@ model StorageLocation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([parentId])
   @@index([kind])
 }
@@ -276,6 +331,8 @@ model StorageLocation {
 // lanyards are two rows, not one row with a placement table.
 model InventoryItem {
   id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   // Inventory is catalogued gear, so the Equipment link is the item's identity
   // and `name` is only a qualifier — "blue", "spare", "left case". Requiring the
   // link is what makes stock answerable across locations ("how many easels do we
@@ -306,6 +363,7 @@ model InventoryItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([locationId])
   @@index([equipmentId])
 }
@@ -317,14 +375,21 @@ model InventoryItem {
 // for granting a venue rep access to every prior year in one action.
 model EventSeries {
   id        String   @id @default(cuid())
-  name      String   @unique
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
   events    Event[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 model Event {
   id                 String               @id @default(cuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name               String
   description        String?
   startDate          DateTime
@@ -356,12 +421,15 @@ model Event {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
+  @@index([tenantId])
   @@index([updatedById])
   @@index([seriesId])
 }
 
 model Venue {
   id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   address     String?
   city        String?
@@ -380,6 +448,7 @@ model Venue {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
+  @@index([tenantId])
   @@index([updatedById])
 }
 
@@ -421,6 +490,8 @@ model Room {
 // Flexible contact model with roles
 model Contact {
   id                          String                    @id @default(cuid())
+  tenantId                    String
+  tenant                      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   firstName                   String
   lastName                    String
   email                       String?
@@ -457,6 +528,7 @@ model Contact {
   createdAt                   DateTime                  @default(now())
   updatedAt                   DateTime                  @updatedAt
 
+  @@index([tenantId])
   @@index([updatedById])
 }
 
@@ -989,6 +1061,8 @@ model PresentationContact {
 
 model WorkflowTemplate {
   id                       String             @id @default(cuid())
+  tenantId                 String
+  tenant                   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name                     String
   description              String?
   sortOrder                Int                @default(0)
@@ -1004,6 +1078,7 @@ model WorkflowTemplate {
   createdAt                DateTime           @default(now())
   updatedAt                DateTime           @updatedAt
 
+  @@index([tenantId])
   @@index([updatedById])
 }
 
@@ -1084,6 +1159,8 @@ model WorkflowChecklistCompletion {
 
 model Vendor {
   id                          String                     @id @default(cuid())
+  tenantId                    String
+  tenant                      Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name                        String
   models                      String[]                   @default([]) // references ModelType values: CATERING_ORDER, AV_ORDER, SETUP_ORDER
   notes                       String?
@@ -1121,6 +1198,7 @@ model Vendor {
   createdAt                   DateTime                   @default(now())
   updatedAt                   DateTime                   @updatedAt
 
+  @@index([tenantId])
   @@index([updatedById])
 }
 
@@ -1716,17 +1794,17 @@ enum PermissionScope {
 }
 
 model Role {
-  id          String           @id @default(cuid())
-  name        String           @unique
+  id          String             @id @default(cuid())
+  name        String             @unique
   description String?
   // System roles (seeded Admin/User) cannot be renamed or deleted from the UI.
-  isSystem    Boolean          @default(false)
+  isSystem    Boolean            @default(false)
   permissions RolePermission[]
-  users       User[]
+  memberships TenantMembership[]
   updatedById String?
-  updatedBy   User?            @relation("RoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  updatedBy   User?              @relation("RoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
   @@index([updatedById])
 }

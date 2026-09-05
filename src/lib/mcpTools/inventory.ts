@@ -33,8 +33,9 @@ function readInventoryArgs(args: Record<string, unknown>): InventoryItemWriteArg
 }
 
 /** Resolves each item's location to a full `A › B › C` path for readability. */
-async function withLocationPaths<T extends { locationId: string }>(items: T[]) {
+async function withLocationPaths<T extends { locationId: string }>(tenantId: string, items: T[]) {
   const rows = await prisma.storageLocation.findMany({
+    where: { tenantId },
     select: {
       id: true,
       name: true,
@@ -88,10 +89,10 @@ export const inventoryTools: McpToolDefinition[] = [
       // order form can render a picker — gating this on EQUIPMENT would make MCP
       // stricter than the UI for the same user, and would stop a packer from
       // filing inventory they can file on screen.
-      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW");
+      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW", { tenantId: ctx.tenantId });
       const category = optionalString(args, "category");
       return prisma.equipment.findMany({
-        where: category ? { category } : {},
+        where: { tenantId: ctx.tenantId, ...(category ? { category } : {}) },
         select: { id: true, name: true, category: true },
         orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
       });
@@ -113,11 +114,12 @@ export const inventoryTools: McpToolDefinition[] = [
       },
     },
     handler: async (args, ctx) => {
-      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW");
+      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW", { tenantId: ctx.tenantId });
       const locationId = optionalString(args, "locationId");
       const equipmentId = optionalString(args, "equipmentId");
       const items = await prisma.inventoryItem.findMany({
         where: {
+          tenantId: ctx.tenantId,
           ...(locationId ? { locationId } : {}),
           ...(equipmentId ? { equipmentId } : {}),
           ...(args.includeArchived === true ? {} : { archived: false }),
@@ -133,7 +135,7 @@ export const inventoryTools: McpToolDefinition[] = [
         },
         orderBy: [{ locationId: "asc" }, { sortOrder: "asc" }],
       });
-      return withLocationPaths(items);
+      return withLocationPaths(ctx.tenantId, items);
     },
   },
   {
@@ -146,9 +148,9 @@ export const inventoryTools: McpToolDefinition[] = [
       required: ["id"],
     },
     handler: async (args, ctx) => {
-      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW");
-      const item = await prisma.inventoryItem.findUnique({
-        where: { id: requireString(args, "id") },
+      await requirePermissionForUser(ctx.userId, "STORAGE_LOCATIONS", "VIEW", { tenantId: ctx.tenantId });
+      const item = await prisma.inventoryItem.findFirst({
+        where: { id: requireString(args, "id"), tenantId: ctx.tenantId },
         include: {
           location: { select: { id: true, name: true, kind: true, type: true } },
           equipment: { select: { id: true, name: true, category: true } },
@@ -163,7 +165,7 @@ export const inventoryTools: McpToolDefinition[] = [
         },
       });
       if (!item) throw new Error("Inventory item not found.");
-      const [withPath] = await withLocationPaths([item]);
+      const [withPath] = await withLocationPaths(ctx.tenantId, [item]);
       return withPath;
     },
   },
@@ -184,6 +186,7 @@ export const inventoryTools: McpToolDefinition[] = [
         requireString(args, "locationId"),
         readInventoryArgs(args),
         ctx.userId,
+        ctx.tenantId,
       ),
   },
   {
@@ -196,7 +199,7 @@ export const inventoryTools: McpToolDefinition[] = [
       required: ["id", "equipmentId"],
     },
     handler: async (args, ctx) =>
-      updateInventoryItemCore(requireString(args, "id"), readInventoryArgs(args), ctx.userId),
+      updateInventoryItemCore(requireString(args, "id"), readInventoryArgs(args), ctx.userId, ctx.tenantId),
   },
   {
     name: "move_inventory_items",
@@ -215,6 +218,7 @@ export const inventoryTools: McpToolDefinition[] = [
         optionalStringArray(args, "ids"),
         requireString(args, "targetLocationId"),
         ctx.userId,
+        ctx.tenantId,
       ),
   },
   {
@@ -234,6 +238,7 @@ export const inventoryTools: McpToolDefinition[] = [
         requireString(args, "id"),
         args.archived !== false,
         ctx.userId,
+        ctx.tenantId,
       ),
   },
   {
@@ -246,6 +251,6 @@ export const inventoryTools: McpToolDefinition[] = [
       required: ["ids"],
     },
     handler: async (args, ctx) =>
-      deleteInventoryItemsCore(optionalStringArray(args, "ids"), ctx.userId),
+      deleteInventoryItemsCore(optionalStringArray(args, "ids"), ctx.userId, ctx.tenantId),
   },
 ];

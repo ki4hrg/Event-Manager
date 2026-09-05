@@ -10,6 +10,7 @@ type AdminDropdownProps = {
   canViewSettings: boolean;
   canViewSystem: boolean;
   canViewWorkflows: boolean;
+  canViewTenants: boolean;
 };
 
 export function AdminDropdown({
@@ -18,6 +19,7 @@ export function AdminDropdown({
   canViewSettings,
   canViewSystem,
   canViewWorkflows,
+  canViewTenants,
 }: AdminDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -62,6 +64,11 @@ export function AdminDropdown({
           {canViewWorkflows && (
             <Link href="/workflows" onClick={() => setOpen(false)} className={linkClass}>
               Workflows
+            </Link>
+          )}
+          {canViewTenants && (
+            <Link href="/tenants" onClick={() => setOpen(false)} className={linkClass}>
+              Organizations
             </Link>
           )}
         </div>

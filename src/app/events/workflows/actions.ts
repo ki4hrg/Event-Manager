@@ -541,5 +541,5 @@ export async function autoAssignDefaultWorkflows(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
-  await autoAssignDefaultWorkflowsCore(entityType, entityId);
+  await autoAssignDefaultWorkflowsCore(entityType, entityId, eventId);
 }
