@@ -7,7 +7,7 @@ import { createSupplyOrder } from "../../../supply-orders/actions";
 import { SupplyOrderForm } from "../../../supply-orders/SupplyOrderForm";
 import { getResponsibleParties } from "@/lib/responsibleParties";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
-import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
+import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/sourceContext";
 import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";

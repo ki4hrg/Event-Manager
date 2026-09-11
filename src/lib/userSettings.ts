@@ -7,6 +7,7 @@ export const SETTING_KEYS = {
   AGENDA_SHOW_UNUSED_ROOMS: "agenda_show_unused_rooms",
   AGENDA_SHOW_FULL_DAY_ROOMS: "agenda_show_full_day_rooms",
   AGENDA_COLLAPSE_EMPTY_HOURS: "agenda_collapse_empty_hours",
+  EVENT_SIDEBAR_COLLAPSED: "event_sidebar_collapsed",
 } as const;
 
 export type LandingPageOption = "dashboard" | "events" | "last_event";

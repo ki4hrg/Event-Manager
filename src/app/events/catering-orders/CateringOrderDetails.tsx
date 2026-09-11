@@ -3,7 +3,7 @@ import type { getWorkflowInstances } from "../workflows/actions";
 import type { getCateringOrderVendors } from "@/app/vendors/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
-import { formatPhone } from "@/lib/format-phone";
+import { formatPhone } from "@/lib/formatPhone";
 import { computeServiceLocationCounts } from "@/lib/cateringServiceLocations";
 import { formatTime as formatTimeInTimezone } from "@/lib/agendaUtils";
 
@@ -209,6 +209,7 @@ export function CateringOrderDetails({
                   By: {section.responsiblePartyVendor.name}
                 </p>
               )}
+              {/* RichTextEditor output — chain: MenuSectionTable → RichTextEditor */}
               <div
                 className="text-sm text-gray-700 print:text-black prose prose-sm max-w-none"
                 dangerouslySetInnerHTML={{ __html: section.menuContent }}

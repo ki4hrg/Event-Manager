@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { PermissionResource } from "@prisma/client";
 import {
   getSidebarItems,
+  setEventSidebarCollapsed,
   type SidebarSection,
   type SidebarItem,
 } from "@/app/events/sidebar-actions";
@@ -362,6 +363,9 @@ type EventSidebarProps = {
   deniedResources: string[];
   // Same, for WRITE — drives the edit-only links (Import, Settings).
   deniedWriteResources: string[];
+  // Desktop collapse preference, read from the UserSetting table by the event
+  // layout so the first paint already matches — no hydration gate needed.
+  initialCollapsed: boolean;
 };
 
 export function EventSidebar({
@@ -371,25 +375,15 @@ export function EventSidebar({
   onMobileClose,
   deniedResources,
   deniedWriteResources,
+  initialCollapsed,
 }: EventSidebarProps) {
   const pathname = usePathname();
   const basePath = `/events/${eventId}`;
 
-  const [collapsed, setCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [items, setItems] = useState<SidebarItem[]>([]);
 
   const currentSection = getActiveSection(pathname, basePath);
-
-  // Hydrate collapse state from localStorage on mount
-  useEffect(() => {
-    startTransition(() => {
-      setMounted(true);
-      if (localStorage.getItem("event-sidebar-collapsed") === "true") {
-        setCollapsed(true);
-      }
-    });
-  }, []);
 
   // Fetch item list when active section changes
   useEffect(() => {
@@ -423,13 +417,13 @@ export function EventSidebar({
     }
   }, [pathname]);
 
-  const effectiveCollapsed = mounted && collapsed;
-
   const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("event-sidebar-collapsed", String(next));
-      return next;
+    const next = !collapsed;
+    setCollapsed(next);
+    // Persist per user; local state already reflects the change, so no
+    // router.refresh() — that would re-run the whole event layout.
+    startTransition(() => {
+      void setEventSidebarCollapsed(next);
     });
   };
 
@@ -450,12 +444,12 @@ export function EventSidebar({
       {/* Desktop sidebar */}
       <aside
         className={`print:hidden hidden md:flex flex-col shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden transition-[width] duration-200 ease-in-out ${
-          effectiveCollapsed ? "w-12" : "w-56"
+          collapsed ? "w-12" : "w-56"
         }`}
       >
         <SidebarInner
           {...innerProps}
-          collapsed={effectiveCollapsed}
+          collapsed={collapsed}
           onToggleCollapse={toggleCollapsed}
         />
       </aside>

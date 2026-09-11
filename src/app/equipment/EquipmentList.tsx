@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import type { Equipment, CustomOption } from "@prisma/client";
 
@@ -18,7 +19,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -90,7 +91,7 @@ export function EquipmentList({
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 shrink-0"
+          className={`${btnPrimarySm} shrink-0`}
         >
           Add Item
         </button>

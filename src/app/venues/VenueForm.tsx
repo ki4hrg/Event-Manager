@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Venue } from "@prisma/client";
@@ -19,7 +20,7 @@ function SaveButton({ isEdit }: { isEdit: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimary} disabled:opacity-50`}
     >
       {pending ? "Saving..." : isEdit ? "Save" : "Create Venue"}
     </button>

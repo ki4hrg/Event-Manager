@@ -7,7 +7,7 @@ import { createSetupOrder } from "../../../setup-orders/actions";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { getOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
-import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
+import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/sourceContext";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 import { requirePermission } from "@/lib/permissions";
 

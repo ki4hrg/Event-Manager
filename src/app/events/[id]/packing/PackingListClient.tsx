@@ -9,7 +9,7 @@ import {
   PACKING_STATUS_CLASS,
   PACKING_STATUS_LABEL,
 } from "@/lib/statusConstants";
-import { btnOutlinedSm } from "@/lib/buttonStyles";
+import { btnOutlinedSm, btnPrimarySm } from "@/lib/buttonStyles";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import type { PackableItem, PackingListPayload } from "../../packing/actions";
@@ -723,7 +723,7 @@ export function PackingListClient({
               type="button"
               disabled={isReturning || !returnTarget}
               onClick={applyReturn}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+              className={`${btnPrimarySm} disabled:opacity-50`}
             >
               {isReturning ? "..." : "File"}
             </button>

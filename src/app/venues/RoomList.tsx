@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import type { Room, RoomGroup } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
@@ -23,7 +24,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -224,7 +225,7 @@ export function RoomList({
             </button>
             <button
               onClick={() => setActiveForm("room")}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className={btnPrimarySm}
             >
               Add Room
             </button>

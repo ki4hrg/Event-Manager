@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useRouter } from "next/navigation";
 import { createShareLink, revokeShareLink, listShareLinksForReport } from "@/app/events/share-links/actions";
 import { addShareLinkGroupItem, createShareLinkGroup } from "@/app/events/share-link-groups/actions";
@@ -183,7 +184,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
         onClick={handleOpen}
         className={
           isAddingToDashboard
-            ? "px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+            ? btnPrimarySm
             : "px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
         }
       >

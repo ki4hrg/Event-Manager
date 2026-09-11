@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 
@@ -135,7 +136,7 @@ export function VendorLinkControl(props: VendorLinkControlProps) {
                 type="button"
                 onClick={handleLink}
                 disabled={!selectedId || isLinking}
-                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                className={`${btnPrimarySm} disabled:opacity-50`}
               >
                 {isLinking ? "Adding..." : "Add"}
               </button>

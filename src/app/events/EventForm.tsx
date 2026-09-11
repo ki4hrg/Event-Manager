@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { Event, Venue } from "@prisma/client";
-import { btnSecondary } from "@/lib/buttonStyles";
+import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 
 type EventFormProps = {
   event?: Event;
@@ -20,7 +20,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimary} disabled:opacity-50`}
     >
       {pending ? "Saving..." : isEdit ? "Update Event" : "Create Event"}
     </button>

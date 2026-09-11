@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import Link from "next/link";
 import type { PresentationSlot, Function as PrismaFunction, FunctionSchedule, Room, BreakoutGroup } from "@prisma/client";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
@@ -381,7 +382,7 @@ export function BreakoutSlotPanel({
                   <button
                     onClick={() => handleEditSave(slot.id)}
                     disabled={!editSessionId || isPending}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                    className={`${btnPrimarySm} disabled:opacity-50`}
                   >
                     {isPending ? "Saving..." : "Save"}
                   </button>
@@ -554,7 +555,7 @@ export function BreakoutSlotPanel({
               <button
                 onClick={handleAddSubmit}
                 disabled={!addGroupId || isPending}
-                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                className={`${btnPrimarySm} disabled:opacity-50`}
               >
                 {isPending ? "Saving..." : "Save"}
               </button>

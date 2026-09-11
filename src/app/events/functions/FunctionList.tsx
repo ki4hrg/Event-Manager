@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CustomOption, EntityStatus } from "@prisma/client";
@@ -294,7 +295,7 @@ export function FunctionList({
           {canWrite && (
             <Link
               href={`/events/${eventId}/functions/new`}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className={btnPrimarySm}
             >
               Add Function
             </Link>
@@ -356,7 +357,7 @@ export function FunctionList({
               </select>
             </div>
           )}
-          <button onClick={handleBulkApply} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+          <button onClick={handleBulkApply} className={btnPrimarySm}>
             Apply
           </button>
         </div>

@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { EventLayoutClient } from "@/components/EventLayoutClient";
 import { permissionLevels, requirePermission } from "@/lib/permissions";
 import { getTenantContext, setActiveTenantForUser } from "@/lib/tenant";
+import { getUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { PermissionsProvider } from "@/components/PermissionsProvider";
 import {
   EVENT_SCOPED_PERMISSION_RESOURCES,
@@ -56,7 +57,7 @@ export default async function EventLayout({
 }) {
   const { id } = await params;
   // Gate at the layout so unassigned/no-permission users redirect before sidebar+header render.
-  const [event] = await Promise.all([
+  const [event, session] = await Promise.all([
     getEvent(id),
     requirePermission("EVENTS", "VIEW", id),
   ]);
@@ -76,9 +77,10 @@ export default async function EventLayout({
   // what to render, and every page and panel below needs WRITE/DELETE to decide
   // whether to offer an edit. Resolving both here keeps them from disagreeing.
   // Two calls because the two groups resolve at different scopes.
-  const [eventScoped, globalScoped] = await Promise.all([
+  const [eventScoped, globalScoped, sidebarCollapsed] = await Promise.all([
     permissionLevels(EVENT_SCOPED_PERMISSION_RESOURCES, id),
     permissionLevels(GLOBAL_PERMISSION_RESOURCES),
+    getUserSetting(session.user.id, SETTING_KEYS.EVENT_SIDEBAR_COLLAPSED),
   ]);
   const permissions = { ...eventScoped, ...globalScoped };
 
@@ -95,6 +97,7 @@ export default async function EventLayout({
           eventName={event.name}
           deniedResources={deniedResources}
           deniedWriteResources={deniedWriteResources}
+          initialSidebarCollapsed={sidebarCollapsed === "true"}
           header={<Header />}
         >
           {children}

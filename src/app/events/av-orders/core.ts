@@ -6,7 +6,7 @@
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
-import { resolveEquipmentName } from "@/lib/equipment-utils";
+import { resolveEquipmentName } from "@/lib/equipmentUtils";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
@@ -565,7 +565,7 @@ export async function createVideoEquipmentItemCore(
     select: { id: true },
   });
   if (!parent) throw new PermissionError("NOT_FOUND");
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const { _max } = await prisma.equipmentItem.aggregate({
     where: { videoSectionId },
     _max: { sortOrder: true },
@@ -596,7 +596,7 @@ export async function updateVideoEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const row = await prisma.equipmentItem.update({
     where: { id, videoSection: { avOrder: { eventId } } },
     data: {
@@ -637,7 +637,7 @@ export async function createAVEquipmentItemCore(
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const { _max } = await prisma.equipmentItem.aggregate({
     where: { avOrderId },
     _max: { sortOrder: true },
@@ -668,7 +668,7 @@ export async function updateAVEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const row = await prisma.equipmentItem.update({
     where: { id, avOrder: { eventId } },
     data: {

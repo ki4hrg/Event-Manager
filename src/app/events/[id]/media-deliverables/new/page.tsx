@@ -7,7 +7,7 @@ import { createMediaDeliverable, getMediaDeliverableProviderPool } from "../../.
 import { MediaDeliverableForm } from "../../../media-deliverables/MediaDeliverableForm";
 import { getResponsibleParties } from "@/lib/responsibleParties";
 import { getOptions } from "@/app/settings/actions";
-import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
+import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/sourceContext";
 import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";

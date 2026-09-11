@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { btnPrimary } from "@/lib/buttonStyles";
 import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -60,7 +61,7 @@ export default async function NewWorkflowPage() {
           <div className="flex gap-3 pt-1">
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className={btnPrimary}
             >
               Create Workflow
             </button>

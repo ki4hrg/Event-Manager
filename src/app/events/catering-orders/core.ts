@@ -4,7 +4,7 @@
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
-import { resolveEquipmentName } from "@/lib/equipment-utils";
+import { resolveEquipmentName } from "@/lib/equipmentUtils";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
@@ -338,7 +338,7 @@ export async function createCateringEquipmentItemCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await assertCateringOrderInEvent(cateringOrderId, eventId);
-  const item = await resolveEquipmentName(args.equipmentId, args.item);
+  const item = await resolveEquipmentName(args.equipmentId, args.item, eventId);
   const { _max } = await prisma.equipmentItem.aggregate({
     where: { cateringOrderId },
     _max: { sortOrder: true },
@@ -369,7 +369,7 @@ export async function updateCateringEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
-  const item = await resolveEquipmentName(args.equipmentId, args.item);
+  const item = await resolveEquipmentName(args.equipmentId, args.item, eventId);
   const row = await prisma.equipmentItem.update({
     where: { id, cateringOrder: { eventId } },
     data: {

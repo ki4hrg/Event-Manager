@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 
 type Props = {
   action: (formData: FormData) => Promise<void>;
@@ -47,7 +48,7 @@ export function SendTestEmailForm({ action, defaultTo, disabled }: Props) {
         <button
           type="submit"
           disabled={pending || disabled}
-          className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
+          className={`${btnPrimarySm} disabled:opacity-50`}
         >
           {pending ? "Sending..." : "Send test email"}
         </button>

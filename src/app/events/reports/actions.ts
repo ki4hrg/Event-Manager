@@ -566,7 +566,7 @@ export async function getEquipmentResponsibilityData(
 
         // Peak grouping by (orderId, functionSlot): items from the same order running
         // at the same function are concurrent and must be summed, not maxed
-        const fnSlot = s.source.functionNames[0] ?? "__none__";
+        const fnSlot = s.source.functionNames[0] ?? "__blank__";
         const peakKey = `${s.source.orderId}::${fnSlot}`;
         const pk = peakMap.get(peakKey);
         if (!pk) {

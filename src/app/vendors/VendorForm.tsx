@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { btnPrimary } from "@/lib/buttonStyles";
 import type { Vendor } from "@prisma/client";
 import { MODEL_TYPES } from "./model-types";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -16,7 +17,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimary} disabled:opacity-50`}
     >
       {pending ? "Saving..." : "Save Vendor"}
     </button>

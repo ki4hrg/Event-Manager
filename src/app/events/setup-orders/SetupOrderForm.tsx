@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
@@ -42,7 +43,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimary} disabled:opacity-50`}
     >
       {pending ? "Saving..." : isEdit ? "Update Setup Order" : "Create Setup Order"}
     </button>

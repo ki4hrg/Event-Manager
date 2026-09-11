@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { useState } from "react";
 import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
@@ -13,7 +14,7 @@ function SubmitButton({ isCreate }: { isCreate: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimary} disabled:opacity-50`}
     >
       {pending ? "Saving..." : isCreate ? "Create User" : "Save Changes"}
     </button>
@@ -107,7 +108,7 @@ export function UserForm({
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => setEditing(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className={btnPrimary}
             >
               Edit
             </button>

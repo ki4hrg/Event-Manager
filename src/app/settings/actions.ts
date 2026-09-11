@@ -211,6 +211,10 @@ async function propagateLabelRename(
       // Contact.roles is String[]; Prisma can't array_replace, so drop to raw SQL.
       await tx.$executeRaw`UPDATE "Contact" SET roles = array_replace(roles, ${oldLabel}, ${newLabel}) WHERE "tenantId" = ${tenantId} AND ${oldLabel} = ANY(roles)`;
       break;
+    default: {
+      const _exhaustive: never = category;
+      throw new Error(`Unhandled option category: ${_exhaustive}`);
+    }
   }
 }
 

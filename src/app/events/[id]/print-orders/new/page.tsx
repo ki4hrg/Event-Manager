@@ -7,7 +7,7 @@ import { createPrintOrder } from "../../../print-orders/actions";
 import { PrintOrderForm } from "../../../print-orders/PrintOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
-import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
+import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/sourceContext";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 import { requirePermission } from "@/lib/permissions";
 

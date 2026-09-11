@@ -3,7 +3,7 @@ import type { getWorkflowInstances } from "../workflows/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
 import { getSetupOrderDisplayName } from "../setup-orders/utils";
-import { formatPhone } from "@/lib/format-phone";
+import { formatPhone } from "@/lib/formatPhone";
 
 type FunctionData = NonNullable<Awaited<ReturnType<typeof getFunction>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];

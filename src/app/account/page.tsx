@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { Suspense } from "react";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
@@ -56,7 +57,7 @@ export default async function AccountPage() {
 
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+              className={`${btnPrimary} text-sm`}
             >
               Save
             </button>

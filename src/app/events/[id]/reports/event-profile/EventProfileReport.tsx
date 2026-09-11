@@ -3,7 +3,7 @@ import type { EventProfileData } from "@/app/events/reports/actions";
 import { getDateKeyInTimezone, formatDateHeading, formatTime, formatTimeRange as formatTimeRangeShared, formatEventDate } from "@/lib/agendaUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { colorClasses } from "@/lib/colors";
-import { formatPhone } from "@/lib/format-phone";
+import { formatPhone } from "@/lib/formatPhone";
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
@@ -434,6 +434,7 @@ function CateringCard({
                   {section.responsiblePartyVendor.name}
                 </p>
               )}
+              {/* RichTextEditor output — chain: MenuSectionTable → RichTextEditor */}
               <div
                 className="text-sm text-gray-800 dark:text-gray-200 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1"
                 dangerouslySetInnerHTML={{ __html: section.menuContent }}

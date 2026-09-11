@@ -4,7 +4,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { getContacts } from "./actions";
-import { formatPhone } from "@/lib/format-phone";
+import { formatPhone } from "@/lib/formatPhone";
 import { hasPermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";

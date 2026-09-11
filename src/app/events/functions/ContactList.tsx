@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { Contact } from "@prisma/client";
-import { formatPhone } from "@/lib/format-phone";
+import { formatPhone } from "@/lib/formatPhone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 
 type ContactItem = {
@@ -29,7 +30,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -114,7 +115,7 @@ export function ContactList({
               setSearchQuery("");
               setFormView("search");
             }}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            className={btnPrimarySm}
           >
             Add Contact
           </button>

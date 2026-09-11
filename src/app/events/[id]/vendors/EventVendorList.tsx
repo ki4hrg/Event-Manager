@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import Link from "next/link";
 import type { Vendor } from "@prisma/client";
 import type { ModelType, EventVendorEntry } from "@/app/vendors/actions";
@@ -95,7 +96,7 @@ export function EventVendorList({
               setSearchQuery("");
               setSearchResults([]);
             }}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            className={btnPrimarySm}
           >
             Add Vendor
           </button>

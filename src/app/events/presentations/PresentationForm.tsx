@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import type {
   Presentation,
@@ -51,7 +52,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimary} disabled:opacity-50`}
     >
       {pending ? "Saving..." : isEdit ? "Update Presentation" : "Create Presentation"}
     </button>

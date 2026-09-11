@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SHARE_REPORT_LABELS } from "@/lib/shareLinks";
@@ -210,7 +211,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
           <h3 className="text-base font-medium text-gray-900 dark:text-white">Reports in this dashboard</h3>
           <button
             onClick={() => setPickerOpen(true)}
-            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
+            className={`${btnPrimarySm} disabled:opacity-50`}
             disabled={isPending}
           >
             + Add report

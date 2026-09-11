@@ -5,7 +5,7 @@
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
-import { resolveEquipmentName } from "@/lib/equipment-utils";
+import { resolveEquipmentName } from "@/lib/equipmentUtils";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
@@ -425,7 +425,7 @@ export async function createSetupEquipmentItemCore(
 ) {
   await requirePermissionForUser(userId, "SETUP_ORDERS", "WRITE", eventId);
   await assertSetupOrderInEvent(setupOrderId, eventId);
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const { _max } = await prisma.equipmentItem.aggregate({
     where: { setupOrderId },
     _max: { sortOrder: true },
@@ -456,7 +456,7 @@ export async function updateSetupEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SETUP_ORDERS", "WRITE", eventId);
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const row = await prisma.equipmentItem.update({
     where: { id, setupOrder: { eventId } },
     data: {

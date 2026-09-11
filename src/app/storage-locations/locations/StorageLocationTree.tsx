@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { CustomOption, LocationKind } from "@prisma/client";
@@ -44,7 +45,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded"
+      className={`${btnPrimarySm} disabled:bg-blue-400`}
     >
       {pending ? "..." : label}
     </button>
@@ -262,7 +263,7 @@ export function StorageLocationTree({
             <button
               type="button"
               onClick={() => setShowAddForm(true)}
-              className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+              className={btnPrimarySm}
             >
               Add Location
             </button>

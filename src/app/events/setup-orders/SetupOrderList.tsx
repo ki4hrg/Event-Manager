@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { btnPrimary, btnPrimarySm } from "@/lib/buttonStyles";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CustomOption, EntityStatus } from "@prisma/client";
@@ -213,7 +214,7 @@ export function SetupOrderList({
           {canWrite && (
             <Link
               href={`/events/${eventId}/setup-orders/new`}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className={`${btnPrimary} text-sm`}
             >
               Create Setup Order
             </Link>
@@ -275,7 +276,7 @@ export function SetupOrderList({
               </select>
             </div>
           )}
-          <button onClick={handleBulkApply} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+          <button onClick={handleBulkApply} className={btnPrimarySm}>
             Apply
           </button>
         </div>

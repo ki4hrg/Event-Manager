@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -18,7 +19,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
+      className={`${btnPrimary} disabled:opacity-50 text-sm`}
     >
       {pending ? "Saving..." : "Save"}
     </button>

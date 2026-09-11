@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { btnPrimary } from "@/lib/buttonStyles";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
@@ -157,7 +158,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
               </div>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className={btnPrimary}
               >
                 Save Vendor Details
               </button>

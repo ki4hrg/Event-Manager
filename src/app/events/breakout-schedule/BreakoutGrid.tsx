@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import Link from "next/link";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "./utils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
@@ -325,7 +326,7 @@ function SessionManager({
             <button
               type="submit"
               disabled={isPending}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+              className={`${btnPrimarySm} disabled:opacity-50`}
             >
               Create
             </button>
@@ -1361,7 +1362,7 @@ export function BreakoutGrid({
               autoFocus
               className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
-            <button type="submit" disabled={isPending} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50">Create</button>
+            <button type="submit" disabled={isPending} className={`${btnPrimarySm} disabled:opacity-50`}>Create</button>
             <button type="button" onClick={() => setShowAddGroup(false)} className="text-gray-500 text-sm hover:text-gray-700">Cancel</button>
           </form>
         ) : (

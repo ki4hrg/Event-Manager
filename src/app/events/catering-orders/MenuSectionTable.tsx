@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import type { CateringOrderMenuSection, Vendor } from "@prisma/client";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -27,7 +28,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -65,7 +66,7 @@ export function MenuSectionTable({
         {canWrite && (
           <button
             onClick={() => setShowAddForm(true)}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            className={btnPrimarySm}
           >
             Add Section
           </button>
@@ -185,6 +186,7 @@ export function MenuSectionTable({
                       )}
                     </div>
                   </div>
+                  {/* RichTextEditor output — chain: MenuSectionTable → RichTextEditor */}
                   <div
                     className="text-sm text-gray-900 dark:text-white not-italic [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
                     dangerouslySetInnerHTML={{ __html: section.menuContent }}

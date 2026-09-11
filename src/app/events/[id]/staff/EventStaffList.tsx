@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import { roleBadgeClass } from "@/lib/roleStyles";
 import { UNCAPPED } from "@/lib/accessLevels";
@@ -41,7 +42,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -97,7 +98,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
         {!showAdd && canWrite && (
           <button
             onClick={() => setShowAdd(true)}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            className={btnPrimarySm}
           >
             Add
           </button>

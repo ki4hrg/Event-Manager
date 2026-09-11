@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CustomOption } from "@prisma/client";
@@ -102,7 +103,7 @@ export function FunctionTableView({
     ...DEFAULT_FILTERS,
     status: initialStatus ?? "",
     schedule: initialSchedule === "yes" ? "yes" : initialSchedule === "none" ? "no" : "",
-    room: initialRoom === "none" ? "__none__" : "",
+    room: initialRoom === "none" ? "__blank__" : "",
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -151,7 +152,7 @@ export function FunctionTableView({
 
       if (filters.type && fn.type !== filters.type) return false;
 
-      if (filters.room === "__none__") {
+      if (filters.room === "__blank__") {
         if (fn.type === "BREAKOUT_BLOCK" || fn.rooms.length > 0 || fn.offSiteLocation) return false;
       } else if (filters.room && !fn.rooms.some((r) => r.room.name === filters.room)) return false;
 
@@ -343,7 +344,7 @@ export function FunctionTableView({
               </div>
               <button
                 onClick={handleBulkUpdate}
-                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                className={btnPrimarySm}
               >
                 Apply to {selected.size} selected
               </button>
@@ -461,7 +462,7 @@ export function FunctionTableView({
                   className={filterInput}
                 >
                   <option value="">All</option>
-                  <option value="__none__">(none)</option>
+                  <option value="__blank__">(none)</option>
                   {allRooms.map((r) => (
                     <option key={r} value={r}>{r}</option>
                   ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import type {
   AcquisitionState,
@@ -78,7 +79,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -610,7 +611,7 @@ export function SupplyOrderItemPanel({
           {!showAddForm && canWrite && (
             <button
               onClick={() => setShowAddForm(true)}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className={btnPrimarySm}
             >
               Add Item
             </button>

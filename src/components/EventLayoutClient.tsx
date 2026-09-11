@@ -9,6 +9,7 @@ type EventLayoutClientProps = {
   eventName: string;
   deniedResources: string[];
   deniedWriteResources: string[];
+  initialSidebarCollapsed: boolean;
   header: React.ReactNode;
   children: React.ReactNode;
 };
@@ -18,6 +19,7 @@ export function EventLayoutClient({
   eventName,
   deniedResources,
   deniedWriteResources,
+  initialSidebarCollapsed,
   header,
   children,
 }: EventLayoutClientProps) {
@@ -38,6 +40,7 @@ export function EventLayoutClient({
           eventName={eventName}
           deniedResources={deniedResources}
           deniedWriteResources={deniedWriteResources}
+          initialCollapsed={initialSidebarCollapsed}
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}
         />

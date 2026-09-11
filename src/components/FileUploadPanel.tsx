@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useRouter } from "next/navigation";
 import type { FileUpload, CustomOption } from "@prisma/client";
 import { deleteFile } from "@/app/files/actions";
@@ -103,7 +104,7 @@ export function FileUploadPanel({
           <button
             onClick={handleUpload}
             disabled={uploading}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+            className={`${btnPrimarySm} disabled:opacity-50 whitespace-nowrap`}
           >
             {uploading ? "Uploading..." : "Upload"}
           </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { btnPrimary } from "@/lib/buttonStyles";
 import Link from "next/link";
 import type { getSupplyOrders } from "./actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
@@ -119,7 +120,7 @@ export function SupplyOrderList({
         {canWrite && (
           <Link
             href={`/events/${eventId}/supply-orders/new`}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 shrink-0"
+            className={`${btnPrimary} text-sm shrink-0`}
           >
             Create Supply Order
           </Link>

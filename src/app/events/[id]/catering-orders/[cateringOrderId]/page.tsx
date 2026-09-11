@@ -39,7 +39,7 @@ import {
   searchContactsForCateringOrder,
   createAndAddCateringOrderContact,
 } from "../../../catering-orders/actions";
-import { getOptions, getSubstatusOptions } from "../../../../settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getEquipment } from "@/app/equipment/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";

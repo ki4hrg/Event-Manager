@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
@@ -73,7 +74,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -643,7 +644,7 @@ export function LocationContents({
                 type="button"
                 disabled={isPending || !moveTarget}
                 onClick={() => run(() => moveItems(Array.from(selected), moveTarget))}
-                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                className={`${btnPrimarySm} disabled:opacity-50`}
               >
                 {isPending ? "..." : "Move"}
               </button>
@@ -686,7 +687,7 @@ export function LocationContents({
                     }
                   })
                 }
-                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                className={`${btnPrimarySm} disabled:opacity-50`}
               >
                 {isPending ? "..." : "Add"}
               </button>

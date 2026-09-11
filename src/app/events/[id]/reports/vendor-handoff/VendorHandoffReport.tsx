@@ -5,7 +5,7 @@ import { resolveOptionLabel } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { cateringRelationshipLabel, computeServiceLocationCounts, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
-import { formatPhone } from "@/lib/format-phone";
+import { formatPhone } from "@/lib/formatPhone";
 import {
   reportTh as th,
   reportTd as td,
@@ -683,6 +683,7 @@ function CateringOrderSection({
                 {order.menuSections.map((section) => (
                   <tr key={section.id}>
                     <td className={td}>
+                      {/* RichTextEditor output — chain: MenuSectionTable → RichTextEditor */}
                       <div
                         className="[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
                         dangerouslySetInnerHTML={{ __html: section.menuContent }}

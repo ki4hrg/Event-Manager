@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useFormStatus } from "react-dom";
 import type {
   AudioSection,
@@ -96,7 +97,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -757,7 +758,7 @@ export function AudioSectionPanel({
           {canWrite && (
             <button
               onClick={() => setShowAddGroup(true)}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className={btnPrimarySm}
             >
               Add Group
             </button>
@@ -836,7 +837,7 @@ export function AudioSectionPanel({
           {canWrite && (
             <button
               onClick={() => setShowAddMix(true)}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className={btnPrimarySm}
             >
               Add Mix
             </button>

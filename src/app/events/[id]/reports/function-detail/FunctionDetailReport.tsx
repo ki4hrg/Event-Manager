@@ -10,7 +10,7 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { PackingStatusRollup } from "@/components/PackingStatusRollup";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { cateringRelationshipLabel, type CateringRelationship } from "@/lib/cateringServiceLocations";
-import { formatPhone } from "@/lib/format-phone";
+import { formatPhone } from "@/lib/formatPhone";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import {
   ACQUISITION_LABEL,

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { useState, useEffect, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import type { EventKeyStaff, Contact } from "@prisma/client";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
-import { formatPhone } from "@/lib/format-phone";
+import { formatPhone } from "@/lib/formatPhone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
@@ -25,7 +26,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimarySm} disabled:opacity-50`}
     >
       {pending ? "..." : label}
     </button>
@@ -141,7 +142,7 @@ export function KeyStaffList({
               setSearchQuery("");
               setFormView("search");
             }}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            className={btnPrimarySm}
           >
             Add
           </button>

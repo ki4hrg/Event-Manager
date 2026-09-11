@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { btnPrimary } from "@/lib/buttonStyles";
 import Papa from "papaparse";
 import Link from "next/link";
 import type { ImportDestination, ColumnMapping } from "../../../presentations/actions";
@@ -177,7 +178,7 @@ export function ImportForm({ eventId, importAction }: ImportFormProps) {
           <button
             onClick={() => setStep("preview")}
             disabled={activeCount === 0}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+            className={`${btnPrimary} disabled:opacity-50 text-sm font-medium`}
           >
             Preview {rows.length} rows
           </button>
@@ -232,7 +233,7 @@ export function ImportForm({ eventId, importAction }: ImportFormProps) {
           <button
             onClick={handleImport}
             disabled={importing}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+            className={`${btnPrimary} disabled:opacity-50 text-sm font-medium`}
           >
             {importing ? "Importing..." : `Import ${rows.length} presentations`}
           </button>
@@ -269,7 +270,7 @@ export function ImportForm({ eventId, importAction }: ImportFormProps) {
       ) : null}
       <Link
         href={`/events/${eventId}/presentations`}
-        className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+        className={`${btnPrimary} inline-block text-sm font-medium`}
       >
         View Presentations
       </Link>

@@ -6,7 +6,7 @@ import { getEvent } from "../../../actions";
 import { createAVOrder } from "../../../av-orders/actions";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
-import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
+import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/sourceContext";
 import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";

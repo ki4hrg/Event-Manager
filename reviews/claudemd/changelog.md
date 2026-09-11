@@ -508,3 +508,137 @@ Server component, export const dynamic = "force-dynamic", awaits get<Entity>() f
 - "Notes for next iteration" — by definition deferred to the next pass.
 
 No findings were skipped to `claudemd-open-questions.md` this pass — every must-fix and should-fix item collapsed to a single doc-applicable resolution under the doc-only scope.
+
+---
+
+## Between-review candidates applied — 2026-09-11
+
+Processed every entry in `reviews/claudemd/candidates.md` (97 lines, 96 entries) plus the accuracy and compliance audits run alongside. Applied entries were folded into the named CLAUDE.md section as one-line rules; wording follows the candidate text with file paths re-verified against the tree. Dropped entries were moved verbatim to `reviews/claudemd/decisions.md` § Parked candidates so the rationale survives.
+
+### Disposition
+
+| # | Disposition | Where / why |
+|---|---|---|
+| 1 | Applied | § Data layer |
+| 2 | Applied | § Environment and config |
+| 3 | Applied | § Security and validation |
+| 4 | Applied | § Route archetypes G |
+| 5 | Already covered | § Pages and routing already mandates validating URL list params |
+| 6 | Obsolete | `getEvent` now gates with `requirePermission`; share routes use `getOptionsForTenant`/`getOptionsForEvent` — already in § Anti-patterns |
+| 7 | Applied | § Mobile and print |
+| 8 | Applied | § Mobile and print |
+| 9 | Applied | § Reports › Filter bar |
+| 10 | Code / note | added `btnPrimarySm` to `src/lib/buttonStyles.ts` and replaced inline duplicates |
+| 11 | Applied | § Route archetypes E |
+| 12 | Obsolete | `share-link-groups/actions.ts` now uses `requirePermission("SHARE_LINKS", …)` — the standard rule |
+| 13 | Applied | § Reports › Filter bar |
+| 14 | Already covered | § Pages and routing already documents `router.replace` for no-history changes (now cites GroupTabsClient too) |
+| 15 | Parked | decisions.md § Parked candidates |
+| 16 | Applied | § Environment and config |
+| 17 | Applied | § Server Actions (carve-out) |
+| 18 | Applied | § Security and validation |
+| 19 | Already covered | RBAC migration complete; § Server Actions already states `requirePermission` |
+| 20 | Code / note | dropped — `next-auth/jwt` augmentation only carries `id`; no custom field today |
+| 21 | Applied | § Data layer |
+| 22 | Applied | § Data layer |
+| 23 | Already covered | § Server Actions `cache()` rule + § Multi-tenancy already name `loadPermissionsForUser` |
+| 24 | Applied | § Security and validation |
+| 25 | Applied | § Server Actions |
+| 26 | Applied | § Security and validation |
+| 27 | Applied | § Server Actions |
+| 28 | Applied | § Data layer |
+| 29 | Applied | § Reports › Aggregation |
+| 30 | Applied | § Reports › Print/PDF |
+| 31 | Applied | § Reports › Filter bar |
+| 32 | Applied | § Reports › Aggregation |
+| 33 | Applied | § Reports › Nav/anchors |
+| 34 | Applied | § Reports › Aggregation |
+| 35 | Applied | § Reports › Aggregation |
+| 36 | Obsolete | deploy no longer uses `db push`; `prisma/migrations/` + `migrate deploy` documented in § Multi-tenancy |
+| 37 | Applied | § Components |
+| 38 | Obsolete | `updateSupplyOrderPackingStatus` no longer exists; the surviving cascades don't write a header status |
+| 39 | Parked | decisions.md § Parked candidates |
+| 40 | Applied | § Server Actions + Anti-patterns |
+| 42 | Applied | § Reports (intro) |
+| 44 | Parked | decisions.md § Parked candidates |
+| 45 | Applied | § Quick reference (Deploy) |
+| 46 | Applied | § MCP connector |
+| 47 | Applied | § MCP connector |
+| 48 | Applied | § Data layer |
+| 49 | Applied | § Data layer |
+| 50 | Applied | § Reports › Aggregation |
+| 51 | Parked | decisions.md § Parked candidates |
+| 52 | Parked | decisions.md § Parked candidates |
+| 53 | Parked | decisions.md § Parked candidates |
+| 54 | Applied | § Data layer |
+| 55 | Applied | § Data layer |
+| 56 | Parked | decisions.md § Parked candidates |
+| 57 | Applied | § Security and validation |
+| 58 | Applied | § Components + Anti-patterns |
+| 59 | Parked | decisions.md § Parked candidates |
+| 60 | Parked | decisions.md § Parked candidates |
+| 61 | Applied | § MCP › Adding a new tool |
+| 62 | Applied | § MCP › Adding a new tool |
+| 63 | Obsolete | `requireAdmin` is gone from `src/` and CLAUDE.md |
+| 64 | Applied | § Data layer |
+| 65 | Applied | § Multi-tenancy › Scopes |
+| 66 | Applied | § Server Actions + Anti-patterns |
+| 67 | Applied | § Data layer |
+| 68 | Applied | § Data layer |
+| 69 | Applied | § Mobile and print |
+| 70 | Parked | decisions.md § Parked candidates |
+| 71 | Applied | § Mobile and print |
+| 72 | Applied | § Mobile and print |
+| 73 | Applied | § Components |
+| 74 | Applied | § Multi-tenancy › Scopes |
+| 75 | Applied | § Components › Read-only gating |
+| 76 | Applied | § Components › Read-only gating |
+| 77 | Applied | § Route archetypes F |
+| 78 | Applied | § Forms and mutations |
+| 79 | Parked | decisions.md § Parked candidates |
+| 80 | Obsolete | both halves landed (`EventLayoutClient` regex, breakout-grid `PrintHeader`) |
+| 81 | Parked | decisions.md § Parked candidates |
+| 82 | Applied | § Components |
+| 83 | Parked | decisions.md § Parked candidates |
+| 84 | Applied | § Architecture invariants + Security and validation |
+| 85 | Applied | § MCP › Documented exceptions |
+| 86 | Applied | § MCP › OAuth 2.1 |
+| 87 | Parked | decisions.md § Parked candidates |
+| 88 | Applied | § Security and validation |
+| 89 | Parked | decisions.md § Parked candidates |
+| 90 | Obsolete | `prisma/migrations/` exists and is documented |
+| 91 | Applied | § Reports › File layout |
+| 92 | Parked | decisions.md § Parked candidates |
+| 93 | Applied | § Server Actions |
+| 94 | Already covered | § Pages and routing already states it (now cites `enumFilterSet`) |
+| 95 | Applied | § Data layer (exhaustiveness) |
+| 96 | Applied | § Reports › Anchor IDs |
+| 97 | Applied | § Data layer + Anti-patterns |
+
+### Accuracy corrections (from the CLAUDE.md audit)
+
+- Route handlers: "only four exist" → ten (OAuth `register/authorize/token/revoke` + two discovery routes). Archetype G now shows the `requirePermission` first-line pattern for handlers.
+- Middleware exemptions: three/four prefixes → the real nine in `src/lib/auth.ts:67-89`, plus the `src/middleware.ts` matcher note.
+- `process.env` touchpoints: three → four (`@/lib/email`); anti-patterns row updated.
+- Auth-free carve-out restated as "actions reachable from a public route" (report actions + forgot/reset-password).
+- `dangerouslySetInnerHTML`: "four `menuContent` sites" → nine sites incl. setup `detail.description`; every site now carries the provenance comment.
+- Stale line citations fixed: `EventForm.tsx:16-28`, `FunctionForm.tsx:46-170`, setup-order page `:73-190`, `RoomScheduleReport.tsx:236`, event-profile `page.tsx:34-37`, `shareLinks.ts:55-64`, `events/actions.ts:44`, `users/actions.ts:69-74`, `globals.css:47-62` (print) / `:39-46` (iOS).
+- Exhaustiveness reference sites: `propagateLabelRename` now actually has a `never` default; share-route reference moved to the `/share/group/` switches (`ShareLink.reportType` is a plain `String`, so `/share/[token]` falls through to `notFound()`).
+- `/users` layout described accurately (any-of USERS/ROLES/API_KEYS via `hasGlobalView`); `/workflows` got the `layout.tsx` guard the rule promised; `/system` and `/tenants` added to Archetype F.
+- `mcpSerialize` → `serializeForMcp`; `/settings/api-keys` → `/users/api-keys`; "eight report actions" → unnumbered; vendor model types four → six, union lives in `vendors/core.ts`; `npm run lint` is `eslint src/`; `db:generate` listed.
+- `assert*InTenant` described as module-private per-feature helpers (plus `assertEventRefsInTenant`).
+- `force-dynamic` carve-out generalized to pure-redirect pages (`equipment`, `storage-locations`, `system`).
+
+### Code changes made for compliance (same commit)
+
+- `src/lib/{equipment-utils,format-phone,source-context}.ts` → camelCase (`equipmentUtils`, `formatPhone`, `sourceContext`) + 16 import sites.
+- `resolveEquipmentName` now asserts tenant through the event relation (`findFirst({ id, tenant: { events: { some: { id: eventId } } } })`) — was a bare `findUnique` on a tenant-owned model.
+- `EventSidebar` collapse state moved from `localStorage` to `UserSetting` (`event_sidebar_collapsed`, `setEventSidebarCollapsed` in `sidebar-actions.ts`, read in `events/[id]/layout.tsx`).
+- `btnPrimarySm` added; inline `btnPrimary` / small-primary duplicates replaced across `src/`.
+- Two cross-feature relative imports (`../../../../settings/actions`) → `@/app/settings/actions`.
+- `__none__` sentinel in `FunctionTableView.tsx` and `reports/actions.ts` → `__blank__`.
+- `src/app/workflows/layout.tsx` added; `.env.example` documents `UPLOAD_DIR` / `MAX_UPLOAD_BYTES`.
+
+### Not changed (parked in `reviews/refactors/candidates.md`)
+
+- Filter-chip active-state string (`bg-blue-600 border-blue-600 text-white`) repeated in the nine `ReportFilters.tsx`; list-client `<th>` string near-duplicating `reportTh`.

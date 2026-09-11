@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { btnPrimarySm } from "@/lib/buttonStyles";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -47,7 +48,7 @@ export default async function ShareLinksPage({ params }: { params: Promise<{ id:
             {canWrite && (
               <Link
                 href={`/events/${eventId}/share-links/dashboards/new`}
-                className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+                className={btnPrimarySm}
               >
                 + New dashboard
               </Link>
