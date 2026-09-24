@@ -75,7 +75,7 @@ export default async function AgendaPage({
             {event.name}
           </h1>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0">
           {activeDate && (
             <a
               href={`/events/${eventId}/agenda/print?date=${activeDate}`}

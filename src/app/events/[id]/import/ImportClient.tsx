@@ -62,7 +62,7 @@ function Spine({
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
         <h2 className="text-sm font-medium text-gray-900 dark:text-white">
           {title}{" "}
           <span className="text-gray-500 dark:text-gray-400 font-normal">
@@ -207,7 +207,7 @@ export function ImportClient({
               <li key={n}>{n}</li>
             ))}
           </ul>
-          <div className="flex gap-3 mt-3">
+          <div className="flex flex-wrap gap-3 mt-3">
             <button
               type="button"
               onClick={() => router.push(`/events/${eventId}/functions`)}

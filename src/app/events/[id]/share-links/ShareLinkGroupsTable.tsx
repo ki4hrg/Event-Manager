@@ -132,7 +132,7 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
                   {g.accessCount}
                 </td>
                 <td className={`py-2 pr-4 text-xs ${s.cls}`}>{s.label}</td>
-                <td className="py-2">
+                <td className="py-2 whitespace-nowrap">
                   <div className="flex items-center gap-3">
                     {active && (
                       <button

@@ -173,7 +173,7 @@ export function ImportForm({ eventId, importAction }: ImportFormProps) {
             </tbody>
           </table>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setStep("preview")}
             disabled={activeCount === 0}
@@ -228,7 +228,7 @@ export function ImportForm({ eventId, importAction }: ImportFormProps) {
             </tbody>
           </table>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={handleImport}
             disabled={importing}

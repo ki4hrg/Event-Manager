@@ -111,7 +111,7 @@ function TimelinePreview({
       </div>
       <div className="space-y-1.5">
         {items.map((item) => (
-          <div key={item.id} className="flex gap-4 text-sm">
+          <div key={item.id} className="flex flex-wrap gap-x-4 text-sm">
             <span className="text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
               {formatTime(item.startTime, timezone)}
               {item.endTime && ` – ${formatTime(item.endTime, timezone)}`}
