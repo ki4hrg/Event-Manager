@@ -59,7 +59,7 @@ export default async function PackingListPrintPage({
   });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PrintHeader eventName={event.name} title="Packing List" backHref={backHref} />
       <PackingListReport data={data} />
       <div

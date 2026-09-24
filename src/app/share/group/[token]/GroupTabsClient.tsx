@@ -60,21 +60,21 @@ export function GroupTabsClient({ tabs, initialId, children }: GroupTabsClientPr
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-4 print:hidden">
-        <div ref={menuRef} className="flex items-center gap-2">
-          <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 print:hidden">
+        <div ref={menuRef} className="flex items-center gap-2 min-w-0 max-w-full">
+          <span className="shrink-0 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
             Report:
           </span>
-          <div className="relative">
+          <div className="relative min-w-0">
           <button
             ref={triggerRef}
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            className="flex max-w-full items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
           >
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="truncate font-medium text-gray-900 dark:text-white">
               {active?.title ?? "Reports"}
             </span>
             <svg
@@ -87,7 +87,7 @@ export function GroupTabsClient({ tabs, initialId, children }: GroupTabsClientPr
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="text-gray-600 dark:text-gray-300"
+              className="shrink-0 text-gray-600 dark:text-gray-300"
             >
               <polyline points="6 9 12 15 18 9" />
             </svg>
@@ -96,7 +96,7 @@ export function GroupTabsClient({ tabs, initialId, children }: GroupTabsClientPr
             <ul
               role="menu"
               aria-label="Dashboard reports"
-              className="absolute left-0 top-full mt-1 z-20 min-w-full max-h-80 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg py-1"
+              className="absolute left-0 top-full mt-1 z-20 min-w-full max-w-[calc(100vw-2rem)] max-h-80 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg py-1"
             >
               {tabs.map((tab) => {
                 const selected = tab.id === activeId;
@@ -107,7 +107,7 @@ export function GroupTabsClient({ tabs, initialId, children }: GroupTabsClientPr
                       type="button"
                       aria-current={selected ? "true" : undefined}
                       onClick={() => selectTab(tab.id)}
-                      className={`block w-full text-left px-4 py-2 text-sm whitespace-nowrap ${
+                      className={`block w-full text-left px-4 py-2 text-sm break-words sm:whitespace-nowrap ${
                         selected
                           ? "bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
                           : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"

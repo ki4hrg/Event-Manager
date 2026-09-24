@@ -196,13 +196,13 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="min-w-0 break-words text-base font-semibold text-gray-900 dark:text-white">
                 {isAddingToDashboard ? `Add to ${targetDashboardName}` : "Share Report"}
               </h2>
               <button
                 onClick={() => setOpen(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none"
+                className="shrink-0 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none"
               >
                 &times;
               </button>
@@ -370,7 +370,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                     <input
                       readOnly
                       value={shareUrl(createdToken)}
-                      className="flex-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 focus:outline-none"
+                      className="min-w-0 flex-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 focus:outline-none"
                     />
                     <button
                       onClick={() => handleCopy(createdToken)}
@@ -401,7 +401,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                           key={link.id}
                           className="flex items-start justify-between gap-3 text-xs"
                         >
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="font-medium text-gray-800 dark:text-gray-200 truncate">
                               {link.label || "Untitled"}
                             </p>

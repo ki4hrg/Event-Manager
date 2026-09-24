@@ -2,7 +2,7 @@
 
 export function PrintButton({ backHref }: { backHref?: string }) {
   return (
-    <div className="flex gap-2 print:hidden">
+    <div className="flex flex-wrap gap-2 print:hidden">
       <button
         onClick={() => window.print()}
         className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"

@@ -210,17 +210,17 @@ function MobileSessions({
         return (
           <div
             key={session.id}
-            id={`session-${session.id}`}
+            id={`session-${session.id}-mobile`}
             className="scroll-mt-24 border border-gray-200 dark:border-gray-700 rounded p-3"
           >
-            <p className="font-semibold text-gray-900 dark:text-white">
+            <p className="font-semibold text-gray-900 dark:text-white break-words">
               {formatBreakoutSessionName(session.name, groupName)}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {formatSessionTime(session.schedules, timezone)}
             </p>
             {rows.length === 0 ? (
-              <p className="mt-2 text-xs text-gray-400 italic">No rooms available.</p>
+              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 italic">No rooms available.</p>
             ) : (
               <ul className="mt-2 divide-y divide-gray-200 dark:divide-gray-700 text-xs">
                 {rows.map((row) => {
@@ -234,7 +234,7 @@ function MobileSessions({
                       </p>
                       {row.slot ? (
                         <>
-                          <p className="font-medium text-gray-900 dark:text-white">
+                          <p className="font-medium text-gray-900 dark:text-white break-words">
                             {row.slot.presentation.title}
                           </p>
                           {speakers && (
@@ -244,7 +244,7 @@ function MobileSessions({
                           )}
                         </>
                       ) : (
-                        <p className="text-gray-400 italic">Unassigned</p>
+                        <p className="text-gray-400 dark:text-gray-500 italic">Unassigned</p>
                       )}
                     </li>
                   );
@@ -270,6 +270,7 @@ export function BreakoutGridReport({ data }: Props) {
     label: g.name,
     links: g.functions.map((s) => ({
       id: `session-${s.id}`,
+      mobileId: `session-${s.id}-mobile`,
       label: formatBreakoutSessionName(s.name, g.name),
     })),
   }));

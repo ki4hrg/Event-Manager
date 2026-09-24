@@ -28,7 +28,7 @@ export function VendorForm({ vendor, action }: VendorFormProps) {
   const canWrite = useCanWrite("VENDORS");
 
   return (
-    <form action={action} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+    <form action={action} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
       <fieldset disabled={!canWrite} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

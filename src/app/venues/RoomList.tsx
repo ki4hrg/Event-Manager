@@ -122,7 +122,7 @@ function RoomRow({
           {groups.find((g) => g.id === room.groupId)?.name ?? "—"}
         </td>
       )}
-      <td className="px-6 py-4 text-right space-x-3">
+      <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
         {canWrite && (
           <button onClick={onEdit} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
             Edit
@@ -163,6 +163,7 @@ function RoomsTable({
   }
 
   return (
+    <div className="overflow-x-auto">
     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
       <thead className="bg-gray-50 dark:bg-gray-900">
         <tr>
@@ -187,6 +188,7 @@ function RoomsTable({
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
@@ -212,7 +214,7 @@ export function RoomList({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Rooms</h2>
         {canWrite && (
           <div className="flex gap-2">
@@ -238,7 +240,7 @@ export function RoomList({
             await createRoomGroup(formData);
             setActiveForm(null);
           }}
-          className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex gap-3 items-center"
+          className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-wrap gap-3 items-center"
         >
           <input
             type="text"
@@ -246,7 +248,7 @@ export function RoomList({
             placeholder="Group name *"
             required
             autoFocus
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+            className="flex-1 min-w-0 basis-48 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
           />
           <SubmitButton label="Add Group" />
           <button
@@ -322,7 +324,7 @@ export function RoomList({
                         await updateRoomGroup(group.id, formData);
                         setEditingGroupId(null);
                       }}
-                      className="flex gap-2 items-center flex-1"
+                      className="flex gap-2 items-center flex-1 min-w-0"
                     >
                       <input
                         type="text"
@@ -330,7 +332,7 @@ export function RoomList({
                         defaultValue={group.name}
                         required
                         autoFocus
-                        className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+                        className="flex-1 min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
                       />
                       <SubmitButton label="Save" />
                       <button

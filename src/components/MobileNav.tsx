@@ -33,9 +33,14 @@ export function MobileNav({
   const pathname = usePathname();
   useClickOutside(ref, () => setOpen(false));
 
-  useEffect(() => {
+  // Close on any navigation, including ones not started from a panel link
+  // (e.g. the org switcher's redirect). Adjusting state during render rather
+  // than in an effect avoids an extra paint with the stale panel open.
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
     setOpen(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     if (!open) return;

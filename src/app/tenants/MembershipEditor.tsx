@@ -109,7 +109,7 @@ export function MembershipEditor({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">{description}</p>
 
@@ -125,7 +125,7 @@ export function MembershipEditor({
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           {rows.map((row) => (
             <li key={row.id} className="py-3 flex flex-wrap items-center gap-3">
-              <div className="flex-1 min-w-[10rem]">
+              <div className="flex-1 min-w-[10rem] break-words">
                 {row.href ? (
                   <Link href={row.href} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
                     {row.label}
@@ -169,10 +169,10 @@ export function MembershipEditor({
             });
           }}
         >
-          <label className="text-sm text-gray-700 dark:text-gray-300">
+          <label className="min-w-0 max-w-full text-sm text-gray-700 dark:text-gray-300">
             <span className="block text-xs mb-1">{candidateLabel}</span>
             <select
-              className={selectClass}
+              className={`${selectClass} max-w-full`}
               value={candidateId}
               disabled={pending}
               onChange={(e) => setCandidateId(e.target.value)}

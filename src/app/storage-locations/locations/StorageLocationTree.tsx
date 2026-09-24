@@ -246,7 +246,7 @@ export function StorageLocationTree({
             Nest locations to match how things are actually stored and moved.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {archivedCount > 0 && (
             <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <input
@@ -295,7 +295,8 @@ export function StorageLocationTree({
             <div
               key={location.id}
               className="p-2 bg-gray-50 dark:bg-gray-900 rounded"
-              style={{ marginLeft: `${location.depth * 1.25}rem` }}
+              /* Indent shrinks on narrow screens so deep nesting keeps room for the name. */
+              style={{ marginLeft: `min(${location.depth * 1.25}rem, ${location.depth * 3}vw)` }}
             >
               {editingId === location.id ? (
                 <LocationForm

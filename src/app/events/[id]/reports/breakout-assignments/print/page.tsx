@@ -42,7 +42,7 @@ export default async function BreakoutAssignmentsPrintPage({
   return (
     <>
       <style>{`@page { margin: 0.5in; }`}</style>
-      <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
         <PrintHeader
           eventName={event.name}
           title="Breakout Assignments"

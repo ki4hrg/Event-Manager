@@ -257,7 +257,7 @@ function RoomDayTable({
           return (
             <div key={rowKey(item)} className="p-2">
               <div className="flex justify-between gap-2">
-                <p className="font-semibold text-gray-900 dark:text-white">{itemTitle(item)}</p>
+                <p className="min-w-0 break-words font-semibold text-gray-900 dark:text-white">{itemTitle(item)}</p>
                 <p className="shrink-0 text-gray-700 dark:text-gray-300">
                   {timeLabel(item, timezone)}
                 </p>
@@ -266,17 +266,17 @@ function RoomDayTable({
                 {itemContext(item, functionTypes)}
               </p>
               {contacts.length > 0 && (
-                <p className="text-gray-700 dark:text-gray-300 mt-1">
+                <p className="text-gray-700 dark:text-gray-300 mt-1 break-words">
                   {contacts.join(", ")}
                 </p>
               )}
               {notes.map((n, i) => (
-                <p key={i} className="text-gray-600 dark:text-gray-300 mt-1 italic">
+                <p key={i} className="text-gray-600 dark:text-gray-300 mt-1 italic break-words">
                   {n}
                 </p>
               ))}
               {item.subRows.length > 0 && (
-                <ul className="mt-1 space-y-0.5 text-gray-500 dark:text-gray-400">
+                <ul className="mt-1 space-y-0.5 text-gray-500 dark:text-gray-400 break-words">
                   {item.subRows.map((row) => (
                     <li key={row.id}>{subRowLabel(row, scheduleTypes, timezone)}</li>
                   ))}
@@ -319,7 +319,7 @@ function RoomDayTable({
                   <td className={td}>{itemContext(item, functionTypes)}</td>
                   <td className={td}>
                     {contacts.length === 0 ? (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-gray-400 dark:text-gray-500">—</span>
                     ) : (
                       <div className="space-y-0.5">
                         {contacts.map((c, i) => (
@@ -330,7 +330,7 @@ function RoomDayTable({
                   </td>
                   <td className={td}>
                     {notes.length === 0 ? (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-gray-400 dark:text-gray-500">—</span>
                     ) : (
                       <div className="space-y-0.5">
                         {notes.map((n, i) => (
@@ -372,8 +372,8 @@ function RoomSection({
         className={`${sectionCard} scroll-mt-24`}
       >
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white print:text-black">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white print:text-black break-words">
               {bucket.room.name}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-700 mt-0.5">

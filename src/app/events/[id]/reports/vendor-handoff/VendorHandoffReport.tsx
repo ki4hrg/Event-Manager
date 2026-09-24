@@ -165,7 +165,7 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
         {relevant.map((item) => (
           <div key={item.id} className="p-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="font-medium text-gray-900 dark:text-white">{item.item}</span>
+              <span className="min-w-0 break-words font-medium text-gray-900 dark:text-white">{item.item}</span>
               <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {item.quantity ?? 1}</span>
             </div>
             {item.equipment?.name && (
@@ -467,16 +467,16 @@ function FunctionScheduleSection({
         return (
           <div key={dateKey} className="mb-4">
             <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">{dateLabel}</p>
-            <div className="sm:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700">
+            <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700">
               {rowData.map((row) => (
                 <div key={row.key} className="p-2 text-xs">
                   <div className="flex items-start justify-between gap-2">
-                    <a href={`#function-${row.fnId}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{row.name}</a>
+                    <a href={`#function-${row.fnId}`} className="min-w-0 break-words font-medium text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{row.name}</a>
                     <span className="shrink-0 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{row.type}</span>
                   </div>
                   <p className="text-gray-600 dark:text-gray-400 mt-0.5">{row.timeStr}</p>
-                  <p className="text-gray-500 dark:text-gray-500">{row.rooms}</p>
-                  {row.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-0.5">{row.notes}</p>}
+                  <p className="text-gray-500 dark:text-gray-500 break-words">{row.rooms}</p>
+                  {row.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-0.5 break-words">{row.notes}</p>}
                 </div>
               ))}
             </div>
@@ -510,7 +510,15 @@ function FunctionScheduleSection({
       {unscheduled.length > 0 && (
         <div className="mb-4">
           <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">Unscheduled</p>
-          <div className="overflow-x-auto">
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+            {unscheduled.map((fn) => (
+              <div key={fn.id} className="p-2">
+                <a href={`#function-${fn.id}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline break-words">{formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}</a>
+                <p className="text-gray-500 dark:text-gray-500 mt-0.5 break-words">{fn.rooms.map((r) => r.room.name).join(", ") || "—"}</p>
+              </div>
+            ))}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr>
@@ -572,7 +580,7 @@ function CateringOrderSection({
       {firmestCount && (
         <>
           <SectionHeading>Guest Count</SectionHeading>
-          <div className="flex gap-6 items-center mb-4 text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 items-center mb-4 text-xs text-gray-700 dark:text-gray-300 print:text-gray-900">
             <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200 print:bg-transparent print:text-black print:font-semibold">
               <span className="font-medium">{firmestCount.label}:</span> {firmestCount.value}
             </span>
@@ -625,7 +633,37 @@ function CateringOrderSection({
                 ⚠ Additional location counts ({sumKnown}) also exceed confirmed count ({order.confirmedCount}).
               </div>
             )}
-            <div className="overflow-x-auto mb-4">
+            <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs mb-4">
+              <div className="p-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="min-w-0 break-words font-medium text-gray-900 dark:text-white">
+                    {primaryLocation}
+                    <span className="ml-1 font-normal text-gray-500 dark:text-gray-400">[Primary]</span>
+                  </p>
+                  <span className="shrink-0 text-gray-500 dark:text-gray-400">{primaryCount}</span>
+                </div>
+              </div>
+              {order.additionalServiceLocations.map((loc) => {
+                const derivedRoom = loc.function?.rooms[0]?.room.name ?? null;
+                const functionName = loc.function?.name ?? null;
+                const baseName = loc.name ?? functionName ?? "Unnamed location";
+                const roomAside = derivedRoom ? ` (${derivedRoom})` : "";
+                const functionAside = loc.name && functionName ? ` · ${functionName}${roomAside}` : (!loc.name ? roomAside : "");
+                return (
+                  <div key={loc.id} className="p-2">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="min-w-0 break-words font-medium text-gray-900 dark:text-white">
+                        {baseName}
+                        <span className="font-normal text-gray-500 dark:text-gray-400">{functionAside}</span>
+                      </p>
+                      <span className="shrink-0 text-gray-500 dark:text-gray-400">{loc.expectedCount ?? "—"}</span>
+                    </div>
+                    {loc.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-0.5 break-words">{loc.notes}</p>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden sm:block print:block overflow-x-auto mb-4">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr>
@@ -670,7 +708,22 @@ function CateringOrderSection({
       {order.menuSections.length > 0 && (
         <>
           <SectionHeading>Menu / Responsibility</SectionHeading>
-          <div className="overflow-x-auto mb-4">
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs mb-4">
+            {order.menuSections.map((section) => (
+              <div key={section.id} className="p-2">
+                <p className="text-gray-500 dark:text-gray-400 break-words">
+                  {section.responsiblePartyVendor?.name ?? "—"}
+                </p>
+                {/* RichTextEditor output — chain: MenuSectionTable → RichTextEditor */}
+                <div
+                  className="mt-0.5 text-gray-700 dark:text-gray-300 break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                  dangerouslySetInnerHTML={{ __html: section.menuContent }}
+                />
+                {section.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-0.5 break-words">{section.notes}</p>}
+              </div>
+            ))}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto mb-4">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr>
@@ -701,7 +754,22 @@ function CateringOrderSection({
       {order.timelineItems.length > 0 && (
         <>
           <SectionHeading>Day-of Timeline</SectionHeading>
-          <div className="overflow-x-auto mb-4">
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs mb-4">
+            {order.timelineItems.map((item) => {
+              const start = formatTime(item.startTime, timezone);
+              const end = item.endTime ? ` – ${formatTime(item.endTime, timezone)}` : "";
+              return (
+                <div key={item.id} className="p-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="min-w-0 break-words font-medium text-gray-900 dark:text-white">{item.label}</p>
+                    <span className="shrink-0 text-gray-500 dark:text-gray-400">{start}{end}</span>
+                  </div>
+                  {item.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-0.5 break-words">{item.notes}</p>}
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto mb-4">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr>
@@ -806,7 +874,7 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
                   {rolledUp.map((row, i) => (
                     <div key={i} className="p-2">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-medium text-gray-900 dark:text-white">{row.displayName}</span>
+                        <span className="min-w-0 break-words font-medium text-gray-900 dark:text-white">{row.displayName}</span>
                         <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {row.quantity}</span>
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 mt-0.5">{vendorRole(row.providerVendor, row.operatorVendor, vendorId)}</p>
@@ -982,7 +1050,26 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
       {order.tables.length > 0 && (
         <>
           <SectionHeading>Table Configuration</SectionHeading>
-          <div className="overflow-x-auto mb-4">
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs mb-4">
+            {order.tables.map((table) => (
+              <div key={table.id} className="p-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="min-w-0 break-words font-medium text-gray-900 dark:text-white">{table.tableType ?? "Table"}</p>
+                  <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {table.quantity}</span>
+                </div>
+                {(table.chairCount != null || table.chairType) && (
+                  <p className="text-gray-600 dark:text-gray-400 mt-0.5 break-words">
+                    Chairs: {table.chairCount ?? "—"}{table.chairType ? ` · ${table.chairType}` : ""}
+                  </p>
+                )}
+                {table.providerVendor && (
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5 break-words">Provider: {table.providerVendor.name}</p>
+                )}
+                {table.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-0.5 break-words">{table.notes}</p>}
+              </div>
+            ))}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto mb-4">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr>
@@ -1084,7 +1171,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
               return (
                 <div key={item.id} className="p-2">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{itemLabel}</span>
+                    <span className="min-w-0 break-words font-medium text-gray-900 dark:text-gray-100">{itemLabel}</span>
                     {item.quantity != null && (
                       <span className="text-gray-500 dark:text-gray-400">Qty {item.quantity}</span>
                     )}
@@ -1191,7 +1278,7 @@ function FunctionSection({
               return (
                 <div key={`${fn.id}-${schedule.startTime.getTime()}`} className="p-2">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-medium text-gray-900 dark:text-white">{formatDateHeading(dateKey, timezone)}</span>
+                    <span className="min-w-0 break-words font-medium text-gray-900 dark:text-white">{formatDateHeading(dateKey, timezone)}</span>
                     {schedule.type && (
                       <span className="shrink-0 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{schedule.type}</span>
                     )}
@@ -1325,7 +1412,19 @@ function PresentationSection({
                 <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 print:text-gray-800 mb-1">
                   {formatDateHeading(dateKey, timezone)}
                 </p>
-                <div className="overflow-x-auto">
+                <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
+                  {rows.map(({ slot, schedule }) => {
+                    const timeStr = `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`;
+                    const roomName = slot.room?.name ?? (slot.function.rooms.map((r) => r.room.name).join(", ") || "—");
+                    return (
+                      <div key={`${slot.id}-${schedule.startTime.getTime()}`} className="p-2">
+                        <p className="font-medium text-gray-900 dark:text-white">{timeStr}</p>
+                        <p className="text-gray-600 dark:text-gray-400 mt-0.5 break-words">{roomName}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="hidden sm:block print:block overflow-x-auto">
                   <table className="w-full table-fixed text-sm border-collapse">
                     <thead>
                       <tr>
@@ -1483,7 +1582,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 print:text-gray-700 uppercase tracking-wide mb-2">
               Vendor Contacts
             </p>
-            <div className="sm:hidden divide-y divide-gray-200 dark:divide-gray-700">
+            <div className="sm:hidden print:hidden divide-y divide-gray-200 dark:divide-gray-700">
               {vendor.contacts.map(({ id, contact, contactType, isPrimary }) => (
                 <div key={id} className="py-2 first:pt-0 last:pb-0 text-xs">
                   <p className="font-medium text-gray-900 dark:text-white">
@@ -1491,7 +1590,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
                     {isPrimary && <span className="ml-1 font-normal text-gray-400 dark:text-gray-500">(Primary)</span>}
                   </p>
                   {contactType && <p className="text-gray-600 dark:text-gray-400">{contactType}</p>}
-                  {contact.email && <p className="text-gray-600 dark:text-gray-400">{contact.email}</p>}
+                  {contact.email && <p className="text-gray-600 dark:text-gray-400 break-words">{contact.email}</p>}
                   {contact.phone && <p className="text-gray-600 dark:text-gray-400">{formatPhone(contact.phone)}</p>}
                 </div>
               ))}
@@ -1534,14 +1633,14 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
           <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black mb-4 break-after-avoid">
             Key Event Contacts
           </h2>
-          <div className="sm:hidden divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="sm:hidden print:hidden divide-y divide-gray-200 dark:divide-gray-700">
             {keyStaff.map((staff) => (
               <div key={staff.id} className="py-2 first:pt-0 last:pb-0 text-xs">
                 <p className="font-medium text-gray-900 dark:text-white">
                   {staff.contact.firstName} {staff.contact.lastName}
                 </p>
                 {staff.title && <p className="text-gray-600 dark:text-gray-400">{staff.title}</p>}
-                {staff.contact.email && <p className="text-gray-600 dark:text-gray-400">{staff.contact.email}</p>}
+                {staff.contact.email && <p className="text-gray-600 dark:text-gray-400 break-words">{staff.contact.email}</p>}
                 {staff.contact.phone && <p className="text-gray-600 dark:text-gray-400">{formatPhone(staff.contact.phone)}</p>}
               </div>
             ))}
@@ -1593,7 +1692,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
               <div className="sm:hidden print:hidden mb-4 divide-y divide-gray-200 dark:divide-gray-700">
                 {rows.map((row) => (
                   <div key={`${row.itemName}\0${row.role}\0${row.providerName}`} className="py-2 text-xs">
-                    <p className="font-medium text-gray-900 dark:text-white">{row.itemName}</p>
+                    <p className="font-medium text-gray-900 dark:text-white break-words">{row.itemName}</p>
                     <p className="text-gray-600 dark:text-gray-400 mt-0.5">
                       {row.role}: <span className="text-gray-900 dark:text-white">{row.quantity}</span>
                     </p>

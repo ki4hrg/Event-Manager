@@ -100,8 +100,8 @@ export function ContactList({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
+      <div className="flex justify-between items-center gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Contacts</h2>
         {canWrite && (
           <button
@@ -186,8 +186,8 @@ export function ContactList({
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Selected Contact
                 </label>
-                <div className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                  <span className="text-gray-900 dark:text-white">
+                <div className="flex items-center justify-between gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                  <span className="min-w-0 break-words text-gray-900 dark:text-white">
                     {selectedContact.firstName} {selectedContact.lastName}
                     {selectedContact.organization && (
                       <span className="text-gray-500 dark:text-gray-400">
@@ -199,7 +199,7 @@ export function ContactList({
                   <button
                     type="button"
                     onClick={() => setSelectedContact(null)}
-                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    className="shrink-0 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                   >
                     Change
                   </button>
