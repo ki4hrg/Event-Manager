@@ -288,9 +288,9 @@ export function PresentationList({
       )}
       {canWrite && showBulkEdit && selected.size > 0 && (
         <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
-          <div>
+          <div className="max-w-full">
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
               <option value="">— no change —</option>
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -304,17 +304,17 @@ export function PresentationList({
               </select>
             </div>
           )}
-          <div>
+          <div className="max-w-full">
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Track</label>
-            <select value={bulkTrackId} onChange={(e) => setBulkTrackId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+            <select value={bulkTrackId} onChange={(e) => setBulkTrackId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
               <option value="__no_change__">— no change —</option>
               <option value="">— none —</option>
               {tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
-          <div>
+          <div className="max-w-full">
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
-            <select value={bulkType} onChange={(e) => setBulkType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+            <select value={bulkType} onChange={(e) => setBulkType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
               <option value="__no_change__">— no change —</option>
               <option value="">— none —</option>
               {presentationTypes.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}

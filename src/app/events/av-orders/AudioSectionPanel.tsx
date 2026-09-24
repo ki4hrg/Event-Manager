@@ -195,8 +195,8 @@ function InputItemRow({
           </div>
         </form>
       ) : (
-        <div className="flex items-start justify-between">
-          <div className="text-sm space-y-0.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="text-sm space-y-0.5 min-w-0 break-words">
             <div>
               <span className="font-medium text-gray-900 dark:text-white">{item.description}</span>
               <span className="text-gray-500 dark:text-gray-400"> × {item.quantity}</span>
@@ -312,8 +312,8 @@ function InputGroupCard({
           </div>
         </form>
       ) : (
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900">
-          <div>
+        <div className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-900">
+          <div className="min-w-0 break-words">
             <span className="font-medium text-gray-900 dark:text-white text-sm">{group.name}</span>
             {provider && <span className="ml-3 text-xs text-gray-500 dark:text-gray-400">Provider: {provider}</span>}
             {operator && <span className="ml-3 text-xs text-gray-500 dark:text-gray-400">Op: {operator}</span>}
@@ -458,7 +458,7 @@ function MonitorOutputRow({
           }}
           className="space-y-2"
         >
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
               <GroupedEquipmentSelect name="equipmentId" options={audioOutputOptions} defaultValue={output.equipmentId} />
@@ -497,8 +497,8 @@ function MonitorOutputRow({
           </div>
         </form>
       ) : (
-        <div className="flex items-center justify-between text-sm">
-          <div className="text-gray-900 dark:text-white">
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <div className="min-w-0 break-words text-gray-900 dark:text-white">
             <span className="text-gray-500 dark:text-gray-400 mr-1">×{output.quantity}</span>
             <span>{output.equipment?.name ?? <span className="italic text-gray-400">No type</span>}</span>
             {provider && <span className="ml-2 text-gray-500 dark:text-gray-400">Provider: {provider}</span>}
@@ -590,8 +590,8 @@ function MonitorMixGroupCard({
           </div>
         </form>
       ) : (
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-sm text-gray-900 dark:text-white">
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0 break-words font-medium text-sm text-gray-900 dark:text-white">
             {mix.description}
             {mix.notes && <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 font-normal">· {mix.notes}</span>}
           </span>
@@ -621,7 +621,7 @@ function MonitorMixGroupCard({
           }}
           className="ml-4 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 space-y-2"
         >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
                 <GroupedEquipmentSelect name="equipmentId" options={audioOutputOptions} />
@@ -723,7 +723,7 @@ export function AudioSectionPanel({
     <div className="space-y-6">
       {/* Notes */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Audio Notes</h2>
           {!editingNotes && canWrite && (
             <button onClick={() => setEditingNotes(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">Edit</button>
@@ -752,7 +752,7 @@ export function AudioSectionPanel({
 
       {/* Input Groups */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Input List</h2>
           {canWrite && (
             <button
@@ -831,7 +831,7 @@ export function AudioSectionPanel({
 
       {/* Monitor Mixes */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Monitor Mixes</h2>
           {canWrite && (
             <button

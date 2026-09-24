@@ -86,7 +86,7 @@ export function EventVendorList({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendors</h2>
         {canWrite && (
           <button
@@ -151,7 +151,7 @@ export function EventVendorList({
               setShowAddForm(false);
               setSearchQuery("");
             }}
-            className="mt-3 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            className="mt-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
           >
             Cancel
           </button>
@@ -161,7 +161,7 @@ export function EventVendorList({
       {eventVendors.length === 0 ? (
         <p className="text-gray-500 dark:text-gray-400 text-sm">No vendors assigned to this event yet.</p>
       ) : (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
@@ -241,7 +241,7 @@ export function EventVendorList({
                               await removeVendor(entry.eventVendorId!);
                             }
                           }}
-                          className="text-red-600 hover:underline text-sm"
+                          className="text-red-600 dark:text-red-400 hover:underline text-sm"
                         >
                           Remove
                         </button>

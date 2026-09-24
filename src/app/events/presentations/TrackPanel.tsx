@@ -7,7 +7,7 @@ import type { PresentationTrack } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 const inputClass =
-  "flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white";
+  "flex-1 min-w-0 basis-full sm:basis-auto px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white";
 const cancelClass =
   "px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800";
 
@@ -34,7 +34,7 @@ function SubmitButton({ label }: { label: string }) {
 function ColorPicker({ name, defaultValue }: { name: string; defaultValue?: string | null }) {
   const [selected, setSelected] = useState(defaultValue || "gray");
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       {COLOR_OPTIONS.map((color) => (
         <label key={color} className="cursor-pointer">
           <input
@@ -78,7 +78,7 @@ function TrackRow({
           await updateTrack(track.id, fd);
           setEditing(false);
         }}
-        className="flex items-center gap-2 py-1"
+        className="flex flex-wrap items-center gap-2 py-1"
       >
         <input
           type="text"
@@ -156,7 +156,7 @@ function AddTrackForm({ createTrack }: { createTrack: (formData: FormData) => Pr
         await createTrack(fd);
         setOpen(false);
       }}
-      className="mt-3 flex items-center gap-2"
+      className="mt-3 flex flex-wrap items-center gap-2"
     >
       <input
         type="text"

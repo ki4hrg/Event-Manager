@@ -49,7 +49,7 @@ export function ApiKeyForm() {
         <pre className="mt-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-3 text-sm font-mono text-gray-900 dark:text-gray-100 break-all whitespace-pre-wrap">
           {revealed.fullKey}
         </pre>
-        <div className="mt-3 flex gap-3">
+        <div className="mt-3 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={() => {
@@ -90,7 +90,7 @@ export function ApiKeyForm() {
       {error ? (
         <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
       ) : null}
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <button type="submit" disabled={pending} className={btnPrimary}>
           {pending ? "Creating…" : "Create key"}
         </button>

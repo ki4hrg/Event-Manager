@@ -137,7 +137,7 @@ export default async function UserDetailPage({
     <div>
       <div className="mb-4">
         <Breadcrumbs items={[{ label: "Users", href: "/users" }, { label: user.name || user.email }]} />
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mt-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mt-2 break-words">
           {user.name || user.email}
         </h2>
         <div className="mt-1">
@@ -183,7 +183,7 @@ export default async function UserDetailPage({
           />
         </div>
       )}
-      <div className="mt-6 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className="mt-6 bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
         <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Password
         </h2>

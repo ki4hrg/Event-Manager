@@ -582,9 +582,9 @@ export function SupplyOrderItemPanel({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Supply Items</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {hasFilter && (
             <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
               <input

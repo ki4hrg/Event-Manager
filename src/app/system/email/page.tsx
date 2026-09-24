@@ -15,8 +15,8 @@ export default async function SystemEmailPage() {
   const configured = isEmailConfigured();
 
   const rowClass = "flex justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-700 last:border-0";
-  const labelClass = "text-sm text-gray-500 dark:text-gray-400";
-  const valueClass = "text-sm text-gray-900 dark:text-white font-mono break-all text-right";
+  const labelClass = "shrink-0 text-sm text-gray-500 dark:text-gray-400";
+  const valueClass = "min-w-0 text-sm text-gray-900 dark:text-white font-mono break-all text-right";
 
   return (
     <div className="space-y-8">

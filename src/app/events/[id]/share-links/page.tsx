@@ -42,7 +42,7 @@ export default async function ShareLinksPage({ params }: { params: Promise<{ id:
 
       <div className="max-w-5xl space-y-10">
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white">Dashboards</h2>
             {canWrite && (
               <Link

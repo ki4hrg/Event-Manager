@@ -33,7 +33,7 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
   return (
     <form action={action} className="space-y-6 max-w-2xl">
       <fieldset disabled={!canWrite} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label
               htmlFor="firstName"
@@ -85,7 +85,7 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label
               htmlFor="email"

@@ -133,7 +133,7 @@ function ScheduleItemCard({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">{fnName}</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white break-words">{fnName}</p>
             <div className="flex flex-wrap items-center gap-2 mt-1">
               {item.type && (
                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${badgeClass}`}>
@@ -154,17 +154,17 @@ function ScheduleItemCard({
             </div>
           )}
         </div>
-        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+        <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
           {!isBreakout && (
             <>
               <dt className="text-gray-500 dark:text-gray-400">Room</dt>
-              <dd className="text-gray-900 dark:text-gray-100">{fnRoomsLabel(fn)}</dd>
+              <dd className="min-w-0 break-words text-gray-900 dark:text-gray-100">{fnRoomsLabel(fn)}</dd>
             </>
           )}
           {item.notes && (
             <>
               <dt className="text-gray-500 dark:text-gray-400">Notes</dt>
-              <dd className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{item.notes}</dd>
+              <dd className="min-w-0 break-words text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{item.notes}</dd>
             </>
           )}
         </dl>
@@ -273,7 +273,7 @@ function BreakoutGroupCard({
       id={`breakout-group-${group.id}`}
       className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 scroll-mt-24 print:break-inside-avoid"
     >
-      <h3 className="text-base font-semibold text-gray-900 dark:text-white">{group.name}</h3>
+      <h3 className="text-base font-semibold text-gray-900 dark:text-white break-words">{group.name}</h3>
       {rooms.length > 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
           Rooms: {rooms.map((r) => r.name).join(", ")}
@@ -317,7 +317,7 @@ function BreakoutGroupCard({
                           </p>
                           {slot ? (
                             <>
-                              <p className="font-medium text-gray-900 dark:text-white mt-0.5">
+                              <p className="font-medium text-gray-900 dark:text-white mt-0.5 break-words">
                                 {slot.presentation.title}
                               </p>
                               {slot.presentation.speakers[0] && (
@@ -379,7 +379,7 @@ function CateringCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-base font-semibold text-gray-900 dark:text-white">{order.name}</p>
+          <p className="text-base font-semibold text-gray-900 dark:text-white break-words">{order.name}</p>
           {fn && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               <a href={`#function-${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-700 print:no-underline">
@@ -404,7 +404,7 @@ function CateringCard({
         </div>
       </div>
 
-      <dl className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 text-xs">
+      <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-4 gap-x-3 gap-y-1 text-xs [&>dd]:break-words">
         {firmest && (
           <>
             <dt className="text-gray-500 dark:text-gray-400">{firmest.label}</dt>
@@ -435,7 +435,7 @@ function CateringCard({
                 </p>
               )}
               <div
-                className="text-sm text-gray-800 dark:text-gray-200 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1"
+                className="text-sm text-gray-800 dark:text-gray-200 break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1"
                 dangerouslySetInnerHTML={{ __html: section.menuContent }}
               />
               {section.notes && (
@@ -475,7 +475,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
           return (
             <div key={o.id} className="p-2">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-gray-900 dark:text-white">{o.name}</p>
+                <p className="min-w-0 break-words font-medium text-gray-900 dark:text-white">{o.name}</p>
                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   <EntityStatusBadge status={o.status} substatus={o.substatus} />
                   {o.packingStatus && (
@@ -604,7 +604,7 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
       <ReportNav sections={navSections} itemGroups={itemGroups} />
 
       <div id="summary" className={`${sectionCard} scroll-mt-24`}>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white print:text-black">{event.name}</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white print:text-black break-words">{event.name}</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-700 mt-0.5">{eventDateRange}</p>
         {event.description && (
           <p className="text-sm text-gray-700 dark:text-gray-300 print:text-gray-800 mt-2 whitespace-pre-wrap">{event.description}</p>

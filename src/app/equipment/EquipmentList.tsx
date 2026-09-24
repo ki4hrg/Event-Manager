@@ -80,9 +80,9 @@ export function EquipmentList({
   const uncategorized = equipment.filter((e) => !knownCategories.has(e.category));
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-start mb-1">
-        <div>
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
+      <div className="flex justify-between items-start gap-3 mb-1">
+        <div className="min-w-0">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Equipment</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             Equipment options grouped by category, used across AV Orders, Catering Orders, and Setup Orders
@@ -139,12 +139,12 @@ export function EquipmentList({
             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
               {group.label}
             </h3>
-            <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-3">
               {group.items.map((item) => (
                 <div key={item.id} className="p-2 bg-gray-50 dark:bg-gray-900 rounded">
                   {editingId === item.id ? (
-                    <form action={(fd) => handleUpdate(item.id, fd)} className="flex gap-2 items-end">
-                      <div className="flex-1">
+                    <form action={(fd) => handleUpdate(item.id, fd)} className="flex flex-wrap gap-2 items-end">
+                      <div className="flex-1 min-w-[8rem]">
                         <input
                           type="text"
                           name="name"
@@ -153,7 +153,7 @@ export function EquipmentList({
                           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                         />
                       </div>
-                      <div className="w-40">
+                      <div className="w-40 max-w-full">
                         <CategorySelect categories={categories} defaultValue={item.category} />
                       </div>
                       <SubmitButton label="Save" />
@@ -166,9 +166,9 @@ export function EquipmentList({
                       </button>
                     </form>
                   ) : (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-900 dark:text-white">{item.name}</span>
-                      <div className="flex gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 break-words text-sm text-gray-900 dark:text-white">{item.name}</span>
+                      <div className="flex gap-3 shrink-0">
                         <button
                           onClick={() => setEditingId(item.id)}
                           className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
@@ -179,7 +179,7 @@ export function EquipmentList({
                           onClick={async () => {
                             if (confirm(`Delete "${item.name}"?`)) await deleteEquipment(item.id);
                           }}
-                          className="text-red-600 hover:underline text-xs"
+                          className="text-red-600 dark:text-red-400 hover:underline text-xs"
                         >
                           Delete
                         </button>

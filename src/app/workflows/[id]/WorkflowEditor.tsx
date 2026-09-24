@@ -79,19 +79,19 @@ function ChecklistItemRow({
         }}
         className="flex items-center gap-2 pl-4"
       >
-        <span className="text-gray-400 text-sm">—</span>
+        <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>
         <input
           type="text"
           name="label"
           defaultValue={item.label}
           required
-          className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+          className="flex-1 min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
         />
         <SubmitButton label="Save" />
         <button
           type="button"
           onClick={() => setEditing(false)}
-          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+          className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
         >
           Cancel
         </button>
@@ -100,12 +100,12 @@ function ChecklistItemRow({
   }
 
   return (
-    <div className="flex items-center justify-between pl-4 py-1">
-      <div className="flex items-center gap-2">
-        <span className="text-gray-400 text-sm">—</span>
-        <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+    <div className="flex items-center justify-between gap-2 pl-4 py-1">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>
+        <span className="text-sm text-gray-700 dark:text-gray-300 break-words min-w-0">{item.label}</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
           Edit
         </button>
@@ -115,7 +115,7 @@ function ChecklistItemRow({
               await deleteItem(item.id);
             }
           }}
-          className="text-red-600 hover:underline text-xs"
+          className="text-red-600 dark:text-red-400 hover:underline text-xs"
         >
           Delete
         </button>
@@ -167,7 +167,7 @@ function StepRow({
               name="label"
               defaultValue={step.label}
               required
-              className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              className="flex-1 min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             />
           </div>
           {/* Preserve current status when saving label */}
@@ -178,7 +178,7 @@ function StepRow({
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
             >
               Cancel
             </button>
@@ -186,8 +186,8 @@ function StepRow({
         </form>
       ) : (
         <>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
               <span className="text-sm text-gray-500 dark:text-gray-400 w-6 shrink-0">
                 {index + 1}.
               </span>
@@ -201,7 +201,7 @@ function StepRow({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setAddingItem(true)}
-                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xs"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-xs"
               >
                 + Checklist item
               </button>
@@ -221,7 +221,7 @@ function StepRow({
                     await deleteStep(step.id);
                   }
                 }}
-                className="text-red-600 hover:underline text-sm"
+                className="text-red-600 dark:text-red-400 hover:underline text-sm"
               >
                 Delete
               </button>
@@ -233,10 +233,10 @@ function StepRow({
             action={async (fd) => {
               await updateStep(step.id, fd);
             }}
-            className="flex items-center gap-2 pl-6"
+            className="grid grid-cols-1 gap-2 pl-6 sm:flex sm:items-center"
           >
             <input type="hidden" name="label" value={step.label} />
-            <label className="text-xs text-gray-500 dark:text-gray-400 w-16 shrink-0">
+            <label className="text-xs text-gray-500 dark:text-gray-400 sm:w-16 sm:shrink-0">
               Status
             </label>
             <select
@@ -246,7 +246,7 @@ function StepRow({
                 setEditPendingStatus(e.target.value);
                 e.currentTarget.form?.requestSubmit();
               }}
-              className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              className="w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             >
               <option value="">None</option>
               {EDIT_STATUS_OPTIONS.map((o) => (
@@ -260,7 +260,7 @@ function StepRow({
                 name="pendingSubstatusValue"
                 defaultValue={step.pendingSubstatusValue ?? ""}
                 onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               >
                 <option value="">No substatus</option>
                 {filteredPendingSubstatuses.map((s) => (
@@ -291,20 +291,20 @@ function StepRow({
           }}
           className="flex items-center gap-2 pl-4"
         >
-          <span className="text-gray-400 text-sm">—</span>
+          <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>
           <input
             type="text"
             name="label"
             placeholder="Checklist item label"
             required
             autoFocus
-            className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="flex-1 min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           />
           <SubmitButton label="Add" />
           <button
             type="button"
             onClick={() => setAddingItem(false)}
-            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
           >
             Cancel
           </button>
@@ -338,7 +338,7 @@ export function WorkflowEditor({
   return (
     <div className="space-y-6">
       {/* Template header */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
         {editingName ? (
           <form
             action={async (fd) => {
@@ -388,12 +388,12 @@ export function WorkflowEditor({
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
                 Applied when assigned but no steps completed
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <select
                   name="pendingStatusValue"
                   value={editTemplatePendingStatus}
                   onChange={(e) => setEditTemplatePendingStatus(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="">None</option>
                   {EDIT_STATUS_OPTIONS.map((o) => (
@@ -406,7 +406,7 @@ export function WorkflowEditor({
                   <select
                     name="pendingSubstatusValue"
                     defaultValue={template.pendingSubstatusValue ?? ""}
-                    className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                   >
                     <option value="">No substatus</option>
                     {filteredTemplatePendingSubstatuses.map((s) => (
@@ -422,12 +422,12 @@ export function WorkflowEditor({
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Completion status
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <select
                   name="completionStatusValue"
                   value={editCompletionStatus}
                   onChange={(e) => setEditCompletionStatus(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="">None</option>
                   {EDIT_STATUS_OPTIONS.map((o) => (
@@ -440,7 +440,7 @@ export function WorkflowEditor({
                   <select
                     name="completionSubstatusValue"
                     defaultValue={template.completionSubstatusValue ?? ""}
-                    className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                   >
                     <option value="">No substatus</option>
                     {filteredCompletionSubstatuses.map((s) => (
@@ -461,16 +461,16 @@ export function WorkflowEditor({
                   setEditCompletionStatus(template.completionStatusValue ?? "");
                   setEditingName(false);
                 }}
-                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
               >
                 Cancel
               </button>
             </div>
           </form>
         ) : (
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <div className="flex justify-between items-start gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white break-words">
                 {template.name}
               </h1>
               {template.description && (
@@ -513,7 +513,7 @@ export function WorkflowEditor({
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <button
                 onClick={() => setEditingName(true)}
                 className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
@@ -530,7 +530,7 @@ export function WorkflowEditor({
                     await deleteTemplate();
                   }
                 }}
-                className="text-red-600 hover:underline text-sm"
+                className="text-red-600 dark:text-red-400 hover:underline text-sm"
               >
                 Delete
               </button>
@@ -540,7 +540,7 @@ export function WorkflowEditor({
       </div>
 
       {/* Steps */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Steps</h2>
           <button
@@ -592,18 +592,18 @@ export function WorkflowEditor({
                 placeholder="Step label"
                 required
                 autoFocus
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
-            <div className="flex items-center gap-2 pl-6">
-              <label className="text-xs text-gray-500 dark:text-gray-400 w-16 shrink-0">
+            <div className="grid grid-cols-1 gap-2 pl-6 sm:flex sm:items-center">
+              <label className="text-xs text-gray-500 dark:text-gray-400 sm:w-16 sm:shrink-0">
                 Status
               </label>
               <select
                 name="pendingStatusValue"
                 value={addStepPendingStatus}
                 onChange={(e) => setAddStepPendingStatus(e.target.value)}
-                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               >
                 <option value="">None</option>
                 {EDIT_STATUS_OPTIONS.map((o) => (
@@ -616,7 +616,7 @@ export function WorkflowEditor({
                 <select
                   name="pendingSubstatusValue"
                   defaultValue=""
-                  className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="w-full sm:w-auto min-w-0 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="">No substatus</option>
                   {filteredAddPendingSubstatuses.map((s) => (
@@ -635,7 +635,7 @@ export function WorkflowEditor({
                   setAddingStep(false);
                   setAddStepPendingStatus("");
                 }}
-                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
               >
                 Cancel
               </button>

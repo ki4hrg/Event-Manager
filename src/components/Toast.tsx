@@ -30,7 +30,7 @@ export function Toast() {
 
   return (
     <div
-      className={`fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg transition-all duration-300 ${
+      className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:max-w-md z-50 break-words bg-green-600 dark:bg-green-700 text-white px-4 py-2 rounded-md shadow-lg transition-all duration-300 ${
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
       }`}
     >

@@ -110,18 +110,18 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
       )}
 
       {vendor.isSystemVendor ? (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 max-w-lg">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 max-w-lg">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             This is a system vendor and cannot be edited.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 min-w-0">
             <VendorForm vendor={vendor} action={updateVendorAction} />
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 min-w-0">
             <VendorContactList
               contacts={vendor.contacts}
               contactTypes={contactTypes}

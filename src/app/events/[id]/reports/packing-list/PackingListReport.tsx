@@ -83,7 +83,7 @@ function ItemMobileCard({
         <AcquisitionText item={item} />
       </div>
       {(override || item.sourceLocationPath) && (
-        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 space-y-0.5 break-words">
           {override && <p>Provider: {override}</p>}
           {item.sourceLocationPath && <p>From: {item.sourceLocationPath}</p>}
         </div>
@@ -107,14 +107,14 @@ function OrderCard({ order }: { order: PackingListOrderBlock }) {
     >
       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 print:bg-gray-100 border-b border-gray-200 dark:border-gray-700 print:border-gray-300">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white print:text-black">
+          <h4 className="min-w-0 break-words text-sm font-semibold text-gray-900 dark:text-white print:text-black">
             {order.orderName}
           </h4>
           <span className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
             {order.kind === "SUPPLY" ? "Supply order" : "Print order"}
           </span>
         </div>
-        <div className="mt-1 text-xs text-gray-600 dark:text-gray-400 print:text-gray-700 space-y-0.5">
+        <div className="mt-1 text-xs text-gray-600 dark:text-gray-400 print:text-gray-700 space-y-0.5 break-words">
           <p>Provider: {order.provider ?? "—"}</p>
           {order.specificLocation && <p>Placement: {order.specificLocation}</p>}
           {context.length > 0 && <p>For: {context.join(", ")}</p>}
@@ -208,7 +208,7 @@ function RoomCard({ section }: { section: PackingListRoomSection }) {
       className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden print:shadow-none print:rounded-none scroll-mt-24"
     >
       <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 print:border-gray-400">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white print:text-black">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-words">
           {section.roomName}
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">
@@ -252,7 +252,7 @@ function ProcurementCard({ group }: { group: PackingProcurementGroup }) {
                 {item.quantity ?? "—"}
               </span>
             </div>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 break-words">
               {roomName ?? "No room assigned"} · {orderName}
             </p>
             <div className="mt-1">

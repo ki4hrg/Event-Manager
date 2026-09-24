@@ -71,7 +71,7 @@ export function LinkedItemsPanel({
   };
 
   return (
-    <div className={`bg-white dark:bg-gray-800 shadow rounded-lg p-6${fillHeight ? " h-full flex flex-col" : ""}`}>
+    <div className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6${fillHeight ? " h-full flex flex-col" : ""}`}>
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{title}</h2>
 
       {items.length > 0 ? (
@@ -84,7 +84,7 @@ export function LinkedItemsPanel({
               <div className="min-w-0 flex-1">
                 <Link
                   href={item.detailPath}
-                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm break-words"
                 >
                   {item.label}
                 </Link>
@@ -96,7 +96,7 @@ export function LinkedItemsPanel({
                 <button
                   onClick={() => handleUnlink(item.id, item.label)}
                   disabled={unlinkingId === item.id}
-                  className="text-red-600 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
+                  className="text-red-600 dark:text-red-400 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
                 >
                   Unlink
                 </button>
@@ -150,7 +150,7 @@ export function LinkedItemsPanel({
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowLinkForm(true)}
             className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"

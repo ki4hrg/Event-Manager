@@ -79,7 +79,7 @@ function PresentationCard({
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-semibold text-gray-900 dark:text-white print:text-black">
+          <p className="font-semibold text-gray-900 dark:text-white print:text-black break-words">
             {presentation.title}
           </p>
           {speakers && (
@@ -102,7 +102,7 @@ function PresentationCard({
           <div className="sm:hidden print:hidden mt-3 divide-y divide-gray-200 dark:divide-gray-700 text-xs">
             {rows.map((row) => (
               <div key={row.key} className="py-2">
-                <p className="font-medium text-gray-900 dark:text-white">
+                <p className="font-medium text-gray-900 dark:text-white break-words">
                   {row.sessionLabel}
                 </p>
                 {row.sessionTime && (
@@ -113,8 +113,8 @@ function PresentationCard({
                 <p
                   className={
                     row.roomName
-                      ? "text-gray-700 dark:text-gray-300 mt-0.5"
-                      : "text-gray-400 italic mt-0.5"
+                      ? "text-gray-700 dark:text-gray-300 mt-0.5 break-words"
+                      : "text-gray-400 dark:text-gray-500 italic mt-0.5"
                   }
                 >
                   {row.roomName ?? "Unassigned"}

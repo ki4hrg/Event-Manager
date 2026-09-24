@@ -5,6 +5,7 @@ import { hasGlobalView, loadPermissionsForUser, type PermissionGrant } from "@/l
 import { getTenantContext } from "@/lib/tenant";
 import { AdminDropdown } from "./AdminDropdown";
 import { TenantSwitcher } from "./TenantSwitcher";
+import { MobileNav, type HeaderLink } from "./MobileNav";
 
 export async function Header() {
   const session = await auth();
@@ -36,102 +37,84 @@ export async function Header() {
     permissions,
     PermissionResource.STORAGE_LOCATIONS,
   );
-  const showAdminDropdown =
-    canViewUsers ||
-    canViewEquipment ||
-    canViewSettings ||
-    canViewSystem ||
-    canViewWorkflows ||
-    isSuperAdmin;
+  const mainLinks: HeaderLink[] = [
+    canViewEvents && { href: "/events", label: "Events" },
+    canViewVenues && { href: "/venues", label: "Venues" },
+    canViewContacts && { href: "/contacts", label: "Contacts" },
+    canViewVendors && { href: "/vendors", label: "Vendors" },
+    canViewStorageLocations && { href: "/storage-locations", label: "Storage" },
+  ].filter((l): l is HeaderLink => !!l);
+  const adminLinks: HeaderLink[] = [
+    canViewUsers && { href: "/users", label: "Users" },
+    canViewEquipment && { href: "/equipment", label: "Equipment" },
+    canViewSettings && { href: "/settings", label: "Settings" },
+    canViewSystem && { href: "/system", label: "System" },
+    canViewWorkflows && { href: "/workflows", label: "Workflows" },
+    isSuperAdmin && { href: "/tenants", label: "Organizations" },
+  ].filter((l): l is HeaderLink => !!l);
 
+  const signOutAction = async () => {
+    "use server";
+    await signOut();
+  };
+
+  const navLinkClass =
+    "whitespace-nowrap text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white";
+
+  // The inline nav needs ~1000px once the org name and email are in the row,
+  // so it only shows at `lg`; below that (every phone, portrait or landscape)
+  // MobileNav collapses it all behind a menu button.
   return (
-    <header className="bg-white dark:bg-gray-800 shadow">
-      <div className="px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="text-xl font-bold text-gray-900 dark:text-white">
+    <header className="relative bg-white dark:bg-gray-800 shadow">
+      <div className="px-4 sm:px-6 lg:px-8 py-3 lg:py-4 flex justify-between items-center gap-4">
+        <div className="flex items-center gap-8 min-w-0">
+          <Link
+            href="/"
+            className="text-xl font-bold whitespace-nowrap text-gray-900 dark:text-white"
+          >
             Event Manager
           </Link>
-          <nav className="hidden md:flex gap-6">
-            {canViewEvents && (
-              <Link
-                href="/events"
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                Events
+          <nav className="hidden lg:flex items-center gap-6">
+            {mainLinks.map((l) => (
+              <Link key={l.href} href={l.href} className={navLinkClass}>
+                {l.label}
               </Link>
-            )}
-            {canViewVenues && (
-              <Link
-                href="/venues"
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                Venues
-              </Link>
-            )}
-            {canViewContacts && (
-              <Link
-                href="/contacts"
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                Contacts
-              </Link>
-            )}
-            {canViewVendors && (
-              <Link
-                href="/vendors"
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                Vendors
-              </Link>
-            )}
-            {canViewStorageLocations && (
-              <Link
-                href="/storage-locations"
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                Storage
-              </Link>
-            )}
-            {showAdminDropdown && (
-              <AdminDropdown
-                canViewUsers={canViewUsers}
-                canViewEquipment={canViewEquipment}
-                canViewSettings={canViewSettings}
-                canViewSystem={canViewSystem}
-                canViewWorkflows={canViewWorkflows}
-                canViewTenants={isSuperAdmin}
-              />
-            )}
+            ))}
+            {adminLinks.length > 0 && <AdminDropdown links={adminLinks} />}
           </nav>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="hidden lg:flex items-center gap-4 min-w-0">
           {ctx && ctx.tenants.length > 1 && ctx.active ? (
             <TenantSwitcher tenants={ctx.tenants} activeId={ctx.active.id} />
           ) : ctx?.active ? (
-            <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 truncate max-w-[12rem]">
+            <span className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[12rem]">
               {ctx.active.name}
             </span>
           ) : null}
           <Link
             href="/account"
-            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            title={session?.user?.email ?? undefined}
+            className="text-sm truncate max-w-[14rem] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
             {session?.user?.email}
           </Link>
-          <form
-            action={async () => {
-              "use server";
-              await signOut();
-            }}
-          >
+          <form action={signOutAction}>
             <button
               type="submit"
-              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              className="text-sm whitespace-nowrap text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
               Sign out
             </button>
           </form>
         </div>
+        <MobileNav
+          mainLinks={mainLinks}
+          adminLinks={adminLinks}
+          tenants={ctx?.tenants ?? []}
+          activeTenant={ctx?.active ?? null}
+          email={session?.user?.email ?? null}
+          signOutAction={signOutAction}
+        />
       </div>
     </header>
   );

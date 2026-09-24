@@ -78,10 +78,10 @@ export function SetupInstructions({ mcpUrl }: Props) {
           </p>
           <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
             <strong>macOS:</strong>{" "}
-            <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>
+            <code className="break-all">~/Library/Application Support/Claude/claude_desktop_config.json</code>
             <br />
             <strong>Windows:</strong>{" "}
-            <code>%APPDATA%\Claude\claude_desktop_config.json</code>
+            <code className="break-all">%APPDATA%\Claude\claude_desktop_config.json</code>
           </p>
 
           <p className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-2 mt-4">

@@ -43,7 +43,7 @@ export function SendTestEmailForm({ action, defaultTo, disabled }: Props) {
           className="mt-1 block w-full max-w-md border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
         />
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
           disabled={pending || disabled}
@@ -53,7 +53,7 @@ export function SendTestEmailForm({ action, defaultTo, disabled }: Props) {
         </button>
         {status && (
           <span
-            className={`text-sm ${
+            className={`text-sm break-words min-w-0 ${
               status.kind === "ok"
                 ? "text-green-700 dark:text-green-400"
                 : "text-red-700 dark:text-red-400"

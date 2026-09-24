@@ -75,7 +75,7 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
         </div>
       )}
       <form action={handleSubmit} className="space-y-6">
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Name *
@@ -114,7 +114,7 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
         <PermissionMatrix permMap={permMap} readOnly={readOnly} />
 
         {!readOnly && (
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <SubmitButton isCreate={isCreate} />
             {role && <DeleteRoleControls deleteAction={deleteAction} />}
           </div>
@@ -137,18 +137,18 @@ function PermissionMatrix({
   readOnly: boolean;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       <div className="mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Permissions</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Levels are ordinal: View &lt; Write &lt; Delete.
         </p>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left font-medium text-gray-500 dark:text-gray-400 py-2 pr-4">Resource</th>
+              <th className="sticky left-0 z-10 bg-white dark:bg-gray-800 text-left font-medium text-gray-500 dark:text-gray-400 py-2 pr-4">Resource</th>
               {EVENT_SCOPES.map((s) => (
                 <th
                   key={s.value}
@@ -163,13 +163,13 @@ function PermissionMatrix({
             {PERMISSION_GROUPS.map((group) => (
               <Fragment key={group.label}>
                 <tr>
-                  <td colSpan={4} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <td colSpan={EVENT_SCOPES.length + 1} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     {group.label}
                   </td>
                 </tr>
                 {group.resources.map(({ value: resource, label }) => (
                   <tr key={resource}>
-                    <td className="py-2 pr-4 text-gray-900 dark:text-white">{label}</td>
+                    <td className="sticky left-0 z-10 bg-white dark:bg-gray-800 py-2 pr-4 text-gray-900 dark:text-white">{label}</td>
                     {EVENT_SCOPES.map(({ value: scope }) =>
                       group.scopes.includes(scope) ? (
                         <td key={scope} className="py-2 px-2">

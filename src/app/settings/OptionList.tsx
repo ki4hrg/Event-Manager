@@ -198,20 +198,20 @@ function SortableOptionRow({
             <button
               type="button"
               onClick={() => setEditingId(null)}
-              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
             >
               Cancel
             </button>
           </div>
         </form>
       ) : (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             {reordering && (
               <button
                 {...attributes}
                 {...listeners}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing touch-none"
+                className="p-1 -m-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing touch-none"
                 title="Drag to reorder"
               >
                 <svg
@@ -225,14 +225,14 @@ function SortableOptionRow({
             )}
             {showColor && (
               <span
-                className={`w-4 h-4 rounded ${
+                className={`w-4 h-4 shrink-0 rounded ${
                   option.color
                     ? colorBgClasses[option.color] || "bg-gray-500"
                     : "bg-gray-200 dark:bg-gray-700"
                 }`}
               />
             )}
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="font-medium text-gray-900 dark:text-white break-words min-w-0">
               {option.label}
             </span>
             {showModels && option.models.length > 0 && (
@@ -242,7 +242,7 @@ function SortableOptionRow({
             )}
           </div>
           {!reordering && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setEditingId(option.id)}
                 className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
@@ -256,7 +256,7 @@ function SortableOptionRow({
                       await deleteOption(option.id);
                     }
                   }}
-                  className="text-red-600 hover:underline text-sm"
+                  className="text-red-600 dark:text-red-400 hover:underline text-sm"
                 >
                   Delete
                 </button>
@@ -309,9 +309,9 @@ export function OptionList({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-start mb-4">
-        <div>
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start mb-4">
+        <div className="min-w-0">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">
             {title}
           </h2>
@@ -319,7 +319,7 @@ export function OptionList({
             {description}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {localOptions.length > 1 && (
             <>
               <button

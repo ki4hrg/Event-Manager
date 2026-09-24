@@ -38,8 +38,8 @@ export default async function WorkflowsPage() {
               href={`/workflows/${template.id}`}
               className="block bg-white dark:bg-gray-800 shadow rounded-lg p-5 hover:shadow-md transition-shadow"
             >
-              <div className="flex justify-between items-start">
-                <div>
+              <div className="flex justify-between items-start gap-3">
+                <div className="min-w-0">
                   <h2 className="font-medium text-gray-900 dark:text-white">{template.name}</h2>
                   {template.description && (
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -53,7 +53,7 @@ export default async function WorkflowsPage() {
                     )}
                   </div>
                 </div>
-                <span className="text-blue-600 dark:text-blue-400 text-sm">Edit &rarr;</span>
+                <span className="shrink-0 text-blue-600 dark:text-blue-400 text-sm">Edit &rarr;</span>
               </div>
             </Link>
           ))}

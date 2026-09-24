@@ -51,58 +51,60 @@ export default async function EquipmentResponsibilityPrintPage({
   );
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PrintHeader eventName={event.name} title="Equipment Responsibility" backHref={backHref} />
 
       {groups.length === 0 ? (
         <p className="text-sm text-gray-500">No equipment items found for the selected filters.</p>
       ) : (
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr>
-              <th className={th}>Category</th>
-              <th className={th}>Item</th>
-              <th className={`${th} text-right`}>Total Qty</th>
-              <th className={`${th} text-right`}>Peak Needed</th>
-              <th className={th}>Functions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((group) => (
-              <React.Fragment key={partyGroupKey(group)}>
-                <tr>
-                  <td
-                    colSpan={5}
-                    className={reportGroupRow}
-                  >
-                    {group.partyName}
-                    {group.partyType === "contact" && (
-                      <span className="font-normal text-gray-500 dark:text-gray-400 print:text-gray-600 ml-1">(Contact)</span>
-                    )}
-                  </td>
-                </tr>
-                {group.rows.map((row, i) => (
-                  <tr key={`${row.equipmentId ?? row.itemName}-${i}`}>
-                    <td className={td}>{row.category ?? ""}</td>
-                    <td className={td}>{row.itemName}</td>
-                    <td className={`${td} text-right`}>{row.totalQuantity}</td>
-                    <td className={`${td} text-right`}>
-                      {row.peakIsExact ? String(row.peakNeeded) : `≥${row.peakNeeded}`}
-                    </td>
-                    <td className={td}>
-                      {row.sources
-                        .map(
-                          (s) =>
-                            `${s.functionNames.length > 0 ? s.functionNames.join(", ") : "—"} (${s.quantity})${!s.isScheduled ? " †" : ""}`
-                        )
-                        .join("; ")}
+        <div className="overflow-x-auto print:overflow-visible">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr>
+                <th className={th}>Category</th>
+                <th className={th}>Item</th>
+                <th className={`${th} text-right`}>Total Qty</th>
+                <th className={`${th} text-right`}>Peak Needed</th>
+                <th className={th}>Functions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((group) => (
+                <React.Fragment key={partyGroupKey(group)}>
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className={reportGroupRow}
+                    >
+                      {group.partyName}
+                      {group.partyType === "contact" && (
+                        <span className="font-normal text-gray-500 dark:text-gray-400 print:text-gray-600 ml-1">(Contact)</span>
+                      )}
                     </td>
                   </tr>
-                ))}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
+                  {group.rows.map((row, i) => (
+                    <tr key={`${row.equipmentId ?? row.itemName}-${i}`}>
+                      <td className={td}>{row.category ?? ""}</td>
+                      <td className={td}>{row.itemName}</td>
+                      <td className={`${td} text-right`}>{row.totalQuantity}</td>
+                      <td className={`${td} text-right`}>
+                        {row.peakIsExact ? String(row.peakNeeded) : `≥${row.peakNeeded}`}
+                      </td>
+                      <td className={td}>
+                        {row.sources
+                          .map(
+                            (s) =>
+                              `${s.functionNames.length > 0 ? s.functionNames.join(", ") : "—"} (${s.quantity})${!s.isScheduled ? " †" : ""}`
+                          )
+                          .join("; ")}
+                      </td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600 print:border-gray-400 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 flex justify-between">

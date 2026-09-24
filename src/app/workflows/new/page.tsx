@@ -31,7 +31,7 @@ export default async function NewWorkflowPage() {
         </h1>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 max-w-lg">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 max-w-lg">
         <form action={createAction} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

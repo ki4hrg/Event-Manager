@@ -279,53 +279,53 @@ export function MediaDeliverableList({
       )}
       {canWrite && showBulkEdit && selected.size > 0 && (
         <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
-          <div>
+          <div className="max-w-full">
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
               <option value="">— no change —</option>
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           {availableSubstatuses.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Substatus</label>
-              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {availableSubstatuses.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
               </select>
             </div>
           )}
           {mediaTypeOptions.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Media Type</label>
-              <select value={bulkMediaType} onChange={(e) => setBulkMediaType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkMediaType} onChange={(e) => setBulkMediaType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {mediaTypeOptions.map((o) => <option key={o.id} value={o.label}>{o.label}</option>)}
               </select>
             </div>
           )}
           {vendors.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Provider Vendor</label>
-              <select value={bulkProviderVendorId} onChange={(e) => setBulkProviderVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkProviderVendorId} onChange={(e) => setBulkProviderVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
             </div>
           )}
           {functions.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Add Function Link</label>
-              <select value={bulkFunctionId} onChange={(e) => setBulkFunctionId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkFunctionId} onChange={(e) => setBulkFunctionId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {functions.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
               </select>
             </div>
           )}
           {presentations.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Add Presentation Link</label>
-              <select value={bulkPresentationId} onChange={(e) => setBulkPresentationId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkPresentationId} onChange={(e) => setBulkPresentationId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {presentations.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>

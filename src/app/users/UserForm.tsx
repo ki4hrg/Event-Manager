@@ -73,7 +73,7 @@ export function UserForm({
     return (
       <div>
         <Toast />
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
           <dl className="space-y-4">
             <div>
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
@@ -81,7 +81,7 @@ export function UserForm({
             </div>
             <div>
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
-              <dd className="mt-1 text-gray-900 dark:text-white">{user.email}</dd>
+              <dd className="mt-1 text-gray-900 dark:text-white break-words">{user.email}</dd>
             </div>
             <div>
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -130,7 +130,7 @@ export function UserForm({
           {error}
         </div>
       )}
-      <form action={handleSubmit} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+      <form action={handleSubmit} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Name

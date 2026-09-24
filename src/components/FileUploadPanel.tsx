@@ -76,7 +76,7 @@ export function FileUploadPanel({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{title}</h2>
 
       {canUpload && (
@@ -131,7 +131,7 @@ export function FileUploadPanel({
                   >
                     {file.fileName}
                   </a>
-                  <div className="flex gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <div className="flex flex-wrap gap-x-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {label && <span>{label}</span>}
                     <span>{formatFileSize(file.fileSize)}</span>
                     <span>{new Date(file.createdAt).toLocaleDateString()}</span>

@@ -1,4 +1,28 @@
-type ReportNavLink = { id: string; label: string };
+// `mobileId` targets the anchor inside a report's `sm:hidden` card variant when
+// the entity's desktop anchor lives in a table row that is hidden on phones.
+type ReportNavLink = { id: string; label: string; mobileId?: string };
+
+const linkClass = "text-blue-600 dark:text-blue-400 hover:underline break-words min-w-0";
+
+function NavLink({ link }: { link: ReportNavLink }) {
+  if (!link.mobileId) {
+    return (
+      <a href={`#${link.id}`} className={linkClass}>
+        {link.label}
+      </a>
+    );
+  }
+  return (
+    <>
+      <a href={`#${link.mobileId}`} className={`${linkClass} sm:hidden`}>
+        {link.label}
+      </a>
+      <a href={`#${link.id}`} className={`${linkClass} hidden sm:inline`}>
+        {link.label}
+      </a>
+    </>
+  );
+}
 
 export type ReportNavItemGroup = {
   label: string;
@@ -29,9 +53,7 @@ export function ReportNav({ links, sections, items, itemsLabel = "Functions & Pr
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="font-medium uppercase tracking-wide text-gray-500 dark:text-gray-500">Jump to:</span>
           {sectionLinks.map((link) => (
-            <a key={link.id} href={`#${link.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
-              {link.label}
-            </a>
+            <NavLink key={link.id} link={link} />
           ))}
           {groups.map((group) =>
             group.links.length === 0 ? null : (
@@ -41,9 +63,7 @@ export function ReportNav({ links, sections, items, itemsLabel = "Functions & Pr
                 </summary>
                 <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-baseline gap-x-3 gap-y-1 max-h-40 overflow-y-auto">
                   {group.links.map((link) => (
-                    <a key={link.id} href={`#${link.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
-                      {link.label}
-                    </a>
+                    <NavLink key={link.id} link={link} />
                   ))}
                 </div>
               </details>

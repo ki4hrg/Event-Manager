@@ -45,8 +45,8 @@ function OrderFilesCard({
       <div className="space-y-4">
         {ordersWithFiles.map((order) => (
           <div key={order.id}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="min-w-0 break-words text-sm font-medium text-gray-700 dark:text-gray-300">
                 {order.displayName}
               </span>
               <Link
@@ -67,7 +67,7 @@ function OrderFilesCard({
                     >
                       {file.fileName}
                     </a>
-                    <div className="flex gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <div className="flex flex-wrap gap-x-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {file.fileType && <span>{file.fileType}</span>}
                       <span>{formatFileSize(file.fileSize)}</span>
                       <span>{file.createdAt.toLocaleDateString()}</span>
