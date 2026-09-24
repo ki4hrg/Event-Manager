@@ -273,7 +273,7 @@ export function FunctionTableView({
     <div className="space-y-2">
       {canSelect && selected.size > 0 && (
         <div className="flex flex-col gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-800">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="text-sm text-blue-700 dark:text-blue-300">
               {selected.size} selected
             </span>

@@ -134,9 +134,9 @@ export function EquipmentTable({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Equipment</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {hasFilter && (
             <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
               <input
@@ -217,8 +217,8 @@ export function EquipmentTable({
       {readOnlyItems && readOnlyItems.length > 0 && (
         <div className="mb-3 space-y-1">
           {readOnlyItems.map((ro, i) => (
-            <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-between">
-              <div>
+            <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-between gap-2">
+              <div className="min-w-0">
                 <span className="text-gray-900 dark:text-white font-medium">{ro.label}</span>
                 <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">× {ro.quantity}</span>
               </div>

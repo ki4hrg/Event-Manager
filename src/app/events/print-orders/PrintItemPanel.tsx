@@ -257,7 +257,7 @@ export function PrintItemPanel({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Print Items</h2>
         {!showAddForm && canWrite && (
           <button
@@ -337,7 +337,7 @@ export function PrintItemPanel({
                     {item.distributionNotes && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{item.distributionNotes}</p>
                     )}
-                    <div className="flex gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
                       {partyDisplay(item.designerVendor, item.designerContact) && (
                         <span>Designer: {partyDisplay(item.designerVendor, item.designerContact)}</span>
                       )}

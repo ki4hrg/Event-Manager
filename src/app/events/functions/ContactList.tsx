@@ -105,7 +105,7 @@ export function ContactList({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Contacts</h2>
         {canWrite && (
           <button
@@ -240,7 +240,7 @@ export function ContactList({
       {formView === "create" && (
         <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   First Name *
@@ -385,7 +385,7 @@ export function ContactList({
                     {(item.contact.email || item.contact.phone) && (
                       <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                         {item.contact.email && (
-                          <a href={`mailto:${item.contact.email}`} className="text-xs text-gray-500 dark:text-gray-400 hover:underline">
+                          <a href={`mailto:${item.contact.email}`} className="text-xs text-gray-500 dark:text-gray-400 hover:underline break-all">
                             {item.contact.email}
                           </a>
                         )}

@@ -95,7 +95,7 @@ export function VendorPanel({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendors</h2>
         {canWrite && (
           <button
@@ -284,8 +284,8 @@ export function VendorPanel({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 break-words">
                     <span className="text-gray-900 dark:text-white font-medium text-sm">
                       {item.vendor.name}
                     </span>

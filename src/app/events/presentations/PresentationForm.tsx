@@ -268,7 +268,7 @@ export function PresentationForm({
 
     return (
       <div className={cardClass}>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Presentation Details</h2>
           {canWrite && (
             <button
@@ -394,9 +394,9 @@ export function PresentationForm({
             {speakers.map((speaker) => (
               <div
                 key={speaker.contact.id}
-                className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
+                className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
               >
-                <div className="flex-1">
+                <div className="basis-full sm:basis-auto sm:flex-1 min-w-0 break-words">
                   <span className="text-gray-900 dark:text-white font-medium">
                     {speaker.contact.firstName} {speaker.contact.lastName}
                   </span>

@@ -84,7 +84,7 @@ export function VideoSectionPanel({
     <div className="space-y-6">
       {/* Notes */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Video Notes</h2>
           {!editingNotes && canWrite && (
             <button
@@ -124,7 +124,7 @@ export function VideoSectionPanel({
 
       {/* Equipment Items */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Equipment</h2>
           {canWrite && (
             <button
@@ -342,8 +342,8 @@ function EquipmentItemRow({
           </div>
         </form>
       ) : (
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 break-words">
             <span className="text-gray-900 dark:text-white font-medium">{item.item}</span>
             {item.equipment && item.equipment.name !== item.item && (
               <span className="ml-1.5 text-xs text-gray-400 dark:text-gray-500">({item.equipment.name})</span>
