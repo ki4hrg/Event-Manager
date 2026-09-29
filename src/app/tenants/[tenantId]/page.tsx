@@ -85,7 +85,7 @@ export default async function TenantDetailPage({
       <div className="mt-6">
         <MembershipEditor
           title="Members"
-          description="Users who can enter this organization, and the role each holds here. Super admins can enter every organization regardless."
+          description=""
           rows={tenant.memberships.map((m) => ({
             id: m.user.id,
             label: m.user.name || m.user.email,

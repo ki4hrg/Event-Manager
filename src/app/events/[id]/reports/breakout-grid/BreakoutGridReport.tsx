@@ -262,7 +262,7 @@ export function BreakoutGridReport({ data }: Props) {
   const { groups, timezone } = data;
 
   if (groups.length === 0) {
-    return <EmptyState message="No breakout groups match the selected filters." />;
+    return <EmptyState message="No results." />;
   }
 
   const navSections = [{ id: "top", label: "Top" }];

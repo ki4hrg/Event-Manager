@@ -273,10 +273,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                       className="mt-0.5 rounded border-gray-300 dark:border-gray-600"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Lock filters to current selection
-                      <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        When checked, recipients see only the current filters. Uncheck to let them change filters.
-                      </span>
+                      Lock current filters
                     </span>
                   </label>
 
@@ -340,10 +337,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                       className="mt-0.5 rounded border-gray-300 dark:border-gray-600"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Lock filters for this report
-                      <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        When checked, recipients see only the current filters on this tab.
-                      </span>
+                      Lock current filters
                     </span>
                   </label>
 

@@ -514,7 +514,7 @@ function DayGrid({
   if (day.timeSlots.length === 0 || visibleRooms.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        No scheduled functions for this day.
+        No functions scheduled.
       </p>
     );
   }
@@ -1228,14 +1228,13 @@ export function AgendaGrid({
 
         {rooms.length === 0 && (
           <p className="mb-4 text-sm text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded px-3 py-2">
-            No venue or rooms assigned to this event. Assign a venue to see the
-            room-based agenda.
+            No rooms assigned.
           </p>
         )}
 
         {days.length === 0 && rooms.length > 0 && (
           <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-            No functions with both a room and schedule assigned yet.
+            No scheduled functions.
           </p>
         )}
 

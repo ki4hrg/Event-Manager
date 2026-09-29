@@ -69,9 +69,7 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
       )}
       {readOnly && (
         <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-300 text-sm">
-          {role?.isSystem
-            ? "This is a system role and cannot be edited or deleted."
-            : "Role definitions are shared by every organization; only a super admin can change them."}
+          {role?.isSystem ? "System role (read-only)" : "Read-only (super admin only)"}
         </div>
       )}
       <form action={handleSubmit} className="space-y-6">
@@ -140,9 +138,6 @@ function PermissionMatrix({
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       <div className="mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Permissions</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Levels are ordinal: View &lt; Write &lt; Delete.
-        </p>
       </div>
       <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <table className="w-full text-sm border-collapse">

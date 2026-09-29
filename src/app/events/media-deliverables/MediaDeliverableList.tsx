@@ -338,7 +338,7 @@ export function MediaDeliverableList({
       )}
 
       {mediaDeliverables.length === 0 ? (
-        <EmptyState message="No media deliverables yet. Create your first media deliverable to get started." />
+        <EmptyState message="No media deliverables yet." />
       ) : view === "list" ? (
         <div className="space-y-2">
           {sorted.map((d) => {

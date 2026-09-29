@@ -448,7 +448,7 @@ export function RoomScheduleReport({ data, functionTypes, scheduleTypes, usedOnl
     : roomBuckets;
 
   if (visibleBuckets.length === 0) {
-    return <EmptyState message="No rooms match the selected filters." />;
+    return <EmptyState message="No rooms." />;
   }
 
   const grouped = bucketsByGroup(visibleBuckets);

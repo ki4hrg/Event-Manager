@@ -8,6 +8,7 @@ import type {
   PackingStatus,
   SupplyOrderItem,
 } from "@prisma/client";
+import { FormSection } from "@/components/ui/FormSection";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import { PartyField } from "@/app/events/av-orders/party-field";
@@ -217,137 +218,143 @@ function ItemForm({
 
   return (
     <form action={onSubmit} className="space-y-3">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="md:col-span-2">
-          <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={isContainer}
-              onChange={(e) => setIsContainer(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600"
-            />
-            This line is a container being shipped (a box, a pallet)
-          </label>
-        </div>
-
-        {isContainer && (
+      <div className="space-y-3">
+        <FormSection title="Item">
+          <div className="md:col-span-2">
+            <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={isContainer}
+                onChange={(e) => setIsContainer(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              This is a container
+            </label>
+          </div>
+          {isContainer && (
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Which container <span className="text-red-600 dark:text-red-400">*</span>
+              </label>
+              <LocationSelect
+                name="containerLocationId"
+                options={containerOptions}
+                value={containerId}
+                onChange={setContainerId}
+                placeholder="— Select —"
+              />
+              {canManageLocations && (
+                <InlineContainerCreate
+                  locationTypes={locationTypes}
+                  parentOptions={locationOptions}
+                  createContainer={createContainer}
+                  onCreated={setContainerId}
+                />
+              )}
+            </div>
+          )}
           <div className="md:col-span-2">
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Which container <span className="text-red-600 dark:text-red-400">*</span>
+              Description
+            </label>
+            <input
+              type="text"
+              name="description"
+              defaultValue={item?.description ?? ""}
+              placeholder={
+                isContainer
+                  ? "Defaults to container name"
+                  : "e.g. Printer"
+              }
+              className={inputClass}
+            />
+          </div>
+          {!isContainer && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment (optional)</label>
+              <GroupedEquipmentSelect
+                options={equipmentOptions}
+                defaultValue={item?.equipmentId ?? null}
+                size="sm"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+            <input
+              type="number"
+              name="quantity"
+              min={1}
+              defaultValue={item?.quantity ?? ""}
+              placeholder="e.g. 1"
+              className={inputClass}
+            />
+          </div>
+        </FormSection>
+        <FormSection title="Sourcing">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Acquisition State</label>
+            <select
+              name="acquisitionState"
+              defaultValue={item?.acquisitionState ?? "ON_HAND"}
+              className={inputClass}
+            >
+              {ACQUISITION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Provider (override)
+            </label>
+            <PartyField
+              fieldPrefix="provider"
+              vendorGroups={pool.vendorGroups}
+              contacts={pool.contacts}
+              defaultVendorId={item?.providerVendorId ?? null}
+              defaultContactId={item?.providerContactId ?? null}
+            />
+          </div>
+        </FormSection>
+        <FormSection title="Packing">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {isContainer ? "Sits on (this event)" : "Storage location"}
             </label>
             <LocationSelect
-              name="containerLocationId"
-              options={containerOptions}
-              value={containerId}
-              onChange={setContainerId}
-              placeholder="— Select a container —"
+              name="sourceLocationId"
+              options={locationOptions}
+              value={sourceId}
+              onChange={setSourceId}
+              placeholder={isContainer ? "— Usual spot —" : "— None —"}
             />
-            {canManageLocations && (
-              <InlineContainerCreate
-                locationTypes={locationTypes}
-                parentOptions={locationOptions}
-                createContainer={createContainer}
-                onCreated={setContainerId}
-              />
-            )}
           </div>
-        )}
-
-        <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Description
-          </label>
-          <input
-            type="text"
-            name="description"
-            defaultValue={item?.description ?? ""}
-            placeholder={
-              isContainer
-                ? "Optional — the container's name is used when blank"
-                : "e.g. Printer (optional if Equipment is selected)"
-            }
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {isContainer ? "Sits on (this event)" : "Comes from"}
-          </label>
-          <LocationSelect
-            name="sourceLocationId"
-            options={locationOptions}
-            value={sourceId}
-            onChange={setSourceId}
-            placeholder={isContainer ? "— Its usual spot —" : "— None —"}
-          />
-        </div>
-        {!isContainer && (
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Equipment (optional)</label>
-            <GroupedEquipmentSelect
-              options={equipmentOptions}
-              defaultValue={item?.equipmentId ?? null}
-              size="sm"
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Packing Status</label>
+            <select
+              name="packingStatus"
+              defaultValue={item?.packingStatus ?? "NEEDED"}
+              className={inputClass}
+            >
+              {PACKING_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+        </FormSection>
+        <FormSection>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+            <input
+              type="text"
+              name="notes"
+              defaultValue={item?.notes ?? ""}
+              placeholder="Notes..."
+              className={inputClass}
             />
           </div>
-        )}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-          <input
-            type="number"
-            name="quantity"
-            min={1}
-            defaultValue={item?.quantity ?? ""}
-            placeholder="e.g. 1"
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Acquisition State</label>
-          <select
-            name="acquisitionState"
-            defaultValue={item?.acquisitionState ?? "ON_HAND"}
-            className={inputClass}
-          >
-            {ACQUISITION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Provider (override)
-          </label>
-          <PartyField
-            fieldPrefix="provider"
-            vendorGroups={pool.vendorGroups}
-            contacts={pool.contacts}
-            defaultVendorId={item?.providerVendorId ?? null}
-            defaultContactId={item?.providerContactId ?? null}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Packing Status</label>
-          <select
-            name="packingStatus"
-            defaultValue={item?.packingStatus ?? "NEEDED"}
-            className={inputClass}
-          >
-            {PACKING_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-          <input
-            type="text"
-            name="notes"
-            defaultValue={item?.notes ?? ""}
-            placeholder="Additional notes..."
-            className={inputClass}
-          />
-        </div>
+        </FormSection>
       </div>
       <div className="flex gap-2">
         <SubmitButton label={submitLabel} />
@@ -452,13 +459,11 @@ function ContainerContentsAction({
       ) : counts ? (
         <p className="text-gray-700 dark:text-gray-300">
           {total === 0
-            ? "Nothing is sourced from this container yet."
-            : `Marks ${total} item${total === 1 ? "" : "s"} inside this container.`}
+            ? "No items from this container."
+            : `${total} item${total === 1 ? "" : "s"} inside.`}
           {blocked > 0 && (
-            <span className="text-amber-700 dark:text-amber-300">
-              {" "}
-              {blocked} more {blocked === 1 ? "is" : "are"} on orders you can&apos;t edit and will
-              be left alone.
+            <span className="block text-amber-700 dark:text-amber-300 text-xs mt-1">
+              {blocked} more on orders you can&apos;t edit (skipped).
             </span>
           )}
         </p>
@@ -694,7 +699,7 @@ export function SupplyOrderItemPanel({
                       )}
                       {item.sourceLocation && (
                         <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                          {item.containerLocation ? "Sits on" : "From"}: {item.sourceLocation.name}
+                          {item.containerLocation ? "Sits on" : "Storage"}: {item.sourceLocation.name}
                         </p>
                       )}
                       {item.notes && (
@@ -792,7 +797,7 @@ export function SupplyOrderItemPanel({
                           )}
                           {item.sourceLocation && (
                             <span>
-                              {item.containerLocation ? "Sits on" : "From"}: {item.sourceLocation.name}
+                              {item.containerLocation ? "Sits on" : "Storage"}: {item.sourceLocation.name}
                             </span>
                           )}
                         </div>

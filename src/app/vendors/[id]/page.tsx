@@ -112,7 +112,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
       {vendor.isSystemVendor ? (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 max-w-lg">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            This is a system vendor and cannot be edited.
+            System vendor (read-only)
           </p>
         </div>
       ) : (

@@ -247,7 +247,7 @@ function LocationForm({
     <form action={onSubmit} className={mode === "create" ? "mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3" : "space-y-3"}>
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Name <span className="text-gray-400 dark:text-gray-500 font-normal">(optional — defaults to the linked function name)</span>
+          Name <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
         </label>
         <input
           type="text"

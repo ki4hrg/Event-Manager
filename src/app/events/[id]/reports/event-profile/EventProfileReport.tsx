@@ -599,7 +599,7 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
     printOrders.length > 0;
 
   if (!hasAny) {
-    return <EmptyState message="No profile data available for the selected filters." />;
+    return <EmptyState message="No results." />;
   }
 
   return (

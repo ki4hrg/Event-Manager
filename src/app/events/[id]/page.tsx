@@ -105,6 +105,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   // told the event is empty and offered an import they can't complete.
   const isEmpty =
     stats.entities.length > 0 && stats.entities.every((e) => e.total === 0);
+  const activeEntities = stats.entities.filter((e) => e.total > 0);
+  const unusedEntities = stats.entities.filter((e) => e.total === 0);
 
   const countdown = getCountdown(event.startDate, event.endDate);
   const dateRange = `${formatEventDate(event.startDate, event.timezone)} – ${formatEventDate(event.endDate, event.timezone)}`;
@@ -172,7 +174,23 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               No content available for this event.
             </p>
           ) : (
-            stats.entities.map(({ key, ...rest }) => <EntityOverviewCard key={key} {...rest} />)
+            activeEntities.map(({ key, ...rest }) => <EntityOverviewCard key={key} {...rest} />)
+          )}
+          {unusedEntities.length > 0 && (
+            <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Not in use
+              </span>
+              {unusedEntities.map((e) => (
+                <Link
+                  key={e.key}
+                  href={e.canEdit ? `${e.basePath}/new` : e.basePath}
+                  className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  {e.canEdit ? `+ ${e.label}` : e.label}
+                </Link>
+              ))}
+            </div>
           )}
         </div>
       </div>

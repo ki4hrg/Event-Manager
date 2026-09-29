@@ -553,7 +553,7 @@ export function WorkflowEditor({
 
         {template.steps.length === 0 && !addingStep && (
           <p className="text-gray-500 dark:text-gray-400 text-sm">
-            No steps yet. Add a step to define this workflow.
+            No steps yet.
           </p>
         )}
 

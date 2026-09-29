@@ -128,7 +128,6 @@ export function ReportFilters({
           </button>
           <button
             onClick={toggleCompact}
-            title="Two-column layout, no forced page break per day. Best for handouts."
             className={`px-3 py-1 text-sm rounded-full border transition-colors ${
               compact
                 ? "bg-blue-600 border-blue-600 text-white"

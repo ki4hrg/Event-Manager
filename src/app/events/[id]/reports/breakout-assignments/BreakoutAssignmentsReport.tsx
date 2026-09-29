@@ -174,7 +174,7 @@ function GroupSection({
 
       {group.presentations.length === 0 ? (
         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 print:text-gray-700 italic">
-          No presentations in this group.
+          No presentations.
         </p>
       ) : (
         <div className="mt-4 space-y-4">
@@ -197,12 +197,12 @@ export function BreakoutAssignmentsReport({ data }: Props) {
   const { groups, timezone } = data;
 
   if (groups.length === 0) {
-    return <EmptyState message="No breakout groups match the selected filters." />;
+    return <EmptyState message="No results." />;
   }
 
   const hasAnyPresentations = groups.some((g) => g.presentations.length > 0);
   if (!hasAnyPresentations) {
-    return <EmptyState message="No presentations assigned to any breakout group." />;
+    return <EmptyState message="No presentations assigned." />;
   }
 
   const navSections = [{ id: "top", label: "Top" }];

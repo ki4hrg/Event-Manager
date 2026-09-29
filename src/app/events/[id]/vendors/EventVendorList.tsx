@@ -105,7 +105,7 @@ export function EventVendorList({
       {showAddForm && (
         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Search Vendors
+            Search
           </label>
           <input
             type="text"
@@ -141,7 +141,7 @@ export function EventVendorList({
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               No vendors found.{" "}
               <Link href="/vendors/new" className="text-blue-600 dark:text-blue-400 hover:underline">
-                Create a new vendor
+                Create
               </Link>
             </p>
           )}
@@ -159,7 +159,7 @@ export function EventVendorList({
       )}
 
       {eventVendors.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">No vendors assigned to this event yet.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">No vendors assigned</p>
       ) : (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

@@ -100,11 +100,11 @@ export function EventListClient({ events, seriesOptions, selectedSeries, canWrit
                   href="/events/new"
                   className="text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  Create your first event
+                  Create event
                 </Link>
               </>
             ) : (
-              "No events are shared with you yet."
+              "No events shared with you."
             )}
           </p>
         </div>
@@ -114,7 +114,7 @@ export function EventListClient({ events, seriesOptions, selectedSeries, canWrit
         <div className="sm:hidden bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
           {filtered.length === 0 ? (
             <p className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
-              No upcoming events. Uncheck the filter to see completed events.
+              No upcoming events.
             </p>
           ) : (
             filtered.map((event) => (
@@ -164,7 +164,7 @@ export function EventListClient({ events, seriesOptions, selectedSeries, canWrit
                     colSpan={4}
                     className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400"
                   >
-                    No upcoming events. Uncheck the filter to see completed events.
+                    No upcoming events.
                   </td>
                 </tr>
               ) : (

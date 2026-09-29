@@ -17,10 +17,6 @@ export default async function NewUserPage() {
       <div className="mb-4">
         <Breadcrumbs items={[{ label: "Users", href: "/users" }, { label: "New User" }]} />
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mt-2">Add User</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          An email that already has an account is added to this organization with the chosen
-          role; a new email gets an invite.
-        </p>
       </div>
       <UserForm
         roles={roles}

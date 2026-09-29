@@ -45,7 +45,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
   if (links.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        No share links created yet. Use the Share button on a report page to create one.
+        No share links.
       </p>
     );
   }
@@ -126,7 +126,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
                               onClick={() => handleCopy(link.token)}
                               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                             >
-                              {copied === link.token ? "Copied!" : "Copy URL"}
+                              {copied === link.token ? "Copied" : "Copy"}
                             </button>
                           )}
                           {canWrite && !link.revokedAt && !(link.expiresAt && new Date(link.expiresAt) < new Date()) && (

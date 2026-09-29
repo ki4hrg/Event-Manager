@@ -99,18 +99,13 @@ function VenuePicker({ venues, initialIds }: { venues: Venue[]; initialIds: stri
           }}
           className="mt-2 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">{selectedIds.length === 0 ? "No venue selected — add a venue…" : "Add another venue…"}</option>
+          <option value="">{selectedIds.length === 0 ? "Add a venue" : "Add venue"}</option>
           {available.map((venue) => (
             <option key={venue.id} value={venue.id}>
               {venue.name}
             </option>
           ))}
         </select>
-      )}
-      {selectedIds.length > 1 && (
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Rooms from every venue are available to functions and orders. The primary venue is shown as the event&apos;s headline venue.
-        </p>
       )}
     </div>
   );

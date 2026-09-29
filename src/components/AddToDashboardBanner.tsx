@@ -18,10 +18,6 @@ export function AddToDashboardBanner({ eventId, addToDashboardId, dashboardChoic
         <p className="font-medium text-blue-900 dark:text-blue-100">
           Adding a report to dashboard: {name}
         </p>
-        <p className="text-xs text-blue-800 dark:text-blue-200 mt-1">
-          Set the filters you want recipients to see, then click the{" "}
-          <span className="font-medium">Add to {name}</span> button.
-        </p>
       </div>
       <Link
         href={`/events/${eventId}/share-links/dashboards/${dashboard.id}`}

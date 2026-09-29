@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { btnOutlinedSm } from "@/lib/buttonStyles";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "../../actions";
 import {
@@ -134,6 +136,42 @@ export default async function PackingListPage({
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
           {event.name}
         </h1>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm text-gray-600 dark:text-gray-400 space-x-1">
+            <span>Items from</span>
+            {payload.canSeeSupply && (
+              <Link
+                href={`/events/${eventId}/supply-orders`}
+                className="text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Supply Orders
+              </Link>
+            )}
+            {payload.canSeeSupply && payload.canSeePrint && <span>·</span>}
+            {payload.canSeePrint && (
+              <Link
+                href={`/events/${eventId}/print-orders`}
+                className="text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Print Orders
+              </Link>
+            )}
+          </div>
+          {(payload.canWriteSupply || payload.canWritePrint) && (
+            <div className="flex flex-wrap gap-2">
+              {payload.canWriteSupply && (
+                <Link href={`/events/${eventId}/supply-orders/new`} className={btnOutlinedSm}>
+                  + Supply order
+                </Link>
+              )}
+              {payload.canWritePrint && (
+                <Link href={`/events/${eventId}/print-orders/new`} className={btnOutlinedSm}>
+                  + Print order
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <PackingListClient
