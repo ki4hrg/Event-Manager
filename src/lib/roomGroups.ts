@@ -78,6 +78,19 @@ export function groupRoomsByGroup<TRoom extends { id: string; name: string; grou
     }
     buckets.get(key)!.rooms.push(room);
   }
+  // A venue's ungrouped bucket is labelled with the bare venue name only when
+  // it holds every room of that venue. If the venue also has room groups,
+  // "Grand Hotel" would read as the whole venue, so say "Grand Hotel · Ungrouped".
+  if (multiVenue) {
+    const venuesWithGroups = new Set(
+      rooms.filter((r) => r.group && r.venue).map((r) => r.venue!.id),
+    );
+    for (const room of rooms) {
+      if (room.group || !room.venue || !venuesWithGroups.has(room.venue.id)) continue;
+      const bucket = buckets.get(`${room.venue.id}-__ungrouped__`);
+      if (bucket) bucket.label = `${room.venue.name} · ${UNGROUPED_LABEL}`;
+    }
+  }
   return Array.from(buckets.values())
     .map((b) => ({ ...b, rooms: [...b.rooms].sort((a, b) => a.name.localeCompare(b.name)) }))
     .sort((a, b) => {
@@ -85,4 +98,11 @@ export function groupRoomsByGroup<TRoom extends { id: string; name: string; grou
       if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
       return a.label.localeCompare(b.label);
     });
+}
+
+// Whether a bucket gets a bulk "add all" / "show all" control. A one-room room
+// group is left out — the control would just repeat the room itself — but a
+// venue always gets one, so every venue on a multi-venue event is offered alike.
+export function offersBulkAction(bucket: GroupedRooms<unknown>): boolean {
+  return bucket.named && (bucket.rooms.length > 1 || bucket.groupId === null);
 }

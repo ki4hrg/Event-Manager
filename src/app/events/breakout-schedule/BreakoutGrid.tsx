@@ -4,7 +4,7 @@ import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "./utils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
-import { groupRoomsByGroup, spansMultipleVenues } from "@/lib/roomGroups";
+import { groupRoomsByGroup, offersBulkAction, spansMultipleVenues } from "@/lib/roomGroups";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -233,7 +233,7 @@ function GroupRoomManager({
           </select>
           {hasRoomGroups &&
             availableBuckets
-              .filter((b) => b.named && b.rooms.length > 1)
+              .filter(offersBulkAction)
               .map((bucket) => (
                 <button
                   key={bucket.key}

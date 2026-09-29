@@ -32,7 +32,7 @@ import {
   findSlotKeyForEntry,
   SLOT_INTERVAL_MS,
 } from "@/lib/agendaUtils";
-import { groupRoomsByGroup, spansMultipleVenues } from "@/lib/roomGroups";
+import { groupRoomsByGroup, offersBulkAction, spansMultipleVenues } from "@/lib/roomGroups";
 import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from "@/app/events/functions/actions";
 import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
@@ -764,7 +764,7 @@ function RoomPanel({
     () => groupRoomsByGroup(orderedRooms.filter((r) => r.id !== "__offsite__")),
     [orderedRooms]
   );
-  const groupBuckets = roomBuckets.filter((b) => b.named && b.rooms.length > 1);
+  const groupBuckets = roomBuckets.filter(offersBulkAction);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
