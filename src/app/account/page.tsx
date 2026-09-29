@@ -37,7 +37,7 @@ export default async function AccountPage() {
                 htmlFor="landing_page"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                Default landing page
+                Landing page
               </label>
               <select
                 id="landing_page"
@@ -49,9 +49,6 @@ export default async function AccountPage() {
                 <option value="events">Events list</option>
                 <option value="last_event">Last event viewed</option>
               </select>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Where to go after signing in or clicking the logo.
-              </p>
             </div>
 
             <button
@@ -67,10 +64,6 @@ export default async function AccountPage() {
           <h2 className="text-base font-medium text-gray-900 dark:text-white mb-2">
             API Keys
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-            Bearer tokens for the MCP connector — let Claude Desktop and other
-            clients read your events programmatically.
-          </p>
           <Link
             href="/account/api-keys"
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"

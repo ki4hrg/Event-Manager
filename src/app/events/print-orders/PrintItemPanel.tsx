@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { AcquisitionState, PackingStatus, PrintItem } from "@prisma/client";
 import { PartyField, parsePartyValue, type PartyOptions, type ContactOptions } from "@/app/events/av-orders/party-field";
+import { FormSection } from "@/components/ui/FormSection";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import {
   ACQUISITION_LABEL,
@@ -91,120 +92,130 @@ function ItemForm({
 }) {
   return (
     <form action={onSubmit} className="space-y-3">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Description <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="description"
-            required
-            defaultValue={defaultDescription}
-            placeholder="e.g. Presenter handout"
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-          <input
-            type="number"
-            name="quantity"
-            min={1}
-            defaultValue={defaultQuantity}
-            placeholder="e.g. 250"
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Acquisition</label>
-          <select
-            name="acquisitionState"
-            defaultValue={defaultAcquisitionState}
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          >
-            {ACQUISITION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Packing</label>
-          <select
-            name="packingStatus"
-            defaultValue={defaultPackingStatus}
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          >
-            {PACKING_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Distribution</label>
-          <select
-            name="distributionMethod"
-            defaultValue={defaultDistributionMethod}
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          >
-            <option value="">— Select —</option>
-            {distributionOptions.map((o) => (
-              <option key={o.id} value={o.label}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Distribution Notes</label>
-          <input
-            type="text"
-            name="distributionNotes"
-            defaultValue={defaultDistributionNotes}
-            placeholder="e.g. 1 per seat, extras at registration table"
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Designer</label>
-          <PartyField
-            fieldPrefix="designer"
-            vendors={vendors}
-            contacts={contacts}
-            contactsLabel="Contacts"
-            defaultVendorId={defaultDesignerVendorId || null}
-            defaultContactId={defaultDesignerContactId || null}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Printer</label>
-          <PartyField
-            fieldPrefix="printer"
-            vendors={vendors}
-            contacts={contacts}
-            contactsLabel="Contacts"
-            defaultVendorId={defaultPrinterVendorId || null}
-            defaultContactId={defaultPrinterContactId || null}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Comes from
-          </label>
-          <LocationSelect
-            name="sourceLocationId"
-            options={locationOptions}
-            defaultValue={defaultSourceLocationId}
-          />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-          <input
-            type="text"
-            name="notes"
-            defaultValue={defaultNotes}
-            placeholder="Additional notes..."
-            className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-          />
-        </div>
+      <div className="space-y-3">
+        <FormSection title="Item">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Description <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="description"
+              required
+              defaultValue={defaultDescription}
+              placeholder="e.g. Presenter handout"
+              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+            <input
+              type="number"
+              name="quantity"
+              min={1}
+              defaultValue={defaultQuantity}
+              placeholder="e.g. 250"
+              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            />
+          </div>
+        </FormSection>
+        <FormSection title="Production">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Designer</label>
+            <PartyField
+              fieldPrefix="designer"
+              vendors={vendors}
+              contacts={contacts}
+              contactsLabel="Contacts"
+              defaultVendorId={defaultDesignerVendorId || null}
+              defaultContactId={defaultDesignerContactId || null}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Printer</label>
+            <PartyField
+              fieldPrefix="printer"
+              vendors={vendors}
+              contacts={contacts}
+              contactsLabel="Contacts"
+              defaultVendorId={defaultPrinterVendorId || null}
+              defaultContactId={defaultPrinterContactId || null}
+            />
+          </div>
+        </FormSection>
+        <FormSection title="Sourcing & Packing">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Acquisition</label>
+            <select
+              name="acquisitionState"
+              defaultValue={defaultAcquisitionState}
+              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            >
+              {ACQUISITION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Storage location
+            </label>
+            <LocationSelect
+              name="sourceLocationId"
+              options={locationOptions}
+              defaultValue={defaultSourceLocationId}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Packing</label>
+            <select
+              name="packingStatus"
+              defaultValue={defaultPackingStatus}
+              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            >
+              {PACKING_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+        </FormSection>
+        <FormSection title="Distribution">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Distribution</label>
+            <select
+              name="distributionMethod"
+              defaultValue={defaultDistributionMethod}
+              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="">— Select —</option>
+              {distributionOptions.map((o) => (
+                <option key={o.id} value={o.label}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Distribution Notes</label>
+            <input
+              type="text"
+              name="distributionNotes"
+              defaultValue={defaultDistributionNotes}
+              placeholder="e.g. 1 per seat, extras at registration table"
+              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            />
+          </div>
+        </FormSection>
+        <FormSection>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+            <input
+              type="text"
+              name="notes"
+              defaultValue={defaultNotes}
+              placeholder="Notes..."
+              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            />
+          </div>
+        </FormSection>
       </div>
       <div className="flex gap-2">
         <SubmitButton label={submitLabel} />
@@ -344,7 +355,7 @@ export function PrintItemPanel({
                       {partyDisplay(item.printerVendor, item.printerContact) && (
                         <span>Printer: {partyDisplay(item.printerVendor, item.printerContact)}</span>
                       )}
-                      {item.sourceLocation && <span>From: {item.sourceLocation.name}</span>}
+                      {item.sourceLocation && <span>Storage: {item.sourceLocation.name}</span>}
                     </div>
                     {item.notes && (
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{item.notes}</p>

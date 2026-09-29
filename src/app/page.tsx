@@ -59,17 +59,17 @@ export default async function DashboardPage() {
   const cards = [
     canViewEvents && {
       title: "Events",
-      description: "Manage conferences and events",
+      description: "",
       href: "/events",
     },
     canViewVenues && {
       title: "Venues",
-      description: "Manage venues and rooms",
+      description: "",
       href: "/venues",
     },
     canViewContacts && {
       title: "Contacts",
-      description: "Manage speakers, vendors, and other contacts",
+      description: "",
       href: "/contacts",
     },
   ].filter(Boolean) as { title: string; description: string; href: string }[];
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
       </h1>
 
       {cards.length === 0 ? (
-        <EmptyState message="You don't have access to anything yet. Ask an administrator to assign you a role and the events you'll be working on." />
+        <EmptyState message="No access assigned. Contact your administrator." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {cards.map((card) => (
@@ -110,9 +110,11 @@ function DashboardCard({
       <h3 className="text-lg font-medium text-gray-900 dark:text-white">
         {title}
       </h3>
-      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-        {description}
-      </p>
+      {description && (
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          {description}
+        </p>
+      )}
     </Link>
   );
 }

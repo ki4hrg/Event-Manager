@@ -89,7 +89,7 @@ function Spine({
         )}
       </div>
       {items.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Nothing to import.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">No items</p>
       ) : (
         <div className="max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
           {items.map((item) => (
@@ -107,7 +107,7 @@ function Spine({
                 <span className="text-gray-900 dark:text-white">{item.label}</span>
                 {item.alreadyPresent && (
                   <span className="ml-2 text-xs text-amber-700 dark:text-amber-500">
-                    already in this event
+                    exists
                   </span>
                 )}
                 {item.sublabel && (
@@ -171,7 +171,7 @@ export function ImportClient({
         setFunctions(content.functions);
         setPresentations(content.presentations);
       } catch {
-        setError("Could not load that event's content.");
+        setError("Could not load content");
       }
     });
   }
@@ -213,7 +213,7 @@ export function ImportClient({
               onClick={() => router.push(`/events/${eventId}/functions`)}
               className={btnPrimary}
             >
-              Go to Functions
+              Functions
             </button>
             <button type="button" onClick={() => setResult(null)} className={btnSecondary}>
               Import more

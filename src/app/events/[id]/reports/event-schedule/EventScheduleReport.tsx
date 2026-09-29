@@ -269,7 +269,7 @@ export function EventScheduleReport({
   const { items, timezone } = data;
 
   if (items.length === 0) {
-    return <EmptyState message="No schedule items match the selected filters." />;
+    return <EmptyState message="No results." />;
   }
 
   const dayGroups = groupByDay(items, timezone);

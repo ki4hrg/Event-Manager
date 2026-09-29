@@ -47,9 +47,7 @@ export function VendorForm({ vendor, action }: VendorFormProps) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Models
           </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            Leave unchecked to make this vendor available for all order types.
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">None checked = all order types</p>
           <div className="space-y-2">
             {MODEL_TYPES.map((type) => (
               <label key={type.value} className="flex items-center gap-2 text-sm">

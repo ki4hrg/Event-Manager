@@ -68,7 +68,7 @@ function RoomRow({
   if (isEditing) {
     return (
       <tr>
-        <td colSpan={groups.length > 0 ? 5 : 4} className="px-6 py-4">
+        <td colSpan={4} className="px-6 py-4">
           <form
             action={async (formData) => {
               await updateRoom(room.id, formData);
@@ -117,11 +117,6 @@ function RoomRow({
       <td className="px-6 py-4 font-medium text-gray-900 dark:text-white text-sm">{room.name}</td>
       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{room.capacity ?? "—"}</td>
       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{room.notes ?? "—"}</td>
-      {groups.length > 0 && (
-        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-          {groups.find((g) => g.id === room.groupId)?.name ?? "—"}
-        </td>
-      )}
       <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
         {canWrite && (
           <button onClick={onEdit} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">

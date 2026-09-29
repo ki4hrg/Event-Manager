@@ -560,7 +560,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                 )}
                 {it.sourceLocation && (
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                    From: {it.sourceLocation.name}
+                    Storage: {it.sourceLocation.name}
                   </p>
                 )}
                 {it.notes && (
@@ -582,8 +582,8 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                   </th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Packing</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Source</th>
-                  {/* "Source" is acquisition state; storage location is "From". */}
-                  <th className="py-1.5 pr-3 text-xs font-medium">From</th>
+                  {/* "Source" is acquisition state, so the storage-location column is "Storage". */}
+                  <th className="py-1.5 pr-3 text-xs font-medium">Storage</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Designer</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Printer</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Distribution</th>
@@ -703,7 +703,7 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
                   )}
                   {it.sourceLocation && (
                     <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                      From: {it.sourceLocation.name}
+                      Storage: {it.sourceLocation.name}
                     </p>
                   )}
                   {it.notes && (
@@ -722,8 +722,8 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
                   <th className="py-1.5 pr-3 text-xs font-medium text-right w-16">Qty</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Packing</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Source</th>
-                  {/* "Source" is acquisition state; storage location is "From". */}
-                  <th className="py-1.5 pr-3 text-xs font-medium">From</th>
+                  {/* "Source" is acquisition state, so the storage-location column is "Storage". */}
+                  <th className="py-1.5 pr-3 text-xs font-medium">Storage</th>
                   <th className="py-1.5 pr-3 text-xs font-medium">Provider</th>
                   <th className="py-1.5 text-xs font-medium">Notes</th>
                 </tr>
@@ -1453,7 +1453,7 @@ export function FunctionDetailReport({
   const { event, functions } = data;
   if (functions.length === 0) {
     return (
-      <EmptyState message="No functions match the selected filters." />
+      <EmptyState message="No results." />
     );
   }
 

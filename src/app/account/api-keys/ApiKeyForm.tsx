@@ -40,11 +40,10 @@ export function ApiKeyForm() {
     return (
       <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded p-4 mb-6">
         <h3 className="font-semibold text-yellow-900 dark:text-yellow-100">
-          Key created — copy it now
+          Key created — copy and save now
         </h3>
         <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
-          This is the only time the full key will be shown. Store it somewhere safe
-          before navigating away — we can&apos;t recover it later.
+          Only shown once. Not recoverable later.
         </p>
         <pre className="mt-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-3 text-sm font-mono text-gray-900 dark:text-gray-100 break-all whitespace-pre-wrap">
           {revealed.fullKey}
@@ -94,9 +93,7 @@ export function ApiKeyForm() {
         <button type="submit" disabled={pending} className={btnPrimary}>
           {pending ? "Creating…" : "Create key"}
         </button>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          The key inherits your role and event assignments.
-        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Inherits your roles and event access.</p>
       </div>
     </form>
   );

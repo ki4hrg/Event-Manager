@@ -125,7 +125,7 @@ type EquipmentResponsibilityReportProps = {
 export function EquipmentResponsibilityReport({ groups }: EquipmentResponsibilityReportProps) {
   if (groups.length === 0) {
     return (
-      <EmptyState message="No equipment items found for the selected filters." />
+      <EmptyState message="No items." />
     );
   }
 

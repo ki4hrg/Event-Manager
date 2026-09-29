@@ -75,8 +75,8 @@ function isFilable(item: PackableItem) {
 }
 
 function filableReason(item: PackableItem): string | undefined {
-  if (item.kind === "PRINT") return "Print collateral isn't kept in storage.";
-  if (item.containerLocationId != null) return "This line is the container itself.";
+  if (item.kind === "PRINT") return "Print collateral not stored";
+  if (item.containerLocationId != null) return "Container cannot be filed";
   return undefined;
 }
 
@@ -516,8 +516,8 @@ export function PackingListClient({
     (q.trim() ? 1 : 0);
 
   const hiddenSliceNote: string | null = (() => {
-    if (!payload.canSeeSupply && payload.canSeePrint) return "Supply items hidden — you don't have access to supply orders.";
-    if (payload.canSeeSupply && !payload.canSeePrint) return "Print items hidden — you don't have access to print orders.";
+    if (!payload.canSeeSupply && payload.canSeePrint) return "Supply items hidden";
+    if (payload.canSeeSupply && !payload.canSeePrint) return "Print items hidden";
     return null;
   })();
 
@@ -658,7 +658,7 @@ export function PackingListClient({
 
       {payload.items.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          No items to pack. Add supply or print items to an order to see them here.
+          No items to pack.
         </p>
       )}
 
@@ -879,8 +879,8 @@ export function PackingListClient({
                         <th className="py-2 pr-3">Order</th>
                         <th className="py-2 pr-3">Provider</th>
                         <th className="py-2 pr-3">Category</th>
-                        {/* "Source" is already taken by acquisition state elsewhere. */}
-                        <th className="py-2 pr-3">From</th>
+                        {/* Storage location; "Source" is already taken by acquisition state. */}
+                        <th className="py-2 pr-3">Storage</th>
                         <th className="py-2 pr-3">Status</th>
                       </tr>
                     </thead>
@@ -889,9 +889,9 @@ export function PackingListClient({
                         const canWriteItem =
                           item.kind === "SUPPLY" ? payload.canWriteSupply : payload.canWritePrint;
                         return (
-                        <tr key={`${item.kind}-${item.itemId}`}>
+                        <tr key={`${item.kind}-${item.itemId}`} className="align-top">
                           {canReturn && (
-                            <td className="py-2 pr-3 align-top">
+                            <td className="py-2 pr-3">
                               <input
                                 type="checkbox"
                                 checked={selected.has(item.itemId)}
@@ -899,7 +899,7 @@ export function PackingListClient({
                                 onChange={() => toggleSelected(item.itemId)}
                                 title={filableReason(item)}
                                 aria-label={`Select ${item.description}`}
-                                className="mt-1 rounded border-gray-300 dark:border-gray-600 disabled:opacity-40"
+                                className="mt-0.5 rounded border-gray-300 dark:border-gray-600 disabled:opacity-40"
                               />
                             </td>
                           )}
@@ -1008,13 +1008,13 @@ function StatusPill({
   const errorRing = hasError ? "ring-2 ring-red-500" : "";
   const ariaLabel = canWrite
     ? hasError
-      ? `Status: ${PACKING_STATUS_LABEL[item.packingStatus]}. Last update failed — tap to retry to ${PACKING_STATUS_LABEL[next]}.`
-      : `Status: ${PACKING_STATUS_LABEL[item.packingStatus]}. Tap to mark ${PACKING_STATUS_LABEL[next]}.`
-    : `Status: ${PACKING_STATUS_LABEL[item.packingStatus]} (read-only)`;
+      ? `${PACKING_STATUS_LABEL[item.packingStatus]} — failed, retry ${PACKING_STATUS_LABEL[next]}`
+      : `${PACKING_STATUS_LABEL[item.packingStatus]} — mark ${PACKING_STATUS_LABEL[next]}`
+    : `${PACKING_STATUS_LABEL[item.packingStatus]} (read-only)`;
   const titleAttr = !canWrite
-    ? "You don't have permission to change this item's status."
+    ? "No permission"
     : hasError
-      ? "Last update failed. Tap to retry."
+      ? "Retry"
       : undefined;
   return (
     <button

@@ -81,7 +81,7 @@ export function EntityOverviewCard({ label, total, basePath, counts, attention, 
           href={basePath}
           className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
-          View {label.toLowerCase()} →
+          {label} →
         </a>
       </div>
     </div>

@@ -33,9 +33,6 @@ export default async function UsersLayout({ children }: { children: React.ReactN
     <PageWrapper>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Users</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Manage this organization&apos;s members, roles, and API keys.
-        </p>
       </div>
       <UsersTabs />
       {children}

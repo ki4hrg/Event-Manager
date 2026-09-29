@@ -85,7 +85,7 @@ function ItemMobileCard({
       {(override || item.sourceLocationPath) && (
         <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 space-y-0.5 break-words">
           {override && <p>Provider: {override}</p>}
-          {item.sourceLocationPath && <p>From: {item.sourceLocationPath}</p>}
+          {item.sourceLocationPath && <p>Storage: {item.sourceLocationPath}</p>}
         </div>
       )}
       {item.notes && (
@@ -172,7 +172,7 @@ function OrderCard({ order }: { order: PackingListOrderBlock }) {
                     )}
                     {item.sourceLocationPath && (
                       <span className="block text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
-                        From: {item.sourceLocationPath}
+                        Storage: {item.sourceLocationPath}
                       </span>
                     )}
                   </td>
@@ -366,7 +366,7 @@ export function PackingListReport({ data }: PackingListReportProps) {
   const { roomSections, procurement } = data;
 
   if (roomSections.length === 0 && procurement.length === 0) {
-    return <EmptyState message="No packable items found for the selected filters." />;
+    return <EmptyState message="No items." />;
   }
 
   const sections = [
@@ -397,7 +397,7 @@ export function PackingListReport({ data }: PackingListReportProps) {
 
       <SectionDivider id="procurement" title="Procurement" />
       {procurement.length === 0 ? (
-        <EmptyState message="Nothing left to procure — every item is on hand or drop-shipping." />
+        <EmptyState message="All items procured." />
       ) : (
         procurement.map((group) => <ProcurementCard key={group.anchorId} group={group} />)
       )}

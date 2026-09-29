@@ -258,7 +258,6 @@ export function ReportFilters({
         <button
           onClick={toggleHidePacked}
           className={`${chipBase} ${hidePacked ? chipOn : chipOff}`}
-          title="Hide items already in transit or delivered"
         >
           Hide packed
         </button>

@@ -50,7 +50,7 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
   if (groups.length === 0) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        No dashboards yet.
+        No dashboards.
         {canWrite && (
           <>
             {" "}
@@ -58,9 +58,8 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
               href={`/events/${eventId}/share-links/dashboards/new`}
               className="text-blue-600 dark:text-blue-400 hover:underline"
             >
-              Create one
-            </Link>{" "}
-            to bundle multiple reports under a single link.
+              Create
+            </Link>
           </>
         )}
       </p>
@@ -110,7 +109,7 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
                     href={`/events/${eventId}/share-links/dashboards/${g.id}`}
                     className="text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    {g.label || <span className="italic">Untitled dashboard</span>}
+                    {g.label || <span className="italic">Untitled</span>}
                   </Link>
                 </td>
                 <td className="py-2 pr-4 text-right text-gray-600 dark:text-gray-400">
@@ -139,7 +138,7 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
                         onClick={() => handleCopy(g.token)}
                         className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                       >
-                        {copied === g.token ? "Copied!" : "Copy URL"}
+                        {copied === g.token ? "Copied" : "Copy"}
                       </button>
                     )}
                     {canWrite && active && (

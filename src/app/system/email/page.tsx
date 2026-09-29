@@ -61,9 +61,6 @@ export default async function SystemEmailPage() {
 
       <section>
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Send test email</h2>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Sends a one-off message via Mailgun. Use this after editing the env vars to confirm delivery.
-        </p>
         <div className="mt-4 max-w-2xl bg-white dark:bg-gray-800 shadow rounded-lg p-4">
           {!configured && (
             <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-300 text-sm">

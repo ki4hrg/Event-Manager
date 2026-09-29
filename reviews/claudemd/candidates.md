@@ -105,3 +105,7 @@
 - [reports] Vendor Handoff, cited as a reference implementation, had six tables with no mobile card variant until the mobile UX pass
 - [layout] Grid items that contain `overflow-x-auto` tables need `min-w-0`, or the table widens the page instead of scrolling (src/app/venues/[id]/page.tsx)
 - [layout] Header nav is inline only at `lg`; below that MobileNav owns it — add new top-level links to the `mainLinks`/`adminLinks` arrays in Header.tsx, not as JSX (src/components/Header.tsx)
+- [ui-copy] UI copy is terse: no narrating the UI, no explaining design choices, prefer visual cues over prose, short action-oriented labels (user direction, 2026-09-29 design pass)
+- [forms] Long inline item forms group fields with `FormSection` (`src/components/ui/FormSection.tsx`) — titled fieldsets over the same 1→2 col grid (supply + print item forms)
+- [naming] Item storage location is labeled "Storage location" in forms and "Storage" in lists/reports — never "From"/"Comes from", which read as provider/supplier
+- [events] Event overview shows cards only for entity types with rows; empty types collapse to a "Not in use" chip row linking to `/new`

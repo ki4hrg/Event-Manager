@@ -131,8 +131,7 @@ export function SeriesList({
       {series.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-8 text-center">
           <p className="text-gray-500 dark:text-gray-400">
-            No series yet. Group the yearly editions of a conference so the app can offer
-            last year&apos;s event when you build the next one.
+            No series yet.
           </p>
         </div>
       ) : (

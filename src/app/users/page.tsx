@@ -29,9 +29,6 @@ export default async function UsersPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start mb-4">
         <div>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Users</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Members of this organization. Each holds one role here that defines their permissions; the same account may belong to other organizations with a different role.
-          </p>
         </div>
         <Link href="/users/new" className={`${btnPrimary} self-start sm:shrink-0`}>
           Add User

@@ -112,7 +112,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
           {!selected ? (
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Search Users *
+                Search *
               </label>
               <input
                 type="text"
@@ -160,7 +160,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
           ) : (
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Selected User
+                User
               </label>
               <div className="flex items-center justify-between gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                 <span className="min-w-0 break-words text-gray-900 dark:text-white text-sm">
@@ -209,7 +209,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
       )}
 
       {staff.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">No staff assigned yet.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">No staff assigned</p>
       ) : (
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {staff.map((entry) => (

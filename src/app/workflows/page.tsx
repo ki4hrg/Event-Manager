@@ -20,7 +20,6 @@ export default async function WorkflowsPage() {
     <PageWrapper>
       <PageHeader
         title="Workflows"
-        description="Define reusable workflow templates with sequential steps and checklist items"
         actions={
           <Link href="/workflows/new" className={btnPrimary}>
             Create Workflow

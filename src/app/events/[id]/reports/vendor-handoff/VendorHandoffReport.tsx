@@ -1184,7 +1184,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
                   )}
                   {item.sourceLocation && (
                     <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                      From: {item.sourceLocation.name}
+                      Storage: {item.sourceLocation.name}
                     </p>
                   )}
                   {item.notes && (
@@ -1203,7 +1203,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
                   <th className={th}>Packing</th>
                   <th className={th}>Source</th>
                   {/* "Source" above is acquisition state; this is where it lives. */}
-                  <th className={th}>From</th>
+                  <th className={th}>Storage</th>
                   <th className={th}>Provider</th>
                   <th className={th}>Notes</th>
                 </tr>
