@@ -4,7 +4,7 @@ import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "./utils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
-import { groupRoomsByGroup } from "@/lib/roomGroups";
+import { groupRoomsByGroup, spansMultipleVenues } from "@/lib/roomGroups";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -83,6 +83,18 @@ type RoomWithGroup = Room & {
   venue?: { id: string; name: string; rank?: number };
 };
 
+// roomId -> its venue, set only when the event's rooms span several venues —
+// the signal to label rooms with their venue. Group rooms (GroupData) don't
+// carry a venue, so they're looked up here from the event's room list.
+type RoomVenueMap = Map<string, { name: string; rank: number }> | null;
+
+function buildRoomVenueMap(venueRooms: RoomWithGroup[]): RoomVenueMap {
+  if (!spansMultipleVenues(venueRooms)) return null;
+  return new Map(
+    venueRooms.flatMap((r) => (r.venue ? [[r.id, { name: r.venue.name, rank: r.venue.rank ?? 0 }] as const] : [])),
+  );
+}
+
 type BreakoutGridProps = {
   eventId: string;
   groups: GroupData[];
@@ -140,11 +152,13 @@ function formatDateTimeLocal(date: Date, timezone: string): string {
 function GroupRoomManager({
   group,
   venueRooms,
+  roomVenues,
   addRoom,
   removeRoom,
 }: {
   group: GroupData;
   venueRooms: RoomWithGroup[];
+  roomVenues: RoomVenueMap;
   addRoom: (groupId: string, roomId: string) => Promise<void>;
   removeRoom: (groupId: string, roomId: string) => Promise<void>;
 }) {
@@ -173,6 +187,9 @@ function GroupRoomManager({
             className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm text-gray-700 dark:text-gray-300"
           >
             {gr.room.name}
+            {roomVenues?.get(gr.roomId) && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">· {roomVenues.get(gr.roomId)!.name}</span>
+            )}
             {canWrite && (
               <button
                 onClick={() => startTransition(() => removeRoom(group.id, gr.roomId))}
@@ -785,6 +802,7 @@ function AssignmentGrid({
   group,
   eventId,
   timezone,
+  roomVenues,
   assignPresentation,
   moveSlot,
   removeSlot,
@@ -792,6 +810,7 @@ function AssignmentGrid({
   group: GroupData;
   eventId: string;
   timezone: string;
+  roomVenues: RoomVenueMap;
   assignPresentation: (presentationId: string, functionId: string, roomId: string | null) => Promise<{ success: boolean; error?: string }>;
   moveSlot: (slotId: string, newFunctionId: string, newRoomId: string | null) => Promise<{ success: boolean; error?: string }>;
   removeSlot: (slotId: string) => Promise<void>;
@@ -836,7 +855,10 @@ function AssignmentGrid({
     }
   }
 
-  const roomList = Array.from(allRooms.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const roomList = Array.from(allRooms.values()).sort((a, b) => {
+    const rankDiff = (roomVenues?.get(a.id)?.rank ?? 0) - (roomVenues?.get(b.id)?.rank ?? 0);
+    return rankDiff !== 0 ? rankDiff : a.name.localeCompare(b.name);
+  });
 
   // Unassigned presentations: one entry per remaining instance
   const unassignedCards: { presentation: GroupPresentation; instanceLabel: string; instanceIndex: number }[] = [];
@@ -1049,6 +1071,11 @@ function AssignmentGrid({
                     className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-xs font-medium text-gray-900 dark:text-white w-40"
                   >
                     {room.name}
+                    {roomVenues?.get(room.id) && (
+                      <div className="text-[10px] font-normal text-gray-500 dark:text-gray-400 truncate">
+                        {roomVenues.get(room.id)!.name}
+                      </div>
+                    )}
                   </th>
                 ))}
               </tr>
@@ -1178,6 +1205,7 @@ function GroupPanel({
 }) {
   const canWrite = useCanWrite("FUNCTIONS");
   const [isRenaming, setIsRenaming] = useState(false);
+  const roomVenues = useMemo(() => buildRoomVenueMap(venueRooms), [venueRooms]);
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -1236,6 +1264,7 @@ function GroupPanel({
           <GroupRoomManager
             group={group}
             venueRooms={venueRooms}
+            roomVenues={roomVenues}
             addRoom={addRoomToGroup}
             removeRoom={removeRoomFromGroup}
           />
@@ -1257,6 +1286,7 @@ function GroupPanel({
           group={group}
           eventId={eventId}
           timezone={timezone}
+          roomVenues={roomVenues}
           assignPresentation={assignPresentation}
           moveSlot={moveSlot}
           removeSlot={removeSlot}
