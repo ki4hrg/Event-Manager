@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { getFunctionsWithPresentations } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
-import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { getEventRooms } from "@/lib/eventVenues";
 import { getOptions } from "@/app/settings/actions";
 import { requirePermission } from "@/lib/permissions";
 import { getAgendaViewSettings, getAgendaRoomPrefs } from "@/lib/userSettings";
@@ -27,20 +27,9 @@ export default async function AgendaPage({
 
   const session = await requirePermission("FUNCTIONS", "VIEW", eventId);
 
-  const [event, functions, scheduleTypes, agendaViewSettings, agendaRoomPrefs] = await Promise.all([
-    prisma.event.findUnique({
-      where: { id: eventId },
-      include: {
-        venue: {
-          include: {
-            rooms: {
-              include: { group: { select: { id: true, name: true, sortOrder: true } } },
-              orderBy: { name: "asc" },
-            },
-          },
-        },
-      },
-    }),
+  const [event, rooms, functions, scheduleTypes, agendaViewSettings, agendaRoomPrefs] = await Promise.all([
+    prisma.event.findUnique({ where: { id: eventId } }),
+    getEventRooms(eventId),
     getFunctionsWithPresentations(eventId),
     getOptions("schedule_type"),
     getAgendaViewSettings(session.user.id),
@@ -52,7 +41,6 @@ export default async function AgendaPage({
   }
 
   const timezone = event.timezone || "America/Chicago";
-  const rooms = sortRoomsByGroupThenName(event.venue?.rooms ?? []);
 
   const scheduleTypeAttrs = new Map(scheduleTypes.map((t) => [t.label, { label: t.label, color: t.color }]));
   const agendaData = buildAgendaData(functions, rooms, timezone, scheduleTypeAttrs);

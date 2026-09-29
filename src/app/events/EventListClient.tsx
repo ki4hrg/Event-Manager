@@ -11,7 +11,7 @@ type EventItem = {
   startDate: string;
   endDate: string;
   timezone: string;
-  venue?: { name: string } | null;
+  venues: { venue: { name: string } }[];
   series?: { id: string; name: string } | null;
 };
 
@@ -149,7 +149,11 @@ export function EventListClient({ events, seriesOptions, selectedSeries, canWrit
                       {event.series?.name || "—"}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                      {event.venue?.name || "—"}
+                      {event.venues.length === 0
+                        ? "—"
+                        : event.venues.length === 1
+                          ? event.venues[0].venue.name
+                          : `${event.venues[0].venue.name} +${event.venues.length - 1}`}
                     </td>
                   </tr>
                 ))

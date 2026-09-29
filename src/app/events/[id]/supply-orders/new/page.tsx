@@ -6,7 +6,7 @@ import { getEvent } from "../../../actions";
 import { createSupplyOrder } from "../../../supply-orders/actions";
 import { SupplyOrderForm } from "../../../supply-orders/SupplyOrderForm";
 import { getResponsibleParties } from "@/lib/responsibleParties";
-import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { getEventRooms } from "@/lib/eventVenues";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 import { requirePermission } from "@/lib/permissions";
 
@@ -44,15 +44,7 @@ export default async function NewSupplyOrderPage({
 
   if (!event) notFound();
 
-  const rooms = sortRoomsByGroupThenName(
-    event.venueId
-      ? await prisma.room.findMany({
-          where: { venueId: event.venueId },
-          include: { group: { select: { id: true, name: true, sortOrder: true } } },
-          orderBy: { name: "asc" },
-        })
-      : []
-  );
+  const rooms = await getEventRooms(eventId);
 
   const cancelPath = getSourceCancelPath(eventId, functionId, presentationId, `/events/${eventId}/supply-orders`);
   const backLabel = getSourceBackLabel(functionId, presentationId, "Back to Supply Orders");

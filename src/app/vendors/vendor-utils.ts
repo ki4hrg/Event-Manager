@@ -5,7 +5,7 @@ export function flattenResponsiblePartyOptions(
 ): { id: string; name: string }[] {
   return [
     ...(options.systemVendor ? [options.systemVendor] : []),
-    ...(options.venueVendor ? [options.venueVendor] : []),
+    ...options.venueVendors,
     ...options.vendors,
   ];
 }

@@ -1434,11 +1434,13 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
     ? `${startDateStr} – ${endDateStr}`
     : (startDateStr ?? endDateStr ?? null);
 
-  const venue = event.venue;
-  const addressParts = venue ? [venue.city, venue.state].filter(Boolean) : [];
-  const addressLine = venue?.address
-    ? [venue.address, ...addressParts].join(", ")
-    : addressParts.join(", ");
+  const venueLines = event.venues.map(({ venue }) => {
+    const addressParts = [venue.city, venue.state].filter(Boolean);
+    const addressLine = venue.address
+      ? [venue.address, ...addressParts].join(", ")
+      : addressParts.join(", ");
+    return { id: venue.id, text: `${venue.name}${addressLine ? ` · ${addressLine}` : ""}` };
+  });
 
   const sectionLinks: { id: string; label: string }[] = [];
   if (keyStaff.length > 0) sectionLinks.push({ id: "key-contacts", label: "Key Contacts" });
@@ -1467,11 +1469,11 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
           {dateRange && (
             <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">{dateRange}</p>
           )}
-          {venue && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">
-              {venue.name}{addressLine ? ` · ${addressLine}` : ""}
+          {venueLines.map((line) => (
+            <p key={line.id} className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-0.5">
+              {line.text}
             </p>
-          )}
+          ))}
           <div className="mt-3">
             <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 print:text-gray-600 uppercase tracking-wide">Vendor</p>
             <p className="text-sm font-semibold text-gray-900 dark:text-white print:text-black">{vendor.name}</p>

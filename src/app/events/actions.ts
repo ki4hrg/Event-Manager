@@ -3,6 +3,7 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { eventVenuesInclude } from "@/lib/eventVenues";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -26,7 +27,7 @@ export async function getEvents(series?: string) {
 
   return prisma.event.findMany({
     where: { ...scopeWhere, ...seriesWhere },
-    include: { venue: true, series: { select: { id: true, name: true } } },
+    include: { ...eventVenuesInclude, series: { select: { id: true, name: true } } },
     orderBy: { startDate: "desc" },
   });
 }
@@ -45,7 +46,7 @@ export const getEvent = cache(async (id: string) => {
   return prisma.event.findUnique({
     where: { id },
     include: {
-      venue: true,
+      ...eventVenuesInclude,
       updatedBy: { select: { name: true, email: true } },
     },
   });
@@ -58,7 +59,7 @@ function readEventArgs(formData: FormData): EventWriteArgs {
     startDate: new Date(formData.get("startDate") as string),
     endDate: new Date(formData.get("endDate") as string),
     timezone: (formData.get("timezone") as string) || "America/Chicago",
-    venueId: (formData.get("venueId") as string) || null,
+    venueIds: formData.getAll("venueIds") as string[],
     seriesId: (formData.get("seriesId") as string) || null,
   };
 }

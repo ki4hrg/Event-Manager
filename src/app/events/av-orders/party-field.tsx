@@ -32,7 +32,7 @@ export function mergeExtraVendorsIntoGroup(
 ): ResponsiblePartyOptions {
   const knownIds = new Set([
     ...(groups.systemVendor ? [groups.systemVendor.id] : []),
-    ...(groups.venueVendor ? [groups.venueVendor.id] : []),
+    ...groups.venueVendors.map((v) => v.id),
     ...groups.vendors.map((v) => v.id),
   ]);
   const extras = extra.filter((v): v is { id: string; name: string } => v != null && !knownIds.has(v.id));
@@ -96,9 +96,11 @@ export function PartyField(props: PartyFieldProps) {
             {vendorGroups.systemVendor && (
               <option value={`vendor:${vendorGroups.systemVendor.id}`}>{vendorGroups.systemVendor.name}</option>
             )}
-            {vendorGroups.venueVendor && (
-              <optgroup label="Venue">
-                <option value={`vendor:${vendorGroups.venueVendor.id}`}>{vendorGroups.venueVendor.name}</option>
+            {vendorGroups.venueVendors.length > 0 && (
+              <optgroup label={vendorGroups.venueVendors.length > 1 ? "Venues" : "Venue"}>
+                {vendorGroups.venueVendors.map((v) => (
+                  <option key={v.id} value={`vendor:${v.id}`}>{v.name}</option>
+                ))}
               </optgroup>
             )}
             {vendorGroups.vendors.length > 0 && (

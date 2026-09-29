@@ -48,7 +48,7 @@ import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
-import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { getEventRooms } from "@/lib/eventVenues";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
@@ -118,13 +118,7 @@ export default async function SetupOrderPage({
     : equipmentOptions;
 
   const [venueRooms, availableFunctions, availablePresentations] = await Promise.all([
-    event.venueId
-      ? prisma.room.findMany({
-          where: { venueId: event.venueId },
-          include: { group: { select: { id: true, name: true, sortOrder: true } } },
-          orderBy: { name: "asc" },
-        })
-      : Promise.resolve([]),
+    getEventRooms(eventId),
     prisma.function.findMany({
       where: {
         eventId,
@@ -376,7 +370,7 @@ export default async function SetupOrderPage({
                 eventId={eventId}
                 setupTypes={setupTypes}
                 action={updateSetupOrderAction}
-                rooms={sortRoomsByGroupThenName(venueRooms)}
+                rooms={venueRooms}
                 vendorLink={{
                   assignedVendors: setupOrderVendors,
                   availableVendors: availableEventVendors.map((v) => ({ id: v.id, label: v.name })),

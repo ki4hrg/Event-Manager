@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
 import { createFunction } from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
 import { getOptions } from "@/app/settings/actions";
-import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { getEventRooms } from "@/lib/eventVenues";
 import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
@@ -34,16 +33,8 @@ export default async function NewFunctionPage({
     notFound();
   }
 
-  // Get rooms from the event's venue (sorted to keep groups adjacent)
-  const rooms = sortRoomsByGroupThenName(
-    event.venueId
-      ? await prisma.room.findMany({
-          where: { venueId: event.venueId },
-          include: { group: { select: { id: true, name: true, sortOrder: true } } },
-          orderBy: { name: "asc" },
-        })
-      : []
-  );
+  // Rooms across every event venue, venue-first then group then name
+  const rooms = await getEventRooms(eventId);
 
   const createFunctionWithEventId = async (formData: FormData) => {
     "use server";
@@ -63,7 +54,7 @@ export default async function NewFunctionPage({
         </h1>
       </div>
 
-      {!event.venueId && (
+      {event.venues.length === 0 && (
         <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
           <p className="text-yellow-800 dark:text-yellow-200">
             This event doesn&apos;t have a venue assigned. You can still create

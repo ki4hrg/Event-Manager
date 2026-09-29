@@ -1,6 +1,7 @@
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
+import { eventVenuesInclude, eventVenuesOrderBy } from "@/lib/eventVenues";
 import {
   createEventSeriesCore,
   updateEventSeriesCore,
@@ -44,7 +45,7 @@ function readEventArgs(args: Record<string, unknown>): EventWriteArgs {
     startDate: requireDate(args, "startDate"),
     endDate: requireDate(args, "endDate"),
     timezone: optionalString(args, "timezone") ?? "America/Chicago",
-    venueId: optionalString(args, "venueId") ?? null,
+    venueIds: optionalStringArray(args, "venueIds"),
     seriesId: optionalString(args, "seriesId") ?? null,
   };
 }
@@ -58,7 +59,12 @@ const eventWriteProps = {
     type: "string",
     description: "IANA tz name (e.g. America/Chicago). Defaults to America/Chicago.",
   },
-  venueId: { type: "string", description: "Optional Venue id." },
+  venueIds: {
+    type: "array",
+    items: { type: "string" },
+    description:
+      "Venue ids in event order — the first is the primary venue. Rooms from every listed venue are available to the event's functions and orders. Omitting it leaves the event with no venues.",
+  },
   seriesId: {
     type: "string",
     description:
@@ -70,20 +76,26 @@ export const eventTools: McpToolDefinition[] = [
   {
     name: "list_events",
     description:
-      "List events visible to the API key's user. Honors the same scope rules as the UI — users without EVENTS:UNASSIGNED:VIEW see only events they are staff on. Returns summary shape — use `get_event` for full detail (updatedBy attribution).",
+      "List events visible to the API key's user. Honors the same scope rules as the UI — users without EVENTS:UNASSIGNED:VIEW see only events they are staff on. Returns summary shape — use `get_event` for full detail (venue addresses, updatedBy attribution).",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: async (_args, { userId, tenantId }) => {
       await requirePermissionForUser(userId, PermissionResource.EVENTS, "VIEW", { tenantId });
       return prisma.event.findMany({
         where: await eventScopeWhere(userId, tenantId),
-        include: { venue: true, series: { select: { id: true, name: true } } },
+        include: {
+          venues: {
+            orderBy: eventVenuesOrderBy,
+            select: { sortOrder: true, venue: { select: { id: true, name: true } } },
+          },
+          series: { select: { id: true, name: true } },
+        },
         orderBy: { startDate: "desc" },
       });
     },
   },
   {
     name: "get_event",
-    description: "Fetch a single event by id, including its venue.",
+    description: "Fetch a single event by id, including its venues in order (the first is the primary venue).",
     inputSchema: {
       type: "object",
       properties: {
@@ -98,7 +110,7 @@ export const eventTools: McpToolDefinition[] = [
       return prisma.event.findUnique({
         where: { id },
         include: {
-          venue: true,
+          ...eventVenuesInclude,
           series: { select: { id: true, name: true } },
           updatedBy: { select: { name: true, email: true } },
         },

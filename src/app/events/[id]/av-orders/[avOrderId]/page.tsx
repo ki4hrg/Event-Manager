@@ -112,7 +112,7 @@ export default async function AVOrderPage({
   let availablePresentations: Awaited<ReturnType<typeof prisma.presentation.findMany>> = [];
   let equipmentOptions: Awaited<ReturnType<typeof getEquipment>> = [];
   let equipmentCategories: Awaited<ReturnType<typeof getOptions>> = [];
-  let avOrderPartyOptions: Awaited<ReturnType<typeof getAVOrderResponsiblePartyOptions>> = { responsiblePartyVendors: { vendors: [], venueVendor: null, systemVendor: null }, contacts: [] };
+  let avOrderPartyOptions: Awaited<ReturnType<typeof getAVOrderResponsiblePartyOptions>> = { responsiblePartyVendors: { vendors: [], venueVendors: [], systemVendor: null }, contacts: [] };
   if (activeTab === "overview") {
     [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories, avOrderPartyOptions] = await Promise.all([
       prisma.function.findMany({

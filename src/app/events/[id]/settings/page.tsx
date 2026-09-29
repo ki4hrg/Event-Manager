@@ -74,12 +74,12 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
             Event Details
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Name, dates, timezone, venue, and series.
+            Name, dates, timezone, venues, and series.
           </p>
           <EventForm
             venues={venues}
             series={series}
-            event={event}
+            event={{ ...event, venueIds: event.venues.map((v) => v.venueId) }}
             action={updateEventAction}
             cancelHref={`/events/${id}`}
           />

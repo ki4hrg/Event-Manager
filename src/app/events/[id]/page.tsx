@@ -22,6 +22,7 @@ import { EntityOverviewCard } from "./EntityOverviewCard";
 import { LastUpdated } from "@/components/LastUpdated";
 import { formatEventDate } from "@/lib/agendaUtils";
 import { btnPrimary } from "@/lib/buttonStyles";
+import { venueNames } from "@/lib/eventVenues";
 
 export const dynamic = "force-dynamic";
 
@@ -121,7 +122,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             {dateRange}
-            {event.venue && <span> · {event.venue.name}</span>}
+            {event.venues.length > 0 && <span> · {venueNames(event)}</span>}
           </p>
           {event.description && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{event.description}</p>
