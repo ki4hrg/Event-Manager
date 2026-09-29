@@ -35,14 +35,14 @@ export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `
 
   return (
     <div className="print:hidden mb-6 flex flex-wrap items-end gap-4">
-      <div>
+      <div className="min-w-0 max-w-full">
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
           Vendor
         </label>
         <select
           value={selectedVendorId ?? ""}
           onChange={(e) => handleVendorChange(e.target.value)}
-          className="block rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="block max-w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Select a vendor...</option>
           {vendors.map((v) => (
@@ -54,7 +54,7 @@ export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `
       </div>
 
       {(shareButton || showPrint) && (
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
           {shareButton}
           {showPrint && (
             <a

@@ -124,8 +124,8 @@ function WorkflowInstancePanel({
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-      <div className="flex justify-between items-center px-4 py-3 bg-gray-50 dark:bg-gray-900">
-        <div className="flex items-center gap-3">
+      <div className="flex justify-between items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-900">
+        <div className="flex items-center gap-3 min-w-0">
           <span className="font-medium text-gray-900 dark:text-white text-sm">
             {instance.template.name}
           </span>
@@ -148,7 +148,7 @@ function WorkflowInstancePanel({
                 await removeWorkflow(instance.id);
               }
             }}
-            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 text-xs"
+            className="shrink-0 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 text-xs"
           >
             Remove
           </button>
@@ -174,7 +174,7 @@ function WorkflowInstancePanel({
                     {index + 1}
                   </span>
                   {isChecklistStep ? (
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span
                         className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                           stepDone
@@ -195,13 +195,13 @@ function WorkflowInstancePanel({
                       </span>
                     </div>
                   ) : isLocked && !stepDone ? (
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center shrink-0" />
                       <span className="text-sm text-gray-900 dark:text-white">{step.label}</span>
                     </div>
                   ) : (
                     <button
-                      className="flex items-center gap-2 flex-1 text-left"
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
                       onClick={() => handleToggleStep(step.id)}
                       disabled={stepPending}
                     >
@@ -314,7 +314,7 @@ export function WorkflowPanel({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Workflows</h2>
 
       <div className="space-y-3">
@@ -341,7 +341,7 @@ export function WorkflowPanel({
             <select
               value={selectedTemplateId}
               onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              className="flex-1 min-w-0 px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             >
               <option value="">Assign workflow...</option>
               {availableTemplates.map((t) => (

@@ -273,7 +273,7 @@ export function BreakoutSlotPanel({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">
           Breakout Schedule
         </h2>
@@ -325,8 +325,8 @@ export function BreakoutSlotPanel({
       {currentGroupId && (
         <div className="mb-4 space-y-2">
           {/* Group header row */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500 dark:text-gray-400">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span className="min-w-0 break-words text-gray-500 dark:text-gray-400">
               Group: <span className="font-medium text-gray-900 dark:text-white">{currentGroup?.name ?? currentGroupId}</span>
             </span>
             {canWrite && (
@@ -397,7 +397,7 @@ export function BreakoutSlotPanel({
             ) : (
               <div key={slot.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="min-w-0 break-words">
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
                       <Link
                         href={`/events/${eventId}/functions/${slot.functionId}`}

@@ -36,7 +36,7 @@ export function VenueForm({ venue, action }: VenueFormProps) {
     const addressDisplay = addressParts.length > 0 ? addressParts.join(", ") : null;
 
     return (
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Venue Details</h2>
           {canWrite && (
@@ -58,7 +58,7 @@ export function VenueForm({ venue, action }: VenueFormProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       {isEdit && (
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Venue Details</h2>
       )}

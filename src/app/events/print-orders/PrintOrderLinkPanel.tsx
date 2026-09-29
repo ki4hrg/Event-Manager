@@ -123,7 +123,7 @@ export function PrintOrderLinkPanel({
                 <select
                   value={selectedFunctionId}
                   onChange={(e) => setSelectedFunctionId(e.target.value)}
-                  className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="">Select function...</option>
                   {availableFunctions.map((f) => (
@@ -164,8 +164,8 @@ export function PrintOrderLinkPanel({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Linked Presentation</h2>
 
         {linkedPresentation ? (
-          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <Link href={linkedPresentation.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
+          <div className="flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            <Link href={linkedPresentation.path} className="min-w-0 break-words text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
               {linkedPresentation.title}
             </Link>
             {canWrite && (
@@ -194,7 +194,7 @@ export function PrintOrderLinkPanel({
                     <select
                       value={selectedPresentationId}
                       onChange={(e) => setSelectedPresentationId(e.target.value)}
-                      className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+                      className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
                     >
                       <option value="">Select presentation...</option>
                       {availablePresentations.map((p) => (

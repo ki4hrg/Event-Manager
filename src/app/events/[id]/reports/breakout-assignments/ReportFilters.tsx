@@ -108,7 +108,7 @@ export function ReportFilters({
   return (
     <div className="print:hidden mb-6">
       <div className="sm:hidden">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
           {groups.length > 1 && (
             <button
               onClick={() => setFiltersOpen((open) => !open)}
@@ -123,7 +123,7 @@ export function ReportFilters({
               )}
             </button>
           )}
-          <div className="ml-auto flex items-center gap-3">{actions}</div>
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">{actions}</div>
         </div>
         {filtersOpen && (
           <div className="flex flex-wrap items-start gap-6">{filterChips}</div>

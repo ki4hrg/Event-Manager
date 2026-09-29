@@ -130,7 +130,7 @@ export function KeyStaffList({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <div className="flex justify-between items-center mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Key Staff
         </p>
@@ -260,7 +260,7 @@ export function KeyStaffList({
         <form action={handleCreateFormSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
           <div className="space-y-3">
             <SectionLabel>New contact</SectionLabel>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   First Name *
@@ -375,8 +375,8 @@ export function KeyStaffList({
                   </div>
                 </form>
               ) : (
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1 min-w-0 break-words">
                     <span className="text-sm font-medium text-gray-900 dark:text-white">
                       {entry.contact.firstName} {entry.contact.lastName}
                     </span>

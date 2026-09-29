@@ -91,7 +91,7 @@ export function EventAccessPanel({
   }
 
   return (
-    <div className="mt-6 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className="mt-6 bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         Event access
       </h2>
@@ -182,7 +182,7 @@ export function EventAccessPanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search events by name..."
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <AccessLevelSelect
             ariaLabel="Access level for new assignment"

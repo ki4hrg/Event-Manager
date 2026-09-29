@@ -119,7 +119,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
                         {link.accessCount}
                       </td>
                       <td className={`py-2 pr-4 text-xs ${status.cls}`}>{status.label}</td>
-                      <td className="py-2">
+                      <td className="py-2 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           {!link.revokedAt && (
                             <button

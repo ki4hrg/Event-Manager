@@ -167,9 +167,9 @@ export function FunctionList({
       {canSelect && (
         <input type="checkbox" checked={selected.has(fn.id)} onChange={() => toggleRow(fn.id)} className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0" />
       )}
-      <div className="flex-1 min-w-0 flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+      <div className="flex-1 min-w-0 flex flex-col sm:flex-row items-start sm:justify-between gap-2 sm:gap-0">
+        <div className="flex-1 min-w-0 w-full">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
             <Link
               href={fnHref}
               className="text-blue-600 dark:text-blue-400 hover:underline font-medium truncate"
@@ -204,7 +204,7 @@ export function FunctionList({
             <p className="text-sm text-gray-500 dark:text-gray-500 mt-1 truncate">{fn.description}</p>
           )}
         </div>
-        <div className="flex items-center gap-2 ml-4">
+        <div className="flex items-center gap-3 sm:gap-2 sm:ml-4 shrink-0">
           {canWrite && (
             <button
               onClick={async () => { await duplicateFunction(fn.id); }}
@@ -278,7 +278,7 @@ export function FunctionList({
             </select>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <a
             href={`/events/${eventId}/functions/print`}
             className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -331,26 +331,26 @@ export function FunctionList({
       )}
       {canWrite && showBulkEdit && selected.size > 0 && (
         <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
-          <div>
+          <div className="max-w-full">
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
               <option value="">— no change —</option>
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           {availableSubstatuses.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Substatus</label>
-              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {availableSubstatuses.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
               </select>
             </div>
           )}
           {functionTypes.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
-              <select value={bulkType} onChange={(e) => setBulkType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkType} onChange={(e) => setBulkType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {functionTypes.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
               </select>

@@ -50,7 +50,7 @@ export default async function RoomSchedulePrintPage({
   return (
     <>
       <style>{`@page { margin: 0.5in; }`}</style>
-      <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
         <div className="print:hidden">
           <PrintHeader eventName={event.name} title="Room Schedule" backHref={backHref} />
         </div>

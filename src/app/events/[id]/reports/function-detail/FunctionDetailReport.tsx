@@ -114,7 +114,7 @@ function EquipmentTable({ items }: { items: EquipmentItem[] }) {
           return (
             <div key={it.id} className="p-2">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-medium text-gray-900 dark:text-gray-100">
+                <span className="min-w-0 break-words font-medium text-gray-900 dark:text-gray-100">
                   {it.item}
                 </span>
                 <span className="text-gray-500 dark:text-gray-400">
@@ -202,7 +202,7 @@ function InputGroupBlock({ group }: { group: InputGroupT }) {
   return (
     <div className="border-l-2 border-gray-200 dark:border-gray-700 pl-3 mb-3">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+        <span className="min-w-0 break-words text-sm font-medium text-gray-900 dark:text-gray-100">
           {group.name}
         </span>
         {partyLabel(group.providerVendor, group.providerContact) && (
@@ -253,7 +253,7 @@ function MonitorMixBlock({ mix }: { mix: MonitorMixT }) {
   return (
     <div className="border-l-2 border-gray-200 dark:border-gray-700 pl-3 mb-3">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+        <span className="min-w-0 break-words text-sm font-medium text-gray-900 dark:text-gray-100">
           {mix.description}
         </span>
         {partyLabel(mix.providerVendor, mix.providerContact) && (
@@ -416,7 +416,7 @@ function SetupOrderCard({
             {order.tables.map((t) => (
               <div key={t.id} className="p-2">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                  <span className="min-w-0 break-words font-medium text-gray-900 dark:text-gray-100">
                     {t.quantity}× {t.tableType ?? "Table"}
                   </span>
                   {t.providerVendor && (
@@ -507,7 +507,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
       <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
 
       {hasStaging && (
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-700 dark:text-gray-300 mb-2">
+        <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs [&>dd]:break-words text-gray-700 dark:text-gray-300 mb-2">
           <dt className="font-medium">Staging:</dt>
           <dd>
             {order.room && order.specificLocation
@@ -529,7 +529,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
             {order.items.map((it) => (
               <div key={it.id} className="p-2">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                  <span className="min-w-0 break-words font-medium text-gray-900 dark:text-gray-100">
                     {it.description}
                   </span>
                   {it.quantity != null && (
@@ -662,7 +662,7 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
       </div>
       <LastUpdated updatedAt={order.updatedAt} updatedBy={order.updatedBy} className="mb-2 print:hidden" />
 
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-700 dark:text-gray-300 mb-2">
+      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs [&>dd]:break-words text-gray-700 dark:text-gray-300 mb-2">
         <dt className="font-medium">Destination:</dt>
         <dd>
           {order.room?.name ?? "—"}
@@ -690,7 +690,7 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
               return (
                 <div key={it.id} className="p-2">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{itemLabel}</span>
+                    <span className="min-w-0 break-words font-medium text-gray-900 dark:text-gray-100">{itemLabel}</span>
                     {it.quantity != null && (
                       <span className="text-gray-500 dark:text-gray-400">Qty {it.quantity}</span>
                     )}
@@ -778,7 +778,7 @@ function MediaDeliverableCard({ deliverable }: { deliverable: MediaDeliverable }
         </div>
       </div>
       <LastUpdated updatedAt={deliverable.updatedAt} updatedBy={deliverable.updatedBy} className="mb-2 print:hidden" />
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-xs text-gray-700 dark:text-gray-300 mb-2">
+      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs [&>dd]:break-words text-gray-700 dark:text-gray-300 mb-2">
         {providedBy && (
           <>
             <dt className="font-medium">Provider:</dt>
@@ -889,7 +889,7 @@ function CateringSection({
             {catering.lineItems.map((li) => (
               <div key={li.id} className="p-2">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                  <span className="min-w-0 break-words font-medium text-gray-900 dark:text-gray-100">
                     {li.description}
                   </span>
                   {li.quantity != null && (
@@ -1026,8 +1026,8 @@ function PresentationCard({
       className="border border-gray-300 dark:border-gray-600 rounded p-3 mb-3 print:break-inside-avoid scroll-mt-24"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-        <div>
-          <p className="font-medium text-gray-900 dark:text-gray-100">
+        <div className="min-w-0">
+          <p className="font-medium text-gray-900 dark:text-gray-100 break-words">
             {p.title}
           </p>
           {p.speakers.length > 0 && (
@@ -1210,12 +1210,12 @@ function FunctionBlock({
           </div>
           <LastUpdated updatedAt={fn.updatedAt} updatedBy={fn.updatedBy} timezone={timezone} className="mb-2 print:hidden" />
           {fn.description && (
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-1 break-words">
               {fn.description}
             </p>
           )}
           {fn.notes && (
-            <p className="text-sm italic text-gray-600 dark:text-gray-400 mb-1">
+            <p className="text-sm italic text-gray-600 dark:text-gray-400 mb-1 break-words">
               {fn.notes}
             </p>
           )}
@@ -1301,7 +1301,7 @@ function FunctionBlock({
                     </p>
                   )}
                   {(fc.contact.email || fc.contact.phone) && (
-                    <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5 break-words">
                       {fc.contact.email}
                       {fc.contact.email && fc.contact.phone ? " · " : ""}
                       {fc.contact.phone ? formatPhone(fc.contact.phone) : ""}

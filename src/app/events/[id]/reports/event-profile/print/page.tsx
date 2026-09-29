@@ -58,7 +58,7 @@ export default async function EventProfilePrintPage({
   if (!data) notFound();
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <PrintHeader eventName={event.name} title="Event Profile" backHref={backHref} />
       <EventProfileReport
         data={data}

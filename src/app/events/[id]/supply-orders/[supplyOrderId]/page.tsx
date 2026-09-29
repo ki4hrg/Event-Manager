@@ -367,7 +367,7 @@ export default async function SupplyOrderPage({
                 />
               </div>
               {supplyOrder.items.length > 0 && (
-                <div className="border-b border-gray-200 dark:border-gray-700 mb-4 pb-4 flex items-center gap-2">
+                <div className="border-b border-gray-200 dark:border-gray-700 mb-4 pb-4 flex flex-wrap items-center gap-2">
                   <span className="text-sm text-gray-500 dark:text-gray-400">Packing:</span>
                   <PackingStatusRollup items={supplyOrder.items} />
                 </div>

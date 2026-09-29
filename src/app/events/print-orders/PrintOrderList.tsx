@@ -243,35 +243,35 @@ export function PrintOrderList({
       )}
       {canWrite && showBulkEdit && selected.size > 0 && (
         <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
-          <div>
+          <div className="max-w-full">
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
               <option value="">— no change —</option>
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           {availableSubstatuses.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Substatus</label>
-              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {availableSubstatuses.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
               </select>
             </div>
           )}
           {vendors.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assign Vendor</label>
-              <select value={bulkVendorId} onChange={(e) => setBulkVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkVendorId} onChange={(e) => setBulkVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
             </div>
           )}
           {functions.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Add Function Link</label>
-              <select value={bulkFunctionId} onChange={(e) => setBulkFunctionId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkFunctionId} onChange={(e) => setBulkFunctionId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {functions.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
               </select>
@@ -294,7 +294,7 @@ export function PrintOrderList({
             >
               <input type="checkbox" checked={selected.has(po.id)} onChange={() => toggleRow(po.id)} className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/events/${eventId}/print-orders/${po.id}`}
                     className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400"
@@ -304,7 +304,7 @@ export function PrintOrderList({
                   <WorkflowBadge summary={workflowSummaries[po.id]} />
                   <EntityStatusBadge status={po.status} substatus={po.substatus} />
                 </div>
-                <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
                   {po.items.length > 0 && (
                     <span>{po.items.length} item{po.items.length !== 1 ? "s" : ""}</span>
                   )}

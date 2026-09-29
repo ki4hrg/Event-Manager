@@ -74,7 +74,7 @@ export function CancelOrDeleteButton({
           </button>
         )}
         {!canDelete ? null : confirmingDelete ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-600 dark:text-gray-400">Are you sure?</span>
             <button
               type="button"

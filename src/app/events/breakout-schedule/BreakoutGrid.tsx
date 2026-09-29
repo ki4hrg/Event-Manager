@@ -11,7 +11,8 @@ import { useCanWrite } from "@/components/PermissionsProvider";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -302,7 +303,7 @@ function SessionManager({
             autoFocus
             className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Start</label>
               <input
@@ -686,7 +687,8 @@ function DraggableCellCard({
             href={`/events/${eventId}/presentations/${slot.presentationId}`}
             className="text-blue-700 dark:text-blue-300 text-xs font-medium hover:underline break-words"
             onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
           >
             {slot.presentation.title}
           </Link>
@@ -702,8 +704,9 @@ function DraggableCellCard({
               e.stopPropagation();
               onRemove(slot.id);
             }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="text-red-400 hover:text-red-600 text-xs shrink-0"
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="text-red-400 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 text-base leading-none px-1 -my-0.5 shrink-0"
           >
             &times;
           </button>
@@ -804,8 +807,11 @@ function AssignmentGrid({
     setOptimisticGroup(group);
   }
 
+  // Mouse drags start after 8px; touch drags need a short press so a swipe
+  // still scrolls the grid instead of being swallowed by the drag.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
   if (group.functions.length === 0 || group.rooms.length === 0) {
@@ -1177,7 +1183,7 @@ function GroupPanel({
   return (
     <div className="mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       {/* Group Header */}
-      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
         {isRenaming && canWrite ? (
           <form
             action={(formData) => {
@@ -1186,20 +1192,20 @@ function GroupPanel({
                 setIsRenaming(false);
               });
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 min-w-0"
           >
             <input
               name="name"
               defaultValue={group.name}
               autoFocus
-              className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className="min-w-0 flex-1 sm:flex-none px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
             <button type="submit" disabled={isPending} className="px-2 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50">Save</button>
             <button type="button" onClick={() => setIsRenaming(false)} className="text-gray-500 text-sm">Cancel</button>
           </form>
         ) : (
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{group.name}</h3>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white break-words">{group.name}</h3>
             {group.functions.length > 0 && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {formatSessionDate(group.functions[0].schedules, timezone)}
@@ -1327,7 +1333,7 @@ export function BreakoutGrid({
           </p>
           <div className="space-y-1">
             {ungroupedBlocks.map((block) => (
-              <div key={block.id} className="flex items-center gap-2 text-sm">
+              <div key={block.id} className="flex flex-wrap items-center gap-x-2 text-sm">
                 <Link
                   href={`/events/${eventId}/functions/${block.id}`}
                   className="text-blue-600 dark:text-blue-400 hover:underline"
@@ -1360,7 +1366,7 @@ export function BreakoutGrid({
               placeholder="Group name"
               required
               autoFocus
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className="min-w-0 flex-1 sm:flex-none px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
             <button type="submit" disabled={isPending} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50">Create</button>
             <button type="button" onClick={() => setShowAddGroup(false)} className="text-gray-500 text-sm hover:text-gray-700">Cancel</button>

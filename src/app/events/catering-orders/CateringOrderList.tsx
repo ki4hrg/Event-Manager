@@ -235,26 +235,26 @@ export function CateringOrderList({
       )}
       {canWrite && showBulkEdit && selected.size > 0 && (
         <div className="mb-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-wrap items-end gap-3 text-sm">
-          <div>
+          <div className="max-w-full">
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+            <select value={bulkStatus} onChange={(e) => { setBulkStatus(e.target.value as EntityStatus | ""); setBulkSubstatus(""); }} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
               <option value="">— no change —</option>
               {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           {availableSubstatuses.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Substatus</label>
-              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkSubstatus} onChange={(e) => setBulkSubstatus(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {availableSubstatuses.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
               </select>
             </div>
           )}
           {vendors.length > 0 && (
-            <div>
+            <div className="max-w-full">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Assign Vendor</label>
-              <select value={bulkVendorId} onChange={(e) => setBulkVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white">
+              <select value={bulkVendorId} onChange={(e) => setBulkVendorId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
                 {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
@@ -274,14 +274,14 @@ export function CateringOrderList({
             <div key={order.id} className={`bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-start gap-3 ${selected.has(order.id) ? "ring-2 ring-blue-200 dark:ring-blue-800" : ""}`}>
               <input type="checkbox" checked={selected.has(order.id)} onChange={() => toggleRow(order.id)} className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Link href={`/events/${eventId}/catering-orders/${order.id}`} className="text-gray-900 dark:text-white font-medium hover:text-blue-600 dark:hover:text-blue-400">
                     {order.name}
                   </Link>
                   <WorkflowBadge summary={workflowSummaries[order.id]} />
                   <EntityStatusBadge status={order.status} substatus={order.substatus} />
                 </div>
-                <div className="mt-1 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
                   {order.guaranteeCount != null && <span>Guarantee: {order.guaranteeCount}</span>}
                   {order.serviceStyle && <span>{order.serviceStyle}</span>}
                   {order.function

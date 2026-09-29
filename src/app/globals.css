@@ -44,6 +44,31 @@ textarea {
   }
 }
 
+/* iOS Safari gives native date/time inputs an intrinsic min-width and its own
+   height, so a `w-full` date field in a two-column grid overflows the
+   viewport on a phone and sits taller than its text-input neighbours.
+   Dropping the native appearance lets width/padding utilities apply. Kept in
+   the base layer so any utility class still wins. */
+@layer base {
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    min-width: 0;
+  }
+  /* -webkit-touch-callout is iOS-only, so desktop pickers keep their chrome. */
+  @supports (-webkit-touch-callout: none) {
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"] {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    input::-webkit-date-and-time-value {
+      text-align: left;
+    }
+  }
+}
+
 @media print {
   @page {
     margin: 0.5in;

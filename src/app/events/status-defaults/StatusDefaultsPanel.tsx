@@ -98,7 +98,7 @@ export function StatusDefaultsPanel({
   };
 
   const selectClass =
-    "text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
+    "w-full min-w-0 text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
 
   return (
     <div className="space-y-4">
@@ -117,12 +117,32 @@ export function StatusDefaultsPanel({
           const hasOverride = defaults.some((d) => d.modelType === modelType);
           const availableSubstatuses = substatuses.filter((s) => s.group === row.status);
 
+          const clearButton = hasOverride && (
+            <button
+              type="button"
+              onClick={() => handleClear(modelType)}
+              disabled={isPending}
+              className={`${btnOutlinedSm} disabled:opacity-50`}
+            >
+              {clearingRow === modelType ? "Clearing…" : "Clear"}
+            </button>
+          );
+
+          // Phone: label (+ Clear) on its own line, the two selects share the
+          // next one. sm+: one row of label | status | substatus | Clear.
           return (
-            <div key={modelType} className="flex flex-wrap items-center gap-2 p-3">
-              <span className="text-sm text-gray-700 dark:text-gray-300 w-36 shrink-0">
-                {STATUS_MODEL_LABEL[modelType]}
-              </span>
+            <div
+              key={modelType}
+              className="grid grid-cols-2 sm:grid-cols-[9rem_minmax(0,14rem)_minmax(0,14rem)_auto] items-center gap-2 p-3"
+            >
+              <div className="col-span-2 sm:col-span-1 flex items-center justify-between gap-2 min-w-0">
+                <span className="text-sm font-medium sm:font-normal text-gray-700 dark:text-gray-300">
+                  {STATUS_MODEL_LABEL[modelType]}
+                </span>
+                <span className="sm:hidden">{clearButton}</span>
+              </div>
               <select
+                aria-label={`${STATUS_MODEL_LABEL[modelType]} default status`}
                 value={row.status}
                 onChange={(e) => setRowField(modelType, "status", e.target.value)}
                 className={selectClass}
@@ -135,6 +155,7 @@ export function StatusDefaultsPanel({
                 ))}
               </select>
               <select
+                aria-label={`${STATUS_MODEL_LABEL[modelType]} default substatus`}
                 value={row.substatus}
                 onChange={(e) => setRowField(modelType, "substatus", e.target.value)}
                 className={selectClass}
@@ -147,16 +168,7 @@ export function StatusDefaultsPanel({
                   </option>
                 ))}
               </select>
-              {hasOverride && (
-                <button
-                  type="button"
-                  onClick={() => handleClear(modelType)}
-                  disabled={isPending}
-                  className={`${btnOutlinedSm} disabled:opacity-50`}
-                >
-                  {clearingRow === modelType ? "Clearing…" : "Clear"}
-                </button>
-              )}
+              <span className="hidden sm:block">{clearButton}</span>
             </div>
           );
         })}

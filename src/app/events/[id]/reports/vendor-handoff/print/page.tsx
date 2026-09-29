@@ -33,7 +33,7 @@ export default async function VendorHandoffPrintPage({
   const backHref = `/events/${eventId}/reports/vendor-handoff?vendorId=${vendorId}`;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
       <PrintHeader
         eventName={event.name}
         title={`Vendor Handoff — ${data.vendor.name}`}

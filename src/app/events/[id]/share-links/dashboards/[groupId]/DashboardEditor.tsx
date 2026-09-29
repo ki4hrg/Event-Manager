@@ -192,7 +192,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
               <input
                 readOnly
                 value={shareUrl}
-                className="flex-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 focus:outline-none"
+                className="flex-1 min-w-0 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 focus:outline-none"
               />
               <button
                 onClick={handleCopy}
@@ -206,7 +206,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 className="text-base font-medium text-gray-900 dark:text-white">Reports in this dashboard</h3>
           <button
             onClick={() => setPickerOpen(true)}
@@ -243,7 +243,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
         )}
       </div>
 
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center gap-3">
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center gap-3">
         {!isRevoked && (
           <button
             onClick={handleRevoke}
@@ -262,7 +262,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
             Delete dashboard
           </button>
         ) : (
-          <span className="flex items-center gap-2 text-sm">
+          <span className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-red-600 dark:text-red-400">Delete this dashboard?</span>
             <button
               onClick={handleDelete}
@@ -274,7 +274,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
             <button
               onClick={() => setConfirmingDelete(false)}
               disabled={isPending}
-              className="text-gray-500 hover:underline"
+              className="text-gray-500 dark:text-gray-400 hover:underline"
             >
               Cancel
             </button>
@@ -298,7 +298,8 @@ export function DashboardEditor({ eventId, group, items }: Props) {
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">Add a report</h2>
               <button
                 onClick={() => setPickerOpen(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none"
+                aria-label="Close"
+                className="-m-1 p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none"
               >
                 &times;
               </button>
@@ -363,7 +364,7 @@ function ItemRow({
           onClick={onMoveUp}
           disabled={isFirst || isPending}
           aria-label="Move up"
-          className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-xs leading-none"
+          className="px-1.5 py-1 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-xs leading-none"
         >
           ▲
         </button>
@@ -371,13 +372,13 @@ function ItemRow({
           onClick={onMoveDown}
           disabled={isLast || isPending}
           aria-label="Move down"
-          className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-xs leading-none"
+          className="px-1.5 py-1 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-xs leading-none"
         >
           ▼
         </button>
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-48 flex-1">
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {idx + 1}. {baseLabel}
         </p>
@@ -431,7 +432,7 @@ function ItemRow({
           <button
             onClick={() => setConfirmingRemove(false)}
             disabled={isPending}
-            className="text-gray-500 hover:underline"
+            className="text-gray-500 dark:text-gray-400 hover:underline"
           >
             Cancel
           </button>

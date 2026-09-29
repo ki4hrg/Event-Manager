@@ -586,7 +586,7 @@ export function PackingListClient({
             onClick={() => setStateFilter("DROP_SHIP")}
             label="Drop Ship"
           />
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-2">
+          <label className="flex max-w-full items-center gap-2 text-sm text-gray-700 dark:text-gray-300 sm:ml-2">
             <input
               type="checkbox"
               checked={hideHandled}
@@ -597,12 +597,12 @@ export function PackingListClient({
           </label>
 
           {(providerOptions.length > 0 || hasUnassigned) && (
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-2">
+            <label className="flex max-w-full items-center gap-2 text-sm text-gray-700 dark:text-gray-300 sm:ml-2">
               <span>Provider</span>
               <select
                 value={providerFilter}
                 onChange={(e) => setProvider(e.target.value)}
-                className="text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                className="min-w-0 max-w-full text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               >
                 <option value="">All</option>
                 {hasUnassigned && (
@@ -618,12 +618,12 @@ export function PackingListClient({
           )}
 
           {payload.locations.length > 0 && (
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-2">
+            <label className="flex max-w-full items-center gap-2 text-sm text-gray-700 dark:text-gray-300 sm:ml-2">
               <span>Location</span>
               <select
                 value={locationFilter}
                 onChange={(e) => setLocation(e.target.value)}
-                className="text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                className="min-w-0 max-w-full text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               >
                 <option value="">All</option>
                 <option value={LOCATION_UNASSIGNED}>No location set</option>
@@ -637,12 +637,12 @@ export function PackingListClient({
           )}
 
           {payload.locations.length > 0 && (
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-2">
+            <label className="flex max-w-full items-center gap-2 text-sm text-gray-700 dark:text-gray-300 sm:ml-2">
               <span>Group by</span>
               <select
                 value={groupBy}
                 onChange={(e) => setGroupBy(e.target.value as GroupBy)}
-                className="text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                className="min-w-0 max-w-full text-sm px-2 py-1 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               >
                 <option value="acquisition">Acquisition state</option>
                 <option value="location">Location</option>
@@ -815,7 +815,7 @@ export function PackingListClient({
                           )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-baseline gap-2 flex-wrap">
-                              <span className="font-medium text-gray-900 dark:text-white">
+                              <span className="font-medium break-words min-w-0 text-gray-900 dark:text-white">
                                 {item.description}
                               </span>
                               {item.quantity != null && (

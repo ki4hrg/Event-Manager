@@ -39,7 +39,7 @@ export function GuestCountsCard({
   if (!editing || !canWrite) {
     return (
       <div className={cardClass}>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Guest Counts</h2>
           {canWrite && (
             <button

@@ -155,7 +155,7 @@ export function ScheduleList({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <div>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">
             Schedule

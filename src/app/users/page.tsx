@@ -26,14 +26,14 @@ export default async function UsersPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start mb-4">
         <div>
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Users</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Members of this organization. Each holds one role here that defines their permissions; the same account may belong to other organizations with a different role.
           </p>
         </div>
-        <Link href="/users/new" className={btnPrimary}>
+        <Link href="/users/new" className={`${btnPrimary} self-start sm:shrink-0`}>
           Add User
         </Link>
       </div>
@@ -46,7 +46,7 @@ export default async function UsersPage() {
           </Link>
         </p>
       ) : (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>

@@ -102,55 +102,57 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       });
 
       return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
 
           {groups.length === 0 ? (
             <p className="text-sm text-gray-500">No equipment items found for the selected filters.</p>
           ) : (
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr>
-                  <th className={th}>Category</th>
-                  <th className={th}>Item</th>
-                  <th className={`${th} text-right`}>Total Qty</th>
-                  <th className={`${th} text-right`}>Peak Needed</th>
-                  <th className={th}>Functions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((g) => (
-                  <React.Fragment key={partyGroupKey(g)}>
-                    <tr>
-                      <td colSpan={5} className={reportGroupRow}>
-                        {g.partyName}
-                        {g.partyType === "contact" && (
-                          <span className="font-normal text-gray-500 ml-1">(Contact)</span>
-                        )}
-                      </td>
-                    </tr>
-                    {g.rows.map((row, i) => (
-                      <tr key={`${row.equipmentId ?? row.itemName}-${i}`}>
-                        <td className={td}>{row.category ?? ""}</td>
-                        <td className={td}>{row.itemName}</td>
-                        <td className={`${td} text-right`}>{row.totalQuantity}</td>
-                        <td className={`${td} text-right`}>
-                          {row.peakIsExact ? String(row.peakNeeded) : `≥${row.peakNeeded}`}
-                        </td>
-                        <td className={td}>
-                          {row.sources
-                            .map(
-                              (s) =>
-                                `${s.functionNames.length > 0 ? s.functionNames.join(", ") : "—"} (${s.quantity})${!s.isScheduled ? " †" : ""}`,
-                            )
-                            .join("; ")}
+            <div className="overflow-x-auto print:overflow-visible">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th className={th}>Category</th>
+                    <th className={th}>Item</th>
+                    <th className={`${th} text-right`}>Total Qty</th>
+                    <th className={`${th} text-right`}>Peak Needed</th>
+                    <th className={th}>Functions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map((g) => (
+                    <React.Fragment key={partyGroupKey(g)}>
+                      <tr>
+                        <td colSpan={5} className={reportGroupRow}>
+                          {g.partyName}
+                          {g.partyType === "contact" && (
+                            <span className="font-normal text-gray-500 ml-1">(Contact)</span>
+                          )}
                         </td>
                       </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+                      {g.rows.map((row, i) => (
+                        <tr key={`${row.equipmentId ?? row.itemName}-${i}`}>
+                          <td className={td}>{row.category ?? ""}</td>
+                          <td className={td}>{row.itemName}</td>
+                          <td className={`${td} text-right`}>{row.totalQuantity}</td>
+                          <td className={`${td} text-right`}>
+                            {row.peakIsExact ? String(row.peakNeeded) : `≥${row.peakNeeded}`}
+                          </td>
+                          <td className={td}>
+                            {row.sources
+                              .map(
+                                (s) =>
+                                  `${s.functionNames.length > 0 ? s.functionNames.join(", ") : "—"} (${s.quantity})${!s.isScheduled ? " †" : ""}`,
+                              )
+                              .join("; ")}
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-500 flex justify-between">
@@ -170,7 +172,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
 
       if (!vendorId) {
         return (
-          <div className="p-6 max-w-5xl mx-auto">
+          <div className="p-4 sm:p-6 max-w-5xl mx-auto">
             <PrintHeader eventName={eventName} title={title} backHref={backHref} />
             <p className="text-sm text-gray-500">No vendor selected.</p>
           </div>
@@ -187,7 +189,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       if (!handoffData) notFound();
 
       return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           <PrintHeader
             eventName={eventName}
             title={item.label || `Vendor Handoff: ${handoffData.vendor.name}`}
@@ -235,7 +237,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       ) as ProfileSection[];
 
       return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <EventProfileReport
             data={data}
@@ -278,7 +280,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       return (
         <>
           <style>{`@page { margin: 0.5in; }`}</style>
-          <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
+          <div className="p-4 sm:p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
             <div className="print:hidden">
               <PrintHeader eventName={eventName} title={title} backHref={backHref} />
             </div>
@@ -326,7 +328,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       return (
         <>
           <style>{`@page { margin: 0.5in; }`}</style>
-          <div className="p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
+          <div className="p-4 sm:p-6 max-w-5xl mx-auto print:p-0 print:max-w-none">
             <div className="print:hidden">
               <PrintHeader eventName={eventName} title={title} backHref={backHref} />
             </div>
@@ -361,7 +363,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       if (!event || !data) notFound();
 
       return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <FunctionDetailReport
             data={data}
@@ -410,7 +412,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       if (!event || !data) notFound();
 
       return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <BreakoutAssignmentsReport data={data} />
         </div>
@@ -461,7 +463,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       if (!event || !data) notFound();
 
       return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <PackingListReport data={data} />
         </div>

@@ -663,7 +663,7 @@ function DraggableUnscheduledCard({
       {...listeners}
       {...attributes}
     >
-      <div>
+      <div className="min-w-0 break-words">
         <Link
           href={`/events/${eventId}/functions/${fn.id}`}
           className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
@@ -1250,13 +1250,13 @@ export function AgendaGrid({
 
         {rooms.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-4 gap-4">
+            <div className="flex flex-wrap items-center justify-between mb-4 gap-x-4 gap-y-2">
               {days.length > 0 && (
                 <h2 className="text-base font-medium text-gray-700 dark:text-gray-300">
                   {resolvedDate ? formatDateHeading(resolvedDate, timezone) : ""}
                 </h2>
               )}
-              <div className="flex items-center gap-3 ml-auto">
+              <div className="flex flex-wrap items-center gap-3 ml-auto">
                 <button
                   onClick={() => setShowRoomPanel((v) => !v)}
                   className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"

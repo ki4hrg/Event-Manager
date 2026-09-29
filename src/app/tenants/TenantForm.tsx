@@ -42,7 +42,7 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
     return (
       <div>
         <Toast />
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
           <dl className="space-y-4">
             <div>
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
@@ -53,7 +53,7 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
               <dd className="mt-1 font-mono text-gray-900 dark:text-white">{tenant.slug}</dd>
             </div>
           </dl>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
             <button onClick={() => setEditing(true)} className={btnPrimary}>
               Edit
             </button>
@@ -73,7 +73,7 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
           {error}
         </div>
       )}
-      <form action={handleSubmit} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+      <form action={handleSubmit} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Name *

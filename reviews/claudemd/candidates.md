@@ -100,3 +100,8 @@
 - [rooms] Room pickers load rooms with `getEventRooms(eventId)` (`@/lib/eventVenues`), never `prisma.room.findMany({ where: { venueId: event.venueId } })` — rooms carry `venue.rank` so `groupRoomsByGroup` splits buckets by venue once an event spans several (multi-venue branch)
 - [rooms] Render bucket headers / "select all" off `bucket.named`, not `bucket.groupId !== null` — a multi-venue event's ungrouped rooms still get a venue heading (`src/lib/roomGroups.ts`)
 - [vendors] `ResponsiblePartyOptions.venueVendors` is an array (one per event venue with a backing vendor), replacing the singular `venueVendor` (`src/app/vendors/actions.ts`)
+- [dnd] @dnd-kit drag sources use MouseSensor + TouchSensor (press delay) rather than a bare PointerSensor, which touch scrolling cancels (src/app/events/breakout-schedule/BreakoutGrid.tsx)
+- [reports] A mobile card and its desktop table row must never share an anchor id — the hidden first match wins the jump; use ReportNav's `mobileId` (src/app/events/[id]/reports/breakout-grid/BreakoutGridReport.tsx)
+- [reports] Vendor Handoff, cited as a reference implementation, had six tables with no mobile card variant until the mobile UX pass
+- [layout] Grid items that contain `overflow-x-auto` tables need `min-w-0`, or the table widens the page instead of scrolling (src/app/venues/[id]/page.tsx)
+- [layout] Header nav is inline only at `lg`; below that MobileNav owns it — add new top-level links to the `mainLinks`/`adminLinks` arrays in Header.tsx, not as JSX (src/components/Header.tsx)

@@ -162,8 +162,8 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Selected User
               </label>
-              <div className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                <span className="text-gray-900 dark:text-white text-sm">
+              <div className="flex items-center justify-between gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <span className="min-w-0 break-words text-gray-900 dark:text-white text-sm">
                   {selected.name || selected.email}
                   {selected.name && (
                     <span className="text-gray-500 dark:text-gray-400"> · {selected.email}</span>
@@ -172,7 +172,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
                 <button
                   type="button"
                   onClick={() => setSelected(null)}
-                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+                  className="shrink-0 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
                 >
                   Change
                 </button>
@@ -213,7 +213,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
       ) : (
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {staff.map((entry) => (
-            <div key={entry.id} className="flex items-start justify-between py-3">
+            <div key={entry.id} className="flex items-start justify-between gap-2 py-3">
               <div className="space-y-0.5 min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {entry.user.name || entry.user.email}

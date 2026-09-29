@@ -3,24 +3,9 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useClickOutside } from "@/lib/useClickOutside";
+import type { HeaderLink } from "./MobileNav";
 
-type AdminDropdownProps = {
-  canViewUsers: boolean;
-  canViewEquipment: boolean;
-  canViewSettings: boolean;
-  canViewSystem: boolean;
-  canViewWorkflows: boolean;
-  canViewTenants: boolean;
-};
-
-export function AdminDropdown({
-  canViewUsers,
-  canViewEquipment,
-  canViewSettings,
-  canViewSystem,
-  canViewWorkflows,
-  canViewTenants,
-}: AdminDropdownProps) {
+export function AdminDropdown({ links }: { links: HeaderLink[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useClickOutside(ref, () => setOpen(false));
@@ -31,6 +16,8 @@ export function AdminDropdown({
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1"
       >
@@ -41,36 +28,11 @@ export function AdminDropdown({
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg z-50">
-          {canViewUsers && (
-            <Link href="/users" onClick={() => setOpen(false)} className={linkClass}>
-              Users
+          {links.map((l) => (
+            <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className={linkClass}>
+              {l.label}
             </Link>
-          )}
-          {canViewEquipment && (
-            <Link href="/equipment" onClick={() => setOpen(false)} className={linkClass}>
-              Equipment
-            </Link>
-          )}
-          {canViewSettings && (
-            <Link href="/settings" onClick={() => setOpen(false)} className={linkClass}>
-              Settings
-            </Link>
-          )}
-          {canViewSystem && (
-            <Link href="/system" onClick={() => setOpen(false)} className={linkClass}>
-              System
-            </Link>
-          )}
-          {canViewWorkflows && (
-            <Link href="/workflows" onClick={() => setOpen(false)} className={linkClass}>
-              Workflows
-            </Link>
-          )}
-          {canViewTenants && (
-            <Link href="/tenants" onClick={() => setOpen(false)} className={linkClass}>
-              Organizations
-            </Link>
-          )}
+          ))}
         </div>
       )}
     </div>

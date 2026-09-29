@@ -141,10 +141,10 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 space-y-8">
+        <div className="lg:col-span-1 space-y-8 min-w-0">
           <VenueForm venue={venue} action={updateVenueWithId} />
           {venue.vendor && (
-            <form action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+            <form action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendor Details</h2>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
@@ -165,7 +165,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
           )}
         </div>
 
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-8 min-w-0">
           <RoomList
             rooms={venue.rooms}
             roomGroups={venue.roomGroups}

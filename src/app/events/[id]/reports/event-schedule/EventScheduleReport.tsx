@@ -92,7 +92,7 @@ function DayTable({
           return (
             <div key={item.id} className="p-2">
               <div className="flex justify-between gap-2">
-                <p className="font-semibold text-gray-900 dark:text-white">{functionLabel(item)}</p>
+                <p className="min-w-0 break-words font-semibold text-gray-900 dark:text-white">{functionLabel(item)}</p>
                 <p className="shrink-0 text-gray-700 dark:text-gray-300">
                   {timeRange(item.startTime, item.endTime, timezone)}
                 </p>
@@ -106,7 +106,7 @@ function DayTable({
                 )}
               </p>
               {room && (
-                <p className="text-gray-700 dark:text-gray-300 mt-1">{room}</p>
+                <p className="text-gray-700 dark:text-gray-300 mt-1 break-words">{room}</p>
               )}
               {subRows.length > 0 && (
                 <ul className="mt-1 space-y-0.5 text-gray-600 dark:text-gray-300">
@@ -163,7 +163,7 @@ function DayTable({
                     )}
                   </td>
                   <td className={td}>
-                    {room || (subRows.length === 0 && <span className="text-gray-400">—</span>)}
+                    {room || (subRows.length === 0 && <span className="text-gray-400 dark:text-gray-500">—</span>)}
                     {subRows.length > 0 && (
                       <ul className="mt-1 space-y-0.5 text-[12px] text-gray-600 dark:text-gray-300 print:text-gray-700 font-normal">
                         {subRows.map((s, i) => (
@@ -203,7 +203,7 @@ function CompactDayTable({
           return (
             <li key={item.id} className="py-1.5">
               <div className="flex justify-between gap-2">
-                <span className="font-semibold text-gray-900 dark:text-white">
+                <span className="min-w-0 break-words font-semibold text-gray-900 dark:text-white">
                   {functionLabel(item)}
                 </span>
                 <span className="shrink-0 text-gray-700 dark:text-gray-300 tabular-nums">
