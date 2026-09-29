@@ -65,7 +65,7 @@ type BreakoutSlotPanelProps = {
 
 function RoomOptions({ rooms }: { rooms: RoomBasic[] }) {
   const buckets = groupRoomsByGroup(rooms);
-  const hasGroups = buckets.some((b) => b.groupId !== null);
+  const hasGroups = buckets.some((b) => b.named);
   if (!hasGroups) {
     return (
       <>

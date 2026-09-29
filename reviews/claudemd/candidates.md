@@ -96,6 +96,10 @@
 - [reports] Anchor ids derived from free text (provider/vendor labels in the Packing List procurement rollup) are computed positionally (`procurement-group-${i}`) rather than slugified — uniqueness on the page is the only constraint and a slug of user text can collide or emit non-CSS-safe characters (#65).
 - [functions] `FunctionSchedule.type` holds a `schedule_type` CustomOption label and consumers filter by that label, so any writer needing a default must resolve one via `defaultScheduleType()` in `src/lib/scheduleTypes.ts` — never a hard-coded token. Three sites wrote `"SESSION"` / `"MAIN"` and their rows silently dropped out of type-filtered views; `scripts/repair-schedule-types.ts` fixes existing data.
 
+- [data] Events span venues via `EventVenue`; the primary venue is the lowest `sortOrder` (position, not an `isPrimary` flag — no single-primary invariant to maintain). Read with `eventVenuesInclude` (`@/lib/eventVenues`); `venues[0]` is primary (multi-venue branch)
+- [rooms] Room pickers load rooms with `getEventRooms(eventId)` (`@/lib/eventVenues`), never `prisma.room.findMany({ where: { venueId: event.venueId } })` — rooms carry `venue.rank` so `groupRoomsByGroup` splits buckets by venue once an event spans several (multi-venue branch)
+- [rooms] Render bucket headers / "select all" off `bucket.named`, not `bucket.groupId !== null` — a multi-venue event's ungrouped rooms still get a venue heading (`src/lib/roomGroups.ts`)
+- [vendors] `ResponsiblePartyOptions.venueVendors` is an array (one per event venue with a backing vendor), replacing the singular `venueVendor` (`src/app/vendors/actions.ts`)
 - [dnd] @dnd-kit drag sources use MouseSensor + TouchSensor (press delay) rather than a bare PointerSensor, which touch scrolling cancels (src/app/events/breakout-schedule/BreakoutGrid.tsx)
 - [reports] A mobile card and its desktop table row must never share an anchor id — the hidden first match wins the jump; use ReportNav's `mobileId` (src/app/events/[id]/reports/breakout-grid/BreakoutGridReport.tsx)
 - [reports] Vendor Handoff, cited as a reference implementation, had six tables with no mobile card variant until the mobile UX pass

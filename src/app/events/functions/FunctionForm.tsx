@@ -13,6 +13,7 @@ type FunctionWithRelations = Function & {
 
 type RoomWithGroup = Room & {
   group?: { id: string; name: string; sortOrder: number } | null;
+  venue?: { id: string; name: string; rank?: number };
 };
 
 type FunctionFormProps = {
@@ -50,11 +51,13 @@ function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: RoomW
   const showFilter = rooms.length > SHOW_FILTER_THRESHOLD;
 
   const filteredRooms = showFilter && roomFilter
-    ? rooms.filter((r) => r.name.toLowerCase().includes(roomFilter.toLowerCase()))
+    ? rooms.filter((r) =>
+        `${r.name} ${r.venue?.name ?? ""}`.toLowerCase().includes(roomFilter.toLowerCase()),
+      )
     : rooms;
 
   const groupedRooms = useMemo(() => groupRoomsByGroup(filteredRooms), [filteredRooms]);
-  const hasGroups = groupedRooms.some((g) => g.groupId !== null);
+  const hasGroups = groupedRooms.some((g) => g.named);
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
   const dividerClass = noCard ? "border-t border-gray-200 dark:border-gray-700 mt-0 pt-4" : "";

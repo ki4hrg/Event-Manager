@@ -92,11 +92,20 @@ export async function importFromEventCore(
   const [source, target] = await Promise.all([
     prisma.event.findUnique({
       where: { id: sourceEventId },
-      select: { id: true, name: true, venueId: true, tenantId: true },
+      select: {
+        id: true,
+        name: true,
+        tenantId: true,
+        venues: { select: { venue: { select: { id: true, name: true } } } },
+      },
     }),
     prisma.event.findUnique({
       where: { id: targetEventId },
-      select: { id: true, venueId: true, tenantId: true },
+      select: {
+        id: true,
+        tenantId: true,
+        venues: { select: { venue: { select: { id: true, rooms: { select: { id: true } } } } } },
+      },
     }),
   ]);
   if (!source || !target) throw new PermissionError("NOT_FOUND");
@@ -105,12 +114,22 @@ export async function importFromEventCore(
   // into another's event.
   if (source.tenantId !== target.tenantId) throw new PermissionError("NOT_FOUND");
 
-  // Rooms belong to a venue, not an event. Carrying a room assignment to an
-  // event at a different venue would point at a room that isn't there.
-  const sameVenue = !!target.venueId && target.venueId === source.venueId;
+  // Rooms belong to a venue, not an event. A room assignment carries over only
+  // when the room's venue is also one of the target event's venues; anything
+  // else would point at a room the target doesn't use.
+  const targetRoomIds = new Set(target.venues.flatMap((v) => v.venue.rooms.map((r) => r.id)));
+  const keepRoom = (roomId: string) => targetRoomIds.has(roomId);
+  const targetVenueIds = new Set(target.venues.map((v) => v.venue.id));
+  const missingVenues = source.venues
+    .map((v) => v.venue)
+    .filter((v) => !targetVenueIds.has(v.id));
 
   const notes: string[] = [];
-  if (!sameVenue) notes.push("Different venue — room assignments were not carried over.");
+  if (missingVenues.length > 0) {
+    notes.push(
+      `Room assignments at ${missingVenues.map((v) => v.name).join(", ")} were not carried over — not a venue of this event.`,
+    );
+  }
   if (!args.includeSchedules && wantFunctions) {
     notes.push("Functions were imported unscheduled.");
   }
@@ -179,9 +198,9 @@ export async function importFromEventCore(
               eventId: targetEventId,
               name: g.name,
               sortOrder: g.sortOrder,
-              rooms: sameVenue
-                ? { create: g.rooms.map((r) => ({ roomId: r.roomId })) }
-                : undefined,
+              rooms: {
+                create: g.rooms.filter((r) => keepRoom(r.roomId)).map((r) => ({ roomId: r.roomId })),
+              },
             },
             select: { id: true },
           });
@@ -228,9 +247,9 @@ export async function importFromEventCore(
             status: functionStatus.status,
             substatus: functionStatus.substatus,
             updatedById: userId,
-            rooms: sameVenue
-              ? { create: fn.rooms.map((r) => ({ roomId: r.roomId })) }
-              : undefined,
+            rooms: {
+              create: fn.rooms.filter((r) => keepRoom(r.roomId)).map((r) => ({ roomId: r.roomId })),
+            },
           },
           select: { id: true },
         });
@@ -311,7 +330,7 @@ export async function importFromEventCore(
             .map((slot) => ({
               presentationId: presentationMap.get(p.id)!,
               functionId: functionMap.get(slot.functionId)!,
-              roomId: sameVenue ? slot.roomId : null,
+              roomId: slot.roomId && keepRoom(slot.roomId) ? slot.roomId : null,
             })),
         );
         if (slots.length > 0) {

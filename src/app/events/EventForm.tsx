@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Event, Venue } from "@prisma/client";
 import { btnSecondary } from "@/lib/buttonStyles";
 
 type EventFormProps = {
-  event?: Event;
+  // `venueIds` in event order — the first is the primary venue.
+  event?: Event & { venueIds: string[] };
   venues: Venue[];
   series: { id: string; name: string }[];
   action: (formData: FormData) => Promise<void>;
@@ -24,6 +26,93 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
     >
       {pending ? "Saving..." : isEdit ? "Update Event" : "Create Event"}
     </button>
+  );
+}
+
+// Ordered multi-select: the first venue is the event's primary venue. Posts
+// `venueIds` in order as hidden inputs.
+function VenuePicker({ venues, initialIds }: { venues: Venue[]; initialIds: string[] }) {
+  const [selectedIds, setSelectedIds] = useState<string[]>(initialIds);
+  const byId = new Map(venues.map((v) => [v.id, v]));
+  const available = venues.filter((v) => !selectedIds.includes(v.id));
+
+  function makePrimary(id: string) {
+    setSelectedIds((prev) => [id, ...prev.filter((x) => x !== id)]);
+  }
+
+  function remove(id: string) {
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
+  }
+
+  return (
+    <div>
+      <label
+        htmlFor="addVenue"
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+      >
+        Venues
+      </label>
+      {selectedIds.map((id) => (
+        <input key={id} type="hidden" name="venueIds" value={id} />
+      ))}
+      {selectedIds.length > 0 && (
+        <ul className="mt-1 divide-y divide-gray-200 dark:divide-gray-700 border border-gray-300 dark:border-gray-700 rounded-md">
+          {selectedIds.map((id, i) => (
+            <li key={id} className="flex items-center justify-between gap-2 px-3 py-2">
+              <span className="min-w-0 truncate text-gray-900 dark:text-white">
+                {byId.get(id)?.name ?? "Unknown venue"}
+                {i === 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                    Primary
+                  </span>
+                )}
+              </span>
+              <span className="flex shrink-0 items-center gap-3 text-sm">
+                {i > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => makePrimary(id)}
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Make primary
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => remove(id)}
+                  className="text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Remove
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {available.length > 0 && (
+        <select
+          id="addVenue"
+          value=""
+          onChange={(e) => {
+            const id = e.target.value;
+            if (id) setSelectedIds((prev) => [...prev, id]);
+          }}
+          className="mt-2 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">{selectedIds.length === 0 ? "No venue selected — add a venue…" : "Add another venue…"}</option>
+          {available.map((venue) => (
+            <option key={venue.id} value={venue.id}>
+              {venue.name}
+            </option>
+          ))}
+        </select>
+      )}
+      {selectedIds.length > 1 && (
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Rooms from every venue are available to functions and orders. The primary venue is shown as the event&apos;s headline venue.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -127,27 +216,7 @@ export function EventForm({ event, venues, series, action, cancelHref }: EventFo
         </select>
       </div>
 
-      <div>
-        <label
-          htmlFor="venueId"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Venue
-        </label>
-        <select
-          id="venueId"
-          name="venueId"
-          defaultValue={event?.venueId || ""}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">No venue selected</option>
-          {venues.map((venue) => (
-            <option key={venue.id} value={venue.id}>
-              {venue.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <VenuePicker venues={venues} initialIds={event?.venueIds ?? []} />
 
       <div>
         <div className="flex items-baseline justify-between">

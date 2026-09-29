@@ -8,7 +8,7 @@ import { PrintOrderForm } from "../../../print-orders/PrintOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
-import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { getEventRooms } from "@/lib/eventVenues";
 import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
@@ -40,13 +40,7 @@ export default async function NewPrintOrderPage({
 
   if (!event) notFound();
 
-  const venueRooms = event.venueId
-    ? await prisma.room.findMany({
-        where: { venueId: event.venueId },
-        include: { group: { select: { id: true, name: true, sortOrder: true } } },
-        orderBy: { name: "asc" },
-      })
-    : [];
+  const venueRooms = await getEventRooms(eventId);
 
   const cancelPath = getSourceCancelPath(eventId, functionId, presentationId, `/events/${eventId}/print-orders`);
   const backLabel = getSourceBackLabel(functionId, presentationId, "Back to Print Orders");
@@ -75,7 +69,7 @@ export default async function NewPrintOrderPage({
 
       <PrintOrderForm
         eventId={eventId}
-        rooms={sortRoomsByGroupThenName(venueRooms)}
+        rooms={venueRooms}
         action={createPrintOrderAction}
         defaultName={defaultName}
         cancelPath={cancelPath}

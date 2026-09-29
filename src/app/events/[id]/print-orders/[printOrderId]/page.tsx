@@ -13,7 +13,7 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { getEventRooms } from "@/lib/eventVenues";
 import { getEvent } from "../../../actions";
 import {
   getPrintOrder,
@@ -110,13 +110,7 @@ export default async function PrintOrderPage({
         }),
     getPrintOrderPartyOptions(printOrderId),
     searchAssignedEventVendors("", eventId, "PRINT_ORDER"),
-    event.venueId
-      ? prisma.room.findMany({
-          where: { venueId: event.venueId },
-          include: { group: { select: { id: true, name: true, sortOrder: true } } },
-          orderBy: { name: "asc" },
-        })
-      : Promise.resolve([]),
+    getEventRooms(eventId),
     getStorageLocations(),
   ]);
 
@@ -327,7 +321,7 @@ export default async function PrintOrderPage({
                 noCard
                 printOrder={printOrder}
                 eventId={eventId}
-                rooms={sortRoomsByGroupThenName(venueRooms)}
+                rooms={venueRooms}
                 action={updatePrintOrderAction}
                 vendorLink={{
                   assignedVendors: printOrderVendors,

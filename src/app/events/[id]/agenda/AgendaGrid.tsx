@@ -32,7 +32,7 @@ import {
   findSlotKeyForEntry,
   SLOT_INTERVAL_MS,
 } from "@/lib/agendaUtils";
-import { groupRoomsByGroup } from "@/lib/roomGroups";
+import { groupRoomsByGroup, spansMultipleVenues } from "@/lib/roomGroups";
 import { updateFunctionRoom, rescheduleEntry, scheduleUnscheduledFunction } from "@/app/events/functions/actions";
 import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
@@ -106,6 +106,14 @@ const entryColorClasses: Record<string, { bg: string; title: string; text: strin
   pink:   { bg: "bg-pink-50 dark:bg-pink-950",      title: "text-pink-700 dark:text-pink-300",     text: "text-pink-500 dark:text-pink-400",     handle: "bg-pink-300 dark:bg-pink-600", handleHover: "group-hover/handle:bg-pink-500 dark:group-hover/handle:bg-pink-400" },
   gray:   { bg: "bg-gray-50 dark:bg-gray-800",      title: "text-gray-700 dark:text-gray-300",     text: "text-gray-500 dark:text-gray-400",     handle: "bg-gray-300 dark:bg-gray-600", handleHover: "group-hover/handle:bg-gray-500 dark:group-hover/handle:bg-gray-400" },
 };
+
+// Rooms arrive from getEventRooms (@/lib/eventVenues) carrying their venue;
+// AgendaData types them as plain Room.
+type AgendaRoomWithVenue = AgendaData["rooms"][number] & { venue?: { id: string; name: string } };
+
+function roomVenueName(room: AgendaData["rooms"][number]): string | null {
+  return (room as AgendaRoomWithVenue).venue?.name ?? null;
+}
 
 function getEntryColors(entry: AgendaEntry) {
   return entryColorClasses[entry.scheduleTypeColor ?? "blue"] ?? entryColorClasses.blue;
@@ -337,6 +345,7 @@ function DayGrid({
 }) {
   const usedIds = getUsedRoomIds(day);
   const fullDayIds = getFullDayRoomIds(day);
+  const multiVenue = spansMultipleVenues(rooms as AgendaRoomWithVenue[]);
   const visibleRooms = rooms.filter((r) => {
     if (r.id === "__offsite__") return true; // always show off-site column when present
     if (!viewSettings.showUnusedRooms && !usedIds.has(r.id)) return false;
@@ -533,6 +542,11 @@ function DayGrid({
                 className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left font-medium text-gray-900 dark:text-white whitespace-nowrap bg-gray-50 dark:bg-gray-800"
               >
                 {room.name}
+                {multiVenue && roomVenueName(room) && (
+                  <div className="text-[10px] font-normal text-gray-500 dark:text-gray-400 truncate">
+                    {roomVenueName(room)}
+                  </div>
+                )}
               </th>
             ))}
           </tr>
@@ -745,11 +759,12 @@ function RoomPanel({
     }
   }, [allVisible, noneVisible]);
 
+  const multiVenue = spansMultipleVenues(orderedRooms as AgendaRoomWithVenue[]);
   const roomBuckets = useMemo(
     () => groupRoomsByGroup(orderedRooms.filter((r) => r.id !== "__offsite__")),
     [orderedRooms]
   );
-  const groupBuckets = roomBuckets.filter((b) => b.groupId !== null && b.rooms.length > 1);
+  const groupBuckets = roomBuckets.filter((b) => b.named && b.rooms.length > 1);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -815,12 +830,13 @@ function RoomPanel({
           <div className="space-y-1">
             {orderedRooms.map((room) => {
               const groupName = (room as AgendaData["rooms"][number] & { group?: { name: string } | null }).group?.name ?? null;
+              const venueName = multiVenue ? roomVenueName(room) : null;
               return (
                 <SortableRoomRow
                   key={room.id}
                   room={room}
                   isHidden={hiddenRoomIds.has(room.id)}
-                  groupLabel={groupName}
+                  groupLabel={[venueName, groupName].filter(Boolean).join(" · ") || null}
                   onToggle={() => onToggle(room.id)}
                 />
               );

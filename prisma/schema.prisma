@@ -397,8 +397,7 @@ model Event {
   timezone           String               @default("America/Chicago")
   seriesId           String?
   series             EventSeries?         @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  venueId            String?
-  venue              Venue?               @relation(fields: [venueId], references: [id])
+  venues             EventVenue[]
   functions          Function[]
   presentations      Presentation[]
   presentationTracks PresentationTrack[]
@@ -439,7 +438,7 @@ model Venue {
   notes       String?
   rooms       Room[]
   roomGroups  RoomGroup[]
-  events      Event[]
+  events      EventVenue[]
   contacts    VenueContact[]
   vendor      Vendor?
   files       FileUpload[]
@@ -450,6 +449,25 @@ model Venue {
 
   @@index([tenantId])
   @@index([updatedById])
+}
+
+// Event <-> Venue. An event may span several venues (conference hotel plus an
+// offsite dinner venue, a second hotel for overflow). The venue at the lowest
+// sortOrder is the event's primary venue — the one shown as its headline and
+// used when a single venue is needed. Keeping "primary" as a position rather
+// than a flag means there is no "exactly one primary" invariant to maintain:
+// deleting the primary venue promotes the next one automatically.
+model EventVenue {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, venueId])
+  @@index([venueId])
 }
 
 model RoomGroup {

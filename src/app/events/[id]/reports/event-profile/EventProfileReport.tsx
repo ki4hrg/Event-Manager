@@ -175,7 +175,8 @@ function ScheduleItemCard({
 
 function KeyContactsSection({ keyStaff, venueContacts }: {
   keyStaff: KeyStaffRow[];
-  venueContacts: { contact: { id: string; firstName: string; lastName: string; email: string | null; phone: string | null; organization: string | null }; role: string | null }[];
+  // `venueName` is set only when the event spans several venues, to say whose contact this is.
+  venueContacts: { contact: { id: string; firstName: string; lastName: string; email: string | null; phone: string | null; organization: string | null }; role: string | null; venueName: string | null }[];
 }) {
   const rows: { title: string; name: string; organization: string | null; phone: string | null; email: string | null }[] = [];
   for (const ks of keyStaff) {
@@ -189,7 +190,9 @@ function KeyContactsSection({ keyStaff, venueContacts }: {
   }
   for (const vc of venueContacts) {
     rows.push({
-      title: vc.role ?? "Venue contact",
+      title: vc.venueName
+        ? `${vc.role ?? "Venue contact"} (${vc.venueName})`
+        : vc.role ?? "Venue contact",
       name: contactDisplayName(vc.contact),
       organization: vc.contact.organization,
       phone: vc.contact.phone,
@@ -550,7 +553,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
 }
 
 export function EventProfileReport({ data, serviceStyles, scheduleTypes, selectedSections }: Props) {
-  const { event, venue, keyStaff, breakoutGroups, cateringOrders, printOrders, scheduleItems, timezone } = data;
+  const { event, venues, keyStaff, breakoutGroups, cateringOrders, printOrders, scheduleItems, timezone } = data;
   const active = new Set<ProfileSection>(
     selectedSections && selectedSections.length > 0
       ? selectedSections
@@ -589,7 +592,7 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
 
   const hasAny =
     keyStaff.length > 0 ||
-    venue ||
+    venues.length > 0 ||
     scheduleItems.length > 0 ||
     breakoutGroups.length > 0 ||
     cateringOrders.length > 0 ||
@@ -609,8 +612,8 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
         {event.description && (
           <p className="text-sm text-gray-700 dark:text-gray-300 print:text-gray-800 mt-2 whitespace-pre-wrap">{event.description}</p>
         )}
-        {venue && (
-          <div className="mt-3 text-sm text-gray-700 dark:text-gray-300 print:text-gray-800">
+        {venues.map((venue) => (
+          <div key={venue.id} className="mt-3 text-sm text-gray-700 dark:text-gray-300 print:text-gray-800">
             <p className="font-medium">{venue.name}</p>
             {(venue.address || venue.city || venue.state || venue.zip) && (
               <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-700">
@@ -618,14 +621,19 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
               </p>
             )}
           </div>
-        )}
+        ))}
       </div>
 
       {active.has("contacts") && (
         <section>
           <SectionDivider id="key-contacts" title="Key Contacts" />
           <div className="mt-3">
-            <KeyContactsSection keyStaff={keyStaff} venueContacts={venue?.contacts ?? []} />
+            <KeyContactsSection
+              keyStaff={keyStaff}
+              venueContacts={venues.flatMap((venue) =>
+                venue.contacts.map((vc) => ({ ...vc, venueName: venues.length > 1 ? venue.name : null })),
+              )}
+            />
           </div>
         </section>
       )}

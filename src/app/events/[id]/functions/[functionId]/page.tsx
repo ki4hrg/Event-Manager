@@ -67,7 +67,7 @@ import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepComplet
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
-import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { getEventRooms } from "@/lib/eventVenues";
 
 export const dynamic = "force-dynamic";
 
@@ -109,16 +109,8 @@ export default async function FunctionPage({
     redirect(`/events/${eventId}/breakout-schedule`);
   }
 
-  // Get rooms from the event's venue (sorted to keep groups adjacent)
-  const rooms = sortRoomsByGroupThenName(
-    event.venueId
-      ? await prisma.room.findMany({
-          where: { venueId: event.venueId },
-          include: { group: { select: { id: true, name: true, sortOrder: true } } },
-          orderBy: { name: "asc" },
-        })
-      : []
-  );
+  // Rooms across every event venue, venue-first then group then name
+  const rooms = await getEventRooms(eventId);
 
   const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, availableSupplyOrders, availableMediaDeliverables, workflowInstances, allTemplates, substatuses] = await Promise.all([
     getAvailableAVOrdersForFunction(eventId, functionId),

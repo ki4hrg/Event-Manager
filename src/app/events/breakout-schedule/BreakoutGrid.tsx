@@ -80,6 +80,7 @@ type AvailablePresentation = {
 
 type RoomWithGroup = Room & {
   group?: { id: string; name: string; sortOrder: number } | null;
+  venue?: { id: string; name: string; rank?: number };
 };
 
 type BreakoutGridProps = {
@@ -152,7 +153,7 @@ function GroupRoomManager({
   const assignedRoomIds = new Set(group.rooms.map((r) => r.roomId));
   const availableRooms = venueRooms.filter((r) => !assignedRoomIds.has(r.id));
   const availableBuckets = useMemo(() => groupRoomsByGroup(availableRooms), [availableRooms]);
-  const hasRoomGroups = availableBuckets.some((b) => b.groupId !== null);
+  const hasRoomGroups = availableBuckets.some((b) => b.named);
 
   const addAllInBucket = (roomIds: string[]) => {
     startTransition(async () => {
@@ -215,7 +216,7 @@ function GroupRoomManager({
           </select>
           {hasRoomGroups &&
             availableBuckets
-              .filter((b) => b.groupId !== null && b.rooms.length > 1)
+              .filter((b) => b.named && b.rooms.length > 1)
               .map((bucket) => (
                 <button
                   key={bucket.key}

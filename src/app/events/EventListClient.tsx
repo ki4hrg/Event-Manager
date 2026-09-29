@@ -11,7 +11,7 @@ type EventItem = {
   startDate: string;
   endDate: string;
   timezone: string;
-  venue?: { name: string } | null;
+  venues: { venue: { name: string } }[];
   series?: { id: string; name: string } | null;
 };
 
@@ -21,6 +21,13 @@ type Props = {
   selectedSeries: string;
   canWrite: boolean;
 };
+
+// Primary venue, plus a count of the others: "Grand Hotel +1".
+function venueSummary(event: EventItem): string {
+  const [primary, ...rest] = event.venues;
+  if (!primary) return "";
+  return rest.length > 0 ? `${primary.venue.name} +${rest.length}` : primary.venue.name;
+}
 
 export function EventListClient({ events, seriesOptions, selectedSeries, canWrite }: Props) {
   const router = useRouter();
@@ -123,9 +130,9 @@ export function EventListClient({ events, seriesOptions, selectedSeries, canWrit
                   {formatEventDate(event.startDate, event.timezone)} –{" "}
                   {formatEventDate(event.endDate, event.timezone)}
                 </span>
-                {(event.venue?.name || event.series?.name) && (
+                {(event.venues.length > 0 || event.series?.name) && (
                   <span className="block text-xs text-gray-500 dark:text-gray-400 break-words">
-                    {[event.venue?.name, event.series?.name].filter(Boolean).join(" · ")}
+                    {[venueSummary(event), event.series?.name].filter(Boolean).join(" · ")}
                   </span>
                 )}
               </Link>
@@ -179,7 +186,7 @@ export function EventListClient({ events, seriesOptions, selectedSeries, canWrit
                       {event.series?.name || "—"}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                      {event.venue?.name || "—"}
+                      {venueSummary(event) || "—"}
                     </td>
                   </tr>
                 ))

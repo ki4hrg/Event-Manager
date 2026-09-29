@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { eventVenuesOrderBy } from "@/lib/eventVenues";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PermissionResource, type Vendor } from "@prisma/client";
@@ -38,7 +39,8 @@ export type { ModelType };
 
 export type ResponsiblePartyOptions = {
   vendors: { id: string; name: string }[];
-  venueVendor: { id: string; name: string } | null;
+  // One per event venue that has a backing vendor, in event venue order.
+  venueVendors: { id: string; name: string }[];
   systemVendor: { id: string; name: string } | null;
 };
 
@@ -47,18 +49,21 @@ export async function getResponsiblePartyVendors(eventId: string, modelType?: st
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
-  const [eventVendors, event, systemVendor] = await Promise.all([
+  const [eventVendors, eventVenues, systemVendor] = await Promise.all([
     prisma.eventVendor.findMany({
       where: { eventId, ...(modelFilter ? { vendor: modelFilter } : {}) },
       select: { vendor: { select: { id: true, name: true } } },
     }),
-    prisma.event.findUnique({ where: { id: eventId }, select: { venue: { select: { vendor: { select: { id: true, name: true } } } } } }),
+    prisma.eventVenue.findMany({
+      where: { eventId },
+      orderBy: eventVenuesOrderBy,
+      select: { venue: { select: { vendor: { select: { id: true, name: true } } } } },
+    }),
     prisma.vendor.findFirst({ where: { tenantId: session.tenantId, isSystemVendor: true }, select: { id: true, name: true } }),
   ]);
 
-  const venueVendor = event?.venue?.vendor ?? null;
-  const excludeIds = new Set<string>();
-  if (venueVendor) excludeIds.add(venueVendor.id);
+  const venueVendors = eventVenues.flatMap((ev) => (ev.venue.vendor ? [ev.venue.vendor] : []));
+  const excludeIds = new Set<string>(venueVendors.map((v) => v.id));
   if (systemVendor) excludeIds.add(systemVendor.id);
 
   const vendors = eventVendors
@@ -66,7 +71,7 @@ export async function getResponsiblePartyVendors(eventId: string, modelType?: st
     .filter((v) => !excludeIds.has(v.id))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { vendors, venueVendor, systemVendor: systemVendor ?? null };
+  return { vendors, venueVendors, systemVendor: systemVendor ?? null };
 }
 
 export async function getVendors() {
@@ -229,24 +234,25 @@ export type EventVendorEntry = {
 };
 
 // Returns the EventVendor list for the page. Always surfaces the system (event team) vendor
-// and the event's venue vendor as virtual entries when they don't yet have an EventVendor row,
+// and each event venue's vendor as virtual entries when they don't yet have an EventVendor row,
 // so they can be tagged as defaults like any other vendor.
 export async function getEventVendors(eventId: string): Promise<EventVendorEntry[]> {
   const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
 
-  const [eventVendors, systemVendor, eventData] = await Promise.all([
+  const [eventVendors, systemVendor, eventVenues] = await Promise.all([
     prisma.eventVendor.findMany({
       where: { eventId },
       include: { vendor: true },
     }),
     prisma.vendor.findFirst({ where: { tenantId: session.tenantId, isSystemVendor: true } }),
-    prisma.event.findUnique({
-      where: { id: eventId },
+    prisma.eventVenue.findMany({
+      where: { eventId },
+      orderBy: eventVenuesOrderBy,
       select: { venue: { select: { vendor: true } } },
     }),
   ]);
 
-  const venueVendor = eventData?.venue?.vendor ?? null;
+  const venueVendors = eventVenues.flatMap((ev) => (ev.venue.vendor ? [ev.venue.vendor] : []));
   const byVendorId = new Map(eventVendors.map((ev) => [ev.vendorId, ev]));
 
   const buildEntry = (vendor: Vendor, kind: EventVendorKind): EventVendorEntry => {
@@ -267,7 +273,8 @@ export async function getEventVendors(eventId: string): Promise<EventVendorEntry
     entries.push(buildEntry(systemVendor, "system"));
     pinnedIds.add(systemVendor.id);
   }
-  if (venueVendor && !pinnedIds.has(venueVendor.id)) {
+  for (const venueVendor of venueVendors) {
+    if (pinnedIds.has(venueVendor.id)) continue;
     entries.push(buildEntry(venueVendor, "venue"));
     pinnedIds.add(venueVendor.id);
   }
@@ -361,7 +368,7 @@ export async function searchAssignedEventVendors(query: string, eventId: string,
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
-  const [rows, event, systemVendor] = await Promise.all([
+  const [rows, eventVenues, systemVendor] = await Promise.all([
     prisma.eventVendor.findMany({
       where: {
         eventId,
@@ -371,8 +378,8 @@ export async function searchAssignedEventVendors(query: string, eventId: string,
       orderBy: { vendor: { name: "asc" } },
       take: 20,
     }),
-    prisma.event.findUnique({
-      where: { id: eventId },
+    prisma.eventVenue.findMany({
+      where: { eventId },
       select: { venue: { select: { vendor: true } } },
     }),
     prisma.vendor.findFirst({ where: { tenantId: session.tenantId, isSystemVendor: true } }),
@@ -384,10 +391,12 @@ export async function searchAssignedEventVendors(query: string, eventId: string,
   const matchesQuery = (v: { name: string } | null | undefined) =>
     !!v && (q === "" || v.name.toLowerCase().includes(q));
 
-  const venueVendor = event?.venue?.vendor;
-  if (venueVendor && !seen.has(venueVendor.id) && matchesQuery(venueVendor)) {
-    results.push(venueVendor);
-    seen.add(venueVendor.id);
+  for (const { venue } of eventVenues) {
+    const venueVendor = venue.vendor;
+    if (venueVendor && !seen.has(venueVendor.id) && matchesQuery(venueVendor)) {
+      results.push(venueVendor);
+      seen.add(venueVendor.id);
+    }
   }
   if (systemVendor && !seen.has(systemVendor.id) && matchesQuery(systemVendor)) {
     results.push(systemVendor);

@@ -64,7 +64,7 @@ export function SupplyOrderForm({
   const [editing, setEditing] = useState(false);
 
   const roomBuckets = useMemo(() => groupRoomsByGroup(rooms), [rooms]);
-  const hasRoomGroups = roomBuckets.some((b) => b.groupId !== null);
+  const hasRoomGroups = roomBuckets.some((b) => b.named);
 
   const cardClass = noCard ? "" : "bg-white dark:bg-gray-800 shadow rounded-lg p-6";
 

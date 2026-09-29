@@ -17,9 +17,11 @@ export function ResponsiblePartyField({ options, defaultValue, name = "responsib
       {options.systemVendor && (
         <option value={options.systemVendor.id}>{options.systemVendor.name}</option>
       )}
-      {options.venueVendor && (
-        <optgroup label="Venue">
-          <option value={options.venueVendor.id}>{options.venueVendor.name}</option>
+      {options.venueVendors.length > 0 && (
+        <optgroup label={options.venueVendors.length > 1 ? "Venues" : "Venue"}>
+          {options.venueVendors.map((v) => (
+            <option key={v.id} value={v.id}>{v.name}</option>
+          ))}
         </optgroup>
       )}
       {options.vendors.length > 0 && (

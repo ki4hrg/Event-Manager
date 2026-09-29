@@ -59,7 +59,7 @@ import {
   restoreEntity,
 } from "../../../workflows/actions";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
-import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
+import { getEventRooms } from "@/lib/eventVenues";
 import { SupplyOrderTabs, SUPPLY_ORDER_TABS } from "../../../supply-orders/SupplyOrderTabs";
 import { SupplyOrderForm } from "../../../supply-orders/SupplyOrderForm";
 import { SupplyOrderItemPanel } from "../../../supply-orders/SupplyOrderItemPanel";
@@ -165,13 +165,7 @@ export default async function SupplyOrderPage({
       functionIds: linkedFunctionIds,
       presentationIds: linkedPresentationIds,
     }),
-    event.venueId
-      ? prisma.room.findMany({
-          where: { venueId: event.venueId },
-          include: { group: { select: { id: true, name: true, sortOrder: true } } },
-          orderBy: { name: "asc" },
-        })
-      : Promise.resolve([]),
+    getEventRooms(eventId),
     prisma.function.findMany({
       where: { eventId, NOT: { supplyOrderLinks: { some: { supplyOrderId } } } },
       select: { id: true, name: true },
@@ -382,7 +376,7 @@ export default async function SupplyOrderPage({
                 noCard
                 supplyOrder={supplyOrder}
                 eventId={eventId}
-                rooms={sortRoomsByGroupThenName(venueRooms)}
+                rooms={venueRooms}
                 pool={pool}
                 action={updateSupplyOrderAction}
               />

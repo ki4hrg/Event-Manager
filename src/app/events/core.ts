@@ -27,19 +27,24 @@ export async function eventScopeWhere(userId: string, tenantId: string) {
   return canSeeUnassigned ? { tenantId } : { tenantId, staff: { some: { userId } } };
 }
 
-// Venue and series are tenant-owned lookups; a foreign id is a not-found, not
+// Venues and series are tenant-owned lookups; a foreign id is a not-found, not
 // a cross-tenant link.
 async function assertEventRefsInTenant(args: EventWriteArgs, tenantId: string) {
-  const [venue, series] = await Promise.all([
-    args.venueId
-      ? prisma.venue.findFirst({ where: { id: args.venueId, tenantId }, select: { id: true } })
-      : null,
+  const [venueCount, series] = await Promise.all([
+    args.venueIds.length > 0
+      ? prisma.venue.count({ where: { id: { in: args.venueIds }, tenantId } })
+      : 0,
     args.seriesId
       ? prisma.eventSeries.findFirst({ where: { id: args.seriesId, tenantId }, select: { id: true } })
       : null,
   ]);
-  if (args.venueId && !venue) throw new PermissionError("NOT_FOUND", "Venue not found");
+  if (venueCount !== args.venueIds.length) throw new PermissionError("NOT_FOUND", "Venue not found");
   if (args.seriesId && !series) throw new PermissionError("NOT_FOUND", "Series not found");
+}
+
+// Position in the list is the venue's sortOrder; the first is primary.
+function eventVenueRows(venueIds: string[]) {
+  return venueIds.map((venueId, sortOrder) => ({ venueId, sortOrder }));
 }
 
 // ---------------------------------------------------------------------------
@@ -51,12 +56,14 @@ export type EventWriteArgs = {
   startDate: Date;
   endDate: Date;
   timezone: string;
-  venueId: string | null;
+  // In event order — the first is the primary venue. Duplicates are dropped.
+  venueIds: string[];
   seriesId: string | null;
 };
 
-export async function createEventCore(args: EventWriteArgs, userId: string, tenantId: string) {
+export async function createEventCore(input: EventWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", { tenantId });
+  const args = { ...input, venueIds: Array.from(new Set(input.venueIds)) };
   await assertEventRefsInTenant(args, tenantId);
   // Auto-assign the creator as event staff so a role with EVENTS:UNASSIGNED:NONE
   // doesn't lose access to events they just created.
@@ -68,16 +75,19 @@ export async function createEventCore(args: EventWriteArgs, userId: string, tena
       startDate: args.startDate,
       endDate: args.endDate,
       timezone: args.timezone || "America/Chicago",
-      venueId: args.venueId,
       seriesId: args.seriesId,
+      venues: { create: eventVenueRows(args.venueIds) },
       staff: { create: { userId } },
     },
   });
 }
 
-export async function updateEventCore(id: string, args: EventWriteArgs, userId: string) {
+export async function updateEventCore(id: string, input: EventWriteArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", id);
+  const args = { ...input, venueIds: Array.from(new Set(input.venueIds)) };
   await assertEventRefsInTenant(args, await requireEventTenantId(id));
+  // Rooms of a venue removed here stay attached to any function/order already
+  // using them — dropping a venue never silently rewrites the schedule.
   return prisma.event.update({
     where: { id },
     data: {
@@ -86,8 +96,8 @@ export async function updateEventCore(id: string, args: EventWriteArgs, userId: 
       startDate: args.startDate,
       endDate: args.endDate,
       timezone: args.timezone || "America/Chicago",
-      venueId: args.venueId,
       seriesId: args.seriesId,
+      venues: { deleteMany: {}, create: eventVenueRows(args.venueIds) },
       updatedById: userId,
     },
   });

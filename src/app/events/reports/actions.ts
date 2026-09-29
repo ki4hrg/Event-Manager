@@ -10,6 +10,7 @@ import { ACQUISITION_OPTIONS, PACKING_STATUS_OPTIONS } from "@/lib/statusConstan
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { compareRoomsByGroup } from "@/lib/roomGroups";
+import { eventVenuesOrderBy } from "@/lib/eventVenues";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { compareByMainFunctionTime } from "@/lib/functionSchedules";
 
@@ -654,15 +655,20 @@ export async function getEventProfileData(
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: {
-      venue: {
+      venues: {
+        orderBy: eventVenuesOrderBy,
         include: {
-          contacts: {
+          venue: {
             include: {
-              contact: {
-                select: { id: true, firstName: true, lastName: true, email: true, phone: true, organization: true },
+              contacts: {
+                include: {
+                  contact: {
+                    select: { id: true, firstName: true, lastName: true, email: true, phone: true, organization: true },
+                  },
+                },
+                orderBy: { id: "asc" },
               },
             },
-            orderBy: { id: "asc" },
           },
         },
       },
@@ -824,7 +830,7 @@ export async function getEventProfileData(
 
   return {
     event,
-    venue: event.venue,
+    venues: event.venues.map((v) => v.venue),
     keyStaff,
     functions: filteredFunctions,
     breakoutGroups: filteredBreakoutGroups,
