@@ -1113,7 +1113,8 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
   const dayKeys = opts.days && opts.days.length > 0 ? new Set(opts.days) : null;
   const roomIdFilter = opts.roomIds && opts.roomIds.length > 0 ? new Set(opts.roomIds) : null;
 
-  const [rooms, allFunctions] = await Promise.all([
+  const [eventVenues, rooms, allFunctions] = await Promise.all([
+    prisma.eventVenue.findMany({ where: { eventId }, orderBy: eventVenuesOrderBy, select: { venueId: true } }),
     prisma.room.findMany({
       where: {
         OR: [
@@ -1164,7 +1165,13 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
     ? allFunctions.filter((fn) => functionMatchesDays(fn.schedules, dayKeys, timezone))
     : allFunctions;
 
+  // Venues in event order (primary first). A room still assigned after its
+  // venue was removed from the event sorts after them, by venue name.
+  const venueRank = new Map(eventVenues.map((ev, i) => [ev.venueId, i]));
   rooms.sort((a, b) => {
+    const ra = venueRank.get(a.venueId) ?? Number.MAX_SAFE_INTEGER;
+    const rb = venueRank.get(b.venueId) ?? Number.MAX_SAFE_INTEGER;
+    if (ra !== rb) return ra - rb;
     const va = a.venue?.name ?? "";
     const vb = b.venue?.name ?? "";
     if (va !== vb) return va.localeCompare(vb);
