@@ -38,6 +38,14 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - uploads_data:/data/uploads
+    healthcheck:
+      # node:24-alpine has node (global fetch) but no curl. The start command runs
+      # baseline + migrate + seed before `next start`, hence the generous start_period.
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
     depends_on:
       db:
         condition: service_healthy
