@@ -83,6 +83,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // rewrite targets.
       if (nextUrl.pathname.startsWith("/api/oauth/")) return true;
       if (nextUrl.pathname.startsWith("/api/well-known/")) return true;
+      // Container healthcheck target (see docker-compose.yml). Must stay unauthenticated.
+      if (nextUrl.pathname === "/api/health") return true;
       if (nextUrl.pathname.startsWith("/.well-known/")) return true;
 
       return isLoggedIn;
