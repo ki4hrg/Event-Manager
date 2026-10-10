@@ -1,6 +1,6 @@
 # OAuth 2.1 for the MCP connector
 
-The MCP endpoint at `/api/mcp` accepts two bearer schemes:
+The MCP endpoint at `/mcp` accepts two bearer schemes:
 
 1. **OAuth 2.1 access tokens** — what Claude's Custom Connector UI uses. Issued by
    the endpoints documented here.
@@ -18,10 +18,10 @@ request.
 In Claude (web, desktop, or mobile) add a **custom connector** and enter:
 
 ```
-<origin>/api/mcp
+<origin>/mcp
 ```
 
-e.g. `https://events.example.com/api/mcp`. That single URL is all Claude needs —
+e.g. `https://events.example.com/mcp`. That single URL is all Claude needs —
 it discovers the authorization server from there. Claude then sends you to Event
 Manager to sign in (skipped if you already have a session) and shows an approval
 screen; choose **Allow access** and you're connected.
@@ -31,7 +31,7 @@ screen; choose **Allow access** and you're connected.
 | Path | Spec | Auth | Purpose |
 |---|---|---|---|
 | `/.well-known/oauth-authorization-server` | RFC 8414 | public | Authorization server metadata |
-| `/.well-known/oauth-protected-resource` | RFC 9728 | public | Names `/api/mcp` as the resource and this origin as its auth server |
+| `/.well-known/oauth-protected-resource` (and `/.well-known/oauth-protected-resource/mcp`) | RFC 9728 | public | Names `/mcp` as the resource and this origin as its auth server |
 | `/api/oauth/register` | RFC 7591 | public | Dynamic client registration |
 | `/api/oauth/authorize` | RFC 6749 §4.1 | session | Validates the request, then hands off to the approval page |
 | `/oauth/authorize` | — | session | The approval page itself (an App Router page, not an API route) |
@@ -73,7 +73,7 @@ Claude                        Event Manager
   |-- POST /api/oauth/token (code + code_verifier) ---->  verify PKCE, claim code
   |<-- access_token (15 min) + refresh_token (30 days)
   |
-  |-- POST /api/mcp  Authorization: Bearer <access_token>
+  |-- POST /mcp  Authorization: Bearer <access_token>
 ```
 
 `https://claude.ai/api/mcp/auth_callback` is the redirect URI hosted Claude
@@ -94,7 +94,7 @@ the only thing binding a code redemption to the party that requested it.
   can't both succeed. A replay deletes the code.
 - **Access token** — HS256 JWT, 15-minute TTL, signed with `AUTH_SECRET` (the
   secret next-auth already requires; there's no second secret to provision).
-  Self-contained, so `/api/mcp` verifies it with no database round-trip.
+  Self-contained, so `/mcp` verifies it with no database round-trip.
 - **Refresh token** — opaque 32 random bytes, 30-day TTL, rotated on every use.
   Only the SHA-256 hash is stored. Presenting an already-rotated token is treated
   as theft and revokes the entire rotation family.

@@ -18,7 +18,7 @@ async function getMcpUrl(): Promise<string> {
   const host = h.get("host") ?? "localhost:3000";
   const proto =
     h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}/api/mcp`;
+  return `${proto}://${host}/mcp`;
 }
 
 export default async function ApiKeysPage() {
@@ -38,7 +38,7 @@ export default async function ApiKeysPage() {
         API Keys
       </h1>
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-        Bearer tokens for the MCP connector at <code>/api/mcp</code>. Each key
+        Bearer tokens for the MCP connector at <code>/mcp</code>. Each key
         inherits your role and event assignments. The full key is shown once at
         creation — store it safely.
       </p>

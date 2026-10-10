@@ -72,7 +72,7 @@ async function unauthorized(): Promise<Response> {
   // Point clients at the protected-resource metadata so claude.ai can discover
   // the OAuth authorization server (MCP auth spec / RFC 9728).
   const base = await getRequestBaseUrl();
-  const wwwAuth = `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`;
+  const wwwAuth = `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource/mcp"`;
   return new Response(JSON.stringify({ error: "Unauthorized" }), {
     status: 401,
     headers: { "content-type": "application/json", "www-authenticate": wwwAuth },

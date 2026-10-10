@@ -74,8 +74,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (nextUrl.pathname.startsWith("/share/")) return true;
       if (nextUrl.pathname === "/forgot-password") return true;
       if (nextUrl.pathname.startsWith("/reset-password/")) return true;
-      // /api/mcp does its own bearer-token auth via @/lib/mcpAuth.
-      if (nextUrl.pathname.startsWith("/api/mcp")) return true;
+      // /mcp does its own bearer-token auth via @/lib/mcpAuth.
+      if (nextUrl.pathname === "/mcp" || nextUrl.pathname.startsWith("/mcp/")) return true;
       // OAuth 2.1 endpoints backing the remote MCP connector are public by
       // design: register (anonymous DCR), authorize (own credential form),
       // token/revoke (PKCE / token-based). Discovery docs are public metadata,
