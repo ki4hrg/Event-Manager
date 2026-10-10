@@ -5,7 +5,7 @@ import { getOAuthSigningSecret } from "./auth";
 import { prisma } from "./prisma";
 
 // OAuth 2.1 token helpers backing the remote MCP connector. The authorization
-// endpoints (src/app/api/oauth/*) mint these; the MCP route (src/app/api/mcp)
+// endpoints (src/app/api/oauth/*) mint these; the MCP route (src/app/mcp)
 // verifies the access token without a DB round-trip. API-key auth in
 // ./mcpAuth.ts is independent and still supported.
 

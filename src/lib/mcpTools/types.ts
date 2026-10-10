@@ -1,4 +1,4 @@
-// Shared shape for every MCP tool. The dispatcher in /api/mcp/route.ts loads
+// Shared shape for every MCP tool. The dispatcher in /mcp/route.ts loads
 // the registry (see ./index.ts), advertises tools on tools/list, and runs the
 // matching handler on tools/call. Tool args are passed as parsed JSON; the
 // handler is responsible for shape-checking what it needs.

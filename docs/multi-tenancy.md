@@ -19,7 +19,7 @@ Every domain row belongs to a **Tenant** (shown in the UI as an *organization*).
 - **Global checks** (`requirePermission(RESOURCE, action)` with no event id) resolve against the active tenant and return `session.tenantId`, which Server Actions hand to the `*Core` functions.
 - **Event-scoped checks** (`requirePermission(RESOURCE, action, eventId)`) resolve against the *event's* tenant, whatever the active tenant is. Opening another organization's event re-points the active tenant (see `src/app/events/[id]/layout.tsx`).
 - **Principal-aware** callers (`requirePermissionForUser`, cores, MCP) pass a `PermissionTarget`: an event id string, or `{ tenantId }` for a global check.
-- **MCP**: an API key spans every tenant its user belongs to. Every tool except `list_tenants` takes a `tenant` argument (slug or id); it may be omitted only when the user belongs to exactly one. The dispatcher (`src/app/api/mcp/route.ts`) resolves it and strips it before the handler runs.
+- **MCP**: an API key spans every tenant its user belongs to. Every tool except `list_tenants` takes a `tenant` argument (slug or id); it may be omitted only when the user belongs to exactly one. The dispatcher (`src/app/mcp/route.ts`) resolves it and strips it before the handler runs.
 - **Share links** carry their tenant through the event; the unauthenticated routes read options via `getOptionsForTenant` / `getOptionsForEvent` in `src/lib/options.ts`.
 
 ## Writing tenant-safe code
