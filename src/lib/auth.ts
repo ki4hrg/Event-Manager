@@ -113,11 +113,13 @@ export async function requireAuth() {
 }
 
 // HS256 signing key for the OAuth MCP access tokens (see @/lib/mcpOAuth).
-// Reuses AUTH_SECRET — the secret next-auth v5 already requires for its own JWT
-// sessions — so there's no second secret to provision. Funnelled through this
-// module because env access is restricted to lib/prisma, lib/auth, lib/uploads.
+// Reuses the secret next-auth v5 already requires for its own JWT sessions, so
+// there's no second secret to provision. Like next-auth, accept the legacy
+// NEXTAUTH_SECRET name too — docker-compose.yml and .env.example only set that
+// one. Funnelled through this module because env access is restricted to
+// lib/prisma, lib/auth, lib/uploads.
 export function getOAuthSigningSecret(): Uint8Array {
-  const raw = process.env.AUTH_SECRET;
-  if (!raw) throw new Error("AUTH_SECRET is not set");
+  const raw = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+  if (!raw) throw new Error("AUTH_SECRET (or NEXTAUTH_SECRET) is not set");
   return new TextEncoder().encode(raw);
 }

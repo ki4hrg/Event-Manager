@@ -109,3 +109,4 @@
 - [forms] Long inline item forms group fields with `FormSection` (`src/components/ui/FormSection.tsx`) — titled fieldsets over the same 1→2 col grid (supply + print item forms)
 - [naming] Item storage location is labeled "Storage location" in forms and "Storage" in lists/reports — never "From"/"Comes from", which read as provider/supplier
 - [events] Event overview shows cards only for entity types with rows; empty types collapse to a "Not in use" chip row linking to `/new`
+- [env/auth] `NEXTAUTH_SECRET` is the only secret docker-compose.yml/.env.example provision; next-auth v5 falls back to it, so anything reading `AUTH_SECRET` directly must too (`getOAuthSigningSecret` in `src/lib/auth.ts` threw on stock deploys, 500ing the OAuth token exchange = claude.ai "callback failed").
