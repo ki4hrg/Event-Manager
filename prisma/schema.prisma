@@ -94,7 +94,7 @@ model TenantMembership {
   @@index([roleId])
 }
 
-// Bearer tokens for programmatic access via the MCP connector (/api/mcp).
+// Bearer tokens for programmatic access via the MCP connector (/mcp).
 // hashedKey is SHA-256 of the full key (not bcrypt — keys are high-entropy randoms,
 // indexed lookup, single hash per request). keyPrefix is the plaintext first ~8
 // chars so admins can identify a key in the UI without revealing the secret.
