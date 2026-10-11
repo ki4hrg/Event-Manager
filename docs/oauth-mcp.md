@@ -93,7 +93,8 @@ the only thing binding a code redemption to the party that requested it.
   conditional update guarded on `usedAt: null`, so two concurrent redemptions
   can't both succeed. A replay deletes the code.
 - **Access token** — HS256 JWT, 15-minute TTL, signed with `AUTH_SECRET` (the
-  secret next-auth already requires; there's no second secret to provision).
+  secret next-auth already requires, falling back to `NEXTAUTH_SECRET` as
+  next-auth does; there's no second secret to provision).
   Self-contained, so `/mcp` verifies it with no database round-trip.
 - **Refresh token** — opaque 32 random bytes, 30-day TTL, rotated on every use.
   Only the SHA-256 hash is stored. Presenting an already-rotated token is treated
