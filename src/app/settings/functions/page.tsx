@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getOptions, createOption, updateOption, deleteOption, reorderOptions } from "../actions";
 import { OptionList } from "../OptionList";
+import { SCHEDULE_ROLES } from "@/lib/esg/apex";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function SettingsFunctionsPage() {
     <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
       <OptionList
         title="Function Types"
-        description="Categories for scheduled functions (e.g., Meal, Breakout, Plenary)"
+        description="Categories for scheduled functions. Defaults follow the APEX ESG function types."
         category="function_type"
         options={functionTypes}
         showColor={true}
@@ -55,10 +56,12 @@ export default async function SettingsFunctionsPage() {
       />
       <OptionList
         title="Schedule Types"
-        description="Types of schedule items for functions (e.g., Setup, Rehearsal, Main Event)"
+        description="Types of schedule items for functions (e.g., Setup, Rehearsal, Main Event). The ESG role marks which types feed Set Up By / Dismantle No Later Than."
         category="schedule_type"
         options={scheduleTypes}
         showColor={true}
+        groupOptions={[...SCHEDULE_ROLES]}
+        groupLabel="ESG role"
         createOption={createScheduleType}
         updateOption={updateOption}
         deleteOption={deleteOption}
@@ -66,7 +69,7 @@ export default async function SettingsFunctionsPage() {
       />
       <OptionList
         title="Setup Types"
-        description="Room setup configurations for Setup Orders (e.g., Theater, Classroom, Banquet Rounds)"
+        description="Room setup configurations for Setup Orders. Defaults follow the APEX ESG primary room set-up list."
         category="setup_type"
         options={setupTypes}
         showColor={false}
