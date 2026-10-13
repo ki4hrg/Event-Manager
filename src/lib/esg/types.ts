@@ -94,5 +94,5 @@ export function blankItem(label: string): EsgItem {
   return { label, value: null };
 }
 
-// Parts the report offers today. IIIb (booth set-up orders) joins with Exhibits.
-export const AVAILABLE_ESG_PARTS: EsgPart[] = ["I", "II", "IIIa"];
+// Parts the report offers.
+export const AVAILABLE_ESG_PARTS: EsgPart[] = ESG_PARTS;

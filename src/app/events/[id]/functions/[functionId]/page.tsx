@@ -493,6 +493,36 @@ export default async function FunctionPage({
               linkMediaDeliverable={linkMediaDeliverableAction}
               unlinkMediaDeliverable={unlinkMediaDeliverableAction}
             />
+            {(fn.exhibitBooths.length > 0 || /exhibit/i.test(fn.type)) && (
+              <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">Exhibit Booths</h3>
+                  <Link
+                    href={`/events/${eventId}/exhibits/new?functionId=${functionId}`}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    + Add booth
+                  </Link>
+                </div>
+                {fn.exhibitBooths.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No booths yet.</p>
+                ) : (
+                  <ul className="space-y-1 text-sm">
+                    {[...fn.exhibitBooths]
+                      .sort((a, b) => (a.boothNumber ?? "").localeCompare(b.boothNumber ?? "", undefined, { numeric: true }))
+                      .map((b) => (
+                        <li key={b.id}>
+                          <Link href={`/events/${eventId}/exhibits/${b.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                            {b.boothNumber ? `Booth ${b.boothNumber} · ` : ""}
+                            {b.name}
+                          </Link>
+                          {b.companyName && <span className="text-gray-500 dark:text-gray-400"> — {b.companyName}</span>}
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

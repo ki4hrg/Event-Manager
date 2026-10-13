@@ -37,6 +37,7 @@ model User {
   // Inverse relations for "last updated by" attribution across all editable entities.
   updatedEvents              Event[]                  @relation("EventUpdatedBy")
   updatedEventSpecifications EventSpecification[]     @relation("EventSpecificationUpdatedBy")
+  updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
   updatedVenues              Venue[]                  @relation("VenueUpdatedBy")
   updatedContacts            Contact[]                @relation("ContactUpdatedBy")
   updatedVendors             Vendor[]                 @relation("VendorUpdatedBy")
@@ -431,6 +432,7 @@ model Event {
   specCoverage            EventSpecCoverage[]
   specKeys                EventSpecKey[]
   retiredFunctionNumbers  RetiredFunctionNumber[]
+  exhibitBooths           ExhibitBooth[]
   updatedById             String?
   updatedBy               User?                   @relation("EventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt               DateTime                @default(now())
@@ -560,6 +562,7 @@ model Contact {
   eventKeyStaff               EventKeyStaff[]
   specFinalBillFor            EventSpecification[]      @relation("SpecFinalBillContact")
   specVips                    EventSpecVip[]
+  exhibitBooths               ExhibitBooth[]
   updatedById                 String?
   updatedBy                   User?                     @relation("ContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                  @default(now())
@@ -628,6 +631,7 @@ model Function {
   billingNotes              String?
   costCenter                String?
   roomNumbers               FunctionRoomNumber[]
+  exhibitBooths             ExhibitBooth[]
   specTransfers             EventSpecTransfer[]
   specKeys                  EventSpecKey[]
   masterExhibitFor          EventSpecification[]           @relation("SpecMasterExhibit")
@@ -812,6 +816,8 @@ model EquipmentItem {
   setupOrderId      String?
   videoSectionId    String?
   avOrderId         String?
+  exhibitBoothId    String?
+  exhibitBooth      ExhibitBooth?  @relation(fields: [exhibitBoothId], references: [id], onDelete: Cascade)
   cateringOrder     CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   setupOrder        SetupOrder?    @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   videoSection      VideoSection?  @relation(fields: [videoSectionId], references: [id], onDelete: Cascade)
@@ -837,6 +843,7 @@ model EquipmentItem {
   @@index([setupOrderId])
   @@index([videoSectionId])
   @@index([avOrderId])
+  @@index([exhibitBoothId])
   @@index([equipmentId])
   @@index([providerVendorId])
   @@index([providerContactId])
@@ -2138,4 +2145,55 @@ model FunctionRoomNumber {
 
   @@unique([functionId, roomId])
   @@unique([functionId, suffix])
+}
+
+// ESG Part IIIb — one Booth Set-up Order per exhibit booth. Usually listed
+// under the event's exhibit function (the master exhibit function); times
+// left empty inherit from that function's schedules.
+model ExhibitBooth {
+  id                    String          @id @default(cuid())
+  eventId               String
+  event                 Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId            String?
+  function              Function?       @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  boothNumber           String?
+  location              String?
+  boothType             String?
+  name                  String
+  companyName           String?
+  contactId             String?
+  contact               Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  startAt               DateTime?
+  endAt                 DateTime?
+  setupBy               DateTime?
+  teardownBy            DateTime?
+  specialRequirements   String?
+  setupNotes            String?
+  avProvider            ProvidedBy?
+  avNotes               String?
+  fbNotes               String?
+  decorNotes            String?
+  securityNotes         String?
+  signageNotes          String?
+  shippingRequired      Boolean?
+  customsRequired       Boolean?
+  materialHandlingNotes String?
+  electricalProvider    ProvidedBy?
+  electricalNotes       String?
+  utilitiesNotes        String?
+  taxExempt             Boolean?
+  taxExemptId           String?
+  costCenter            String?
+  billingNotes          String?
+  sortOrder             Int             @default(0)
+  equipmentItems        EquipmentItem[]
+  updatedById           String?
+  updatedBy             User?           @relation("ExhibitBoothUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([eventId])
+  @@index([functionId])
+  @@index([contactId])
+  @@index([updatedById])
 }

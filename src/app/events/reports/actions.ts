@@ -14,7 +14,7 @@ import { eventVenuesOrderBy } from "@/lib/eventVenues";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { compareFunctionNumbers, formatFunctionLabel } from "@/lib/functionNumbers";
 import { loadEsgNarrativeData } from "@/lib/esg/narrativeData";
-import { esgFunctionInclude } from "@/lib/esg/include";
+import { esgBoothInclude, esgFunctionInclude } from "@/lib/esg/include";
 import { assembleEsgDocument, esgDayOptions } from "@/lib/esg/assemble";
 import { ESG_PARTS, type EsgPart } from "@/lib/esg/types";
 import { compareByMainFunctionTime } from "@/lib/functionSchedules";
@@ -2005,8 +2005,9 @@ export type EsgFilters = {
 export async function getEsgData(eventId: string, filters: EsgFilters = {}) {
   const narrative = await loadEsgNarrativeData(eventId);
   if (!narrative) return null;
-  const [functions, scheduleTypes] = await Promise.all([
+  const [functions, booths, scheduleTypes] = await Promise.all([
     prisma.function.findMany({ where: { eventId }, include: esgFunctionInclude }),
+    prisma.exhibitBooth.findMany({ where: { eventId }, include: esgBoothInclude }),
     prisma.customOption.findMany({
       where: optionsWhereForEvent(eventId, "schedule_type"),
       select: { label: true, group: true },
@@ -2030,7 +2031,7 @@ export async function getEsgData(eventId: string, filters: EsgFilters = {}) {
     showBlank: filters.showBlank ?? false,
     includeBilling: filters.includeBilling ?? true,
   };
-  const document = assembleEsgDocument(narrative, functions, support, applied);
+  const document = assembleEsgDocument(narrative, functions, booths, support, applied);
   return { document, applied, dayOptions, functionOptions };
 }
 

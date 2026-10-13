@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { EquipmentItem, CustomOption, Equipment, Vendor, Contact } from "@prisma/client";
+import type { EquipmentItem, CustomOption, Equipment, Vendor, Contact, PermissionResource } from "@prisma/client";
 import { PartyField } from "@/app/events/av-orders/party-field";
 import type { ContactOptions } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
@@ -30,6 +30,8 @@ type EquipmentTableProps = {
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   readOnlyItems?: { label: string; quantity: number; source?: string }[];
+  // Whose WRITE/DELETE gates editing. Defaults to catering for existing callers.
+  resource?: PermissionResource;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -112,9 +114,10 @@ export function EquipmentTable({
   updateItem,
   deleteItem,
   readOnlyItems,
+  resource = "CATERING_ORDERS",
 }: EquipmentTableProps) {
-  const canWrite = useCanWrite("CATERING_ORDERS");
-  const canDelete = useCanDelete("CATERING_ORDERS");
+  const canWrite = useCanWrite(resource);
+  const canDelete = useCanDelete(resource);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);

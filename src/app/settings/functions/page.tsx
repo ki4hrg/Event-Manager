@@ -8,11 +8,21 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Function options" };
 
 export default async function SettingsFunctionsPage() {
-  const [functionTypes, scheduleTypes, setupTypes] = await Promise.all([
+  const [functionTypes, scheduleTypes, setupTypes, boothTypes] = await Promise.all([
     getOptions("function_type"),
     getOptions("schedule_type"),
     getOptions("setup_type"),
+    getOptions("booth_type"),
   ]);
+
+  const createBoothType = async (formData: FormData) => {
+    "use server";
+    await createOption("booth_type", formData);
+  };
+  const reorderBoothTypes = async (ids: string[]) => {
+    "use server";
+    await reorderOptions("booth_type", ids);
+  };
 
   const createFunctionType = async (formData: FormData) => {
     "use server";
@@ -77,6 +87,17 @@ export default async function SettingsFunctionsPage() {
         updateOption={updateOption}
         deleteOption={deleteOption}
         reorderOptions={reorderSetupTypes}
+      />
+      <OptionList
+        title="Booth Types"
+        description="Booth / stand types for exhibit booths (ESG Part IIIb)."
+        category="booth_type"
+        options={boothTypes}
+        showColor={false}
+        createOption={createBoothType}
+        updateOption={updateOption}
+        deleteOption={deleteOption}
+        reorderOptions={reorderBoothTypes}
       />
     </div>
   );

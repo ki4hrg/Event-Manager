@@ -100,6 +100,7 @@ export function EsgReport({ doc }: { doc: EsgDocument }) {
     ...(doc.narrative ? [{ id: "narrative", label: "Part I — Narrative" }] : []),
     ...(doc.functionSchedule ? [{ id: "function-schedule", label: "Part II — Function Schedule" }] : []),
     ...(doc.setupOrders ? [{ id: "setup-orders", label: "Part IIIa — Set-up Orders" }] : []),
+    ...(doc.boothOrders ? [{ id: "booth-orders", label: "Part IIIb — Booth Set-up Orders" }] : []),
   ];
   const itemGroups = [
     ...(doc.narrative
@@ -115,6 +116,14 @@ export function EsgReport({ doc }: { doc: EsgDocument }) {
           {
             label: "Set-up orders",
             links: doc.setupOrders.map((o) => ({ id: o.anchor, label: `${o.number ? `#${o.number} · ` : ""}${o.name}` })),
+          },
+        ]
+      : []),
+    ...(doc.boothOrders && doc.boothOrders.length > 0
+      ? [
+          {
+            label: "Booths",
+            links: doc.boothOrders.map((o) => ({ id: o.anchor, label: `${o.number ? `Booth ${o.number} · ` : ""}${o.name}` })),
           },
         ]
       : []),
@@ -181,6 +190,24 @@ export function EsgReport({ doc }: { doc: EsgDocument }) {
             <div key={o.anchor} id={o.anchor} className={`${cardClass} scroll-mt-24 print:break-before-page space-y-5`}>
               <h3 className="text-base font-semibold text-gray-900 dark:text-white print:text-black">
                 {o.number && <span className="text-gray-500 dark:text-gray-400 print:text-gray-600 mr-2">#{o.number}</span>}
+                {o.name}
+              </h3>
+              {o.sections.map((s) => (
+                <EsgSectionView key={s.letter} section={s} />
+              ))}
+            </div>
+          ))}
+        </>
+      )}
+
+      {doc.boothOrders && (
+        <>
+          <SectionDivider id="booth-orders" title="Part IIIb — Booth Set-up Orders" />
+          {doc.boothOrders.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No booths.</p>}
+          {doc.boothOrders.map((o) => (
+            <div key={o.anchor} id={o.anchor} className={`${cardClass} scroll-mt-24 print:break-before-page space-y-5`}>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white print:text-black">
+                {o.number && <span className="text-gray-500 dark:text-gray-400 print:text-gray-600 mr-2">Booth {o.number}</span>}
                 {o.name}
               </h3>
               {o.sections.map((s) => (

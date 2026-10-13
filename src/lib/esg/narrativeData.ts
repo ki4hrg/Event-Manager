@@ -90,8 +90,7 @@ export async function loadEsgNarrativeData(eventId: string) {
         where: { eventId, type: { not: "BREAKOUT_BLOCK" } },
         select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } },
       }),
-      // ExhibitBooth arrives with Part IIIb; until then nothing to count.
-      Promise.resolve(0),
+      prisma.exhibitBooth.count({ where: { eventId } }),
     ]);
   if (!event) return null;
 

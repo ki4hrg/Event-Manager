@@ -11,12 +11,14 @@ import { storageLocationTools } from "./storageLocations";
 import { inventoryTools } from "./inventory";
 import { tenantTools } from "./tenants";
 import { specificationTools } from "./specifications";
+import { boothTools } from "./booths";
 
 export const mcpTools: McpToolDefinition[] = [
   ...tenantTools,
   ...eventTools,
   ...specificationTools,
   ...functionTools,
+  ...boothTools,
   ...presentationTools,
   ...vendorTools,
   ...contactTools,

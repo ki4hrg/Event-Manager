@@ -235,7 +235,7 @@ async function propagateLabelRename(
       await tx.cateringOrder.updateMany({ where: { mealType: oldLabel, ...inTenant }, data: { mealType: newLabel } });
       break;
     case "booth_type":
-      // ExhibitBooth arrives with ESG Part IIIb; nothing stores the label yet.
+      await tx.exhibitBooth.updateMany({ where: { boothType: oldLabel, ...inTenant }, data: { boothType: newLabel } });
       break;
     default: {
       const _exhaustive: never = category;

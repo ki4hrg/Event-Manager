@@ -22,7 +22,7 @@ import {
 import { formatDateOnly, formatDayDate, formatDayDateTime, formatTimeDual, isBlankText } from "@/lib/esg/format";
 import { deriveProvidedBy, formatProvidedBy, type ProvidedByVendor } from "@/lib/esg/providedBy";
 import type { EsgNarrativeData } from "@/lib/esg/narrativeData";
-import type { EsgFunctionRow } from "@/lib/esg/include";
+import type { EsgBoothRow, EsgFunctionRow } from "@/lib/esg/include";
 import {
   blankItem,
   type EsgBlock,
@@ -725,9 +725,142 @@ function setupOrderSections(p: Placement, ctx: Ctx): EsgSection[] {
   return sections;
 }
 
+// ─── Part IIIb ────────────────────────────────────────────────────────────────
+
+function providedLabel(v: string | null): string | null {
+  if (!v) return null;
+  return v === "GROUP" ? "Booth to provide" : PROVIDED_BY_LABELS[v as keyof typeof PROVIDED_BY_LABELS];
+}
+
+function boothOrder(b: EsgBoothRow, ctx: Ctx): EsgSetupOrder {
+  const { tz, opts, support, data } = ctx;
+  const show = opts.showBlank;
+  // Empty times follow the exhibit function's schedules.
+  const fnScheds = b.function?.schedules ?? [];
+  const own = fnScheds.filter((s) => !support.has(s.type));
+  const main = own.length ? own : fnScheds;
+  const setup = fnScheds.filter((s) => support.has(s.type));
+  const start = b.startAt ?? (main.length ? main.reduce((m, s) => (s.startTime < m ? s.startTime : m), main[0].startTime) : null);
+  const end = b.endAt ?? (main.length ? main.reduce((m, s) => (s.endTime > m ? s.endTime : m), main[0].endTime) : null);
+  const setupBy = b.setupBy ?? (setup.length && start ? setup.filter((s) => s.startTime <= start).sort((x, y) => x.startTime.getTime() - y.startTime.getTime())[0]?.startTime ?? null : null);
+  const teardown = b.teardownBy ?? (setup.length && end ? setup.filter((s) => s.startTime >= end).sort((x, y) => y.endTime.getTime() - x.endTime.getTime())[0]?.endTime ?? null : null);
+  const dt = (d: Date | null) => (d ? formatDayDateTime(d, tz) : null);
+  const yn = (v: boolean | null) => (v === null ? null : v ? "Yes" : "No");
+  const sections: EsgSection[] = [];
+  const add = (letter: string, title: string, blocks: (EsgBlock | null)[]) => {
+    const kept = blocks.filter((x): x is EsgBlock => x !== null);
+    if (kept.length > 0 || show) sections.push({ letter, title, na: false, blocks: kept });
+  };
+  const contact = data.keyStaff[0];
+  sections.push({
+    letter: "A",
+    title: "Event Details",
+    na: false,
+    blocks: [
+      {
+        kind: "fields",
+        items: [
+          { label: "Event name", value: data.event.name },
+          { label: "Organizer / host organization", value: (data.narrative.hostOrgName as string) ?? null },
+          { label: "Contact name", value: contact ? person(contact.contact) : null },
+          { label: "Contact phone", value: contact?.contact.phone ? formatPhone(contact.contact.phone) : null },
+        ],
+      },
+    ],
+  });
+  add("B", "Booth Details", [
+    fieldsBlock(
+      [
+        { label: "Booth #", value: b.boothNumber },
+        { label: "Booth location", value: b.location },
+        { label: "Booth type", value: b.boothType },
+        { label: "Booth name", value: b.name },
+        { label: "Company name", value: b.companyName },
+        {
+          label: "Key contact person for booth",
+          value: b.contact ? [person(b.contact), b.contact.phone ? formatPhone(b.contact.phone) : null, b.contact.email].filter(Boolean).join(" · ") : null,
+        },
+        { label: "Booth start", value: dt(start) },
+        { label: "Booth end", value: dt(end) },
+        { label: "Set up by", value: dt(setupBy) },
+        { label: "Tear down no later than", value: dt(teardown) },
+      ],
+      show,
+    ),
+  ]);
+  add("C", "Booth Set-up", [
+    b.equipmentItems.length
+      ? {
+          kind: "table",
+          table: {
+            title: "Inventory needed",
+            columns: ["Description", "Qty", "Provider", "Comments"],
+            numeric: [false, true, false, false],
+            rows: b.equipmentItems.map((e) => [e.equipment?.name ?? e.item, e.quantity != null ? String(e.quantity) : null, partyName(e), e.notes]),
+          },
+        }
+      : null,
+    fieldsBlock(
+      [
+        { label: "Special requirements", value: b.specialRequirements },
+        { label: "Booth set-up comments", value: b.setupNotes },
+      ],
+      show,
+    ),
+  ]);
+  add("D", "Audio / Visual", [fieldsBlock([{ label: "Provided by", value: providedLabel(b.avProvider) }, { label: "A/V comments", value: b.avNotes }], show)]);
+  add("E", "Food & Beverage", [fieldsBlock([{ label: "F&B comments", value: b.fbNotes }], show)]);
+  add("F", "Décor", [fieldsBlock([{ label: "Décor instructions / requests", value: b.decorNotes }], show)]);
+  add("G", "Security", [fieldsBlock([{ label: "Security instructions / requests", value: b.securityNotes }], show)]);
+  add("H", "Accessibility", [fieldsBlock([blankItem("Accessibility / special needs instructions")], show)]);
+  add("I", "Entertainment / Speaker", [fieldsBlock([blankItem("Entertainment / speaker instructions")], show)]);
+  add("J", "Signage", [fieldsBlock([{ label: "Signage instructions / requests", value: b.signageNotes }], show)]);
+  add("K", "Material Handling", [
+    fieldsBlock(
+      [
+        { label: "Shipping / receiving required", value: yn(b.shippingRequired) },
+        { label: "Customs / brokerage", value: yn(b.customsRequired) },
+        { label: "Material handling instructions", value: b.materialHandlingNotes },
+      ],
+      show,
+    ),
+  ]);
+  add("L", "Utilities", [
+    fieldsBlock(
+      [
+        { label: "Electrical connections", value: providedLabel(b.electricalProvider) },
+        { label: "Electrical notes", value: b.electricalNotes },
+        { label: "Other utilities", value: b.utilitiesNotes },
+      ],
+      show,
+    ),
+  ]);
+  if (opts.includeBilling) {
+    add("N", "Billing Instructions", [
+      fieldsBlock(
+        [
+          { label: "Booth is tax-exempt", value: yn(b.taxExempt) },
+          { label: "Tax-exempt ID #", value: b.taxExemptId },
+          { label: "Booth cost center", value: b.costCenter },
+          { label: "Billing instructions", value: b.billingNotes },
+        ],
+        show,
+      ),
+    ]);
+  }
+  return {
+    anchor: `booth-${b.id}`,
+    number: b.boothNumber,
+    name: [b.name, b.companyName && b.companyName !== b.name ? b.companyName : null].filter(Boolean).join(" — "),
+    dateKey: start ? getDateKeyInTimezone(start, tz) : null,
+    sections,
+  };
+}
+
 export function assembleEsgDocument(
   data: EsgNarrativeData,
   functions: EsgFunctionRow[],
+  booths: EsgBoothRow[],
   support: Set<string>,
   opts: EsgOptions,
 ): EsgDocument {
@@ -773,7 +906,15 @@ export function assembleEsgDocument(
     narrative: opts.parts.includes("I") ? assembleNarrative(ctx) : null,
     functionSchedule,
     setupOrders,
-    boothOrders: null,
+    boothOrders: opts.parts.includes("IIIb")
+      ? booths
+          .filter((b) => !fnIds || (b.functionId !== null && fnIds.has(b.functionId)))
+          .sort(
+            (x, y) =>
+              (x.boothNumber ?? "").localeCompare(y.boothNumber ?? "", undefined, { numeric: true }) || x.name.localeCompare(y.name),
+          )
+          .map((b) => boothOrder(b, ctx))
+      : null,
     attribution: APEX_ATTRIBUTION,
   };
 }

@@ -150,6 +150,7 @@ const NAV: NavItem[] = [
   { type: "group", label: "Content" },
   { type: "link",  label: "Presentations",    segment: "presentations",                   icon: <ChartIcon />,     sidebarSection: "presentations", resource: "PRESENTATIONS" },
   { type: "link",  label: "Media Deliverables", segment: "media-deliverables",            icon: <VideoIcon />,     sidebarSection: "media-deliverables", resource: "MEDIA_DELIVERABLES" },
+  { type: "link",  label: "Exhibits",         segment: "exhibits",                        icon: <BuildingIcon />,  resource: "FUNCTIONS" },
   { type: "group", label: "Orders" },
   { type: "link",  label: "Packing List",     segment: "packing",                         icon: <ChecklistIcon />, resource: "SUPPLY_ORDERS" },
   { type: "link",  label: "AV Orders",        segment: "av-orders",                       icon: <VideoIcon />,     sidebarSection: "av-orders", resource: "AV_ORDERS" },

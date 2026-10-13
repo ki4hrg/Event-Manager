@@ -138,6 +138,10 @@ export async function getFunction(id: string) {
         },
       },
       breakoutGroup: true,
+      exhibitBooths: {
+        select: { id: true, name: true, boothNumber: true, companyName: true },
+        orderBy: { sortOrder: "asc" },
+      },
       updatedBy: { select: { name: true, email: true } },
     },
   });
