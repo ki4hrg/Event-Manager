@@ -43,7 +43,9 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
   const { id: eventId } = await params;
   const data = await getEventSpecification(eventId);
   if (!data) notFound();
-  const { event, spec, narrative } = data;
+  // The edit form shows what the event stores; organization defaults are
+  // passed separately so the card can label them and leave the inputs blank.
+  const { event, spec, storedNarrative: narrative } = data;
   const tz = event.timezone;
 
   const choices: SpecChoices = {
@@ -175,6 +177,7 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
               title={section.title}
               fields={section.fields}
               values={valuesFor(section.fields)}
+              inherited={data.inheritedNarrative}
               timezone={tz}
               choices={choices}
               na={na.has(letter)}

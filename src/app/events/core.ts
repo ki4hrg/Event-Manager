@@ -196,7 +196,7 @@ export async function removeEventKeyStaffCore(
   await prisma.event.update({ where: { id: eventId }, data: { updatedById: userId } });
 }
 
-export type CreateContactAndAddKeyStaffArgs = {
+export type CreateContactAndAddKeyStaffArgs = KeyStaffEsgArgs & {
   eventId: string;
   firstName: string;
   lastName: string;
@@ -229,6 +229,7 @@ export async function createContactAndAddKeyStaffCore(
         contactId: contact.id,
         title: args.title,
         models: args.models,
+        ...keyStaffEsgData(args),
       },
     });
     await tx.event.update({ where: { id: args.eventId }, data: { updatedById: userId } });

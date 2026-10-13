@@ -120,6 +120,7 @@ export async function addEventKeyStaff(eventId: string, formData: FormData) {
       contactId: formData.get("contactId") as string,
       title: (formData.get("title") as string) || null,
       models: formData.getAll("models") as string[],
+      ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
   );
@@ -146,7 +147,8 @@ export async function updateEventKeyStaff(
   revalidatePath(`/events/${eventId}/specifications`);
 }
 
-// Only the edit form renders the ESG controls; posting them is the signal.
+// Forms that render the ESG controls post `esgFields`; without it (older
+// callers) the ESG columns are left alone.
 function keyStaffEsgFromForm(formData: FormData) {
   if (!formData.has("esgFields")) return {};
   const onSite = formData.get("onSite") as string;
@@ -175,6 +177,7 @@ export async function createContactAndAddKeyStaff(eventId: string, formData: For
       organization: (formData.get("organization") as string) || null,
       title: (formData.get("title") as string) || null,
       models: formData.getAll("models") as string[],
+      ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
   );

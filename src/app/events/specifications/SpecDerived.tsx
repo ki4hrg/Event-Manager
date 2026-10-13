@@ -80,20 +80,20 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
   switch (source) {
     case "eventName":
       return (
-        <Block def={def} edit={<EditLink href={settingsHref} label="Edit event" />}>
+        <Block def={def} edit={<EditLink href={settingsHref} label="Event settings →" />}>
           {event.name}
         </Block>
       );
     case "eventDates":
       return (
-        <Block def={def} edit={<EditLink href={settingsHref} label="Edit event" />}>
+        <Block def={def} edit={<EditLink href={settingsHref} label="Event settings →" />}>
           {formatEventDate(event.startDate, event.timezone)} – {formatEventDate(event.endDate, event.timezone)}
         </Block>
       );
     case "primaryFacility": {
       const [primary, ...others] = event.venues.map((v) => v.venue);
       return (
-        <Block def={def} edit={<EditLink href={settingsHref} label="Edit venues" />}>
+        <Block def={def} edit={<EditLink href={settingsHref} label="Event venues →" />}>
           {primary ? (
             <>
               {primary.name}
@@ -115,7 +115,7 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
     }
     case "expectedAttendance":
       return (
-        <Block def={def} edit={<EditLink href={settingsHref} label="Edit event" />}>
+        <Block def={def} edit={<EditLink href={settingsHref} label="Event settings →" />}>
           {event.expectedAttendance ?? <Empty>Not set</Empty>}
           {event.expectedAttendance !== null && event.isMembershipBased && event.membershipCount ? (
             <span className="text-gray-500 dark:text-gray-400">
@@ -127,13 +127,13 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
       );
     case "membership":
       return (
-        <Block def={def} edit={<EditLink href={settingsHref} label="Edit event" />}>
+        <Block def={def} edit={<EditLink href={settingsHref} label="Event settings →" />}>
           {event.isMembershipBased ? (event.membershipCount ?? <Empty>Not set</Empty>) : <Empty>Not a membership-based event</Empty>}
         </Block>
       );
     case "keyContacts":
       return (
-        <Block def={def} edit={<EditLink href={keyStaffHref} label="Edit key staff" />}>
+        <Block def={def} edit={<EditLink href={keyStaffHref} label="Key staff →" />}>
           {data.keyStaff.length === 0 ? (
             <Empty>No key staff on this event.</Empty>
           ) : (
@@ -159,7 +159,7 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
       );
     case "supplierContacts":
       return (
-        <Block def={def} edit={<EditLink href={`/events/${eventId}/vendors`} label="Event vendors" />}>
+        <Block def={def} edit={<EditLink href={`/events/${eventId}/vendors`} label="Event vendors →" />}>
           {data.supplierContacts.length === 0 ? (
             <Empty>No vendor or venue contacts yet.</Empty>
           ) : (
@@ -181,7 +181,7 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
     case "emergencyContact": {
       const people = data.keyStaff.filter((k) => k.isEmergencyContact);
       return (
-        <Block def={def} edit={<EditLink href={keyStaffHref} label="Edit key staff" />}>
+        <Block def={def} edit={<EditLink href={keyStaffHref} label="Key staff →" />}>
           {people.length === 0 ? (
             <Empty>Mark a key staff member as the emergency / crisis contact.</Empty>
           ) : (
@@ -196,13 +196,13 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
     }
     case "fbAttendance":
       return (
-        <Block def={def} edit={<EditLink href={`/events/${eventId}/catering-orders`} label="Catering orders" />}>
+        <Block def={def} edit={<EditLink href={`/events/${eventId}/catering-orders`} label="Catering orders →" />}>
           <FbAttendanceTable grid={data.fbGrid} timezone={event.timezone} eventId={eventId} />
         </Block>
       );
     case "signatories":
       return (
-        <Block def={def} edit={<EditLink href={keyStaffHref} label="Edit key staff" />}>
+        <Block def={def} edit={<EditLink href={keyStaffHref} label="Key staff →" />}>
           {data.signatories.length === 0 ? (
             <Empty>Give a key staff member an approval authority to list them here.</Empty>
           ) : (

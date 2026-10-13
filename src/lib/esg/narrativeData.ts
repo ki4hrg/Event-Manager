@@ -9,14 +9,20 @@ import { functionStartKey } from "@/lib/esg/scheduleKey";
 import { buildFbAttendanceGrid, fbGridHasData } from "@/lib/esg/fbGrid";
 import { loadHousingInput } from "@/lib/esg/housing";
 import { computeEsgCompleteness } from "@/lib/esg/completeness";
+import { isBlankText } from "@/lib/esg/format";
+import { orgEsgDefaults, orgProfileSelect } from "@/lib/orgProfile";
 import type { EsgDerivedSource, SpecGrid } from "@/lib/esg/fields";
 
 const scheduleSelect = { type: true, startTime: true, endTime: true, isPublic: true } as const;
 
 export async function loadEsgNarrativeData(eventId: string) {
-  const [event, spec, vips, shuttles, transfers, shipments, coverage, keys, futureDates, distributions, keyStaff, eventVendors, cateringOrders, options, functions, boothCount] =
+  const [event, tenant, spec, vips, shuttles, transfers, shipments, coverage, keys, futureDates, distributions, keyStaff, eventVendors, cateringOrders, options, functions, boothCount] =
     await Promise.all([
       prisma.event.findUnique({ where: { id: eventId }, include: eventVenuesInclude }),
+      prisma.tenant.findFirst({
+        where: { events: { some: { id: eventId } } },
+        select: { name: true, ...orgProfileSelect },
+      }),
       prisma.eventSpecification.findUnique({
         where: { eventId },
         include: {
@@ -132,7 +138,15 @@ export async function loadEsgNarrativeData(eventId: string) {
     "esg",
   );
 
-  const narrative = (spec?.narrative as Record<string, unknown> | null) ?? {};
+  // What the event itself stores, then the organization profile filling the
+  // §A host-organization keys it leaves blank. Everything downstream (report,
+  // completeness, PER) reads the merged view; the edit form reads storedNarrative.
+  const storedNarrative = (spec?.narrative as Record<string, unknown> | null) ?? {};
+  const inheritedNarrative: Record<string, string> = {};
+  for (const [key, value] of Object.entries(orgEsgDefaults(tenant))) {
+    if (isBlankText(storedNarrative[key])) inheritedNarrative[key] = value;
+  }
+  const narrative: Record<string, unknown> = { ...storedNarrative, ...inheritedNarrative };
   const housing = await loadHousingInput(eventId, spec ? { ...spec, narrative } : null);
 
   const signatories = keyStaff.filter((k) => !!k.approvalAuthority);
@@ -189,6 +203,8 @@ export async function loadEsgNarrativeData(eventId: string) {
     event,
     spec,
     narrative,
+    storedNarrative,
+    inheritedNarrative,
     grids: { vips, shuttles, transfers, shipments, coverage, keys, futureDates, distributions },
     keyStaff,
     signatories,

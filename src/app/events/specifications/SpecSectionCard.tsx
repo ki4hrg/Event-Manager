@@ -44,11 +44,13 @@ function displayValue(field: EsgFieldDef, value: SpecValue, timezone: string, ch
 function FieldView({
   field,
   value,
+  inherited,
   timezone,
   choices,
 }: {
   field: EsgFieldDef;
   value: SpecValue;
+  inherited: boolean;
   timezone: string;
   choices: SpecChoices;
 }) {
@@ -58,6 +60,7 @@ function FieldView({
       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
         {field.label}
         {field.required && <span className="text-red-500 dark:text-red-400"> *</span>}
+        {inherited && <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">from organization</span>}
       </dt>
       {empty ? (
         <dd className="mt-1 text-sm text-gray-400 dark:text-gray-500">—</dd>
@@ -84,15 +87,18 @@ function isEmpty(field: EsgFieldDef, value: SpecValue): boolean {
 // one line so a mostly-blank section stays short.
 function ViewFields({
   fields,
-  values,
+  values: stored,
+  inherited,
   timezone,
   choices,
 }: {
   fields: EsgFieldDef[];
   values: Record<string, SpecValue>;
+  inherited: Record<string, string>;
   timezone: string;
   choices: SpecChoices;
 }) {
+  const values: Record<string, SpecValue> = { ...stored, ...inherited };
   const shown = fields.filter((f) => f.required || !isEmpty(f, values[f.key] ?? null));
   const blank = fields.filter((f) => !f.required && isEmpty(f, values[f.key] ?? null));
   return (
@@ -100,7 +106,14 @@ function ViewFields({
       {shown.length > 0 && (
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {shown.map((f) => (
-            <FieldView key={f.key} field={f} value={values[f.key] ?? null} timezone={timezone} choices={choices} />
+            <FieldView
+              key={f.key}
+              field={f}
+              value={values[f.key] ?? null}
+              inherited={f.key in inherited}
+              timezone={timezone}
+              choices={choices}
+            />
           ))}
         </dl>
       )}
@@ -118,6 +131,7 @@ export function SpecSectionCard({
   title,
   fields,
   values,
+  inherited = {},
   timezone,
   choices,
   na,
@@ -131,6 +145,8 @@ export function SpecSectionCard({
   title: string;
   fields: EsgFieldDef[];
   values: Record<string, SpecValue>;
+  // Values the organization profile supplies for fields this event leaves blank.
+  inherited?: Record<string, string>;
   timezone: string;
   choices: SpecChoices;
   na: boolean;
@@ -190,7 +206,7 @@ export function SpecSectionCard({
                 onClick={() => setEditing(true)}
                 className="text-blue-600 dark:text-blue-400 hover:underline"
               >
-                Edit
+                {letter === "header" ? "Edit dates" : `Edit section ${letter}`}
               </button>
             )}
           </div>
@@ -201,46 +217,67 @@ export function SpecSectionCard({
         <p className="text-sm text-gray-500 dark:text-gray-400">Marked not applicable for this event.</p>
       ) : (
         <div className="space-y-6">
-          {derived}
-          {fields.length > 0 &&
-            (editing && canWrite ? (
-              <form
-                action={async (formData) => {
-                  await saveAction(formData);
-                  setEditing(false);
-                }}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {fields.map((f) => (
-                    <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
-                      <label htmlFor={`${anchor}-${f.key}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {f.label}
-                        {f.required && <span className="text-red-500 dark:text-red-400"> *</span>}
-                      </label>
-                      <SpecFieldInput
-                        id={`${anchor}-${f.key}`}
-                        name={f.key}
-                        kind={f.kind}
-                        value={values[f.key] ?? null}
-                        timezone={timezone}
-                        choices={choices}
-                        optionCategory={f.optionCategory}
-                      />
-                      {f.hint && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{f.hint}</p>}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-3">
-                  <SaveButton />
-                  <button type="button" onClick={() => setEditing(false)} className={`${btnSecondary} text-sm`}>
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <ViewFields fields={fields} values={values} timezone={timezone} choices={choices} />
-            ))}
+          {derived && (
+            <div className="rounded-md border border-dashed border-gray-300 dark:border-gray-600 p-3 sm:p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                From the event · edit where it lives
+              </p>
+              {derived}
+            </div>
+          )}
+          {fields.length > 0 && (
+            <div>
+              {derived && (
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Section {letter} fields
+                </p>
+              )}
+              {editing && canWrite ? (
+                <form
+                  action={async (formData) => {
+                    await saveAction(formData);
+                    setEditing(false);
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {fields.map((f) => (
+                      <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
+                        <label htmlFor={`${anchor}-${f.key}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {f.label}
+                          {f.required && <span className="text-red-500 dark:text-red-400"> *</span>}
+                        </label>
+                        <SpecFieldInput
+                          id={`${anchor}-${f.key}`}
+                          name={f.key}
+                          kind={f.kind}
+                          value={values[f.key] ?? null}
+                          timezone={timezone}
+                          choices={choices}
+                          optionCategory={f.optionCategory}
+                          placeholder={inherited[f.key]}
+                        />
+                        {f.hint && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{f.hint}</p>}
+                        {f.key in inherited && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Blank uses the organization&apos;s value.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-3">
+                    <SaveButton />
+                    <button type="button" onClick={() => setEditing(false)} className={`${btnSecondary} text-sm`}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <ViewFields fields={fields} values={values} inherited={inherited} timezone={timezone} choices={choices} />
+              )}
+            </div>
+          )}
           {grids}
         </div>
       )}

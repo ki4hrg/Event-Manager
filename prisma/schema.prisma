@@ -65,6 +65,18 @@ model Tenant {
   name              String
   // URL-safe handle used by the MCP `tenant` argument and shown in the switcher.
   slug              String             @unique
+  // Organization profile. Defaults for the ESG §A host-organization fields
+  // when an event's specification leaves them blank.
+  phone             String?
+  website           String?
+  address1          String?
+  address2          String?
+  city              String?
+  state             String?
+  postalCode        String?
+  country           String?
+  // HTML from RichTextEditor.
+  overview          String?
   memberships       TenantMembership[]
   events            Event[]
   eventSeries       EventSeries[]

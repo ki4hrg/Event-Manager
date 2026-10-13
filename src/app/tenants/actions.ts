@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin, slugifyTenantName } from "@/lib/tenant";
+import { orgProfileFromForm, orgProfileSelect } from "@/lib/orgProfile";
 import { createTenantCore } from "./core";
 
 // Everything here is super-admin only: tenants and cross-tenant membership are
@@ -31,6 +32,7 @@ export async function getTenant(id: string) {
       id: true,
       name: true,
       slug: true,
+      ...orgProfileSelect,
       createdAt: true,
       updatedAt: true,
       _count: { select: { events: true, venues: true, contacts: true, vendors: true } },
@@ -60,6 +62,7 @@ export async function createTenant(formData: FormData) {
   const tenant = await createTenantCore(
     (formData.get("name") as string) || "",
     (formData.get("slug") as string) || null,
+    orgProfileFromForm(formData),
   );
   revalidatePath("/tenants");
   redirect(`/tenants/${tenant.id}?success=Tenant+created`);
@@ -75,7 +78,7 @@ export async function updateTenant(id: string, formData: FormData) {
   const clash = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
   if (clash && clash.id !== id) throw new Error("A tenant with this slug already exists");
 
-  await prisma.tenant.update({ where: { id }, data: { name, slug } });
+  await prisma.tenant.update({ where: { id }, data: { name, slug, ...orgProfileFromForm(formData) } });
   revalidatePath("/tenants");
   revalidatePath(`/tenants/${id}`);
   redirect(`/tenants/${id}?success=Tenant+updated`);
