@@ -23,6 +23,8 @@ import {
   updateFunctionRoomCore,
   scheduleUnscheduledFunctionCore,
   rescheduleEntryCore,
+  updateFunctionEsgCore,
+  renumberFunctionsCore,
   type BulkFunctionUpdates,
 } from "./core";
 
@@ -136,6 +138,10 @@ export async function getFunction(id: string) {
         },
       },
       breakoutGroup: true,
+      exhibitBooths: {
+        select: { id: true, name: true, boothNumber: true, companyName: true },
+        orderBy: { sortOrder: "asc" },
+      },
       updatedBy: { select: { name: true, email: true } },
     },
   });
@@ -199,6 +205,40 @@ export async function updateFunction(id: string, eventId: string, formData: Form
   redirect(`/events/${eventId}/functions/${id}?success=Function updated`);
 }
 
+export async function updateFunctionEsg(id: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
+  const post = formData.get("postToReaderBoard") as string;
+  const intOrNull = (field: string) => (formData.get(field) ? parseInt(formData.get(field) as string) : null);
+  await updateFunctionEsgCore(
+    id,
+    eventId,
+    {
+      functionNumber: (formData.get("functionNumber") as string) || null,
+      postToReaderBoard: post === "true" ? true : post === "false" ? false : null,
+      readerBoardText: (formData.get("readerBoardText") as string) || null,
+      hold24Hour: formData.get("hold24Hour") === "true",
+      expectedAttendance: intOrNull("expectedAttendance"),
+      setForCount: intOrNull("setForCount"),
+      actualAttendance: intOrNull("actualAttendance"),
+      decorNotes: (formData.get("decorNotes") as string) || null,
+      securityNotes: (formData.get("securityNotes") as string) || null,
+      signageNotes: (formData.get("signageNotes") as string) || null,
+      billingNotes: (formData.get("billingNotes") as string) || null,
+      costCenter: (formData.get("costCenter") as string) || null,
+    },
+    session.user.id,
+  );
+  revalidatePath(`/events/${eventId}/functions`);
+  revalidatePath(`/events/${eventId}/functions/${id}`);
+  redirect(`/events/${eventId}/functions/${id}?success=ESG details saved`);
+}
+
+export async function renumberFunctions(eventId: string, clearPins: boolean) {
+  const session = await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await renumberFunctionsCore(eventId, clearPins, session.user.id);
+  revalidatePath(`/events/${eventId}/functions`);
+}
+
 export async function deleteFunction(id: string, eventId: string) {
   const session = await requirePermission("FUNCTIONS", "DELETE", eventId);
   await deleteFunctionCore(id, eventId, session.user.id);
@@ -219,7 +259,7 @@ export async function getFunctionOptions(eventId: string) {
   await requirePermission("FUNCTIONS", "VIEW", eventId);
   return prisma.function.findMany({
     where: { eventId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, functionNumber: true },
     orderBy: { name: "asc" },
   });
 }

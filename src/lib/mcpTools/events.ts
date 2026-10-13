@@ -27,7 +27,7 @@ import {
   type EventWriteArgs,
 } from "@/app/events/core";
 import type { McpToolDefinition } from "./types";
-import { requireString, optionalString, optionalStringArray } from "./types";
+import { requireString, optionalString, optionalStringArray, partialBoolean, partialInt, partialString } from "./types";
 
 function requireDate(args: Record<string, unknown>, key: string): Date {
   const v = requireString(args, key);
@@ -47,6 +47,29 @@ function readEventArgs(args: Record<string, unknown>): EventWriteArgs {
     timezone: optionalString(args, "timezone") ?? "America/Chicago",
     venueIds: optionalStringArray(args, "venueIds"),
     seriesId: optionalString(args, "seriesId") ?? null,
+    isMembershipBased: partialBoolean(args, "isMembershipBased") ?? undefined,
+    membershipCount: partialInt(args, "membershipCount"),
+    expectedAttendance: partialInt(args, "expectedAttendance"),
+    actualAttendance: partialInt(args, "actualAttendance"),
+  };
+}
+
+const keyStaffEsgProps = {
+  responsibilities: { type: ["string", "null"], description: "ESG §C description of responsibilities." },
+  onSite: { type: ["boolean", "null"], description: "ESG §C location during the event: true on-site, false off-site." },
+  isEmergencyContact: { type: "boolean", description: "ESG §L organizer contact in case of emergency / crisis." },
+  approvalAuthority: {
+    type: ["string", "null"],
+    description: "ESG §X — set to make this person an authorized signatory (e.g. \"All charges\").",
+  },
+} as const;
+
+function readKeyStaffEsgArgs(args: Record<string, unknown>) {
+  return {
+    responsibilities: partialString(args, "responsibilities"),
+    onSite: partialBoolean(args, "onSite"),
+    isEmergencyContact: partialBoolean(args, "isEmergencyContact") ?? undefined,
+    approvalAuthority: partialString(args, "approvalAuthority"),
   };
 }
 
@@ -70,6 +93,16 @@ const eventWriteProps = {
     description:
       "Optional EventSeries id grouping the yearly editions of one conference. Use `list_event_series` to resolve a name to an id.",
   },
+  isMembershipBased: {
+    type: "boolean",
+    description: "Membership-based event: attendance is also reported as a % of membershipCount. Omit to leave unchanged.",
+  },
+  membershipCount: {
+    type: ["integer", "null"],
+    description: "Eligible / theoretical maximum attendance for membership-based events. Never a stand-in for attendance.",
+  },
+  expectedAttendance: { type: ["integer", "null"], description: "Expected total attendance (ESG §D). Omit to leave unchanged." },
+  actualAttendance: { type: ["integer", "null"], description: "Actual attendance (Post-Event Report). Omit to leave unchanged." },
 } as const;
 
 export const eventTools: McpToolDefinition[] = [
@@ -131,7 +164,8 @@ export const eventTools: McpToolDefinition[] = [
   },
   {
     name: "update_event",
-    description: "Replace all writable fields on an event. Returns the updated event.",
+    description:
+      "Replace the core writable fields on an event (name, dates, timezone, venues, series). Membership / attendance fields are optional and left unchanged when omitted. Returns the updated event.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, ...eventWriteProps },
@@ -175,6 +209,7 @@ export const eventTools: McpToolDefinition[] = [
           description:
             "Optional list of order model types this staff handles (CATERING_ORDER, AV_ORDER, etc.). Empty = unrestricted.",
         },
+        ...keyStaffEsgProps,
       },
       required: ["eventId", "contactId"],
       additionalProperties: false,
@@ -186,13 +221,15 @@ export const eventTools: McpToolDefinition[] = [
           contactId: requireString(args, "contactId"),
           title: optionalString(args, "title") ?? null,
           models: optionalStringArray(args, "models"),
+          ...readKeyStaffEsgArgs(args),
         },
         userId,
       ),
   },
   {
     name: "update_event_key_staff",
-    description: "Update title and model-type scoping on an existing EventKeyStaff row.",
+    description:
+      "Update title, model-type scoping and ESG details (responsibilities, on/off-site, emergency contact, approval authority) on an existing EventKeyStaff row. ESG keys left out are unchanged.",
     inputSchema: {
       type: "object",
       properties: {
@@ -200,6 +237,7 @@ export const eventTools: McpToolDefinition[] = [
         eventId: { type: "string" },
         title: { type: "string" },
         models: { type: "array", items: { type: "string" } },
+        ...keyStaffEsgProps,
       },
       required: ["keyStaffId", "eventId"],
       additionalProperties: false,
@@ -211,6 +249,7 @@ export const eventTools: McpToolDefinition[] = [
           eventId: requireString(args, "eventId"),
           title: optionalString(args, "title") ?? null,
           models: optionalStringArray(args, "models"),
+          ...readKeyStaffEsgArgs(args),
         },
         userId,
       ),

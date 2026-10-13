@@ -8,6 +8,7 @@ import { AVOrderForm } from "../../../av-orders/AVOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 import { requirePermission } from "@/lib/permissions";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,7 @@ export default async function NewAVOrderPage({
       <AVOrderForm
         eventId={eventId}
         action={createAVOrderAction}
-        availableFunctions={availableFunctions?.map((f) => ({ id: f.id, label: f.name }))}
+        availableFunctions={availableFunctions?.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
         availablePresentations={availablePresentations?.map((p) => ({ id: p.id, label: p.title }))}
         lockedFunctionId={functionId}
         lockedPresentationId={presentationId}

@@ -9,6 +9,7 @@ import { getResponsibleParties } from "@/lib/responsibleParties";
 import { getOptions } from "@/app/settings/actions";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 import { requirePermission } from "@/lib/permissions";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function NewMediaDeliverablePage({
   const [eventFunctions, eventPresentations] = isFromSource
     ? [[], []]
     : await Promise.all([
-        prisma.function.findMany({ where: { eventId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+        prisma.function.findMany({ where: { eventId }, select: { id: true, name: true, functionNumber: true }, orderBy: { name: "asc" } }),
         prisma.presentation.findMany({
           where: { eventId },
           select: { id: true, title: true },
@@ -87,7 +88,7 @@ export default async function NewMediaDeliverablePage({
         pool={pool}
         mediaTypeOptions={mediaTypeOptions}
         deliveryOptions={deliveryOptions}
-        availableFunctions={eventFunctions.map((f) => ({ id: f.id, label: f.name }))}
+        availableFunctions={eventFunctions.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
         availablePresentations={eventPresentations.map((p) => ({ id: p.id, label: p.title }))}
         lockedFunctionId={functionId}
         lockedPresentationId={presentationId}

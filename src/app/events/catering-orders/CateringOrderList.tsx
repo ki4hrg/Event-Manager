@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { useRouter } from "next/navigation";
 import type { CustomOption, EntityStatus } from "@prisma/client";
 import type { getCateringOrders } from "./actions";
@@ -285,7 +286,7 @@ export function CateringOrderList({
                   {order.guaranteeCount != null && <span>Guarantee: {order.guaranteeCount}</span>}
                   {order.serviceStyle && <span>{order.serviceStyle}</span>}
                   {order.function
-                    ? <span className="text-green-600 dark:text-green-400">Linked to function: {order.function.name}</span>
+                    ? <span className="text-green-600 dark:text-green-400">Linked to function: {formatFunctionLabel(order.function)}</span>
                     : <span className="text-orange-600 dark:text-orange-400">Unlinked</span>}
                 </div>
               </div>
@@ -341,7 +342,7 @@ export function CateringOrderList({
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.guaranteeCount ?? "—"}</td>
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.function
-                          ? <Link href={`/events/${eventId}/functions/${o.function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.function.name}</Link>
+                          ? <Link href={`/events/${eventId}/functions/${o.function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.function)}</Link>
                           : <span className="text-orange-500">Unlinked</span>}
                       </td>
                     </tr>

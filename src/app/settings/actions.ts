@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -92,7 +92,9 @@ export async function updateOption(id: string, formData: FormData) {
       data: {
         label,
         color: color || null,
-        group: group || null,
+        // Only forms that render a group control post it; an edit from a list
+        // without one must keep the stored group (substatus status, APEX keys).
+        ...(formData.has("group") ? { group: group || null } : {}),
         models,
       },
     });
@@ -211,6 +213,52 @@ async function propagateLabelRename(
       // Contact.roles is String[]; Prisma can't array_replace, so drop to raw SQL.
       await tx.$executeRaw`UPDATE "Contact" SET roles = array_replace(roles, ${oldLabel}, ${newLabel}) WHERE "tenantId" = ${tenantId} AND ${oldLabel} = ANY(roles)`;
       break;
+    case "event_type":
+      await tx.eventSpecification.updateMany({ where: { eventType: oldLabel, ...inTenant }, data: { eventType: newLabel } });
+      break;
+    case "event_scope":
+      await tx.eventSpecification.updateMany({ where: { eventScope: oldLabel, ...inTenant }, data: { eventScope: newLabel } });
+      break;
+    case "event_frequency":
+      await tx.eventSpecification.updateMany({
+        where: { eventFrequency: oldLabel, ...inTenant },
+        data: { eventFrequency: newLabel },
+      });
+      break;
+    case "reservation_method":
+      await tx.eventSpecification.updateMany({
+        where: { reservationMethod: oldLabel, ...inTenant },
+        data: { reservationMethod: newLabel },
+      });
+      break;
+    case "meal_type":
+      await tx.cateringOrder.updateMany({ where: { mealType: oldLabel, ...inTenant }, data: { mealType: newLabel } });
+      break;
+    case "booth_type":
+      await tx.exhibitBooth.updateMany({ where: { boothType: oldLabel, ...inTenant }, data: { boothType: newLabel } });
+      break;
+    case "per_facility_type":
+      await tx.eventPostEvent.updateMany({
+        where: { primaryFacilityType: oldLabel, ...inTenant },
+        data: { primaryFacilityType: newLabel },
+      });
+      break;
+    case "per_housing_provider":
+      await tx.eventPostEvent.updateMany({
+        where: { housingPerformedBy: oldLabel, ...inTenant },
+        data: { housingPerformedBy: newLabel },
+      });
+      break;
+    case "per_av_setup":
+      await tx.eventPostEvent.updateMany({
+        where: { largestFunctionAvSetup: oldLabel, ...inTenant },
+        data: { largestFunctionAvSetup: newLabel },
+      });
+      break;
+    default: {
+      const _exhaustive: never = category;
+      throw new Error(`Unhandled option category: ${_exhaustive}`);
+    }
   }
 }
 

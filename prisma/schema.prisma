@@ -9,49 +9,52 @@ datasource db {
 
 // Authentication
 model User {
-  id                       String                   @id @default(cuid())
-  email                    String                   @unique
-  name                     String?
+  id                         String                   @id @default(cuid())
+  email                      String                   @unique
+  name                       String?
   // Nullable: new users start without a password until they consume an invite token.
-  password                 String?
+  password                   String?
   // Platform administrator: may create tenants, manage every tenant's
   // memberships, and carries every permission in every tenant. Deliberately a
   // flag rather than a Role — roles are tenant memberships, and a super admin
   // needs to act before any membership exists.
-  isSuperAdmin             Boolean                  @default(false)
+  isSuperAdmin               Boolean                  @default(false)
   // Which tenants this user may enter, and with what role in each. A user's
   // permissions are always resolved through the membership for the tenant in
   // question — there is no global role anymore.
-  memberships              TenantMembership[]
+  memberships                TenantMembership[]
   // Self-ref for "last updated by" attribution.
-  updatedById              String?
-  updatedBy                User?                    @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  updatesByUser            User[]                   @relation("UserUpdatedBy")
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
-  settings                 UserSetting[]
-  shareLinks               ShareLink[]
-  shareLinkGroups          ShareLinkGroup[]
-  passwordResetTokens      PasswordResetToken[]
-  staffAssignments         EventStaff[]
+  updatedById                String?
+  updatedBy                  User?                    @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatesByUser              User[]                   @relation("UserUpdatedBy")
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+  settings                   UserSetting[]
+  shareLinks                 ShareLink[]
+  shareLinkGroups            ShareLinkGroup[]
+  passwordResetTokens        PasswordResetToken[]
+  staffAssignments           EventStaff[]
   // Inverse relations for "last updated by" attribution across all editable entities.
-  updatedEvents            Event[]                  @relation("EventUpdatedBy")
-  updatedVenues            Venue[]                  @relation("VenueUpdatedBy")
-  updatedContacts          Contact[]                @relation("ContactUpdatedBy")
-  updatedVendors           Vendor[]                 @relation("VendorUpdatedBy")
-  updatedFunctions         Function[]               @relation("FunctionUpdatedBy")
-  updatedPresentations     Presentation[]           @relation("PresentationUpdatedBy")
-  updatedCateringOrders    CateringOrder[]          @relation("CateringOrderUpdatedBy")
-  updatedAVOrders          AVOrder[]                @relation("AVOrderUpdatedBy")
-  updatedSetupOrders       SetupOrder[]             @relation("SetupOrderUpdatedBy")
-  updatedPrintOrders       PrintOrder[]             @relation("PrintOrderUpdatedBy")
-  updatedSupplyOrders      SupplyOrder[]            @relation("SupplyOrderUpdatedBy")
-  updatedMediaDeliverables MediaDeliverable[]       @relation("MediaDeliverableUpdatedBy")
-  updatedWorkflowTemplates WorkflowTemplate[]       @relation("WorkflowTemplateUpdatedBy")
-  updatedRoles             Role[]                   @relation("RoleUpdatedBy")
-  apiKeys                  ApiKey[]
-  oauthAuthorizationCodes  OAuthAuthorizationCode[]
-  oauthRefreshTokens       OAuthRefreshToken[]
+  updatedEvents              Event[]                  @relation("EventUpdatedBy")
+  updatedEventSpecifications EventSpecification[]     @relation("EventSpecificationUpdatedBy")
+  updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
+  updatedPostEvents          EventPostEvent[]         @relation("EventPostEventUpdatedBy")
+  updatedVenues              Venue[]                  @relation("VenueUpdatedBy")
+  updatedContacts            Contact[]                @relation("ContactUpdatedBy")
+  updatedVendors             Vendor[]                 @relation("VendorUpdatedBy")
+  updatedFunctions           Function[]               @relation("FunctionUpdatedBy")
+  updatedPresentations       Presentation[]           @relation("PresentationUpdatedBy")
+  updatedCateringOrders      CateringOrder[]          @relation("CateringOrderUpdatedBy")
+  updatedAVOrders            AVOrder[]                @relation("AVOrderUpdatedBy")
+  updatedSetupOrders         SetupOrder[]             @relation("SetupOrderUpdatedBy")
+  updatedPrintOrders         PrintOrder[]             @relation("PrintOrderUpdatedBy")
+  updatedSupplyOrders        SupplyOrder[]            @relation("SupplyOrderUpdatedBy")
+  updatedMediaDeliverables   MediaDeliverable[]       @relation("MediaDeliverableUpdatedBy")
+  updatedWorkflowTemplates   WorkflowTemplate[]       @relation("WorkflowTemplateUpdatedBy")
+  updatedRoles               Role[]                   @relation("RoleUpdatedBy")
+  apiKeys                    ApiKey[]
+  oauthAuthorizationCodes    OAuthAuthorizationCode[]
+  oauthRefreshTokens         OAuthRefreshToken[]
 }
 
 // Multi-tenancy. A Tenant owns every domain row (events, venues, contacts,
@@ -387,38 +390,57 @@ model EventSeries {
 }
 
 model Event {
-  id                 String               @id @default(cuid())
-  tenantId           String
-  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name               String
-  description        String?
-  startDate          DateTime
-  endDate            DateTime
-  timezone           String               @default("America/Chicago")
-  seriesId           String?
-  series             EventSeries?         @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  venues             EventVenue[]
-  functions          Function[]
-  presentations      Presentation[]
-  presentationTracks PresentationTrack[]
-  breakoutGroups     BreakoutGroup[]
-  avOrders           AVOrder[]
-  cateringOrders     CateringOrder[]
-  setupOrders        SetupOrder[]
-  printOrders        PrintOrder[]
-  supplyOrders       SupplyOrder[]
-  mediaDeliverables  MediaDeliverable[]
-  vendors            EventVendor[]
-  shareLinks         ShareLink[]
-  shareLinkGroups    ShareLinkGroup[]
-  files              FileUpload[]
-  keyStaff           EventKeyStaff[]
-  statusDefaults     EventStatusDefault[]
-  staff              EventStaff[]
-  updatedById        String?
-  updatedBy          User?                @relation("EventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  id                      String                       @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                    String
+  description             String?
+  startDate               DateTime
+  endDate                 DateTime
+  timezone                String                       @default("America/Chicago")
+  seriesId                String?
+  series                  EventSeries?                 @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  venues                  EventVenue[]
+  functions               Function[]
+  presentations           Presentation[]
+  presentationTracks      PresentationTrack[]
+  breakoutGroups          BreakoutGroup[]
+  avOrders                AVOrder[]
+  cateringOrders          CateringOrder[]
+  setupOrders             SetupOrder[]
+  printOrders             PrintOrder[]
+  supplyOrders            SupplyOrder[]
+  mediaDeliverables       MediaDeliverable[]
+  vendors                 EventVendor[]
+  shareLinks              ShareLink[]
+  shareLinkGroups         ShareLinkGroup[]
+  files                   FileUpload[]
+  keyStaff                EventKeyStaff[]
+  statusDefaults          EventStatusDefault[]
+  staff                   EventStaff[]
+  // Membership is the eligible/theoretical maximum for membership-based events;
+  // attendance is tracked separately (expected for the ESG, actual for the PER).
+  isMembershipBased       Boolean                      @default(false)
+  membershipCount         Int?
+  expectedAttendance      Int?
+  actualAttendance        Int?
+  functionNumbersLockedAt DateTime?
+  specification           EventSpecification?
+  specVips                EventSpecVip[]
+  specShuttleRoutes       EventSpecShuttleRoute[]
+  specTransfers           EventSpecTransfer[]
+  specShipments           EventSpecShipment[]
+  specCoverage            EventSpecCoverage[]
+  specKeys                EventSpecKey[]
+  retiredFunctionNumbers  RetiredFunctionNumber[]
+  exhibitBooths           ExhibitBooth[]
+  postEvent               EventPostEvent?
+  postEventFutureDates    EventPostEventFutureDate[]
+  postEventDistributions  EventPostEventDistribution[]
+  updatedById             String?
+  updatedBy               User?                        @relation("EventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
 
   @@index([tenantId])
   @@index([updatedById])
@@ -499,6 +521,7 @@ model Room {
   setupOrders          SetupOrder[]
   supplyOrders         SupplyOrder[]
   printOrders          PrintOrder[]
+  functionRoomNumbers  FunctionRoomNumber[]
   createdAt            DateTime                      @default(now())
   updatedAt            DateTime                      @updatedAt
 
@@ -541,6 +564,9 @@ model Contact {
   supplyOrdersAsProvider      SupplyOrder[]             @relation("SupplyOrderProviderContact")
   supplyOrderItemsAsProvider  SupplyOrderItem[]         @relation("SupplyOrderItemProviderContact")
   eventKeyStaff               EventKeyStaff[]
+  specFinalBillFor            EventSpecification[]      @relation("SpecFinalBillContact")
+  specVips                    EventSpecVip[]
+  exhibitBooths               ExhibitBooth[]
   updatedById                 String?
   updatedBy                   User?                     @relation("ContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                  @default(now())
@@ -564,12 +590,17 @@ model VenueContact {
 
 // Junction table for Event <-> Contact (key staff designations)
 model EventKeyStaff {
-  id        String   @id @default(cuid())
-  eventId   String
-  contactId String
-  title     String?
-  models    String[]
-  sortOrder Int      @default(0)
+  id                 String   @id @default(cuid())
+  eventId            String
+  contactId          String
+  title              String?
+  models             String[]
+  sortOrder          Int      @default(0)
+  // ESG Part I §C / §L / §X
+  responsibilities   String?
+  onSite             Boolean?
+  isEmergencyContact Boolean  @default(false)
+  approvalAuthority  String?
 
   event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -589,6 +620,26 @@ model Function {
   substatus                 String?
   eventId                   String
   breakoutGroupId           String?
+  // ESG function number ("12", "4a"). Assigned by src/lib/functionNumbers.ts;
+  // pinned numbers are manual overrides the resequencer leaves alone.
+  functionNumber            String?
+  functionNumberPinned      Boolean                        @default(false)
+  postToReaderBoard         Boolean?
+  readerBoardText           String?
+  hold24Hour                Boolean                        @default(false)
+  expectedAttendance        Int?
+  setForCount               Int?
+  actualAttendance          Int?
+  decorNotes                String?
+  securityNotes             String?
+  signageNotes              String?
+  billingNotes              String?
+  costCenter                String?
+  roomNumbers               FunctionRoomNumber[]
+  exhibitBooths             ExhibitBooth[]
+  specTransfers             EventSpecTransfer[]
+  specKeys                  EventSpecKey[]
+  masterExhibitFor          EventSpecification[]           @relation("SpecMasterExhibit")
   event                     Event                          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   breakoutGroup             BreakoutGroup?                 @relation(fields: [breakoutGroupId], references: [id], onDelete: SetNull)
   avOrderFunctions          AVOrderFunction[]
@@ -609,6 +660,7 @@ model Function {
   createdAt                 DateTime                       @default(now())
   updatedAt                 DateTime                       @updatedAt
 
+  @@unique([eventId, functionNumber])
   @@index([eventId])
   @@index([breakoutGroupId])
   @@index([updatedById])
@@ -714,9 +766,12 @@ model CateringOrder {
   functionId                 String?                        @unique
   function                   Function?                      @relation(fields: [functionId], references: [id], onDelete: SetNull)
   serviceStyle               String?
+  mealType                   String?
   expectedCount              Int?
   confirmedCount             Int?
   guaranteeCount             Int?
+  // Actual covers served (PER "# fed").
+  actualCount                Int?
   staffingNotes              String?
   rentalMinimum              Decimal?
   fbMinimum                  Decimal?
@@ -768,6 +823,8 @@ model EquipmentItem {
   setupOrderId      String?
   videoSectionId    String?
   avOrderId         String?
+  exhibitBoothId    String?
+  exhibitBooth      ExhibitBooth?  @relation(fields: [exhibitBoothId], references: [id], onDelete: Cascade)
   cateringOrder     CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   setupOrder        SetupOrder?    @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   videoSection      VideoSection?  @relation(fields: [videoSectionId], references: [id], onDelete: Cascade)
@@ -793,6 +850,7 @@ model EquipmentItem {
   @@index([setupOrderId])
   @@index([videoSectionId])
   @@index([avOrderId])
+  @@index([exhibitBoothId])
   @@index([equipmentId])
   @@index([providerVendorId])
   @@index([providerContactId])
@@ -1211,6 +1269,9 @@ model Vendor {
   setupTablesAsProvider       SetupTable[]               @relation("SetupTableProviderVendor")
   presentationsAsAdvancer     Presentation[]             @relation("PresentationAdvancerVendor")
   presentationSlotsAsAdvancer PresentationSlot[]         @relation("PresentationSlotAdvancerVendor")
+  specSecurityFor             EventSpecification[]       @relation("SpecSecurityVendor")
+  specFirstAidFor             EventSpecification[]       @relation("SpecFirstAidVendor")
+  specTransportationFor       EventSpecification[]       @relation("SpecTransportationVendor")
   updatedById                 String?
   updatedBy                   User?                      @relation("VendorUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                   @default(now())
@@ -1858,4 +1919,381 @@ model EventStaff {
   @@unique([userId, eventId])
   @@index([eventId])
   @@index([userId])
+}
+
+// ─── APEX / EIC Event Specifications Guide ────────────────────────────────
+// Field-level meaning lives in src/lib/esg/fields.ts. Structured values are
+// columns; every free-text / rich-text ESG field is a key in `narrative`.
+
+enum ProvidedBy {
+  NOT_REQUIRED
+  GROUP
+  VENUE
+  OUTSIDE_VENDOR
+}
+
+model EventSpecification {
+  id      String @id @default(cuid())
+  eventId String @unique
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  dateOriginated DateTime? @db.Date
+  dateRevised    DateTime? @db.Date
+  naSections     String[]  @default([])
+  narrative      Json      @default("{}")
+
+  // §A Event profile
+  eventType               String?
+  eventScope              String?
+  eventFrequency          String?
+  isMandatory             Boolean?
+  spousesInvited          Boolean?
+  childrenInvited         Boolean?
+  // §B Key dates
+  preMeetingAt            DateTime?
+  postMeetingAt           DateTime?
+  moveInRequired          Boolean?
+  // §D / §E Attendee & exhibitor profile
+  preRegisteredCount      Int?
+  domesticCount           Int?
+  internationalCount      Int?
+  exhibitorCount          Int?
+  domesticExhibitors      Int?
+  internationalExhibitors Int?
+  exhibitingCompanies     Int?
+  // §G Housing
+  thirdPartyHousing       Boolean?
+  reservationMethod       String?
+  // §J Exhibits
+  masterExhibitFunctionId String?
+  masterExhibitFunction   Function?   @relation("SpecMasterExhibit", fields: [masterExhibitFunctionId], references: [id], onDelete: SetNull)
+  grossSqFt               Int?
+  netSqFt                 Int?
+  povDeliveries           Int?
+  rulesAttached           Boolean?
+  exhibitorMoveInStart    DateTime?
+  exhibitorMoveInEnd      DateTime?
+  exhibitorMoveOutStart   DateTime?
+  exhibitorMoveOutEnd     DateTime?
+  contractorMoveInStart   DateTime?
+  contractorMoveInEnd     DateTime?
+  contractorMoveOutStart  DateTime?
+  contractorMoveOutEnd    DateTime?
+  // §L Safety & security
+  securityProvider        ProvidedBy?
+  securityVendorId        String?
+  securityVendor          Vendor?     @relation("SpecSecurityVendor", fields: [securityVendorId], references: [id], onDelete: SetNull)
+  firstAidProvider        ProvidedBy?
+  firstAidVendorId        String?
+  firstAidVendor          Vendor?     @relation("SpecFirstAidVendor", fields: [firstAidVendorId], references: [id], onDelete: SetNull)
+  // §P Transportation
+  attendeeShuttle         Boolean?
+  offsiteShuttles         Boolean?
+  transportationVendorId  String?
+  transportationVendor    Vendor?     @relation("SpecTransportationVendor", fields: [transportationVendorId], references: [id], onDelete: SetNull)
+  // §W Billing
+  finalBillContactId      String?
+  finalBillContact        Contact?    @relation("SpecFinalBillContact", fields: [finalBillContactId], references: [id], onDelete: SetNull)
+  taxExempt               Boolean?
+  roomTaxToMaster         Boolean?
+  incidentalsToMaster     Boolean?
+  guestsPayOwn            Boolean?
+
+  updatedById String?
+  updatedBy   User?    @relation("EventSpecificationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([masterExhibitFunctionId])
+  @@index([securityVendorId])
+  @@index([firstAidVendorId])
+  @@index([transportationVendorId])
+  @@index([finalBillContactId])
+  @@index([updatedById])
+}
+
+// §H VIPs
+model EventSpecVip {
+  id           String    @id @default(cuid())
+  eventId      String
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name         String
+  title        String?
+  employer     String?
+  contactId    String?
+  contact      Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  arrivalAt    DateTime?
+  departureAt  DateTime?
+  amenities    String?
+  upgrades     String?
+  relationship String?
+  comments     String?
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([eventId])
+  @@index([contactId])
+}
+
+// §P Attendee shuttle routes
+model EventSpecShuttleRoute {
+  id        String    @id @default(cuid())
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  routeName String
+  startAt   DateTime?
+  endAt     DateTime?
+  frequency String?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([eventId])
+}
+
+// §P Shuttles for off-site functions
+model EventSpecTransfer {
+  id                String    @id @default(cuid())
+  eventId           String
+  event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId        String?
+  function          Function? @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  label             String
+  departureLocation String?
+  departureAt       DateTime?
+  dropoffLocation   String?
+  dropoffAt         DateTime?
+  returnLocation    String?
+  returnAt          DateTime?
+  provider          String?
+  sortOrder         Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([eventId])
+  @@index([functionId])
+}
+
+// §S Shipping grid
+model EventSpecShipment {
+  id               String    @id @default(cuid())
+  eventId          String
+  event            Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fromText         String?
+  toText           String?
+  shipper          String?
+  itemCount        Int?
+  expectedDelivery DateTime? @db.Date
+  sortOrder        Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([eventId])
+}
+
+// §L Security / first-aid coverage schedule. kind: "SECURITY" | "FIRST_AID".
+model EventSpecCoverage {
+  id        String    @id @default(cuid())
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  kind      String
+  location  String?
+  startAt   DateTime?
+  endAt     DateTime?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([eventId])
+}
+
+// §L Keys
+model EventSpecKey {
+  id         String    @id @default(cuid())
+  eventId    String
+  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  location   String?
+  functionId String?
+  function   Function? @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  startAt    DateTime?
+  endAt      DateTime?
+  quantity   Int?
+  rekeyed    Boolean   @default(false)
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([eventId])
+  @@index([functionId])
+}
+
+// Function numbers freed after the event's numbering was locked; never reused.
+model RetiredFunctionNumber {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  number    String
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, number])
+}
+
+// Stable per-room sub-number for a breakout block ("12" + "a" → "12a").
+// Rows outlive a room's removal so a letter is never reassigned.
+model FunctionRoomNumber {
+  id         String   @id @default(cuid())
+  functionId String
+  function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  roomId     String
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  suffix     String
+  createdAt  DateTime @default(now())
+
+  @@unique([functionId, roomId])
+  @@unique([functionId, suffix])
+}
+
+// ESG Part IIIb — one Booth Set-up Order per exhibit booth. Usually listed
+// under the event's exhibit function (the master exhibit function); times
+// left empty inherit from that function's schedules.
+model ExhibitBooth {
+  id                    String          @id @default(cuid())
+  eventId               String
+  event                 Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  functionId            String?
+  function              Function?       @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  boothNumber           String?
+  location              String?
+  boothType             String?
+  name                  String
+  companyName           String?
+  contactId             String?
+  contact               Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  startAt               DateTime?
+  endAt                 DateTime?
+  setupBy               DateTime?
+  teardownBy            DateTime?
+  specialRequirements   String?
+  setupNotes            String?
+  avProvider            ProvidedBy?
+  avNotes               String?
+  fbNotes               String?
+  decorNotes            String?
+  securityNotes         String?
+  signageNotes          String?
+  shippingRequired      Boolean?
+  customsRequired       Boolean?
+  materialHandlingNotes String?
+  electricalProvider    ProvidedBy?
+  electricalNotes       String?
+  utilitiesNotes        String?
+  taxExempt             Boolean?
+  taxExemptId           String?
+  costCenter            String?
+  billingNotes          String?
+  sortOrder             Int             @default(0)
+  equipmentItems        EquipmentItem[]
+  updatedById           String?
+  updatedBy             User?           @relation("ExhibitBoothUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([eventId])
+  @@index([functionId])
+  @@index([contactId])
+  @@index([updatedById])
+}
+
+// APEX Post-Event Report (PER). Field meaning lives in src/lib/esg/perFields.ts;
+// structured values are columns, comments are keys in `narrative`. Expected /
+// actual attendance and membership live on Event.
+model EventPostEvent {
+  id      String @id @default(cuid())
+  eventId String @unique
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  naSections String[] @default([])
+  narrative  Json     @default("{}")
+
+  // §I Event information
+  primaryFacilityType    String?
+  offsiteVenueUsed       Boolean?
+  onSiteRegistrations    Int?
+  noShows                Int?
+  exhibitorsAttending    Int?
+  domesticAttendees      Int?
+  internationalAttendees Int?
+  shuttleProvided        Boolean?
+  usedDmcPco             Boolean?
+  guestPrograms          Boolean?
+  // §III Hotel rooms (until the Hotels module supplies them)
+  usedSleepingRooms      Boolean?
+  hotelCount             Int?
+  peakNightRooms         Int?
+  housingPerformedBy     String?
+  // §V Food & beverage
+  icwFunctions           Boolean?
+  // §VI Function space
+  largestFunctionAvSetup String?
+  extensiveAvRooms       Int?
+  registrationAreas      Int?
+  lounges                Int?
+  offices                Int?
+  moveInDays             Int?
+  moveOutDays            Int?
+  teardownDays           Int?
+  // §VII Exhibit space
+  gscUsed                Boolean?
+  gscMoveInDays          Int?
+  exhibitorsWithFb       Int?
+  extensiveAvExhibitors  Int?
+  // §VIII Future dates
+  futureDatesConfirmed   Boolean?
+
+  updatedById String?
+  updatedBy   User?    @relation("EventPostEventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([updatedById])
+}
+
+// PER §VIII future event dates.
+model EventPostEventFutureDate {
+  id        String    @id @default(cuid())
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  startDate DateTime? @db.Date
+  endDate   DateTime? @db.Date
+  city      String?
+  state     String?
+  country   String?
+  facility  String?
+  comments  String?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([eventId])
+}
+
+// PER §IX report distribution tracking. action: "COMPLETED" | "REVISED".
+model EventPostEventDistribution {
+  id          String    @id @default(cuid())
+  eventId     String
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  action      String
+  actionDate  DateTime? @db.Date
+  byName      String?
+  byTitle     String?
+  byEmployer  String?
+  method      String?
+  deliveredOn DateTime? @db.Date
+  recipients  String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([eventId])
 }

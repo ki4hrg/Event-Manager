@@ -3,6 +3,7 @@ import type { getWorkflowInstances } from "../workflows/actions";
 import type { getAVOrderVendors } from "@/app/vendors/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 type AVOrderData = NonNullable<Awaited<ReturnType<typeof getAVOrder>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
@@ -35,7 +36,7 @@ export function AVOrderDetails({
         {order.functions.length > 0 && (
           <Field
             label="Linked Functions"
-            value={order.functions.map((f) => f.name).join(", ")}
+            value={order.functions.map((f) => formatFunctionLabel(f)).join(", ")}
           />
         )}
         {order.presentations.length > 0 && (

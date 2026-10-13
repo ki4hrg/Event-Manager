@@ -40,6 +40,8 @@ export type CreateCateringOrderArgs = {
   name: string;
   functionId: string | null;
   serviceStyle: string | null;
+  // meal_type label; its APEX bucket places the order in the ESG F&B grid.
+  mealType?: string | null;
   expectedCount: number | null;
   confirmedCount: number | null;
   guaranteeCount: number | null;
@@ -70,6 +72,7 @@ export async function createCateringOrderCore(
       eventId,
       functionId: args.functionId,
       serviceStyle: args.serviceStyle,
+      mealType: args.mealType ?? null,
       expectedCount: args.expectedCount,
       confirmedCount: args.confirmedCount,
       guaranteeCount: args.guaranteeCount,
@@ -112,9 +115,11 @@ export async function createCateringOrderCore(
 export type UpdateCateringOrderArgs = {
   name?: string;
   serviceStyle?: string | null;
+  mealType?: string | null;
   expectedCount?: number | null;
   confirmedCount?: number | null;
   guaranteeCount?: number | null;
+  actualCount?: number | null;
   staffingNotes?: string | null;
   rentalMinimum?: number | null;
   fbMinimum?: number | null;

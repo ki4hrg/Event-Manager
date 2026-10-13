@@ -61,6 +61,7 @@ import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -481,10 +482,10 @@ export default async function AVOrderPage({
             <AVOrderFunctionList
               linkedFunctions={avOrder.functions.map((f) => ({
                 id: f.id,
-                name: f.name,
+                name: formatFunctionLabel(f),
                 detailPath: `/events/${eventId}/functions/${f.id}`,
               }))}
-              availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+              availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
               linkFunction={linkToFunctionAction}
               unlinkFunction={unlinkFromFunctionAction}
             />

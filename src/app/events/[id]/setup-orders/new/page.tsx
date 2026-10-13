@@ -10,6 +10,7 @@ import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 import { getEventRooms } from "@/lib/eventVenues";
 import { requirePermission } from "@/lib/permissions";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +91,7 @@ export default async function NewSetupOrderPage({
         rooms={venueRooms}
         functions={eventFunctions.map((f) => ({
           id: f.id,
-          name: f.name,
+          name: formatFunctionLabel(f),
           roomIds: f.rooms.map((r) => r.roomId),
         }))}
         initialRoomId={initialRoomId}

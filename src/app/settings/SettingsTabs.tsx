@@ -11,6 +11,7 @@ const tabs = [
   { label: "Vendors", segment: "vendors" },
   { label: "Files", segment: "files" },
   { label: "Status", segment: "status" },
+  { label: "Specifications", segment: "specifications" },
 ];
 
 export function SettingsTabs() {

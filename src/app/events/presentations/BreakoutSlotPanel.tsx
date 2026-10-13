@@ -3,7 +3,7 @@
 import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import type { PresentationSlot, Function as PrismaFunction, FunctionSchedule, Room, BreakoutGroup } from "@prisma/client";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
 import { PartyField, parsePartyValue, type ContactOptions } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
@@ -20,6 +20,7 @@ type RoomBasic = {
 type SessionBasic = {
   id: string;
   name: string;
+  functionNumber: string | null;
   schedules: { startTime: Date; endTime: Date }[];
 };
 
@@ -358,7 +359,7 @@ export function BreakoutSlotPanel({
                     <option value="">Select session...</option>
                     {getEditSessions(slot.functionId).map((s) => (
                       <option key={s.id} value={s.id}>
-                        {formatBreakoutSessionName(s.name, currentGroup?.name)}{s.schedules[0] ? ` — ${formatSessionTime(s.schedules, timezone)}` : ""}
+                        {formatFunctionLabel({ name: s.name, functionNumber: s.functionNumber, breakoutGroup: currentGroup })}{s.schedules[0] ? ` — ${formatSessionTime(s.schedules, timezone)}` : ""}
                       </option>
                     ))}
                   </select>
@@ -403,7 +404,7 @@ export function BreakoutSlotPanel({
                         href={`/events/${eventId}/functions/${slot.functionId}`}
                         className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
                       >
-                        {formatBreakoutSessionName(slot.function.name, slot.function.breakoutGroup?.name)}
+                        {formatFunctionLabel(slot.function)}
                       </Link>
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -525,7 +526,7 @@ export function BreakoutSlotPanel({
                   <option value="">No session</option>
                   {availableAddSessions.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {formatBreakoutSessionName(s.name, addGroup?.name)}{s.schedules[0] ? ` — ${formatSessionTime(s.schedules, timezone)}` : ""}
+                      {formatFunctionLabel({ name: s.name, functionNumber: s.functionNumber, breakoutGroup: addGroup })}{s.schedules[0] ? ` — ${formatSessionTime(s.schedules, timezone)}` : ""}
                     </option>
                   ))}
                 </select>

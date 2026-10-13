@@ -6,7 +6,7 @@ import type {
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import {
   getEffectiveRooms,
   formatSessionTime,
@@ -124,7 +124,7 @@ function GroupSection({
                       >
                         <td className={`${td} font-medium`}>
                           <div className="text-gray-900 dark:text-white print:text-black font-medium">
-                            {formatBreakoutSessionName(session.name, group.name)}
+                            {formatFunctionLabel({ name: session.name, functionNumber: session.functionNumber, breakoutGroup: group })}
                           </div>
                           <div className="text-gray-500 dark:text-gray-400 print:text-gray-700 font-normal">
                             {formatSessionTime(session.schedules, timezone)}
@@ -214,7 +214,7 @@ function MobileSessions({
             className="scroll-mt-24 border border-gray-200 dark:border-gray-700 rounded p-3"
           >
             <p className="font-semibold text-gray-900 dark:text-white break-words">
-              {formatBreakoutSessionName(session.name, groupName)}
+              {formatFunctionLabel({ name: session.name, functionNumber: session.functionNumber, breakoutGroup: { name: groupName } })}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {formatSessionTime(session.schedules, timezone)}
@@ -271,7 +271,7 @@ export function BreakoutGridReport({ data }: Props) {
     links: g.functions.map((s) => ({
       id: `session-${s.id}`,
       mobileId: `session-${s.id}-mobile`,
-      label: formatBreakoutSessionName(s.name, g.name),
+      label: formatFunctionLabel({ name: s.name, functionNumber: s.functionNumber, breakoutGroup: g }),
     })),
   }));
 

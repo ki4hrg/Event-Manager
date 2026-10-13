@@ -56,6 +56,61 @@ function ModelCheckboxes({ defaultValues = [] }: { defaultValues?: string[] }) {
   );
 }
 
+const esgInput =
+  "w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm";
+
+// ESG Part I §C / §L / §X details for one key staff entry.
+function KeyStaffEsgFields({ entry }: { entry: KeyStaffWithContact }) {
+  return (
+    <div className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+      <input type="hidden" name="esgFields" value="1" />
+      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+        Event Specifications Guide
+      </p>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsibilities</label>
+        <input type="text" name="responsibilities" defaultValue={entry.responsibilities ?? ""} className={esgInput} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">During the event</label>
+          <select
+            name="onSite"
+            defaultValue={entry.onSite === null ? "" : String(entry.onSite)}
+            className={esgInput}
+          >
+            <option value="">Not set</option>
+            <option value="true">On-site</option>
+            <option value="false">Off-site</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Approval authority (signatory)
+          </label>
+          <input
+            type="text"
+            name="approvalAuthority"
+            defaultValue={entry.approvalAuthority ?? ""}
+            placeholder="e.g. All charges, F&B up to $5,000"
+            className={esgInput}
+          />
+        </div>
+      </div>
+      <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+        <input
+          type="checkbox"
+          name="isEmergencyContact"
+          value="true"
+          defaultChecked={entry.isEmergencyContact}
+          className="rounded border-gray-300 dark:border-gray-700"
+        />
+        Emergency / crisis contact
+      </label>
+    </div>
+  );
+}
+
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -363,6 +418,7 @@ export function KeyStaffList({
                     />
                   </div>
                   <ModelCheckboxes defaultValues={entry.models} />
+                  <KeyStaffEsgFields entry={entry} />
                   <div className="flex gap-2">
                     <SubmitButton label="Save" />
                     <button
@@ -382,6 +438,17 @@ export function KeyStaffList({
                     </span>
                     {entry.title && (
                       <p className="text-sm text-gray-500 dark:text-gray-400">{entry.title}</p>
+                    )}
+                    {(entry.onSite !== null || entry.isEmergencyContact || entry.approvalAuthority) && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {[
+                          entry.onSite === true ? "On-site" : entry.onSite === false ? "Off-site" : null,
+                          entry.isEmergencyContact ? "Emergency contact" : null,
+                          entry.approvalAuthority ? `Signatory: ${entry.approvalAuthority}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
                     )}
                     {entry.contact.phone && (
                       <p className="text-sm text-gray-500 dark:text-gray-400">{formatPhone(entry.contact.phone)}</p>

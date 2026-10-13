@@ -36,7 +36,7 @@ export async function getSetupOrders(eventId: string) {
     where: { eventId },
     include: {
       room: { select: { id: true, name: true } },
-      functionLinks: { include: { function: { select: { id: true, name: true } } } },
+      functionLinks: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
       presentationLinks: { include: { presentation: { select: { id: true, title: true } } } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },

@@ -147,7 +147,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        <div className="space-y-4">
+        <div id="key-staff" className="space-y-4 scroll-mt-24">
           <KeyStaffList
             keyStaff={keyStaff}
             addKeyStaff={addKeyStaffAction}

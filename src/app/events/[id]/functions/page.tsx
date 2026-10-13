@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
-import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunctions, bulkUpdateFunctions } from "../../functions/actions";
+import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunctions, bulkUpdateFunctions, renumberFunctions } from "../../functions/actions";
+import { FunctionNumberingControl } from "../../functions/FunctionNumberingControl";
 import { FunctionList } from "../../functions/FunctionList";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
@@ -58,6 +59,11 @@ export default async function EventFunctionsPage({
     await bulkUpdateFunctions(ids, id, updates);
   };
 
+  const renumberAction = async (clearPins: boolean) => {
+    "use server";
+    await renumberFunctions(id, clearPins);
+  };
+
   return (
     <>
       <div className="flex justify-between items-center mb-4">
@@ -72,7 +78,13 @@ export default async function EventFunctionsPage({
           </h1>
         </div>
       </div>
-
+      <div className="mb-4">
+        <FunctionNumberingControl
+          eventId={id}
+          lockedAt={event.functionNumbersLockedAt ? event.functionNumbersLockedAt.toISOString() : null}
+          renumber={renumberAction}
+        />
+      </div>
 
       <FunctionList
         functions={functions}

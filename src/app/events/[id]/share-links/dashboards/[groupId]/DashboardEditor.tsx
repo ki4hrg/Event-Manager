@@ -44,6 +44,8 @@ const REPORT_PATHS: Record<string, string> = {
   BREAKOUT_GRID: "breakout-grid",
   BREAKOUT_ASSIGNMENTS: "breakout-assignments",
   PACKING_LIST: "packing-list",
+  ESG: "esg",
+  POST_EVENT: "post-event",
 };
 
 function toDateInput(iso: string | null): string {

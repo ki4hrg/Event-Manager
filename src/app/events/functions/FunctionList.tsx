@@ -14,7 +14,7 @@ import { ViewToggle } from "@/components/ui/ViewToggle";
 import { FunctionTableView } from "./FunctionTableView";
 import { getMainStart, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
@@ -174,7 +174,7 @@ export function FunctionList({
               href={fnHref}
               className="text-blue-600 dark:text-blue-400 hover:underline font-medium truncate"
             >
-              {formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}
+              {formatFunctionLabel(fn)}
             </Link>
             <WorkflowBadge summary={workflowSummaries[fn.id]} />
             <EntityStatusBadge status={fn.status} substatus={fn.substatus} />

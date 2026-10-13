@@ -71,6 +71,7 @@ import { FunctionLinkControl } from "../../../functions/FunctionLinkControl";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { formatTime } from "@/lib/agendaUtils";
 import type { TimelineItem } from "@prisma/client";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -138,7 +139,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -151,6 +152,7 @@ export default async function CateringOrderPage({
         select: {
           id: true,
           name: true,
+          functionNumber: true,
           breakoutGroup: { select: { name: true } },
           cateringOrder: { select: { id: true } },
         },
@@ -163,6 +165,7 @@ export default async function CateringOrderPage({
       prisma.fileUpload.findMany({ where: { cateringOrderId }, orderBy: { createdAt: "asc" } }),
       searchAssignedEventVendors("", eventId, "CATERING_ORDER"),
       getSubstatusOptions(),
+      getOptions("meal_type"),
     ]);
   if (!event || !cateringOrder) {
     notFound();
@@ -442,6 +445,7 @@ export default async function CateringOrderPage({
                 cateringOrder={cateringOrder}
                 action={updateDetailsAction}
                 serviceStyleOptions={serviceStyleOptions}
+                mealTypeOptions={mealTypeOptions}
                 eventId={eventId}
                 assignedVendors={cateringOrderVendors}
                 availableVendors={availableEventVendors.map((v) => ({ id: v.id, label: v.name }))}
@@ -454,6 +458,7 @@ export default async function CateringOrderPage({
               expectedCount={cateringOrder.expectedCount}
               confirmedCount={cateringOrder.confirmedCount}
               guaranteeCount={cateringOrder.guaranteeCount}
+              actualCount={cateringOrder.actualCount}
               action={updateGuestCountsAction}
             />
 
@@ -462,11 +467,11 @@ export default async function CateringOrderPage({
               <FunctionLinkControl
                 resource="CATERING_ORDERS"
                 linkedFunctionId={cateringOrder.functionId}
-                linkedFunctionName={cateringOrder.function?.name ?? null}
+                linkedFunctionName={cateringOrder.function ? formatFunctionLabel(cateringOrder.function) : null}
                 linkedFunctionPath={
                   cateringOrder.functionId ? `/events/${eventId}/functions/${cateringOrder.functionId}` : null
                 }
-                availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+                availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
                 linkFunction={linkToFunctionAction}
                 unlinkFunction={unlinkFromFunctionAction}
               />
@@ -510,7 +515,7 @@ export default async function CateringOrderPage({
               locations={cateringOrder.additionalServiceLocations}
               orderExpectedCount={cateringOrder.expectedCount}
               orderConfirmedCount={cateringOrder.confirmedCount}
-              primaryFunctionName={cateringOrder.function?.name ?? null}
+              primaryFunctionName={cateringOrder.function ? formatFunctionLabel(cateringOrder.function) : null}
               primaryRoomName={cateringOrder.function?.rooms[0]?.room.name ?? null}
               functions={allEventFunctions}
               createLocation={createServiceLocationAction}

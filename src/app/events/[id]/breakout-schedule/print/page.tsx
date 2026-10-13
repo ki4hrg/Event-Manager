@@ -8,7 +8,7 @@ import { reportTh as th, reportTd as td } from "@/lib/reportStyles";
 const roomTh = th.replace("whitespace-nowrap", "whitespace-normal break-words");
 import { getBreakoutGroups } from "@/app/events/breakout-schedule/actions";
 import { getEffectiveRooms, formatSessionTime, getPrimaryNames } from "@/app/events/breakout-schedule/utils";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import type { Room } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -147,7 +147,7 @@ export default async function BreakoutSchedulePrintPage({
                               return (
                                 <tr key={session.id} className="print:break-inside-avoid">
                                   <td className={`${td} font-medium`}>
-                                    <div className="text-gray-900 print:text-black font-medium">{formatBreakoutSessionName(session.name, group.name)}</div>
+                                    <div className="text-gray-900 print:text-black font-medium">{formatFunctionLabel({ name: session.name, functionNumber: session.functionNumber, breakoutGroup: group })}</div>
                                     <div className="text-gray-500 print:text-gray-600 font-normal">
                                       {formatSessionTime(session.schedules, timezone)}
                                     </div>

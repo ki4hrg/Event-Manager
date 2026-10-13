@@ -12,6 +12,12 @@ import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { compareRoomsByGroup } from "@/lib/roomGroups";
 import { eventVenuesOrderBy } from "@/lib/eventVenues";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { compareFunctionNumbers, formatFunctionLabel } from "@/lib/functionNumbers";
+import { loadEsgNarrativeData } from "@/lib/esg/narrativeData";
+import { esgBoothInclude, esgFunctionInclude } from "@/lib/esg/include";
+import { assembleEsgDocument, esgDayOptions } from "@/lib/esg/assemble";
+import { ESG_PARTS, type EsgPart } from "@/lib/esg/types";
+import { assemblePerDocument, loadPerData } from "@/lib/esg/per";
 import { compareByMainFunctionTime } from "@/lib/functionSchedules";
 
 export type EquipmentReportFilters = {
@@ -81,6 +87,7 @@ function extractWindows(
 
 type FunctionRef = {
   name: string;
+  functionNumber: string | null;
   type: string;
   breakoutGroup: { name: string } | null;
   schedules: { startTime: Date; endTime: Date }[];
@@ -110,7 +117,7 @@ function expandByFunction(
     ...base,
     functionType: fn.type,
     functionGroupName: fn.breakoutGroup?.name ?? null,
-    functionNames: [fn.name],
+    functionNames: [formatFunctionLabel({ name: fn.name, functionNumber: fn.functionNumber })],
     scheduleWindows: extractWindows([fn]),
   }));
 }
@@ -169,23 +176,23 @@ export async function getEquipmentResponsibilityData(
           select: {
             id: true,
             name: true,
-            function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
+            function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } },
           },
         },
         setupOrder: {
           select: {
             id: true,
             name: true,
-            functionLinks: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
-            presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
+            functionLinks: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
+            presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
           },
         },
         avOrder: {
           select: {
             id: true,
             name: true,
-            functionLinks: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
-            presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
+            functionLinks: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
+            presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
           },
         },
         videoSection: {
@@ -194,8 +201,8 @@ export async function getEquipmentResponsibilityData(
               select: {
                 id: true,
                 name: true,
-                functionLinks: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
-                presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
+                functionLinks: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
+                presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
               },
             },
           },
@@ -216,8 +223,8 @@ export async function getEquipmentResponsibilityData(
                   select: {
                     id: true,
                     name: true,
-                    functionLinks: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
-                    presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
+                    functionLinks: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
+                    presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
                   },
                 },
               },
@@ -238,8 +245,8 @@ export async function getEquipmentResponsibilityData(
               select: {
                 id: true,
                 name: true,
-                functionLinks: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
-                presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
+                functionLinks: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
+                presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
               },
             },
           },
@@ -254,8 +261,8 @@ export async function getEquipmentResponsibilityData(
           select: {
             id: true,
             name: true,
-            functionLinks: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
-            presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
+            functionLinks: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
+            presentationLinks: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
           },
         },
       },
@@ -274,8 +281,8 @@ export async function getEquipmentResponsibilityData(
             name: true,
             providerVendor: { select: { id: true, name: true } },
             providerContact: { select: { id: true, firstName: true, lastName: true } },
-            functions: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
-            presentations: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
+            functions: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } },
+            presentations: { select: { presentation: { select: { slots: { select: { function: { select: { name: true, functionNumber: true, type: true, breakoutGroup: { select: { name: true } }, schedules: { select: { startTime: true, endTime: true } } } } } } } } } },
           },
         },
       },
@@ -766,7 +773,7 @@ export async function getEventProfileData(
       include: {
         room: { select: { id: true, name: true } },
         vendors: { include: { vendor: { select: { id: true, name: true } } } },
-        functions: { include: { function: { select: { id: true, name: true } } } },
+        functions: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
         presentation: { select: { id: true, title: true } },
         updatedBy: { select: { name: true, email: true } },
       },
@@ -779,6 +786,7 @@ export async function getEventProfileData(
           select: {
             id: true,
             name: true,
+            functionNumber: true,
             type: true,
             status: true,
             substatus: true,
@@ -1332,7 +1340,7 @@ const fdSupplyOrderInclude = {
 } satisfies Prisma.SupplyOrderInclude;
 
 const fdCateringOrderInclude = {
-  function: { select: { id: true, name: true } },
+  function: { select: { id: true, name: true, functionNumber: true } },
   vendors: { include: { vendor: fdVendorSelect } },
   lineItems: { orderBy: { sortOrder: "asc" } },
   menuSections: {
@@ -1341,7 +1349,7 @@ const fdCateringOrderInclude = {
   },
   additionalServiceLocations: {
     include: {
-      function: { select: { id: true, name: true } },
+      function: { select: { id: true, name: true, functionNumber: true } },
     },
     orderBy: { sortOrder: "asc" },
   },
@@ -1493,6 +1501,7 @@ export type FunctionDetailFunction = FunctionDetailData["functions"][number];
 export type FunctionPickerOption = {
   value: string;
   label: string;
+  functionNumber: string | null;
   typeValue: string | null;
   typeLabel: string;
   typeSortOrder: number;
@@ -1506,6 +1515,7 @@ export async function getFunctionPickerOptions(eventId: string): Promise<Functio
       select: {
         id: true,
         name: true,
+        functionNumber: true,
         type: true,
         breakoutGroup: { select: { name: true } },
         schedules: { select: { startTime: true }, orderBy: { startTime: "asc" }, take: 1 },
@@ -1525,7 +1535,8 @@ export async function getFunctionPickerOptions(eventId: string): Promise<Functio
     const typeLabel = typeValue ? resolveOptionLabel(typeValue, typeOptions) || typeValue : "Untyped";
     return {
       value: fn.id,
-      label: formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name),
+      label: formatFunctionLabel(fn),
+      functionNumber: fn.functionNumber,
       typeValue,
       typeLabel,
       typeSortOrder: typeMeta?.sortOrder ?? Number.MAX_SAFE_INTEGER,
@@ -1667,6 +1678,7 @@ export async function getEventScheduleData(
         select: {
           id: true,
           name: true,
+          functionNumber: true,
           type: true,
           offSiteLocation: true,
           breakoutGroup: { select: { name: true } },
@@ -1980,3 +1992,56 @@ export async function getPackingListData(
 }
 
 export type PackingListData = NonNullable<Awaited<ReturnType<typeof getPackingListData>>>;
+
+// ─── Event Specifications Guide (APEX ESG) ──────────────────────────────────
+
+export type EsgFilters = {
+  parts?: EsgPart[];
+  days?: string[];
+  functionIds?: string[];
+  showBlank?: boolean;
+  includeBilling?: boolean;
+};
+
+export async function getEsgData(eventId: string, filters: EsgFilters = {}) {
+  const narrative = await loadEsgNarrativeData(eventId);
+  if (!narrative) return null;
+  const [functions, booths, scheduleTypes] = await Promise.all([
+    prisma.function.findMany({ where: { eventId }, include: esgFunctionInclude }),
+    prisma.exhibitBooth.findMany({ where: { eventId }, include: esgBoothInclude }),
+    prisma.customOption.findMany({
+      where: optionsWhereForEvent(eventId, "schedule_type"),
+      select: { label: true, group: true },
+    }),
+  ]);
+  const support = new Set(scheduleTypes.filter((o) => o.group === "SETUP" || o.group === "TEARDOWN").map((o) => o.label));
+  if (support.size === 0) ["Setup", "Breakdown"].forEach((l) => support.add(l));
+
+  const dayOptions = esgDayOptions(functions, support, narrative.event.timezone);
+  const functionOptions = functions
+    .filter((f) => f.status !== "CANCELLED" && f.schedules.length > 0)
+    .map((f) => ({ value: f.id, label: formatFunctionLabel(f), functionNumber: f.functionNumber }))
+    .sort((a, b) => compareFunctionNumbers(a.functionNumber, b.functionNumber) || a.label.localeCompare(b.label));
+  // Unknown days / ids would silently empty the report; drop them instead.
+  const validDays = new Set(dayOptions);
+  const validFns = new Set(functionOptions.map((f) => f.value));
+  const applied = {
+    parts: filters.parts?.length ? filters.parts : ESG_PARTS,
+    days: (filters.days ?? []).filter((d) => validDays.has(d)),
+    functionIds: (filters.functionIds ?? []).filter((id) => validFns.has(id)),
+    showBlank: filters.showBlank ?? false,
+    includeBilling: filters.includeBilling ?? true,
+  };
+  const document = assembleEsgDocument(narrative, functions, booths, support, applied);
+  return { document, applied, dayOptions, functionOptions };
+}
+
+export type EsgData = NonNullable<Awaited<ReturnType<typeof getEsgData>>>;
+
+// ─── Post-Event Report (APEX PER) ───────────────────────────────────────────
+
+export async function getPostEventReportData(eventId: string, filters: { showBlank?: boolean } = {}) {
+  const data = await loadPerData(eventId);
+  if (!data) return null;
+  return assemblePerDocument(data, { showBlank: filters.showBlank ?? false });
+}

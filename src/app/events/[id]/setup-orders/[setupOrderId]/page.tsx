@@ -54,6 +54,7 @@ import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepComplet
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -386,10 +387,10 @@ export default async function SetupOrderPage({
                 resource="SETUP_ORDERS"
                 linkedFunctions={setupOrder.functions.map((f) => ({
                   id: f.id,
-                  name: f.name,
+                  name: formatFunctionLabel(f),
                   path: `/events/${eventId}/functions/${f.id}`,
                 }))}
-                availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+                availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
                 linkFunction={linkToFunctionAction}
                 unlinkFunction={unlinkFromFunctionAction}
               />

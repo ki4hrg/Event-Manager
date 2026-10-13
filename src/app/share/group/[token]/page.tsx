@@ -1,5 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getPostEventReportData } from "@/app/events/reports/actions";
+import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
+import { ReportFilters as PerReportFilters } from "@/app/events/[id]/reports/post-event/ReportFilters";
+import { getEsgData } from "@/app/events/reports/actions";
+import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
+import { ReportFilters as EsgReportFilters } from "@/app/events/[id]/reports/esg/ReportFilters";
+import { esgFiltersToQuery, resolveSharedEsgFilters } from "@/lib/esg/params";
+import { AVAILABLE_ESG_PARTS } from "@/lib/esg/types";
 import {
   getActiveShareLinkGroup,
   recordShareLinkGroupAccess,
@@ -710,6 +718,58 @@ async function renderItem(
               />
             )}
             <PackingListReport data={data} />
+          </>
+        ),
+      };
+    }
+    case "ESG": {
+      const data = await getEsgData(eventId, resolveSharedEsgFilters(item.filtersLocked, stored, sp, prefix));
+      if (!data) notFound();
+      const qs = esgFiltersToQuery(data.applied);
+      return {
+        id: item.id,
+        title,
+        printHref: qs ? `${printBase}?${qs}` : printBase,
+        body: (
+          <>
+            {!item.filtersLocked && (
+              <EsgReportFilters
+                eventId={eventId}
+                timezone={data.document.meta.timezone}
+                availableParts={AVAILABLE_ESG_PARTS}
+                selectedParts={data.applied.parts.filter((p) => AVAILABLE_ESG_PARTS.includes(p))}
+                days={data.dayOptions}
+                selectedDays={data.applied.days}
+                functions={data.functionOptions}
+                selectedFunctionIds={data.applied.functionIds}
+                showBlank={data.applied.showBlank}
+                includeBilling={data.applied.includeBilling}
+                allowBillingToggle={false}
+                basePath={sharePath}
+                paramPrefix={prefix}
+                hidePrint
+              />
+            )}
+            <EsgReport doc={data.document} />
+          </>
+        ),
+      };
+    }
+    case "POST_EVENT": {
+      const blankParam = getString(sp[`${prefix}blank`]);
+      const showBlank = item.filtersLocked ? stored.showBlank === true : blankParam ? blankParam === "1" : stored.showBlank === true;
+      const doc = await getPostEventReportData(eventId, { showBlank });
+      if (!doc) notFound();
+      return {
+        id: item.id,
+        title,
+        printHref: showBlank ? `${printBase}?blank=1` : printBase,
+        body: (
+          <>
+            {!item.filtersLocked && (
+              <PerReportFilters eventId={eventId} showBlank={showBlank} basePath={sharePath} paramPrefix={prefix} hidePrint />
+            )}
+            <PostEventReport doc={doc} />
           </>
         ),
       };

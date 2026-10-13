@@ -2,7 +2,7 @@ import type { getVendorHandoffData } from "@/app/events/reports/actions";
 import type { getEvent } from "@/app/events/actions";
 import { formatTime, formatDateHeading, formatEventDate } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { cateringRelationshipLabel, computeServiceLocationCounts, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
 import { formatPhone } from "@/lib/format-phone";
@@ -460,7 +460,7 @@ function FunctionScheduleSection({
           fnId: fn.id,
           type: schedule.type,
           timeStr: `${formatTime(schedule.startTime, timezone)} – ${formatTime(schedule.endTime, timezone)}`,
-          name: formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name),
+          name: formatFunctionLabel(fn),
           rooms: fn.rooms.map((r) => r.room.name).join(", ") || "—",
           notes: schedule.notes ?? "",
         }));
@@ -513,7 +513,7 @@ function FunctionScheduleSection({
           <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs">
             {unscheduled.map((fn) => (
               <div key={fn.id} className="p-2">
-                <a href={`#function-${fn.id}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline break-words">{formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}</a>
+                <a href={`#function-${fn.id}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline break-words">{formatFunctionLabel(fn)}</a>
                 <p className="text-gray-500 dark:text-gray-500 mt-0.5 break-words">{fn.rooms.map((r) => r.room.name).join(", ") || "—"}</p>
               </div>
             ))}
@@ -529,7 +529,7 @@ function FunctionScheduleSection({
               <tbody>
                 {unscheduled.map((fn) => (
                   <tr key={fn.id}>
-                    <td className={td}><a href={`#function-${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}</a></td>
+                    <td className={td}><a href={`#function-${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-900 print:no-underline">{formatFunctionLabel(fn)}</a></td>
                     <td className={td}>{fn.rooms.map((r) => r.room.name).join(", ") || "—"}</td>
                   </tr>
                 ))}
@@ -600,7 +600,7 @@ function CateringOrderSection({
       )}
 
       {(order.function || order.additionalServiceLocations.length > 0) && (() => {
-        const primaryFunctionName = order.function?.name ?? null;
+        const primaryFunctionName = order.function ? formatFunctionLabel(order.function) : null;
         const primaryRoom = order.function?.rooms[0]?.room.name ?? null;
         const { sumKnown, uncountedCount, primaryRemaining, exceedsExpected, exceedsConfirmed } =
           computeServiceLocationCounts(
@@ -645,7 +645,7 @@ function CateringOrderSection({
               </div>
               {order.additionalServiceLocations.map((loc) => {
                 const derivedRoom = loc.function?.rooms[0]?.room.name ?? null;
-                const functionName = loc.function?.name ?? null;
+                const functionName = loc.function ? formatFunctionLabel(loc.function) : null;
                 const baseName = loc.name ?? functionName ?? "Unnamed location";
                 const roomAside = derivedRoom ? ` (${derivedRoom})` : "";
                 const functionAside = loc.name && functionName ? ` · ${functionName}${roomAside}` : (!loc.name ? roomAside : "");
@@ -683,7 +683,7 @@ function CateringOrderSection({
                   </tr>
                   {order.additionalServiceLocations.map((loc) => {
                     const derivedRoom = loc.function?.rooms[0]?.room.name ?? null;
-                    const functionName = loc.function?.name ?? null;
+                    const functionName = loc.function ? formatFunctionLabel(loc.function) : null;
                     const baseName = loc.name ?? functionName ?? "Unnamed location";
                     const roomAside = derivedRoom ? ` (${derivedRoom})` : "";
                     const functionAside = loc.name && functionName ? ` · ${functionName}${roomAside}` : (!loc.name ? roomAside : "");
@@ -1261,7 +1261,7 @@ function FunctionSection({
     <div id={anchorId} className={`${sectionCard} print:break-inside-avoid scroll-mt-24`}>
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
-          {formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}
+          {formatFunctionLabel(fn)}
         </h2>
         <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
           {typeLabel && <span>{typeLabel}</span>}
@@ -1547,7 +1547,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
   if (equipmentByCategory.length > 0) sectionLinks.push({ id: "equipment-summary", label: "Equipment" });
   if (hasUnscheduled) sectionLinks.push({ id: "unscheduled", label: "Unscheduled" });
 
-  const functionLinks = groups.map((g) => ({ id: `function-${g.fn.id}`, label: formatBreakoutSessionName(g.fn.name, g.fn.breakoutGroup?.name) }));
+  const functionLinks = groups.map((g) => ({ id: `function-${g.fn.id}`, label: formatFunctionLabel(g.fn) }));
   const presentationLinks = presentationGroups.map((g) => ({ id: `presentation-${g.presentation.id}`, label: g.presentation.title }));
 
   return (

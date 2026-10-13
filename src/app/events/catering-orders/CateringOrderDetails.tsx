@@ -6,6 +6,7 @@ import { WorkflowSection } from "@/components/print/WorkflowSection";
 import { formatPhone } from "@/lib/format-phone";
 import { computeServiceLocationCounts } from "@/lib/cateringServiceLocations";
 import { formatTime as formatTimeInTimezone } from "@/lib/agendaUtils";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 type CateringOrderData = NonNullable<Awaited<ReturnType<typeof getCateringOrder>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
@@ -47,10 +48,11 @@ export function CateringOrderDetails({
           label="Linked Function"
           value={
             order.function
-              ? `${order.function.name}${order.function.rooms[0]?.room.name ? ` (${order.function.rooms[0].room.name})` : ""}`
+              ? `${formatFunctionLabel(order.function)}${order.function.rooms[0]?.room.name ? ` (${order.function.rooms[0].room.name})` : ""}`
               : null
           }
         />
+        <Field label="Meal Type" value={order.mealType} />
         <Field label="Service Style" value={order.serviceStyle} />
         {(order.expectedCount != null || order.confirmedCount != null || order.guaranteeCount != null) && (
           <div className="mb-2 text-sm">
@@ -101,7 +103,7 @@ export function CateringOrderDetails({
 
       {order.additionalServiceLocations.length > 0 && (() => {
         const primaryRoom = order.function?.rooms[0]?.room.name ?? null;
-        const primaryFunctionName = order.function?.name ?? null;
+        const primaryFunctionName = order.function ? formatFunctionLabel(order.function) : null;
         const { sumKnown, uncountedCount, primaryRemaining, exceedsExpected, exceedsConfirmed } =
           computeServiceLocationCounts(
             order.additionalServiceLocations,
@@ -152,7 +154,7 @@ export function CateringOrderDetails({
                 </tr>
                 {order.additionalServiceLocations.map((loc) => {
                   const derivedRoom = loc.function?.rooms[0]?.room.name ?? null;
-                  const functionName = loc.function?.name ?? null;
+                  const functionName = loc.function ? formatFunctionLabel(loc.function) : null;
                   const baseName = loc.name ?? functionName ?? "Unnamed location";
                   const roomAside = derivedRoom ? ` (${derivedRoom})` : "";
                   const functionAside = loc.name && functionName ? ` · ${functionName}${roomAside}` : (!loc.name ? roomAside : "");

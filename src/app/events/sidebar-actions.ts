@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { compareFunctionNumbers, formatFunctionLabel } from "@/lib/functionNumbers";
 import { requirePermission } from "@/lib/permissions";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getSetupOrderDisplayName } from "./setup-orders/utils";
@@ -29,7 +30,7 @@ export async function getSidebarItems(
     const [rows, typeOptions] = await Promise.all([
       prisma.function.findMany({
         where: { eventId },
-        select: { id: true, name: true, type: true },
+        select: { id: true, name: true, type: true, functionNumber: true, breakoutGroup: { select: { name: true } } },
       }),
       prisma.customOption.findMany({
         where: { tenantId: session.tenantId, category: "function_type" },
@@ -38,12 +39,16 @@ export async function getSidebarItems(
       }),
     ]);
 
-    const groups = new Map<string, { headerLabel: string; entries: { id: string; label: string }[] }>();
+    const groups = new Map<string, { headerLabel: string; entries: { id: string; label: string; number: string | null }[] }>();
     for (const r of rows) {
       const key = r.type || "";
       const headerLabel = key ? resolveOptionLabel(key, typeOptions) : "Other";
       const group = groups.get(key) ?? { headerLabel, entries: [] };
-      group.entries.push({ id: r.id, label: r.name || "Unnamed Function" });
+      group.entries.push({
+        id: r.id,
+        label: r.name ? formatFunctionLabel(r) : "Unnamed Function",
+        number: r.functionNumber,
+      });
       groups.set(key, group);
     }
 
@@ -61,7 +66,9 @@ export async function getSidebarItems(
     for (const key of sortedKeys) {
       const group = groups.get(key)!;
       items.push({ kind: "header", id: `fn-group-${key || "untyped"}`, label: group.headerLabel });
-      const entries = group.entries.sort((a, b) => a.label.localeCompare(b.label));
+      const entries = group.entries.sort(
+        (a, b) => compareFunctionNumbers(a.number, b.number) || a.label.localeCompare(b.label),
+      );
       for (const e of entries) {
         items.push({
           kind: "link",

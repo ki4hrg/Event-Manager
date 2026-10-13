@@ -10,7 +10,7 @@ import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { LastUpdated } from "@/components/LastUpdated";
 import { reportTh as th, reportTd as td, reportSectionCard as sectionCard } from "@/lib/reportStyles";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
 import { PACKING_STATUS_CLASS, PACKING_STATUS_LABEL } from "@/lib/statusConstants";
 
@@ -119,9 +119,11 @@ function ScheduleItemCard({
   const badgeClass = colorClasses[typeColor] ?? colorClasses.gray;
   const baseName = fn.name || fn.type || "Unnamed Function";
   const isBreakout = fn.type === "BREAKOUT_BLOCK";
-  const fnName = isBreakout
-    ? formatBreakoutSessionName(baseName, fn.breakoutGroup?.name)
-    : baseName;
+  const fnName = formatFunctionLabel({
+    name: baseName,
+    functionNumber: fn.functionNumber,
+    breakoutGroup: isBreakout ? fn.breakoutGroup : null,
+  });
   return (
     <>
       {attachFunctionAnchor && (
@@ -386,7 +388,7 @@ function CateringCard({
           {fn && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               <a href={`#function-${fn.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-gray-700 print:no-underline">
-                {fn.name}
+                {formatFunctionLabel(fn)}
               </a>
               {" · "}
               {dateLabel && (
@@ -498,7 +500,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
                 <p className="text-gray-500 dark:text-gray-400 mt-0.5">
                   {o.presentation
                     ? `Presentation: ${o.presentation.title}`
-                    : `Function: ${o.functions.map((f) => f.function.name).join(", ")}`}
+                    : `Function: ${o.functions.map((f) => formatFunctionLabel(f.function)).join(", ")}`}
                 </p>
               )}
               <LastUpdated updatedAt={o.updatedAt} updatedBy={o.updatedBy} className="mt-0.5" />
@@ -530,7 +532,7 @@ function PrintOrdersTable({ orders }: { orders: PrintOrderRow[] }) {
                   {o.presentation
                     ? o.presentation.title
                     : o.functions.length > 0
-                      ? o.functions.map((f) => f.function.name).join(", ")
+                      ? o.functions.map((f) => formatFunctionLabel(f.function)).join(", ")
                       : ""}
                 </td>
                 <td className={td}>

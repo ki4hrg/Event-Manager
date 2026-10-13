@@ -7,6 +7,11 @@ import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "@/app/events/actions";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
+import { getEsgData } from "@/app/events/reports/actions";
+import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
+import { resolveSharedEsgFilters } from "@/lib/esg/params";
+import { getPostEventReportData } from "@/app/events/reports/actions";
+import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "@/app/events/[id]/reports/event-profile/EventProfileReport";
@@ -31,6 +36,8 @@ const REPORT_TITLES: Record<string, string> = {
   BREAKOUT_GRID: "Breakout grid",
   BREAKOUT_ASSIGNMENTS: "Breakout assignments",
   PACKING_LIST: "Packing list",
+  ESG: "Event Specifications Guide",
+  POST_EVENT: "Post-Event Report",
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -481,6 +488,30 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <PrintHeader eventName={link.event.name} title="Packing List" backHref={backHref} />
         <PackingListReport data={data} />
+      </div>
+    );
+  }
+
+  if (link.reportType === "ESG") {
+    const data = await getEsgData(link.eventId, resolveSharedEsgFilters(link.filtersLocked, storedFilters, sp));
+    if (!data) notFound();
+    return (
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+        <PrintHeader eventName={link.event.name} title="Event Specifications Guide" backHref={backHref} />
+        <EsgReport doc={data.document} />
+      </div>
+    );
+  }
+
+  if (link.reportType === "POST_EVENT") {
+    const blankParam = getString(sp.blank);
+    const showBlank = link.filtersLocked ? storedFilters.showBlank === true : blankParam ? blankParam === "1" : storedFilters.showBlank === true;
+    const doc = await getPostEventReportData(link.eventId, { showBlank });
+    if (!doc) notFound();
+    return (
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+        <PrintHeader eventName={link.event.name} title="Post-Event Report" backHref={backHref} />
+        <PostEventReport doc={doc} />
       </div>
     );
   }

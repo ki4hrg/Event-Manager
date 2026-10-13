@@ -13,6 +13,7 @@ import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { EDIT_STATUS_OPTIONS, STATUS_LABEL } from "@/lib/statusConstants";
 import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
@@ -303,7 +304,7 @@ export function AVOrderList({
                   {avOrder.functions.length > 0 && (
                     <span className="text-green-600 dark:text-green-400">
                       {avOrder.functions.length === 1
-                        ? `Linked to function: ${avOrder.functions[0].name}`
+                        ? `Linked to function: ${formatFunctionLabel(avOrder.functions[0])}`
                         : `Linked to ${avOrder.functions.length} functions`}
                     </span>
                   )}
@@ -391,7 +392,7 @@ export function AVOrderList({
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.functions.length > 0
                           ? o.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.functions[0].name}</Link>
+                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.functions[0])}</Link>
                             : `${o.functions.length} functions`
                           : <span className="text-orange-500">Unlinked</span>}
                       </td>

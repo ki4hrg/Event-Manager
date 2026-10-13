@@ -9,7 +9,7 @@ import {
   getPrimaryNames,
   chunkArray,
 } from "@/app/events/breakout-schedule/utils";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { reportTh as th, reportThWrap as roomTh, reportTd as td } from "@/lib/reportStyles";
 
 const ROOMS_PER_CHUNK = 8;
@@ -103,7 +103,7 @@ function GroupPage({
                     <tr key={session.id} className="print:break-inside-avoid">
                       <td className={`${td} font-medium`}>
                         <div className="text-gray-900 print:text-black font-medium">
-                          {formatBreakoutSessionName(session.name, group.name)}
+                          {formatFunctionLabel({ name: session.name, functionNumber: session.functionNumber, breakoutGroup: group })}
                         </div>
                         <div className="text-gray-500 print:text-gray-700 font-normal">
                           {formatSessionTime(session.schedules, timezone)}

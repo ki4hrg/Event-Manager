@@ -19,6 +19,11 @@ export type ShareLinkFilters = {
   /** Provider labels (vendor or contact name); `__blank__` means "no provider". */
   providers?: string[];
   hidePacked?: boolean;
+  /** ESG parts ("I", "II", "IIIa", "IIIb"). */
+  parts?: string[];
+  showBlank?: boolean;
+  /** ESG billing & signatories (tax ID, bill-to). Off unless set. */
+  includeBilling?: boolean;
 };
 
 export const SHARE_REPORT_LABELS: Record<string, string> = {
@@ -31,6 +36,8 @@ export const SHARE_REPORT_LABELS: Record<string, string> = {
   BREAKOUT_GRID: "Breakout Grid",
   BREAKOUT_ASSIGNMENTS: "Breakout Assignments",
   PACKING_LIST: "Packing List",
+  ESG: "Event Specifications Guide",
+  POST_EVENT: "Post-Event Report",
 };
 
 export function generateShareToken(): string {

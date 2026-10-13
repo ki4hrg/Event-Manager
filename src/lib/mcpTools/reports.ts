@@ -1,6 +1,8 @@
 import { PermissionResource } from "@prisma/client";
 import { requirePermissionForUser } from "@/lib/permissions";
 import {
+  getEsgData,
+  getPostEventReportData,
   getEquipmentResponsibilityData,
   getEventProfileData,
   getOrderAssignedVendors,
@@ -106,9 +108,55 @@ export const reportTools: McpToolDefinition[] = [
     },
   },
   {
+    name: "get_esg_report",
+    description:
+      "APEX Event Specifications Guide for the event as a normalized document: Part I narrative (sections A–X), Part II function schedule (times in US & military, function #, facility, room, set-up, set for, posting, 24-hour hold) and Part IIIa set-up orders per function. Mirrors the ESG report.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        parts: { type: "array", items: { type: "string", enum: ["I", "II", "IIIa", "IIIb"] }, description: "Default: all." },
+        days: { type: "array", items: { type: "string" }, description: "YYYY-MM-DD in event timezone." },
+        functionIds: { type: "array", items: { type: "string" }, description: "Limit Part IIIa set-up orders." },
+        showBlank: { type: "boolean", description: "Include empty template fields. Default false." },
+        includeBilling: { type: "boolean", description: "Include §W billing / §X signatories and per-function billing. Default true." },
+      },
+      required: ["eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      await gate(userId, eventId);
+      const data = await getEsgData(eventId, {
+        parts: optionalStringArray(args, "parts").filter((p): p is "I" | "II" | "IIIa" | "IIIb" => ["I", "II", "IIIa", "IIIb"].includes(p)),
+        days: optionalStringArray(args, "days"),
+        functionIds: optionalStringArray(args, "functionIds"),
+        showBlank: args.showBlank === true,
+        includeBilling: args.includeBilling !== false,
+      });
+      return data?.document ?? null;
+    },
+  },
+  {
+    name: "get_post_event_report",
+    description:
+      "APEX Post-Event Report for the event as assembled sections I–IX (event information with attendance and % of membership, contacts, hotel rooms, room blocks, F&B # held / # guar / # fed, function space, exhibits, future dates, distribution log). Mirrors the Post-Event Report.",
+    inputSchema: {
+      type: "object",
+      properties: { eventId: { type: "string" }, showBlank: { type: "boolean" } },
+      required: ["eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      await gate(userId, eventId);
+      return getPostEventReportData(eventId, { showBlank: args.showBlank === true });
+    },
+  },
+  {
     name: "get_function_picker_options",
     description:
-      "Compact list of functions on the event ({ value, label, typeValue, typeLabel, firstStart }) — picker source for filtering.",
+      "Compact list of functions on the event ({ value, label, functionNumber, typeValue, typeLabel, firstStart }) — picker source for filtering. `label` carries the ESG number prefix (\"#12 · Name\") when one is assigned.",
     inputSchema: eventOnlySchema,
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");

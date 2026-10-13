@@ -16,6 +16,7 @@ import { PermissionResource, type StatusModelType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
+import { syncFunctionNumbers } from "@/lib/functionNumbering";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
 export type ImportSelection = {
@@ -241,6 +242,17 @@ export async function importFromEventCore(
             type: fn.type,
             notes: fn.notes,
             offSiteLocation: fn.offSiteLocation,
+            // ESG details carry over; numbers are assigned fresh for this event.
+            postToReaderBoard: fn.postToReaderBoard,
+            readerBoardText: fn.readerBoardText,
+            hold24Hour: fn.hold24Hour,
+            expectedAttendance: fn.expectedAttendance,
+            setForCount: fn.setForCount,
+            decorNotes: fn.decorNotes,
+            securityNotes: fn.securityNotes,
+            signageNotes: fn.signageNotes,
+            billingNotes: fn.billingNotes,
+            costCenter: fn.costCenter,
             breakoutGroupId: fn.breakoutGroupId
               ? (groupMap.get(fn.breakoutGroupId) ?? null)
               : null,
@@ -440,6 +452,7 @@ export async function importFromEventCore(
   for (const id of result.presentationIds) {
     await autoAssignDefaultWorkflowsCore("presentation", id, targetEventId);
   }
+  await syncFunctionNumbers(targetEventId);
 
   if (args.includeSchedules && result.droppedSlots > 0) {
     const n = result.droppedSlots;

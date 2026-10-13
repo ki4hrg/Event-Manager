@@ -66,6 +66,7 @@ import { SupplyOrderItemPanel } from "../../../supply-orders/SupplyOrderItemPane
 import { SupplyOrderLinkPanel } from "../../../supply-orders/SupplyOrderLinkPanel";
 import { BulkItemStatusPanel } from "../../../supply-orders/BulkItemStatusPanel";
 import { PackingStatusRollup } from "@/components/PackingStatusRollup";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -168,7 +169,7 @@ export default async function SupplyOrderPage({
     getEventRooms(eventId),
     prisma.function.findMany({
       where: { eventId, NOT: { supplyOrderLinks: { some: { supplyOrderId } } } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, functionNumber: true },
       orderBy: { name: "asc" },
     }),
     prisma.presentation.findMany({
@@ -385,10 +386,10 @@ export default async function SupplyOrderPage({
             <SupplyOrderLinkPanel
               linkedFunctions={supplyOrder.functions.map((l) => ({
                 id: l.function.id,
-                label: l.function.name,
+                label: formatFunctionLabel(l.function),
                 path: `/events/${eventId}/functions/${l.function.id}`,
               }))}
-              availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+              availableFunctions={availableFunctions.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
               linkFunction={linkToFunctionAction}
               unlinkFunction={unlinkFromFunctionAction}
               linkedPresentations={supplyOrder.presentations.map((l) => ({

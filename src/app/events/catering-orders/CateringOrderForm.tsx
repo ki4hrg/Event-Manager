@@ -13,6 +13,7 @@ type CateringOrderFormProps = {
   cateringOrder?: CateringOrder | null;
   action: (formData: FormData) => Promise<void>;
   serviceStyleOptions: CustomOption[];
+  mealTypeOptions?: CustomOption[];
   eventId: string;
   createFunctions?: { id: string; label: string }[];
   defaultFunctionId?: string;
@@ -42,6 +43,7 @@ export function CateringOrderForm({
   cateringOrder,
   action,
   serviceStyleOptions,
+  mealTypeOptions = [],
   eventId,
   createFunctions,
   defaultFunctionId,
@@ -75,6 +77,7 @@ export function CateringOrderForm({
         </div>
         <dl className="space-y-4">
           <ReadOnlyField label="Name" value={cateringOrder.name} />
+          <ReadOnlyField label="Meal Type" value={cateringOrder.mealType} />
           <ReadOnlyField label="Service Style" value={cateringOrder.serviceStyle} />
           <ReadOnlyField label="Notes" value={cateringOrder.notes} />
           {addVendor && removeVendor && (
@@ -116,6 +119,25 @@ export function CateringOrderForm({
               placeholder="e.g., Opening Dinner, Lunch Day 1"
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          <div>
+            <label htmlFor="mealType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Meal Type
+            </label>
+            <select
+              id="mealType"
+              name="mealType"
+              defaultValue={cateringOrder?.mealType || ""}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— Select —</option>
+              {cateringOrder?.mealType && !mealTypeOptions.some((o) => o.label === cateringOrder.mealType) && (
+                <option value={cateringOrder.mealType}>{cateringOrder.mealType}</option>
+              )}
+              {mealTypeOptions.map((opt) => (
+                <option key={opt.id} value={opt.label}>{opt.label}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label htmlFor="serviceStyle" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

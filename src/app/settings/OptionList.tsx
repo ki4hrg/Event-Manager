@@ -43,6 +43,39 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+type GroupOption = { value: string; label: string };
+
+// Optional per-option mapping to a fixed key (e.g. a meal type's APEX bucket).
+// Rendering the select is what makes the form post `group`; lists without it
+// leave the stored group untouched on edit.
+function GroupSelect({
+  label,
+  groupOptions,
+  defaultValue,
+}: {
+  label: string;
+  groupOptions: GroupOption[];
+  defaultValue?: string | null;
+}) {
+  return (
+    <div>
+      <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">{label}</label>
+      <select
+        name="group"
+        defaultValue={defaultValue ?? ""}
+        className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+      >
+        <option value="">None</option>
+        {groupOptions.map((g) => (
+          <option key={g.value} value={g.value}>
+            {g.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 type OptionListProps = {
   title: string;
   description: string;
@@ -50,6 +83,8 @@ type OptionListProps = {
   options: CustomOption[];
   showColor?: boolean;
   showModels?: boolean;
+  groupOptions?: GroupOption[];
+  groupLabel?: string;
   createOption: (formData: FormData) => Promise<void>;
   updateOption: (id: string, formData: FormData) => Promise<void>;
   deleteOption: (id: string) => Promise<void>;
@@ -138,6 +173,8 @@ function SortableOptionRow({
   editingId,
   showColor,
   showModels,
+  groupOptions,
+  groupLabel,
   setEditingId,
   updateOption,
   deleteOption,
@@ -147,6 +184,8 @@ function SortableOptionRow({
   editingId: string | null;
   showColor: boolean;
   showModels: boolean;
+  groupOptions?: GroupOption[];
+  groupLabel: string;
   setEditingId: (id: string | null) => void;
   updateOption: (id: string, formData: FormData) => Promise<void>;
   deleteOption: (id: string) => Promise<void>;
@@ -193,6 +232,9 @@ function SortableOptionRow({
             </div>
           )}
           {showModels && <ModelTypesCheckboxGroup defaultValues={option.models} />}
+          {groupOptions && (
+            <GroupSelect label={groupLabel} groupOptions={groupOptions} defaultValue={option.group} />
+          )}
           <div className="flex gap-2">
             <SubmitButton label="Save" />
             <button
@@ -235,6 +277,11 @@ function SortableOptionRow({
             <span className="font-medium text-gray-900 dark:text-white break-words min-w-0">
               {option.label}
             </span>
+            {groupOptions && option.group && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {groupOptions.find((g) => g.value === option.group)?.label ?? option.group}
+              </span>
+            )}
             {showModels && option.models.length > 0 && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 ({option.models.map((m) => MODEL_LABELS[m] ?? m).join(", ")})
@@ -276,6 +323,8 @@ export function OptionList({
   options,
   showColor = false,
   showModels = false,
+  groupOptions,
+  groupLabel = "Group",
   createOption,
   updateOption,
   deleteOption,
@@ -378,6 +427,7 @@ export function OptionList({
               </div>
             )}
             {showModels && <ModelTypesCheckboxGroup />}
+            {groupOptions && <GroupSelect label={groupLabel} groupOptions={groupOptions} />}
           </div>
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Add" />
@@ -415,6 +465,8 @@ export function OptionList({
                   editingId={editingId}
                   showColor={showColor}
                   showModels={showModels}
+                  groupOptions={groupOptions}
+                  groupLabel={groupLabel}
                   setEditingId={setEditingId}
                   updateOption={updateOption}
                   deleteOption={deleteOption}
