@@ -10,13 +10,17 @@ import { buildFbAttendanceGrid, fbGridHasData } from "@/lib/esg/fbGrid";
 import { loadHousingInput } from "@/lib/esg/housing";
 import { computeEsgCompleteness } from "@/lib/esg/completeness";
 import { isBlankText } from "@/lib/esg/format";
+import { deriveFunctionSpace } from "@/lib/esg/functionSpace";
+import type { FunctionSpace } from "@/lib/esg/apex";
 import { orgEsgDefaults, orgProfileSelect } from "@/lib/orgProfile";
 import type { EsgDerivedSource, SpecGrid } from "@/lib/esg/fields";
 
 const scheduleSelect = { type: true, startTime: true, endTime: true, isPublic: true } as const;
 
+export type InheritedValue = { value: string; source: "organization" | "functions" };
+
 export async function loadEsgNarrativeData(eventId: string) {
-  const [event, tenant, spec, vips, shuttles, transfers, shipments, coverage, keys, futureDates, distributions, keyStaff, eventVendors, cateringOrders, options, functions, boothCount] =
+  const [event, tenant, spec, vips, shuttles, transfers, shipments, coverage, keys, futureDates, distributions, keyStaff, eventVendors, cateringOrders, options, functions, boothCount, breakoutRooms] =
     await Promise.all([
       prisma.event.findUnique({ where: { id: eventId }, include: eventVenuesInclude }),
       prisma.tenant.findFirst({
@@ -89,16 +93,32 @@ export async function loadEsgNarrativeData(eventId: string) {
       prisma.customOption.findMany({
         where: {
           tenant: { events: { some: { id: eventId } } },
-          category: { in: ["meal_type", "schedule_type", "event_type", "event_scope", "event_frequency", "reservation_method"] },
+          category: { in: ["function_type", "meal_type", "schedule_type", "event_type", "event_scope", "event_frequency", "reservation_method"] },
         },
         orderBy: { sortOrder: "asc" },
         select: { category: true, label: true, group: true },
       }),
       prisma.function.findMany({
         where: { eventId, type: { not: "BREAKOUT_BLOCK" } },
-        select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          offSiteLocation: true,
+          functionNumber: true,
+          breakoutGroup: { select: { name: true } },
+          rooms: { select: { room: { select: { name: true, venue: { select: { name: true } } } } } },
+          schedules: { select: { startTime: true, endTime: true } },
+        },
       }),
       prisma.exhibitBooth.count({ where: { eventId } }),
+      prisma.breakoutGroupRoom.findMany({
+        where: { breakoutGroup: { eventId } },
+        select: {
+          breakoutGroup: { select: { name: true } },
+          room: { select: { name: true, venue: { select: { name: true } } } },
+        },
+      }),
     ]);
   if (!event) return null;
 
@@ -138,15 +158,40 @@ export async function loadEsgNarrativeData(eventId: string) {
     "esg",
   );
 
-  // What the event itself stores, then the organization profile filling the
-  // §A host-organization keys it leaves blank. Everything downstream (report,
-  // completeness, PER) reads the merged view; the edit form reads storedNarrative.
+  // What the event itself stores, then defaults for the keys it leaves blank:
+  // the organization profile (§A host organization) and the event's functions
+  // (§I function space). Everything downstream (report, completeness, PER)
+  // reads the merged view; the edit form reads storedNarrative.
   const storedNarrative = (spec?.narrative as Record<string, unknown> | null) ?? {};
-  const inheritedNarrative: Record<string, string> = {};
-  for (const [key, value] of Object.entries(orgEsgDefaults(tenant))) {
-    if (isBlankText(storedNarrative[key])) inheritedNarrative[key] = value;
-  }
-  const narrative: Record<string, unknown> = { ...storedNarrative, ...inheritedNarrative };
+  const spaceByType = new Map(
+    optionsBy("function_type")
+      .filter((o) => o.group)
+      .map((o) => [o.label, o.group as FunctionSpace]),
+  );
+  const functionSpace = deriveFunctionSpace(
+    functions.map((f) => ({
+      name: f.name,
+      type: f.type,
+      offSiteLocation: f.offSiteLocation,
+      rooms: f.rooms.map((r) => ({ name: r.room.name, venueName: r.room.venue.name })),
+      schedules: f.schedules,
+    })),
+    spaceByType,
+    breakoutRooms.map((r) => ({ name: r.room.name, venueName: r.room.venue.name, groupName: r.breakoutGroup.name })),
+    event.timezone,
+  );
+  const inheritedNarrative: Record<string, InheritedValue> = {};
+  const inherit = (defaults: Record<string, string>, source: InheritedValue["source"]) => {
+    for (const [key, value] of Object.entries(defaults)) {
+      if (isBlankText(storedNarrative[key])) inheritedNarrative[key] = { value, source };
+    }
+  };
+  inherit(orgEsgDefaults(tenant), "organization");
+  inherit(functionSpace, "functions");
+  const narrative: Record<string, unknown> = {
+    ...storedNarrative,
+    ...Object.fromEntries(Object.entries(inheritedNarrative).map(([k, v]) => [k, v.value])),
+  };
   const housing = await loadHousingInput(eventId, spec ? { ...spec, narrative } : null);
 
   const signatories = keyStaff.filter((k) => !!k.approvalAuthority);

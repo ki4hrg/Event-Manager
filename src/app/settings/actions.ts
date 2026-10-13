@@ -255,6 +255,7 @@ async function propagateLabelRename(
       break;
     case "booth_type":
       await tx.exhibitBooth.updateMany({ where: { boothType: oldLabel, ...inTenant }, data: { boothType: newLabel } });
+      await tx.exhibitBoothGroup.updateMany({ where: { boothType: oldLabel, ...inTenant }, data: { boothType: newLabel } });
       break;
     case "per_facility_type":
       await tx.eventPostEvent.updateMany({

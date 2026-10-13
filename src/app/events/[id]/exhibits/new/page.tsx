@@ -14,10 +14,10 @@ export default async function NewBoothPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ functionId?: string }>;
+  searchParams: Promise<{ functionId?: string; groupId?: string }>;
 }) {
   const { id: eventId } = await params;
-  const { functionId } = await searchParams;
+  const { functionId, groupId } = await searchParams;
   const [event, choices] = await Promise.all([getEvent(eventId), getBoothFormChoices(eventId)]);
   if (!event) notFound();
 
@@ -44,8 +44,10 @@ export default async function NewBoothPage({
           timezone={event.timezone}
           functions={choices.functions}
           contacts={choices.contacts}
+          groups={choices.groups}
           boothTypes={choices.boothTypes}
           defaultFunctionId={choices.functions.some((f) => f.id === functionId) ? functionId : undefined}
+          defaultGroupId={choices.groups.some((g) => g.id === groupId) ? groupId : undefined}
           action={createAction}
           cancelHref={`/events/${eventId}/exhibits`}
         />

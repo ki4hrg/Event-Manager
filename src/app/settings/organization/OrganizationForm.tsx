@@ -29,13 +29,7 @@ export function OrganizationForm({
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
-        <div>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">{org.name}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Fills the host-organization fields of each event&apos;s Event Specifications Guide (§A) unless the event
-            overrides them.
-          </p>
-        </div>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">{org.name}</h2>
         {canWrite && !editing && (
           <button type="button" onClick={() => setEditing(true)} className={btnPrimary}>
             Edit details

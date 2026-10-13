@@ -83,12 +83,7 @@ export default async function PostEventPage({ params }: { params: Promise<{ id: 
           </Link>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          APEX Post-Event Report, ideally completed within 60 days of the event. Required fields: {completeness.done} of{" "}
-          {completeness.total}. Actual attendance and membership are edited on the{" "}
-          <Link href={`/events/${eventId}/settings`} className="text-blue-600 dark:text-blue-400 hover:underline">
-            event
-          </Link>
-          ; # fed per catering order and actual function attendance on those records.
+          Required fields: {completeness.done} of {completeness.total}
         </p>
       </div>
 

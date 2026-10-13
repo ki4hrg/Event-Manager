@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getOptions, createOption, updateOption, deleteOption, reorderOptions } from "../actions";
 import { OptionList } from "../OptionList";
-import { SCHEDULE_ROLES } from "@/lib/esg/apex";
+import { FUNCTION_SPACES, SCHEDULE_ROLES } from "@/lib/esg/apex";
 
 export const dynamic = "force-dynamic";
 
@@ -55,10 +55,12 @@ export default async function SettingsFunctionsPage() {
     <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
       <OptionList
         title="Function Types"
-        description="Categories for scheduled functions. Defaults follow the APEX ESG function types."
+        description="Categories for scheduled functions."
         category="function_type"
         options={functionTypes}
         showColor={true}
+        groupOptions={[...FUNCTION_SPACES]}
+        groupLabel="Function space"
         createOption={createFunctionType}
         updateOption={updateOption}
         deleteOption={deleteOption}
@@ -66,12 +68,12 @@ export default async function SettingsFunctionsPage() {
       />
       <OptionList
         title="Schedule Types"
-        description="Types of schedule items for functions (e.g., Setup, Rehearsal, Main Event). The ESG role marks which types feed Set Up By / Dismantle No Later Than."
+        description="Types of schedule items for functions (e.g., Setup, Rehearsal, Main Event)."
         category="schedule_type"
         options={scheduleTypes}
         showColor={true}
         groupOptions={[...SCHEDULE_ROLES]}
-        groupLabel="ESG role"
+        groupLabel="Role"
         createOption={createScheduleType}
         updateOption={updateOption}
         deleteOption={deleteOption}
@@ -79,7 +81,7 @@ export default async function SettingsFunctionsPage() {
       />
       <OptionList
         title="Setup Types"
-        description="Room setup configurations for Setup Orders. Defaults follow the APEX ESG primary room set-up list."
+        description="Room setup configurations for Setup Orders."
         category="setup_type"
         options={setupTypes}
         showColor={false}
@@ -90,7 +92,7 @@ export default async function SettingsFunctionsPage() {
       />
       <OptionList
         title="Booth Types"
-        description="Booth / stand types for exhibit booths (ESG Part IIIb)."
+        description="Booth / stand types."
         category="booth_type"
         options={boothTypes}
         showColor={false}

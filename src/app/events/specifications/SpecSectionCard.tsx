@@ -8,7 +8,13 @@ import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { PROVIDED_BY_LABELS } from "@/lib/esg/apex";
 import { formatDateOnly, formatDayDateTime, isBlankText } from "@/lib/esg/format";
 import type { EsgFieldDef } from "@/lib/esg/fields";
+import type { InheritedValue } from "@/lib/esg/narrativeData";
 import { SpecFieldInput, type SpecChoices, type SpecValue } from "./SpecFieldInput";
+
+const INHERITED_HINT: Record<InheritedValue["source"], string> = {
+  organization: "Blank uses the organization's details.",
+  functions: "Blank lists the event's functions.",
+};
 
 function SaveButton() {
   const { pending } = useFormStatus();
@@ -50,7 +56,7 @@ function FieldView({
 }: {
   field: EsgFieldDef;
   value: SpecValue;
-  inherited: boolean;
+  inherited: InheritedValue["source"] | undefined;
   timezone: string;
   choices: SpecChoices;
 }) {
@@ -60,7 +66,7 @@ function FieldView({
       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
         {field.label}
         {field.required && <span className="text-red-500 dark:text-red-400"> *</span>}
-        {inherited && <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">from organization</span>}
+        {inherited && <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">from {inherited}</span>}
       </dt>
       {empty ? (
         <dd className="mt-1 text-sm text-gray-400 dark:text-gray-500">—</dd>
@@ -94,11 +100,12 @@ function ViewFields({
 }: {
   fields: EsgFieldDef[];
   values: Record<string, SpecValue>;
-  inherited: Record<string, string>;
+  inherited: Record<string, InheritedValue>;
   timezone: string;
   choices: SpecChoices;
 }) {
-  const values: Record<string, SpecValue> = { ...stored, ...inherited };
+  const values: Record<string, SpecValue> = { ...stored };
+  for (const [k, v] of Object.entries(inherited)) values[k] = v.value;
   const shown = fields.filter((f) => f.required || !isEmpty(f, values[f.key] ?? null));
   const blank = fields.filter((f) => !f.required && isEmpty(f, values[f.key] ?? null));
   return (
@@ -110,7 +117,7 @@ function ViewFields({
               key={f.key}
               field={f}
               value={values[f.key] ?? null}
-              inherited={f.key in inherited}
+              inherited={inherited[f.key]?.source}
               timezone={timezone}
               choices={choices}
             />
@@ -146,7 +153,7 @@ export function SpecSectionCard({
   fields: EsgFieldDef[];
   values: Record<string, SpecValue>;
   // Values the organization profile supplies for fields this event leaves blank.
-  inherited?: Record<string, string>;
+  inherited?: Record<string, InheritedValue>;
   timezone: string;
   choices: SpecChoices;
   na: boolean;
@@ -255,12 +262,12 @@ export function SpecSectionCard({
                           timezone={timezone}
                           choices={choices}
                           optionCategory={f.optionCategory}
-                          placeholder={inherited[f.key]}
+                          placeholder={inherited[f.key]?.value}
                         />
                         {f.hint && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{f.hint}</p>}
-                        {f.key in inherited && (
+                        {inherited[f.key] && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Blank uses the organization&apos;s value.
+                            {INHERITED_HINT[inherited[f.key].source]}
                           </p>
                         )}
                       </div>

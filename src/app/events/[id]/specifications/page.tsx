@@ -107,10 +107,6 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
           ]}
         />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Event Specifications</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Part I (Narrative) of the APEX Event Specifications Guide. Function schedule and set-up orders come from the
-          event&apos;s functions and orders.
-        </p>
       </div>
 
       <div className="space-y-6">

@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
 import { LastUpdated } from "@/components/LastUpdated";
+import { btnSecondary } from "@/lib/buttonStyles";
 import { getEquipment } from "@/app/equipment/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
@@ -82,11 +83,8 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
           <LastUpdated updatedAt={booth.updatedAt} updatedBy={booth.updatedBy} timezone={event.timezone} className="mt-2" />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
-          <Link
-            href={`/events/${eventId}/reports/esg?parts=IIIb`}
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            Booth Set-up Orders
+          <Link href={`/events/${eventId}/reports/esg?parts=IIIb`} className={btnSecondary}>
+            Report
           </Link>
           <DeleteButton action={deleteAction} resource="FUNCTIONS" label="Delete Booth" />
         </div>
@@ -99,12 +97,31 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
             timezone={event.timezone}
             functions={choices.functions}
             contacts={choices.contacts}
+            groups={choices.groups}
             boothTypes={choices.boothTypes}
             action={updateAction}
             cancelHref={`/events/${eventId}/exhibits`}
           />
         </div>
         <div className="lg:col-span-2 space-y-2">
+          {booth.group && booth.group.equipmentItems.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                From{" "}
+                <Link href={`/events/${eventId}/exhibits/groups/${booth.group.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                  {booth.group.name}
+                </Link>
+              </h2>
+              <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 divide-y divide-gray-200 dark:divide-gray-700">
+                {booth.group.equipmentItems.map((e) => (
+                  <li key={e.id} className="flex justify-between gap-3 py-1.5">
+                    <span>{e.equipment?.name ?? e.item}</span>
+                    {e.quantity != null && <span className="text-gray-500 dark:text-gray-400">{e.quantity}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Inventory needed</h2>
           <EquipmentTable
             items={booth.equipmentItems}

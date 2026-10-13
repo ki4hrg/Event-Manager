@@ -43,12 +43,12 @@ export default async function SettingsCateringPage() {
       />
       <OptionList
         title="Meal Types"
-        description="Meal period for Catering Orders. The APEX bucket decides where an order counts in the ESG / Post-Event Report attendance grids."
+        description="Meal period for Catering Orders."
         category="meal_type"
         options={mealTypes}
         showColor={false}
         groupOptions={[...MEAL_BUCKETS]}
-        groupLabel="APEX bucket"
+        groupLabel="Report bucket"
         createOption={createMealType}
         updateOption={updateOption}
         deleteOption={deleteOption}

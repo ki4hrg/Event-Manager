@@ -62,7 +62,10 @@ export async function loadPerData(eventId: string) {
         lineItems: { select: { unitPrice: true, quantity: true } },
       },
     }),
-    prisma.exhibitBooth.findMany({ where: { eventId }, select: { companyName: true, name: true, boothType: true } }),
+    prisma.exhibitBooth.findMany({
+      where: { eventId },
+      select: { companyName: true, name: true, boothType: true, group: { select: { boothType: true } } },
+    }),
     prisma.customOption.findMany({
       where: { category: "meal_type", tenant: { events: { some: { id: eventId } } } },
       select: { label: true, group: true },
@@ -386,7 +389,7 @@ export function perDerivedBlocks(d: PerData, source: PerDerivedSource, label: st
       const spec = n.spec;
       if (d.booths.length === 0 && !spec?.grossSqFt && !spec?.netSqFt) return [];
       const companies = new Set(d.booths.map((b) => b.companyName || b.name));
-      const types = Array.from(new Set(d.booths.map((b) => b.boothType).filter(Boolean)));
+      const types = Array.from(new Set(d.booths.map((b) => b.boothType ?? b.group?.boothType).filter(Boolean)));
       const sqm = (ft: number | null | undefined) => (ft ? ` (${Math.round(ft * 0.092903)} m²)` : "");
       return [
         {

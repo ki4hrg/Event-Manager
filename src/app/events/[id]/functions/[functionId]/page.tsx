@@ -111,6 +111,10 @@ export default async function FunctionPage({
     redirect(`/events/${eventId}/breakout-schedule`);
   }
 
+  const booths = [...fn.exhibitBooths, ...fn.exhibitBoothGroups.flatMap((g) => g.booths)].sort(
+    (a, b) => (a.boothNumber ?? "").localeCompare(b.boothNumber ?? "", undefined, { numeric: true }) || a.name.localeCompare(b.name),
+  );
+
   // Rooms across every event venue, venue-first then group then name
   const rooms = await getEventRooms(eventId);
 
@@ -493,7 +497,7 @@ export default async function FunctionPage({
               linkMediaDeliverable={linkMediaDeliverableAction}
               unlinkMediaDeliverable={unlinkMediaDeliverableAction}
             />
-            {(fn.exhibitBooths.length > 0 || /exhibit/i.test(fn.type)) && (
+            {(booths.length > 0 || /exhibit/i.test(fn.type)) && (
               <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white">Exhibit Booths</h3>
@@ -504,13 +508,11 @@ export default async function FunctionPage({
                     + Add booth
                   </Link>
                 </div>
-                {fn.exhibitBooths.length === 0 ? (
+                {booths.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">No booths yet.</p>
                 ) : (
                   <ul className="space-y-1 text-sm">
-                    {[...fn.exhibitBooths]
-                      .sort((a, b) => (a.boothNumber ?? "").localeCompare(b.boothNumber ?? "", undefined, { numeric: true }))
-                      .map((b) => (
+                    {booths.map((b) => (
                         <li key={b.id}>
                           <Link href={`/events/${eventId}/exhibits/${b.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                             {b.boothNumber ? `Booth ${b.boothNumber} · ` : ""}

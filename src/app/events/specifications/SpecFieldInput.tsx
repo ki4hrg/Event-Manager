@@ -79,7 +79,14 @@ export function SpecFieldInput({
       );
     case "textarea":
       return (
-        <textarea id={id} name={name} rows={3} defaultValue={(value as string) ?? ""} className={specInputClass} />
+        <textarea
+          id={id}
+          name={name}
+          rows={3}
+          defaultValue={(value as string) ?? ""}
+          placeholder={placeholder}
+          className={specInputClass}
+        />
       );
     case "richtext":
       return (

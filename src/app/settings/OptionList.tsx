@@ -364,9 +364,7 @@ export function OptionList({
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">
             {title}
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {description}
-          </p>
+          {description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {localOptions.length > 1 && (

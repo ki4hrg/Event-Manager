@@ -38,6 +38,7 @@ model User {
   updatedEvents              Event[]                  @relation("EventUpdatedBy")
   updatedEventSpecifications EventSpecification[]     @relation("EventSpecificationUpdatedBy")
   updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
+  updatedExhibitBoothGroups  ExhibitBoothGroup[]      @relation("ExhibitBoothGroupUpdatedBy")
   updatedPostEvents          EventPostEvent[]         @relation("EventPostEventUpdatedBy")
   updatedVenues              Venue[]                  @relation("VenueUpdatedBy")
   updatedContacts            Contact[]                @relation("ContactUpdatedBy")
@@ -446,6 +447,7 @@ model Event {
   specKeys                EventSpecKey[]
   retiredFunctionNumbers  RetiredFunctionNumber[]
   exhibitBooths           ExhibitBooth[]
+  exhibitBoothGroups      ExhibitBoothGroup[]
   postEvent               EventPostEvent?
   postEventFutureDates    EventPostEventFutureDate[]
   postEventDistributions  EventPostEventDistribution[]
@@ -649,6 +651,7 @@ model Function {
   costCenter                String?
   roomNumbers               FunctionRoomNumber[]
   exhibitBooths             ExhibitBooth[]
+  exhibitBoothGroups        ExhibitBoothGroup[]
   specTransfers             EventSpecTransfer[]
   specKeys                  EventSpecKey[]
   masterExhibitFor          EventSpecification[]           @relation("SpecMasterExhibit")
@@ -830,39 +833,43 @@ model TimelineItem {
 }
 
 model EquipmentItem {
-  id                String         @id @default(cuid())
-  cateringOrderId   String?
-  setupOrderId      String?
-  videoSectionId    String?
-  avOrderId         String?
-  exhibitBoothId    String?
-  exhibitBooth      ExhibitBooth?  @relation(fields: [exhibitBoothId], references: [id], onDelete: Cascade)
-  cateringOrder     CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
-  setupOrder        SetupOrder?    @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
-  videoSection      VideoSection?  @relation(fields: [videoSectionId], references: [id], onDelete: Cascade)
-  avOrder           AVOrder?       @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
-  equipmentId       String?
-  equipment         Equipment?     @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
-  item              String
-  quantity          Int?
-  providerVendorId  String?
-  providerVendor    Vendor?        @relation("EquipmentItemProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
-  providerContactId String?
-  providerContact   Contact?       @relation("EquipmentItemProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
-  operatorVendorId  String?
-  operatorVendor    Vendor?        @relation("EquipmentItemOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
-  operatorContactId String?
-  operatorContact   Contact?       @relation("EquipmentItemOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
-  notes             String?
-  sortOrder         Int            @default(0)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id                  String             @id @default(cuid())
+  cateringOrderId     String?
+  setupOrderId        String?
+  videoSectionId      String?
+  avOrderId           String?
+  exhibitBoothId      String?
+  exhibitBooth        ExhibitBooth?      @relation(fields: [exhibitBoothId], references: [id], onDelete: Cascade)
+  // Standard inventory every booth in the group gets.
+  exhibitBoothGroupId String?
+  exhibitBoothGroup   ExhibitBoothGroup? @relation(fields: [exhibitBoothGroupId], references: [id], onDelete: Cascade)
+  cateringOrder       CateringOrder?     @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  setupOrder          SetupOrder?        @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
+  videoSection        VideoSection?      @relation(fields: [videoSectionId], references: [id], onDelete: Cascade)
+  avOrder             AVOrder?           @relation(fields: [avOrderId], references: [id], onDelete: Cascade)
+  equipmentId         String?
+  equipment           Equipment?         @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  item                String
+  quantity            Int?
+  providerVendorId    String?
+  providerVendor      Vendor?            @relation("EquipmentItemProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
+  providerContactId   String?
+  providerContact     Contact?           @relation("EquipmentItemProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
+  operatorVendorId    String?
+  operatorVendor      Vendor?            @relation("EquipmentItemOperatorVendor", fields: [operatorVendorId], references: [id], onDelete: SetNull)
+  operatorContactId   String?
+  operatorContact     Contact?           @relation("EquipmentItemOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
+  notes               String?
+  sortOrder           Int                @default(0)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   @@index([cateringOrderId])
   @@index([setupOrderId])
   @@index([videoSectionId])
   @@index([avOrderId])
   @@index([exhibitBoothId])
+  @@index([exhibitBoothGroupId])
   @@index([equipmentId])
   @@index([providerVendorId])
   @@index([providerContactId])
@@ -2166,22 +2173,18 @@ model FunctionRoomNumber {
   @@unique([functionId, suffix])
 }
 
-// ESG Part IIIb — one Booth Set-up Order per exhibit booth. Usually listed
-// under the event's exhibit function (the master exhibit function); times
-// left empty inherit from that function's schedules.
-model ExhibitBooth {
+// Settings shared by a set of booths (e.g. "Standard 10x10"). Every column
+// after `name` mirrors one on ExhibitBooth; a booth's own value wins, a blank
+// one falls back to its group (src/lib/boothGroups.ts).
+model ExhibitBoothGroup {
   id                    String          @id @default(cuid())
   eventId               String
   event                 Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name                  String
   functionId            String?
   function              Function?       @relation(fields: [functionId], references: [id], onDelete: SetNull)
-  boothNumber           String?
   location              String?
   boothType             String?
-  name                  String
-  companyName           String?
-  contactId             String?
-  contact               Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
   startAt               DateTime?
   endAt                 DateTime?
   setupBy               DateTime?
@@ -2205,13 +2208,67 @@ model ExhibitBooth {
   costCenter            String?
   billingNotes          String?
   sortOrder             Int             @default(0)
+  booths                ExhibitBooth[]
   equipmentItems        EquipmentItem[]
   updatedById           String?
-  updatedBy             User?           @relation("ExhibitBoothUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy             User?           @relation("ExhibitBoothGroupUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
 
   @@index([eventId])
+  @@index([functionId])
+  @@index([updatedById])
+}
+
+// ESG Part IIIb — one Booth Set-up Order per exhibit booth. Usually listed
+// under the event's exhibit function (the master exhibit function); times
+// left empty inherit from the group, then that function's schedules.
+model ExhibitBooth {
+  id                    String             @id @default(cuid())
+  eventId               String
+  event                 Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  groupId               String?
+  group                 ExhibitBoothGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  functionId            String?
+  function              Function?          @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  boothNumber           String?
+  location              String?
+  boothType             String?
+  name                  String
+  companyName           String?
+  contactId             String?
+  contact               Contact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  startAt               DateTime?
+  endAt                 DateTime?
+  setupBy               DateTime?
+  teardownBy            DateTime?
+  specialRequirements   String?
+  setupNotes            String?
+  avProvider            ProvidedBy?
+  avNotes               String?
+  fbNotes               String?
+  decorNotes            String?
+  securityNotes         String?
+  signageNotes          String?
+  shippingRequired      Boolean?
+  customsRequired       Boolean?
+  materialHandlingNotes String?
+  electricalProvider    ProvidedBy?
+  electricalNotes       String?
+  utilitiesNotes        String?
+  taxExempt             Boolean?
+  taxExemptId           String?
+  costCenter            String?
+  billingNotes          String?
+  sortOrder             Int                @default(0)
+  equipmentItems        EquipmentItem[]
+  updatedById           String?
+  updatedBy             User?              @relation("ExhibitBoothUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([eventId])
+  @@index([groupId])
   @@index([functionId])
   @@index([contactId])
   @@index([updatedById])
