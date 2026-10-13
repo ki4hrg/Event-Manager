@@ -15,7 +15,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { mainScheduleStart } from "@/lib/functionSchedules";
+import { functionStartKey } from "@/lib/esg/scheduleKey";
 import { baseInteger, compareFunctionNumbers, letterSuffix } from "@/lib/functionNumbers";
 
 type Tx = Prisma.TransactionClient;
@@ -33,12 +33,6 @@ async function supportScheduleLabels(tx: Tx, eventId: string): Promise<Set<strin
   return grouped.length > 0 ? new Set(grouped.map((o) => o.label)) : SETUP_FALLBACK_LABELS;
 }
 
-type Sched = { type: string; startTime: Date; endTime: Date; isPublic: boolean };
-
-export function functionStartKey(schedules: Sched[], support: Set<string>): number | null {
-  const own = schedules.filter((s) => !support.has(s.type));
-  return mainScheduleStart(own.length > 0 ? own : schedules);
-}
 
 async function loadForNumbering(tx: Tx, eventId: string) {
   return tx.function.findMany({

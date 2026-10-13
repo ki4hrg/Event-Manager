@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import React from "react";
 import { notFound } from "next/navigation";
+import { getEsgData } from "@/app/events/reports/actions";
+import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
+import { resolveSharedEsgFilters } from "@/lib/esg/params";
 import { getActiveShareLinkGroup, resolveSharedBoolean } from "@/lib/shareLinks";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 import { SHARE_REPORT_LABELS } from "@/lib/shareLinks";
@@ -466,6 +469,16 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <PackingListReport data={data} />
+        </div>
+      );
+    }
+    case "ESG": {
+      const data = await getEsgData(eventId, resolveSharedEsgFilters(item.filtersLocked, stored, sp));
+      if (!data) notFound();
+      return (
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+          <PrintHeader eventName={eventName} title={title} backHref={backHref} />
+          <EsgReport doc={data.document} />
         </div>
       );
     }

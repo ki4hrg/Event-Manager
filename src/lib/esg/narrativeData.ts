@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { eventVenuesInclude } from "@/lib/eventVenues";
-import { functionStartKey } from "@/lib/functionNumbering";
+import { functionStartKey } from "@/lib/esg/scheduleKey";
 import { buildFbAttendanceGrid, fbGridHasData } from "@/lib/esg/fbGrid";
 import { loadHousingInput } from "@/lib/esg/housing";
 import { computeEsgCompleteness } from "@/lib/esg/completeness";

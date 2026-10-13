@@ -12,7 +12,11 @@ import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { compareRoomsByGroup } from "@/lib/roomGroups";
 import { eventVenuesOrderBy } from "@/lib/eventVenues";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
-import { formatFunctionLabel } from "@/lib/functionNumbers";
+import { compareFunctionNumbers, formatFunctionLabel } from "@/lib/functionNumbers";
+import { loadEsgNarrativeData } from "@/lib/esg/narrativeData";
+import { esgFunctionInclude } from "@/lib/esg/include";
+import { assembleEsgDocument, esgDayOptions } from "@/lib/esg/assemble";
+import { ESG_PARTS, type EsgPart } from "@/lib/esg/types";
 import { compareByMainFunctionTime } from "@/lib/functionSchedules";
 
 export type EquipmentReportFilters = {
@@ -1987,3 +1991,47 @@ export async function getPackingListData(
 }
 
 export type PackingListData = NonNullable<Awaited<ReturnType<typeof getPackingListData>>>;
+
+// ─── Event Specifications Guide (APEX ESG) ──────────────────────────────────
+
+export type EsgFilters = {
+  parts?: EsgPart[];
+  days?: string[];
+  functionIds?: string[];
+  showBlank?: boolean;
+  includeBilling?: boolean;
+};
+
+export async function getEsgData(eventId: string, filters: EsgFilters = {}) {
+  const narrative = await loadEsgNarrativeData(eventId);
+  if (!narrative) return null;
+  const [functions, scheduleTypes] = await Promise.all([
+    prisma.function.findMany({ where: { eventId }, include: esgFunctionInclude }),
+    prisma.customOption.findMany({
+      where: optionsWhereForEvent(eventId, "schedule_type"),
+      select: { label: true, group: true },
+    }),
+  ]);
+  const support = new Set(scheduleTypes.filter((o) => o.group === "SETUP" || o.group === "TEARDOWN").map((o) => o.label));
+  if (support.size === 0) ["Setup", "Breakdown"].forEach((l) => support.add(l));
+
+  const dayOptions = esgDayOptions(functions, support, narrative.event.timezone);
+  const functionOptions = functions
+    .filter((f) => f.status !== "CANCELLED" && f.schedules.length > 0)
+    .map((f) => ({ value: f.id, label: formatFunctionLabel(f), functionNumber: f.functionNumber }))
+    .sort((a, b) => compareFunctionNumbers(a.functionNumber, b.functionNumber) || a.label.localeCompare(b.label));
+  // Unknown days / ids would silently empty the report; drop them instead.
+  const validDays = new Set(dayOptions);
+  const validFns = new Set(functionOptions.map((f) => f.value));
+  const applied = {
+    parts: filters.parts?.length ? filters.parts : ESG_PARTS,
+    days: (filters.days ?? []).filter((d) => validDays.has(d)),
+    functionIds: (filters.functionIds ?? []).filter((id) => validFns.has(id)),
+    showBlank: filters.showBlank ?? false,
+    includeBilling: filters.includeBilling ?? true,
+  };
+  const document = assembleEsgDocument(narrative, functions, support, applied);
+  return { document, applied, dayOptions, functionOptions };
+}
+
+export type EsgData = NonNullable<Awaited<ReturnType<typeof getEsgData>>>;

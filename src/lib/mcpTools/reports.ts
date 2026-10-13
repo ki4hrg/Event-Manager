@@ -1,6 +1,7 @@
 import { PermissionResource } from "@prisma/client";
 import { requirePermissionForUser } from "@/lib/permissions";
 import {
+  getEsgData,
   getEquipmentResponsibilityData,
   getEventProfileData,
   getOrderAssignedVendors,
@@ -103,6 +104,36 @@ export const reportTools: McpToolDefinition[] = [
       const eventId = requireString(args, "eventId");
       await gate(userId, eventId);
       return getFunctionDetailData(eventId);
+    },
+  },
+  {
+    name: "get_esg_report",
+    description:
+      "APEX Event Specifications Guide for the event as a normalized document: Part I narrative (sections A–X), Part II function schedule (times in US & military, function #, facility, room, set-up, set for, posting, 24-hour hold) and Part IIIa set-up orders per function. Mirrors the ESG report.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        parts: { type: "array", items: { type: "string", enum: ["I", "II", "IIIa", "IIIb"] }, description: "Default: all." },
+        days: { type: "array", items: { type: "string" }, description: "YYYY-MM-DD in event timezone." },
+        functionIds: { type: "array", items: { type: "string" }, description: "Limit Part IIIa set-up orders." },
+        showBlank: { type: "boolean", description: "Include empty template fields. Default false." },
+        includeBilling: { type: "boolean", description: "Include §W billing / §X signatories and per-function billing. Default true." },
+      },
+      required: ["eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      await gate(userId, eventId);
+      const data = await getEsgData(eventId, {
+        parts: optionalStringArray(args, "parts").filter((p): p is "I" | "II" | "IIIa" | "IIIb" => ["I", "II", "IIIa", "IIIb"].includes(p)),
+        days: optionalStringArray(args, "days"),
+        functionIds: optionalStringArray(args, "functionIds"),
+        showBlank: args.showBlank === true,
+        includeBilling: args.includeBilling !== false,
+      });
+      return data?.document ?? null;
     },
   },
   {
