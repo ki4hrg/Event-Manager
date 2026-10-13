@@ -227,7 +227,7 @@ export function SpecSectionCard({
           {derived && (
             <div className="rounded-md border border-dashed border-gray-300 dark:border-gray-600 p-3 sm:p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                From the event · edit where it lives
+                From the event
               </p>
               {derived}
             </div>
