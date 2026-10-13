@@ -59,7 +59,22 @@ export type EventWriteArgs = {
   // In event order — the first is the primary venue. Duplicates are dropped.
   venueIds: string[];
   seriesId: string | null;
+  // Membership (eligible maximum) and attendance are separate measures; the
+  // count is only meaningful when isMembershipBased. Optional for older callers.
+  isMembershipBased?: boolean;
+  membershipCount?: number | null;
+  expectedAttendance?: number | null;
+  actualAttendance?: number | null;
 };
+
+function attendanceData(args: EventWriteArgs) {
+  return {
+    ...(args.isMembershipBased !== undefined ? { isMembershipBased: args.isMembershipBased } : {}),
+    ...(args.membershipCount !== undefined ? { membershipCount: args.membershipCount } : {}),
+    ...(args.expectedAttendance !== undefined ? { expectedAttendance: args.expectedAttendance } : {}),
+    ...(args.actualAttendance !== undefined ? { actualAttendance: args.actualAttendance } : {}),
+  };
+}
 
 export async function createEventCore(input: EventWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", { tenantId });
@@ -76,6 +91,7 @@ export async function createEventCore(input: EventWriteArgs, userId: string, ten
       endDate: args.endDate,
       timezone: args.timezone || "America/Chicago",
       seriesId: args.seriesId,
+      ...attendanceData(args),
       venues: { create: eventVenueRows(args.venueIds) },
       staff: { create: { userId } },
     },
@@ -97,6 +113,7 @@ export async function updateEventCore(id: string, input: EventWriteArgs, userId:
       endDate: args.endDate,
       timezone: args.timezone || "America/Chicago",
       seriesId: args.seriesId,
+      ...attendanceData(args),
       venues: { deleteMany: {}, create: eventVenueRows(args.venueIds) },
       updatedById: userId,
     },
@@ -111,7 +128,26 @@ export async function deleteEventCore(id: string, userId: string) {
 // ---------------------------------------------------------------------------
 // EventKeyStaff (event ↔ contact role assignment with optional model-type scoping)
 
-export type AddEventKeyStaffArgs = {
+// ESG Part I §C (responsibilities, on/off-site), §L (emergency contact) and
+// §X (authorized signatory = has an approval authority). Optional so callers
+// that predate them keep working; omitted keys are left alone on update.
+export type KeyStaffEsgArgs = {
+  responsibilities?: string | null;
+  onSite?: boolean | null;
+  isEmergencyContact?: boolean;
+  approvalAuthority?: string | null;
+};
+
+function keyStaffEsgData(args: KeyStaffEsgArgs) {
+  return {
+    ...(args.responsibilities !== undefined ? { responsibilities: args.responsibilities } : {}),
+    ...(args.onSite !== undefined ? { onSite: args.onSite } : {}),
+    ...(args.isEmergencyContact !== undefined ? { isEmergencyContact: args.isEmergencyContact } : {}),
+    ...(args.approvalAuthority !== undefined ? { approvalAuthority: args.approvalAuthority } : {}),
+  };
+}
+
+export type AddEventKeyStaffArgs = KeyStaffEsgArgs & {
   eventId: string;
   contactId: string;
   title: string | null;
@@ -126,13 +162,14 @@ export async function addEventKeyStaffCore(args: AddEventKeyStaffArgs, userId: s
       contactId: args.contactId,
       title: args.title,
       models: args.models,
+      ...keyStaffEsgData(args),
     },
   });
   await prisma.event.update({ where: { id: args.eventId }, data: { updatedById: userId } });
   return row;
 }
 
-export type UpdateEventKeyStaffArgs = {
+export type UpdateEventKeyStaffArgs = KeyStaffEsgArgs & {
   keyStaffId: string;
   eventId: string;
   title: string | null;
@@ -143,7 +180,7 @@ export async function updateEventKeyStaffCore(args: UpdateEventKeyStaffArgs, use
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", args.eventId);
   const row = await prisma.eventKeyStaff.update({
     where: { id: args.keyStaffId, eventId: args.eventId },
-    data: { title: args.title, models: args.models },
+    data: { title: args.title, models: args.models, ...keyStaffEsgData(args) },
   });
   await prisma.event.update({ where: { id: args.eventId }, data: { updatedById: userId } });
   return row;

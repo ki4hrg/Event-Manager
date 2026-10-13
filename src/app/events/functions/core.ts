@@ -12,6 +12,13 @@ import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
+import {
+  renumberFunctions,
+  retireFunctionNumbers,
+  setFunctionNumbersLocked,
+  syncFunctionNumbers,
+  validateFunctionNumberOverride,
+} from "@/lib/functionNumbering";
 
 // Atomically confirms the function belongs to the claimed event. Throws
 // PermissionError("NOT_FOUND") on miss; the MCP route maps this to a protocol
@@ -36,7 +43,52 @@ async function getFunctionRoomIds(functionId: string): Promise<string[]> {
 // ---------------------------------------------------------------------------
 // Function (top-level)
 
-export type FunctionWriteArgs = {
+// ESG Part II / IIIa fields. All optional so existing callers (MCP, bulk
+// paths) keep working; on update, an omitted key leaves the column alone.
+// functionNumber: a string pins a manual override, null/"" clears the pin and
+// lets src/lib/functionNumbering.ts assign.
+export type FunctionEsgArgs = {
+  functionNumber?: string | null;
+  postToReaderBoard?: boolean | null;
+  readerBoardText?: string | null;
+  hold24Hour?: boolean;
+  expectedAttendance?: number | null;
+  setForCount?: number | null;
+  decorNotes?: string | null;
+  securityNotes?: string | null;
+  signageNotes?: string | null;
+  billingNotes?: string | null;
+  costCenter?: string | null;
+};
+
+const ESG_SCALAR_KEYS = [
+  "postToReaderBoard",
+  "readerBoardText",
+  "hold24Hour",
+  "expectedAttendance",
+  "setForCount",
+  "decorNotes",
+  "securityNotes",
+  "signageNotes",
+  "billingNotes",
+  "costCenter",
+] as const;
+
+function esgData(args: FunctionEsgArgs) {
+  const data: Record<string, unknown> = {};
+  for (const key of ESG_SCALAR_KEYS) {
+    if (args[key] !== undefined) data[key] = args[key];
+  }
+  return data;
+}
+
+async function functionNumberData(eventId: string, functionId: string | null, args: FunctionEsgArgs) {
+  if (args.functionNumber === undefined) return {};
+  const value = await validateFunctionNumberOverride(eventId, functionId, args.functionNumber);
+  return value ? { functionNumber: value, functionNumberPinned: true } : { functionNumberPinned: false };
+}
+
+export type FunctionWriteArgs = FunctionEsgArgs & {
   name: string;
   description: string | null;
   type: string;
@@ -57,9 +109,12 @@ export async function createFunctionCore(
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   const defaults = await resolveCreateStatus(eventId, "FUNCTION");
+  const numberData = await functionNumberData(eventId, null, args);
 
   const fn = await prisma.function.create({
     data: {
+      ...esgData(args),
+      ...numberData,
       name: args.name,
       description: args.description,
       type: args.type || "",
@@ -92,10 +147,11 @@ export async function createFunctionCore(
   }
 
   await autoAssignDefaultWorkflowsCore("function", fn.id, eventId);
+  await syncFunctionNumbers(eventId);
   return fn;
 }
 
-export type FunctionUpdateArgs = {
+export type FunctionUpdateArgs = FunctionEsgArgs & {
   name: string;
   description: string | null;
   type: string;
@@ -112,11 +168,14 @@ export async function updateFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
+  const numberData = await functionNumberData(eventId, id, args);
   // eventId in the where clause atomically verifies the function belongs to
   // the claimed event — guards against a caller passing another event's id.
   const fn = await prisma.function.update({
     where: { id, eventId },
     data: {
+      ...esgData(args),
+      ...numberData,
       name: args.name,
       description: args.description,
       type: args.type || "",
@@ -135,17 +194,22 @@ export async function updateFunctionCore(
       data: args.roomIds.map((roomId) => ({ functionId: id, roomId })),
     });
   }
+  await syncFunctionNumbers(eventId);
   return fn;
 }
 
 export async function deleteFunctionCore(id: string, eventId: string, userId: string) {
   await requirePermissionForUser(userId, "FUNCTIONS", "DELETE", eventId);
+  await retireFunctionNumbers(eventId, [id]);
   await prisma.function.delete({ where: { id, eventId } });
+  await syncFunctionNumbers(eventId);
 }
 
 export async function deleteFunctionsCore(ids: string[], eventId: string, userId: string) {
   await requirePermissionForUser(userId, "FUNCTIONS", "DELETE", eventId);
+  await retireFunctionNumbers(eventId, ids);
   const r = await prisma.function.deleteMany({ where: { id: { in: ids }, eventId } });
+  await syncFunctionNumbers(eventId);
   return { count: r.count };
 }
 
@@ -166,6 +230,8 @@ export async function bulkUpdateFunctionsCore(
     where: { id: { in: ids }, eventId },
     data: { ...updates, updatedById: userId },
   });
+  // Cancelling drops a number while planning (kept once the ESG is issued).
+  if (updates.status !== undefined) await syncFunctionNumbers(eventId);
   return { count: r.count };
 }
 
@@ -185,6 +251,17 @@ export async function duplicateFunctionCore(id: string, eventId: string, userId:
       notes: original.notes,
       offSiteLocation: original.offSiteLocation,
       eventId: original.eventId,
+      // ESG details carry over; the copy gets its own number.
+      postToReaderBoard: original.postToReaderBoard,
+      readerBoardText: original.readerBoardText,
+      hold24Hour: original.hold24Hour,
+      expectedAttendance: original.expectedAttendance,
+      setForCount: original.setForCount,
+      decorNotes: original.decorNotes,
+      securityNotes: original.securityNotes,
+      signageNotes: original.signageNotes,
+      billingNotes: original.billingNotes,
+      costCenter: original.costCenter,
       updatedById: userId,
       rooms: { create: original.rooms.map((r) => ({ roomId: r.roomId })) },
     },
@@ -203,6 +280,7 @@ export async function duplicateFunctionCore(id: string, eventId: string, userId:
       })),
     });
   }
+  await syncFunctionNumbers(eventId);
   return duplicate;
 }
 
@@ -261,6 +339,7 @@ export async function createScheduleCore(
     },
   });
   await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await syncFunctionNumbers(eventId);
   return { value: { id: created.id } };
 }
 
@@ -298,6 +377,7 @@ export async function updateScheduleCore(
     },
   });
   await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await syncFunctionNumbers(eventId);
   return { value: { id: scheduleId } };
 }
 
@@ -310,6 +390,7 @@ export async function deleteScheduleCore(
   await requirePermissionForUser(userId, "FUNCTIONS", "DELETE", eventId);
   await prisma.functionSchedule.delete({ where: { id: scheduleId, function: { eventId } } });
   await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await syncFunctionNumbers(eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -462,6 +543,7 @@ export async function scheduleUnscheduledFunctionCore(
     },
   });
   await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await syncFunctionNumbers(eventId);
   return { success: true };
 }
 
@@ -494,5 +576,37 @@ export async function rescheduleEntryCore(
     data: { startTime, endTime },
   });
   await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await syncFunctionNumbers(eventId);
   return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Function numbering (ESG)
+
+export async function renumberFunctionsCore(eventId: string, clearPins: boolean, userId: string) {
+  await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
+  await renumberFunctions(eventId, clearPins);
+}
+
+export async function setFunctionNumbersLockedCore(eventId: string, locked: boolean, userId: string) {
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
+  await setFunctionNumbersLocked(eventId, locked);
+}
+
+// ESG Part II / IIIa details card on the function page (number override,
+// reader board, 24-hour hold, counts, décor / security / signage / billing).
+export async function updateFunctionEsgCore(
+  id: string,
+  eventId: string,
+  args: FunctionEsgArgs,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
+  const numberData = await functionNumberData(eventId, id, args);
+  const fn = await prisma.function.update({
+    where: { id, eventId },
+    data: { ...esgData(args), ...numberData, updatedById: userId },
+  });
+  if (args.functionNumber !== undefined) await syncFunctionNumbers(eventId);
+  return fn;
 }

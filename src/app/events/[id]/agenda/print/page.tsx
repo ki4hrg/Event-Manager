@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { getFunctionsWithPresentations } from "@/app/events/functions/actions";
 import { toTitleCase } from "@/lib/optionUtils";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +80,7 @@ export default async function AgendaPrintPage({
       }
       dayMap.get(dateKey)!.push({
         functionId: fn.id,
-        name: formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name),
+        name: formatFunctionLabel(fn),
         type: fn.type ?? "",
         rooms: fn.rooms.map((fr) => fr.room.name),
         startTime: schedule.startTime,

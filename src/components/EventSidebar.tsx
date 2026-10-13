@@ -173,6 +173,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon />,      resource: "SHARE_LINKS" },
   { type: "group", label: "Configuration" },
   { type: "link",  label: "Import",           segment: "import",                          icon: <HandoffIcon />,   writeResource: "EVENTS" },
+  { type: "link",  label: "Specifications",   segment: "specifications",                  icon: <ClipboardIcon />, resource: "EVENTS" },
   { type: "link",  label: "Staff",            segment: "staff",                           icon: <ClipboardIcon /> },
   { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon />,   writeResource: "EVENTS" },
 ];

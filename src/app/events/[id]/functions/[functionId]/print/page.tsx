@@ -6,6 +6,7 @@ import { FunctionDetails } from "@/app/events/functions/FunctionDetails";
 import { getFunction } from "@/app/events/functions/actions";
 import { getEvent } from "../../../../actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function FunctionPrintPage({
       <PrintHeader
         eventName={event.name}
         recordType="Function"
-        recordName={fn.name}
+        recordName={formatFunctionLabel(fn)}
         backHref={`/events/${eventId}/functions/${functionId}`}
       />
       <FunctionDetails

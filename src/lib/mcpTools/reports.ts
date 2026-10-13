@@ -108,7 +108,7 @@ export const reportTools: McpToolDefinition[] = [
   {
     name: "get_function_picker_options",
     description:
-      "Compact list of functions on the event ({ value, label, typeValue, typeLabel, firstStart }) — picker source for filtering.",
+      "Compact list of functions on the event ({ value, label, functionNumber, typeValue, typeLabel, firstStart }) — picker source for filtering. `label` carries the ESG number prefix (\"#12 · Name\") when one is assigned.",
     inputSchema: eventOnlySchema,
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");

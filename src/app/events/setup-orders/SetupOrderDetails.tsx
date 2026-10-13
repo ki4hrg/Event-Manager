@@ -4,6 +4,7 @@ import type { getSetupOrderVendors } from "@/app/vendors/actions";
 import { aggregateSetupTables } from "./utils";
 import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 type SetupOrderData = NonNullable<Awaited<ReturnType<typeof getSetupOrder>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
@@ -31,7 +32,7 @@ export function SetupOrderDetails({
         <Field label="Room" value={setupOrder.room?.name} />
         <Field
           label="Linked Functions"
-          value={setupOrder.functions.length > 0 ? setupOrder.functions.map((f) => f.name).join(", ") : null}
+          value={setupOrder.functions.length > 0 ? setupOrder.functions.map((f) => formatFunctionLabel(f)).join(", ") : null}
         />
         <Field label="Notes" value={setupOrder.notes} />
       </Section>

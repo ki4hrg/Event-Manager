@@ -51,6 +51,7 @@ export async function getCateringOrders(eventId: string) {
         select: {
           id: true,
           name: true,
+          functionNumber: true,
           schedules: { select: { startTime: true, endTime: true, isPublic: true } },
         },
       },
@@ -80,6 +81,7 @@ export async function getCateringOrder(id: string) {
             select: {
               id: true,
               name: true,
+              functionNumber: true,
               breakoutGroup: { select: { name: true } },
               rooms: { include: { room: { select: { id: true, name: true } } } },
             },
@@ -110,6 +112,7 @@ export async function createCateringOrder(eventId: string, formData: FormData) {
       name: formData.get("name") as string,
       functionId: (formData.get("functionId") as string) || null,
       serviceStyle: (formData.get("serviceStyle") as string) || null,
+      mealType: (formData.get("mealType") as string) || null,
       expectedCount: formData.get("expectedCount") ? parseInt(formData.get("expectedCount") as string) : null,
       confirmedCount: formData.get("confirmedCount") ? parseInt(formData.get("confirmedCount") as string) : null,
       guaranteeCount: formData.get("guaranteeCount") ? parseInt(formData.get("guaranteeCount") as string) : null,
@@ -139,6 +142,7 @@ export async function updateCateringOrderDetails(id: string, eventId: string, fo
     {
       name: formData.get("name") as string,
       serviceStyle: (formData.get("serviceStyle") as string) || null,
+      mealType: (formData.get("mealType") as string) || null,
       notes: (formData.get("notes") as string) || null,
     },
     session.user.id,
@@ -387,11 +391,11 @@ export async function deleteCateringOrderServiceLocation(id: string, cateringOrd
 }
 
 const cateringOrderForFunctionInclude = {
-  function: { select: { id: true, name: true, breakoutGroup: { select: { name: true } } } },
+  function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
   vendors: { include: { vendor: { select: { id: true, name: true } } } },
   additionalServiceLocations: {
     include: {
-      function: { select: { id: true, name: true } },
+      function: { select: { id: true, name: true, functionNumber: true } },
     },
   },
 } as const;

@@ -18,13 +18,16 @@ import {
   updateFunctionRoomCore,
   scheduleUnscheduledFunctionCore,
   rescheduleEntryCore,
+  updateFunctionEsgCore,
+  renumberFunctionsCore,
+  type FunctionEsgArgs,
   type FunctionWriteArgs,
   type FunctionUpdateArgs,
   type ScheduleWriteArgs,
   type BulkFunctionUpdates,
 } from "@/app/events/functions/core";
 import type { McpToolDefinition } from "./types";
-import { requireString, optionalString, optionalStringArray } from "./types";
+import { requireString, optionalString, optionalStringArray, partialBoolean, partialInt, partialString } from "./types";
 import type { EntityStatus } from "@prisma/client";
 
 function optionalBoolean(args: Record<string, unknown>, key: string): boolean {
@@ -33,6 +36,41 @@ function optionalBoolean(args: Record<string, unknown>, key: string): boolean {
 
 function optionalStringList(args: Record<string, unknown>, key: string): string[] {
   return optionalStringArray(args, key);
+}
+
+// ESG Part II / IIIa fields. Omitted keys are left unchanged.
+const functionEsgProps = {
+  functionNumber: {
+    type: ["string", "null"],
+    description:
+      "ESG function number override (e.g. \"12\", \"4a\"). Numbers are assigned automatically in chronological order (locked once the ESG is issued); a value here pins a manual override, null clears it.",
+  },
+  postToReaderBoard: { type: ["boolean", "null"], description: "Post to reader board (true) / do not post (false)." },
+  readerBoardText: { type: ["string", "null"], description: "Reader board \"Post as\" text." },
+  hold24Hour: { type: "boolean", description: "Room is on a 24-hour hold." },
+  expectedAttendance: { type: ["integer", "null"], description: "Function attendance (ESG IIIa §B)." },
+  setForCount: { type: ["integer", "null"], description: "Room set for (ESG Part II \"Set For\")." },
+  decorNotes: { type: ["string", "null"] },
+  securityNotes: { type: ["string", "null"] },
+  signageNotes: { type: ["string", "null"] },
+  billingNotes: { type: ["string", "null"], description: "Function-specific billing instructions." },
+  costCenter: { type: ["string", "null"], description: "Organizer cost center." },
+} as const;
+
+function readFunctionEsgArgs(args: Record<string, unknown>): FunctionEsgArgs {
+  return {
+    functionNumber: partialString(args, "functionNumber"),
+    postToReaderBoard: partialBoolean(args, "postToReaderBoard"),
+    readerBoardText: partialString(args, "readerBoardText"),
+    hold24Hour: partialBoolean(args, "hold24Hour") ?? undefined,
+    expectedAttendance: partialInt(args, "expectedAttendance"),
+    setForCount: partialInt(args, "setForCount"),
+    decorNotes: partialString(args, "decorNotes"),
+    securityNotes: partialString(args, "securityNotes"),
+    signageNotes: partialString(args, "signageNotes"),
+    billingNotes: partialString(args, "billingNotes"),
+    costCenter: partialString(args, "costCenter"),
+  };
 }
 
 const createFunctionProps = {
@@ -60,6 +98,7 @@ const createFunctionProps = {
       "Optional. When supplied with endTime, creates an initial schedule row. Format YYYY-MM-DDTHH:MM in event timezone (no offset).",
   },
   endTime: { type: "string", description: "Optional. Same format as startTime." },
+  ...functionEsgProps,
 } as const;
 
 const updateFunctionProps = {
@@ -70,6 +109,7 @@ const updateFunctionProps = {
   offSiteLocation: { type: "string" },
   roomIds: { type: "array", items: { type: "string" } },
   breakoutGroupId: { type: "string" },
+  ...functionEsgProps,
 } as const;
 
 const scheduleProps = {
@@ -110,6 +150,7 @@ function readCreateFunctionArgs(args: Record<string, unknown>): FunctionWriteArg
     breakoutGroupId: optionalString(args, "breakoutGroupId") ?? null,
     startTime: optionalString(args, "startTime") ?? null,
     endTime: optionalString(args, "endTime") ?? null,
+    ...readFunctionEsgArgs(args),
   };
 }
 
@@ -122,10 +163,40 @@ function readUpdateFunctionArgs(args: Record<string, unknown>): FunctionUpdateAr
     offSiteLocation: optionalString(args, "offSiteLocation") ?? null,
     roomIds: optionalStringList(args, "roomIds"),
     breakoutGroupId: optionalString(args, "breakoutGroupId") ?? null,
+    ...readFunctionEsgArgs(args),
   };
 }
 
 export const functionTools: McpToolDefinition[] = [
+  {
+    name: "update_function_esg_details",
+    description:
+      "Update only a function's ESG details (function number override, reader board, 24-hour hold, attendance, set-for, décor / security / signage / billing notes, cost center). Omitted keys are unchanged. Returns the updated function.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, eventId: { type: "string" }, ...functionEsgProps },
+      required: ["id", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      updateFunctionEsgCore(requireString(args, "id"), requireString(args, "eventId"), readFunctionEsgArgs(args), userId),
+  },
+  {
+    name: "renumber_functions",
+    description:
+      "Renumber an event's functions 1…N in chronological order (ESG function numbers). Refused once the ESG has been issued (numbers are locked). clearPins drops manual overrides first.",
+    inputSchema: {
+      type: "object",
+      properties: { eventId: { type: "string" }, clearPins: { type: "boolean", description: "Default false." } },
+      required: ["eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      await renumberFunctionsCore(eventId, args.clearPins === true, userId);
+      return { eventId, renumbered: true };
+    },
+  },
   {
     name: "list_functions",
     description:

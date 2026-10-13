@@ -5,7 +5,7 @@ import { FunctionDetails } from "@/app/events/functions/FunctionDetails";
 import { getFunction, getFunctions } from "@/app/events/functions/actions";
 import { getEvent } from "../../../actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +52,7 @@ export default async function FunctionsPrintPage({
             key={fn.id}
             className={i < records.length - 1 ? "mb-12 pb-12 border-b-2 border-gray-300 print:break-after-page" : ""}
           >
-            <h2 className="text-lg font-semibold text-gray-900 print:text-black mb-4">{formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 print:text-black mb-4">{formatFunctionLabel(fn)}</h2>
             <FunctionDetails
               fn={fn}
               timezone={event.timezone}

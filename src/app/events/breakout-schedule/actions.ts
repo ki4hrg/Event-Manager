@@ -3,6 +3,7 @@
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { retireFunctionNumbers, syncFunctionNumbers } from "@/lib/functionNumbering";
 import { redirect, notFound } from "next/navigation";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
@@ -167,6 +168,7 @@ export async function addRoomToGroup(groupId: string, roomId: string, eventId: s
   await prisma.breakoutGroupRoom.create({
     data: { breakoutGroupId: groupId, roomId },
   });
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
@@ -195,6 +197,7 @@ export async function removeRoomFromGroup(groupId: string, roomId: string, event
     }),
   ]);
 
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
@@ -221,6 +224,7 @@ export async function setSessionRoomOverride(
     });
   }
 
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
@@ -234,6 +238,7 @@ export async function removeSessionRoomOverride(
   await prisma.breakoutSessionRoomOverride.delete({
     where: { functionId_roomId: { functionId, roomId } },
   });
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
@@ -275,6 +280,7 @@ export async function createSessionInGroup(
     },
   });
 
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
@@ -315,12 +321,15 @@ export async function updateSession(
     });
   }
 
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
 export async function deleteSession(functionId: string, eventId: string) {
   await requirePermission("FUNCTIONS", "DELETE", eventId);
+  await retireFunctionNumbers(eventId, [functionId]);
   await prisma.function.delete({ where: { id: functionId, eventId } });
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 

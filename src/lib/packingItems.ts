@@ -1,7 +1,7 @@
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { partyLabel } from "@/lib/partyLabel";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import {
   buildChildrenMap,
   buildLocationIndex,
@@ -118,13 +118,13 @@ const roomSelect = {
 } as const;
 
 const functionLinkSelect = {
-  function: { select: { name: true, breakoutGroup: { select: { name: true } } } },
+  function: { select: { name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
 } as const;
 
 function destinationFrom(
   room: RoomRef,
   specificLocation: string | null,
-  functionLinks: { function: { name: string; breakoutGroup: { name: string } | null } }[],
+  functionLinks: { function: { name: string; functionNumber: string | null; breakoutGroup: { name: string } | null } }[],
   presentationTitles: string[]
 ): Destination {
   return {
@@ -134,9 +134,7 @@ function destinationFrom(
     roomGroupName: room?.group?.name ?? null,
     roomGroupSortOrder: room?.group?.sortOrder ?? null,
     orderSpecificLocation: specificLocation,
-    functionNames: functionLinks.map((l) =>
-      formatBreakoutSessionName(l.function.name, l.function.breakoutGroup?.name)
-    ),
+    functionNames: functionLinks.map((l) => formatFunctionLabel(l.function)),
     presentationNames: presentationTitles,
   };
 }

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { computeServiceLocationCounts } from "@/lib/cateringServiceLocations";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type LocationFunction = {
   id: string;
   name: string;
+  functionNumber: string | null;
   breakoutGroup: { name: string } | null;
   rooms?: { room: { id: string; name: string } }[];
 };
@@ -26,6 +27,7 @@ type ServiceLocation = {
 type FunctionOption = {
   id: string;
   name: string;
+  functionNumber: string | null;
   breakoutGroup: { name: string } | null;
 };
 
@@ -56,7 +58,7 @@ function SubmitButton({ label }: { label: string }) {
 
 function functionLabel(fn: FunctionOption | LocationFunction | null): string {
   if (!fn) return "";
-  return formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name);
+  return formatFunctionLabel(fn);
 }
 
 export function AdditionalServiceLocationTable({

@@ -14,12 +14,13 @@ import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { getEarliestStart, getLatestEnd, formatScheduleDateTime } from "./scheduleUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { compareFunctionNumbers, matchesFunctionQuery } from "@/lib/functionNumbers";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { getSetupOrderDisplayName } from "../setup-orders/utils";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
-type SortField = "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
+type SortField = "number" | "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 
 type FilterState = {
   name: string;
@@ -130,7 +131,7 @@ export function FunctionTableView({
 
   const filtered = useMemo(() => {
     return functions.filter((fn) => {
-      if (filters.name && !formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name).toLowerCase().includes(filters.name.toLowerCase())) return false;
+      if (filters.name && !matchesFunctionQuery(fn, filters.name)) return false;
 
       if (filters.status === "__blank__") {
         if (fn.status != null) return false;
@@ -183,6 +184,12 @@ export function FunctionTableView({
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       switch (sortField) {
+        case "number": {
+          const cmp = compareFunctionNumbers(a.functionNumber, b.functionNumber);
+          // Unnumbered rows stay last in both directions.
+          if (!a.functionNumber || !b.functionNumber) return cmp;
+          return sortDir === "asc" ? cmp : -cmp;
+        }
         case "name":
           return compareValues(
             formatBreakoutSessionName(a.name, a.breakoutGroup?.name),
@@ -372,6 +379,9 @@ export function FunctionTableView({
                   />
                 </th>
               )}
+              <th className={thSortable} onClick={() => handleSort("number")}>
+                #{sortIndicator(sortField === "number", sortDir)}
+              </th>
               <th className={thSortable} onClick={() => handleSort("name")}>
                 Name{sortIndicator(sortField === "name", sortDir)}
               </th>
@@ -398,10 +408,11 @@ export function FunctionTableView({
             <tr>
               {/* Spacer under the select-all column; drops with it. */}
               {canSelect && <td className={filterCell} />}
+              <td className={filterCell} />
               <td className={filterCell}>
                 <input
                   type="text"
-                  placeholder="Filter…"
+                  placeholder="Name or #…"
                   value={filters.name}
                   onChange={(e) => setFilter("name", e.target.value)}
                   className={filterInput}
@@ -518,6 +529,9 @@ export function FunctionTableView({
                       />
                     </td>
                   )}
+                  <td className="px-3 py-3 whitespace-nowrap text-gray-500 dark:text-gray-400">
+                    {fn.functionNumber ? `#${fn.functionNumber}` : ""}
+                  </td>
                   <td className="px-3 py-3 font-medium">
                     <Link
                       href={`/events/${eventId}/functions/${fn.id}`}

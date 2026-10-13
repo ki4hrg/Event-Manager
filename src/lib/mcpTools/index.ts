@@ -10,10 +10,12 @@ import { reportTools } from "./reports";
 import { storageLocationTools } from "./storageLocations";
 import { inventoryTools } from "./inventory";
 import { tenantTools } from "./tenants";
+import { specificationTools } from "./specifications";
 
 export const mcpTools: McpToolDefinition[] = [
   ...tenantTools,
   ...eventTools,
+  ...specificationTools,
   ...functionTools,
   ...presentationTools,
   ...vendorTools,

@@ -33,7 +33,7 @@ export async function getPrintOrders(eventId: string) {
     include: {
       items: true,
       room: { select: { id: true, name: true } },
-      functions: { include: { function: { select: { id: true, name: true } } } },
+      functions: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
       presentation: { select: { id: true, title: true } },
       vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },

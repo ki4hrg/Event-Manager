@@ -8,6 +8,7 @@ import { getOptions } from "../../../../settings/actions";
 import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { requirePermission } from "@/lib/permissions";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +27,12 @@ export default async function NewCateringOrderPage({
   await requirePermission("CATERING_ORDERS", "WRITE", eventId);
   const { functionId } = await searchParams;
 
-  const [event, serviceStyleOptions, responsiblePartyVendors, eventFunctions] = await Promise.all([
+  const [event, serviceStyleOptions, responsiblePartyVendors, eventFunctions, mealTypeOptions] = await Promise.all([
     getEvent(eventId),
     getOptions("service_style"),
     getResponsiblePartyVendors(eventId, "CATERING_ORDER"),
     prisma.function.findMany({ where: { eventId, cateringOrder: null }, orderBy: { name: "asc" } }),
+    getOptions("meal_type"),
   ]);
 
   if (!event) {
@@ -60,8 +62,9 @@ export default async function NewCateringOrderPage({
         eventId={eventId}
         action={createCateringOrderAction}
         serviceStyleOptions={serviceStyleOptions}
+        mealTypeOptions={mealTypeOptions}
         responsiblePartyOptions={responsiblePartyVendors}
-        createFunctions={eventFunctions.map((f) => ({ id: f.id, label: f.name }))}
+        createFunctions={eventFunctions.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
         defaultFunctionId={functionId}
       />
     </>

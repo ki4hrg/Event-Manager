@@ -5,7 +5,7 @@ import type {
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { formatSessionTime, getPrimaryNames } from "@/app/events/breakout-schedule/utils";
 import {
   reportTh as th,
@@ -38,14 +38,14 @@ function buildAssignmentRows(
     return {
       key: `slot-${slot.id}`,
       sessionLabel: session
-        ? formatBreakoutSessionName(session.name, groupName)
+        ? formatFunctionLabel({ name: session.name, functionNumber: session.functionNumber, breakoutGroup: { name: groupName } })
         : "Unknown session",
       sessionTime: session ? formatSessionTime(session.schedules, timezone) : "",
       roomName: slot.room?.name ?? null,
     };
   });
 
-  filledRows.sort((a, b) => a.sessionLabel.localeCompare(b.sessionLabel));
+  filledRows.sort((a, b) => a.sessionLabel.localeCompare(b.sessionLabel, undefined, { numeric: true }));
 
   const remaining = Math.max(0, presentation.instanceCount - presentation.slots.length);
   const unassignedRows: AssignmentRow[] = Array.from({ length: remaining }, (_, i) => ({

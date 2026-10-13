@@ -128,6 +128,7 @@ export default async function PresentationPage({
           select: {
             id: true,
             name: true,
+            functionNumber: true,
             schedules: {
               select: { startTime: true, endTime: true },
               orderBy: { startTime: "asc" },

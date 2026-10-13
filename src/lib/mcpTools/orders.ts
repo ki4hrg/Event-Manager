@@ -407,6 +407,7 @@ export const orderTools: McpToolDefinition[] = [
             select: {
               id: true,
               name: true,
+              functionNumber: true,
               schedules: { select: { startTime: true, endTime: true } },
             },
           },
@@ -487,7 +488,7 @@ export const orderTools: McpToolDefinition[] = [
       return prisma.aVOrder.findMany({
         where: { eventId },
         include: {
-          functionLinks: { include: { function: { select: { id: true, name: true } } } },
+          functionLinks: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
           presentationLinks: {
             include: { presentation: { select: { id: true, title: true } } },
           },
@@ -604,7 +605,7 @@ export const orderTools: McpToolDefinition[] = [
         where: { eventId },
         include: {
           room: { select: { id: true, name: true } },
-          functionLinks: { include: { function: { select: { id: true, name: true } } } },
+          functionLinks: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
           presentationLinks: {
             include: { presentation: { select: { id: true, title: true } } },
           },
@@ -696,7 +697,7 @@ export const orderTools: McpToolDefinition[] = [
         where: { eventId },
         include: {
           items: true,
-          functions: { include: { function: { select: { id: true, name: true } } } },
+          functions: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
           presentation: { select: { id: true, title: true } },
           vendors: { include: { vendor: { select: { id: true, name: true } } } },
         },
@@ -777,7 +778,7 @@ export const orderTools: McpToolDefinition[] = [
         include: {
           room: { select: { id: true, name: true } },
           items: { select: { id: true, packingStatus: true, acquisitionState: true } },
-          functions: { include: { function: { select: { id: true, name: true } } } },
+          functions: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
           presentations: {
             include: { presentation: { select: { id: true, title: true } } },
           },
@@ -2020,7 +2021,12 @@ export const orderTools: McpToolDefinition[] = [
         eventId: { type: "string" },
         name: { type: "string" },
         functionId: { type: "string", description: "Optional 1:1 function link." },
-        serviceStyle: { type: "string", description: "e.g. PLATED, BUFFET, FAMILY_STYLE." },
+        serviceStyle: { type: "string", description: "A service_style option label, e.g. Plated, Buffet, Boxed." },
+        mealType: {
+          type: "string",
+          description:
+            "A meal_type option label (e.g. Lunch, Break, Reception). Its APEX bucket places the order in the ESG / Post-Event Report F&B attendance grids.",
+        },
         expectedCount: { type: "number" },
         confirmedCount: { type: "number" },
         guaranteeCount: { type: "number" },
@@ -2043,6 +2049,7 @@ export const orderTools: McpToolDefinition[] = [
         name: requireString(args, "name"),
         functionId: optionalString(args, "functionId") ?? null,
         serviceStyle: optionalString(args, "serviceStyle") ?? null,
+        mealType: optionalString(args, "mealType") ?? null,
         expectedCount: optionalInt(args, "expectedCount"),
         confirmedCount: optionalInt(args, "confirmedCount"),
         guaranteeCount: optionalInt(args, "guaranteeCount"),
@@ -2077,6 +2084,7 @@ export const orderTools: McpToolDefinition[] = [
         eventId: { type: "string" },
         name: { type: "string" },
         serviceStyle: { type: "string" },
+        mealType: { type: "string", description: "meal_type option label; empty string clears." },
         expectedCount: { type: "number" },
         confirmedCount: { type: "number" },
         guaranteeCount: { type: "number" },
@@ -2097,6 +2105,7 @@ export const orderTools: McpToolDefinition[] = [
       const updates: UpdateCateringOrderArgs = {};
       if ("name" in args) updates.name = requireString(args, "name");
       if ("serviceStyle" in args) updates.serviceStyle = optionalString(args, "serviceStyle") ?? null;
+      if ("mealType" in args) updates.mealType = optionalString(args, "mealType") ?? null;
       if ("expectedCount" in args) updates.expectedCount = optionalInt(args, "expectedCount");
       if ("confirmedCount" in args) updates.confirmedCount = optionalInt(args, "confirmedCount");
       if ("guaranteeCount" in args) updates.guaranteeCount = optionalInt(args, "guaranteeCount");

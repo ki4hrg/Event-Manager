@@ -3,13 +3,14 @@
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { syncFunctionNumbers } from "@/lib/functionNumbering";
 
 export async function getScheduleItems(eventId: string) {
   await requirePermission("FUNCTIONS", "VIEW", eventId);
   return prisma.functionSchedule.findMany({
     where: { function: { eventId } },
     include: {
-      function: { select: { id: true, name: true, type: true } },
+      function: { select: { id: true, name: true, functionNumber: true, type: true } },
     },
     orderBy: { startTime: "asc" },
   });
@@ -28,12 +29,14 @@ export async function getScheduleTypes() {
 export async function deleteScheduleItem(id: string, eventId: string) {
   await requirePermission("FUNCTIONS", "DELETE", eventId);
   await prisma.functionSchedule.delete({ where: { id, function: { eventId } } });
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/schedule-items`);
 }
 
 export async function deleteScheduleItems(ids: string[], eventId: string) {
   await requirePermission("FUNCTIONS", "DELETE", eventId);
   await prisma.functionSchedule.deleteMany({ where: { id: { in: ids }, function: { eventId } } });
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/schedule-items`);
 }
 
@@ -48,5 +51,6 @@ export async function bulkUpdateScheduleItems(
   if (updates.isPublic !== undefined) data.isPublic = updates.isPublic;
   if (Object.keys(data).length === 0) return;
   await prisma.functionSchedule.updateMany({ where: { id: { in: ids }, function: { eventId } }, data });
+  await syncFunctionNumbers(eventId);
   revalidatePath(`/events/${eventId}/schedule-items`);
 }

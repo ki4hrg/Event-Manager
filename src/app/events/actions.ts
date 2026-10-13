@@ -61,7 +61,15 @@ function readEventArgs(formData: FormData): EventWriteArgs {
     timezone: (formData.get("timezone") as string) || "America/Chicago",
     venueIds: formData.getAll("venueIds") as string[],
     seriesId: (formData.get("seriesId") as string) || null,
+    isMembershipBased: formData.get("isMembershipBased") === "true",
+    membershipCount: intOrNull(formData, "membershipCount"),
+    expectedAttendance: intOrNull(formData, "expectedAttendance"),
+    actualAttendance: intOrNull(formData, "actualAttendance"),
   };
+}
+
+function intOrNull(formData: FormData, field: string) {
+  return formData.get(field) ? parseInt(formData.get(field) as string) : null;
 }
 
 export async function createEvent(formData: FormData) {
@@ -130,10 +138,24 @@ export async function updateEventKeyStaff(
       eventId,
       title: (formData.get("title") as string) || null,
       models: formData.getAll("models") as string[],
+      ...keyStaffEsgFromForm(formData),
     },
     session.user.id,
   );
   revalidatePath(`/events/${eventId}`);
+  revalidatePath(`/events/${eventId}/specifications`);
+}
+
+// Only the edit form renders the ESG controls; posting them is the signal.
+function keyStaffEsgFromForm(formData: FormData) {
+  if (!formData.has("esgFields")) return {};
+  const onSite = formData.get("onSite") as string;
+  return {
+    responsibilities: (formData.get("responsibilities") as string) || null,
+    onSite: onSite === "true" ? true : onSite === "false" ? false : null,
+    isEmergencyContact: formData.get("isEmergencyContact") === "true",
+    approvalAuthority: (formData.get("approvalAuthority") as string) || null,
+  };
 }
 
 export async function removeEventKeyStaff(keyStaffId: string, eventId: string) {

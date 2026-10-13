@@ -53,6 +53,7 @@ import { PrintOrderTabs, PRINT_ORDER_TABS } from "../../../print-orders/PrintOrd
 import { PrintOrderForm } from "../../../print-orders/PrintOrderForm";
 import { PrintItemPanel } from "../../../print-orders/PrintItemPanel";
 import { PrintOrderLinkPanel } from "../../../print-orders/PrintOrderLinkPanel";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -336,10 +337,10 @@ export default async function PrintOrderPage({
               eventId={eventId}
               linkedFunctions={printOrder.functions.map((f) => ({
                 id: f.function.id,
-                name: f.function.name,
+                name: formatFunctionLabel(f.function),
                 path: `/events/${eventId}/functions/${f.function.id}`,
               }))}
-              availableFunctions={unlinkableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+              availableFunctions={unlinkableFunctions.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
               linkFunction={linkToFunctionAction}
               unlinkFunction={unlinkFromFunctionAction}
               linkedPresentation={

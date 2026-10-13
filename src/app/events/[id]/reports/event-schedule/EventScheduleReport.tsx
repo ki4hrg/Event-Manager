@@ -6,7 +6,7 @@ import {
   formatTime,
 } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { ReportNav } from "@/components/ReportNav";
 import { EmptyState } from "@/components/EmptyState";
 import {
@@ -23,7 +23,7 @@ type Props = {
 };
 
 function functionLabel(item: EventScheduleItem): string {
-  return formatBreakoutSessionName(item.function.name, item.function.breakoutGroup?.name);
+  return formatFunctionLabel(item.function);
 }
 
 function roomLabel(item: EventScheduleItem): string {

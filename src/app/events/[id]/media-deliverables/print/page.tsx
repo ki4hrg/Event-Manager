@@ -4,6 +4,7 @@ import { PrintHeader } from "@/components/print/PrintHeader";
 import { getMediaDeliverables } from "@/app/events/media-deliverables/actions";
 import { getEvent } from "../../../actions";
 import { partyLabel } from "@/lib/partyLabel";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,7 @@ export default async function MediaDeliverablesPrintPage({
               {d.functions.length > 0 && (
                 <>
                   <dt className="font-medium">Functions:</dt>
-                  <dd>{d.functions.map((f) => f.name).join(", ")}</dd>
+                  <dd>{d.functions.map((f) => formatFunctionLabel(f)).join(", ")}</dd>
                 </>
               )}
               {d.presentations.length > 0 && (

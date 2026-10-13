@@ -11,6 +11,7 @@ import { ViewToggle } from "@/components/ui/ViewToggle";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
 import { colorClasses } from "@/lib/colors";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
+import { formatFunctionLabel, matchesFunctionQuery } from "@/lib/functionNumbers";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 
 type ScheduleItemRow = Awaited<ReturnType<typeof getScheduleItems>>[number];
@@ -85,10 +86,13 @@ export function ScheduleItemList({
     return items.filter((item) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const fnName = (item.function.name || item.function.type || "").toLowerCase();
+        const fnMatch = matchesFunctionQuery(
+          { name: item.function.name || item.function.type || "", functionNumber: item.function.functionNumber },
+          filters.search,
+        );
         const typeLabel = resolveOptionLabel(item.type, scheduleTypes).toLowerCase();
         const notes = (item.notes || "").toLowerCase();
-        if (!fnName.includes(q) && !typeLabel.includes(q) && !notes.includes(q)) return false;
+        if (!fnMatch && !typeLabel.includes(q) && !notes.includes(q)) return false;
       }
       if (filters.type && item.type !== filters.type) return false;
       if (filters.isPublic === "true" && !item.isPublic) return false;
@@ -176,7 +180,7 @@ export function ScheduleItemList({
   const filterInput = "w-full text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-white";
 
   function functionLabel(item: ScheduleItemRow) {
-    return item.function.name || item.function.type || "Unnamed Function";
+    return formatFunctionLabel({ name: item.function.name || item.function.type || "Unnamed Function", functionNumber: item.function.functionNumber });
   }
 
   function formatRange(item: ScheduleItemRow) {

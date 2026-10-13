@@ -51,3 +51,29 @@ export function optionalStringArray(args: Record<string, unknown>, key: string):
   if (!Array.isArray(v)) return [];
   return v.filter((x): x is string => typeof x === "string" && x.length > 0);
 }
+
+// Partial-update readers: undefined when the key is absent (leave the column
+// alone), null when explicitly null or "" (clear it).
+export function partialString(args: Record<string, unknown>, key: string): string | null | undefined {
+  if (!(key in args)) return undefined;
+  const v = args[key];
+  if (v === null || v === "") return null;
+  if (typeof v !== "string") throw new Error(`${key} must be a string`);
+  return v;
+}
+
+export function partialInt(args: Record<string, unknown>, key: string): number | null | undefined {
+  if (!(key in args)) return undefined;
+  const v = args[key];
+  if (v === null || v === "") return null;
+  if (typeof v !== "number" || !Number.isInteger(v)) throw new Error(`${key} must be an integer`);
+  return v;
+}
+
+export function partialBoolean(args: Record<string, unknown>, key: string): boolean | null | undefined {
+  if (!(key in args)) return undefined;
+  const v = args[key];
+  if (v === null) return null;
+  if (typeof v !== "boolean") throw new Error(`${key} must be a boolean`);
+  return v;
+}

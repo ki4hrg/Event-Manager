@@ -8,7 +8,7 @@ import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
 import { LastUpdated } from "@/components/LastUpdated";
 import { PackingStatusRollup } from "@/components/PackingStatusRollup";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { cateringRelationshipLabel, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { formatPhone } from "@/lib/format-phone";
 import { resolveOptionLabel } from "@/lib/optionUtils";
@@ -1180,7 +1180,7 @@ function FunctionBlock({
   serviceStyles: OptionList;
   setupTypes: OptionList;
 }) {
-  const displayName = formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name);
+  const displayName = formatFunctionLabel(fn);
   const typeLabel = fn.type ? resolveOptionLabel(fn.type, functionTypes) : "";
   const anchorId = `function-${fn.id}`;
   const avOrders = fn.avOrderFunctions.map((l) => l.avOrder);
@@ -1459,7 +1459,7 @@ export function FunctionDetailReport({
 
   const functionLinks = functions.map((fn) => ({
     id: `function-${fn.id}`,
-    label: formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name),
+    label: formatFunctionLabel(fn),
   }));
 
   return (

@@ -15,6 +15,90 @@ type EventFormProps = {
   cancelHref?: string;
 };
 
+const fieldClass =
+  "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+// Attendance (ESG §D expected / PER actual) and, for membership-based events,
+// the membership the attendance is measured against. Membership never stands
+// in for attendance or vice versa.
+function AttendanceFields({ event }: { event?: Event }) {
+  const [membershipBased, setMembershipBased] = useState(event?.isMembershipBased ?? false);
+  const [membership, setMembership] = useState(event?.membershipCount != null ? String(event.membershipCount) : "");
+  const [expected, setExpected] = useState(event?.expectedAttendance != null ? String(event.expectedAttendance) : "");
+  const [actual, setActual] = useState(event?.actualAttendance != null ? String(event.actualAttendance) : "");
+  const pct = (n: string) => {
+    const m = parseInt(membership);
+    const v = parseInt(n);
+    return membershipBased && m > 0 && !isNaN(v) ? ` (${Math.round((v / m) * 100)}% of membership)` : "";
+  };
+
+  return (
+    <fieldset className="space-y-4">
+      <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attendance</legend>
+      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input
+          type="checkbox"
+          name="isMembershipBased"
+          value="true"
+          checked={membershipBased}
+          onChange={(e) => setMembershipBased(e.target.checked)}
+          className="rounded border-gray-300 dark:border-gray-600"
+        />
+        Membership-based event
+      </label>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {membershipBased ? (
+          <div>
+            <label htmlFor="membershipCount" className="block text-sm text-gray-600 dark:text-gray-400">
+              Membership
+            </label>
+            <input
+              type="number"
+              min={0}
+              id="membershipCount"
+              name="membershipCount"
+              value={membership}
+              onChange={(e) => setMembership(e.target.value)}
+              className={fieldClass}
+            />
+          </div>
+        ) : (
+          // Keep a stored count when the flag is switched off.
+          <input type="hidden" name="membershipCount" value={membership} />
+        )}
+        <div>
+          <label htmlFor="expectedAttendance" className="block text-sm text-gray-600 dark:text-gray-400">
+            Expected attendance{pct(expected)}
+          </label>
+          <input
+            type="number"
+            min={0}
+            id="expectedAttendance"
+            name="expectedAttendance"
+            value={expected}
+            onChange={(e) => setExpected(e.target.value)}
+            className={fieldClass}
+          />
+        </div>
+        <div>
+          <label htmlFor="actualAttendance" className="block text-sm text-gray-600 dark:text-gray-400">
+            Actual attendance{pct(actual)}
+          </label>
+          <input
+            type="number"
+            min={0}
+            id="actualAttendance"
+            name="actualAttendance"
+            value={actual}
+            onChange={(e) => setActual(e.target.value)}
+            className={fieldClass}
+          />
+        </div>
+      </div>
+    </fieldset>
+  );
+}
+
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
 
@@ -212,6 +296,8 @@ export function EventForm({ event, venues, series, action, cancelHref }: EventFo
       </div>
 
       <VenuePicker venues={venues} initialIds={event?.venueIds ?? []} />
+
+      <AttendanceFields event={event} />
 
       <div>
         <div className="flex items-baseline justify-between">

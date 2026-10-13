@@ -8,7 +8,7 @@ import { getWorkflowBadgeSummaries } from "@/app/events/workflows/actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import type { FunctionForTable } from "@/app/events/functions/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +97,7 @@ export default async function FunctionTablePrintPage({
           <tbody>
             {functions.map((fn) => (
               <tr key={fn.id}>
-                <td className={`${td} font-medium`}>{formatBreakoutSessionName(fn.name, fn.breakoutGroup?.name)}</td>
+                <td className={`${td} font-medium`}>{formatFunctionLabel(fn)}</td>
                 <td className={`${td} whitespace-nowrap`}>{formatDateTime(getEarliestStart(fn), tz)}</td>
                 <td className={`${td} whitespace-nowrap`}>{formatDateTime(getLatestEnd(fn), tz)}</td>
                 <td className={td}>{fn.notes || "—"}</td>

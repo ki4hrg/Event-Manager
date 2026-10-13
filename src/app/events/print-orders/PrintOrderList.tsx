@@ -12,6 +12,7 @@ import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { ViewToggle } from "@/components/ui/ViewToggle";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { compareValues, sortIndicator, type SortDir } from "@/lib/tableSort";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
@@ -273,7 +274,7 @@ export function PrintOrderList({
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Add Function Link</label>
               <select value={bulkFunctionId} onChange={(e) => setBulkFunctionId(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 dark:text-white max-w-full">
                 <option value="">— no change —</option>
-                {functions.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                {functions.map((f) => <option key={f.id} value={f.id}>{formatFunctionLabel(f)}</option>)}
               </select>
             </div>
           )}
@@ -311,7 +312,7 @@ export function PrintOrderList({
                   {po.functions.length > 0 && (
                     <span className="text-green-600 dark:text-green-400">
                       {po.functions.length === 1
-                        ? `Linked to function: ${po.functions[0].function.name}`
+                        ? `Linked to function: ${formatFunctionLabel(po.functions[0].function)}`
                         : `Linked to ${po.functions.length} functions`}
                     </span>
                   )}
@@ -384,7 +385,7 @@ export function PrintOrderList({
                       <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
                         {o.functions.length > 0
                           ? o.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.functions[0].function.name}</Link>
+                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.functions[0].function)}</Link>
                             : `${o.functions.length} functions`
                           : <span className="text-orange-500">Unlinked</span>}
                       </td>

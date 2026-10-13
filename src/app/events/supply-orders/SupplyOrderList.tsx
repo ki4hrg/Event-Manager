@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import type { getSupplyOrders } from "./actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import { WorkflowBadge } from "@/components/WorkflowBadge";
@@ -157,7 +158,7 @@ export function SupplyOrderList({
                   {o.functions.length > 0 && (
                     <span className="text-green-600 dark:text-green-400">
                       {o.functions.length === 1
-                        ? `Linked to function: ${o.functions[0].function.name}`
+                        ? `Linked to function: ${formatFunctionLabel(o.functions[0].function)}`
                         : `Linked to ${o.functions.length} functions`}
                     </span>
                   )}

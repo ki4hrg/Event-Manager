@@ -34,6 +34,7 @@ import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { MediaDeliverableTabs, MEDIA_DELIVERABLE_TABS } from "../../../media-deliverables/MediaDeliverableTabs";
 import { MediaDeliverableForm } from "../../../media-deliverables/MediaDeliverableForm";
 import { MediaDeliverableLinkPanel } from "../../../media-deliverables/MediaDeliverableLinkPanel";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export default async function MediaDeliverablePage({
     getSubstatusOptions(),
     getOptions("media_type"),
     getOptions("delivery_method"),
-    prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" }, select: { id: true, name: true, functionNumber: true } }),
     prisma.presentation.findMany({ where: { eventId }, orderBy: { title: "asc" }, select: { id: true, title: true } }),
     getResponsibleParties({
       eventId,
@@ -260,10 +261,10 @@ export default async function MediaDeliverablePage({
           <MediaDeliverableLinkPanel
             linkedFunctions={mediaDeliverable.functions.map((f) => ({
               id: f.id,
-              label: f.name,
+              label: formatFunctionLabel(f),
               detailPath: `/events/${eventId}/functions/${f.id}`,
             }))}
-            availableFunctions={unlinkableFunctions.map((f) => ({ id: f.id, label: f.name }))}
+            availableFunctions={unlinkableFunctions.map((f) => ({ id: f.id, label: formatFunctionLabel(f) }))}
             linkFunction={linkToFunctionAction}
             unlinkFunction={unlinkFromFunctionAction}
             linkedPresentations={mediaDeliverable.presentations.map((p) => ({

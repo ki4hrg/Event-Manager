@@ -10,6 +10,7 @@ import { getEvent } from "../../../actions";
 import {
   getFunction,
   updateFunction,
+  updateFunctionEsg,
   deleteFunction,
   duplicateFunction,
   createSchedule,
@@ -52,6 +53,7 @@ import {
   unlinkMediaDeliverableFromFunctionPage,
 } from "../../../media-deliverables/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
+import { FunctionEsgCard } from "../../../functions/FunctionEsgCard";
 import { ScheduleList } from "../../../functions/ScheduleList";
 import { ContactList } from "../../../functions/ContactList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
@@ -130,6 +132,11 @@ export default async function FunctionPage({
   const updateFunctionAction = async (formData: FormData) => {
     "use server";
     await updateFunction(functionId, eventId, formData);
+  };
+
+  const updateFunctionEsgAction = async (formData: FormData) => {
+    "use server";
+    await updateFunctionEsg(functionId, eventId, formData);
   };
 
   const deleteFunctionAction = async () => {
@@ -292,6 +299,9 @@ export default async function FunctionPage({
           ]} />
           <div className="flex flex-wrap items-center gap-3 mt-1">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {fn.functionNumber && (
+                <span className="mr-2 text-gray-500 dark:text-gray-400">#{fn.functionNumber}</span>
+              )}
               {fn.name}
             </h1>
             <WorkflowStatusBadge summary={computeWorkflowBadgeSummary(workflowInstances)} />
@@ -360,6 +370,11 @@ export default async function FunctionPage({
               breakoutGroups={fn.type === "BREAKOUT_BLOCK" ? breakoutGroups : undefined}
             />
           </div>
+          <FunctionEsgCard
+            fn={fn}
+            numbersLocked={event.functionNumbersLockedAt !== null}
+            action={updateFunctionEsgAction}
+          />
           <ContactList
             contacts={fn.contacts}
             addContact={addContactAction}

@@ -8,7 +8,7 @@ import {
   getNextDateKey,
 } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
@@ -196,7 +196,7 @@ function timeRange(start: Date, end: Date, timezone: string): string {
 }
 
 function itemTitle(item: AgendaItem): string {
-  if (item.kind === "function") return item.fn.name;
+  if (item.kind === "function") return formatFunctionLabel({ name: item.fn.name, functionNumber: item.fn.functionNumber });
   return item.entry.slot.presentation.title;
 }
 
@@ -205,7 +205,7 @@ function itemContext(item: AgendaItem, functionTypes: CustomOption[]): string {
     return resolveOptionLabel(item.fn.type, functionTypes) || item.fn.type || "";
   }
   // breakout: show block name + presentation type (or "Breakout")
-  const blockName = formatBreakoutSessionName(item.entry.block.name, item.entry.block.breakoutGroup?.name);
+  const blockName = formatFunctionLabel(item.entry.block);
   const presType = resolveOptionLabel(item.entry.slot.presentation.type, []) || "Breakout";
   return `${presType} · in ${blockName}`;
 }

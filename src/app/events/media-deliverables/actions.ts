@@ -39,7 +39,7 @@ export async function getMediaDeliverables(eventId: string) {
   const rows = await prisma.mediaDeliverable.findMany({
     where: { eventId },
     include: {
-      functionLinks: { include: { function: { select: { id: true, name: true } } } },
+      functionLinks: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
       presentationLinks: { include: { presentation: { select: { id: true, title: true } } } },
       providerVendor: { select: { id: true, name: true } },
       providerContact: { select: { id: true, firstName: true, lastName: true } },
