@@ -10,7 +10,11 @@ import {
   type EsgFieldKind,
   type SpecGrid,
 } from "@/lib/esg/fields";
+import { PER_SECTIONS, PER_SECTION_LETTERS, PER_WRITABLE_FIELDS } from "@/lib/esg/perFields";
+import { loadPerData, perCompleteness } from "@/lib/esg/per";
 import {
+  setPostEventSectionNaCore,
+  upsertPostEventCore,
   createSpecRowCore,
   deleteSpecRowCore,
   issueEsgCore,
@@ -52,6 +56,8 @@ function requireGrid(args: Record<string, unknown>): SpecGrid {
 }
 
 const FIELD_KINDS = new Map(ESG_WRITABLE_FIELDS.map((f) => [f.key, f.kind]));
+const PER_FIELD_KINDS = new Map(PER_WRITABLE_FIELDS.map((f) => [f.key, f.kind]));
+const perFieldGuide = PER_SECTIONS.flatMap((s) => s.fields.map((f) => `${s.letter}:${f.key} (${f.kind}${f.optionCategory ? `:${f.optionCategory}` : ""}${f.required ? ", required" : ""})`)).join("; ");
 
 const fieldGuide = [...ESG_HEADER_FIELDS.map((f) => ({ ...f, section: "header" })), ...ESG_SECTIONS.flatMap((s) => s.fields.map((f) => ({ ...f, section: s.letter })))]
   .map((f) => `${f.section}:${f.key} (${f.kind}${f.optionCategory ? `:${f.optionCategory}` : ""}${f.required ? ", required" : ""})`)
@@ -130,8 +136,54 @@ export const specificationTools: McpToolDefinition[] = [
     },
   },
   {
+    name: "get_post_event_details",
+    description:
+      "Get the stored APEX Post-Event Report fields for an event (columns, `narrative` comments, N/A sections) plus completeness. Future dates and distribution log are the `futureDates` / `distributions` grids (use the *_event_specification_row tools). For the rendered report use get_post_event_report.",
+    inputSchema: { type: "object", properties: { eventId: { type: "string" } }, required: ["eventId"], additionalProperties: false },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      await requirePermissionForUser(userId, "EVENTS", "VIEW", eventId);
+      const data = await loadPerData(eventId);
+      if (!data) throw new Error("Event not found");
+      return {
+        postEvent: data.postEvent,
+        futureDates: data.narrative.grids.futureDates,
+        distributions: data.narrative.grids.distributions,
+        completeness: perCompleteness(data),
+      };
+    },
+  },
+  {
+    name: "update_post_event_details",
+    description: `Partially update an event's Post-Event Report fields (values keyed by field; omitted unchanged, null clears). Actual attendance / membership are on update_event; # fed is actualCount on catering orders; function attendance is actualAttendance on functions. Fields (section:key (kind)): ${perFieldGuide}`,
+    inputSchema: {
+      type: "object",
+      properties: { eventId: { type: "string" }, values: { type: "object", additionalProperties: true } },
+      required: ["eventId", "values"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      upsertPostEventCore(requireString(args, "eventId"), readValues(args.values, PER_FIELD_KINDS, "values"), userId),
+  },
+  {
+    name: "set_post_event_section_na",
+    description: `Mark a Post-Event Report section not applicable (or applicable again). Sections: ${PER_SECTION_LETTERS.join(", ")}.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        section: { type: "string", enum: PER_SECTION_LETTERS },
+        notApplicable: { type: "boolean" },
+      },
+      required: ["eventId", "section", "notApplicable"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) =>
+      setPostEventSectionNaCore(requireString(args, "eventId"), requireString(args, "section"), args.notApplicable === true, userId),
+  },
+  {
     name: "create_event_specification_row",
-    description: `Add a row to an ESG grid. \`values\` keys per grid: ${gridGuide}. coverage.kind is SECURITY or FIRST_AID.`,
+    description: `Add a row to an ESG grid. \`values\` keys per grid: ${gridGuide}. coverage.kind is SECURITY or FIRST_AID; distributions.action is COMPLETED or REVISED.`,
     inputSchema: {
       type: "object",
       properties: {

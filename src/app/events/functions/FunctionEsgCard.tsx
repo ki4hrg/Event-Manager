@@ -17,6 +17,7 @@ type FunctionEsgCardProps = {
     hold24Hour: boolean;
     expectedAttendance: number | null;
     setForCount: number | null;
+    actualAttendance: number | null;
     decorNotes: string | null;
     securityNotes: string | null;
     signageNotes: string | null;
@@ -76,6 +77,7 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
           <ReadOnlyField label="Reader board" value={readerBoard(fn)} />
           <ReadOnlyField label="Attendance" value={fn.expectedAttendance != null ? String(fn.expectedAttendance) : null} />
           <ReadOnlyField label="Set for" value={fn.setForCount != null ? String(fn.setForCount) : null} />
+          <ReadOnlyField label="Actual attendance" value={fn.actualAttendance != null ? String(fn.actualAttendance) : null} />
           <ReadOnlyField label="24-hour hold" value={fn.hold24Hour ? "Yes" : "No"} />
           <ReadOnlyField label="Cost center" value={fn.costCenter} />
         </dl>
@@ -144,6 +146,19 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
               id="setForCount"
               name="setForCount"
               defaultValue={fn.setForCount ?? ""}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="actualAttendance" className={labelClass}>
+              Actual attendance
+            </label>
+            <input
+              type="number"
+              min={0}
+              id="actualAttendance"
+              name="actualAttendance"
+              defaultValue={fn.actualAttendance ?? ""}
               className={inputClass}
             />
           </div>

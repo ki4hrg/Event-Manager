@@ -2030,6 +2030,7 @@ export const orderTools: McpToolDefinition[] = [
         expectedCount: { type: "number" },
         confirmedCount: { type: "number" },
         guaranteeCount: { type: "number" },
+        actualCount: { type: "number", description: "Covers actually served (Post-Event Report # fed)." },
         staffingNotes: { type: "string" },
         rentalMinimum: { type: "number" },
         fbMinimum: { type: "number" },
@@ -2088,6 +2089,7 @@ export const orderTools: McpToolDefinition[] = [
         expectedCount: { type: "number" },
         confirmedCount: { type: "number" },
         guaranteeCount: { type: "number" },
+        actualCount: { type: "number", description: "Covers actually served (Post-Event Report # fed)." },
         staffingNotes: { type: "string" },
         rentalMinimum: { type: "number" },
         fbMinimum: { type: "number" },
@@ -2109,6 +2111,7 @@ export const orderTools: McpToolDefinition[] = [
       if ("expectedCount" in args) updates.expectedCount = optionalInt(args, "expectedCount");
       if ("confirmedCount" in args) updates.confirmedCount = optionalInt(args, "confirmedCount");
       if ("guaranteeCount" in args) updates.guaranteeCount = optionalInt(args, "guaranteeCount");
+      if ("actualCount" in args) updates.actualCount = optionalInt(args, "actualCount");
       if ("staffingNotes" in args) updates.staffingNotes = optionalString(args, "staffingNotes") ?? null;
       if ("rentalMinimum" in args)
         updates.rentalMinimum =

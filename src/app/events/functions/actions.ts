@@ -219,6 +219,7 @@ export async function updateFunctionEsg(id: string, eventId: string, formData: F
       hold24Hour: formData.get("hold24Hour") === "true",
       expectedAttendance: intOrNull("expectedAttendance"),
       setForCount: intOrNull("setForCount"),
+      actualAttendance: intOrNull("actualAttendance"),
       decorNotes: (formData.get("decorNotes") as string) || null,
       securityNotes: (formData.get("securityNotes") as string) || null,
       signageNotes: (formData.get("signageNotes") as string) || null,

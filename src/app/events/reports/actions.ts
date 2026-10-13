@@ -17,6 +17,7 @@ import { loadEsgNarrativeData } from "@/lib/esg/narrativeData";
 import { esgBoothInclude, esgFunctionInclude } from "@/lib/esg/include";
 import { assembleEsgDocument, esgDayOptions } from "@/lib/esg/assemble";
 import { ESG_PARTS, type EsgPart } from "@/lib/esg/types";
+import { assemblePerDocument, loadPerData } from "@/lib/esg/per";
 import { compareByMainFunctionTime } from "@/lib/functionSchedules";
 
 export type EquipmentReportFilters = {
@@ -2036,3 +2037,11 @@ export async function getEsgData(eventId: string, filters: EsgFilters = {}) {
 }
 
 export type EsgData = NonNullable<Awaited<ReturnType<typeof getEsgData>>>;
+
+// ─── Post-Event Report (APEX PER) ───────────────────────────────────────────
+
+export async function getPostEventReportData(eventId: string, filters: { showBlank?: boolean } = {}) {
+  const data = await loadPerData(eventId);
+  if (!data) return null;
+  return assemblePerDocument(data, { showBlank: filters.showBlank ?? false });
+}

@@ -119,6 +119,7 @@ export type UpdateCateringOrderArgs = {
   expectedCount?: number | null;
   confirmedCount?: number | null;
   guaranteeCount?: number | null;
+  actualCount?: number | null;
   staffingNotes?: string | null;
   rentalMinimum?: number | null;
   fbMinimum?: number | null;

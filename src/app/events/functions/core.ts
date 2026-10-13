@@ -54,6 +54,7 @@ export type FunctionEsgArgs = {
   hold24Hour?: boolean;
   expectedAttendance?: number | null;
   setForCount?: number | null;
+  actualAttendance?: number | null;
   decorNotes?: string | null;
   securityNotes?: string | null;
   signageNotes?: string | null;
@@ -67,6 +68,7 @@ const ESG_SCALAR_KEYS = [
   "hold24Hour",
   "expectedAttendance",
   "setForCount",
+  "actualAttendance",
   "decorNotes",
   "securityNotes",
   "signageNotes",

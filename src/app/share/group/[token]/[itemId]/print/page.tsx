@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import React from "react";
 import { notFound } from "next/navigation";
+import { getPostEventReportData } from "@/app/events/reports/actions";
+import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { getEsgData } from "@/app/events/reports/actions";
 import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
 import { resolveSharedEsgFilters } from "@/lib/esg/params";
@@ -479,6 +481,17 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         <div className="p-4 sm:p-6 max-w-5xl mx-auto">
           <PrintHeader eventName={eventName} title={title} backHref={backHref} />
           <EsgReport doc={data.document} />
+        </div>
+      );
+    }
+    case "POST_EVENT": {
+      const showBlank = item.filtersLocked ? stored.showBlank === true : getString(sp.blank) ? getString(sp.blank) === "1" : stored.showBlank === true;
+      const doc = await getPostEventReportData(eventId, { showBlank });
+      if (!doc) notFound();
+      return (
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+          <PrintHeader eventName={eventName} title={title} backHref={backHref} />
+          <PostEventReport doc={doc} />
         </div>
       );
     }

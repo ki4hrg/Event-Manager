@@ -51,22 +51,23 @@ export type EsgDerivedSource =
   | "housingBlocks"
   | "exhibitBooths";
 
-export type EsgDerivedDef = {
-  source: EsgDerivedSource;
+export type EsgDerivedDef<D extends string = EsgDerivedSource> = {
+  source: D;
   label: string;
   required?: boolean;
 };
 
-export const SPEC_GRIDS = ["vips", "shuttles", "transfers", "shipments", "coverage", "keys"] as const;
+// ESG grids plus the Post-Event Report's (future dates, distribution log).
+export const SPEC_GRIDS = ["vips", "shuttles", "transfers", "shipments", "coverage", "keys", "futureDates", "distributions"] as const;
 export type SpecGrid = (typeof SPEC_GRIDS)[number];
 
 export type EsgGridRef = { grid: SpecGrid; label: string; required?: boolean };
 
-export type EsgSectionDef = {
+export type EsgSectionDef<D extends string = EsgDerivedSource> = {
   letter: string;
   title: string;
   fields: EsgFieldDef[];
-  derived?: EsgDerivedDef[];
+  derived?: EsgDerivedDef<D>[];
   grids?: EsgGridRef[];
 };
 
@@ -455,7 +456,31 @@ export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
     { key: "quantity", label: "# of keys", kind: "int" },
     { key: "rekeyed", label: "Re-keyed", kind: "bool" },
   ],
+  futureDates: [
+    { key: "startDate", label: "Start", kind: "date" },
+    { key: "endDate", label: "End", kind: "date" },
+    { key: "facility", label: "Facility", kind: "text" },
+    { key: "city", label: "City", kind: "text" },
+    { key: "state", label: "State / province", kind: "text" },
+    { key: "country", label: "Country", kind: "text" },
+    { key: "comments", label: "Comments", kind: "text" },
+  ],
+  distributions: [
+    { key: "action", label: "Report", kind: "option", required: true },
+    { key: "actionDate", label: "Date", kind: "date" },
+    { key: "byName", label: "By (full name)", kind: "text" },
+    { key: "byTitle", label: "Title", kind: "text" },
+    { key: "byEmployer", label: "Employer", kind: "text" },
+    { key: "method", label: "Delivered via", kind: "text" },
+    { key: "deliveredOn", label: "Delivered on", kind: "date" },
+    { key: "recipients", label: "Recipients (name, title, employer — one per line)", kind: "textarea" },
+  ],
 };
+
+export const DISTRIBUTION_ACTIONS = [
+  { value: "COMPLETED", label: "Completed" },
+  { value: "REVISED", label: "Revised" },
+] as const;
 
 export const COVERAGE_KINDS = [
   { value: "SECURITY", label: "Security / surveillance" },

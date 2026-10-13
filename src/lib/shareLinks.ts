@@ -37,6 +37,7 @@ export const SHARE_REPORT_LABELS: Record<string, string> = {
   BREAKOUT_ASSIGNMENTS: "Breakout Assignments",
   PACKING_LIST: "Packing List",
   ESG: "Event Specifications Guide",
+  POST_EVENT: "Post-Event Report",
 };
 
 export function generateShareToken(): string {

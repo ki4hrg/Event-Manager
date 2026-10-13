@@ -213,6 +213,27 @@ export const DEFAULT_OPTIONS = {
     { label: "Perimeter", sortOrder: 4 },
     { label: "Table Top", sortOrder: 5 },
   ],
+  // APEX Post-Event Report lists.
+  per_facility_type: [
+    { label: "Convention Center", sortOrder: 0 },
+    { label: "Hotel", sortOrder: 1 },
+    { label: "Conference Center", sortOrder: 2 },
+    { label: "Other Venue", sortOrder: 3 },
+  ],
+  per_housing_provider: [
+    { label: "Event Organizer/Host", sortOrder: 0 },
+    { label: "Management Firm", sortOrder: 1 },
+    { label: "Housing Bureau", sortOrder: 2 },
+    { label: "Convention & Visitors Bureau", sortOrder: 3 },
+    { label: "Attendees Direct to Hotels", sortOrder: 4 },
+    { label: "Other", sortOrder: 5 },
+  ],
+  per_av_setup: [
+    { label: "Front projection", sortOrder: 0 },
+    { label: "Rear projection", sortOrder: 1 },
+    { label: "None", sortOrder: 2 },
+    { label: "Other", sortOrder: 3 },
+  ],
   reservation_method: [
     { label: "Individual Reservations", sortOrder: 0 },
     { label: "Rooming List", sortOrder: 1 },

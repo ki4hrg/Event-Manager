@@ -11,6 +11,9 @@ const LISTS: { category: OptionCategory; title: string; description: string }[] 
   { category: "event_scope", title: "Event Scope", description: "Citywide, single venue, multiple venue, etc. (ESG §A)." },
   { category: "event_frequency", title: "Event Frequency", description: "How often the event recurs (ESG §A)." },
   { category: "reservation_method", title: "Reservation Methods", description: "How attendees book housing (ESG §G)." },
+  { category: "per_facility_type", title: "Facility Types", description: "Primary event facility type (Post-Event Report §I)." },
+  { category: "per_housing_provider", title: "Housing Providers", description: "Who performed housing services (Post-Event Report §III)." },
+  { category: "per_av_setup", title: "A/V Set-ups", description: "A/V set-up for the largest function (Post-Event Report §VI)." },
 ];
 
 export default async function SettingsSpecificationsPage() {

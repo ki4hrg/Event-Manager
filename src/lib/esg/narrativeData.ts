@@ -14,7 +14,7 @@ import type { EsgDerivedSource, SpecGrid } from "@/lib/esg/fields";
 const scheduleSelect = { type: true, startTime: true, endTime: true, isPublic: true } as const;
 
 export async function loadEsgNarrativeData(eventId: string) {
-  const [event, spec, vips, shuttles, transfers, shipments, coverage, keys, keyStaff, eventVendors, cateringOrders, options, functions, boothCount] =
+  const [event, spec, vips, shuttles, transfers, shipments, coverage, keys, futureDates, distributions, keyStaff, eventVendors, cateringOrders, options, functions, boothCount] =
     await Promise.all([
       prisma.event.findUnique({ where: { id: eventId }, include: eventVenuesInclude }),
       prisma.eventSpecification.findUnique({
@@ -43,6 +43,8 @@ export async function loadEsgNarrativeData(eventId: string) {
         orderBy: { sortOrder: "asc" },
         include: { function: { select: { id: true, name: true, functionNumber: true } } },
       }),
+      prisma.eventPostEventFutureDate.findMany({ where: { eventId }, orderBy: { sortOrder: "asc" } }),
+      prisma.eventPostEventDistribution.findMany({ where: { eventId }, orderBy: { sortOrder: "asc" } }),
       prisma.eventKeyStaff.findMany({
         where: { eventId },
         include: { contact: true },
@@ -174,6 +176,8 @@ export async function loadEsgNarrativeData(eventId: string) {
     shipments: shipments.length,
     coverage: coverage.length,
     keys: keys.length,
+    futureDates: futureDates.length,
+    distributions: distributions.length,
   };
   const completeness = computeEsgCompleteness({
     spec: spec ? { ...(spec as unknown as Record<string, unknown>), narrative, naSections: spec.naSections } : null,
@@ -185,7 +189,7 @@ export async function loadEsgNarrativeData(eventId: string) {
     event,
     spec,
     narrative,
-    grids: { vips, shuttles, transfers, shipments, coverage, keys },
+    grids: { vips, shuttles, transfers, shipments, coverage, keys, futureDates, distributions },
     keyStaff,
     signatories,
     supplierContacts,

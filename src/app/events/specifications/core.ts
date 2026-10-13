@@ -15,6 +15,7 @@ import {
   type SpecGrid,
 } from "@/lib/esg/fields";
 import { setFunctionNumbersLocked } from "@/lib/functionNumbering";
+import { PER_SECTION_LETTERS, PER_WRITABLE_FIELDS } from "@/lib/esg/perFields";
 
 const FIELD_BY_KEY = new Map(ESG_WRITABLE_FIELDS.map((f) => [f.key, f]));
 const PROVIDED_BY_VALUES = new Set<string>(Object.values(ProvidedBy));
@@ -26,7 +27,7 @@ async function todayForEvent(eventId: string): Promise<Date> {
 
 // Type-checks one value against its field kind and asserts any reference
 // belongs to the event's tenant (a foreign id is a not-found).
-async function checkValue(
+export async function checkValue(
   eventId: string,
   tenantId: string,
   key: string,
@@ -182,6 +183,10 @@ function gridDelegate(grid: SpecGrid): GridDelegate {
       return prisma.eventSpecCoverage as unknown as GridDelegate;
     case "keys":
       return prisma.eventSpecKey as unknown as GridDelegate;
+    case "futureDates":
+      return prisma.eventPostEventFutureDate as unknown as GridDelegate;
+    case "distributions":
+      return prisma.eventPostEventDistribution as unknown as GridDelegate;
     default: {
       const _exhaustive: never = grid;
       throw new Error(`Unhandled specification grid: ${_exhaustive}`);
@@ -198,6 +203,10 @@ async function checkGridValues(eventId: string, grid: SpecGrid, values: Record<s
     if (!column) throw new Error(`Unknown ${grid} column: ${key}`);
     if (grid === "coverage" && key === "kind") {
       if (value !== "SECURITY" && value !== "FIRST_AID") throw new Error("Coverage must be SECURITY or FIRST_AID");
+      continue;
+    }
+    if (grid === "distributions" && key === "action") {
+      if (value !== "COMPLETED" && value !== "REVISED") throw new Error("Distribution must be COMPLETED or REVISED");
       continue;
     }
     if (column.kind === "bool" && value === null) {
@@ -241,4 +250,44 @@ export async function updateSpecRowCore(
 export async function deleteSpecRowCore(eventId: string, grid: SpecGrid, rowId: string, userId: string) {
   await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
   await gridDelegate(grid).delete({ where: { id: rowId, eventId } });
+}
+
+// ---------------------------------------------------------------------------
+// Post-Event Report (EventPostEvent) — same whitelist / narrative-merge rules
+// as the specification, against src/lib/esg/perFields.ts.
+
+const PER_FIELD_BY_KEY = new Map(PER_WRITABLE_FIELDS.map((f) => [f.key, f]));
+
+export async function upsertPostEventCore(eventId: string, values: Record<string, unknown>, userId: string) {
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
+  const tenantId = await requireEventTenantId(eventId);
+  const columns: Record<string, unknown> = {};
+  const narrativePatch: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(values)) {
+    const field = PER_FIELD_BY_KEY.get(key);
+    if (!field) throw new Error(`Unknown post-event field: ${key}`);
+    await checkValue(eventId, tenantId, key, field.kind, value);
+    if (field.storage === "column") columns[key] = value;
+    else narrativePatch[key] = value;
+  }
+  const existing = await prisma.eventPostEvent.findUnique({ where: { eventId }, select: { narrative: true } });
+  const narrative = { ...((existing?.narrative as Record<string, unknown> | null) ?? {}), ...narrativePatch };
+  for (const k of Object.keys(narrative)) if (narrative[k] === null) delete narrative[k];
+  const data = { ...columns, narrative: narrative as Prisma.InputJsonValue, updatedById: userId };
+  return prisma.eventPostEvent.upsert({ where: { eventId }, create: { eventId, ...data }, update: data });
+}
+
+export async function setPostEventSectionNaCore(eventId: string, letter: string, na: boolean, userId: string) {
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
+  if (!PER_SECTION_LETTERS.includes(letter)) throw new Error(`Unknown PER section: ${letter}`);
+  const existing = await prisma.eventPostEvent.findUnique({ where: { eventId }, select: { naSections: true } });
+  const set = new Set(existing?.naSections ?? []);
+  if (na) set.add(letter);
+  else set.delete(letter);
+  const naSections = PER_SECTION_LETTERS.filter((l) => set.has(l));
+  return prisma.eventPostEvent.upsert({
+    where: { eventId },
+    create: { eventId, naSections, updatedById: userId },
+    update: { naSections, updatedById: userId },
+  });
 }

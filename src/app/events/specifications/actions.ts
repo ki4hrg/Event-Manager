@@ -7,11 +7,15 @@ import { requirePermission } from "@/lib/permissions";
 import { loadEsgNarrativeData } from "@/lib/esg/narrativeData";
 import { ESG_HEADER_FIELDS, SPEC_GRID_COLUMNS, SPEC_GRIDS, getEsgSection, type SpecGrid } from "@/lib/esg/fields";
 import { parseEsgForm } from "@/lib/esg/parse";
+import { getPerSection } from "@/lib/esg/perFields";
+import { loadPerData, perCompleteness } from "@/lib/esg/per";
 import {
   createSpecRowCore,
   deleteSpecRowCore,
   issueEsgCore,
+  setPostEventSectionNaCore,
   setSpecSectionNaCore,
+  upsertPostEventCore,
   updateSpecRowCore,
   upsertEventSpecificationCore,
 } from "./core";
@@ -28,6 +32,7 @@ function assertGrid(grid: string): asserts grid is SpecGrid {
 
 function revalidateSpec(eventId: string) {
   revalidatePath(`/events/${eventId}/specifications`);
+  revalidatePath(`/events/${eventId}/post-event`);
 }
 
 export async function getEventSpecification(eventId: string) {
@@ -87,4 +92,28 @@ export async function unlockFunctionNumbers(eventId: string) {
   await setFunctionNumbersLockedCore(eventId, false, session.user.id);
   revalidateSpec(eventId);
   revalidatePath(`/events/${eventId}/functions`);
+}
+
+// ─── Post-Event Report ──────────────────────────────────────────────────────
+
+export async function getPostEventData(eventId: string) {
+  await requirePermission("EVENTS", "VIEW", eventId);
+  const data = await loadPerData(eventId);
+  return data ? { data, completeness: perCompleteness(data) } : null;
+}
+
+export async function updatePostEventSection(eventId: string, letter: string, formData: FormData) {
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
+  const fields = getPerSection(letter)?.fields;
+  if (!fields) throw new Error(`Unknown PER section: ${letter}`);
+  const values = parseEsgForm(fields, formData, await eventTimezone(eventId));
+  await upsertPostEventCore(eventId, values, session.user.id);
+  revalidateSpec(eventId);
+  redirect(`/events/${eventId}/post-event?success=Saved#spec-${letter.toLowerCase()}`);
+}
+
+export async function setPostEventSectionNa(eventId: string, letter: string, na: boolean) {
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
+  await setPostEventSectionNaCore(eventId, letter, na, session.user.id);
+  revalidateSpec(eventId);
 }

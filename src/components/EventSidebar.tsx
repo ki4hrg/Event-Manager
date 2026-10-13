@@ -166,6 +166,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Event Schedule",   segment: "reports/event-schedule",          icon: <ClockIcon /> },
   { type: "link",  label: "Function Detail",  segment: "reports/function-detail",         icon: <ClipboardIcon /> },
   { type: "link",  label: "Specifications Guide", segment: "reports/esg",                 icon: <ClipboardIcon /> },
+  { type: "link",  label: "Post-Event Report", segment: "reports/post-event",             icon: <ChartIcon /> },
   { type: "link",  label: "Room Schedule",    segment: "reports/room-schedule",           icon: <GridIcon /> },
   { type: "link",  label: "Breakout Grid",    segment: "reports/breakout-grid",           icon: <GridIcon /> },
   { type: "link",  label: "Breakout Assignments", segment: "reports/breakout-assignments", icon: <ClipboardIcon /> },
@@ -176,6 +177,7 @@ const NAV: NavItem[] = [
   { type: "group", label: "Configuration" },
   { type: "link",  label: "Import",           segment: "import",                          icon: <HandoffIcon />,   writeResource: "EVENTS" },
   { type: "link",  label: "Specifications",   segment: "specifications",                  icon: <ClipboardIcon />, resource: "EVENTS" },
+  { type: "link",  label: "Post-Event",       segment: "post-event",                      icon: <ClipboardIcon />, resource: "EVENTS" },
   { type: "link",  label: "Staff",            segment: "staff",                           icon: <ClipboardIcon /> },
   { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon />,   writeResource: "EVENTS" },
 ];

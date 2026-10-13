@@ -6,7 +6,7 @@ import { useFormStatus } from "react-dom";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { btnPrimary, btnSecondary, btnOutlinedSm } from "@/lib/buttonStyles";
-import { COVERAGE_KINDS, type SpecGridColumn } from "@/lib/esg/fields";
+import { COVERAGE_KINDS, DISTRIBUTION_ACTIONS, type SpecGridColumn } from "@/lib/esg/fields";
 import { formatDateOnly, formatDayDateTime } from "@/lib/esg/format";
 import { SpecFieldInput, specInputClass, type SpecChoices, type SpecValue } from "./SpecFieldInput";
 
@@ -24,6 +24,7 @@ function SaveButton({ label }: { label: string }) {
 function cellText(column: SpecGridColumn, value: SpecValue, timezone: string, choices: SpecChoices): string | null {
   if (value === null || value === "") return null;
   if (column.key === "kind") return COVERAGE_KINDS.find((k) => k.value === value)?.label ?? String(value);
+  if (column.key === "action") return DISTRIBUTION_ACTIONS.find((k) => k.value === value)?.label ?? String(value);
   switch (column.kind) {
     case "bool":
       return value ? "Yes" : "No";
@@ -64,10 +65,10 @@ function RowForm({
               {c.label}
               {c.required && <span className="text-red-500 dark:text-red-400"> *</span>}
             </label>
-            {c.key === "kind" ? (
-              <select name="kind" required defaultValue={(row?.values.kind as string) ?? ""} className={specInputClass}>
+            {c.key === "kind" || c.key === "action" ? (
+              <select name={c.key} required defaultValue={(row?.values[c.key] as string) ?? ""} className={specInputClass}>
                 <option value="">Choose…</option>
-                {COVERAGE_KINDS.map((k) => (
+                {(c.key === "kind" ? COVERAGE_KINDS : DISTRIBUTION_ACTIONS).map((k) => (
                   <option key={k.value} value={k.value}>
                     {k.label}
                   </option>

@@ -9,6 +9,8 @@ type GuestCountsCardProps = {
   expectedCount: number | null;
   confirmedCount: number | null;
   guaranteeCount: number | null;
+  // Covers actually served — the Post-Event Report's "# fed".
+  actualCount: number | null;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -29,6 +31,7 @@ export function GuestCountsCard({
   expectedCount,
   confirmedCount,
   guaranteeCount,
+  actualCount,
   action,
 }: GuestCountsCardProps) {
   const canWrite = useCanWrite("CATERING_ORDERS");
@@ -50,10 +53,11 @@ export function GuestCountsCard({
             </button>
           )}
         </div>
-        <dl className="grid grid-cols-3 gap-4">
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <ReadOnlyField label="Expected" value={expectedCount != null ? String(expectedCount) : null} />
           <ReadOnlyField label="Confirmed" value={confirmedCount != null ? String(confirmedCount) : null} />
           <ReadOnlyField label="Guarantee" value={guaranteeCount != null ? String(guaranteeCount) : null} />
+          <ReadOnlyField label="Actual (# fed)" value={actualCount != null ? String(actualCount) : null} />
         </dl>
       </div>
     );
@@ -68,7 +72,7 @@ export function GuestCountsCard({
           setEditing(false);
         }}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label htmlFor="expectedCount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Expected
@@ -102,6 +106,18 @@ export function GuestCountsCard({
               id="guaranteeCount"
               name="guaranteeCount"
               defaultValue={guaranteeCount ?? ""}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="actualCount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Actual (# fed)
+            </label>
+            <input
+              type="number"
+              id="actualCount"
+              name="actualCount"
+              defaultValue={actualCount ?? ""}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

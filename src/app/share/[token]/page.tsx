@@ -35,6 +35,9 @@ import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
 import { ReportFilters as EsgReportFilters } from "@/app/events/[id]/reports/esg/ReportFilters";
 import { esgFiltersToQuery, resolveSharedEsgFilters } from "@/lib/esg/params";
 import { AVAILABLE_ESG_PARTS } from "@/lib/esg/types";
+import { getPostEventReportData } from "@/app/events/reports/actions";
+import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
+import { ReportFilters as PerReportFilters } from "@/app/events/[id]/reports/post-event/ReportFilters";
 import { ShareShell } from "./ShareShell";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 
@@ -60,6 +63,7 @@ const REPORT_TITLES: Record<string, string> = {
   BREAKOUT_ASSIGNMENTS: "Breakout assignments",
   PACKING_LIST: "Packing list",
   ESG: "Event Specifications Guide",
+  POST_EVENT: "Post-Event Report",
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -722,6 +726,26 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           />
         )}
         <EsgReport doc={data.document} />
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "POST_EVENT") {
+    const blankParam = getString(sp.blank);
+    const showBlank = link.filtersLocked ? storedFilters.showBlank === true : blankParam ? blankParam === "1" : storedFilters.showBlank === true;
+    const doc = await getPostEventReportData(link.eventId, { showBlank });
+    if (!doc) notFound();
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Post-Event Report"
+        label={link.label}
+        printHref={showBlank ? `${printBase}?blank=1` : printBase}
+      >
+        {!link.filtersLocked && (
+          <PerReportFilters eventId={link.eventId} showBlank={showBlank} basePath={`/share/${token}`} hidePrint />
+        )}
+        <PostEventReport doc={doc} />
       </ShareShell>
     );
   }

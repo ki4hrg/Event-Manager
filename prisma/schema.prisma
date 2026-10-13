@@ -38,6 +38,7 @@ model User {
   updatedEvents              Event[]                  @relation("EventUpdatedBy")
   updatedEventSpecifications EventSpecification[]     @relation("EventSpecificationUpdatedBy")
   updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
+  updatedPostEvents          EventPostEvent[]         @relation("EventPostEventUpdatedBy")
   updatedVenues              Venue[]                  @relation("VenueUpdatedBy")
   updatedContacts            Contact[]                @relation("ContactUpdatedBy")
   updatedVendors             Vendor[]                 @relation("VendorUpdatedBy")
@@ -389,16 +390,16 @@ model EventSeries {
 }
 
 model Event {
-  id                      String                  @id @default(cuid())
+  id                      String                       @id @default(cuid())
   tenantId                String
-  tenant                  Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant                  Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name                    String
   description             String?
   startDate               DateTime
   endDate                 DateTime
-  timezone                String                  @default("America/Chicago")
+  timezone                String                       @default("America/Chicago")
   seriesId                String?
-  series                  EventSeries?            @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  series                  EventSeries?                 @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   venues                  EventVenue[]
   functions               Function[]
   presentations           Presentation[]
@@ -419,7 +420,7 @@ model Event {
   staff                   EventStaff[]
   // Membership is the eligible/theoretical maximum for membership-based events;
   // attendance is tracked separately (expected for the ESG, actual for the PER).
-  isMembershipBased       Boolean                 @default(false)
+  isMembershipBased       Boolean                      @default(false)
   membershipCount         Int?
   expectedAttendance      Int?
   actualAttendance        Int?
@@ -433,10 +434,13 @@ model Event {
   specKeys                EventSpecKey[]
   retiredFunctionNumbers  RetiredFunctionNumber[]
   exhibitBooths           ExhibitBooth[]
+  postEvent               EventPostEvent?
+  postEventFutureDates    EventPostEventFutureDate[]
+  postEventDistributions  EventPostEventDistribution[]
   updatedById             String?
-  updatedBy               User?                   @relation("EventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
+  updatedBy               User?                        @relation("EventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
 
   @@index([tenantId])
   @@index([updatedById])
@@ -625,6 +629,7 @@ model Function {
   hold24Hour                Boolean                        @default(false)
   expectedAttendance        Int?
   setForCount               Int?
+  actualAttendance          Int?
   decorNotes                String?
   securityNotes             String?
   signageNotes              String?
@@ -765,6 +770,8 @@ model CateringOrder {
   expectedCount              Int?
   confirmedCount             Int?
   guaranteeCount             Int?
+  // Actual covers served (PER "# fed").
+  actualCount                Int?
   staffingNotes              String?
   rentalMinimum              Decimal?
   fbMinimum                  Decimal?
@@ -2196,4 +2203,97 @@ model ExhibitBooth {
   @@index([functionId])
   @@index([contactId])
   @@index([updatedById])
+}
+
+// APEX Post-Event Report (PER). Field meaning lives in src/lib/esg/perFields.ts;
+// structured values are columns, comments are keys in `narrative`. Expected /
+// actual attendance and membership live on Event.
+model EventPostEvent {
+  id      String @id @default(cuid())
+  eventId String @unique
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  naSections String[] @default([])
+  narrative  Json     @default("{}")
+
+  // §I Event information
+  primaryFacilityType    String?
+  offsiteVenueUsed       Boolean?
+  onSiteRegistrations    Int?
+  noShows                Int?
+  exhibitorsAttending    Int?
+  domesticAttendees      Int?
+  internationalAttendees Int?
+  shuttleProvided        Boolean?
+  usedDmcPco             Boolean?
+  guestPrograms          Boolean?
+  // §III Hotel rooms (until the Hotels module supplies them)
+  usedSleepingRooms      Boolean?
+  hotelCount             Int?
+  peakNightRooms         Int?
+  housingPerformedBy     String?
+  // §V Food & beverage
+  icwFunctions           Boolean?
+  // §VI Function space
+  largestFunctionAvSetup String?
+  extensiveAvRooms       Int?
+  registrationAreas      Int?
+  lounges                Int?
+  offices                Int?
+  moveInDays             Int?
+  moveOutDays            Int?
+  teardownDays           Int?
+  // §VII Exhibit space
+  gscUsed                Boolean?
+  gscMoveInDays          Int?
+  exhibitorsWithFb       Int?
+  extensiveAvExhibitors  Int?
+  // §VIII Future dates
+  futureDatesConfirmed   Boolean?
+
+  updatedById String?
+  updatedBy   User?    @relation("EventPostEventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([updatedById])
+}
+
+// PER §VIII future event dates.
+model EventPostEventFutureDate {
+  id        String    @id @default(cuid())
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  startDate DateTime? @db.Date
+  endDate   DateTime? @db.Date
+  city      String?
+  state     String?
+  country   String?
+  facility  String?
+  comments  String?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([eventId])
+}
+
+// PER §IX report distribution tracking. action: "COMPLETED" | "REVISED".
+model EventPostEventDistribution {
+  id          String    @id @default(cuid())
+  eventId     String
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  action      String
+  actionDate  DateTime? @db.Date
+  byName      String?
+  byTitle     String?
+  byEmployer  String?
+  method      String?
+  deliveredOn DateTime? @db.Date
+  recipients  String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([eventId])
 }

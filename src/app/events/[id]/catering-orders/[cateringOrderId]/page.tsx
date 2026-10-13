@@ -458,6 +458,7 @@ export default async function CateringOrderPage({
               expectedCount={cateringOrder.expectedCount}
               confirmedCount={cateringOrder.confirmedCount}
               guaranteeCount={cateringOrder.guaranteeCount}
+              actualCount={cateringOrder.actualCount}
               action={updateGuestCountsAction}
             />
 

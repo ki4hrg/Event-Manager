@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getPostEventReportData } from "@/app/events/reports/actions";
+import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
+import { ReportFilters as PerReportFilters } from "@/app/events/[id]/reports/post-event/ReportFilters";
 import { getEsgData } from "@/app/events/reports/actions";
 import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
 import { ReportFilters as EsgReportFilters } from "@/app/events/[id]/reports/esg/ReportFilters";
@@ -748,6 +751,25 @@ async function renderItem(
               />
             )}
             <EsgReport doc={data.document} />
+          </>
+        ),
+      };
+    }
+    case "POST_EVENT": {
+      const blankParam = getString(sp[`${prefix}blank`]);
+      const showBlank = item.filtersLocked ? stored.showBlank === true : blankParam ? blankParam === "1" : stored.showBlank === true;
+      const doc = await getPostEventReportData(eventId, { showBlank });
+      if (!doc) notFound();
+      return {
+        id: item.id,
+        title,
+        printHref: showBlank ? `${printBase}?blank=1` : printBase,
+        body: (
+          <>
+            {!item.filtersLocked && (
+              <PerReportFilters eventId={eventId} showBlank={showBlank} basePath={sharePath} paramPrefix={prefix} hidePrint />
+            )}
+            <PostEventReport doc={doc} />
           </>
         ),
       };

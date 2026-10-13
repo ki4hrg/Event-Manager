@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -236,6 +236,24 @@ async function propagateLabelRename(
       break;
     case "booth_type":
       await tx.exhibitBooth.updateMany({ where: { boothType: oldLabel, ...inTenant }, data: { boothType: newLabel } });
+      break;
+    case "per_facility_type":
+      await tx.eventPostEvent.updateMany({
+        where: { primaryFacilityType: oldLabel, ...inTenant },
+        data: { primaryFacilityType: newLabel },
+      });
+      break;
+    case "per_housing_provider":
+      await tx.eventPostEvent.updateMany({
+        where: { housingPerformedBy: oldLabel, ...inTenant },
+        data: { housingPerformedBy: newLabel },
+      });
+      break;
+    case "per_av_setup":
+      await tx.eventPostEvent.updateMany({
+        where: { largestFunctionAvSetup: oldLabel, ...inTenant },
+        data: { largestFunctionAvSetup: newLabel },
+      });
       break;
     default: {
       const _exhaustive: never = category;

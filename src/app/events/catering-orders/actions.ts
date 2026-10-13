@@ -160,6 +160,7 @@ export async function updateCateringOrderGuestCounts(id: string, eventId: string
       expectedCount: formData.get("expectedCount") ? parseInt(formData.get("expectedCount") as string) : null,
       confirmedCount: formData.get("confirmedCount") ? parseInt(formData.get("confirmedCount") as string) : null,
       guaranteeCount: formData.get("guaranteeCount") ? parseInt(formData.get("guaranteeCount") as string) : null,
+      actualCount: formData.get("actualCount") ? parseInt(formData.get("actualCount") as string) : null,
     },
     session.user.id,
   );
