@@ -8,6 +8,7 @@ import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-group
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 import { ReportPaper } from "@/components/ReportPaper";
+import { ReportDownloadLinks } from "@/components/ReportDownloadLinks";
 import { ReportFilters } from "./ReportFilters";
 import { PostEventReport } from "./PostEventReport";
 
@@ -54,6 +55,7 @@ export default async function PostEventReportPage({
         <ReportFilters
           eventId={eventId}
           showBlank={showBlank}
+          downloadLinks={<ReportDownloadLinks eventId={eventId} doc="per" query={showBlank ? "blank=1" : ""} />}
           shareButton={
             <ShareReportButton
               eventId={eventId}

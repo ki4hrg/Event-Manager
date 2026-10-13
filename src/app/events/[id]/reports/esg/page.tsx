@@ -8,7 +8,8 @@ import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-group
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 import { ReportPaper } from "@/components/ReportPaper";
-import { parseEsgSearchParams, type EsgSearchParams } from "@/lib/esg/params";
+import { esgFiltersToQuery, parseEsgSearchParams, type EsgSearchParams } from "@/lib/esg/params";
+import { ReportDownloadLinks } from "@/components/ReportDownloadLinks";
 import { AVAILABLE_ESG_PARTS } from "@/lib/esg/types";
 import { ReportFilters } from "./ReportFilters";
 import { EsgReport } from "./EsgReport";
@@ -68,6 +69,7 @@ export default async function EsgReportPage({
           selectedFunctionIds={applied.functionIds}
           showBlank={applied.showBlank}
           includeBilling={applied.includeBilling}
+          downloadLinks={<ReportDownloadLinks eventId={eventId} doc="esg" query={esgFiltersToQuery(applied)} />}
           shareButton={
             <ShareReportButton
               eventId={eventId}

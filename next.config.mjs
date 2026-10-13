@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  // Server-only document renderers for the ESG / PER downloads (exceljs uses
+  // optional requires webpack shouldn't try to bundle).
+  experimental: {
+    serverComponentsExternalPackages: ["exceljs", "docx"],
+  },
   // OAuth discovery documents must be served from the spec /.well-known/ paths,
   // but Next's App Router can't host a route segment whose folder starts with a
   // dot — so the handlers live under /api/well-known/* and we rewrite the spec
