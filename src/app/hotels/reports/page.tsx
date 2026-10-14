@@ -187,7 +187,6 @@ async function Monitoring() {
 
 type Basis = "average" | "highest" | "latest";
 
-const round1 = (n: number) => Math.round(n * 10) / 10;
 
 async function Pattern({
   filters,
@@ -225,9 +224,9 @@ async function Pattern({
   const csvRow = (label: string, dates: string, values: Map<string, number>, roomNights: number | null, peak: number | null) => ({
     Row: label,
     Dates: dates,
-    ...Object.fromEntries(roles.map((role) => [roleLabel(role), values.has(role) ? round1(values.get(role)!) : null])),
-    "Room nights": roomNights == null ? null : round1(roomNights),
-    Peak: peak == null ? null : round1(peak),
+    ...Object.fromEntries(roles.map((role) => [roleLabel(role), values.has(role) ? Math.round(values.get(role)!) : null])),
+    "Room nights": roomNights == null ? null : Math.round(roomNights),
+    Peak: peak == null ? null : Math.round(peak),
   });
   const csv = [
     ...rows.map((r) => csvRow(r.name, `${r.startDate} – ${r.endDate}`, r.roles, r.roomNights, r.peak)),
@@ -252,8 +251,8 @@ async function Pattern({
           {values.has(role) ? fmt(values.get(role)!) : "—"}
         </td>
       ))}
-      <td className={num}>{totals ? round1(totals[0]) : ""}</td>
-      <td className={num}>{totals ? round1(totals[1]) : ""}</td>
+      <td className={num}>{totals ? Math.round(totals[0]) : ""}</td>
+      <td className={num}>{totals ? Math.round(totals[1]) : ""}</td>
     </tr>
   );
 
@@ -301,7 +300,7 @@ async function Pattern({
                       const n = r.roles.get(role);
                       return (
                         <td key={role} className={`${num} ${!n ? "text-gray-400 dark:text-gray-500" : ""}`}>
-                          {n == null ? (role === "middle" ? "—" : 0) : round1(n)}
+                          {n == null ? (role === "middle" ? "—" : 0) : Math.round(n)}
                         </td>
                       );
                     })}
@@ -309,7 +308,7 @@ async function Pattern({
                     <td className={num}>{r.peak}</td>
                   </tr>
                 ))}
-                {summaryRow("Average", average, round1, [mean(rows.map((r) => r.roomNights)), mean(rows.map((r) => r.peak))])}
+                {summaryRow("Average", average, Math.round, [mean(rows.map((r) => r.roomNights)), mean(rows.map((r) => r.peak))])}
                 {summaryRow("Highest", highest, (n) => n, [Math.max(0, ...rows.map((r) => r.roomNights)), Math.max(0, ...rows.map((r) => r.peak))])}
                 {summaryRow("Pattern %", shape, (n) => `${n}%`, null)}
                 {summaryRow(`Proposed${adjustLabel}`, proposed, (n) => n, null, true)}
