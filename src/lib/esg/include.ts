@@ -106,11 +106,14 @@ export const esgFunctionInclude = {
 
 export type EsgFunctionRow = Prisma.FunctionGetPayload<{ include: typeof esgFunctionInclude }>;
 
+const esgBoothFunction = {
+  select: { id: true, name: true, functionNumber: true, schedules: { select: { type: true, startTime: true, endTime: true, isPublic: true } } },
+} as const;
+
 export const esgBoothInclude = {
   contact: { select: { firstName: true, lastName: true, phone: true, email: true } },
-  function: {
-    select: { id: true, name: true, functionNumber: true, schedules: { select: { type: true, startTime: true, endTime: true, isPublic: true } } },
-  },
+  function: esgBoothFunction,
+  group: { include: { function: esgBoothFunction, equipmentItems } },
   equipmentItems,
 } satisfies Prisma.ExhibitBoothInclude;
 

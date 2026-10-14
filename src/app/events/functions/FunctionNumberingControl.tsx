@@ -26,8 +26,7 @@ export function FunctionNumberingControl({
   if (lockedAt) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        Function numbers are locked (ESG issued {new Date(lockedAt).toLocaleDateString()}). New functions get
-        intermediate numbers.{" "}
+        Function numbers locked {new Date(lockedAt).toLocaleDateString()}.{" "}
         <Link href={`/events/${eventId}/specifications`} className="text-blue-600 dark:text-blue-400 hover:underline">
           Specifications
         </Link>
@@ -37,7 +36,7 @@ export function FunctionNumberingControl({
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-      <span>Function numbers follow the schedule until the ESG is issued.</span>
+      <span>Function numbers follow the schedule.</span>
       {canWrite &&
         (confirming ? (
           <>

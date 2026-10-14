@@ -43,7 +43,9 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
   const { id: eventId } = await params;
   const data = await getEventSpecification(eventId);
   if (!data) notFound();
-  const { event, spec, narrative } = data;
+  // The edit form shows what the event stores; organization defaults are
+  // passed separately so the card can label them and leave the inputs blank.
+  const { event, spec, storedNarrative: narrative } = data;
   const tz = event.timezone;
 
   const choices: SpecChoices = {
@@ -105,10 +107,6 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
           ]}
         />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Event Specifications</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Part I (Narrative) of the APEX Event Specifications Guide. Function schedule and set-up orders come from the
-          event&apos;s functions and orders.
-        </p>
       </div>
 
       <div className="space-y-6">
@@ -175,6 +173,7 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
               title={section.title}
               fields={section.fields}
               values={valuesFor(section.fields)}
+              inherited={data.inheritedNarrative}
               timezone={tz}
               choices={choices}
               na={na.has(letter)}

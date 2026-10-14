@@ -16,11 +16,25 @@ export const MEAL_BUCKETS = [
 export type MealBucket = (typeof MEAL_BUCKETS)[number]["value"];
 
 export const SCHEDULE_ROLES = [
-  { value: "SETUP", label: "Set up by (ESG)" },
-  { value: "TEARDOWN", label: "Dismantle no later than (ESG)" },
+  { value: "SETUP", label: "Set up by" },
+  { value: "TEARDOWN", label: "Dismantle no later than" },
 ] as const;
 
 export type ScheduleRole = (typeof SCHEDULE_ROLES)[number]["value"];
+
+// Function-type group: which ESG §I function-space line a function of that type
+// is listed under. Untagged types count as function rooms.
+export const FUNCTION_SPACES = [
+  { value: "REGISTRATION", label: "Registration area" },
+  { value: "OFFICE", label: "Office" },
+  { value: "SPEAKER_READY", label: "Speaker ready room" },
+  { value: "PRESS", label: "Press room" },
+  { value: "LOUNGE", label: "Lounge" },
+  { value: "MESSAGE_CENTER", label: "Message center" },
+  { value: "STORAGE", label: "Storage" },
+] as const;
+
+export type FunctionSpace = (typeof FUNCTION_SPACES)[number]["value"];
 
 export const PROVIDED_BY_LABELS = {
   NOT_REQUIRED: "Not required",

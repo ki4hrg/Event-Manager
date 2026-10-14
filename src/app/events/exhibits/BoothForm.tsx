@@ -3,35 +3,37 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import type { ExhibitBooth } from "@prisma/client";
+import type { ExhibitBooth, ExhibitBoothGroup } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { BOOTH_SHARED_KEYS, withGroupDefaults, type BoothShared, type BoothSharedKey } from "@/lib/boothGroups";
 import { PROVIDED_BY_LABELS } from "@/lib/esg/apex";
 import { formatDayDateTime, toDateTimeLocal } from "@/lib/esg/format";
 
-// ESG Part IIIb "Function Set-up Order (Exhibitor Version)", one per booth.
+// One form for a booth and for a booth group: the group edits the shared
+// settings; a booth adds its own identity and may override any shared one
+// (blank = the group's).
 type Choice = { id: string; label: string };
+type Group = Pick<ExhibitBoothGroup, "id" | "name"> & BoothShared;
 
-type BoothFormProps = {
-  booth?: ExhibitBooth | null;
+type CommonProps = {
   timezone: string;
   functions: Choice[];
-  contacts: Choice[];
   boothTypes: string[];
-  defaultFunctionId?: string;
   action: (formData: FormData) => Promise<void>;
   cancelHref: string;
 };
 
 const inputClass =
-  "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
+  "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
 const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
+const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 
-function SaveButton({ isEdit }: { isEdit: boolean }) {
+function SaveButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending} className={`${btnPrimary} disabled:opacity-50`}>
-      {pending ? "Saving..." : isEdit ? "Save" : "Create Booth"}
+      {pending ? "Saving..." : label}
     </button>
   );
 }
@@ -45,13 +47,14 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Field({ label, name, wide, children }: { label: string; name: string; wide?: boolean; children: ReactNode }) {
+function Field({ label, name, wide, hint, children }: { label: string; name: string; wide?: boolean; hint?: string | null; children: ReactNode }) {
   return (
     <div className={wide ? "sm:col-span-2" : ""}>
       <label htmlFor={`booth-${name}`} className={labelClass}>
         {label}
       </label>
       {children}
+      {hint && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -60,14 +63,16 @@ function Select({
   name,
   value,
   items,
+  emptyLabel = "Not set",
 }: {
   name: string;
   value: string | null | undefined;
   items: { value: string; label: string }[];
+  emptyLabel?: string;
 }) {
   return (
     <select id={`booth-${name}`} name={name} defaultValue={value ?? ""} className={inputClass}>
-      <option value="">Not set</option>
+      <option value="">{emptyLabel}</option>
       {value && !items.some((i) => i.value === value) && <option value={value}>{value}</option>}
       {items.map((i) => (
         <option key={i.value} value={i.value}>
@@ -91,57 +96,81 @@ function boolValue(v: boolean | null | undefined) {
   return v === null || v === undefined ? null : String(v);
 }
 
-function View({ booth, timezone, functions, contacts }: { booth: ExhibitBooth; timezone: string; functions: Choice[]; contacts: Choice[] }) {
-  const rows: [string, string | null][][] = [
+function providedLabel(v: string | null) {
+  if (!v) return null;
+  return v === "GROUP" ? "Booth to provide" : PROVIDED_BY_LABELS[v as keyof typeof PROVIDED_BY_LABELS];
+}
+
+// Display string for a shared value.
+function sharedDisplay(key: BoothSharedKey, v: BoothShared[BoothSharedKey], timezone: string, functions: Choice[]): string | null {
+  if (v === null || v === undefined) return null;
+  if (v instanceof Date) return formatDayDateTime(v, timezone);
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (key === "functionId") return functions.find((f) => f.id === v)?.label ?? null;
+  if (key === "avProvider" || key === "electricalProvider") return providedLabel(v);
+  return String(v);
+}
+
+type Row = { label: string; key?: BoothSharedKey; value: string | null };
+
+function SharedRows(timezone: string, functions: Choice[], s: BoothShared): Row[][] {
+  const r = (key: BoothSharedKey, label: string): Row => ({ key, label, value: sharedDisplay(key, s[key], timezone, functions) });
+  return [
     [
-      ["Booth #", booth.boothNumber],
-      ["Booth type", booth.boothType],
-      ["Booth location", booth.location],
-      ["Company", booth.companyName],
-      ["Key contact for booth", contacts.find((c) => c.id === booth.contactId)?.label ?? null],
-      ["Exhibit function", functions.find((f) => f.id === booth.functionId)?.label ?? null],
-      ["Booth start", booth.startAt ? formatDayDateTime(booth.startAt, timezone) : null],
-      ["Booth end", booth.endAt ? formatDayDateTime(booth.endAt, timezone) : null],
-      ["Set up by", booth.setupBy ? formatDayDateTime(booth.setupBy, timezone) : null],
-      ["Tear down no later than", booth.teardownBy ? formatDayDateTime(booth.teardownBy, timezone) : null],
+      r("functionId", "Exhibit function"),
+      r("boothType", "Booth type"),
+      r("location", "Booth location"),
+      r("startAt", "Booth start"),
+      r("endAt", "Booth end"),
+      r("setupBy", "Set up by"),
+      r("teardownBy", "Tear down no later than"),
     ],
     [
-      ["Special requirements", booth.specialRequirements],
-      ["Booth set-up comments", booth.setupNotes],
-      ["A/V", booth.avProvider ? (booth.avProvider === "GROUP" ? "Booth to provide" : PROVIDED_BY_LABELS[booth.avProvider]) : null],
-      ["A/V comments", booth.avNotes],
-      ["Food & beverage", booth.fbNotes],
-      ["Décor", booth.decorNotes],
-      ["Security", booth.securityNotes],
-      ["Signage", booth.signageNotes],
-      ["Shipping / receiving required", booth.shippingRequired === null ? null : booth.shippingRequired ? "Yes" : "No"],
-      ["Customs / brokerage", booth.customsRequired === null ? null : booth.customsRequired ? "Yes" : "No"],
-      ["Material handling", booth.materialHandlingNotes],
-      ["Electrical", booth.electricalProvider ? (booth.electricalProvider === "GROUP" ? "Booth to provide" : PROVIDED_BY_LABELS[booth.electricalProvider]) : null],
-      ["Electrical notes", booth.electricalNotes],
-      ["Other utilities", booth.utilitiesNotes],
-      ["Booth is tax-exempt", booth.taxExempt === null ? null : booth.taxExempt ? `Yes${booth.taxExemptId ? ` (${booth.taxExemptId})` : ""}` : "No"],
-      ["Booth cost center", booth.costCenter],
-      ["Billing instructions", booth.billingNotes],
+      r("specialRequirements", "Special requirements"),
+      r("setupNotes", "Booth set-up comments"),
+      r("avProvider", "A/V"),
+      r("avNotes", "A/V comments"),
+      r("fbNotes", "Food & beverage"),
+      r("decorNotes", "Décor"),
+      r("securityNotes", "Security"),
+      r("signageNotes", "Signage"),
+      r("shippingRequired", "Shipping / receiving required"),
+      r("customsRequired", "Customs / brokerage"),
+      r("materialHandlingNotes", "Material handling"),
+      r("electricalProvider", "Electrical"),
+      r("electricalNotes", "Electrical notes"),
+      r("utilitiesNotes", "Other utilities"),
+      r("taxExempt", "Tax-exempt"),
+      r("taxExemptId", "Tax-exempt ID #"),
+      r("costCenter", "Cost center"),
+      r("billingNotes", "Billing instructions"),
     ],
   ];
+}
+
+function View({ groups, fromGroup }: { groups: Row[][]; fromGroup?: Set<string> }) {
   return (
     <div className="space-y-4">
-      {rows.map((group, i) => {
-        const filled = group.filter(([, v]) => v);
-        const empty = group.filter(([, v]) => !v);
+      {groups.map((group, i) => {
+        const filled = group.filter((r) => r.value);
+        const empty = group.filter((r) => !r.value);
         return (
           <div key={i} className="space-y-2">
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {filled.map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
-                  <dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{value}</dd>
+              {filled.map((r) => (
+                <div key={r.label}>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    {r.label}
+                    {r.key && fromGroup?.has(r.key) && (
+                      <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">from group</span>
+                    )}
+                  </dt>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{r.value}</dd>
                 </div>
               ))}
             </dl>
             {empty.length > 0 && (
-              <p className="text-xs text-gray-400 dark:text-gray-500">Not filled in: {empty.map(([l]) => l).join(" · ")}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Not filled in: {empty.map((r) => r.label).join(" · ")}</p>
             )}
           </div>
         );
@@ -150,78 +179,74 @@ function View({ booth, timezone, functions, contacts }: { booth: ExhibitBooth; t
   );
 }
 
-export function BoothForm({ booth, timezone, functions, contacts, boothTypes, defaultFunctionId, action, cancelHref }: BoothFormProps) {
-  const isEdit = !!booth;
-  const canWrite = useCanWrite("FUNCTIONS");
-  const [editing, setEditing] = useState(!isEdit);
-  const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
-
-  if (isEdit && (!editing || !canWrite)) {
+// Inputs for the shared settings. `fallback` is the group a booth inherits
+// from: its values show as placeholders / empty-option labels.
+function SharedFields({
+  record,
+  fallback,
+  timezone,
+  functions,
+  boothTypes,
+  defaultFunctionId,
+}: {
+  record: BoothShared | null | undefined;
+  fallback: BoothShared | null;
+  timezone: string;
+  functions: Choice[];
+  boothTypes: string[];
+  defaultFunctionId?: string;
+}) {
+  const inherited = (key: BoothSharedKey) => (fallback ? sharedDisplay(key, fallback[key], timezone, functions) : null);
+  const emptyLabel = (key: BoothSharedKey) => {
+    const v = inherited(key);
+    return v ? `Group: ${v}` : "Not set";
+  };
+  const text = (name: BoothSharedKey, label: string, wide = false, multiline = false) => {
+    const props = {
+      id: `booth-${name}`,
+      name,
+      defaultValue: (record?.[name] as string | null) ?? "",
+      placeholder: inherited(name) ?? undefined,
+      className: inputClass,
+    };
     return (
-      <div className={cardClass}>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Booth Set-up Order</h2>
-          {canWrite && (
-            <button onClick={() => setEditing(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              Edit
-            </button>
-          )}
-        </div>
-        <View booth={booth} timezone={timezone} functions={functions} contacts={contacts} />
-      </div>
+      <Field label={label} name={name} wide={wide}>
+        {multiline ? <textarea rows={2} {...props} /> : <input {...props} />}
+      </Field>
     );
-  }
-
-  const text = (name: keyof ExhibitBooth, label: string, wide = false, multiline = false) => (
+  };
+  const datetime = (name: BoothSharedKey, label: string) => {
+    const v = inherited(name);
+    return (
+      <Field label={label} name={name} hint={v ? `Group: ${v}` : null}>
+        <input
+          id={`booth-${name}`}
+          type="datetime-local"
+          name={name}
+          defaultValue={toDateTimeLocal(record?.[name] as Date | null, timezone)}
+          className={inputClass}
+        />
+      </Field>
+    );
+  };
+  const select = (name: BoothSharedKey, label: string, items: { value: string; label: string }[], value: string | null | undefined, wide = false) => (
     <Field label={label} name={name} wide={wide}>
-      {multiline ? (
-        <textarea id={`booth-${name}`} name={name} rows={2} defaultValue={(booth?.[name] as string) ?? ""} className={inputClass} />
-      ) : (
-        <input id={`booth-${name}`} name={name} defaultValue={(booth?.[name] as string) ?? ""} className={inputClass} />
-      )}
-    </Field>
-  );
-  const datetime = (name: keyof ExhibitBooth, label: string) => (
-    <Field label={label} name={name}>
-      <input
-        id={`booth-${name}`}
-        type="datetime-local"
-        name={name}
-        defaultValue={toDateTimeLocal(booth?.[name] as Date | null, timezone)}
-        className={inputClass}
-      />
+      <Select name={name} value={value} items={items} emptyLabel={emptyLabel(name)} />
     </Field>
   );
 
   return (
-    <form
-      action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
-      }}
-      className={`${cardClass} space-y-6`}
-    >
-      <Fieldset title="Booth details">
-        <Field label="Booth name *" name="name">
-          <input id="booth-name" name="name" required defaultValue={booth?.name ?? ""} className={inputClass} />
-        </Field>
-        {text("boothNumber", "Booth #")}
-        <Field label="Booth type" name="boothType">
-          <Select name="boothType" value={booth?.boothType} items={boothTypes.map((t) => ({ value: t, label: t }))} />
-        </Field>
+    <>
+      <Fieldset title="Placement">
+        {select(
+          "functionId",
+          "Exhibit function",
+          functions.map((f) => ({ value: f.id, label: f.label })),
+          record ? record.functionId : (defaultFunctionId ?? null),
+          true,
+        )}
+        {select("boothType", "Booth type", boothTypes.map((t) => ({ value: t, label: t })), record?.boothType)}
         {text("location", "Booth location")}
-        {text("companyName", "Company name")}
-        <Field label="Key contact for booth" name="contactId">
-          <Select name="contactId" value={booth?.contactId} items={contacts.map((c) => ({ value: c.id, label: c.label }))} />
-        </Field>
-        <Field label="Exhibit function" name="functionId" wide>
-          <Select
-            name="functionId"
-            value={booth?.functionId ?? defaultFunctionId ?? null}
-            items={functions.map((f) => ({ value: f.id, label: f.label }))}
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Empty times below follow this function&apos;s schedule.</p>
-        </Field>
       </Fieldset>
       <Fieldset title="Times">
         {datetime("startAt", "Booth start")}
@@ -234,51 +259,220 @@ export function BoothForm({ booth, timezone, functions, contacts, boothTypes, de
         {text("setupNotes", "Booth set-up comments", true, true)}
       </Fieldset>
       <Fieldset title="Services">
-        <Field label="A/V" name="avProvider">
-          <Select name="avProvider" value={booth?.avProvider} items={providedBy} />
-        </Field>
+        {select("avProvider", "A/V", providedBy, record?.avProvider)}
         {text("avNotes", "A/V comments", false, true)}
         {text("fbNotes", "Food & beverage", false, true)}
-        {text("decorNotes", "Décor (exhibitor appointed contractor, requests)", false, true)}
+        {text("decorNotes", "Décor", false, true)}
         {text("securityNotes", "Security", false, true)}
         {text("signageNotes", "Signage", false, true)}
       </Fieldset>
       <Fieldset title="Material handling">
-        <Field label="Shipping / receiving required" name="shippingRequired">
-          <Select name="shippingRequired" value={boolValue(booth?.shippingRequired)} items={yesNo} />
-        </Field>
-        <Field label="Customs / brokerage" name="customsRequired">
-          <Select name="customsRequired" value={boolValue(booth?.customsRequired)} items={yesNo} />
-        </Field>
-        {text("materialHandlingNotes", "Shipping carriers & handling instructions (fragile, oversized…)", true, true)}
+        {select("shippingRequired", "Shipping / receiving required", yesNo, boolValue(record?.shippingRequired))}
+        {select("customsRequired", "Customs / brokerage", yesNo, boolValue(record?.customsRequired))}
+        {text("materialHandlingNotes", "Carriers & handling instructions", true, true)}
       </Fieldset>
       <Fieldset title="Utilities">
-        <Field label="Electrical connections" name="electricalProvider">
-          <Select name="electricalProvider" value={booth?.electricalProvider} items={providedBy} />
-        </Field>
+        {select("electricalProvider", "Electrical connections", providedBy, record?.electricalProvider)}
         {text("electricalNotes", "Electrical notes", false, true)}
         {text("utilitiesNotes", "Telecommunications, cleaning and other utilities", true, true)}
       </Fieldset>
       <Fieldset title="Billing">
-        <Field label="Booth is tax-exempt" name="taxExempt">
-          <Select name="taxExempt" value={boolValue(booth?.taxExempt)} items={yesNo} />
-        </Field>
+        {select("taxExempt", "Tax-exempt", yesNo, boolValue(record?.taxExempt))}
         {text("taxExemptId", "Tax-exempt ID #")}
-        {text("costCenter", "Booth cost center")}
-        {text("billingNotes", "Billing instructions (send final bill to, method of payment)", true, true)}
+        {text("costCenter", "Cost center")}
+        {text("billingNotes", "Billing instructions", true, true)}
       </Fieldset>
-      <div className="flex gap-3">
-        <SaveButton isEdit={isEdit} />
-        {isEdit ? (
-          <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>
-            Cancel
-          </button>
-        ) : (
-          <Link href={cancelHref} className={btnSecondary}>
-            Cancel
-          </Link>
-        )}
+    </>
+  );
+}
+
+function Shell({
+  title,
+  editing,
+  setEditing,
+  canWrite,
+  view,
+  children,
+}: {
+  title: string;
+  editing: boolean;
+  setEditing: (v: boolean) => void;
+  canWrite: boolean;
+  view: ReactNode;
+  children: ReactNode;
+}) {
+  if (!editing || !canWrite) {
+    return (
+      <div className={cardClass}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">{title}</h2>
+          {canWrite && (
+            <button onClick={() => setEditing(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              Edit
+            </button>
+          )}
+        </div>
+        {view}
       </div>
-    </form>
+    );
+  }
+  return <>{children}</>;
+}
+
+function Buttons({ isEdit, saveLabel, cancelHref, onCancel }: { isEdit: boolean; saveLabel: string; cancelHref: string; onCancel: () => void }) {
+  return (
+    <div className="flex gap-3">
+      <SaveButton label={isEdit ? "Save" : saveLabel} />
+      {isEdit ? (
+        <button type="button" onClick={onCancel} className={btnSecondary}>
+          Cancel
+        </button>
+      ) : (
+        <Link href={cancelHref} className={btnSecondary}>
+          Cancel
+        </Link>
+      )}
+    </div>
+  );
+}
+
+export function BoothForm({
+  booth,
+  groups,
+  contacts,
+  defaultFunctionId,
+  defaultGroupId,
+  timezone,
+  functions,
+  boothTypes,
+  action,
+  cancelHref,
+}: CommonProps & {
+  booth?: ExhibitBooth | null;
+  groups: Group[];
+  contacts: Choice[];
+  defaultFunctionId?: string;
+  defaultGroupId?: string;
+}) {
+  const isEdit = !!booth;
+  const canWrite = useCanWrite("FUNCTIONS");
+  const [editing, setEditing] = useState(!isEdit);
+  const [groupId, setGroupId] = useState(booth ? (booth.groupId ?? "") : (defaultGroupId ?? ""));
+  const group = groups.find((g) => g.id === groupId) ?? null;
+
+  const view = () => {
+    if (!booth) return null;
+    const savedGroup = groups.find((g) => g.id === booth.groupId) ?? null;
+    const effective = withGroupDefaults(booth, savedGroup);
+    const fromGroup = new Set<string>(BOOTH_SHARED_KEYS.filter((k) => booth[k] === null && effective[k] !== null));
+    const identity: Row[] = [
+      { label: "Group", value: savedGroup?.name ?? null },
+      { label: "Booth #", value: booth.boothNumber },
+      { label: "Company", value: booth.companyName },
+      { label: "Key contact", value: contacts.find((c) => c.id === booth.contactId)?.label ?? null },
+    ];
+    const [placement, rest] = SharedRows(timezone, functions, effective);
+    return <View groups={[[...identity, ...placement], rest]} fromGroup={fromGroup} />;
+  };
+
+  return (
+    <Shell title="Details" editing={editing} setEditing={setEditing} canWrite={canWrite} view={view()}>
+      <form
+        action={async (formData) => {
+          await action(formData);
+          if (isEdit) setEditing(false);
+        }}
+        className={`${cardClass} space-y-6`}
+      >
+        <Fieldset title="Booth">
+          <Field label="Booth name *" name="name">
+            <input id="booth-name" name="name" required defaultValue={booth?.name ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Group" name="groupId">
+            <select
+              id="booth-groupId"
+              name="groupId"
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">None</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Booth #" name="boothNumber">
+            <input id="booth-boothNumber" name="boothNumber" defaultValue={booth?.boothNumber ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Company name" name="companyName">
+            <input id="booth-companyName" name="companyName" defaultValue={booth?.companyName ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Key contact" name="contactId" wide>
+            <Select name="contactId" value={booth?.contactId} items={contacts.map((c) => ({ value: c.id, label: c.label }))} />
+          </Field>
+        </Fieldset>
+        {/* Keyed on the group so placeholders follow a group change. */}
+        <SharedFields
+          key={groupId}
+          record={booth}
+          fallback={group}
+          timezone={timezone}
+          functions={functions}
+          boothTypes={boothTypes}
+          defaultFunctionId={group ? undefined : defaultFunctionId}
+        />
+        <Buttons isEdit={isEdit} saveLabel="Create Booth" cancelHref={cancelHref} onCancel={() => setEditing(false)} />
+      </form>
+    </Shell>
+  );
+}
+
+export function BoothGroupForm({
+  group,
+  timezone,
+  functions,
+  boothTypes,
+  defaultFunctionId,
+  action,
+  cancelHref,
+}: CommonProps & { group?: Group | null; defaultFunctionId?: string }) {
+  const isEdit = !!group;
+  const canWrite = useCanWrite("FUNCTIONS");
+  const [editing, setEditing] = useState(!isEdit);
+
+  return (
+    <Shell
+      title="Shared settings"
+      editing={editing}
+      setEditing={setEditing}
+      canWrite={canWrite}
+      view={group ? <View groups={SharedRows(timezone, functions, group)} /> : null}
+    >
+      <form
+        action={async (formData) => {
+          await action(formData);
+          if (isEdit) setEditing(false);
+        }}
+        className={`${cardClass} space-y-6`}
+      >
+        <Fieldset title="Group">
+          <Field label="Group name *" name="name" wide>
+            <input id="booth-name" name="name" required defaultValue={group?.name ?? ""} placeholder="e.g. Standard 10x10" className={inputClass} />
+          </Field>
+        </Fieldset>
+        <SharedFields
+          record={group}
+          fallback={null}
+          timezone={timezone}
+          functions={functions}
+          boothTypes={boothTypes}
+          defaultFunctionId={defaultFunctionId}
+        />
+        <Buttons isEdit={isEdit} saveLabel="Create Group" cancelHref={cancelHref} onCancel={() => setEditing(false)} />
+      </form>
+    </Shell>
   );
 }

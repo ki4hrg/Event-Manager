@@ -5,9 +5,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { slugifyTenantName } from "@/lib/tenant";
+import type { OrgProfile } from "@/lib/orgProfile";
 import { seedTenantDefaults } from "../../../prisma/tenantDefaults.mjs";
 
-export async function createTenantCore(name: string, slugInput: string | null) {
+export async function createTenantCore(name: string, slugInput: string | null, profile?: OrgProfile) {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Name is required");
   const slug = slugifyTenantName(slugInput?.trim() || trimmed);
@@ -20,7 +21,7 @@ export async function createTenantCore(name: string, slugInput: string | null) {
   // can't exist: every tenant has its dropdown options, equipment catalog, and
   // system vendor from its first second.
   return prisma.$transaction(async (tx) => {
-    const tenant = await tx.tenant.create({ data: { name: trimmed, slug } });
+    const tenant = await tx.tenant.create({ data: { name: trimmed, slug, ...profile } });
     await seedTenantDefaults(tx, tenant.id);
     return tenant;
   });

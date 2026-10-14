@@ -142,6 +142,12 @@ export async function getFunction(id: string) {
         select: { id: true, name: true, boothNumber: true, companyName: true },
         orderBy: { sortOrder: "asc" },
       },
+      // Booths that sit under this function through their group.
+      exhibitBoothGroups: {
+        select: {
+          booths: { where: { functionId: null }, select: { id: true, name: true, boothNumber: true, companyName: true } },
+        },
+      },
       updatedBy: { select: { name: true, email: true } },
     },
   });

@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
+import { OrgProfileFields, OrgProfileView } from "@/components/OrgProfileFields";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import type { OrgProfile } from "@/lib/orgProfile";
 
 function SubmitButton({ isCreate }: { isCreate: boolean }) {
   const { pending } = useFormStatus();
@@ -19,7 +21,7 @@ const inputClass =
   "mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500";
 
 type Props = {
-  tenant?: { id: string; name: string; slug: string };
+  tenant?: { id: string; name: string; slug: string } & OrgProfile;
   saveAction: (formData: FormData) => Promise<void>;
   deleteAction?: () => Promise<void>;
 };
@@ -53,6 +55,9 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
               <dd className="mt-1 font-mono text-gray-900 dark:text-white">{tenant.slug}</dd>
             </div>
           </dl>
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <OrgProfileView profile={tenant} />
+          </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <button onClick={() => setEditing(true)} className={btnPrimary}>
               Edit
@@ -96,6 +101,9 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
             Short handle used by the MCP connector&apos;s <code>tenant</code> argument. Lowercase
             letters, digits, and dashes.
           </p>
+        </div>
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+          <OrgProfileFields profile={tenant} />
         </div>
         <div className="flex gap-3 pt-2">
           <SubmitButton isCreate={isCreate} />

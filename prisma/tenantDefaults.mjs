@@ -6,7 +6,8 @@
 
 export const DEFAULT_OPTIONS = {
   // APEX ESG Part IIIa function types, plus the meal type the catering flow
-  // uses. Admins edit freely; nothing keys off these labels.
+  // uses. Admins edit freely; nothing keys off these labels. group is the ESG
+  // §I function-space line (FUNCTION_SPACES in src/lib/esg/apex.ts).
   function_type: [
     { label: "General Session", color: "purple", sortOrder: 0 },
     { label: "Break Out", color: "blue", sortOrder: 1 },
@@ -15,13 +16,13 @@ export const DEFAULT_OPTIONS = {
     { label: "Meal / Catering Order", color: "orange", sortOrder: 4 },
     { label: "Exhibit", color: "green", sortOrder: 5 },
     { label: "Poster Session", color: "green", sortOrder: 6 },
-    { label: "Registration", color: "yellow", sortOrder: 7 },
-    { label: "Speaker Room", color: "gray", sortOrder: 8 },
+    { label: "Registration", color: "yellow", group: "REGISTRATION", sortOrder: 7 },
+    { label: "Speaker Room", color: "gray", group: "SPEAKER_READY", sortOrder: 8 },
     { label: "Dressing/Green Room", color: "gray", sortOrder: 9 },
-    { label: "Office", color: "gray", sortOrder: 10 },
+    { label: "Office", color: "gray", group: "OFFICE", sortOrder: 10 },
     { label: "Photo Room", color: "gray", sortOrder: 11 },
     { label: "Coat Check", color: "gray", sortOrder: 12 },
-    { label: "Storage", color: "gray", sortOrder: 13 },
+    { label: "Storage", color: "gray", group: "STORAGE", sortOrder: 13 },
     { label: "Other", color: "gray", sortOrder: 14 },
   ],
   contact_role: [

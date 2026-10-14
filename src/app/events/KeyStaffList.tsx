@@ -60,7 +60,7 @@ const esgInput =
   "w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm";
 
 // ESG Part I §C / §L / §X details for one key staff entry.
-function KeyStaffEsgFields({ entry }: { entry: KeyStaffWithContact }) {
+function KeyStaffEsgFields({ entry }: { entry?: KeyStaffWithContact }) {
   return (
     <div className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
       <input type="hidden" name="esgFields" value="1" />
@@ -69,14 +69,14 @@ function KeyStaffEsgFields({ entry }: { entry: KeyStaffWithContact }) {
       </p>
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsibilities</label>
-        <input type="text" name="responsibilities" defaultValue={entry.responsibilities ?? ""} className={esgInput} />
+        <input type="text" name="responsibilities" defaultValue={entry?.responsibilities ?? ""} className={esgInput} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">During the event</label>
           <select
             name="onSite"
-            defaultValue={entry.onSite === null ? "" : String(entry.onSite)}
+            defaultValue={entry?.onSite == null ? "" : String(entry.onSite)}
             className={esgInput}
           >
             <option value="">Not set</option>
@@ -91,7 +91,7 @@ function KeyStaffEsgFields({ entry }: { entry: KeyStaffWithContact }) {
           <input
             type="text"
             name="approvalAuthority"
-            defaultValue={entry.approvalAuthority ?? ""}
+            defaultValue={entry?.approvalAuthority ?? ""}
             placeholder="e.g. All charges, F&B up to $5,000"
             className={esgInput}
           />
@@ -102,7 +102,7 @@ function KeyStaffEsgFields({ entry }: { entry: KeyStaffWithContact }) {
           type="checkbox"
           name="isEmergencyContact"
           value="true"
-          defaultChecked={entry.isEmergencyContact}
+          defaultChecked={entry?.isEmergencyContact ?? false}
           className="rounded border-gray-300 dark:border-gray-700"
         />
         Emergency / crisis contact
@@ -297,6 +297,7 @@ export function KeyStaffList({
           </div>
 
           <ModelCheckboxes />
+          <KeyStaffEsgFields />
 
           <div className="flex gap-2">
             <SubmitButton label="Add" />
@@ -375,6 +376,7 @@ export function KeyStaffList({
             </div>
             <ModelCheckboxes />
           </div>
+          <KeyStaffEsgFields />
           <div className="flex gap-2 pt-1">
             <SubmitButton label="Create & Add" />
             <button

@@ -5,7 +5,9 @@ import { requireAuth } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { getActiveTenantId, requireActiveTenantId } from "@/lib/tenant";
 import { getOptionsForTenant } from "@/lib/options";
+import { orgProfileFromForm, orgProfileSelect } from "@/lib/orgProfile";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
@@ -19,6 +21,23 @@ export async function getOptions(category: OptionCategory) {
   const tenantId = await getActiveTenantId();
   if (!tenantId) return [];
   return getOptionsForTenant(tenantId, category);
+}
+
+// The active tenant's organization profile. Name and slug stay super-admin
+// territory (/tenants); members with Settings write edit the contact details.
+export async function getOrganizationProfile() {
+  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "VIEW");
+  return prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true, name: true, updatedAt: true, ...orgProfileSelect },
+  });
+}
+
+export async function updateOrganizationProfile(formData: FormData) {
+  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "WRITE");
+  await prisma.tenant.update({ where: { id: tenantId }, data: orgProfileFromForm(formData) });
+  revalidatePath("/settings/organization");
+  redirect("/settings/organization?success=Organization+updated");
 }
 
 export async function getAllOptions() {
@@ -236,6 +255,7 @@ async function propagateLabelRename(
       break;
     case "booth_type":
       await tx.exhibitBooth.updateMany({ where: { boothType: oldLabel, ...inTenant }, data: { boothType: newLabel } });
+      await tx.exhibitBoothGroup.updateMany({ where: { boothType: oldLabel, ...inTenant }, data: { boothType: newLabel } });
       break;
     case "per_facility_type":
       await tx.eventPostEvent.updateMany({

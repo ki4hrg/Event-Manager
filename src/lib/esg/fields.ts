@@ -89,8 +89,8 @@ const txt = (key: string, label: string, kind: "text" | "textarea" | "richtext" 
 
 // Header fields ("Date Originated*", "Date Revised*") sit above section A.
 export const ESG_HEADER_FIELDS: EsgFieldDef[] = [
-  col("dateOriginated", "Date originated", "date", { required: true, hint: "Set by Issue ESG." }),
-  col("dateRevised", "Date revised", "date", { required: true, hint: "Updated automatically when the issued ESG changes." }),
+  col("dateOriginated", "Date originated", "date", { required: true }),
+  col("dateRevised", "Date revised", "date", { required: true }),
 ];
 
 export const ESG_SECTIONS: EsgSectionDef[] = [
@@ -238,9 +238,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
     title: "Exhibits",
     derived: [{ source: "exhibitBooths", label: "Booths" }],
     fields: [
-      col("masterExhibitFunctionId", "Exhibit function", "function", {
-        hint: "The function that holds the exhibit booths.",
-      }),
+      col("masterExhibitFunctionId", "Exhibit function", "function"),
       txt("exhibitLocation", "Location(s) of exhibits"),
       txt("exhibitorRegLocation", "Exhibitor registration location(s)"),
       col("grossSqFt", "Gross square feet", "int"),

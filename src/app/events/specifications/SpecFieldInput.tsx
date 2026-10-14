@@ -55,6 +55,7 @@ export function SpecFieldInput({
   choices,
   optionCategory,
   id,
+  placeholder,
 }: {
   name: string;
   kind: EsgFieldKind;
@@ -63,13 +64,29 @@ export function SpecFieldInput({
   choices: SpecChoices;
   optionCategory?: string;
   id?: string;
+  placeholder?: string;
 }) {
   switch (kind) {
     case "text":
-      return <input id={id} name={name} defaultValue={(value as string) ?? ""} className={specInputClass} />;
+      return (
+        <input
+          id={id}
+          name={name}
+          defaultValue={(value as string) ?? ""}
+          placeholder={placeholder}
+          className={specInputClass}
+        />
+      );
     case "textarea":
       return (
-        <textarea id={id} name={name} rows={3} defaultValue={(value as string) ?? ""} className={specInputClass} />
+        <textarea
+          id={id}
+          name={name}
+          rows={3}
+          defaultValue={(value as string) ?? ""}
+          placeholder={placeholder}
+          className={specInputClass}
+        />
       );
     case "richtext":
       return (

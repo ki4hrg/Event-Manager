@@ -3,6 +3,7 @@
 // data (src/app/events/reports/actions.ts → getEsgData).
 
 import { formatEventDate, getDateKeyInTimezone } from "@/lib/agendaUtils";
+import { withGroupDefaults } from "@/lib/boothGroups";
 import { formatPhone } from "@/lib/format-phone";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
@@ -732,9 +733,21 @@ function providedLabel(v: string | null): string | null {
   return v === "GROUP" ? "Booth to provide" : PROVIDED_BY_LABELS[v as keyof typeof PROVIDED_BY_LABELS];
 }
 
-function boothOrder(b: EsgBoothRow, ctx: Ctx): EsgSetupOrder {
+// The booth with its group's settings in the blanks, its effective exhibit
+// function, and the group's standard inventory ahead of its own.
+function effectiveBooth(raw: EsgBoothRow) {
+  const b = withGroupDefaults(raw, raw.group);
+  return {
+    ...b,
+    function: raw.functionId ? raw.function : (raw.group?.function ?? null),
+    equipmentItems: [...(raw.group?.equipmentItems ?? []), ...raw.equipmentItems],
+  };
+}
+
+function boothOrder(raw: EsgBoothRow, ctx: Ctx): EsgSetupOrder {
   const { tz, opts, support, data } = ctx;
   const show = opts.showBlank;
+  const b = effectiveBooth(raw);
   // Empty times follow the exhibit function's schedules.
   const fnScheds = b.function?.schedules ?? [];
   const own = fnScheds.filter((s) => !support.has(s.type));
@@ -908,7 +921,10 @@ export function assembleEsgDocument(
     setupOrders,
     boothOrders: opts.parts.includes("IIIb")
       ? booths
-          .filter((b) => !fnIds || (b.functionId !== null && fnIds.has(b.functionId)))
+          .filter((b) => {
+            const functionId = b.functionId ?? b.group?.functionId ?? null;
+            return !fnIds || (functionId !== null && fnIds.has(functionId));
+          })
           .sort(
             (x, y) =>
               (x.boothNumber ?? "").localeCompare(y.boothNumber ?? "", undefined, { numeric: true }) || x.name.localeCompare(y.name),

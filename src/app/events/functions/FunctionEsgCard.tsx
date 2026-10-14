@@ -50,7 +50,7 @@ function readerBoard(fn: FunctionEsgCardProps["fn"]): string | null {
 function numberNote(fn: FunctionEsgCardProps["fn"], locked: boolean): string {
   if (fn.functionNumberPinned) return "Manual override";
   if (!fn.functionNumber) return "Assigned once the function is scheduled";
-  return locked ? "Locked — ESG issued" : "Auto (chronological)";
+  return locked ? "Locked" : "Auto (chronological)";
 }
 
 export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardProps) {
@@ -62,7 +62,7 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
     return (
       <div className={cardClass}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">ESG Details</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Specifications</h2>
           {canWrite && (
             <button onClick={() => setEditing(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
               Edit
@@ -93,7 +93,7 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
 
   return (
     <div className={cardClass}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">ESG Details</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Specifications</h2>
       <form
         action={async (formData) => {
           await action(formData);
@@ -113,9 +113,6 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
               placeholder={fn.functionNumber ? `Auto: ${fn.functionNumber}` : "Auto"}
               className={inputClass}
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Leave blank to number automatically. A value here is a manual override.
-            </p>
           </div>
           <div>
             <label htmlFor="costCenter" className={labelClass}>
