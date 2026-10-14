@@ -93,7 +93,7 @@ export async function loadHousingInput(eventId: string, spec: SpecHousingFields)
       isRunOfHouse: true,
       proposal: { select: { venue: { select: { id: true, name: true, brand: true } } } },
       nights: { select: { night: true, roomType: true, rooms: true, contractedRooms: true, otherReservations: true } },
-      pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
+      pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true, bookedOn: true, cancelledOn: true } },
       pickupCounts: { select: { night: true, roomType: true, rooms: true } },
       pickupSnapshots: { select: { takenOn: true, nights: true } },
     },
@@ -120,7 +120,7 @@ export async function loadHousingInput(eventId: string, spec: SpecHousingFields)
       if (actual > 0) anyPickup = true;
       actualByNight.set(night, (actualByNight.get(night) ?? 0) + actual);
       const daysOut = Object.fromEntries(
-        DAYS_OUT.map((d) => [`pickup${d}`, pickupDaysOut(b.pickupSnapshots, firstNight, d, night, today)]),
+        DAYS_OUT.map((d) => [`pickup${d}`, pickupDaysOut({ snapshots: b.pickupSnapshots, guests: b.pickupGuests, counts: b.pickupCounts, nights: b.nights }, firstNight, d, night, today)]),
       ) as Record<`pickup${(typeof DAYS_OUT)[number]}`, number | null>;
       return { dateKey: night, contracted: sum(night, (r) => r.contracted), final: sum(night, (r) => r.blocked), ...daysOut, actual };
     });

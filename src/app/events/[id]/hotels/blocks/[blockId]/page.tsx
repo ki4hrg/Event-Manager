@@ -95,6 +95,8 @@ export default async function BlockPage({ params }: { params: Promise<{ id: stri
               checkOut: g.checkOut ? dateKey(g.checkOut) : null,
               roomType: g.roomType,
               cancelled: g.cancelled,
+              bookedOn: g.bookedOn ? dateKey(g.bookedOn) : null,
+              cancelledOn: g.cancelledOn ? dateKey(g.cancelledOn) : null,
             }))}
             guestTotal={block.pickupGuests.length}
             counts={block.pickupCounts.map((c) => ({ night: dateKey(c.night), roomType: c.roomType, rooms: c.rooms }))}

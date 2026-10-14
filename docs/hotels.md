@@ -11,13 +11,14 @@ Ported from Hotel-Manager. Sleeping-room blocks for an event, from proposal to p
 | Revisions | `HotelProposalVersion` — every save refreshes the current revision's snapshot; raising `revision` freezes the previous one and records a field diff. |
 | Block | `HotelBlock` — an accepted proposal turned into the booked block (1:1). Nights keep `contractedRooms` (as signed) next to `rooms` (current / final) and `otherReservations`. |
 | Pickup | `HotelPickupGuest` (hotel's guest list; merge by confirmation # is scoped to the block), `HotelPickupCount` (entered nightly totals), `HotelPickupImport` (history). |
-| Snapshots | `HotelPickupSnapshot` — pickup per night as of a day, written on every pickup change; the PER's "N days out" columns read them. |
+| Booking dates | `HotelPickupGuest.bookedOn` / `cancelledOn`, when the hotel's report has them (mapped in the CSV wizard; settable per guest via MCP `update_hotel_pickup_guest`). A merge never clears a known date; before the block starts, a guest new in a merge (or newly cancelled) without a date gets the import day. |
+| Snapshots | `HotelPickupSnapshot` — pickup per night as of a day, written on every pickup change. |
 
 Pickup is computed, never stored per night: `src/lib/hotelPickup.ts` is the single calculation (guests staying that night + entered counts + other reservations; run-of-house pools all types). Attrition: a block is "at risk" when pickup % < 100 − allowed attrition.
 
 ## ESG / PER
 
-`loadHousingInput` (`src/lib/esg/housing.ts`) reports an event's blocks with `source: "hotels"`: ESG §G room blocks by night (final rooms), PER §III hotel count and peak night (actual pickup), PER §IV per hotel contracted / final / pickup at 90, 60, 30, 21, 14, 7 days before the first night / actual. Events without blocks keep the Specifications page fallback.
+`loadHousingInput` (`src/lib/esg/housing.ts`) reports an event's blocks with `source: "hotels"`: ESG §G room blocks by night (final rooms), PER §III hotel count and peak night (actual pickup), PER §IV per hotel contracted / final / pickup at 90, 60, 30, 21, 14, 7 days before the first night / actual. A days-out cell comes from booking dates when every active guest staying that night has one and the night has no undated rooms (entered counts, other reservations); otherwise from the latest snapshot on or before that day. A cancelled guest without a cancel date is left out. Events without blocks keep the Specifications page fallback.
 
 ## Reports
 

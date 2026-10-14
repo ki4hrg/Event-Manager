@@ -16,6 +16,7 @@ import {
   savePickupCountsCore,
   toBlockValues,
   updateHotelBlockCore,
+  updatePickupGuestCore,
   type BlockWriteArgs,
   type PickupCountArgs,
   type PickupGuestArgs,
@@ -352,7 +353,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "import_hotel_pickup_guests",
     description:
-      "Import the hotel's pickup report (guest list) into a block. MERGE updates guests whose confirmation number the block already has and adds the rest; APPEND adds all; REPLACE drops the block's guests first. Cancelled guests are kept but not counted.",
+      "Import the hotel's pickup report (guest list) into a block. MERGE updates guests whose confirmation number the block already has and adds the rest; APPEND adds all; REPLACE drops the block's guests first. Cancelled guests are kept but not counted. bookedOn / cancelledOn (when the report has them) let the PER compute pickup at N days out; a merge never clears a date already known, and before the block starts a guest new in a merge, or newly cancelled, without a date gets today.",
     inputSchema: {
       type: "object",
       properties: {
@@ -371,6 +372,8 @@ export const hotelTools: McpToolDefinition[] = [
               roomType: { type: ["string", "null"], description: "hotel_room_type option label." },
               cancelled: { type: "boolean" },
               rawStatus: { type: ["string", "null"] },
+              bookedOn: { type: ["string", "null"], description: "Date the reservation was made, YYYY-MM-DD." },
+              cancelledOn: { type: ["string", "null"], description: "Date it was cancelled, YYYY-MM-DD (implies cancelled)." },
             },
             required: ["checkIn", "checkOut"],
           },
@@ -387,13 +390,16 @@ export const hotelTools: McpToolDefinition[] = [
       const guests = (args.guests as Record<string, unknown>[]).map(
         (g): PickupGuestArgs => {
           for (const k of ["checkIn", "checkOut"]) if (typeof g[k] !== "string" || !DATE.test(g[k] as string)) throw new Error(`${k} must be YYYY-MM-DD`);
+          for (const k of ["bookedOn", "cancelledOn"]) if (g[k] != null && (typeof g[k] !== "string" || !DATE.test(g[k] as string))) throw new Error(`${k} must be YYYY-MM-DD`);
           return {
+            bookedOn: (g.bookedOn as string) || null,
+            cancelledOn: (g.cancelledOn as string) || null,
             guestName: (g.guestName as string) || null,
             confirmationNumber: (g.confirmationNumber as string) || null,
             checkIn: g.checkIn as string,
             checkOut: g.checkOut as string,
             roomType: (g.roomType as string) || null,
-            cancelled: g.cancelled === true,
+            cancelled: g.cancelled === true || !!g.cancelledOn,
             rawStatus: (g.rawStatus as string) || null,
           };
         },
@@ -404,6 +410,78 @@ export const hotelTools: McpToolDefinition[] = [
         { method: method as "MERGE" | "APPEND" | "REPLACE", fileName: (args.fileName as string) || null, guests },
         userId,
       );
+    },
+  },
+  {
+    name: "list_hotel_pickup_guests",
+    description:
+      "List a block's pickup guests (guest name, confirmation #, stay, room type, cancelled, booked / cancelled dates). Filter by confirmation number or to guests missing a booking date.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        blockId: { type: "string" },
+        confirmationNumber: { type: "string" },
+        missingBookedOn: { type: "boolean", description: "Only guests with no booking date." },
+      },
+      required: ["blockId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const blockId = requireString(args, "blockId");
+      await requirePermissionForUser(userId, "HOTELS", "VIEW", await blockEvent(blockId));
+      return prisma.hotelPickupGuest.findMany({
+        where: {
+          blockId,
+          ...(typeof args.confirmationNumber === "string" && args.confirmationNumber ? { confirmationNumber: args.confirmationNumber } : {}),
+          ...(args.missingBookedOn === true ? { bookedOn: null } : {}),
+        },
+        select: {
+          id: true, guestName: true, confirmationNumber: true, checkIn: true, checkOut: true, roomType: true,
+          cancelled: true, rawStatus: true, bookedOn: true, cancelledOn: true,
+        },
+        orderBy: [{ checkIn: "asc" }, { guestName: "asc" }],
+      });
+    },
+  },
+  {
+    name: "update_hotel_pickup_guest",
+    description:
+      "Update one pickup guest; omitted fields are unchanged, null clears. Use it to fill in booking / cancel dates. Setting cancelled false clears the cancel date; a cancel date implies cancelled.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Guest id (list_hotel_pickup_guests)." },
+        guestName: { type: ["string", "null"] },
+        confirmationNumber: { type: ["string", "null"] },
+        checkIn: { type: "string", description: "YYYY-MM-DD." },
+        checkOut: { type: "string", description: "YYYY-MM-DD." },
+        roomType: { type: ["string", "null"] },
+        cancelled: { type: "boolean" },
+        rawStatus: { type: ["string", "null"] },
+        bookedOn: { type: ["string", "null"], description: "YYYY-MM-DD." },
+        cancelledOn: { type: ["string", "null"], description: "YYYY-MM-DD." },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const g = await prisma.hotelPickupGuest.findUnique({ where: { id }, select: { block: { select: { proposal: { select: { eventId: true } } } } } });
+      if (!g) throw new Error("Guest not found");
+      const patch: Partial<PickupGuestArgs> = {};
+      for (const k of ["guestName", "confirmationNumber", "roomType", "rawStatus"] as const) {
+        if (k in args) patch[k] = (args[k] as string) || null;
+      }
+      for (const k of ["checkIn", "checkOut", "bookedOn", "cancelledOn"] as const) {
+        if (!(k in args)) continue;
+        const v = args[k];
+        if (v != null && (typeof v !== "string" || !DATE.test(v))) throw new Error(`${k} must be YYYY-MM-DD`);
+        if (v == null && (k === "checkIn" || k === "checkOut")) throw new Error(`${k} cannot be cleared`);
+        patch[k] = (v as string | null) ?? null;
+      }
+      if (typeof args.cancelled === "boolean") patch.cancelled = args.cancelled;
+      if (patch.cancelledOn) patch.cancelled = true;
+      return updatePickupGuestCore(id, g.block.proposal.eventId, patch, userId);
     },
   },
   {

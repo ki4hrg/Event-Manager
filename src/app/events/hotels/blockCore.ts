@@ -219,10 +219,40 @@ export type PickupGuestArgs = {
   roomType: string | null;
   cancelled: boolean;
   rawStatus: string | null;
+  bookedOn?: string | null; // YYYY-MM-DD; reports often omit it
+  cancelledOn?: string | null;
 };
+
+function checkGuestDates(g: Pick<PickupGuestArgs, "guestName" | "confirmationNumber" | "checkIn" | "checkOut" | "bookedOn" | "cancelledOn">) {
+  const who = g.guestName ?? g.confirmationNumber ?? "A guest";
+  if (g.checkIn && g.checkOut && g.checkOut <= g.checkIn) throw new Error(`${who}: check-out must be after check-in`);
+  if (g.bookedOn && g.cancelledOn && g.cancelledOn < g.bookedOn) throw new Error(`${who}: cancelled before it was booked`);
+}
+
+// The block's first night and today, both in the event's timezone. Dates are
+// only estimated (from the import day) before the block starts, so loading
+// an old report for a past event never invents them.
+async function estimateDay(tx: Prisma.TransactionClient, blockId: string): Promise<string | null> {
+  const b = await tx.hotelBlock.findUniqueOrThrow({
+    where: { id: blockId },
+    select: {
+      checkIn: true,
+      nights: { select: { night: true }, orderBy: { night: "asc" }, take: 1 },
+      proposal: { select: { event: { select: { timezone: true } } } },
+    },
+  });
+  const first = b.checkIn ?? b.nights[0]?.night ?? null;
+  const today = getDateKeyInTimezone(new Date(), b.proposal.event.timezone);
+  return first && today < dateKey(first) ? today : null;
+}
 
 // append adds every row; merge updates rows whose confirmation number the
 // block already has and adds the rest; replace drops the block's guests first.
+//
+// Booking and cancel dates are kept when a later report omits them. In a
+// merge into a block that hasn't started, a guest new since the last import
+// with no booking date gets the import day, and a guest newly cancelled with
+// no cancel date gets the import day: each happened by then.
 export async function importPickupGuestsCore(
   blockId: string,
   eventId: string,
@@ -232,34 +262,45 @@ export async function importPickupGuestsCore(
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   await assertBlockInEvent(blockId, eventId);
   if (args.guests.length === 0) throw new Error("No guest rows to import");
-  for (const g of args.guests) {
-    if (g.checkIn && g.checkOut && g.checkOut <= g.checkIn) {
-      throw new Error(`${g.guestName ?? g.confirmationNumber ?? "A guest"}: check-out must be after check-in`);
-    }
-  }
-  const row = (g: PickupGuestArgs) => ({
-    guestName: g.guestName,
-    confirmationNumber: g.confirmationNumber,
-    checkIn: day(g.checkIn),
-    checkOut: day(g.checkOut),
-    roomType: g.roomType,
-    cancelled: g.cancelled,
-    rawStatus: g.rawStatus,
-  });
+  args.guests.forEach(checkGuestDates);
 
   return prisma.$transaction(async (tx) => {
+    const estimate = args.method === "MERGE" ? await estimateDay(tx, blockId) : null;
+    const hadGuests = (await tx.hotelPickupGuest.count({ where: { blockId } })) > 0;
     if (args.method === "REPLACE") await tx.hotelPickupGuest.deleteMany({ where: { blockId } });
-    const existing = new Map<string, string>();
+    type Existing = { id: string; cancelled: boolean; bookedOn: Date | null; cancelledOn: Date | null };
+    const existing = new Map<string, Existing>();
     if (args.method === "MERGE") {
       const confirmations = args.guests.map((g) => g.confirmationNumber).filter((c): c is string => !!c);
       const rows = await tx.hotelPickupGuest.findMany({
         where: { blockId, confirmationNumber: { in: confirmations } },
-        select: { id: true, confirmationNumber: true },
+        select: { id: true, confirmationNumber: true, cancelled: true, bookedOn: true, cancelledOn: true },
       });
-      for (const r of rows) if (r.confirmationNumber) existing.set(r.confirmationNumber, r.id);
+      for (const r of rows) if (r.confirmationNumber) existing.set(r.confirmationNumber, r);
     }
-    const toUpdate = args.guests.filter((g) => g.confirmationNumber && existing.has(g.confirmationNumber));
-    const toInsert = args.guests.filter((g) => !(g.confirmationNumber && existing.has(g.confirmationNumber)));
+    const prior = (g: PickupGuestArgs) => (g.confirmationNumber ? existing.get(g.confirmationNumber) : undefined);
+    const toUpdate = args.guests.filter((g) => prior(g));
+    const toInsert = args.guests.filter((g) => !prior(g));
+
+    const row = (g: PickupGuestArgs) => {
+      const was = prior(g);
+      const bookedOn = day(g.bookedOn ?? null) ?? was?.bookedOn ?? (estimate && hadGuests && !was ? dateFromKey(estimate) : null);
+      const cancelledOn = !g.cancelled
+        ? null
+        : (day(g.cancelledOn ?? null) ?? was?.cancelledOn ?? (estimate && was && !was.cancelled ? dateFromKey(estimate) : null));
+      return {
+        guestName: g.guestName,
+        confirmationNumber: g.confirmationNumber,
+        checkIn: day(g.checkIn),
+        checkOut: day(g.checkOut),
+        roomType: g.roomType,
+        cancelled: g.cancelled,
+        rawStatus: g.rawStatus,
+        bookedOn,
+        cancelledOn,
+      };
+    };
+
     const imp = await tx.hotelPickupImport.create({
       data: {
         blockId,
@@ -274,10 +315,51 @@ export async function importPickupGuestsCore(
       await tx.hotelPickupGuest.createMany({ data: toInsert.map((g) => ({ ...row(g), blockId, importId: imp.id })) });
     }
     for (const g of toUpdate) {
-      await tx.hotelPickupGuest.update({ where: { id: existing.get(g.confirmationNumber!)! }, data: { ...row(g), importId: imp.id } });
+      await tx.hotelPickupGuest.update({ where: { id: prior(g)!.id }, data: { ...row(g), importId: imp.id } });
     }
     await writePickupSnapshot(tx, blockId);
     return imp;
+  });
+}
+
+// Partial update of one guest; omitted keys are unchanged. Un-cancelling
+// clears the cancel date.
+export async function updatePickupGuestCore(
+  guestId: string,
+  eventId: string,
+  args: Partial<PickupGuestArgs>,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const guest = await prisma.hotelPickupGuest.findFirst({ where: { id: guestId, block: inEvent(eventId) } });
+  if (!guest) throw new PermissionError("NOT_FOUND", "Guest not found");
+  const key = (d: Date | null) => (d ? dateKey(d) : null);
+  const next = {
+    guestName: args.guestName !== undefined ? args.guestName : guest.guestName,
+    confirmationNumber: args.confirmationNumber !== undefined ? args.confirmationNumber : guest.confirmationNumber,
+    checkIn: args.checkIn !== undefined ? args.checkIn : key(guest.checkIn),
+    checkOut: args.checkOut !== undefined ? args.checkOut : key(guest.checkOut),
+    roomType: args.roomType !== undefined ? args.roomType : guest.roomType,
+    cancelled: args.cancelled !== undefined ? args.cancelled : guest.cancelled,
+    rawStatus: args.rawStatus !== undefined ? args.rawStatus : guest.rawStatus,
+    bookedOn: args.bookedOn !== undefined ? args.bookedOn : key(guest.bookedOn),
+    cancelledOn: args.cancelledOn !== undefined ? args.cancelledOn : key(guest.cancelledOn),
+  };
+  if (!next.cancelled) next.cancelledOn = null;
+  checkGuestDates(next);
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.hotelPickupGuest.update({
+      where: { id: guestId },
+      data: {
+        ...next,
+        checkIn: day(next.checkIn),
+        checkOut: day(next.checkOut),
+        bookedOn: day(next.bookedOn),
+        cancelledOn: day(next.cancelledOn),
+      },
+    });
+    await writePickupSnapshot(tx, guest.blockId);
+    return updated;
   });
 }
 

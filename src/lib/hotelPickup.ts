@@ -128,9 +128,37 @@ export function snapshotAsOf(snapshots: Snapshot[], asOf: string, today: string)
   return snap ? (snap.nights as Record<string, number>) : null;
 }
 
-// Pickup on a night as it stood `daysOut` days before the block's first night.
+export type DatedGuestInput = PickupGuestInput & { bookedOn: Date | null; cancelledOn: Date | null };
+
+export type DaysOutSource = {
+  snapshots: Snapshot[];
+  guests: DatedGuestInput[];
+  counts: PickupCountInput[];
+  nights: Pick<PickupNightInput, "night" | "otherReservations">[];
+};
+
+// Rooms on a night as of a day, from the guests' own booking / cancel dates.
+// null when the guest list can't say: an active guest staying that night has
+// no booking date, or the night carries undated rooms (entered counts, other
+// reservations). A cancelled guest with no cancel date is left out.
+export function guestPickupAsOf(src: Omit<DaysOutSource, "snapshots">, night: string, asOf: string): number | null {
+  if (src.counts.some((c) => dateKey(c.night) === night && c.rooms > 0)) return null;
+  if (src.nights.some((n) => dateKey(n.night) === night && n.otherReservations > 0)) return null;
+  const staying = src.guests.filter((g) => guestNights(g).includes(night));
+  if (staying.length === 0) return src.guests.some((g) => g.bookedOn) ? 0 : null;
+  if (staying.some((g) => !g.cancelled && !g.bookedOn)) return null;
+  return staying.filter((g) => {
+    if (!g.bookedOn || dateKey(g.bookedOn) > asOf) return false;
+    if (!g.cancelled) return true;
+    return !!g.cancelledOn && dateKey(g.cancelledOn) > asOf;
+  }).length;
+}
+
+// Pickup on a night as it stood `daysOut` days before the block's first
+// night: from booking dates when the guest list has them, otherwise the
+// latest snapshot on or before that day. null for days still to come.
 export function pickupDaysOut(
-  snapshots: Snapshot[],
+  src: DaysOutSource,
   firstNight: string | null,
   daysOut: number,
   night: string,
@@ -138,7 +166,10 @@ export function pickupDaysOut(
 ): number | null {
   if (!firstNight) return null;
   const asOf = dateKey(new Date(new Date(`${firstNight}T00:00:00Z`).getTime() - daysOut * 86_400_000));
-  const nights = snapshotAsOf(snapshots, asOf, today);
+  if (asOf > today) return null;
+  const fromGuests = guestPickupAsOf(src, night, asOf);
+  if (fromGuests != null) return fromGuests;
+  const nights = snapshotAsOf(src.snapshots, asOf, today);
   if (!nights) return null;
   return typeof nights[night] === "number" ? nights[night] : 0;
 }
