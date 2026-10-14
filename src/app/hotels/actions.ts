@@ -163,7 +163,7 @@ function hasPickup(b: BlockForTotals) {
   return b.pickupGuests.length > 0 || b.pickupCounts.length > 0 || b.nights.some((n) => n.otherReservations > 0);
 }
 
-// Rooms picked up per night across ended events, with each event's dates so
+// Rooms picked up and blocked per night across ended events, with each event's dates so
 // the report can line nights up by role (src/lib/hotelPattern.ts).
 export async function getPickupPattern(filters: PatternFilters) {
   const { eventWhere } = await hotelSession();
@@ -204,9 +204,11 @@ export async function getPickupPattern(filters: PatternFilters) {
       continue;
     }
     const pickedUp: Record<string, number> = {};
+    const blocked: Record<string, number> = {};
     for (const b of blocks) {
       for (const r of blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts })) {
         pickedUp[r.night] = (pickedUp[r.night] ?? 0) + r.pickedUp;
+        blocked[r.night] = (blocked[r.night] ?? 0) + r.blocked;
       }
     }
     withPickup.push({
@@ -218,6 +220,7 @@ export async function getPickupPattern(filters: PatternFilters) {
       actualAttendance: e.actualAttendance,
       hotels: blocks.map((b) => b.proposal.venue.name),
       pickedUp,
+      blocked,
     });
   }
   return { events: withPickup, noPickup };

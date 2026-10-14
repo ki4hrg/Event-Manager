@@ -5,9 +5,9 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { reportTd, reportTh } from "@/lib/reportStyles";
 import { BLOCK_TYPE_LABELS, formatDateKey, formatNight, parseBlockTypes } from "@/lib/hotels";
-import { eventRoles, offsetLabel, proposeNights, roleLabel, sortRoles } from "@/lib/hotelPattern";
+import { eventRoles, middleNights, offsetLabel, proposeNights, roleLabel, sortRoles } from "@/lib/hotelPattern";
 import { getBlockMonitoring, getHotelCities, getHotelPickupHistory, getPickupPattern, getSeriesChoices, type PatternFilters } from "../actions";
-import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar } from "./HotelReportFilters";
+import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar, ProposalControls, ShowBlockToggle } from "./HotelReportFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -187,38 +187,53 @@ async function Monitoring() {
 
 type Basis = "average" | "highest" | "latest";
 
-
 async function Pattern({
   filters,
   basis,
   adjust,
   start,
   end,
+  showBlock,
 }: {
   filters: PatternFilters;
   basis: Basis;
   adjust: number;
   start?: string;
   end?: string;
+  showBlock: boolean;
 }) {
   const [{ events, noPickup }, series, cities] = await Promise.all([getPickupPattern(filters), getSeriesChoices(), getHotelCities()]);
-  const rows = events.map((e) => {
-    const nights = Object.values(e.pickedUp);
-    return { ...e, roles: eventRoles(e.startDate, e.endDate, e.pickedUp), roomNights: nights.reduce((s, n) => s + n, 0), peak: Math.max(0, ...nights) };
-  });
+  const total = (record: Record<string, number>) => Object.values(record).reduce((s, n) => s + n, 0);
+  const peakOf = (record: Record<string, number>) => Math.max(0, ...Object.values(record));
+  const rows = events.map((e) => ({
+    ...e,
+    roles: eventRoles(e.startDate, e.endDate, e.pickedUp),
+    blockRoles: eventRoles(e.startDate, e.endDate, e.blocked),
+    roomNights: total(e.pickedUp),
+    blockNights: total(e.blocked),
+    peak: peakOf(e.pickedUp),
+    blockPeak: peakOf(e.blocked),
+  }));
   const roles = sortRoles(rows.flatMap((r) => Array.from(r.roles.keys())));
   // Middle only counts events long enough to have one; any other role an
   // event lacks had no rooms that night.
-  const valuesFor = (role: string) => rows.flatMap((r) => (r.roles.has(role) ? [r.roles.get(role)!] : role === "middle" ? [] : [0]));
+  const valuesFor = (role: string, of: (r: (typeof rows)[number]) => Map<string, number>) =>
+    rows.flatMap((r) => (of(r).has(role) ? [of(r).get(role)!] : role === "middle" ? [] : [0]));
   const mean = (ns: number[]) => (ns.length ? ns.reduce((s, n) => s + n, 0) / ns.length : 0);
-  const average = new Map(roles.map((role) => [role, mean(valuesFor(role))]));
-  const highest = new Map(roles.map((role) => [role, Math.max(0, ...valuesFor(role))]));
+  const max = (ns: number[]) => Math.max(0, ...ns);
+  const byRole = (of: (r: (typeof rows)[number]) => Map<string, number>, agg: (ns: number[]) => number) =>
+    new Map(roles.map((role) => [role, agg(valuesFor(role, of))]));
+  const average = byRole((r) => r.roles, mean);
+  const highest = byRole((r) => r.roles, max);
+  const averageBlock = byRole((r) => r.blockRoles, mean);
+  const highestBlock = byRole((r) => r.blockRoles, max);
   const latest = new Map(roles.flatMap((role) => (rows[0]?.roles.has(role) || role !== "middle" ? [[role, rows[0]?.roles.get(role) ?? 0] as const] : [])));
   const base = basis === "highest" ? highest : basis === "latest" ? latest : average;
   const proposed = new Map(Array.from(base, ([role, n]) => [role, Math.max(0, Math.round(n * (1 + adjust / 100)))]));
   const avgPeak = Math.max(0, ...Array.from(average.values()));
   const shape = new Map(Array.from(average, ([role, n]) => [role, avgPeak ? Math.round((n / avgPeak) * 100) : 0]));
-  const dated = start && end && end >= start ? proposeNights(start, end, proposed) : null;
+  const observedMiddle = max(rows.map((r) => middleNights(r.startDate, r.endDate)));
+  const dated = start && end && end >= start ? proposeNights(start, end, proposed, observedMiddle) : null;
   const adjustLabel = adjust ? ` (${adjust > 0 ? "+" : ""}${adjust}%)` : "";
 
   const csvRow = (label: string, dates: string, values: Map<string, number>, roomNights: number | null, peak: number | null) => ({
@@ -229,30 +244,46 @@ async function Pattern({
     Peak: peak == null ? null : Math.round(peak),
   });
   const csv = [
-    ...rows.map((r) => csvRow(r.name, `${r.startDate} – ${r.endDate}`, r.roles, r.roomNights, r.peak)),
+    ...rows.flatMap((r) => [
+      csvRow(r.name, `${r.startDate} – ${r.endDate}`, r.roles, r.roomNights, r.peak),
+      ...(showBlock ? [csvRow(`${r.name} (block)`, `${r.startDate} – ${r.endDate}`, r.blockRoles, r.blockNights, r.blockPeak)] : []),
+    ]),
     csvRow("Average", "", average, mean(rows.map((r) => r.roomNights)), mean(rows.map((r) => r.peak))),
-    csvRow("Highest", "", highest, Math.max(0, ...rows.map((r) => r.roomNights)), Math.max(0, ...rows.map((r) => r.peak))),
+    ...(showBlock ? [csvRow("Average (block)", "", averageBlock, mean(rows.map((r) => r.blockNights)), mean(rows.map((r) => r.blockPeak)))] : []),
+    csvRow("Highest", "", highest, max(rows.map((r) => r.roomNights)), max(rows.map((r) => r.peak))),
+    ...(showBlock ? [csvRow("Highest (block)", "", highestBlock, max(rows.map((r) => r.blockNights)), max(rows.map((r) => r.blockPeak)))] : []),
     csvRow("Pattern %", "", shape, null, null),
-    csvRow(`Proposed${adjustLabel}`, "", proposed, null, null),
   ];
+  const proposedCsv = dated
+    ? dated.map((d) => ({ Night: d.night, Offset: offsetLabel(d.offset), Rooms: Math.round(d.rooms), Estimate: d.estimate ? "Yes" : "" }))
+    : roles.flatMap((role) => (proposed.has(role) ? [{ Night: roleLabel(role), Rooms: proposed.get(role)! }] : []));
 
   const num = `${reportTd} text-right tabular-nums`;
+  const muted = "text-gray-400 dark:text-gray-500";
+  // Pickup, with the block beneath it when shown.
+  const cell = (pickup: number | undefined, block: number | undefined, blank: string | number) => (
+    <>
+      <div className={pickup ? "" : muted}>{pickup == null ? blank : Math.round(pickup)}</div>
+      {showBlock && <div className={`text-xs ${muted}`}>{block == null ? blank : Math.round(block)}</div>}
+    </>
+  );
   const summaryRow = (
     label: string,
     values: Map<string, number>,
+    blocks: Map<string, number> | null,
     fmt: (n: number) => string | number,
-    totals: [number, number] | null,
-    strong = false,
+    totals: [number, number, number, number] | null,
   ) => (
-    <tr className={strong ? "bg-blue-50 dark:bg-blue-900/30 font-semibold" : "bg-gray-50 dark:bg-gray-900/40"}>
-      <td className={`${reportTd} ${strong ? "text-blue-700 dark:text-blue-300" : ""}`}>{label}</td>
+    <tr className="bg-gray-50 dark:bg-gray-900/40">
+      <td className={reportTd}>{label}</td>
       {roles.map((role) => (
         <td key={role} className={num}>
-          {values.has(role) ? fmt(values.get(role)!) : "—"}
+          <div>{values.has(role) ? fmt(values.get(role)!) : "—"}</div>
+          {showBlock && blocks && <div className={`text-xs ${muted}`}>{blocks.has(role) ? Math.round(blocks.get(role)!) : "—"}</div>}
         </td>
       ))}
-      <td className={num}>{totals ? Math.round(totals[0]) : ""}</td>
-      <td className={num}>{totals ? Math.round(totals[1]) : ""}</td>
+      <td className={num}>{totals && cell(totals[0], totals[2], "")}</td>
+      <td className={num}>{totals && cell(totals[1], totals[3], "")}</td>
     </tr>
   );
 
@@ -271,6 +302,10 @@ async function Pattern({
         <p className="text-sm text-gray-500 dark:text-gray-400">No ended events with pickup.</p>
       ) : (
         <>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Actual pickup{showBlock && " / block"}</h2>
+            <ShowBlockToggle />
+          </div>
           <div className="overflow-x-auto bg-white dark:bg-gray-800 shadow rounded-lg">
             <table className="min-w-full">
               <thead>
@@ -296,66 +331,82 @@ async function Pattern({
                         {formatNight(r.startDate)} – {formatNight(r.endDate)} · {r.hotels.length} hotel{r.hotels.length === 1 ? "" : "s"}
                       </div>
                     </td>
-                    {roles.map((role) => {
-                      const n = r.roles.get(role);
-                      return (
-                        <td key={role} className={`${num} ${!n ? "text-gray-400 dark:text-gray-500" : ""}`}>
-                          {n == null ? (role === "middle" ? "—" : 0) : Math.round(n)}
-                        </td>
-                      );
-                    })}
-                    <td className={num}>{r.roomNights}</td>
-                    <td className={num}>{r.peak}</td>
+                    {roles.map((role) => (
+                      <td key={role} className={num}>
+                        {cell(r.roles.get(role), r.blockRoles.get(role), role === "middle" ? "—" : 0)}
+                      </td>
+                    ))}
+                    <td className={num}>{cell(r.roomNights, r.blockNights, 0)}</td>
+                    <td className={num}>{cell(r.peak, r.blockPeak, 0)}</td>
                   </tr>
                 ))}
-                {summaryRow("Average", average, Math.round, [mean(rows.map((r) => r.roomNights)), mean(rows.map((r) => r.peak))])}
-                {summaryRow("Highest", highest, (n) => n, [Math.max(0, ...rows.map((r) => r.roomNights)), Math.max(0, ...rows.map((r) => r.peak))])}
-                {summaryRow("Pattern %", shape, (n) => `${n}%`, null)}
-                {summaryRow(`Proposed${adjustLabel}`, proposed, (n) => n, null, true)}
+                {summaryRow("Average", average, averageBlock, Math.round, [
+                  mean(rows.map((r) => r.roomNights)),
+                  mean(rows.map((r) => r.peak)),
+                  mean(rows.map((r) => r.blockNights)),
+                  mean(rows.map((r) => r.blockPeak)),
+                ])}
+                {summaryRow("Highest", highest, highestBlock, (n) => n, [
+                  max(rows.map((r) => r.roomNights)),
+                  max(rows.map((r) => r.peak)),
+                  max(rows.map((r) => r.blockNights)),
+                  max(rows.map((r) => r.blockPeak)),
+                ])}
+                {summaryRow("Pattern %", shape, null, (n) => `${n}%`, null)}
               </tbody>
             </table>
           </div>
-          {dated && (
-            <div className="mt-6 max-w-md">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Proposed block · {formatNight(start!)} – {formatNight(end!)}
-                </h2>
-                <CsvButton
-                  fileName={`hotel-rfp-block-${start}.csv`}
-                  rows={dated.map((d) => ({ Night: d.night, Offset: offsetLabel(d.offset), Role: roleLabel(d.role), Rooms: Math.round(d.rooms) }))}
-                />
-              </div>
-              <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-                <table className="min-w-full">
-                  <thead>
-                    <tr>
-                      <th className={reportTh}>Night</th>
-                      <th className={reportTh}>Offset</th>
-                      <th className={reportTh}>Role</th>
-                      <th className={`${reportTh} text-right`}>Rooms</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dated.map((d) => (
-                      <tr key={d.night}>
-                        <td className={`${reportTd} whitespace-nowrap`}>{formatNight(d.night)}</td>
-                        <td className={`${reportTd} whitespace-nowrap tabular-nums`}>{offsetLabel(d.offset)}</td>
-                        <td className={`${reportTd} text-gray-500 dark:text-gray-400`}>{roleLabel(d.role)}</td>
-                        <td className={num}>{Math.round(d.rooms)}</td>
-                      </tr>
-                    ))}
+
+          <div className="mt-8">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Proposed block{adjustLabel}
+                {dated && ` · ${formatNight(start!)} – ${formatNight(end!)}`}
+              </h2>
+              <CsvButton fileName={dated ? `hotel-rfp-block-${start}.csv` : "hotel-rfp-block.csv"} rows={proposedCsv} />
+            </div>
+            <ProposalControls />
+            <div className="mt-3 max-w-md bg-white dark:bg-gray-800 shadow rounded-lg">
+              <table className="min-w-full">
+                <thead>
+                  <tr>
+                    {dated && <th className={reportTh}>Night</th>}
+                    <th className={reportTh}>{dated ? "Offset" : "Night"}</th>
+                    <th className={`${reportTh} text-right`}>Rooms</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dated
+                    ? dated.map((d) => (
+                        <tr key={d.night}>
+                          <td className={`${reportTd} whitespace-nowrap`}>{formatNight(d.night)}</td>
+                          <td className={`${reportTd} whitespace-nowrap tabular-nums`}>{offsetLabel(d.offset)}</td>
+                          <td className={`${num} ${d.estimate ? `italic ${muted}` : ""}`} title={d.estimate ? "Estimate" : undefined}>
+                            {d.estimate && "~"}
+                            {Math.round(d.rooms)}
+                          </td>
+                        </tr>
+                      ))
+                    : roles.map((role) =>
+                        proposed.has(role) ? (
+                          <tr key={role}>
+                            <td className={`${reportTd} whitespace-nowrap`}>{roleLabel(role)}</td>
+                            <td className={num}>{proposed.get(role)}</td>
+                          </tr>
+                        ) : null,
+                      )}
+                  {dated && (
                     <tr className="bg-blue-50 dark:bg-blue-900/30 font-semibold">
-                      <td className={`${reportTd} text-blue-700 dark:text-blue-300`} colSpan={3}>
+                      <td className={`${reportTd} text-blue-700 dark:text-blue-300`} colSpan={2}>
                         Room nights
                       </td>
                       <td className={num}>{dated.reduce((s, d) => s + Math.round(d.rooms), 0)}</td>
                     </tr>
-                  </tbody>
-                </table>
-              </div>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
         </>
       )}
     </>
@@ -377,6 +428,7 @@ export default async function HotelReportsPage({
     adjust?: string;
     start?: string;
     end?: string;
+    block?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -397,6 +449,7 @@ export default async function HotelReportsPage({
           adjust={Number.isFinite(adjust) ? Math.min(200, Math.max(-90, adjust)) : 0}
           start={sp.start && DATE_RE.test(sp.start) ? sp.start : undefined}
           end={sp.end && DATE_RE.test(sp.end) ? sp.end : undefined}
+          showBlock={sp.block === "1"}
         />
       ) : (
         <History seriesId={sp.series || undefined} from={from} to={to} byHotel={sp.byHotel === "1"} />
