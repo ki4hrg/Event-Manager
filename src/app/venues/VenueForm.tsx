@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import type { Venue } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 
 type VenueFormProps = {
   venue?: Venue;
@@ -26,7 +27,7 @@ function SaveButton({ isEdit }: { isEdit: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      className={`${btnPrimary} disabled:opacity-50`}
     >
       {pending ? "Saving..." : isEdit ? "Save" : "Create Venue"}
     </button>
@@ -49,6 +50,7 @@ export function VenueForm({ venue, brands, areas, action }: VenueFormProps) {
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Venue Details</h2>
           {canWrite && (
             <button
+              type="button"
               onClick={() => setEditing(true)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
@@ -251,14 +253,14 @@ export function VenueForm({ venue, brands, areas, action }: VenueFormProps) {
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+              className={btnSecondary}
             >
               Cancel
             </button>
           ) : (
             <Link
               href="/venues"
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+              className={btnSecondary}
             >
               Cancel
             </Link>

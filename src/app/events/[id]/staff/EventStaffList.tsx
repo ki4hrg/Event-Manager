@@ -36,12 +36,12 @@ type Props = {
 };
 
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, disabled = false }: { label: string; disabled?: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
     >
       {pending ? "..." : label}
@@ -78,6 +78,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
         </p>
         {!showAdd && canWrite && (
           <button
+            type="button"
             onClick={() => setShowAdd(true)}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
           >
@@ -93,11 +94,15 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
         >
           {!selected ? (
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="staff-user-search"
+                className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Search *
               </label>
               <input
-                type="text"
+                id="staff-user-search"
+                type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by name or email..."
@@ -177,7 +182,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
           </div>
 
           <div className="flex gap-2 pt-1">
-            <SubmitButton label="Assign" />
+            <SubmitButton label="Assign" disabled={!selected} />
             <button
               type="button"
               onClick={closeAdd}
@@ -194,8 +199,8 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
       ) : (
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {staff.map((entry) => (
-            <div key={entry.id} className="flex items-start justify-between gap-2 py-3">
-              <div className="space-y-0.5 min-w-0">
+            <div key={entry.id} className="flex flex-wrap items-start justify-between gap-2 py-3">
+              <div className="space-y-0.5 min-w-0 flex-1 basis-40">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {entry.user.name || entry.user.email}
                 </p>
@@ -210,7 +215,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 ml-2 shrink-0">
+              <div className="flex items-center gap-3 shrink-0">
                 <AccessLevelSelect
                   ariaLabel={`Access for ${entry.user.name || entry.user.email}`}
                   value={entry.accessLevel ?? UNCAPPED}

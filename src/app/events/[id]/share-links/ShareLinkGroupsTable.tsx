@@ -45,6 +45,7 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [confirmingRevoke, setConfirmingRevoke] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   if (groups.length === 0) {
@@ -78,6 +79,7 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
     startTransition(async () => {
       await revokeShareLinkGroup(id);
       setRevoking(null);
+      setConfirmingRevoke(null);
       router.refresh();
     });
   }
@@ -135,6 +137,7 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
                   <div className="flex items-center gap-3">
                     {active && (
                       <button
+                        type="button"
                         onClick={() => handleCopy(g.token)}
                         className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                       >
@@ -142,13 +145,34 @@ export function ShareLinkGroupsTable({ eventId, groups }: Props) {
                       </button>
                     )}
                     {canWrite && active && (
-                      <button
-                        onClick={() => handleRevoke(g.id)}
-                        disabled={revoking === g.id}
-                        className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 disabled:opacity-50"
-                      >
-                        {revoking === g.id ? "Revoking..." : "Revoke"}
-                      </button>
+                      confirmingRevoke === g.id ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleRevoke(g.id)}
+                            disabled={revoking === g.id}
+                            className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+                          >
+                            {revoking === g.id ? "Revoking..." : "Confirm revoke"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingRevoke(null)}
+                            disabled={revoking === g.id}
+                            className="text-xs text-gray-500 dark:text-gray-400 hover:underline disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingRevoke(g.id)}
+                          className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                        >
+                          Revoke
+                        </button>
+                      )
                     )}
                   </div>
                 </td>

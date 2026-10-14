@@ -149,7 +149,8 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-8 min-w-0">
-          <VenueForm venue={venue} brands={brands.map((b) => b.label)} areas={areas} action={updateVenueWithId} />
+          {/* Keyed on updatedAt so a save remounts the form back into view mode. */}
+          <VenueForm key={venue.updatedAt.toISOString()} venue={venue} brands={brands.map((b) => b.label)} areas={areas} action={updateVenueWithId} />
           {hotelHistory.length > 0 && <HotelHistory proposals={hotelHistory} />}
           {venue.vendor && (
             <form action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">

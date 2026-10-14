@@ -61,6 +61,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
   const [copied, setCopied] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingRevoke, setConfirmingRevoke] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const isRevoked = !!group.revokedAt;
@@ -222,7 +223,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
 
         {items.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            No reports yet. Click &quot;Add report&quot; to pick one, then configure its filters on that report&apos;s page.
+            No reports yet.
           </p>
         ) : (
           <div className="border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700">
@@ -247,14 +248,39 @@ export function DashboardEditor({ eventId, group, items }: Props) {
       </div>
 
       <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center gap-3">
-        {!isRevoked && (
+        {!isRevoked && !confirmingRevoke && (
           <button
-            onClick={handleRevoke}
+            type="button"
+            onClick={() => setConfirmingRevoke(true)}
             disabled={isPending}
             className="text-sm text-amber-700 dark:text-amber-400 hover:underline disabled:opacity-50"
           >
             Revoke
           </button>
+        )}
+        {!isRevoked && confirmingRevoke && (
+          <span className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-amber-700 dark:text-amber-400">Revoke this dashboard link?</span>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingRevoke(false);
+                handleRevoke();
+              }}
+              disabled={isPending}
+              className="text-amber-700 dark:text-amber-400 hover:underline disabled:opacity-50"
+            >
+              Yes, revoke
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingRevoke(false)}
+              disabled={isPending}
+              className="text-gray-500 dark:text-gray-400 hover:underline"
+            >
+              Cancel
+            </button>
+          </span>
         )}
         {!confirmingDelete ? (
           <button
@@ -296,8 +322,8 @@ export function DashboardEditor({ eventId, group, items }: Props) {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={(e) => { if (e.target === e.currentTarget) setPickerOpen(false); }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4 max-h-[calc(100dvh-2rem)] flex flex-col">
+            <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">Add a report</h2>
               <button
                 onClick={() => setPickerOpen(false)}
@@ -307,7 +333,7 @@ export function DashboardEditor({ eventId, group, items }: Props) {
                 &times;
               </button>
             </div>
-            <div className="px-5 py-4 space-y-2">
+            <div className="px-5 py-4 space-y-2 overflow-y-auto">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                 You&apos;ll be taken to the report to configure filters, then add it back here.
               </p>

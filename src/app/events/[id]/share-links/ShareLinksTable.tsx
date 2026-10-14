@@ -41,6 +41,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
   const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [confirmingRevoke, setConfirmingRevoke] = useState<string | null>(null);
 
   if (links.length === 0) {
     return (
@@ -61,6 +62,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
     setRevoking(id);
     await revokeShareLink(id);
     setRevoking(null);
+    setConfirmingRevoke(null);
     router.refresh();
   }
 
@@ -123,6 +125,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
                         <div className="flex items-center gap-3">
                           {!link.revokedAt && (
                             <button
+                              type="button"
                               onClick={() => handleCopy(link.token)}
                               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                             >
@@ -130,13 +133,34 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
                             </button>
                           )}
                           {canWrite && !link.revokedAt && !(link.expiresAt && new Date(link.expiresAt) < new Date()) && (
-                            <button
-                              onClick={() => handleRevoke(link.id)}
-                              disabled={revoking === link.id}
-                              className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 disabled:opacity-50"
-                            >
-                              {revoking === link.id ? "Revoking..." : "Revoke"}
-                            </button>
+                            confirmingRevoke === link.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevoke(link.id)}
+                                  disabled={revoking === link.id}
+                                  className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+                                >
+                                  {revoking === link.id ? "Revoking..." : "Confirm revoke"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmingRevoke(null)}
+                                  disabled={revoking === link.id}
+                                  className="text-xs text-gray-500 dark:text-gray-400 hover:underline disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmingRevoke(link.id)}
+                                className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                              >
+                                Revoke
+                              </button>
+                            )
                           )}
                         </div>
                       </td>

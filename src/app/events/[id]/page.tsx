@@ -119,7 +119,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
         <div className="min-w-0">
           <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name }]} />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">
             {event.name}
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

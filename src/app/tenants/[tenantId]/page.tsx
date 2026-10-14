@@ -81,7 +81,13 @@ export default async function TenantDetailPage({
           contacts · {tenant._count.vendors} vendors
         </p>
       </div>
-      <TenantForm tenant={tenant} saveAction={saveAction} deleteAction={deleteAction} />
+      {/* Keyed on updatedAt so a save remounts the form back into view mode. */}
+      <TenantForm
+        key={tenant.updatedAt.toISOString()}
+        tenant={tenant}
+        saveAction={saveAction}
+        deleteAction={deleteAction}
+      />
       <div className="mt-6">
         <MembershipEditor
           title="Members"

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
 import { OrgProfileFields, OrgProfileView } from "@/components/OrgProfileFields";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
@@ -43,7 +42,6 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
   if (!editing && tenant) {
     return (
       <div>
-        <Toast />
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
           <dl className="space-y-4">
             <div>
@@ -59,7 +57,7 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
             <OrgProfileView profile={tenant} />
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <button onClick={() => setEditing(true)} className={btnPrimary}>
+            <button type="button" onClick={() => setEditing(true)} className={btnPrimary}>
               Edit
             </button>
             {deleteAction && (

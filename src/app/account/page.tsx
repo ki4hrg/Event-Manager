@@ -6,6 +6,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { Toast } from "@/components/Toast";
 import { getUserLandingPage } from "@/lib/userSettings";
 import { updateLandingPage } from "./actions";
+import { SaveButton } from "./SaveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function AccountPage() {
       </h1>
 
       <div className="max-w-md space-y-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
           <h2 className="text-base font-medium text-gray-900 dark:text-white mb-4">
             Preferences
           </h2>
@@ -51,16 +52,11 @@ export default async function AccountPage() {
               </select>
             </div>
 
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
-            >
-              Save
-            </button>
+            <SaveButton />
           </form>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
           <h2 className="text-base font-medium text-gray-900 dark:text-white mb-2">
             API Keys
           </h2>
