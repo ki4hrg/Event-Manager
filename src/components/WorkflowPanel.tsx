@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ENTITY_TYPE_RESOURCE, type WorkflowEntityType } from "@/app/events/workflows/entity-types";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import type {
   WorkflowInstance as PrismaWorkflowInstance,
   WorkflowTemplate,
@@ -12,6 +13,7 @@ import type {
   WorkflowStepCompletion,
   WorkflowChecklistCompletion,
   EntityStatus,
+  PermissionResource,
 } from "@prisma/client";
 
 type StepWithItems = WorkflowStep & {
@@ -93,6 +95,7 @@ function WorkflowInstancePanel({
   instance,
   isCancelled,
   canWrite,
+  resource,
   removeWorkflow,
   toggleStep,
   toggleItem,
@@ -100,6 +103,7 @@ function WorkflowInstancePanel({
   instance: InstanceWithData;
   isCancelled: boolean;
   canWrite: boolean;
+  resource: PermissionResource;
   removeWorkflow: (instanceId: string) => Promise<void>;
   toggleStep: (instanceId: string, stepId: string) => Promise<void>;
   toggleItem: (instanceId: string, itemId: string) => Promise<void>;
@@ -141,18 +145,15 @@ function WorkflowInstancePanel({
             </span>
           )}
         </div>
-        {canWrite && (
-          <button
-            onClick={async () => {
-              if (confirm(`Remove workflow "${instance.template.name}" from this item?`)) {
-                await removeWorkflow(instance.id);
-              }
-            }}
-            className="shrink-0 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 text-xs"
-          >
-            Remove
-          </button>
-        )}
+        <span className="shrink-0">
+          <InlineConfirmButton
+            onConfirm={() => removeWorkflow(instance.id)}
+            label="Remove"
+            resource={resource}
+            requiredLevel="WRITE"
+            className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 text-xs"
+          />
+        </span>
       </div>
 
       {instance.template.steps.length > 0 && (
@@ -324,6 +325,7 @@ export function WorkflowPanel({
             instance={instance}
             isCancelled={isCancelled}
             canWrite={canWrite}
+            resource={ENTITY_TYPE_RESOURCE[entityType]}
             removeWorkflow={removeWorkflow}
             toggleStep={toggleStep}
             toggleItem={toggleItem}

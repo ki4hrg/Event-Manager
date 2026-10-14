@@ -17,6 +17,7 @@ import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type FunctionListProps = {
   functions: FunctionForTable[];
@@ -108,7 +109,6 @@ export function FunctionList({
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
-    if (!confirm(`Delete ${ids.length} function${ids.length !== 1 ? "s" : ""}?`)) return;
     await deleteFunctions(ids);
     setSelected(new Set());
     router.refresh();
@@ -218,14 +218,10 @@ export function FunctionList({
             {canWrite ? "Edit" : "View"}
           </Link>
           {canDelete && (
-            <button
-              onClick={async () => {
-                if (confirm("Delete this function?")) await deleteFunction(fn.id);
-              }}
-              className="text-red-600 hover:underline text-sm"
-            >
-              Delete
-            </button>
+            <InlineConfirmButton
+              onConfirm={() => deleteFunction(fn.id)}
+              resource="FUNCTIONS"
+            />
           )}
         </div>
       </div>
@@ -314,12 +310,13 @@ export function FunctionList({
             </button>
           )}
           {canDelete && (
-            <button
-              onClick={handleBulkDelete}
+            <InlineConfirmButton
+              onConfirm={handleBulkDelete}
+              label="Delete selected"
+              confirmLabel={`Delete ${selected.size} function${selected.size !== 1 ? "s" : ""}`}
+              resource="FUNCTIONS"
               className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-            >
-              Delete selected
-            </button>
+            />
           )}
           <button
             onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}

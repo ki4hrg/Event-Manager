@@ -13,6 +13,7 @@ import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import type {
   Presentation,
   PresentationContact,
@@ -162,7 +163,6 @@ export function PresentationList({
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
-    if (!confirm(`Delete ${ids.length} presentation${ids.length !== 1 ? "s" : ""}?`)) return;
     await deletePresentations(ids);
     setSelected(new Set());
     router.refresh();
@@ -271,12 +271,13 @@ export function PresentationList({
             </button>
           )}
           {canDelete && (
-            <button
-              onClick={handleBulkDelete}
+            <InlineConfirmButton
+              onConfirm={handleBulkDelete}
+              label="Delete selected"
+              confirmLabel={`Delete ${selected.size} presentation${selected.size !== 1 ? "s" : ""}`}
+              resource="PRESENTATIONS"
               className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-            >
-              Delete selected
-            </button>
+            />
           )}
           <button
             onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}
@@ -392,14 +393,10 @@ export function PresentationList({
                         </form>
                       )}
                       {canDelete && (
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this presentation?")) await deletePresentation(p.id);
-                          }}
-                          className="text-red-600 hover:underline text-sm"
-                        >
-                          Delete
-                        </button>
+                        <InlineConfirmButton
+                          onConfirm={() => deletePresentation(p.id)}
+                          resource="PRESENTATIONS"
+                        />
                       )}
                     </div>
                   </div>

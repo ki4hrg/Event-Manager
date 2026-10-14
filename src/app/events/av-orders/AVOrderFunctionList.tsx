@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type LinkedFunction = {
   id: string;
@@ -27,7 +28,6 @@ export function AVOrderFunctionList({
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
 
   const handleLink = async () => {
     if (!selectedId) return;
@@ -38,16 +38,6 @@ export function AVOrderFunctionList({
       setSelectedId("");
     } finally {
       setIsLinking(false);
-    }
-  };
-
-  const handleUnlink = async (functionId: string, name: string) => {
-    if (!confirm(`Unlink "${name}" from this AV Order?`)) return;
-    setUnlinkingId(functionId);
-    try {
-      await unlinkFunction(functionId);
-    } finally {
-      setUnlinkingId(null);
     }
   };
 
@@ -68,15 +58,12 @@ export function AVOrderFunctionList({
               >
                 {fn.name}
               </Link>
-              {canWrite && (
-                <button
-                  onClick={() => handleUnlink(fn.id, fn.name)}
-                  disabled={unlinkingId === fn.id}
-                  className="text-red-600 hover:underline text-sm disabled:opacity-50"
-                >
-                  Unlink
-                </button>
-              )}
+              <InlineConfirmButton
+                onConfirm={() => unlinkFunction(fn.id)}
+                label="Unlink"
+                resource="AV_ORDERS"
+                requiredLevel="WRITE"
+              />
             </li>
           ))}
         </ul>

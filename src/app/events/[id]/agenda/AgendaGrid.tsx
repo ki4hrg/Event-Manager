@@ -868,6 +868,10 @@ export function AgendaGrid({
     conflicts: RoomConflict[];
     onConfirm: () => Promise<void>;
   } | null>(null);
+  const [moveConfirmPending, setMoveConfirmPending] = useState<{
+    message: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
   const [hiddenRoomIds, setHiddenRoomIds] = useState<Set<string>>(
     () => new Set(initialRoomPrefs?.hiddenRoomIds ?? [])
   );
@@ -1051,6 +1055,7 @@ export function AgendaGrid({
   const handleDragStart = useCallback((ev: DragStartEvent) => {
     setActiveDrag(ev.active.data.current as DragData);
     setErrorMsg(null);
+    setMoveConfirmPending(null);
   }, []);
 
   const handleDragEnd = useCallback(
@@ -1119,64 +1124,66 @@ export function AgendaGrid({
         return;
       }
 
-      // Warn if room change affects multiple schedule entries for the same function
-      if (roomChanged) {
-        const scheduleCount = countFunctionSchedules(agendaDataRef.current, entry.functionId);
-        if (scheduleCount > 1) {
-          const confirmed = window.confirm(
-            `"${entry.functionName}" has ${scheduleCount} scheduled time slots. Moving to a new room will affect all of them. Continue?`
-          );
-          if (!confirmed) return;
-        }
-      }
+      const commitMove = async () => {
+        const newStart = timeChanged ? new Date(entry.startTime.getTime() + deltaMs) : entry.startTime;
+        const newEnd = timeChanged ? new Date(entry.endTime.getTime() + deltaMs) : entry.endTime;
 
-      const newStart = timeChanged ? new Date(entry.startTime.getTime() + deltaMs) : entry.startTime;
-      const newEnd = timeChanged ? new Date(entry.endTime.getTime() + deltaMs) : entry.endTime;
-
-      if (timeChanged && getDateKeyInTimezone(newStart, timezone) !== getDateKeyInTimezone(newEnd, timezone)) {
-        setErrorMsg("Cannot reschedule past midnight.");
-        return;
-      }
-
-      const snapshot = agendaDataRef.current;
-      setAgendaData(applyDragToState(snapshot, drag, drop, deltaMs, timezone));
-
-      // Check for time conflicts before committing room change
-      if (timeChanged) {
-        const reschedResult = await rescheduleEntry(
-          entry.scheduleId,
-          entry.functionId,
-          newStart.toISOString(),
-          newEnd.toISOString(),
-          eventId
-        );
-        if (!reschedResult.success) {
-          setAgendaData(snapshot);
-          if (reschedResult.conflicts?.length) {
-            setConflictPending({
-              conflicts: reschedResult.conflicts,
-              onConfirm: async () => {
-                const ops: Promise<{ success: boolean; error?: string }>[] = [];
-                if (roomChanged) {
-                  ops.push(updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId));
-                }
-                ops.push(
-                  rescheduleEntry(entry.scheduleId, entry.functionId, newStart.toISOString(), newEnd.toISOString(), eventId, true)
-                );
-                const results = await Promise.all(ops);
-                const failed = results.find((r) => !r.success);
-                if (failed) {
-                  setErrorMsg(failed.error ?? "Failed to save change.");
-                } else {
-                  router.refresh();
-                }
-              },
-            });
-          } else {
-            setErrorMsg(reschedResult.error ?? "Failed to reschedule.");
-          }
+        if (timeChanged && getDateKeyInTimezone(newStart, timezone) !== getDateKeyInTimezone(newEnd, timezone)) {
+          setErrorMsg("Cannot reschedule past midnight.");
           return;
         }
+
+        const snapshot = agendaDataRef.current;
+        setAgendaData(applyDragToState(snapshot, drag, drop, deltaMs, timezone));
+
+        // Check for time conflicts before committing room change
+        if (timeChanged) {
+          const reschedResult = await rescheduleEntry(
+            entry.scheduleId,
+            entry.functionId,
+            newStart.toISOString(),
+            newEnd.toISOString(),
+            eventId
+          );
+          if (!reschedResult.success) {
+            setAgendaData(snapshot);
+            if (reschedResult.conflicts?.length) {
+              setConflictPending({
+                conflicts: reschedResult.conflicts,
+                onConfirm: async () => {
+                  const ops: Promise<{ success: boolean; error?: string }>[] = [];
+                  if (roomChanged) {
+                    ops.push(updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId));
+                  }
+                  ops.push(
+                    rescheduleEntry(entry.scheduleId, entry.functionId, newStart.toISOString(), newEnd.toISOString(), eventId, true)
+                  );
+                  const results = await Promise.all(ops);
+                  const failed = results.find((r) => !r.success);
+                  if (failed) {
+                    setErrorMsg(failed.error ?? "Failed to save change.");
+                  } else {
+                    router.refresh();
+                  }
+                },
+              });
+            } else {
+              setErrorMsg(reschedResult.error ?? "Failed to reschedule.");
+            }
+            return;
+          }
+          if (roomChanged) {
+            const roomResult = await updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId);
+            if (!roomResult.success) {
+              setAgendaData(snapshot);
+              setErrorMsg(roomResult.error ?? "Failed to save change.");
+              return;
+            }
+          }
+          router.refresh();
+          return;
+        }
+
         if (roomChanged) {
           const roomResult = await updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId);
           if (!roomResult.success) {
@@ -1184,20 +1191,23 @@ export function AgendaGrid({
             setErrorMsg(roomResult.error ?? "Failed to save change.");
             return;
           }
+          router.refresh();
         }
-        router.refresh();
-        return;
-      }
+      };
 
+      // A room change moves every schedule entry of the function — confirm first.
       if (roomChanged) {
-        const roomResult = await updateFunctionRoom(entry.functionId, sourceRoomId, targetRoomId, eventId);
-        if (!roomResult.success) {
-          setAgendaData(snapshot);
-          setErrorMsg(roomResult.error ?? "Failed to save change.");
+        const scheduleCount = countFunctionSchedules(agendaDataRef.current, entry.functionId);
+        if (scheduleCount > 1) {
+          setMoveConfirmPending({
+            message: `"${entry.functionName}" has ${scheduleCount} time slots. All of them will move to the new room.`,
+            onConfirm: commitMove,
+          });
           return;
         }
-        router.refresh();
       }
+
+      await commitMove();
     },
     [eventId, timezone, router]
   );
@@ -1208,6 +1218,30 @@ export function AgendaGrid({
         {errorMsg && (
           <div className="mb-4 text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded px-3 py-2">
             {errorMsg}
+          </div>
+        )}
+
+        {moveConfirmPending && (
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded px-3 py-2">
+            <span className="min-w-0">{moveConfirmPending.message}</span>
+            <button
+              type="button"
+              onClick={async () => {
+                const action = moveConfirmPending.onConfirm;
+                setMoveConfirmPending(null);
+                await action();
+              }}
+              className="font-medium text-amber-900 dark:text-amber-200 hover:underline"
+            >
+              Move
+            </button>
+            <button
+              type="button"
+              onClick={() => setMoveConfirmPending(null)}
+              className="text-gray-600 dark:text-gray-400 hover:underline"
+            >
+              Cancel
+            </button>
           </div>
         )}
 

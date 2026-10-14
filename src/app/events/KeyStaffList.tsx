@@ -7,6 +7,7 @@ import type { EventKeyStaff, Contact } from "@prisma/client";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
 
@@ -476,16 +477,12 @@ export function KeyStaffList({
                       >
                         Edit
                       </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Remove this key staff entry?")) {
-                            await removeKeyStaff(entry.id);
-                          }
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Remove
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => removeKeyStaff(entry.id)}
+                        label="Remove"
+                        resource="EVENTS"
+                        requiredLevel="WRITE"
+                      />
                     </div>
                   )}
                 </div>

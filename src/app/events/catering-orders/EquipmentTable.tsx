@@ -8,6 +8,7 @@ import type { ContactOptions } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type EquipmentItemFull = EquipmentItem & {
   providerVendor: Vendor | null;
@@ -318,14 +319,11 @@ export function EquipmentTable({
                       <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                     )}
                     {canDelete && (
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this item?")) await deleteItem(item.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => deleteItem(item.id)}
+                        resource={resource}
+                        requiredLevel="WRITE"
+                      />
                     )}
                   </div>
                 </div>

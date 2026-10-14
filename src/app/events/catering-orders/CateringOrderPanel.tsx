@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { CateringOrder } from "@prisma/client";
 import { OrderMeta } from "@/components/OrderMeta";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type CateringOrderWithVendors = CateringOrder & {
   vendors?: { vendor: { name: string } }[];
@@ -38,7 +39,6 @@ export function CateringOrderPanel({
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
-  const [isUnlinking, setIsUnlinking] = useState(false);
 
   const handleLink = async () => {
     if (!selectedId) return;
@@ -49,16 +49,6 @@ export function CateringOrderPanel({
       setSelectedId("");
     } finally {
       setIsLinking(false);
-    }
-  };
-
-  const handleUnlink = async () => {
-    if (!confirm("Unlink this Catering Order? The order will not be deleted.")) return;
-    setIsUnlinking(true);
-    try {
-      await unlinkCateringOrder();
-    } finally {
-      setIsUnlinking(false);
     }
   };
 
@@ -90,15 +80,15 @@ export function CateringOrderPanel({
               />
             </div>
           </div>
-          {canWrite && (
-            <button
-              onClick={handleUnlink}
-              disabled={isUnlinking}
-              className="text-red-600 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
-            >
-              Unlink
-            </button>
-          )}
+          <span className="flex-shrink-0">
+            <InlineConfirmButton
+              onConfirm={unlinkCateringOrder}
+              label="Unlink"
+              prompt="The order is kept."
+              resource="CATERING_ORDERS"
+              requiredLevel="WRITE"
+            />
+          </span>
         </div>
       ) : (
         <div>

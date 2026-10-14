@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FileUpload, CustomOption } from "@prisma/client";
 import { deleteFile } from "@/app/files/actions";
-import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import { formatFileSize, type EntityType } from "@/lib/uploads";
 
 type FileUploadPanelProps = {
@@ -29,12 +30,10 @@ export function FileUploadPanel({
   // FILES.DELETE (src/app/files/actions.ts) — mirror both rather than
   // collapsing them, so a WRITE-capped user can still attach files.
   const canUpload = useCanWrite("FILES");
-  const canRemove = useCanDelete("FILES");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFileType, setSelectedFileType] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   const handleUpload = async () => {
     const input = fileInputRef.current;
@@ -66,13 +65,6 @@ export function FileUploadPanel({
     } finally {
       setUploading(false);
     }
-  };
-
-  const handleDelete = (fileId: string, fileName: string) => {
-    if (!confirm(`Delete "${fileName}"?`)) return;
-    startTransition(async () => {
-      await deleteFile(fileId, revalidateTarget);
-    });
   };
 
   return (
@@ -137,15 +129,15 @@ export function FileUploadPanel({
                     <span>{new Date(file.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
-                {canRemove && (
-                  <button
-                    onClick={() => handleDelete(file.id, file.fileName)}
-                    disabled={isPending}
-                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 shrink-0 disabled:opacity-50"
-                  >
-                    Remove
-                  </button>
-                )}
+                <span className="shrink-0">
+                  <InlineConfirmButton
+                    onConfirm={() => deleteFile(file.id, revalidateTarget)}
+                    label="Remove"
+                    resource="FILES"
+                    requiredLevel="DELETE"
+                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
+                  />
+                </span>
               </li>
             );
           })}

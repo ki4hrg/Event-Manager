@@ -5,6 +5,7 @@ import Link from "next/link";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
 import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 export type FunctionLinkProps = {
   linkedFunctionId: string | null | undefined;
@@ -31,7 +32,6 @@ export function FunctionLinkControl({
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
-  const [isUnlinking, setIsUnlinking] = useState(false);
 
   const handleLink = async () => {
     if (!selectedId) return;
@@ -42,16 +42,6 @@ export function FunctionLinkControl({
       setSelectedId("");
     } finally {
       setIsLinking(false);
-    }
-  };
-
-  const handleUnlink = async () => {
-    if (!confirm("Unlink this function?")) return;
-    setIsUnlinking(true);
-    try {
-      await unlinkFunction();
-    } finally {
-      setIsUnlinking(false);
     }
   };
 
@@ -66,14 +56,14 @@ export function FunctionLinkControl({
             {linkedFunctionName}
           </Link>
           {canWrite && (
-            <button
-              type="button"
-              onClick={handleUnlink}
-              disabled={isUnlinking}
-              className="text-xs text-red-600 hover:underline disabled:opacity-50"
-            >
-              Unlink
-            </button>
+            <InlineConfirmButton
+              onConfirm={unlinkFunction}
+              label="Unlink"
+              confirmLabel="Unlink"
+              resource={resource}
+              requiredLevel="WRITE"
+              className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+            />
           )}
         </div>
       ) : !canWrite ? (

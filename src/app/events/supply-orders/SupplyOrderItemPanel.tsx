@@ -23,6 +23,7 @@ import {
 } from "@/lib/statusConstants";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type ItemWithExtras = SupplyOrderItem & {
   equipment: Equipment | null;
@@ -721,14 +722,12 @@ export function SupplyOrderItemPanel({
                           </button>
                         )}
                         {canDelete && (
-                          <button
-                            onClick={async () => {
-                              if (confirm("Delete this item?")) await deleteItem(item.id);
-                            }}
-                            className="text-red-600 hover:underline text-xs"
-                          >
-                            Delete
-                          </button>
+                          <InlineConfirmButton
+                            onConfirm={() => deleteItem(item.id)}
+                            resource="SUPPLY_ORDERS"
+                            requiredLevel="WRITE"
+                            className="text-red-600 dark:text-red-400 hover:underline text-xs"
+                          />
                         )}
                       </div>
                     </div>
@@ -821,14 +820,12 @@ export function SupplyOrderItemPanel({
                           </button>
                         )}
                         {canDelete && (
-                          <button
-                            onClick={async () => {
-                              if (confirm("Delete this item?")) await deleteItem(item.id);
-                            }}
-                            className="text-red-600 hover:underline text-sm"
-                          >
-                            Delete
-                          </button>
+                          <InlineConfirmButton
+                            onConfirm={() => deleteItem(item.id)}
+                            resource="SUPPLY_ORDERS"
+                            requiredLevel="WRITE"
+                            className="text-red-600 dark:text-red-400 hover:underline text-sm"
+                          />
                         )}
                       </div>
                     </div>

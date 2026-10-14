@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { CateringOrderLineItem } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type LineItemTableProps = {
   items: CateringOrderLineItem[];
@@ -222,14 +223,11 @@ export function LineItemTable({ items, createItem, updateItem, deleteItem }: Lin
                         <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                       )}
                       {canDelete && (
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this line item?")) await deleteItem(item.id);
-                          }}
-                          className="text-red-600 hover:underline text-sm"
-                        >
-                          Delete
-                        </button>
+                        <InlineConfirmButton
+                          onConfirm={() => deleteItem(item.id)}
+                          resource="CATERING_ORDERS"
+                          requiredLevel="WRITE"
+                        />
                       )}
                     </div>
                   </div>

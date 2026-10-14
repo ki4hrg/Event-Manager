@@ -12,6 +12,7 @@ import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type EquipmentItemWithParties = EquipmentItem & {
   equipment: Equipment | null;
@@ -360,14 +361,11 @@ function EquipmentItemRow({
               <button onClick={onEdit} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
             )}
             {canDelete && (
-              <button
-                onClick={async () => {
-                  if (confirm("Delete this item?")) await onDelete(item.id);
-                }}
-                className="text-red-600 hover:underline text-sm"
-              >
-                Delete
-              </button>
+              <InlineConfirmButton
+                onConfirm={() => onDelete(item.id)}
+                resource="AV_ORDERS"
+                requiredLevel="WRITE"
+              />
             )}
           </div>
         </div>

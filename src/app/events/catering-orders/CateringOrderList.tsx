@@ -17,6 +17,7 @@ import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type CateringOrder = Awaited<ReturnType<typeof getCateringOrders>>[number];
 
@@ -133,7 +134,6 @@ export function CateringOrderList({
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
-    if (!confirm(`Delete ${ids.length} catering order${ids.length !== 1 ? "s" : ""}?`)) return;
     await deleteCateringOrders(ids);
     setSelected(new Set());
     router.refresh();
@@ -219,12 +219,13 @@ export function CateringOrderList({
             </button>
           )}
           {canDelete && (
-            <button
-              onClick={handleBulkDelete}
+            <InlineConfirmButton
+              onConfirm={handleBulkDelete}
+              label="Delete selected"
+              confirmLabel={`Delete ${selected.size} catering order${selected.size !== 1 ? "s" : ""}`}
+              resource="CATERING_ORDERS"
               className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-            >
-              Delete selected
-            </button>
+            />
           )}
           <button
             onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}

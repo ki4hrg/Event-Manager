@@ -5,6 +5,7 @@ import Link from "next/link";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
 import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 export type FunctionMultiLinkProps = {
   linkedFunctions: { id: string; name: string; path: string }[];
@@ -27,7 +28,6 @@ export function FunctionMultiLinkControl({
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
 
   const linkedIds = new Set(linkedFunctions.map((f) => f.id));
   const unlinkedOptions = availableFunctions.filter((f) => !linkedIds.has(f.id));
@@ -44,16 +44,6 @@ export function FunctionMultiLinkControl({
     }
   };
 
-  const handleUnlink = async (id: string, name: string) => {
-    if (!confirm(`Unlink "${name}"?`)) return;
-    setUnlinkingId(id);
-    try {
-      await unlinkFunction(id);
-    } finally {
-      setUnlinkingId(null);
-    }
-  };
-
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -66,14 +56,14 @@ export function FunctionMultiLinkControl({
               {f.name}
             </Link>
             {canWrite && (
-              <button
-                type="button"
-                onClick={() => handleUnlink(f.id, f.name)}
-                disabled={unlinkingId === f.id}
-                className="text-xs text-red-600 hover:underline disabled:opacity-50"
-              >
-                Unlink
-              </button>
+              <InlineConfirmButton
+                onConfirm={() => unlinkFunction(f.id)}
+                label="Unlink"
+                confirmLabel="Unlink"
+                resource={resource}
+                requiredLevel="WRITE"
+                className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+              />
             )}
           </div>
         ))}

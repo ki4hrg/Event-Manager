@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { OrderMeta, type OrderMetaFields } from "@/components/OrderMeta";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type PrintOrderSummary = OrderMetaFields & {
   id: string;
@@ -111,11 +112,6 @@ export function PrintOrderPanel(props: Props) {
   if (props.mode === "function") {
     const { printOrders, eventId, availablePrintOrders, newPrintOrderPath, linkPrintOrder, unlinkPrintOrder } = props;
 
-    const handleUnlink = async (printOrderId: string) => {
-      if (!confirm("Unlink this Print Order? The Print Order will not be deleted.")) return;
-      await unlinkPrintOrder(printOrderId);
-    };
-
     return (
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Print Orders</h2>
@@ -143,14 +139,15 @@ export function PrintOrderPanel(props: Props) {
                     />
                   </div>
                 </div>
-                {canWrite && (
-                  <button
-                    onClick={() => handleUnlink(po.id)}
-                    className="text-red-600 hover:underline text-sm flex-shrink-0"
-                  >
-                    Unlink
-                  </button>
-                )}
+                <span className="flex-shrink-0">
+                  <InlineConfirmButton
+                    onConfirm={() => unlinkPrintOrder(po.id)}
+                    label="Unlink"
+                    prompt="The order is kept."
+                    resource="PRINT_ORDERS"
+                    requiredLevel="WRITE"
+                  />
+                </span>
               </div>
             ))}
           </div>
@@ -191,11 +188,6 @@ export function PrintOrderPanel(props: Props) {
   // Presentation mode (single print order)
   const { printOrder, eventId, availablePrintOrders, newPrintOrderPath, linkPrintOrder, unlinkPrintOrder } = props;
 
-  const handleUnlink = async () => {
-    if (!confirm("Unlink this Print Order? The Print Order will not be deleted.")) return;
-    await (unlinkPrintOrder as () => Promise<void>)();
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Print Order</h2>
@@ -218,14 +210,15 @@ export function PrintOrderPanel(props: Props) {
               />
             </div>
           </div>
-          {canWrite && (
-            <button
-              onClick={handleUnlink}
-              className="text-red-600 hover:underline text-sm flex-shrink-0"
-            >
-              Unlink
-            </button>
-          )}
+          <span className="flex-shrink-0">
+            <InlineConfirmButton
+              onConfirm={() => (unlinkPrintOrder as () => Promise<void>)()}
+              label="Unlink"
+              prompt="The order is kept."
+              resource="PRINT_ORDERS"
+              requiredLevel="WRITE"
+            />
+          </span>
         </div>
       ) : (
         <div>

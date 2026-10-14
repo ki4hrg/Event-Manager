@@ -10,6 +10,7 @@ import type {
   EntityStatus,
 } from "@prisma/client";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type StepWithItems = WorkflowStep & { items: WorkflowChecklistItem[] };
 type TemplateWithSteps = WorkflowTemplate & {
@@ -109,16 +110,12 @@ function ChecklistItemRow({
         <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
           Edit
         </button>
-        <button
-          onClick={async () => {
-            if (confirm(`Delete checklist item "${item.label}"?`)) {
-              await deleteItem(item.id);
-            }
-          }}
+        <InlineConfirmButton
+          onConfirm={() => deleteItem(item.id)}
+          resource="WORKFLOWS"
+          requiredLevel="DELETE"
           className="text-red-600 dark:text-red-400 hover:underline text-xs"
-        >
-          Delete
-        </button>
+        />
       </div>
     </div>
   );
@@ -211,20 +208,12 @@ function StepRow({
               >
                 Edit
               </button>
-              <button
-                onClick={async () => {
-                  if (
-                    confirm(
-                      `Delete step "${step.label}"? This will also delete its checklist items.`
-                    )
-                  ) {
-                    await deleteStep(step.id);
-                  }
-                }}
-                className="text-red-600 dark:text-red-400 hover:underline text-sm"
-              >
-                Delete
-              </button>
+              <InlineConfirmButton
+                onConfirm={() => deleteStep(step.id)}
+                prompt={step.items.length > 0 ? "Also deletes its checklist items." : undefined}
+                resource="WORKFLOWS"
+                requiredLevel="DELETE"
+              />
             </div>
           </div>
 
@@ -520,20 +509,16 @@ export function WorkflowEditor({
               >
                 Edit
               </button>
-              <button
-                onClick={async () => {
-                  const msg =
-                    template._count.instances > 0
-                      ? `This workflow is assigned to ${template._count.instances} item(s). Deleting it will remove all those assignments. Continue?`
-                      : `Delete workflow "${template.name}"?`;
-                  if (confirm(msg)) {
-                    await deleteTemplate();
-                  }
-                }}
-                className="text-red-600 dark:text-red-400 hover:underline text-sm"
-              >
-                Delete
-              </button>
+              <InlineConfirmButton
+                onConfirm={() => deleteTemplate()}
+                prompt={
+                  template._count.instances > 0
+                    ? `Removes ${template._count.instances} assignment${template._count.instances !== 1 ? "s" : ""}.`
+                    : undefined
+                }
+                resource="WORKFLOWS"
+                requiredLevel="DELETE"
+              />
             </div>
           </div>
         )}

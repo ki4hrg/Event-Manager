@@ -50,10 +50,12 @@ export const GLOBAL_PERMISSION_RESOURCES: PermissionResource[] = [
 ];
 
 // The standalone catalog sections outside any event. Same provider, no event id.
+// FILES: venue attachments resolve at GLOBAL scope on the server too.
 export const CATALOG_PERMISSION_RESOURCES: PermissionResource[] = [
   "VENDORS",
   "VENUES",
   "CONTACTS",
+  "FILES",
 ];
 
 export function canDo(

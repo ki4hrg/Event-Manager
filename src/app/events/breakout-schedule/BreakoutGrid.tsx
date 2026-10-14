@@ -8,6 +8,7 @@ import { groupRoomsByGroup, offersBulkAction, spansMultipleVenues } from "@/lib/
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import {
   DndContext,
   DragOverlay,
@@ -288,16 +289,12 @@ function SessionManager({
                 </span>
               </div>
               {canWrite && (
-                <button
-                  onClick={() => {
-                    if (confirm(`Delete session "${formatFunctionLabel({ name: session.name, functionNumber: session.functionNumber, breakoutGroup: group })}"?`))
-                      startTransition(() => deleteSession(session.id));
-                  }}
+                <InlineConfirmButton
+                  onConfirm={() => deleteSession(session.id)}
+                  resource="FUNCTIONS"
                   disabled={isPending}
-                  className="text-red-400 hover:text-red-600 text-xs disabled:opacity-50"
-                >
-                  Delete
-                </button>
+                  className="text-red-400 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 text-xs disabled:opacity-50"
+                />
               )}
             </div>
           ))}
@@ -1244,16 +1241,13 @@ function GroupPanel({
         {!isRenaming && canWrite && (
           <div className="flex items-center gap-2">
             <button onClick={() => setIsRenaming(true)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">Rename</button>
-            <button
-              onClick={() => {
-                if (confirm(`Delete group "${group.name}"? Sessions will become ungrouped.`))
-                  startTransition(() => deleteGroup(group.id));
-              }}
+            <InlineConfirmButton
+              onConfirm={() => deleteGroup(group.id)}
+              prompt="Sessions will become ungrouped."
+              resource="FUNCTIONS"
               disabled={isPending}
-              className="text-red-400 hover:text-red-600 text-xs disabled:opacity-50"
-            >
-              Delete
-            </button>
+              className="text-red-400 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 text-xs disabled:opacity-50"
+            />
           </div>
         )}
       </div>

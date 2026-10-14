@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Room, RoomGroup } from "@prisma/client";
-import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type RoomListProps = {
   rooms: Room[];
@@ -64,7 +65,6 @@ function RoomRow({
   deleteRoom: (roomId: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("VENUES");
-  const canDelete = useCanDelete("VENUES");
   if (isEditing) {
     return (
       <tr>
@@ -123,16 +123,11 @@ function RoomRow({
             Edit
           </button>
         )}
-        {canDelete && (
-          <button
-            onClick={async () => {
-              if (confirm("Delete this room?")) await deleteRoom(room.id);
-            }}
-            className="text-red-600 hover:underline text-sm"
-          >
-            Delete
-          </button>
-        )}
+        <InlineConfirmButton
+          onConfirm={() => deleteRoom(room.id)}
+          resource="VENUES"
+          requiredLevel="DELETE"
+        />
       </td>
     </tr>
   );
@@ -199,7 +194,6 @@ export function RoomList({
   deleteRoomGroup,
 }: RoomListProps) {
   const canWrite = useCanWrite("VENUES");
-  const canDelete = useCanDelete("VENUES");
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [activeForm, setActiveForm] = useState<"room" | "group" | null>(null);
@@ -350,16 +344,12 @@ export function RoomList({
                         >
                           Edit
                         </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm(`Delete group "${group.name}"? Rooms in this group will become ungrouped.`)) {
-                              await deleteRoomGroup(group.id);
-                            }
-                          }}
-                          className="text-red-600 hover:underline text-sm"
-                        >
-                          Delete
-                        </button>
+                        <InlineConfirmButton
+                          onConfirm={() => deleteRoomGroup(group.id)}
+                          prompt="Its rooms become ungrouped."
+                          resource="VENUES"
+                          requiredLevel="DELETE"
+                        />
                       </div>
                     </>
                   )}

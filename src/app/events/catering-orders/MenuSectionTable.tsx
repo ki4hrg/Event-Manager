@@ -8,6 +8,7 @@ import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { isRichTextEmpty } from "@/lib/richText";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type MenuSectionWithVendor = CateringOrderMenuSection & {
   responsiblePartyVendor: Vendor | null;
@@ -174,14 +175,11 @@ export function MenuSectionTable({
                         <button onClick={() => setEditingId(section.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                       )}
                       {canDelete && (
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this menu section?")) await deleteSection(section.id);
-                          }}
-                          className="text-red-600 hover:underline text-sm"
-                        >
-                          Delete
-                        </button>
+                        <InlineConfirmButton
+                          onConfirm={() => deleteSection(section.id)}
+                          resource="CATERING_ORDERS"
+                          requiredLevel="WRITE"
+                        />
                       )}
                     </div>
                   </div>

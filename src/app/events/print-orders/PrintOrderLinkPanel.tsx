@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type LinkedFunction = { id: string; name: string; path: string };
 type LinkedPresentation = { id: string; title: string; path: string } | null;
@@ -34,12 +35,10 @@ export function PrintOrderLinkPanel({
   const [showFunctionForm, setShowFunctionForm] = useState(false);
   const [selectedFunctionId, setSelectedFunctionId] = useState("");
   const [isLinkingFunction, setIsLinkingFunction] = useState(false);
-  const [unlinkingFunctionId, setUnlinkingFunctionId] = useState<string | null>(null);
 
   const [showPresentationForm, setShowPresentationForm] = useState(false);
   const [selectedPresentationId, setSelectedPresentationId] = useState("");
   const [isLinkingPresentation, setIsLinkingPresentation] = useState(false);
-  const [isUnlinkingPresentation, setIsUnlinkingPresentation] = useState(false);
 
   const handleLinkFunction = async () => {
     if (!selectedFunctionId) return;
@@ -53,16 +52,6 @@ export function PrintOrderLinkPanel({
     }
   };
 
-  const handleUnlinkFunction = async (id: string, name: string) => {
-    if (!confirm(`Unlink "${name}"?`)) return;
-    setUnlinkingFunctionId(id);
-    try {
-      await unlinkFunction(id);
-    } finally {
-      setUnlinkingFunctionId(null);
-    }
-  };
-
   const handleLinkPresentation = async () => {
     if (!selectedPresentationId) return;
     setIsLinkingPresentation(true);
@@ -72,16 +61,6 @@ export function PrintOrderLinkPanel({
       setSelectedPresentationId("");
     } finally {
       setIsLinkingPresentation(false);
-    }
-  };
-
-  const handleUnlinkPresentation = async () => {
-    if (!confirm("Unlink this presentation?")) return;
-    setIsUnlinkingPresentation(true);
-    try {
-      await unlinkPresentation();
-    } finally {
-      setIsUnlinkingPresentation(false);
     }
   };
 
@@ -100,16 +79,13 @@ export function PrintOrderLinkPanel({
               <Link href={f.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
                 {f.name}
               </Link>
-              {canWrite && (
-                <button
-                  type="button"
-                  onClick={() => handleUnlinkFunction(f.id, f.name)}
-                  disabled={unlinkingFunctionId === f.id}
-                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
-                >
-                  Unlink
-                </button>
-              )}
+              <InlineConfirmButton
+                onConfirm={() => unlinkFunction(f.id)}
+                label="Unlink"
+                resource="PRINT_ORDERS"
+                requiredLevel="WRITE"
+                className="text-xs text-red-600 dark:text-red-400 hover:underline"
+              />
             </div>
           ))}
         </div>
@@ -168,16 +144,12 @@ export function PrintOrderLinkPanel({
             <Link href={linkedPresentation.path} className="min-w-0 break-words text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
               {linkedPresentation.title}
             </Link>
-            {canWrite && (
-              <button
-                type="button"
-                onClick={handleUnlinkPresentation}
-                disabled={isUnlinkingPresentation}
-                className="text-sm text-red-600 hover:underline disabled:opacity-50"
-              >
-                Unlink
-              </button>
-            )}
+            <InlineConfirmButton
+              onConfirm={unlinkPresentation}
+              label="Unlink"
+              resource="PRINT_ORDERS"
+              requiredLevel="WRITE"
+            />
           </div>
         ) : (
           <div>

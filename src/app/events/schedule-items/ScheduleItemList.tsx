@@ -13,6 +13,7 @@ import { colorClasses } from "@/lib/colors";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { formatFunctionLabel, matchesFunctionQuery } from "@/lib/functionNumbers";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type ScheduleItemRow = Awaited<ReturnType<typeof getScheduleItems>>[number];
 
@@ -153,7 +154,6 @@ export function ScheduleItemList({
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
-    if (!confirm(`Delete ${ids.length} schedule item${ids.length !== 1 ? "s" : ""}?`)) return;
     await deleteScheduleItems(ids);
     setSelected(new Set());
     router.refresh();
@@ -217,12 +217,13 @@ export function ScheduleItemList({
             </button>
           )}
           {canDelete && (
-            <button
-              onClick={handleBulkDelete}
+            <InlineConfirmButton
+              onConfirm={handleBulkDelete}
+              label="Delete selected"
+              confirmLabel={`Delete ${selected.size} schedule item${selected.size !== 1 ? "s" : ""}`}
+              resource="FUNCTIONS"
               className="rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-            >
-              Delete selected
-            </button>
+            />
           )}
           <button
             onClick={() => setSelected(new Set())}

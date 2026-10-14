@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { computeServiceLocationCounts } from "@/lib/cateringServiceLocations";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type LocationFunction = {
   id: string;
@@ -198,14 +199,11 @@ export function AdditionalServiceLocationTable({
                         </button>
                       )}
                       {canDelete && (
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this service location?")) await deleteLocation(loc.id);
-                          }}
-                          className="text-red-600 hover:underline text-sm"
-                        >
-                          Delete
-                        </button>
+                        <InlineConfirmButton
+                          onConfirm={() => deleteLocation(loc.id)}
+                          resource="CATERING_ORDERS"
+                          requiredLevel="WRITE"
+                        />
                       )}
                     </div>
                   </div>

@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { VenueContact, Contact } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type VenueContactWithContact = VenueContact & { contact: Contact };
 
@@ -382,16 +383,12 @@ export function ContactList({
                       >
                         Edit
                       </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Remove this contact?")) {
-                            await removeContact(item.id);
-                          }
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Remove
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => removeContact(item.id)}
+                        label="Remove"
+                        resource="VENUES"
+                        requiredLevel="DELETE"
+                      />
                     </div>
                   )}
                 </div>
