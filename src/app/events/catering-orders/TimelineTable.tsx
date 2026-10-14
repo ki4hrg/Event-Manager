@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import type { TimelineItem } from "@prisma/client";
 import { formatTime } from "@/lib/agendaUtils";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type TimelineTableProps = {
   items: TimelineItem[];
@@ -201,14 +202,11 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
                       <button onClick={() => setEditingId(item.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                     )}
                     {canDelete && (
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this timeline item?")) await deleteItem(item.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => deleteItem(item.id)}
+                        resource="CATERING_ORDERS"
+                        requiredLevel="WRITE"
+                      />
                     )}
                   </div>
                 </div>

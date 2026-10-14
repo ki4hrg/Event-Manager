@@ -33,7 +33,7 @@ export async function getPrintOrders(eventId: string) {
     include: {
       items: true,
       room: { select: { id: true, name: true } },
-      functions: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
+      functions: { include: { function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } } } },
       presentation: { select: { id: true, title: true } },
       vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },
@@ -51,6 +51,7 @@ export async function getPrintOrder(id: string) {
             include: {
               schedules: { orderBy: { startTime: "asc" } },
               contacts: { include: { contact: true } },
+              breakoutGroup: { select: { name: true } },
             },
           },
         },

@@ -11,6 +11,7 @@ import { getOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { btnSecondary } from "@/lib/buttonStyles";
+import { hasPermission } from "@/lib/permissions";
 import { getEvent } from "../../../../actions";
 import {
   createBoothGroupEquipmentItem,
@@ -30,13 +31,14 @@ export const metadata: Metadata = { title: "Booth group" };
 
 export default async function BoothGroupPage({ params }: { params: Promise<{ id: string; groupId: string }> }) {
   const { id: eventId, groupId } = await params;
-  const [event, group, choices, equipmentOptions, equipmentCategories, partyVendors] = await Promise.all([
+  const [event, group, choices, equipmentOptions, equipmentCategories, partyVendors, canWrite] = await Promise.all([
     getEvent(eventId),
     getBoothGroup(groupId, eventId),
     getBoothFormChoices(eventId),
     getEquipment(),
     getOptions("equipment_category"),
     getResponsiblePartyVendors(eventId),
+    hasPermission("FUNCTIONS", "WRITE", eventId),
   ]);
   if (!event || !group) notFound();
 
@@ -84,16 +86,20 @@ export default async function BoothGroupPage({ params }: { params: Promise<{ id:
           <LastUpdated updatedAt={group.updatedAt} updatedBy={group.updatedBy} timezone={event.timezone} className="mt-2" />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
-          <Link href={`/events/${eventId}/exhibits/new?groupId=${groupId}`} className={btnSecondary}>
-            Add Booth
-          </Link>
+          {canWrite && (
+            <Link href={`/events/${eventId}/exhibits/new?groupId=${groupId}`} className={btnSecondary}>
+              Add Booth
+            </Link>
+          )}
           <DeleteButton action={deleteAction} resource="FUNCTIONS" label="Delete Group" />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 min-w-0">
+          {/* Keyed on updatedAt so a save remounts the form back into view mode. */}
           <BoothGroupForm
+            key={group.updatedAt.toISOString()}
             group={group}
             timezone={event.timezone}
             functions={choices.functions}
@@ -102,7 +108,7 @@ export default async function BoothGroupPage({ params }: { params: Promise<{ id:
             cancelHref={`/events/${eventId}/exhibits`}
           />
         </div>
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 min-w-0 space-y-6">
           <div className="space-y-2">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Inventory per booth</h2>
             <EquipmentTable
@@ -119,7 +125,7 @@ export default async function BoothGroupPage({ params }: { params: Promise<{ id:
           <div className="space-y-2">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Booths ({booths.length})</h2>
             {booths.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">None yet.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No booths yet.</p>
             ) : (
               <ul className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                 {booths.map((b) => (

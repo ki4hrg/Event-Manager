@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import type { PresentationContact, Contact, CustomOption } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type SpeakerWithContact = PresentationContact & { contact: Contact };
 
@@ -456,16 +457,13 @@ export function SpeakerList({
                       >
                         Edit
                       </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Remove this speaker?")) {
-                            await removeSpeaker(speaker.id);
-                          }
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Remove
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => removeSpeaker(speaker.id)}
+                        label="Remove"
+                        confirmLabel="Remove"
+                        resource="PRESENTATIONS"
+                        requiredLevel="WRITE"
+                      />
                     </div>
                   )}
                 </div>

@@ -54,7 +54,7 @@ export default async function NewMediaDeliverablePage({
   const [eventFunctions, eventPresentations] = isFromSource
     ? [[], []]
     : await Promise.all([
-        prisma.function.findMany({ where: { eventId }, select: { id: true, name: true, functionNumber: true }, orderBy: { name: "asc" } }),
+        prisma.function.findMany({ where: { eventId }, select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } }, orderBy: { name: "asc" } }),
         prisma.presentation.findMany({
           where: { eventId },
           select: { id: true, title: true },

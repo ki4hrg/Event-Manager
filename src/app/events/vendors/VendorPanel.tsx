@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { Vendor } from "@prisma/client";
 import { MODEL_LABELS } from "@/app/vendors/model-types";
-import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { useDebouncedSearch } from "@/lib/useDebouncedSearch";
 
 type AssignedVendor = {
@@ -37,7 +38,7 @@ export function VendorPanel({
   // These junction writes gate on the VENDORS catalog, not the order — see
   // addVendorToOrder cores in src/app/vendors/core.ts.
   const canWrite = useCanWrite("VENDORS");
-  const canDelete = useCanDelete("VENDORS");
+  const [isPending, startTransition] = useTransition();
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [notes, setNotes] = useState("");
@@ -56,12 +57,14 @@ export function VendorPanel({
     search.clear();
   };
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     if (!selectedVendor) return;
-    await addVendor(selectedVendor.id, notes);
-    setSelectedVendor(null);
-    setNotes("");
-    setShowAddForm(false);
+    startTransition(async () => {
+      await addVendor(selectedVendor.id, notes);
+      setSelectedVendor(null);
+      setNotes("");
+      setShowAddForm(false);
+    });
   };
 
   const handleEditStart = (item: AssignedVendor) => {
@@ -69,17 +72,20 @@ export function VendorPanel({
     setEditNotes(item.notes || "");
   };
 
-  const handleEditSave = async (id: string) => {
-    await updateVendor(id, editNotes);
-    setEditingId(null);
+  const handleEditSave = (id: string) => {
+    startTransition(async () => {
+      await updateVendor(id, editNotes);
+      setEditingId(null);
+    });
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendors</h2>
         {canWrite && (
           <button
+            type="button"
             onClick={() => {
               setShowAddForm(true);
               setSelectedVendor(null);
@@ -98,7 +104,10 @@ export function VendorPanel({
           {!selectedVendor ? (
             useDropdown ? (
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="vendor-panel-select"
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Event Vendor
                 </label>
                 {unassignedVendors.length === 0 ? (
@@ -110,6 +119,7 @@ export function VendorPanel({
                   </p>
                 ) : (
                   <select
+                    id="vendor-panel-select"
                     autoFocus
                     value=""
                     onChange={(e) => {
@@ -132,11 +142,15 @@ export function VendorPanel({
               </div>
             ) : (
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="vendor-panel-search"
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Search Event Vendors
                 </label>
                 <input
-                  type="text"
+                  id="vendor-panel-search"
+                  type="search"
                   value={search.query}
                   onChange={(e) => search.setQuery(e.target.value)}
                   placeholder="Search by vendor name..."
@@ -180,12 +194,12 @@ export function VendorPanel({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Selected Vendor
               </label>
-              <div className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                <span className="text-gray-900 dark:text-white">{selectedVendor.name}</span>
+              <div className="flex items-center justify-between gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <span className="min-w-0 break-words text-gray-900 dark:text-white">{selectedVendor.name}</span>
                 <button
                   type="button"
                   onClick={() => setSelectedVendor(null)}
-                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+                  className="shrink-0 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
                 >
                   Change
                 </button>
@@ -194,10 +208,14 @@ export function VendorPanel({
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label
+              htmlFor="vendor-panel-notes"
+              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
               Notes
             </label>
             <input
+              id="vendor-panel-notes"
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -210,10 +228,10 @@ export function VendorPanel({
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!selectedVendor}
+              disabled={!selectedVendor || isPending}
               className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              Add Vendor
+              {isPending ? "Adding..." : "Add Vendor"}
             </button>
             <button
               type="button"
@@ -245,20 +263,22 @@ export function VendorPanel({
                     value={editNotes}
                     onChange={(e) => setEditNotes(e.target.value)}
                     placeholder="Notes..."
+                    aria-label={`Notes for ${item.vendor.name}`}
                     className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                   />
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleEditSave(item.id)}
-                      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      disabled={isPending}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
                     >
-                      Save
+                      {isPending ? "Saving..." : "Save"}
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingId(null)}
-                      className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+                      className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
                     >
                       Cancel
                     </button>
@@ -282,24 +302,19 @@ export function VendorPanel({
                   <div className="flex items-center gap-2 ml-2 shrink-0">
                     {canWrite && (
                       <button
+                        type="button"
                         onClick={() => handleEditStart(item)}
                         className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                       >
                         Edit
                       </button>
                     )}
-                    {canDelete && (
-                      <button
-                        onClick={async () => {
-                          if (confirm("Remove this vendor?")) {
-                            await removeVendor(item.id);
-                          }
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Remove
-                      </button>
-                    )}
+                    <InlineDeleteButton
+                      resource="VENDORS"
+                      action={() => removeVendor(item.id)}
+                      hiddenInputs={{}}
+                      label="Remove"
+                    />
                   </div>
                 </div>
               )}

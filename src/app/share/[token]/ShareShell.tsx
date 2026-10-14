@@ -1,3 +1,4 @@
+import { btnOutlinedXs } from "@/lib/buttonStyles";
 type ShareShellProps = {
   eventName: string;
   reportTitle: string;
@@ -26,7 +27,7 @@ export function ShareShell({ eventName, reportTitle, label, printHref, children 
           {printHref && (
             <a
               href={printHref}
-              className="shrink-0 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              className={`shrink-0 ${btnOutlinedXs}`}
             >
               Print / Save PDF
             </a>

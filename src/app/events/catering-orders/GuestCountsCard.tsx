@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 
 type GuestCountsCardProps = {
   expectedCount: number | null;
@@ -20,7 +21,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
+      className={`${btnPrimary} disabled:opacity-50 text-sm`}
     >
       {pending ? "Saving..." : "Save"}
     </button>
@@ -72,13 +73,15 @@ export function GuestCountsCard({
           setEditing(false);
         }}
       >
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label htmlFor="expectedCount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Expected
             </label>
             <input
               type="number"
+              min={0}
+              inputMode="numeric"
               id="expectedCount"
               name="expectedCount"
               defaultValue={expectedCount ?? ""}
@@ -91,6 +94,8 @@ export function GuestCountsCard({
             </label>
             <input
               type="number"
+              min={0}
+              inputMode="numeric"
               id="confirmedCount"
               name="confirmedCount"
               defaultValue={confirmedCount ?? ""}
@@ -103,6 +108,8 @@ export function GuestCountsCard({
             </label>
             <input
               type="number"
+              min={0}
+              inputMode="numeric"
               id="guaranteeCount"
               name="guaranteeCount"
               defaultValue={guaranteeCount ?? ""}
@@ -115,6 +122,8 @@ export function GuestCountsCard({
             </label>
             <input
               type="number"
+              min={0}
+              inputMode="numeric"
               id="actualCount"
               name="actualCount"
               defaultValue={actualCount ?? ""}
@@ -127,7 +136,7 @@ export function GuestCountsCard({
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 text-sm"
+            className={`${btnSecondary} text-sm`}
           >
             Cancel
           </button>

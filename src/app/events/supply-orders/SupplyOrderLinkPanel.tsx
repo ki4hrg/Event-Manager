@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type LinkedItem = { id: string; label: string; path: string };
 
@@ -38,7 +39,6 @@ function MultiLinkSection({
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
   const canWrite = useCanWrite("SUPPLY_ORDERS");
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
 
   const handleLink = async () => {
     if (!selectedId) return;
@@ -49,16 +49,6 @@ function MultiLinkSection({
       setSelectedId("");
     } finally {
       setIsLinking(false);
-    }
-  };
-
-  const handleUnlink = async (id: string, label: string) => {
-    if (!confirm(`Unlink "${label}"?`)) return;
-    setUnlinkingId(id);
-    try {
-      await unlinkItem(id);
-    } finally {
-      setUnlinkingId(null);
     }
   };
 
@@ -75,16 +65,13 @@ function MultiLinkSection({
             <Link href={item.path} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
               {item.label}
             </Link>
-            {canWrite && (
-              <button
-                type="button"
-                onClick={() => handleUnlink(item.id, item.label)}
-                disabled={unlinkingId === item.id}
-                className="text-xs text-red-600 hover:underline disabled:opacity-50"
-              >
-                Unlink
-              </button>
-            )}
+            <InlineConfirmButton
+              onConfirm={() => unlinkItem(item.id)}
+              label="Unlink"
+              resource="SUPPLY_ORDERS"
+              requiredLevel="WRITE"
+              className="text-xs text-red-600 dark:text-red-400 hover:underline"
+            />
           </div>
         ))}
       </div>

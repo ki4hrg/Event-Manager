@@ -30,10 +30,10 @@ function Tabs({ view }: { view: string }) {
     </Link>
   );
   return (
-    <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700 mb-6">
+    <nav className="flex gap-6 overflow-x-auto whitespace-nowrap border-b border-gray-200 dark:border-gray-700 mb-6">
       {tab("history", "Pickup history")}
       {tab("monitoring", "Monitoring")}
-    </div>
+    </nav>
   );
 }
 
@@ -136,7 +136,7 @@ async function Monitoring() {
   const headers = ["Event", "Hotel", "Cut-off", "Blocked", "Picked up", "%", "Floor"];
   return (
     <>
-      <div className="flex justify-between items-center gap-3 mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <p className="text-sm text-gray-600 dark:text-gray-400">
           {blocks.length} block{blocks.length === 1 ? "" : "s"} · {blocks.filter((b) => b.atRisk).length} at risk
         </p>

@@ -530,6 +530,7 @@ export function PackingListClient({
           <input
             type="search"
             placeholder="Search items..."
+            aria-label="Search items"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="flex-1 min-w-[12rem] px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
@@ -547,7 +548,7 @@ export function PackingListClient({
             type="button"
             onClick={refresh}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            className={`inline-flex items-center gap-2 ${btnOutlinedSm} disabled:opacity-50`}
             title="Refresh now"
           >
             <span className={`h-2 w-2 rounded-full ${stalenessDot}`} aria-hidden />

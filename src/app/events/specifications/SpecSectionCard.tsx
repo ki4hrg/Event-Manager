@@ -202,7 +202,7 @@ export function SpecSectionCard({
                 type="button"
                 onClick={toggleNa}
                 disabled={pending}
-                className="text-gray-500 dark:text-gray-400 hover:underline disabled:opacity-50"
+                className="py-1 text-gray-500 dark:text-gray-400 hover:underline disabled:opacity-50"
               >
                 {na ? "Mark applicable" : "Not applicable"}
               </button>
@@ -211,7 +211,7 @@ export function SpecSectionCard({
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="text-blue-600 dark:text-blue-400 hover:underline"
+                className="py-1 text-blue-600 dark:text-blue-400 hover:underline"
               >
                 {letter === "header" ? "Edit dates" : `Edit section ${letter}`}
               </button>

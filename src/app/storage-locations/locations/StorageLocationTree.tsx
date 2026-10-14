@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { CustomOption, LocationKind } from "@prisma/client";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 export type LocationRow = {
   id: string;
@@ -356,21 +357,13 @@ export function StorageLocationTree({
                         </>
                       )}
                       {canDelete && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (
-                              confirm(
-                                `Delete "${location.name}"? Locations inside it move to the top level. It can't be deleted while it still holds inventory items.`,
-                              )
-                            ) {
-                              await deleteLocation(location.id);
-                            }
-                          }}
+                        <InlineConfirmButton
+                          onConfirm={() => deleteLocation(location.id)}
+                          prompt="Locations inside move to the top level."
+                          resource="STORAGE_LOCATIONS"
+                          requiredLevel="DELETE"
                           className="text-red-600 dark:text-red-400 hover:underline"
-                        >
-                          Delete
-                        </button>
+                        />
                       )}
                     </div>
                   )}

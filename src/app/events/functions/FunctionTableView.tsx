@@ -19,6 +19,7 @@ import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { getSetupOrderDisplayName } from "../setup-orders/utils";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type SortField = "number" | "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 
@@ -246,7 +247,6 @@ export function FunctionTableView({
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
-    if (!confirm(`Delete ${ids.length} function${ids.length !== 1 ? "s" : ""}?`)) return;
     await deleteFunctions(ids);
     setSelected(new Set());
     router.refresh();
@@ -293,12 +293,13 @@ export function FunctionTableView({
               </button>
             )}
             {canDelete && (
-              <button
-                onClick={handleBulkDelete}
+              <InlineConfirmButton
+                onConfirm={handleBulkDelete}
+                label="Delete selected"
+                confirmLabel={`Delete ${selected.size} function${selected.size !== 1 ? "s" : ""}`}
+                resource="FUNCTIONS"
                 className="text-sm text-red-600 dark:text-red-400 hover:underline"
-              >
-                Delete selected
-              </button>
+              />
             )}
             <button
               onClick={() => { setSelected(new Set()); setShowBulkEdit(false); }}

@@ -104,6 +104,41 @@ const SlidersIcon = () => (
     <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" />
   </svg>
 );
+const BedIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M2 5a1 1 0 012 0v6h5V8a1 1 0 011-1h5a3 3 0 013 3v5a1 1 0 11-2 0v-2H4v2a1 1 0 11-2 0V5zm4 1.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
+  </svg>
+);
+const BoothIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+  </svg>
+);
+const UsersIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+  </svg>
+);
+const DownloadIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+  </svg>
+);
+const DocumentIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+  </svg>
+);
+const FlagIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd" />
+  </svg>
+);
+const CloseIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-5 h-5 shrink-0">
+    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+  </svg>
+);
 const ChevronLeftIcon = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
     <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -150,7 +185,7 @@ const NAV: NavItem[] = [
   { type: "group", label: "Content" },
   { type: "link",  label: "Presentations",    segment: "presentations",                   icon: <ChartIcon />,     sidebarSection: "presentations", resource: "PRESENTATIONS" },
   { type: "link",  label: "Media Deliverables", segment: "media-deliverables",            icon: <VideoIcon />,     sidebarSection: "media-deliverables", resource: "MEDIA_DELIVERABLES" },
-  { type: "link",  label: "Exhibits",         segment: "exhibits",                        icon: <BuildingIcon />,  resource: "FUNCTIONS" },
+  { type: "link",  label: "Exhibits",         segment: "exhibits",                        icon: <BoothIcon />,  resource: "FUNCTIONS" },
   { type: "group", label: "Orders" },
   { type: "link",  label: "Packing List",     segment: "packing",                         icon: <ChecklistIcon />, resource: "SUPPLY_ORDERS" },
   { type: "link",  label: "AV Orders",        segment: "av-orders",                       icon: <VideoIcon />,     sidebarSection: "av-orders", resource: "AV_ORDERS" },
@@ -160,15 +195,18 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Supply Orders",    segment: "supply-orders",                   icon: <PackageIcon />,   sidebarSection: "supply-orders", resource: "SUPPLY_ORDERS" },
   { type: "group", label: "Resources" },
   { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon />,  resource: "VENDORS" },
-  { type: "link",  label: "Hotels",           segment: "hotels",                          icon: <BuildingIcon />,  resource: "HOTELS" },
+  { type: "link",  label: "Hotels",           segment: "hotels",                          icon: <BedIcon />,  resource: "HOTELS" },
   { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon />,    resource: "FILES" },
+  { type: "group", label: "Documentation" },
+  { type: "link",  label: "Specifications",   segment: "specifications",                  icon: <DocumentIcon />,  resource: "EVENTS" },
+  { type: "link",  label: "Post-Event",       segment: "post-event",                      icon: <FlagIcon />,      resource: "EVENTS" },
   { type: "group", label: "Reports" },
   { type: "link",  label: "Event Profile",   segment: "reports/event-profile",           icon: <ChartIcon /> },
   { type: "link",  label: "Event Schedule",   segment: "reports/event-schedule",          icon: <ClockIcon /> },
   { type: "link",  label: "Function Detail",  segment: "reports/function-detail",         icon: <ClipboardIcon /> },
-  { type: "link",  label: "Specifications Guide", segment: "reports/esg",                 icon: <ClipboardIcon /> },
-  { type: "link",  label: "Post-Event Report", segment: "reports/post-event",             icon: <ChartIcon /> },
-  { type: "link",  label: "Hotel Information", segment: "reports/hotel-info",             icon: <BuildingIcon />,  resource: "HOTELS" },
+  { type: "link",  label: "Specifications Guide", segment: "reports/esg",                 icon: <DocumentIcon /> },
+  { type: "link",  label: "Post-Event Report", segment: "reports/post-event",             icon: <FlagIcon /> },
+  { type: "link",  label: "Hotel Information", segment: "reports/hotel-info",             icon: <BedIcon />,  resource: "HOTELS" },
   { type: "link",  label: "Room Schedule",    segment: "reports/room-schedule",           icon: <GridIcon /> },
   { type: "link",  label: "Breakout Grid",    segment: "reports/breakout-grid",           icon: <GridIcon /> },
   { type: "link",  label: "Breakout Assignments", segment: "reports/breakout-assignments", icon: <ClipboardIcon /> },
@@ -177,10 +215,8 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Vendor Handoff",   segment: "reports/vendor-handoff",          icon: <HandoffIcon /> },
   { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon />,      resource: "SHARE_LINKS" },
   { type: "group", label: "Configuration" },
-  { type: "link",  label: "Import",           segment: "import",                          icon: <HandoffIcon />,   writeResource: "EVENTS" },
-  { type: "link",  label: "Specifications",   segment: "specifications",                  icon: <ClipboardIcon />, resource: "EVENTS" },
-  { type: "link",  label: "Post-Event",       segment: "post-event",                      icon: <ClipboardIcon />, resource: "EVENTS" },
-  { type: "link",  label: "Staff",            segment: "staff",                           icon: <ClipboardIcon /> },
+  { type: "link",  label: "Import",           segment: "import",                          icon: <DownloadIcon />,  writeResource: "EVENTS" },
+  { type: "link",  label: "Staff",            segment: "staff",                           icon: <UsersIcon /> },
   { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon />,   writeResource: "EVENTS" },
 ];
 
@@ -232,6 +268,7 @@ function SidebarInner({
   pathname,
   collapsed,
   onToggleCollapse,
+  onClose,
   currentSection,
   items,
   nav,
@@ -241,6 +278,7 @@ function SidebarInner({
   pathname: string;
   collapsed: boolean;
   onToggleCollapse?: () => void;
+  onClose?: () => void;
   currentSection: SidebarSection | null;
   items: SidebarItem[];
   nav: NavItem[];
@@ -265,11 +303,23 @@ function SidebarInner({
         )}
         {onToggleCollapse && (
           <button
+            type="button"
             onClick={onToggleCollapse}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             className="p-1.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </button>
+        )}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="-mr-1 p-2 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
+          >
+            <CloseIcon />
           </button>
         )}
       </div>
@@ -278,7 +328,16 @@ function SidebarInner({
       <nav className="flex-1 overflow-y-auto py-1.5">
         {nav.map((item, idx) => {
           if (item.type === "group") {
-            if (collapsed) return null;
+            // Icon-only rail: a rule keeps the groups apart without labels.
+            if (collapsed) {
+              return (
+                <div
+                  key={idx}
+                  aria-hidden
+                  className="mx-2 my-2 border-t border-gray-200 dark:border-gray-700"
+                />
+              );
+            }
             return (
               <div
                 key={idx}
@@ -302,6 +361,7 @@ function SidebarInner({
               <Link
                 href={href}
                 title={collapsed ? item.label : undefined}
+                aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-2.5 mx-1 px-2 py-1.5 rounded-md text-sm transition-colors ${
                   collapsed ? "justify-center" : ""
                 } ${
@@ -336,6 +396,7 @@ function SidebarInner({
                         key={si.id}
                         href={si.href}
                         title={si.label}
+                        aria-current={siActive ? "page" : undefined}
                         className={`block px-2 py-1 text-xs rounded truncate transition-colors ${
                           siActive
                             ? "text-blue-700 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/20"
@@ -430,6 +491,15 @@ export function EventSidebar({
     }
   }, [pathname]);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onMobileCloseRef.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
+
   const effectiveCollapsed = mounted && collapsed;
 
   const toggleCollapsed = () => {
@@ -480,6 +550,7 @@ export function EventSidebar({
               {...innerProps}
               collapsed={false}
               onToggleCollapse={undefined}
+              onClose={onMobileClose}
             />
           </aside>
         </>

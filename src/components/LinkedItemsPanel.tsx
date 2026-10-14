@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type LinkedItem = {
   id: string;
@@ -46,7 +47,6 @@ export function LinkedItemsPanel({
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
 
   const handleLink = async () => {
     if (!selectedId) return;
@@ -57,16 +57,6 @@ export function LinkedItemsPanel({
       setSelectedId("");
     } finally {
       setIsLinking(false);
-    }
-  };
-
-  const handleUnlink = async (id: string, label: string) => {
-    if (!confirm(`Unlink "${label}"?`)) return;
-    setUnlinkingId(id);
-    try {
-      await unlinkItem(id);
-    } finally {
-      setUnlinkingId(null);
     }
   };
 
@@ -92,15 +82,14 @@ export function LinkedItemsPanel({
                   <div className="mt-1">{item.metadata}</div>
                 )}
               </div>
-              {canWrite && (
-                <button
-                  onClick={() => handleUnlink(item.id, item.label)}
-                  disabled={unlinkingId === item.id}
-                  className="text-red-600 dark:text-red-400 hover:underline text-sm disabled:opacity-50 flex-shrink-0"
-                >
-                  Unlink
-                </button>
-              )}
+              <span className="flex-shrink-0">
+                <InlineConfirmButton
+                  onConfirm={() => unlinkItem(item.id)}
+                  label="Unlink"
+                  resource={resource}
+                  requiredLevel="WRITE"
+                />
+              </span>
             </li>
           ))}
         </ul>

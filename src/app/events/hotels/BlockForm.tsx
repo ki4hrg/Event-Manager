@@ -68,6 +68,8 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor: string; c
   );
 }
 
+const NIGHT_FIELD_LABELS = { rate: "rate", contractedRooms: "contracted", rooms: "blocked", otherReservations: "other reservations" } as const;
+
 const pct = (picked: number, blocked: number) => (blocked > 0 ? `${Math.round((picked / blocked) * 100)}%` : "—");
 
 // Nights with pickup, read-only. Rows below the attrition floor are flagged.
@@ -414,7 +416,7 @@ export function BlockForm({
                   {(["rate", "contractedRooms", "rooms", "otherReservations"] as const).map((f) => (
                     <td key={f} className="py-1 px-1 text-right">
                       <input
-                        aria-label={`${formatNight(n.night)} ${f}`}
+                        aria-label={`${formatNight(n.night)}${n.roomType ? ` ${n.roomType}` : ""} ${NIGHT_FIELD_LABELS[f]}`}
                         type="number"
                         min={0}
                         step={f === "rate" ? "0.01" : "1"}
@@ -480,6 +482,7 @@ export function BlockForm({
             <div key={i} className="flex flex-wrap items-center gap-2">
               <input
                 aria-label="Charge"
+                placeholder="Resort fee, parking…"
                 value={c.chargeType}
                 onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, chargeType: e.target.value } : x)))}
                 className={`${inputClass} mt-0 flex-1 min-w-[10rem]`}
@@ -488,6 +491,7 @@ export function BlockForm({
                 aria-label="Amount"
                 type="number"
                 step="0.01"
+                placeholder="$"
                 value={c.amount}
                 onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
                 className={`${inputClass} mt-0 w-24`}
@@ -524,7 +528,7 @@ export function BlockForm({
         <textarea id="b-notes" name="notes" rows={3} defaultValue={block.notes ?? ""} className={inputClass} />
       </Field>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <SaveButton />
         <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>
           Cancel

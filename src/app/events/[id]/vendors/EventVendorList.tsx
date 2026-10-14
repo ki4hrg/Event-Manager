@@ -6,7 +6,8 @@ import type { Vendor } from "@prisma/client";
 import type { ModelType, EventVendorEntry } from "@/app/vendors/actions";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { colorClasses } from "@/lib/colors";
-import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type EventVendorListProps = {
   eventVendors: EventVendorEntry[];
@@ -32,7 +33,6 @@ export function EventVendorList({
   removeDefault,
 }: EventVendorListProps) {
   const canWrite = useCanWrite("VENDORS");
-  const canDelete = useCanDelete("VENDORS");
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Vendor[]>([]);
@@ -234,17 +234,13 @@ export function EventVendorList({
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {canDelete && entry.kind === "regular" && entry.eventVendorId && (
-                        <button
-                          onClick={async () => {
-                            if (confirm(`Remove ${entry.vendor.name} from this event?`)) {
-                              await removeVendor(entry.eventVendorId!);
-                            }
-                          }}
-                          className="text-red-600 dark:text-red-400 hover:underline text-sm"
-                        >
-                          Remove
-                        </button>
+                      {entry.kind === "regular" && entry.eventVendorId && (
+                        <InlineConfirmButton
+                          onConfirm={() => removeVendor(entry.eventVendorId!)}
+                          label="Remove"
+                          resource="VENDORS"
+                          requiredLevel="DELETE"
+                        />
                       )}
                     </td>
                   </tr>

@@ -110,8 +110,10 @@ export function MembershipEditor({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
-      <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">{description}</p>
+      <div className="mb-4">
+        <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</h2>
+        {description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>}
+      </div>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md text-red-700 dark:text-red-400 text-sm">

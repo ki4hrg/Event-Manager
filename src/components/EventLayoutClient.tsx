@@ -44,8 +44,9 @@ export function EventLayoutClient({
         <div className="flex flex-col flex-1 min-w-0">
           <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 print:hidden">
             <button
+              type="button"
               onClick={() => setMobileOpen(true)}
-              className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="-ml-2 p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               aria-label="Open navigation"
             >
               <HamburgerIcon />

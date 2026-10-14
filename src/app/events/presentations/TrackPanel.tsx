@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { colorClasses, COLOR_OPTIONS } from "@/lib/colors";
 import type { PresentationTrack } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 const inputClass =
   "flex-1 min-w-0 basis-full sm:basis-auto px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white";
@@ -116,17 +117,11 @@ function TrackRow({
         </button>
       )}
       {canDelete && (
-        <button
-          type="button"
-          onClick={async () => {
-            if (confirm(`Delete track "${track.name}"? Presentations will become untracked.`)) {
-              await deleteTrack(track.id);
-            }
-          }}
-          className="text-sm text-red-600 hover:underline"
-        >
-          Delete
-        </button>
+        <InlineConfirmButton
+          onConfirm={() => deleteTrack(track.id)}
+          prompt="Presentations will become untracked."
+          resource="PRESENTATIONS"
+        />
       )}
     </div>
   );

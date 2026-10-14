@@ -21,6 +21,7 @@ import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 // ============================================================================
 // Types
@@ -216,10 +217,12 @@ function InputItemRow({
               <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
             )}
             {canDelete && (
-              <button
-                onClick={async () => { if (confirm("Delete this input?")) await deleteItem(item.id); }}
-                className="text-red-600 hover:underline text-xs"
-              >Delete</button>
+              <InlineConfirmButton
+                onConfirm={() => deleteItem(item.id)}
+                resource="AV_ORDERS"
+                requiredLevel="WRITE"
+                className="text-red-600 dark:text-red-400 hover:underline text-xs"
+              />
             )}
           </div>
         </div>
@@ -324,10 +327,13 @@ function InputGroupCard({
               <button onClick={() => setEditingGroup(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
             )}
             {canDelete && (
-              <button
-                onClick={async () => { if (confirm(`Delete group "${group.name}" and all its inputs?`)) await deleteGroup(group.id); }}
-                className="text-red-600 hover:underline text-xs"
-              >Delete</button>
+              <InlineConfirmButton
+                onConfirm={() => deleteGroup(group.id)}
+                prompt="Its inputs are deleted too."
+                resource="AV_ORDERS"
+                requiredLevel="WRITE"
+                className="text-red-600 dark:text-red-400 hover:underline text-xs"
+              />
             )}
           </div>
         </div>
@@ -510,10 +516,12 @@ function MonitorOutputRow({
               <button onClick={() => setEditing(true)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Edit</button>
             )}
             {canDelete && (
-              <button
-                onClick={async () => { if (confirm("Delete this output?")) await deleteOutput(output.id); }}
-                className="text-red-600 hover:underline text-xs"
-              >Delete</button>
+              <InlineConfirmButton
+                onConfirm={() => deleteOutput(output.id)}
+                resource="AV_ORDERS"
+                requiredLevel="WRITE"
+                className="text-red-600 dark:text-red-400 hover:underline text-xs"
+              />
             )}
           </div>
         </div>
@@ -603,10 +611,13 @@ function MonitorMixGroupCard({
               </>
             )}
             {canDelete && (
-              <button
-                onClick={async () => { if (confirm("Delete this mix and all its outputs?")) await deleteMix(mix.id); }}
-                className="text-red-600 hover:underline text-xs"
-              >Delete</button>
+              <InlineConfirmButton
+                onConfirm={() => deleteMix(mix.id)}
+                prompt="Its outputs are deleted too."
+                resource="AV_ORDERS"
+                requiredLevel="WRITE"
+                className="text-red-600 dark:text-red-400 hover:underline text-xs"
+              />
             )}
           </div>
         </div>

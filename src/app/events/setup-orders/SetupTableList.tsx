@@ -7,6 +7,7 @@ import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import { aggregateSetupTables } from "./utils";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type TableRow = SetupTable & { providerVendor: { id: string; name: string } | null };
 
@@ -319,14 +320,12 @@ export function SetupTableList({
                       <button onClick={() => setEditingId(row.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                     )}
                     {canDelete && (
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this row?")) await deleteTable(row.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => deleteTable(row.id)}
+                        resource="SETUP_ORDERS"
+                        requiredLevel="WRITE"
+                        className="text-red-600 dark:text-red-400 hover:underline text-sm"
+                      />
                     )}
                   </div>
                 </div>

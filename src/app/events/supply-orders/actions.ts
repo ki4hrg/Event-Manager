@@ -33,7 +33,7 @@ export async function getSupplyOrders(eventId: string) {
     include: {
       room: { select: { id: true, name: true } },
       items: { select: { id: true, packingStatus: true, acquisitionState: true } },
-      functions: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
+      functions: { include: { function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } } } },
       presentations: { include: { presentation: { select: { id: true, title: true } } } },
       providerVendor: { select: { id: true, name: true } },
       providerContact: { select: { id: true, firstName: true, lastName: true } },
@@ -55,6 +55,7 @@ export async function getSupplyOrder(id: string) {
             include: {
               schedules: { orderBy: { startTime: "asc" } },
               contacts: { include: { contact: true } },
+              breakoutGroup: { select: { name: true } },
             },
           },
         },

@@ -6,6 +6,7 @@ import { createShareLink, revokeShareLink, listShareLinksForReport } from "@/app
 import { addShareLinkGroupItem, createShareLinkGroup } from "@/app/events/share-link-groups/actions";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { btnOutlinedXs } from "@/lib/buttonStyles";
 
 type ExistingLink = {
   id: string;
@@ -184,7 +185,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
         className={
           isAddingToDashboard
             ? "px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
-            : "px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            : btnOutlinedXs
         }
       >
         {isAddingToDashboard ? `Add to ${targetDashboardName}` : "Share"}
@@ -368,7 +369,7 @@ export function ShareReportButton({ eventId, reportType, currentFilters, dashboa
                     />
                     <button
                       onClick={() => handleCopy(createdToken)}
-                      className="shrink-0 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      className={`shrink-0 ${btnOutlinedXs}`}
                     >
                       {copied ? "Copied!" : "Copy"}
                     </button>

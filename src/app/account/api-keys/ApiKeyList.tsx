@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { revokeApiKey } from "./actions";
 
@@ -53,10 +53,11 @@ export function ApiKeyList({ keys }: { keys: ApiKeyRow[] }) {
 function ApiKeyRow({ row }: { row: ApiKeyRow }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
   const isRevoked = row.revokedAt != null;
 
   function onRevoke() {
-    if (!confirm(`Revoke API key "${row.name}"? This cannot be undone.`)) return;
+    setConfirming(false);
     startTransition(async () => {
       await revokeApiKey(row.id);
       router.refresh();
@@ -87,16 +88,33 @@ function ApiKeyRow({ row }: { row: ApiKeyRow }) {
         )}
       </td>
       <td className="px-3 py-2 text-right">
-        {!isRevoked ? (
+        {isRevoked ? null : confirming ? (
+          <span className="inline-flex items-center gap-2 text-sm whitespace-nowrap">
+            <button
+              type="button"
+              onClick={onRevoke}
+              className="text-red-600 dark:text-red-400 hover:underline"
+            >
+              Confirm revoke
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="text-gray-500 dark:text-gray-400 hover:underline"
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
           <button
             type="button"
-            onClick={onRevoke}
+            onClick={() => setConfirming(true)}
             disabled={pending}
             className="text-sm text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
           >
             {pending ? "Revoking…" : "Revoke"}
           </button>
-        ) : null}
+        )}
       </td>
     </tr>
   );

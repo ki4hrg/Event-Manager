@@ -127,6 +127,7 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
             <input
               type="number"
               min={0}
+              inputMode="numeric"
               id="expectedAttendance"
               name="expectedAttendance"
               defaultValue={fn.expectedAttendance ?? ""}
@@ -140,6 +141,7 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
             <input
               type="number"
               min={0}
+              inputMode="numeric"
               id="setForCount"
               name="setForCount"
               defaultValue={fn.setForCount ?? ""}
@@ -153,6 +155,7 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
             <input
               type="number"
               min={0}
+              inputMode="numeric"
               id="actualAttendance"
               name="actualAttendance"
               defaultValue={fn.actualAttendance ?? ""}

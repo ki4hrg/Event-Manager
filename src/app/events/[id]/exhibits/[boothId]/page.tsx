@@ -80,6 +80,14 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
             {booth.boothNumber && <span className="mr-2 text-gray-500 dark:text-gray-400">Booth {booth.boothNumber}</span>}
             {booth.name}
           </h1>
+          {booth.group && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Group:{" "}
+              <Link href={`/events/${eventId}/exhibits/groups/${booth.group.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                {booth.group.name}
+              </Link>
+            </p>
+          )}
           <LastUpdated updatedAt={booth.updatedAt} updatedBy={booth.updatedBy} timezone={event.timezone} className="mt-2" />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
@@ -91,8 +99,10 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 min-w-0">
+          {/* Keyed on updatedAt so a save remounts the form back into view mode. */}
           <BoothForm
+            key={booth.updatedAt.toISOString()}
             booth={booth}
             timezone={event.timezone}
             functions={choices.functions}
@@ -103,7 +113,7 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
             cancelHref={`/events/${eventId}/exhibits`}
           />
         </div>
-        <div className="lg:col-span-2 space-y-2">
+        <div className="lg:col-span-2 min-w-0 space-y-2">
           {booth.group && booth.group.equipmentItems.length > 0 && (
             <div className="mb-6">
               <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -115,7 +125,7 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
               <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 divide-y divide-gray-200 dark:divide-gray-700">
                 {booth.group.equipmentItems.map((e) => (
                   <li key={e.id} className="flex justify-between gap-3 py-1.5">
-                    <span>{e.equipment?.name ?? e.item}</span>
+                    <span className="min-w-0 break-words">{e.equipment?.name ?? e.item}</span>
                     {e.quantity != null && <span className="text-gray-500 dark:text-gray-400">{e.quantity}</span>}
                   </li>
                 ))}

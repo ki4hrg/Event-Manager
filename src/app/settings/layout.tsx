@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { PermissionResource } from "@prisma/client";
-import { requirePermission } from "@/lib/permissions";
+import { permissionLevels, requirePermission } from "@/lib/permissions";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PermissionsProvider } from "@/components/PermissionsProvider";
 import { SettingsTabs } from "./SettingsTabs";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,8 @@ export const metadata: Metadata = {
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   await requirePermission(PermissionResource.SETTINGS, "VIEW");
+  // VIEW-only admins get the lists without Add / Edit / Delete controls.
+  const permissions = await permissionLevels([PermissionResource.SETTINGS]);
 
   return (
     <PageWrapper>
@@ -22,7 +25,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
         </p>
       </div>
       <SettingsTabs />
-      {children}
+      <PermissionsProvider permissions={permissions}>{children}</PermissionsProvider>
     </PageWrapper>
   );
 }

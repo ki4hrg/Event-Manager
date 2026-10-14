@@ -6,6 +6,7 @@ import { resolveOptionLabel } from "@/lib/optionUtils";
 import { useFormStatus } from "react-dom";
 import type { VendorContact, Contact, CustomOption } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type VendorContactWithContact = VendorContact & { contact: Contact };
 
@@ -400,16 +401,12 @@ export function VendorContactList({
                       >
                         Edit
                       </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm("Remove this contact?")) {
-                            await removeContact(item.id);
-                          }
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Remove
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => removeContact(item.id)}
+                        label="Remove"
+                        resource="VENDORS"
+                        requiredLevel="DELETE"
+                      />
                     </div>
                   )}
                 </div>

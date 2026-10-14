@@ -169,7 +169,7 @@ export default async function SupplyOrderPage({
     getEventRooms(eventId),
     prisma.function.findMany({
       where: { eventId, NOT: { supplyOrderLinks: { some: { supplyOrderId } } } },
-      select: { id: true, name: true, functionNumber: true },
+      select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } },
       orderBy: { name: "asc" },
     }),
     prisma.presentation.findMany({

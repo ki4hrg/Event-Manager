@@ -8,6 +8,7 @@ import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type ScheduleListProps = {
   schedules: FunctionSchedule[];
@@ -463,16 +464,10 @@ export function ScheduleList({
                       </button>
                     )}
                     {canDelete && (
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this schedule item?")) {
-                            await deleteSchedule(schedule.id);
-                          }
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => deleteSchedule(schedule.id)}
+                        resource="FUNCTIONS"
+                      />
                     )}
                   </div>
                 </div>

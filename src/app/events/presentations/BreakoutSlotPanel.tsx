@@ -10,6 +10,7 @@ import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type RoomBasic = {
   id: string;
@@ -202,13 +203,6 @@ export function BreakoutSlotPanel({
     });
   };
 
-  const handleRemoveAll = () => {
-    if (!confirm("Remove all breakout assignments (group and sessions) for this presentation?")) return;
-    startTransition(async () => {
-      await removeAll();
-    });
-  };
-
   const startEdit = (slot: SlotWithDetails) => {
     setEditingSlotId(slot.id);
     setEditSessionId(slot.functionId);
@@ -331,13 +325,16 @@ export function BreakoutSlotPanel({
               Group: <span className="font-medium text-gray-900 dark:text-white">{currentGroup?.name ?? currentGroupId}</span>
             </span>
             {canWrite && (
-              <button
-                onClick={handleRemoveAll}
+              <InlineConfirmButton
+                onConfirm={removeAll}
+                label="Remove all"
+                confirmLabel="Remove all"
+                prompt="Group and sessions will be unassigned."
+                resource="FUNCTIONS"
+                requiredLevel="WRITE"
                 disabled={isPending}
-                className="text-red-600 hover:underline text-sm disabled:opacity-50"
-              >
-                Remove all
-              </button>
+                className="text-red-600 dark:text-red-400 hover:underline text-sm disabled:opacity-50"
+              />
             )}
           </div>
 

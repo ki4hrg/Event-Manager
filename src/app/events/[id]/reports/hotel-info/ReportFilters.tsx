@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { BLOCK_TYPES } from "@/lib/hotels";
+import { btnOutlinedXs } from "@/lib/buttonStyles";
 
 type ReportFiltersProps = {
   eventId: string;
@@ -36,6 +37,7 @@ export function ReportFilters({
 
   return (
     <div className="print:hidden mb-6 flex flex-wrap items-center gap-3">
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Block type</span>
       {BLOCK_TYPES.map((t) => (
         <label key={t.value} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
           <input
@@ -52,7 +54,7 @@ export function ReportFilters({
         {!hidePrint && (
           <a
             href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            className={btnOutlinedXs}
           >
             Print / Save PDF
           </a>

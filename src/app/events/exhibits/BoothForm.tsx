@@ -321,7 +321,7 @@ function Shell({
 
 function Buttons({ isEdit, saveLabel, cancelHref, onCancel }: { isEdit: boolean; saveLabel: string; cancelHref: string; onCancel: () => void }) {
   return (
-    <div className="flex gap-3">
+    <div className="flex flex-wrap gap-3">
       <SaveButton label={isEdit ? "Save" : saveLabel} />
       {isEdit ? (
         <button type="button" onClick={onCancel} className={btnSecondary}>

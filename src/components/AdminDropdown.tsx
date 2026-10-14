@@ -19,7 +19,7 @@ export function AdminDropdown({ links }: { links: HeaderLink[] }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1"
+        className="whitespace-nowrap text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1"
       >
         Admin
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

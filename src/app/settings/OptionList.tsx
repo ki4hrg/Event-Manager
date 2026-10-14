@@ -5,6 +5,8 @@ import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import type { OptionCategory } from "./actions";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
+import { InlineDeleteButton } from "@/components/InlineDeleteButton";
+import { useCanWrite } from "@/components/PermissionsProvider";
 
 function ModelTypesCheckboxGroup({ defaultValues }: { defaultValues?: string[] }) {
   return (
@@ -58,8 +60,8 @@ function GroupSelect({
   defaultValue?: string | null;
 }) {
   return (
-    <div>
-      <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">{label}</label>
+    <label className="block">
+      <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">{label}</span>
       <select
         name="group"
         defaultValue={defaultValue ?? ""}
@@ -72,7 +74,7 @@ function GroupSelect({
           </option>
         ))}
       </select>
-    </div>
+    </label>
   );
 }
 
@@ -110,7 +112,7 @@ function SubmitButton({ label }: { label: string }) {
       disabled={pending}
       className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
     >
-      {pending ? "..." : label}
+      {pending ? "Saving..." : label}
     </button>
   );
 }
@@ -192,6 +194,7 @@ function SortableOptionRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: option.id, disabled: !reordering });
+  const canWrite = useCanWrite("SETTINGS");
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -220,6 +223,7 @@ function SortableOptionRow({
               defaultValue={option.label}
               required
               placeholder="Label"
+              aria-label="Label"
               className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             />
           </div>
@@ -290,23 +294,21 @@ function SortableOptionRow({
           </div>
           {!reordering && (
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => setEditingId(option.id)}
-                className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-              >
-                Edit
-              </button>
-              {!option.isSystem && (
+              {canWrite && (
                 <button
-                  onClick={async () => {
-                    if (confirm(`Delete "${option.label}"?`)) {
-                      await deleteOption(option.id);
-                    }
-                  }}
-                  className="text-red-600 dark:text-red-400 hover:underline text-sm"
+                  type="button"
+                  onClick={() => setEditingId(option.id)}
+                  className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
                 >
-                  Delete
+                  Edit
                 </button>
+              )}
+              {!option.isSystem && (
+                <InlineDeleteButton
+                  action={() => deleteOption(option.id)}
+                  hiddenInputs={{}}
+                  resource="SETTINGS"
+                />
               )}
             </div>
           )}
@@ -330,6 +332,7 @@ export function OptionList({
   deleteOption,
   reorderOptions,
 }: OptionListProps) {
+  const canWrite = useCanWrite("SETTINGS");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -367,9 +370,10 @@ export function OptionList({
           {description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-          {localOptions.length > 1 && (
+          {canWrite && localOptions.length > 1 && (
             <>
               <button
+                type="button"
                 onClick={() => setReordering(!reordering)}
                 className={`px-3 py-1.5 text-sm rounded border ${
                   reordering
@@ -381,6 +385,7 @@ export function OptionList({
               </button>
               {reordering && (
                 <button
+                  type="button"
                   onClick={handleSortAlpha}
                   className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
@@ -389,16 +394,19 @@ export function OptionList({
               )}
             </>
           )}
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Add
-          </button>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={() => setShowAddForm(true)}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Add
+            </button>
+          )}
         </div>
       </div>
 
-      {showAddForm && (
+      {showAddForm && canWrite && (
         <form
           action={async (formData) => {
             await createOption(formData);
@@ -412,6 +420,7 @@ export function OptionList({
                 type="text"
                 name="label"
                 placeholder="Label *"
+                aria-label="Label"
                 required
                 className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
@@ -442,7 +451,7 @@ export function OptionList({
 
       {localOptions.length === 0 ? (
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          No options defined yet. Click &quot;Add&quot; to create one.
+          No options yet.
         </p>
       ) : (
         <DndContext

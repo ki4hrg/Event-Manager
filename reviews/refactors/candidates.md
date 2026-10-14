@@ -54,3 +54,5 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 - [timezones] Retired: `formatDateTimeForInput` now exists only in `ScheduleList.tsx`; `TimelineTable.tsx` uses a different time-only helper, so there is no duplication left.
 - [catering] Retired: guest-count display moved out of `CateringOrderList` / `CateringOrderDetails` into `GuestCountsCard.tsx`.
 - [event-import] Won't do: the import is not idempotent by design (`src/app/events/import/core.ts:8-13`); per-row provenance was rejected because a snapshot goes stale when the source event is rescheduled. Revisit with a nullable `importedFromId` FK used only for dedupe if duplicates become a practical problem. (PR #89)
+- [ui] Done: every `confirm()` delete/unlink prompt now uses the inline `InlineConfirmButton` (`src/components/InlineConfirmButton.tsx`) or `InlineDeleteButton` (ux-sweep).
+- [styles] Done: report toolbar buttons (Print / Save PDF, Office downloads, Share, Copy) use `btnOutlinedXs` from `src/lib/buttonStyles.ts` (ux-sweep).

@@ -84,7 +84,7 @@ function GuestImport({
   isRunOfHouse: boolean;
   hasGuests: boolean;
   importGuests: (method: ImportMethod, fileName: string | null, guests: GuestArgs[]) => Promise<void>;
-  done: () => void;
+  done: (message: string) => void;
 }) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -151,7 +151,7 @@ function GuestImport({
       setError(null);
       try {
         await importGuests(method, fileName, usable);
-        done();
+        done(`Imported ${usable.length} guest${usable.length === 1 ? "" : "s"}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Import failed");
       }
@@ -162,6 +162,7 @@ function GuestImport({
       <h2 className="text-lg font-medium text-gray-900 dark:text-white">Guest list</h2>
       <input
         type="file"
+        aria-label="Guest list CSV"
         accept=".csv,text/csv"
         onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
         className="block text-sm text-gray-700 dark:text-gray-300"
@@ -272,7 +273,7 @@ function CountEntry({
   roomTypes: (string | null)[];
   initial: CountArgs[];
   saveCounts: (counts: CountArgs[]) => Promise<void>;
-  done: () => void;
+  done: (message: string) => void;
 }) {
   const cellKey = (t: string | null, n: string) => `${t ?? ""}|${n}`;
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -290,7 +291,7 @@ function CountEntry({
             nights.map((n) => ({ night: n, roomType: t, rooms: parseInt(values[cellKey(t, n)] || "0") || 0 })),
           ),
         );
-        done();
+        done("Counts saved");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Save failed");
       }
@@ -370,8 +371,8 @@ export function PickupImport({
   saveCounts: (counts: CountArgs[]) => Promise<void>;
 }) {
   const router = useRouter();
-  const done = () => {
-    router.push(blockHref);
+  const done = (message: string) => {
+    router.push(`${blockHref}?success=${encodeURIComponent(message)}`);
     router.refresh();
   };
   const countTypes: (string | null)[] = isRunOfHouse || blockRoomTypes.length === 0 ? [null] : blockRoomTypes;

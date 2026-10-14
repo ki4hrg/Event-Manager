@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 export type AssignedVendor = { id: string; vendor: { id: string; name: string } };
 export type AvailableVendor = { id: string; label: string };
@@ -37,7 +38,6 @@ export function VendorLinkControl(props: VendorLinkControlProps) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [isLinking, setIsLinking] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
 
   if (props.mode === "create") {
     const { availableVendors, fieldName = "vendorId" } = props;
@@ -74,16 +74,6 @@ export function VendorLinkControl(props: VendorLinkControlProps) {
     }
   };
 
-  const handleRemove = async (junctionId: string) => {
-    if (!confirm("Remove this vendor?")) return;
-    setRemovingId(junctionId);
-    try {
-      await removeVendor(junctionId);
-    } finally {
-      setRemovingId(null);
-    }
-  };
-
   const assignedVendorIds = new Set(assignedVendors.map((v) => v.vendor.id));
   const unassignedVendors = availableVendors.filter((v) => !assignedVendorIds.has(v.id));
 
@@ -97,16 +87,13 @@ export function VendorLinkControl(props: VendorLinkControlProps) {
           {assignedVendors.map((av) => (
             <li key={av.id} className="flex items-center gap-3">
               <span className="text-sm text-gray-900 dark:text-white">{av.vendor.name}</span>
-              {canWrite && (
-                <button
-                  type="button"
-                  onClick={() => handleRemove(av.id)}
-                  disabled={removingId === av.id}
-                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
-                >
-                  Remove
-                </button>
-              )}
+              <InlineConfirmButton
+                onConfirm={() => removeVendor(av.id)}
+                label="Remove"
+                resource={props.resource}
+                requiredLevel="WRITE"
+                className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+              />
             </li>
           ))}
         </ul>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Equipment, CustomOption } from "@prisma/client";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type EquipmentListProps = {
   equipment: Equipment[];
@@ -175,14 +176,12 @@ export function EquipmentList({
                         >
                           Edit
                         </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm(`Delete "${item.name}"?`)) await deleteEquipment(item.id);
-                          }}
+                        <InlineConfirmButton
+                          onConfirm={() => deleteEquipment(item.id)}
+                          resource="EQUIPMENT"
+                          requiredLevel="DELETE"
                           className="text-red-600 dark:text-red-400 hover:underline text-xs"
-                        >
-                          Delete
-                        </button>
+                        />
                       </div>
                     </div>
                   )}

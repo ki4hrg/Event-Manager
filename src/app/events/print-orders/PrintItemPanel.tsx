@@ -15,6 +15,7 @@ import {
 } from "@/lib/statusConstants";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type PrintItemWithParties = PrintItem & {
   designerVendor?: { name: string } | null;
@@ -368,14 +369,11 @@ export function PrintItemPanel({
                       </button>
                     )}
                     {canDelete && (
-                      <button
-                        onClick={async () => {
-                          if (confirm("Delete this item?")) await deleteItem(item.id);
-                        }}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
+                      <InlineConfirmButton
+                        onConfirm={() => deleteItem(item.id)}
+                        resource="PRINT_ORDERS"
+                        requiredLevel="WRITE"
+                      />
                     )}
                   </div>
                 </div>

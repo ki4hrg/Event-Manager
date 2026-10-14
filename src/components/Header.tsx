@@ -69,14 +69,14 @@ export async function Header() {
   return (
     <header className="relative bg-white dark:bg-gray-800 shadow">
       <div className="px-4 sm:px-6 lg:px-8 py-3 lg:py-4 flex justify-between items-center gap-4">
-        <div className="flex items-center gap-8 min-w-0">
+        <div className="flex items-center gap-6 xl:gap-8 min-w-0">
           <Link
             href="/"
             className="text-xl font-bold whitespace-nowrap text-gray-900 dark:text-white"
           >
             Event Manager
           </Link>
-          <nav className="hidden lg:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-4 xl:gap-6">
             {mainLinks.map((l) => (
               <Link key={l.href} href={l.href} className={navLinkClass}>
                 {l.label}
