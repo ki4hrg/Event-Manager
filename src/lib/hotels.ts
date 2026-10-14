@@ -94,3 +94,9 @@ export function formatMoney(value: string | number | null | undefined): string {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "—";
 }
+
+// "CONTRACT,STAFF" (a URL param) → validated block-type list.
+export function parseBlockTypes(raw: string | undefined): HotelBlockType[] {
+  const valid = new Set<string>(BLOCK_TYPES.map((t) => t.value));
+  return (raw ?? "").split(",").filter((t): t is HotelBlockType => valid.has(t));
+}

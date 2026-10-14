@@ -38,6 +38,10 @@ import { AVAILABLE_ESG_PARTS } from "@/lib/esg/types";
 import { getPostEventReportData } from "@/app/events/reports/actions";
 import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { ReportFilters as PerReportFilters } from "@/app/events/[id]/reports/post-event/ReportFilters";
+import { getHotelInfoReportData } from "@/app/events/reports/actions";
+import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
+import { parseBlockTypes } from "@/lib/hotels";
+import { ReportFilters as HiReportFilters } from "@/app/events/[id]/reports/hotel-info/ReportFilters";
 import { ShareShell } from "./ShareShell";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
 
@@ -64,6 +68,7 @@ const REPORT_TITLES: Record<string, string> = {
   PACKING_LIST: "Packing list",
   ESG: "Event Specifications Guide",
   POST_EVENT: "Post-Event Report",
+  HOTEL_INFO: "Hotel Information",
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -746,6 +751,28 @@ export default async function SharePage({ params, searchParams }: PageProps) {
           <PerReportFilters eventId={link.eventId} showBlank={showBlank} basePath={`/share/${token}`} hidePrint />
         )}
         <PostEventReport doc={doc} />
+      </ShareShell>
+    );
+  }
+
+  if (link.reportType === "HOTEL_INFO") {
+    const param = getString(sp.blockTypes);
+    const blockTypes = link.filtersLocked
+      ? parseBlockTypes(storedFilters.blockTypes?.join(","))
+      : parseBlockTypes(param ?? storedFilters.blockTypes?.join(","));
+    const data = await getHotelInfoReportData(link.eventId, { blockTypes });
+    if (!data) notFound();
+    return (
+      <ShareShell
+        eventName={link.event.name}
+        reportTitle="Hotel Information"
+        label={link.label}
+        printHref={blockTypes.length ? `${printBase}?blockTypes=${blockTypes.join(",")}` : printBase}
+      >
+        {!link.filtersLocked && (
+          <HiReportFilters eventId={link.eventId} blockTypes={blockTypes} basePath={`/share/${token}`} hidePrint />
+        )}
+        <HotelInfoReport data={data} />
       </ShareShell>
     );
   }

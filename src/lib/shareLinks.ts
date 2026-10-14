@@ -24,6 +24,8 @@ export type ShareLinkFilters = {
   showBlank?: boolean;
   /** ESG billing & signatories (tax ID, bill-to). Off unless set. */
   includeBilling?: boolean;
+  /** Hotel Information block types (HotelBlockType); all when empty. */
+  blockTypes?: string[];
 };
 
 export const SHARE_REPORT_LABELS: Record<string, string> = {
@@ -38,6 +40,7 @@ export const SHARE_REPORT_LABELS: Record<string, string> = {
   PACKING_LIST: "Packing List",
   ESG: "Event Specifications Guide",
   POST_EVENT: "Post-Event Report",
+  HOTEL_INFO: "Hotel Information",
 };
 
 export function generateShareToken(): string {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
+import { btnSecondary } from "@/lib/buttonStyles";
 import { getOptions } from "@/app/settings/actions";
 import { getHotels } from "./actions";
 
@@ -15,7 +16,14 @@ export default async function HotelsPage() {
 
   return (
     <PageWrapper>
-      <PageHeader title={`Hotels (${hotels.length})`} />
+      <PageHeader
+        title={`Hotels (${hotels.length})`}
+        actions={
+          <Link href="/hotels/reports" className={btnSecondary}>
+            Reports
+          </Link>
+        }
+      />
       {hotels.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">No hotels yet.</p>
       ) : (
