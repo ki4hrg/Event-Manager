@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
-import { BLOCK_TYPES, parseBlockTypes } from "@/lib/hotels";
+import { BLOCK_TYPES, formatNight, parseBlockTypes } from "@/lib/hotels";
 
 const fieldClass =
   "block rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-2 py-1.5";
@@ -13,13 +13,16 @@ const labelClass = "text-xs font-medium text-gray-500 dark:text-gray-400";
 function useSetParam() {
   const router = useRouter();
   const sp = useSearchParams();
-  const set = (key: string, value: string) => {
+  const setMany = (values: Record<string, string>) => {
     const params = new URLSearchParams(sp.toString());
-    if (value) params.set(key, value);
-    else params.delete(key);
+    for (const [key, value] of Object.entries(values)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
     router.push(`/hotels/reports?${params.toString()}`);
   };
-  return { sp, set };
+  const set = (key: string, value: string) => setMany({ [key]: value });
+  return { sp, set, setMany };
 }
 
 function SeriesAndDates({ series }: { series: { id: string; name: string }[] }) {
@@ -119,8 +122,15 @@ export function ShowBlockToggle() {
   );
 }
 
-export function ProposalControls() {
-  const { sp, set } = useSetParam();
+export function ProposalControls({
+  events,
+  selected,
+}: {
+  events: { id: string; name: string; startDate: string }[];
+  // The event id the block is dated from, or "custom".
+  selected: string;
+}) {
+  const { sp, set, setMany } = useSetParam();
   // Typed numbers commit on blur / Enter so each keystroke isn't a history entry.
   const commit = (key: string) => (e: React.FocusEvent<HTMLInputElement> | React.KeyboardEvent<HTMLInputElement>) => {
     if ("key" in e && e.key !== "Enter") return;
@@ -150,13 +160,32 @@ export function ProposalControls() {
         />
       </label>
       <label className={labelClass}>
-        Start
-        <input type="date" value={sp.get("start") ?? ""} onChange={(e) => set("start", e.target.value)} className={fieldClass} />
+        Event
+        <select
+          value={selected}
+          onChange={(e) => setMany({ for: e.target.value, start: "", end: "" })}
+          className={`${fieldClass} max-w-xs`}
+        >
+          {events.map((ev) => (
+            <option key={ev.id} value={ev.id}>
+              {ev.name} · {formatNight(ev.startDate)}
+            </option>
+          ))}
+          <option value="custom">Custom dates</option>
+        </select>
       </label>
-      <label className={labelClass}>
-        End
-        <input type="date" value={sp.get("end") ?? ""} onChange={(e) => set("end", e.target.value)} className={fieldClass} />
-      </label>
+      {selected === "custom" && (
+        <>
+          <label className={labelClass}>
+            Start
+            <input type="date" value={sp.get("start") ?? ""} onChange={(e) => set("start", e.target.value)} className={fieldClass} />
+          </label>
+          <label className={labelClass}>
+            End
+            <input type="date" value={sp.get("end") ?? ""} onChange={(e) => set("end", e.target.value)} className={fieldClass} />
+          </label>
+        </>
+      )}
     </div>
   );
 }

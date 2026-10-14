@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { reportTd, reportTh } from "@/lib/reportStyles";
 import { BLOCK_TYPE_LABELS, formatDateKey, formatNight, parseBlockTypes } from "@/lib/hotels";
 import { eventRoles, middleNights, offsetLabel, proposeNights, roleLabel, sortRoles } from "@/lib/hotelPattern";
-import { getBlockMonitoring, getHotelCities, getHotelPickupHistory, getPickupPattern, getSeriesChoices, type PatternFilters } from "../actions";
+import { getBlockMonitoring, getHotelCities, getHotelPickupHistory, getPickupPattern, getProposalEventChoices, getSeriesChoices, type PatternFilters } from "../actions";
 import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar, ProposalControls, ShowBlockToggle } from "./HotelReportFilters";
 
 export const dynamic = "force-dynamic";
@@ -191,18 +191,33 @@ async function Pattern({
   filters,
   basis,
   adjust,
-  start,
-  end,
+  forEvent,
+  customStart,
+  customEnd,
   showBlock,
 }: {
   filters: PatternFilters;
   basis: Basis;
   adjust: number;
-  start?: string;
-  end?: string;
+  forEvent?: string;
+  customStart?: string;
+  customEnd?: string;
   showBlock: boolean;
 }) {
-  const [{ events, noPickup }, series, cities] = await Promise.all([getPickupPattern(filters), getSeriesChoices(), getHotelCities()]);
+  const [{ events, noPickup }, series, cities, upcoming] = await Promise.all([
+    getPickupPattern(filters),
+    getSeriesChoices(),
+    getHotelCities(),
+    getProposalEventChoices(),
+  ]);
+  // The proposed block takes an upcoming event's dates — the one picked, else
+  // the series filter's next event — or custom dates.
+  const inSeries = (e: (typeof upcoming)[number]) =>
+    !filters.seriesId || (filters.seriesId === "__blank__" ? e.seriesId == null : e.seriesId === filters.seriesId);
+  const target =
+    forEvent === "custom" ? undefined : (upcoming.find((e) => e.id === forEvent) ?? upcoming.find(inSeries));
+  const start = target ? target.startDate : customStart;
+  const end = target ? target.endDate : customEnd;
   const total = (record: Record<string, number>) => Object.values(record).reduce((s, n) => s + n, 0);
   const peakOf = (record: Record<string, number>) => Math.max(0, ...Object.values(record));
   const rows = events.map((e) => ({
@@ -361,11 +376,12 @@ async function Pattern({
             <div className="flex items-center justify-between gap-3 mb-3">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                 Proposed block{adjustLabel}
+                {target && ` · ${target.name}`}
                 {dated && ` · ${formatNight(start!)} – ${formatNight(end!)}`}
               </h2>
               <CsvButton fileName={dated ? `hotel-rfp-block-${start}.csv` : "hotel-rfp-block.csv"} rows={proposedCsv} />
             </div>
-            <ProposalControls />
+            <ProposalControls events={upcoming} selected={target?.id ?? "custom"} />
             <div className="mt-3 max-w-md bg-white dark:bg-gray-800 shadow rounded-lg">
               <table className="min-w-full">
                 <thead>
@@ -428,6 +444,7 @@ export default async function HotelReportsPage({
     adjust?: string;
     start?: string;
     end?: string;
+    for?: string;
     block?: string;
   }>;
 }) {
@@ -447,8 +464,9 @@ export default async function HotelReportsPage({
           filters={{ seriesId: sp.series || undefined, city: sp.city || undefined, blockTypes: parseBlockTypes(sp.types), from, to }}
           basis={sp.basis === "highest" || sp.basis === "latest" ? sp.basis : "average"}
           adjust={Number.isFinite(adjust) ? Math.min(200, Math.max(-90, adjust)) : 0}
-          start={sp.start && DATE_RE.test(sp.start) ? sp.start : undefined}
-          end={sp.end && DATE_RE.test(sp.end) ? sp.end : undefined}
+          forEvent={sp.for || undefined}
+          customStart={sp.start && DATE_RE.test(sp.start) ? sp.start : undefined}
+          customEnd={sp.end && DATE_RE.test(sp.end) ? sp.end : undefined}
           showBlock={sp.block === "1"}
         />
       ) : (
