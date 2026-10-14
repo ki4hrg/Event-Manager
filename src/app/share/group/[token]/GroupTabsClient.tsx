@@ -2,6 +2,7 @@
 
 import { Children, isValidElement, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { labelMicroCaps } from "@/lib/reportStyles";
 
 type TabDescriptor = {
   id: string;
@@ -62,7 +63,7 @@ export function GroupTabsClient({ tabs, initialId, children }: GroupTabsClientPr
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 print:hidden">
         <div ref={menuRef} className="flex items-center gap-2 min-w-0 max-w-full">
-          <span className="shrink-0 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <span className={`shrink-0 ${labelMicroCaps}`}>
             Report:
           </span>
           <div className="relative min-w-0">

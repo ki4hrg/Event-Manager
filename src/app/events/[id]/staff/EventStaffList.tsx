@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { roleBadgeClass } from "@/lib/roleStyles";
 import { UNCAPPED } from "@/lib/accessLevels";
 import { AccessLevelSelect } from "@/components/AccessLevelSelect";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { useDebouncedSearch } from "@/lib/useDebouncedSearch";
 
 type StaffEntry = {
   id: string;
@@ -52,32 +53,13 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
   // Staff assignment gates on EVENTS.WRITE — see src/app/events/[id]/staff/actions.ts.
   const canWrite = useCanWrite("EVENTS");
   const [showAdd, setShowAdd] = useState(false);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<UserSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const { query, setQuery, results, isSearching, noMatches, clear } = useDebouncedSearch(searchUsers);
   const [selected, setSelected] = useState<UserSearchResult | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (query.length < 2) {
-      setResults([]);
-      return;
-    }
-    const timeoutId = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        setResults(await searchUsers(query));
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [query, searchUsers]);
-
   const closeAdd = () => {
     setShowAdd(false);
-    setQuery("");
-    setResults([]);
+    clear();
     setSelected(null);
   };
 
@@ -133,8 +115,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
                       type="button"
                       onClick={() => {
                         setSelected(u);
-                        setQuery("");
-                        setResults([]);
+                        clear();
                       }}
                       className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
                     >
@@ -151,7 +132,7 @@ export function EventStaffList({ staff, addStaff, removeStaff, setLevel, searchU
                   ))}
                 </div>
               )}
-              {query.length >= 2 && !isSearching && results.length === 0 && (
+              {noMatches && (
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   No matching users found.
                 </p>

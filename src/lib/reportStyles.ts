@@ -30,3 +30,7 @@ export const reportOrderCard =
 // Small muted text used in footers and metadata lines.
 export const reportFooterText =
   "text-xs text-gray-500 dark:text-gray-400 print:text-gray-600";
+
+// Small uppercase label ("Report:", column kickers) above or beside a value.
+export const labelMicroCaps =
+  "text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400";

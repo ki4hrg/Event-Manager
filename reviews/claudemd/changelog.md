@@ -508,3 +508,23 @@ Server component, export const dynamic = "force-dynamic", awaits get<Entity>() f
 - "Notes for next iteration" — by definition deferred to the next pass.
 
 No findings were skipped to `claudemd-open-questions.md` this pass — every must-fix and should-fix item collapsed to a single doc-applicable resolution under the doc-only scope.
+
+---
+
+## Between-review candidates applied (2026-10-14)
+
+Triage of all 131 entries in `reviews/claudemd/candidates.md`, each checked against the code at 5fe8e38. Applied entries were folded into the matching `CLAUDE.md` section (or the linked checklist); the git diff of this commit is the before/after record.
+
+**Corrections — CLAUDE.md contradicted the code:**
+- Route handlers: "Only four exist" → the 12-handler list in Archetype G, grouped by reason; the invariant now points there.
+- Middleware exemptions (Architecture invariants + Security): added `/forgot-password`, `/reset-password/*`, `/api/oauth/*`, `/api/well-known/*`, `/.well-known/*`, `/api/health`; noted the matcher has no dotted-path exclusion.
+- `process.env` touchpoints: added `@/lib/email` (rule + anti-pattern row); `AUTH_SECRET` must fall back to `NEXTAUTH_SECRET`.
+- Auth-free carve-out: restated as "any action reachable from a public route" (report actions, `getEvent`, password-reset actions); named `requireAuth()` as the signed-in-only guard; report actions "must not call any auth guard".
+- § Breakout session labels → § Function and breakout session labels: `formatFunctionLabel` is the display helper; `formatBreakoutSessionName` only where no number belongs.
+- Stack line: deploy is a prebuilt GHCR image from `.github/workflows/build.yml`, run by Compose.
+
+**Additions:** group share archetype + `i_${itemId}_` param prefix; `"use server"` exports must be async (plain sibling modules for constants); form remount via `key={updatedAt}`; `useDebouncedSearch`; new § Read-only UI (PermissionsProvider hooks, required `resource` prop, `<fieldset disabled>`, WRITE-gated edit-only pages); `"use client"` helper proxy footgun; `set-state-in-effect`; Data layer rules for event ownership checks, fetch-then-gate, `eventScopeWhere`, `accessLevel` cap, EventVenue primary + `getEventRooms`, option-label defaults, `CustomOption.group`, function numbering, transactions, `skipDuplicates` NULLs, `isSystem`, Restrict + pre-check; UI copy rule; mobile mechanisms (`min-w-0` grid items, flex-wrap / overflow tab strips, PageHeader, Header link arrays); share views never offer Office downloads; Reports: prefer a toggle over a new report, `params.ts`, shared lib builder for report + operational page, enum filters fail open, positional free-text anchors, `mobileId`, same-tab print links, page-break rules; MCP: OAuth pointer, SHA-256 for OAuth secrets, partial-update helpers, discoverable ids, gate at the app's permission, cores in non-`"use server"` `core.ts`, OAuth approval exception; Further reading: time-zone helpers, `docs/oauth-mcp.md`, `docs/hotels.md`.
+- `docs/checklists/share-report-integration.md`: share surfaces use `getOptionsForEvent` (the old "Run `getOptions`" step caused the group-print bug fixed in 70cf82d); boolean-toggle threading; `reportType` is a plain String.
+- `docs/checklists/adding-entity.md`: user-created roles get NONE for a new resource.
+
+**Retired without applying:** stale entries (pre-RBAC `requireAdmin` / `requireAuth` / PR1–PR3 notes, "no prisma/migrations", enum-rename `db push` workaround, `/api/mcp` paths, the fixed `AUTH_SECRET` bug, `loadPermissions`, Vendor Handoff lacking mobile cards) and feature-local implementation notes better kept in code comments or feature docs (ESG internals, inventory / storage-location / supply-container design, OAuth internals, LastUpdated placement, multi-day RoomSchedule split, mobile-audit tooling, one-off naming and copy choices). Three entries moved to `reviews/refactors/candidates.md` (`btnPrimarySm`, shared `intersect`, dnd sensors).

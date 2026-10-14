@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatEventDate } from "@/lib/agendaUtils";
@@ -15,10 +14,14 @@ type EventItem = {
   series?: { id: string; name: string } | null;
 };
 
+// "" = no explicit choice (hide completed only when something is upcoming).
+export type CompletedFilter = "" | "hide" | "show";
+
 type Props = {
   events: EventItem[];
   seriesOptions: { id: string; name: string }[];
   selectedSeries: string;
+  completed: CompletedFilter;
   canWrite: boolean;
 };
 
@@ -29,22 +32,26 @@ function venueSummary(event: EventItem): string {
   return rest.length > 0 ? `${primary.venue.name} +${rest.length}` : primary.venue.name;
 }
 
-export function EventListClient({ events, seriesOptions, selectedSeries, canWrite }: Props) {
+export function EventListClient({ events, seriesOptions, selectedSeries, completed, canWrite }: Props) {
   const router = useRouter();
 
   // One "now" for both the count and the filter — two calls can straddle an
   // event's endDate and leave the checkbox on while the table renders empty.
   const now = new Date();
   const upcoming = events.filter((e) => new Date(e.endDate) >= now);
-  // Default the filter off when nothing is upcoming — otherwise a user whose only
-  // access is to past events lands on an empty table.
-  const [hideCompleted, setHideCompleted] = useState(upcoming.length > 0);
+  // With no ?completed= choice, default the filter off when nothing is upcoming —
+  // otherwise a user whose only access is to past events lands on an empty table.
+  const hideCompleted = completed ? completed === "hide" : upcoming.length > 0;
 
   const filtered = hideCompleted ? upcoming : events;
   const completedCount = events.length - upcoming.length;
 
-  function pushSeries(value: string) {
-    router.push(value ? `/events?series=${encodeURIComponent(value)}` : "/events");
+  function pushFilters(next: { series: string; completed: CompletedFilter }) {
+    const params = new URLSearchParams();
+    if (next.series) params.set("series", next.series);
+    if (next.completed) params.set("completed", next.completed);
+    const qs = params.toString();
+    router.push(qs ? `/events?${qs}` : "/events");
   }
 
   return (
@@ -61,7 +68,7 @@ export function EventListClient({ events, seriesOptions, selectedSeries, canWrit
             <select
               id="series-filter"
               value={selectedSeries}
-              onChange={(e) => pushSeries(e.target.value)}
+              onChange={(e) => pushFilters({ series: e.target.value, completed })}
               className="min-w-0 flex-1 sm:flex-none px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All series</option>
@@ -80,7 +87,9 @@ export function EventListClient({ events, seriesOptions, selectedSeries, canWrit
             <input
               type="checkbox"
               checked={hideCompleted}
-              onChange={(e) => setHideCompleted(e.target.checked)}
+              onChange={(e) =>
+                pushFilters({ series: selectedSeries, completed: e.target.checked ? "hide" : "show" })
+              }
               className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
             />
             Hide completed events ({completedCount})

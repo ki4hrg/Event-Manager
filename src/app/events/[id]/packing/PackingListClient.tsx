@@ -10,6 +10,7 @@ import {
   PACKING_STATUS_LABEL,
 } from "@/lib/statusConstants";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
+import { labelMicroCaps } from "@/lib/reportStyles";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import type { PackableItem, PackingListPayload } from "../../packing/actions";
@@ -872,7 +873,7 @@ export function PackingListClient({
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      <tr className={`text-left ${labelMicroCaps}`}>
                         {canReturn && <th className="py-2 pr-3 w-8"><span className="sr-only">Select</span></th>}
                         <th className="py-2 pr-3">Description</th>
                         <th className="py-2 pr-3">Qty</th>

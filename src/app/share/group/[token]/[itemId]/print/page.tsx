@@ -22,7 +22,7 @@ import {
   getBreakoutScheduleData,
   getPackingListData,
 } from "@/app/events/reports/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptionsForEvent } from "@/lib/options";
 import { getEvent } from "@/app/events/actions";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
@@ -190,7 +190,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       const [event, handoffData, functionTypes] = await Promise.all([
         getEvent(eventId).then(stripUpdatedBy),
         getVendorHandoffData(eventId, vendorId).then(stripUpdatedBy),
-        getOptions("function_type"),
+        getOptionsForEvent(eventId, "function_type"),
       ]);
 
       if (!event) notFound();
@@ -233,8 +233,8 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
           days: days && days.length > 0 ? days : undefined,
           types: types && types.length > 0 ? types : undefined,
         }).then(stripUpdatedBy),
-        getOptions("service_style"),
-        getOptions("schedule_type"),
+        getOptionsForEvent(eventId, "service_style"),
+        getOptionsForEvent(eventId, "schedule_type"),
       ]);
 
       if (!event || !data) notFound();
@@ -280,7 +280,7 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
           types: types && types.length > 0 ? types : undefined,
           includeNonPublic,
         }).then(stripUpdatedBy),
-        getOptions("schedule_type"),
+        getOptionsForEvent(eventId, "schedule_type"),
       ]);
 
       if (!event || !data) notFound();
@@ -327,8 +327,8 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
           days: days && days.length > 0 ? days : undefined,
           roomIds: roomIds && roomIds.length > 0 ? roomIds : undefined,
         }).then(stripUpdatedBy),
-        getOptions("function_type"),
-        getOptions("schedule_type"),
+        getOptionsForEvent(eventId, "function_type"),
+        getOptionsForEvent(eventId, "schedule_type"),
       ]);
 
       if (!event || !data) notFound();
@@ -362,10 +362,10 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
         await Promise.all([
           getEvent(eventId).then(stripUpdatedBy),
           getFunctionDetailData(eventId, { functionIds }).then(stripUpdatedBy),
-          getOptions("function_type"),
-          getOptions("schedule_type"),
-          getOptions("service_style"),
-          getOptions("setup_type"),
+          getOptionsForEvent(eventId, "function_type"),
+          getOptionsForEvent(eventId, "schedule_type"),
+          getOptionsForEvent(eventId, "service_style"),
+          getOptionsForEvent(eventId, "setup_type"),
         ]);
 
       if (!event || !data) notFound();

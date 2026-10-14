@@ -22,6 +22,7 @@ import {
 import { formatTime, formatDateTime, getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
+import { labelMicroCaps } from "@/lib/reportStyles";
 
 type OptionList = { label: string; color?: string | null }[];
 
@@ -1197,7 +1198,7 @@ function FunctionBlock({
         <div>
           <div className="flex flex-wrap items-baseline gap-2 mb-2">
             {typeLabel && (
-              <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <span className={labelMicroCaps}>
                 {typeLabel}
               </span>
             )}

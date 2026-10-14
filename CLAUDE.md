@@ -2,7 +2,7 @@
 
 Internal tool for managing conferences and events: contracts, vendors, facility/room scheduling, speaker logistics, catering, and AV planning. Not attendee-facing — internal staff use only. Multi-tenant: every domain row belongs to a `Tenant` (an "organization"), users are global and hold a role per tenant membership. See § Multi-tenancy.
 
-**Stack**: Next.js 14 (App Router) · TypeScript · PostgreSQL · Prisma 6 · Tailwind v4 · NextAuth 5 (Credentials + JWT). Deployed via Docker Compose.
+**Stack**: Next.js 14 (App Router) · TypeScript · PostgreSQL · Prisma 6 · Tailwind v4 · NextAuth 5 (Credentials + JWT). CI (`.github/workflows/build.yml`) lints, builds and pushes `ghcr.io/ki4hrg/event-manager`, then triggers the deploy webhook; Docker Compose runs that prebuilt image (no local `build:`).
 
 ## Quick reference
 
@@ -25,9 +25,9 @@ No test runner and no structured logger ship with the project. Don't add ad-hoc 
 These are the load-bearing rules. Breaking one breaks the model the rest of the app assumes.
 
 - **App Router only.** Routes live under `src/app/`. Do not create a `pages/` directory.
-- **Server Actions are the mutation channel for the UI.** Route handlers (`route.ts`) are reserved for cases Server Actions can't express: NextAuth callbacks (`src/app/api/auth/[...nextauth]/route.ts`), `multipart/form-data` uploads (`src/app/api/upload/route.ts`), binary file streaming (`src/app/api/files/[fileId]/route.ts`), and the MCP connector (`src/app/mcp/route.ts`) which speaks JSON-RPC to programmatic callers via API-key bearer auth. Do not add other JSON CRUD route handlers.
+- **Server Actions are the mutation channel for the UI.** Route handlers (`route.ts`) are reserved for cases Server Actions can't express — the full list is in Archetype G. Do not add JSON CRUD route handlers.
 - **No repository / DAL.** Pages, Server Actions, and `src/lib/` helpers all call Prisma directly via the singleton from `@/lib/prisma`. Never `new PrismaClient()` at runtime (`prisma/seed.mjs` and `scripts/*.ts` are the only exceptions — they run outside the Next runtime).
-- **Auth is defense-in-depth.** Middleware (`src/middleware.ts`) gates every request except `/login`, `/api/auth/*`, `/share/*`, and `/mcp` (which does its own bearer-token auth via `@/lib/mcpAuth`). Admin route segments add a `layout.tsx` that calls `requirePermission(<RESOURCE>, "VIEW")` (`requireSuperAdmin()` for `/tenants`). Every Server Action also self-protects with `await requirePermission(...)` as its first line — with one carve-out for report data actions, documented in § Server Actions.
+- **Auth is defense-in-depth.** Middleware (`src/middleware.ts`) gates every request except the public surfaces exempted in the `authorized` callback (`src/lib/auth.ts`): `/login`, `/api/auth/*`, `/share/*`, `/forgot-password`, `/reset-password/*`, `/mcp` (own bearer auth via `@/lib/mcpAuth`), `/api/oauth/*`, `/api/well-known/*` + `/.well-known/*` (OAuth discovery), and `/api/health` (container healthcheck). The matcher in `src/middleware.ts` deliberately has no dotted-path exclusion, so `/.well-known/*` reaches `authorized` — adding one would silently change that. Admin route segments add a `layout.tsx` that calls `requirePermission(<RESOURCE>, "VIEW")` (`requireSuperAdmin()` for `/tenants`). Every Server Action also self-protects with `await requirePermission(...)` as its first line — with a carve-out for readers reachable from public routes, documented in § Server Actions.
 - **No global client state.** No Zustand / Jotai / Redux / SWR / React Query. Use React built-ins (`useState`, `useTransition`, `useRef`). Cross-request preferences go in the `UserSetting` table.
 - **Tenant-scoped data.** Every top-level domain model (Event, EventSeries, Venue, Contact, Vendor, CustomOption, Equipment, StorageLocation, InventoryItem, WorkflowTemplate) carries `tenantId`; event-scoped children inherit the tenant through the event. Every read on those models filters by tenant and every write sets or asserts it — see § Multi-tenancy. Users, Roles, API keys, and OAuth tables are global.
 
@@ -45,16 +45,24 @@ Server page fetches lookup data, then passes Server Actions as props to a client
 Awaits `params: Promise<{ id: string; ... }>`, loads dependencies in parallel via `Promise.all([...])`, calls `notFound()` when missing, and wraps remote Server Actions in inline `"use server"` arrow closures that bind `eventId` / sub-id before passing them to the client component. Example: `src/app/events/[id]/setup-orders/[setupOrderId]/page.tsx:62-200`.
 
 ### D. Report — `src/app/events/[id]/reports/[name]/`
-Three files plus a `print/` route: server `page.tsx`, `ReportFilters.tsx` (client, accepts `basePath`/`hidePrint`/`shareButton` props), `[Name]Report.tsx` (body, also rendered by the share route), and `print/page.tsx` (uses `PrintHeader`). Report data actions live in `src/app/events/reports/actions.ts` and **must not** call `requireAuth()` — the share route reuses them. See § Reports.
+Three files plus a `print/` route: server `page.tsx`, `ReportFilters.tsx` (client, accepts `basePath`/`hidePrint`/`shareButton` props), `[Name]Report.tsx` (body, also rendered by the share route), and `print/page.tsx` (uses `PrintHeader`). Report data actions live in `src/app/events/reports/actions.ts` and **must not** call any auth guard (`requirePermission` / `requireAuth`) — the share route reuses them. See § Reports.
 
 ### E. Unauthenticated share view — `src/app/share/[token]/page.tsx`
-Validates `getActiveShareLink(token)` (revoke / expiry), fires `recordShareLinkAccess` as a fire-and-forget update, and branches on `link.reportType` to render the matching report component. Auth is bypassed by the `authorized` callback in `src/lib/auth.ts` for the `/share/*` prefix.
+Validates `getActiveShareLink(token)` (revoke / expiry), fires `recordShareLinkAccess` as a fire-and-forget update, and branches on `link.reportType` to render the matching report component. Auth is bypassed by the `authorized` callback in `src/lib/auth.ts` for the `/share/*` prefix. The multi-report dashboard share view is a sibling: `/share/group/[token]/page.tsx` (tabs, `?tab=<itemId>` via `router.replace`) and `/share/group/[token]/[itemId]/print/page.tsx`, validated by `getActiveShareLinkGroup`. Each tab namespaces its filter params with `i_${itemId}_` (`itemPrefix()`), so every report's `ReportFilters` takes a `paramPrefix` prop — a new filter must plumb it through or sibling tabs collide. Share views never call `getOptions` (it reads the session's active tenant); use `getOptionsForEvent`.
 
 ### F. Admin-only segment — `src/app/{settings,users,workflows}/`
 The segment's `layout.tsx` calls `requirePermission(<RESOURCE>, "VIEW")` — or `requireSuperAdmin()` for `/tenants`. Child pages do not re-check (the permission check inside each Server Action covers mutations). Pure-redirect pages can stay plain (`src/app/settings/page.tsx`).
 
-### G. API route handler — `src/app/api/`
-Only four exist; add a fifth only when a Server Action can't satisfy the requirement (binary stream, multipart upload, framework callback, MCP). When you do, follow Next 14 async-params (`params: Promise<...>`) as in pages.
+### G. Route handler — `src/app/api/`, `src/app/mcp/`
+The current set, by reason:
+- Framework callback: `api/auth/[...nextauth]`.
+- Multipart upload: `api/upload`.
+- Binary stream: `api/files/[fileId]`, `api/events/[id]/esg` (.docx / .xlsx ESG + Post-Event Report downloads).
+- MCP connector: `mcp` (JSON-RPC over API-key or OAuth bearer).
+- OAuth 2.1 for the connector: `api/oauth/{register,authorize,token,revoke}`, `api/well-known/{oauth-authorization-server,oauth-protected-resource}` (rewritten from `/.well-known/*` in `next.config.mjs`). See `docs/oauth-mcp.md`.
+- Container healthcheck: `api/health`.
+
+Add one only when a Server Action can't satisfy the requirement (binary stream, multipart upload, framework callback, protocol endpoint). Authenticated handlers call `requirePermission(...)` first, like Server Actions (`api/events/[id]/esg/route.ts`). Follow Next 14 async-params (`params: Promise<...>`) as in pages.
 
 ## Conventions
 
@@ -81,14 +89,14 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 - Use `Promise.all([...])` to fan out independent fetches inside a page.
 - Missing records call `notFound()`. Do not add `error.tsx`, `not-found.tsx`, or `loading.tsx` files — rely on Next's defaults.
 - Filter state on list and table pages lives in URL search params (bookmarkable, share-friendly, survives refresh and back-button). On filter change, call `router.push(\`${basePath}?${params.toString()}\`)`. Reserve `router.replace` for URL changes that should NOT add a history entry (e.g. `Toast` clearing `?success=` in `src/components/Toast.tsx:21`).
-- Validate URL list params against an allowed set before passing them into a `Set.has` lookup. See `selectedSections.filter((s) => validSectionValues.has(s as ProfileSection))` in `src/app/events/[id]/reports/event-profile/page.tsx:28-31`. Un-validated list params (`?days=banana`) silently empty results and look like a backend bug.
+- Validate URL list params against an allowed set before passing them into a `Set.has` lookup. See `selectedSections.filter((s) => validSectionValues.has(s as ProfileSection))` in `src/app/events/[id]/reports/event-profile/page.tsx:28-31`. Un-validated list params (`?days=banana`) silently empty results and look like a backend bug. Report data actions apply the same rule on their side: an unrecognized enum filter value means "no filter", not an empty result (`enumFilterSet` in `getPackingListData`) — share-link URLs get hand-edited.
 - **Breadcrumbs.** Every entity detail page renders `<Breadcrumbs items={[...]} />` shaped as: (1) top-level section (`{ label: "Events", href: "/events" }`), (2) parent entity (`{ label: event.name, href: \`/events/${eventId}\` }`), (3) immediate parent list (`{ label: "Presentations", href: ... }`), (4) the entity's own name with no `href`. Use the plural list label (`Functions`, `Presentations`, `Setup Orders`) — not the page title.
 - Import via `@/...` (`@/* → ./src/*`) across feature boundaries. A "feature" is a directory under `src/app/<feature>/`; sibling imports inside one feature may stay relative. Anything crossing out of a feature dir — into `src/lib/`, `src/components/`, another `src/app/<other-feature>/`, or `src/types/` — uses `@/...`.
 
 ### Server Actions
 
-- Co-locate in a sibling `actions.ts` whose first directive is `"use server"`.
-- Start every exported action with `await requirePermission(RESOURCE, ACTION, eventId?)` from `@/lib/permissions` (or `await requireSuperAdmin()` from `@/lib/tenant` for platform administration). It returns the session plus `tenantId` — the event's tenant when an event id was given, the active tenant otherwise — which the action hands to the `*Core` it calls. **Carve-out:** read-only report actions in `src/app/events/reports/actions.ts` are deliberately auth-free — the unauthenticated `/share/[token]/` route reuses them.
+- Co-locate in a sibling `actions.ts` whose first directive is `"use server"`. Every export of a `"use server"` file becomes a callable RPC endpoint and must be an async function — shared constants, types-with-values, and URL-param parsing go in a plain sibling module (`src/app/events/sidebar-sections.ts` next to `sidebar-actions.ts`; a report's `params.ts`).
+- Start every exported action with `await requirePermission(RESOURCE, ACTION, eventId?)` from `@/lib/permissions` (or `await requireSuperAdmin()` from `@/lib/tenant` for platform administration). It returns the session plus `tenantId` — the event's tenant when an event id was given, the active tenant otherwise — which the action hands to the `*Core` it calls. `await requireAuth()` (`@/lib/auth`) is the guard for signed-in-only actions that touch no permission resource (`/account`, API-key minting, the OAuth approval). **Carve-out:** any action reachable from a public route is deliberately auth-free — the report data actions in `src/app/events/reports/actions.ts` and `getEvent` (`src/app/events/actions.ts`), reused by `/share/**`, and the password-reset actions under `src/app/forgot-password/` and `src/app/reset-password/[token]/`. A new reader the share views call must stay auth-free and take its tenant from the event, never the session.
 - Read inputs by type. Strings: `(formData.get("field") as string) || null`. Numbers: `parseInt(formData.get("field") as string)` for required ints, or `formData.get("field") ? parseInt(...) : null` for nullable ints — don't blanket-apply `|| null` to numerics, it turns `"0"` into `null`. Booleans: `formData.get("field") === "true"`. Multi-value: `formData.getAll("field") as string[]`.
 - After a mutation, call `revalidatePath(...)` for the entity's own list + detail routes, then `redirect(...)`. Cross-cutting changes (e.g. an option rename propagating across dozens of consumers) rely on `force-dynamic` — don't enumerate every consumer. Don't use `revalidateTag` (the project doesn't tag fetches).
 - **Redirect target.** Thin top-level entities (User, Event, Venue, Contact) redirect to the list view after create. Entities that need further setup (Vendor, every order type, Presentation, Function) redirect to the detail view. Duplicates always redirect to the new copy's detail view. Updates always stay on the detail view.
@@ -104,17 +112,37 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 - For non-form mutations (delete, status toggle, vendor swap), call the Server Action from inside `useTransition` and disable the trigger while pending (see `src/components/CancelOrDeleteButton.tsx`, `EntityStatusPanel.tsx`).
 - Confirmation steps (delete, cancel) use inline state on the trigger, not modal dialogs (`src/components/DeleteButton.tsx`, `InlineDeleteButton.tsx`).
 - After a mutation, the pattern is `await action(); router.refresh()`. No `useOptimistic`.
+- A form whose update action redirects back to its own page keeps its client state (still in edit mode). Key the form on the record's `updatedAt` so a save remounts it into view mode (`src/app/settings/organization/page.tsx`).
+- Type-ahead entity search uses `useDebouncedSearch(fetcher)` (`src/lib/useDebouncedSearch.ts`: 300 ms, ≥ 2 chars, stale responses dropped) rather than a hand-rolled `setTimeout` effect.
+
+### Read-only UI
+
+- The event/admin layout resolves levels with `permissionLevels()` and hands them to `PermissionsProvider`; client components call `useCanWrite` / `useCanDelete` / `useCanDo` (`src/components/PermissionsProvider.tsx`), server components call `hasPermission`. The hooks return `true` with no provider above them — a missing provider must never disable a working page. The Server Action's own `requirePermission` remains the real gate; this only hides controls the action would refuse.
+- Shared write primitives (`DeleteButton`, `InlineDeleteButton`, `CancelOrDeleteButton`, `LinkedItemsPanel`, `VendorLinkControl`, `FunctionLinkControl`, `FunctionMultiLinkControl`) take a required `resource` prop; components with a defaulted `resource` (`EquipmentTable` defaults to `CATERING_ORDERS`) must be passed the owning order's resource at every editable call site.
+- Forms with no view/edit toggle go read-only via `<fieldset disabled={!canWrite}>` plus a hidden submit (`src/app/vendors/VendorForm.tsx`), not a duplicated read-only branch.
+- Pages that exist only to edit (`*/new`, `/events/[id]/settings`, `/events/[id]/import`, the share-dashboard editor) gate the whole page with `requirePermission(..., "WRITE", ...)` instead of rendering a form the action would refuse.
 
 ### Components
 
 - Named exports for components, **except** where Next requires `export default` (page, layout, error, loading, not-found, route).
 - Add `"use client"` only when the file needs local React state, an effect, a router hook, `useFormStatus`, `useTransition`, or a third-party client library (tiptap, @dnd-kit).
+- Never call a function exported from a `"use client"` module from server code — on the server the import is a client-reference proxy and the call throws `TypeError: ... is not a function` at render. Pure helpers used by both sides live in `src/lib/` (`src/lib/partyLabel.ts` was moved out of `party-field.tsx` for this).
+- Don't call `setState` synchronously at the top of a `useEffect` body (`react-hooks/set-state-in-effect` fails lint). Derive the value during render instead, or wrap the call in `startTransition` (`src/components/EventSidebar.tsx`).
 - `dangerouslySetInnerHTML` is allowed only for HTML produced by `RichTextEditor` (`src/components/RichTextEditor.tsx`, tiptap-backed) — currently the four `menuContent` call sites in catering reports and `MenuSectionTable`. When you add a new call site, drop a one-line comment naming the editor source.
 
 ### Data layer
 
 - Use the singleton `prisma` from `@/lib/prisma`. Pages, Server Actions, and `src/lib/` helpers may call `prisma.<model>.<op>()` directly. Prefer a sibling `get*` action when the same query lands in two or more places; one-off lookups may stay inline.
 - Tenant-owned lookups by id use `findFirst({ where: { id, tenantId } })` and `update`/`delete({ where: { id, tenantId } })` (extendedWhereUnique) rather than a bare `findUnique` — a foreign id is a not-found, never a cross-tenant read or write. Readers that only hold an event id use the relation filter `tenant: { events: { some: { id: eventId } } }` (`optionsWhereForEvent` in `src/lib/options.ts`).
+- **Event ownership.** Tenant filters don't stop a caller with access to event A from passing an id that belongs to event B. Event-scoped mutations put the event in the `where` (`where: { id, eventId }`, or a relation filter like `{ id, function: { eventId } }` for deeper children; bulk ops `where: { id: { in: ids }, eventId }`); creates that link to an existing row assert it first (`assertXInEvent`). Readers that take only an entity id fetch first, then gate on the fetched `eventId` (`getFunction`, `getAVOrder`). Global catalogs (`STORAGE_LOCATIONS`, `VENDORS`) have no second boundary — their existence checks are correctness guards, not authorization.
+- **Visible events.** Any list that returns events — page, action, or MCP tool — ANDs in `eventScopeWhere(userId, tenantId)` (`src/app/events/core.ts`), or it becomes a way to enumerate events the caller can't open. `EventStaff.accessLevel` only *caps* a role's ASSIGNED level for one event; it never widens it.
+- **Venues and rooms.** An event's venues come through `EventVenue`; the primary is the lowest `sortOrder` (read with `eventVenuesInclude`, so `venues[0]` is primary). Room pickers load `getEventRooms(eventId)` (`src/lib/eventVenues.ts`), never rooms by a single `venueId`.
+- **Option-label columns.** `FunctionSchedule.type` and similar columns store a `CustomOption` label, so writers needing a default resolve one (`defaultScheduleType()` in `src/lib/scheduleTypes.ts`) — never a hard-coded token, or the row silently drops out of filtered views. `CustomOption.group` doubles as a fixed key for renamable lists (substatus → status, `meal_type` → APEX meal bucket, `proposal_status` → stage); `updateOption` writes `group` only when the form posts it, so a list without a group control must not send one.
+- **Function numbers.** Every core that creates, deletes or reschedules functions calls `syncFunctionNumbers(eventId)` after its writes and `retireFunctionNumbers` before deletes (`src/lib/functionNumbering.ts`).
+- **Transactions.** Helpers that use the global `prisma` (`autoAssignDefaultWorkflowsCore`, `resolveCreateStatus`) can't join a `$transaction` — call them before or after the callback, never inside. Don't mutate outer arrays inside the callback (a retry duplicates entries).
+- `createMany({ skipDuplicates: true })` only skips rows a unique index catches — Postgres treats NULLs as distinct, so a nullable column in the index (`EventKeyStaff (eventId, contactId, title)`) lets duplicates through.
+- Seeded config rows that the admin UI must not delete carry `isSystem` (`CustomOption`, `Role`) — reuse that name for the next config model.
+- When `onDelete: Restrict` is the right FK semantics, pair it with a pre-check whose only job is a readable error ("X still holds N items") — see `deleteStorageLocationCore`.
 - Domain types come from `@prisma/client`. For derived list/detail payloads, alias with `Awaited<ReturnType<typeof getX>>[number]`.
 - Persist per-user preferences via `setUserSetting` / `getUserSetting` from `@/lib/userSettings` (backed by the `UserSetting` table). Don't add cookies or localStorage for the same need.
 - When discriminating on a TypeScript union or Prisma enum, close the chain with an exhaustiveness check: `default: { const _exhaustive: never = value; throw new Error(\`Unhandled: ${value}\`); }` on a `switch`, or `const _exhaustive: never = link.reportType; throw new Error(...);` after the last `if` branch. Reference call sites: `OptionCategory` switch in `src/app/settings/actions.ts`, `ShareLink.reportType` if-chain in `src/app/share/[token]/page.tsx`.
@@ -123,34 +151,41 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 
 - Tailwind v4 utility classes everywhere. Concatenate with template literals. Do not introduce `cn()` / `clsx` / `tailwind-merge`.
 - Apply `dark:` variants on every element with a color-bearing class (`text-`, `bg-`, `border-`, `divide-`, `ring-`, `placeholder:`). Layout-only classes (`flex`, `gap-2`, `mt-4`) don't need a dark counterpart. Print formatting uses `print:` utility variants plus the rules in `src/app/globals.css:35-44`.
-- Reuse the class-string libs in `src/lib/` instead of redeclaring strings inline: `buttonStyles` (`btnPrimary`, `btnSecondary`, `btnDanger`, `btnOutlinedSm`), `reportStyles` (`reportTh`, `reportTd`, etc.), `statusConstants`, and `colors`.
+- Reuse the class-string libs in `src/lib/` instead of redeclaring strings inline: `buttonStyles` (`btnPrimary`, `btnSecondary`, `btnDanger`, `btnOutlinedSm`), `reportStyles` (`reportTh`, `reportTd`, `labelMicroCaps`, etc.), `statusConstants`, and `colors`.
+- **UI copy is terse.** No helper text that narrates a control's behavior or explains a design choice ("Stays open so you can keep going.") — if a behavior needs a sentence, make the behavior self-evident instead. Labels, placeholders, empty states and outcome messages ("Filed 6 items into Registration Box. 2 skipped.") carry information and stay. Don't name the ESG/APEX part or section in UI copy outside the report itself.
 
 ### Mobile and print
 
 - **Reports** must render dual layouts: a mobile card view (`sm:hidden`) and a desktop/print table (`hidden sm:block print:block`). See § Reports.
-- Other tables may rely on horizontal scroll inside `overflow-x-auto`. Every new full-page layout (sidebars, filter bars, forms) must remain functional at 360 px width.
+- Other tables may rely on horizontal scroll inside `overflow-x-auto`. A grid item containing such a table needs `min-w-0`, or the table widens the page instead of scrolling (`src/app/venues/[id]/page.tsx`).
+- Every new full-page layout (sidebars, filter bars, forms) must remain functional at 360 px width. The mechanisms: filter/toolbar groups get `flex-wrap`; tab strips get `overflow-x-auto whitespace-nowrap` on the `<nav>` (`src/app/events/[id]/agenda/DateTabs.tsx`); title + actions headers stack with `flex flex-col gap-3 sm:flex-row sm:justify-between` and `min-w-0` on the title block (`src/components/PageHeader.tsx`).
+- The header nav is inline only at `lg`; below that `MobileNav` renders the same arrays — add top-level links to `mainLinks` / `adminLinks` in `src/components/Header.tsx`, not as JSX.
 - On interactive report pages, the "Print / Save PDF" button is `<a href="${basePath}/print?...">` — never `window.print()`. On the dedicated `/print` route itself, `PrintButton` (`src/components/print/PrintButton.tsx`) calls `window.print()`.
 
 ### Environment and config
 
-- Access `process.env` only inside `@/lib/prisma`, `@/lib/auth`, and `@/lib/uploads`. Funnel any new env var through one of these.
+- Access `process.env` only inside `@/lib/prisma`, `@/lib/auth`, `@/lib/uploads` (`UPLOAD_DIR`, `MAX_UPLOAD_BYTES`), and `@/lib/email` (`MAILGUN_*`). Funnel any new env var through one of these. Anything reading `AUTH_SECRET` must fall back to `NEXTAUTH_SECRET` — the only secret the compose files provision (`getOAuthSigningSecret` in `src/lib/auth.ts`).
 - No `NEXT_PUBLIC_*` variables. No feature flag system.
 
 ## Security and validation
 
-- **Authentication** is enforced first at middleware (`src/middleware.ts` re-exports the NextAuth `auth` callback). The `authorized` callback in `src/lib/auth.ts:74-85` exempts `/login`, `/api/auth/*`, and `/share/*`. Every authenticated page can assume `session.user` exists.
-- **Server Actions self-protect** with `await requirePermission(...)` (see § Server Actions for the report-actions carve-out). Reasoning: defense in depth, and a reviewer sees the protection at the top of the file without auditing middleware coverage.
+- **Authentication** is enforced first at middleware (`src/middleware.ts` re-exports the NextAuth `auth` callback). The `authorized` callback in `src/lib/auth.ts` exempts the public surfaces listed in § Architecture invariants. Every other page can assume `session.user` exists.
+- **Server Actions self-protect** with `await requirePermission(...)` (see § Server Actions for the public-reader carve-out). Event-scoped writes also prove the row belongs to the event — see § Data layer, Event ownership. Reasoning: defense in depth, and a reviewer sees the protection at the top of the file without auditing middleware coverage.
 - **Admin authorization.** Admin-only route segments (`/settings`, `/users`, `/workflows`, `/system`) have a `layout.tsx` that calls `requirePermission(<RESOURCE>, "VIEW")`; `/tenants` calls `requireSuperAdmin()`. Pages inside don't re-check; Server Actions still gate themselves.
 - **Tenant isolation** is enforced in the data layer, not middleware: the permission layer picks the tenant (§ Multi-tenancy) and every query on a tenant-owned model carries it.
 - **Input handling.** No runtime schema library (no zod / yup / valibot). Trust the TypeScript types for FormData shape. Use `throw new Error(...)` for runtime invariants (uniqueness preview, cross-field invariants — see `src/app/users/actions.ts:46-55`, `src/app/account/actions.ts:11-13`). Empty strings normalize to `null` with `|| null`.
-- **Share links.** Tokens are validated by `getActiveShareLink` (`src/lib/shareLinks.ts:18-26`), which checks `revokedAt` and `expiresAt`. The share branch in `src/app/share/[token]/page.tsx` is the only public surface that reads event data.
+- **Share links.** Tokens are validated by `getActiveShareLink` (`src/lib/shareLinks.ts:18-26`), which checks `revokedAt` and `expiresAt`. The share views (`src/app/share/[token]/`, `src/app/share/group/[token]/`) are the only public surfaces that read event data. They render reports only — the Office downloads (`api/events/[id]/esg`) are authenticated-only and `ReportDownloadLinks` is never passed on a share view.
 
 ## Reports
 
 Every report under `/events/[id]/reports/[name]/` must render cleanly on mobile, print without UI chrome, and work in the unauthenticated `/share/[token]/` view. Equipment Responsibility and Vendor Handoff are the reference implementations.
 
+Before adding a report, check whether the view is a variant of an existing one (columns shown, density, page breaks over the same data). Prefer a toggle on the existing report (`event-schedule?compact=true`) over a new route — every report costs five share surfaces.
+
 ### File layout
-- `src/app/events/reports/actions.ts` — shared server actions for all reports. Must **NOT** call `requireAuth()`.
+- `src/app/events/reports/actions.ts` — shared server actions for all reports. Must **NOT** call any auth guard.
+- `src/app/events/[id]/reports/[name]/params.ts` (when needed) — URL-param parsing, sentinels and valid-value sets shared by the page, `/print`, and the share surfaces; a plain module because `actions.ts` can only export async functions.
+- When a report mirrors an operational page, both read through one plain `src/lib/` builder (`buildPackingItems` in `src/lib/packingItems.ts` feeds the packing page and the Packing List report) rather than the report importing the page's `"use server"` reader.
 - `src/app/events/[id]/reports/[name]/page.tsx` — server component; fetches data and renders the filter bar + report.
 - `src/app/events/[id]/reports/[name]/ReportFilters.tsx` — `"use client"`; accepts `shareButton?`, `hidePrint?`, `basePath?` props for share-view reuse.
 - `src/app/events/[id]/reports/[name]/[Name]Report.tsx` — report body; consumed by both the authenticated route and `/share/[token]/`.
@@ -172,6 +207,8 @@ A 2-column table may skip the mobile card only when both columns fit in 360 px �
 - Per-entity: `${kind}-${id}` (`function-${fn.id}`, `presentation-${presentation.id}`, `party-${partyId}`).
 - When an entity appears under multiple parents in the same report, compound IDs are permitted: `${kind}-${id}-${parentId}` — entity first, then disambiguating parent. See `presentation-${item.entry.slot.presentation.id}-${item.entry.block.id}` in `src/app/events/[id]/reports/room-schedule/RoomScheduleReport.tsx:200`. The constraint is uniqueness on the page — kebab-case, no `:` / `/` / spaces.
 - Never use raw composite keys containing `:` as HTML IDs — compute a clean anchor id separately from the React `key`.
+- Anchors for groups keyed by free text (vendor/provider labels) are positional (`procurement-group-${i}`), never a slug of user text.
+- A mobile card and its desktop row must not share an id — the hidden first match wins the jump. Give the card its own id and pass it as the link's `mobileId` to `ReportNav`.
 
 ### Filter bar conventions
 - `ReportFilters` accepts `hidePrint?: boolean` — pass it from `src/app/share/[token]/page.tsx` so only the `ShareShell` header Print button shows.
@@ -183,7 +220,8 @@ A 2-column table may skip the mobile card only when both columns fit in 360 px �
 
 ### Print/PDF conventions
 - Dedicated print route (`/print`); do NOT print the interactive screen directly.
-- Use `PrintHeader` (`src/components/print/PrintHeader.tsx`) with `eventName`, `title`, `backHref`.
+- Use `PrintHeader` (`src/components/print/PrintHeader.tsx`) with `eventName`, `title`, `backHref`. In-app print links open in the same tab; `backHref` is the way back.
+- Page breaks: `section` elements avoid breaking inside (`src/app/globals.css`), cards use `print:break-inside-avoid`, and tables whose columns must line up across groups are `table-fixed` with an explicit `<colgroup>`.
 - Filter controls are not rendered on print pages — the URL carries them in.
 - "Print / Save PDF" follows the two-layer rule in § Mobile and print.
 - Use Tailwind class strings from `src/lib/reportStyles.ts` — do not re-declare inline.
@@ -199,7 +237,7 @@ Five surfaces to wire — see [docs/checklists/share-report-integration.md](./do
 | `PrintHeader` | `src/components/print/PrintHeader.tsx` | Print page header (event name, title, back link) |
 | `ShareReportButton` | `src/components/ShareReportButton.tsx` | Create/manage share links from a report page |
 | `ShareShell` | `src/app/share/[token]/ShareShell.tsx` | Layout shell for the share route |
-| Report style classes | `src/lib/reportStyles.ts` | `reportTh`, `reportTd`, etc. |
+| Report style classes | `src/lib/reportStyles.ts` | `reportTh`, `reportTd`, `labelMicroCaps`, etc. |
 
 ## Multi-tenancy
 
@@ -256,17 +294,11 @@ if (filters.status === "__blank__") {
 
 Full checklist at [docs/checklists/adding-entity.md](./docs/checklists/adding-entity.md). Covers schema, auth/permissions, routes, sidebar, overview, status/workflow, vendor model types, uploads, and the report integrations the new entity should flow through. Cross-reference SupplyOrder (commit a880f43 + the SupplyOrder UI alignment PR) as the most recent end-to-end reference.
 
-## Breakout session labels
+## Function and breakout session labels
 
-Anywhere a breakout session (a `Function` with `type === "BREAKOUT_BLOCK"`) is displayed by name, prepend its `BreakoutGroup.name` so "Session 1" reads as "Learn & Lead Session 1":
+Wherever a Function is displayed or picked by name, render it with `formatFunctionLabel` (`src/lib/functionNumbers.ts`) so it carries its number and, for a breakout session (a `Function` with `type === "BREAKOUT_BLOCK"`), its group: "#12 · Learn & Lead Session 1". Include `functionNumber: true` and `breakoutGroup: { select: { name: true } }` in the Prisma select, and filter/sort on the formatted label (`matchesFunctionQuery`) — users see and search that form.
 
-```ts
-import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
-
-formatBreakoutSessionName(session.name, session.breakoutGroup?.name)
-```
-
-The helper falls back to just the session name when no group is provided. When adding a view that shows a function name where the function could be a breakout block, include `breakoutGroup: { select: { name: true } }` in the Prisma query and apply the helper. Apply it to filtering/sorting too — users see and search the prepended form.
+`formatBreakoutSessionName(name, groupName)` (`src/lib/breakoutLabels.ts`) is the unnumbered building block, called directly only where a number must not appear. The default order name taken from `?functionId=` (`extractSourceName` in `src/lib/source-context.ts`) stays unnumbered too.
 
 ## MCP connector
 
@@ -274,7 +306,8 @@ The helper falls back to just the session name when no group is provided. When a
 
 ### Where things live
 - **Route** — `src/app/mcp/route.ts`. POST-only; dispatches JSON-RPC; maps `PermissionError` → MCP error codes; serializes results through `mcpSerialize`. GET returns 405.
-- **Bearer auth** — `src/lib/mcpAuth.ts`. SHA-256 lookup against `ApiKey.hashedKey`; rejects revoked keys; stamps `lastUsedAt` fire-and-forget. Keys are random 32-byte base64url tokens (NOT bcrypt — high-entropy randoms need a single indexed hash lookup, not a per-row compare).
+- **Bearer auth** — `src/lib/mcpAuth.ts`. SHA-256 lookup against `ApiKey.hashedKey`; rejects revoked keys; stamps `lastUsedAt` fire-and-forget. Keys are random 32-byte base64url tokens (NOT bcrypt — high-entropy randoms need a single indexed hash lookup, not a per-row compare). The same SHA-256-only rule covers OAuth authorization codes and refresh tokens.
+- **OAuth 2.1** — claude.ai web/mobile connectors authenticate with OAuth (PKCE S256, public clients only, anonymous dynamic registration); `/mcp` tries the OAuth JWT first, then the API key. `src/lib/mcpOAuth.ts` + the `api/oauth/*` / `api/well-known/*` routes; full reference in `docs/oauth-mcp.md`. The access-token scope is cosmetic — authorization stays per tool call.
 - **Tool registry** — `src/lib/mcpTools/index.ts` aggregates per-entity files. Each tool is a `{ name, description, inputSchema, handler }` — see `src/lib/mcpTools/types.ts`.
 - **Serialization** — `src/lib/mcpSerialize.ts` walks the result tree; converts `Date` → ISO 8601 string, `Prisma.Decimal` → string (preserves precision on financial fields).
 - **Self-service UI** — `src/app/account/api-keys/` (page + actions + form + list). Linked from `/account`.
@@ -289,15 +322,19 @@ The eight report actions in `src/app/events/reports/actions.ts` remain auth-free
 2. Each handler must (a) call `requirePermissionForUser` first, (b) call Prisma directly via `@/lib/prisma` — do NOT call sibling Server Actions (they use session auth via `auth()`), (c) return raw shapes; the dispatcher serializes them.
 3. Register the new array in `src/lib/mcpTools/index.ts`.
 4. JSON Schema in `inputSchema` is descriptive only; no runtime validation at the MCP boundary (same trust model as Server Actions trusting FormData typing). Tools throw `Error` for bad input.
+5. Partial-update args use `partialString` / `partialInt` / `partialBoolean` from `src/lib/mcpTools/types.ts` (absent → unchanged, `null` → clear), so a new optional column doesn't force callers to resend it.
+6. Every id a write tool requires must be discoverable from another tool's output — `create_inventory_item` needs `equipmentId`, so `list_equipment_catalog` shipped with it.
+7. Gate at the permission the app enforces for the same operation, not the resource that shares the name (`list_equipment_catalog` checks `STORAGE_LOCATIONS` VIEW because `getEquipment()` serves every order form's picker; `EQUIPMENT` is admin-only).
 
 ### `list_<entity>` vs `get_<entity>` convention
 Every entity exposes a pair: `list_<entity>` returns the list-page summary include (one or two levels of nested IDs/labels and a few flat fields); `get_<entity>` returns the full detail include. End every `list_*` tool's description with: `Returns summary shape — use \`get_<entity>\` for full detail (<short comma list of the extra includes>).` Descriptions are the only signal the LLM has — keep them specific and in sync.
 
 ### Writes — `*Core(args, userId)` extraction pattern
-When wiring an MCP write tool that mirrors an existing Server Action, factor out a pure `xxxCore(args, userId)` function from the action body (`xxxCore(args, userId, tenantId)` for cores that do a global check or create a top-level tenant-owned row; event-scoped cores derive the tenant from the event). The Server Action wrapper retains `FormData` parsing, `revalidatePath`, and `redirect`; the core owns `requirePermissionForUser` and the Prisma op (including any `$transaction`). MCP tools call the core directly with typed args. Single source of truth for business rules; no drift between UI and MCP behavior.
+When wiring an MCP write tool that mirrors an existing Server Action, factor out a pure `xxxCore(args, userId)` function from the action body (`xxxCore(args, userId, tenantId)` for cores that do a global check or create a top-level tenant-owned row; event-scoped cores derive the tenant from the event). The Server Action wrapper retains `FormData` parsing, `revalidatePath`, and `redirect`; the core owns `requirePermissionForUser` and the Prisma op (including any `$transaction`). MCP tools call the core directly with typed args. Single source of truth for business rules; no drift between UI and MCP behavior. Cores live in a sibling `core.ts` with **no** `"use server"` directive (`src/app/contacts/core.ts`): every export of a `"use server"` file is callable from the browser, and a core that trusts a passed-in `userId` would let any signed-in user act as anyone else.
 
 ### Documented exceptions
 - `mintApiKey` in `src/app/account/api-keys/actions.ts` **returns** a `{ fullKey, ... }` object — the deliberate exception to the "actions return void / redirect" convention. The plaintext key is shown once (we only persist `SHA-256(fullKey)`); the client renders a copy-once panel. Don't replicate unless you have an equivalent one-time-reveal requirement.
+- The OAuth approval action (`src/app/oauth/authorize/actions.ts`) redirects off-site to the client's `redirect_uri`, so it skips `revalidatePath` and the `?success=` toast. Errors redirect back only after `redirect_uri` has matched the client's registered list; before that they render locally, or the endpoint becomes an open redirect.
 
 ## Anti-patterns
 
@@ -316,7 +353,7 @@ When wiring an MCP write tool that mirrors an existing Server Action, factor out
 | `"Multiple"` rollup rows in reports | Split rows by `(item, role, provider)` | Concrete rows beat ambiguous summaries. |
 | `null` / `undefined` as a `<select>` option value | Sentinel `value="__blank__"`; empty string means "All" | See § Order list § Absence sentinels. |
 | Composite keys like `${a}:${b}` as HTML IDs | Compute a clean anchor id separately from the React `key` | Colon is not a CSS-friendly id char. |
-| `process.env.X` outside `lib/prisma`, `lib/auth`, `lib/uploads` | Funnel new env access through one of those modules | Three touchpoints, 0 `NEXT_PUBLIC_*`. |
+| `process.env.X` outside `lib/prisma`, `lib/auth`, `lib/uploads`, `lib/email` | Funnel new env access through one of those modules | Four touchpoints, 0 `NEXT_PUBLIC_*`. |
 | Cookies or `localStorage` for per-user preferences | `setUserSetting` / `getUserSetting` (`@/lib/userSettings`) | Server-side `UserSetting` table is the single store. |
 | Adding zod / yup / valibot for FormData parsing | Trust TS types; `throw new Error(...)` for runtime invariants | Trusted-staff trust model; tenant isolation lives in the queries, not in input validation. |
 | `findUnique({ where: { id } })` on a tenant-owned model | `findFirst({ where: { id, tenantId } })` | A foreign id must read as not-found. |
@@ -354,7 +391,9 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 - `prisma/schema.prisma` — full data model (Event, Venue, Room, Function and subtypes, Contact, all order types).
 - `src/lib/auth.ts` — `authorized` callback, `requireAuth`, cookie config.
 - `src/lib/tenant.ts`, `src/lib/permissions.ts`, `docs/multi-tenancy.md` — active tenant, `PermissionTarget`, super admin.
-- `src/lib/conflicts.ts`, `src/app/events/breakout-schedule/actions.ts` — the riskiest logic in the codebase (time-zone math, scheduling conflicts).
+- `src/lib/conflicts.ts`, `src/app/events/breakout-schedule/actions.ts` — the riskiest logic in the codebase (time-zone math, scheduling conflicts). Use the shared helpers rather than new math: `parseDateTimeInTimezone` (`src/lib/timezones.ts`) for datetime-local + zone → UTC, `formatTimeRange` (`src/lib/agendaUtils.ts`) for schedule-row labels.
+- `docs/oauth-mcp.md` — OAuth for the MCP connector: flows, secrets, schema.
+- `docs/hotels.md` — Hotels module: model, pickup math (`src/lib/hotelPickup.ts`), ESG/PER mapping, import runbook.
 - `docs/checklists/adding-entity.md` — full checklist for new entities/order types.
 - `docs/checklists/share-report-integration.md` — five-surface wiring for new shareable reports.
 - `reviews/claudemd/conventions-observed.md` — the descriptive convention audit this file is derived from.
