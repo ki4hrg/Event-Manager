@@ -133,6 +133,10 @@ export function PatternFilters({ series, cities }: { series: { id: string; name:
           New start
           <input type="date" value={sp.get("start") ?? ""} onChange={(e) => set("start", e.target.value)} className={fieldClass} />
         </label>
+        <label className={labelClass}>
+          New end
+          <input type="date" value={sp.get("end") ?? ""} onChange={(e) => set("end", e.target.value)} className={fieldClass} />
+        </label>
       </div>
     </div>
   );

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { reportTd, reportTh } from "@/lib/reportStyles";
-import { BLOCK_TYPE_LABELS, dateFromKey, dateKey, formatDateKey, formatNight, parseBlockTypes } from "@/lib/hotels";
+import { BLOCK_TYPE_LABELS, formatDateKey, formatNight, parseBlockTypes } from "@/lib/hotels";
+import { eventRoles, proposeNights, roleLabel, sortRoles } from "@/lib/hotelPattern";
 import { getBlockMonitoring, getHotelCities, getHotelPickupHistory, getPickupPattern, getSeriesChoices, type PatternFilters } from "../actions";
 import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar } from "./HotelReportFilters";
 
@@ -186,54 +187,75 @@ async function Monitoring() {
 
 type Basis = "average" | "highest" | "latest";
 
-const offsetLabel = (o: number) => (o === 0 ? "Start" : `Start ${o > 0 ? "+" : "−"}${Math.abs(o)}`);
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-async function Pattern({ filters, basis, adjust, start }: { filters: PatternFilters; basis: Basis; adjust: number; start?: string }) {
+async function Pattern({
+  filters,
+  basis,
+  adjust,
+  start,
+  end,
+}: {
+  filters: PatternFilters;
+  basis: Basis;
+  adjust: number;
+  start?: string;
+  end?: string;
+}) {
   const [{ events, noPickup }, series, cities] = await Promise.all([getPickupPattern(filters), getSeriesChoices(), getHotelCities()]);
-  const offsets = Array.from(new Set(events.flatMap((e) => Object.keys(e.nights).map(Number)))).sort((a, b) => a - b);
-  const picked = (e: (typeof events)[number], o: number) => e.nights[o]?.pickedUp ?? 0;
-  const average = offsets.map((o) => (events.length ? events.reduce((s, e) => s + picked(e, o), 0) / events.length : 0));
-  const highest = offsets.map((o) => Math.max(0, ...events.map((e) => picked(e, o))));
-  const latest = offsets.map((o) => (events[0] ? picked(events[0], o) : 0));
+  const rows = events.map((e) => {
+    const nights = Object.values(e.pickedUp);
+    return { ...e, roles: eventRoles(e.startDate, e.endDate, e.pickedUp), roomNights: nights.reduce((s, n) => s + n, 0), peak: Math.max(0, ...nights) };
+  });
+  const roles = sortRoles(rows.flatMap((r) => Array.from(r.roles.keys())));
+  // Middle only counts events long enough to have one; any other role an
+  // event lacks had no rooms that night.
+  const valuesFor = (role: string) => rows.flatMap((r) => (r.roles.has(role) ? [r.roles.get(role)!] : role === "middle" ? [] : [0]));
+  const mean = (ns: number[]) => (ns.length ? ns.reduce((s, n) => s + n, 0) / ns.length : 0);
+  const average = new Map(roles.map((role) => [role, mean(valuesFor(role))]));
+  const highest = new Map(roles.map((role) => [role, Math.max(0, ...valuesFor(role))]));
+  const latest = new Map(roles.flatMap((role) => (rows[0]?.roles.has(role) || role !== "middle" ? [[role, rows[0]?.roles.get(role) ?? 0] as const] : [])));
   const base = basis === "highest" ? highest : basis === "latest" ? latest : average;
-  const proposed = base.map((n) => Math.max(0, Math.round(n * (1 + adjust / 100))));
-  const avgPeak = Math.max(0, ...average);
-  const shape = average.map((n) => (avgPeak ? Math.round((n / avgPeak) * 100) : 0));
-  const sum = (ns: number[]) => ns.reduce((s, n) => s + n, 0);
-  const newNight = (o: number) => (start ? dateKey(new Date(dateFromKey(start).getTime() + o * 86_400_000)) : null);
+  const proposed = new Map(Array.from(base, ([role, n]) => [role, Math.max(0, Math.round(n * (1 + adjust / 100)))]));
+  const avgPeak = Math.max(0, ...Array.from(average.values()));
+  const shape = new Map(Array.from(average, ([role, n]) => [role, avgPeak ? Math.round((n / avgPeak) * 100) : 0]));
+  const dated = start && end && end >= start ? proposeNights(start, end, proposed) : null;
+  const adjustLabel = adjust ? ` (${adjust > 0 ? "+" : ""}${adjust}%)` : "";
 
-  const csvRow = (label: string, values: number[], extra: Record<string, string | number | null> = {}) => ({
+  const csvRow = (label: string, dates: string, values: Map<string, number>, roomNights: number | null, peak: number | null) => ({
     Row: label,
-    ...extra,
-    ...Object.fromEntries(offsets.map((o, i) => [newNight(o) ?? offsetLabel(o), values[i]])),
-    "Room nights": round1(sum(values)),
-    Peak: round1(Math.max(0, ...values)),
+    Dates: dates,
+    ...Object.fromEntries(roles.map((role) => [roleLabel(role), values.has(role) ? round1(values.get(role)!) : null])),
+    "Room nights": roomNights == null ? null : round1(roomNights),
+    Peak: peak == null ? null : round1(peak),
   });
   const csv = [
-    ...events.map((e) => csvRow(e.name, offsets.map((o) => picked(e, o)), { Start: e.startDate })),
-    csvRow("Average", average.map(round1), { Start: null }),
-    csvRow("Highest", highest, { Start: null }),
-    csvRow("Pattern %", shape, { Start: null }),
-    csvRow("Proposed", proposed, { Start: start ?? null }),
+    ...rows.map((r) => csvRow(r.name, `${r.startDate} – ${r.endDate}`, r.roles, r.roomNights, r.peak)),
+    csvRow("Average", "", average, mean(rows.map((r) => r.roomNights)), mean(rows.map((r) => r.peak))),
+    csvRow("Highest", "", highest, Math.max(0, ...rows.map((r) => r.roomNights)), Math.max(0, ...rows.map((r) => r.peak))),
+    csvRow("Pattern %", "", shape, null, null),
+    csvRow(`Proposed${adjustLabel}`, "", proposed, null, null),
   ];
 
   const num = `${reportTd} text-right tabular-nums`;
-  const summaryRow = (label: string, values: number[], fmt: (n: number) => string | number = (n) => n, opts: { strong?: boolean; totals?: boolean } = {}) => {
-    const { strong = false, totals = true } = opts;
-    return (
+  const summaryRow = (
+    label: string,
+    values: Map<string, number>,
+    fmt: (n: number) => string | number,
+    totals: [number, number] | null,
+    strong = false,
+  ) => (
     <tr className={strong ? "bg-blue-50 dark:bg-blue-900/30 font-semibold" : "bg-gray-50 dark:bg-gray-900/40"}>
       <td className={`${reportTd} ${strong ? "text-blue-700 dark:text-blue-300" : ""}`}>{label}</td>
-      {values.map((n, i) => (
-        <td key={offsets[i]} className={num}>
-          {fmt(n)}
+      {roles.map((role) => (
+        <td key={role} className={num}>
+          {values.has(role) ? fmt(values.get(role)!) : "—"}
         </td>
       ))}
-      <td className={num}>{totals ? fmt(round1(sum(values))) : ""}</td>
-      <td className={num}>{totals ? fmt(round1(Math.max(0, ...values))) : ""}</td>
+      <td className={num}>{totals ? round1(totals[0]) : ""}</td>
+      <td className={num}>{totals ? round1(totals[1]) : ""}</td>
     </tr>
-    );
-  };
+  );
 
   return (
     <>
@@ -246,58 +268,94 @@ async function Pattern({ filters, basis, adjust, start }: { filters: PatternFilt
           No pickup on file: {noPickup.map((e) => e.name).join(", ")}
         </p>
       )}
-      {events.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">No ended events with pickup.</p>
       ) : (
-        <div className="overflow-x-auto bg-white dark:bg-gray-800 shadow rounded-lg">
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                <th className={reportTh}>Event</th>
-                {offsets.map((o) => (
-                  <th key={o} className={`${reportTh} text-right whitespace-nowrap`}>
-                    {offsetLabel(o)}
-                    {start && <div className="font-normal normal-case">{formatNight(newNight(o)!)}</div>}
-                  </th>
-                ))}
-                <th className={`${reportTh} text-right`}>Room nights</th>
-                <th className={`${reportTh} text-right`}>Peak</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((e) => {
-                const values = offsets.map((o) => picked(e, o));
-                return (
-                  <tr key={e.id}>
+        <>
+          <div className="overflow-x-auto bg-white dark:bg-gray-800 shadow rounded-lg">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  <th className={reportTh}>Event</th>
+                  {roles.map((role) => (
+                    <th key={role} className={`${reportTh} text-right whitespace-nowrap`}>
+                      {roleLabel(role)}
+                    </th>
+                  ))}
+                  <th className={`${reportTh} text-right`}>Room nights</th>
+                  <th className={`${reportTh} text-right`}>Peak</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
                     <td className={reportTd}>
-                      <Link href={`/events/${e.id}/hotels`} className="text-blue-600 dark:text-blue-400 hover:underline">
-                        {e.name}
+                      <Link href={`/events/${r.id}/hotels`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                        {r.name}
                       </Link>
-                      <div className="text-gray-500 dark:text-gray-400" title={e.hotels.join("\n")}>
-                        {formatNight(e.startDate)} · {e.hotels.length} hotel{e.hotels.length === 1 ? "" : "s"}
+                      <div className="text-gray-500 dark:text-gray-400 whitespace-nowrap" title={r.hotels.join("\n")}>
+                        {formatNight(r.startDate)} – {formatNight(r.endDate)} · {r.hotels.length} hotel{r.hotels.length === 1 ? "" : "s"}
                       </div>
                     </td>
-                    {offsets.map((o, i) => (
-                      <td
-                        key={o}
-                        className={`${num} ${values[i] === 0 ? "text-gray-400 dark:text-gray-500" : ""}`}
-                        title={e.nights[o] ? `${formatNight(e.nights[o].night)} · ${e.nights[o].blocked} blocked` : undefined}
-                      >
-                        {values[i]}
-                      </td>
-                    ))}
-                    <td className={num}>{sum(values)}</td>
-                    <td className={num}>{Math.max(0, ...values)}</td>
+                    {roles.map((role) => {
+                      const n = r.roles.get(role);
+                      return (
+                        <td key={role} className={`${num} ${!n ? "text-gray-400 dark:text-gray-500" : ""}`}>
+                          {n == null ? (role === "middle" ? "—" : 0) : round1(n)}
+                        </td>
+                      );
+                    })}
+                    <td className={num}>{r.roomNights}</td>
+                    <td className={num}>{r.peak}</td>
                   </tr>
-                );
-              })}
-              {summaryRow("Average", average, (n) => round1(n))}
-              {summaryRow("Highest", highest)}
-              {summaryRow("Pattern %", shape, (n) => `${n}%`, { totals: false })}
-              {summaryRow(`Proposed${adjust ? ` (${adjust > 0 ? "+" : ""}${adjust}%)` : ""}`, proposed, (n) => n, { strong: true })}
-            </tbody>
-          </table>
-        </div>
+                ))}
+                {summaryRow("Average", average, round1, [mean(rows.map((r) => r.roomNights)), mean(rows.map((r) => r.peak))])}
+                {summaryRow("Highest", highest, (n) => n, [Math.max(0, ...rows.map((r) => r.roomNights)), Math.max(0, ...rows.map((r) => r.peak))])}
+                {summaryRow("Pattern %", shape, (n) => `${n}%`, null)}
+                {summaryRow(`Proposed${adjustLabel}`, proposed, (n) => n, null, true)}
+              </tbody>
+            </table>
+          </div>
+          {dated && (
+            <div className="mt-6 max-w-md">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Proposed block · {formatNight(start!)} – {formatNight(end!)}
+                </h2>
+                <CsvButton
+                  fileName={`hotel-rfp-block-${start}.csv`}
+                  rows={dated.map((d) => ({ Night: d.night, Role: roleLabel(d.role), Rooms: Math.round(d.rooms) }))}
+                />
+              </div>
+              <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+                <table className="min-w-full">
+                  <thead>
+                    <tr>
+                      <th className={reportTh}>Night</th>
+                      <th className={reportTh}>Role</th>
+                      <th className={`${reportTh} text-right`}>Rooms</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dated.map((d) => (
+                      <tr key={d.night}>
+                        <td className={`${reportTd} whitespace-nowrap`}>{formatNight(d.night)}</td>
+                        <td className={`${reportTd} text-gray-500 dark:text-gray-400`}>{roleLabel(d.role)}</td>
+                        <td className={num}>{Math.round(d.rooms)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-blue-50 dark:bg-blue-900/30 font-semibold">
+                      <td className={`${reportTd} text-blue-700 dark:text-blue-300`} colSpan={2}>
+                        Room nights
+                      </td>
+                      <td className={num}>{dated.reduce((s, d) => s + Math.round(d.rooms), 0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   );
@@ -317,6 +375,7 @@ export default async function HotelReportsPage({
     basis?: string;
     adjust?: string;
     start?: string;
+    end?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -336,6 +395,7 @@ export default async function HotelReportsPage({
           basis={sp.basis === "highest" || sp.basis === "latest" ? sp.basis : "average"}
           adjust={Number.isFinite(adjust) ? Math.min(200, Math.max(-90, adjust)) : 0}
           start={sp.start && DATE_RE.test(sp.start) ? sp.start : undefined}
+          end={sp.end && DATE_RE.test(sp.end) ? sp.end : undefined}
         />
       ) : (
         <History seriesId={sp.series || undefined} from={from} to={to} byHotel={sp.byHotel === "1"} />
