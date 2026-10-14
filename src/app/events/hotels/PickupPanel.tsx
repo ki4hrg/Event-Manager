@@ -22,6 +22,8 @@ type Guest = {
   checkOut: string | null;
   roomType: string | null;
   cancelled: boolean;
+  bookedOn: string | null;
+  cancelledOn: string | null;
 };
 
 // Guest list, entered counts, and import history for a block.
@@ -105,7 +107,14 @@ export function PickupPanel({
                   {g.confirmationNumber && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">#{g.confirmationNumber}</span>}
                 </span>
                 <span className="text-gray-500 dark:text-gray-400">
-                  {[g.roomType, g.checkIn && g.checkOut ? `${formatDateKey(g.checkIn)} – ${formatDateKey(g.checkOut)}` : null].filter(Boolean).join(" · ")}
+                  {[
+                    g.roomType,
+                    g.checkIn && g.checkOut ? `${formatDateKey(g.checkIn)} – ${formatDateKey(g.checkOut)}` : null,
+                    g.bookedOn ? `booked ${formatDateKey(g.bookedOn)}` : null,
+                    g.cancelledOn ? `cancelled ${formatDateKey(g.cancelledOn)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </li>
             ))}

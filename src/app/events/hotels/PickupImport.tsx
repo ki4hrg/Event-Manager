@@ -16,11 +16,15 @@ type GuestArgs = {
   roomType: string | null;
   cancelled: boolean;
   rawStatus: string | null;
+  bookedOn: string | null;
+  cancelledOn: string | null;
 };
 type CountArgs = { night: string; roomType: string | null; rooms: number };
 type ImportMethod = Exclude<HotelPickupMethod, "COUNTS">;
 
 const FIELDS = [
+  { key: "cancelledOn", label: "Cancel date", guess: /(cancel|cxl)\w*\s*(date|dt)\b|(cancel|cxl)\w*\s+on\b|date\s*(cancel|cxl)/i },
+  { key: "bookedOn", label: "Booked date", guess: /book(ed|ing)?\s*(date|dt)\b|booked\s+on\b|res(ervation)?\s*(made|date|created)|date\s*(booked|made|created)|^created/i },
   { key: "confirmation", label: "Confirmation #", guess: /conf|confirmation|res(ervation)?\s*(#|no|num|id)/i },
   { key: "fullName", label: "Guest name", guess: /^(guest\s*)?name$|guest|full\s*name/i },
   { key: "firstName", label: "First name", guess: /first/i },
@@ -126,14 +130,17 @@ function GuestImport({
     const name = get("fullName") || [get("firstName"), get("lastName")].filter(Boolean).join(" ");
     const status = get("status");
     const room = get("roomType");
+    const cancelledOn = parseCsvDate(get("cancelledOn"));
     return {
       guestName: name || null,
       confirmationNumber: get("confirmation") || null,
       checkIn: parseCsvDate(get("checkIn")),
       checkOut: parseCsvDate(get("checkOut")),
       roomType: room ? mappedRoom(room) : null,
-      cancelled: status ? isCancelled(status) : false,
+      cancelled: cancelledOn ? true : status ? isCancelled(status) : false,
       rawStatus: status || null,
+      bookedOn: parseCsvDate(get("bookedOn")),
+      cancelledOn,
     };
   });
   const badDates = guests.filter((g) => !g.checkIn || !g.checkOut || g.checkOut <= g.checkIn).length;
@@ -240,7 +247,8 @@ function GuestImport({
           </div>
 
           <p className="text-sm text-gray-700 dark:text-gray-300">
-            {usable.length} guest{usable.length === 1 ? "" : "s"} · {usable.filter((g) => g.cancelled).length} cancelled
+            {usable.length} guest{usable.length === 1 ? "" : "s"} · {usable.filter((g) => g.cancelled).length} cancelled ·{" "}
+            {usable.filter((g) => g.bookedOn).length} with booked date
             {badDates > 0 && <span className="text-red-600 dark:text-red-400"> · {badDates} skipped (dates)</span>}
           </p>
           <button type="button" disabled={pending || usable.length === 0} onClick={submit} className={`${btnPrimary} disabled:opacity-50`}>

@@ -2583,6 +2583,10 @@ model HotelPickupGuest {
   roomType           String?
   cancelled          Boolean            @default(false)
   rawStatus          String?
+  // When the reservation was made / cancelled, from reports that carry them.
+  // They let the PER compute pickup at N days out from the guest list.
+  bookedOn           DateTime?          @db.Date
+  cancelledOn        DateTime?          @db.Date
 
   @@index([blockId, confirmationNumber])
   @@index([importId])
