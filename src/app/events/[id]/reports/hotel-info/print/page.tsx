@@ -28,7 +28,7 @@ export default async function HotelInfoPrintPage({
       <PrintHeader
         eventName={event.name}
         title="Hotel Information"
-        backHref={`/events/${eventId}/reports/hotel-info${raw ? `?blockTypes=${raw}` : ""}`}
+        backHref={`/events/${eventId}/reports/hotel-info${raw ? `?blockTypes=${encodeURIComponent(raw)}` : ""}`}
       />
       <HotelInfoReport data={data} />
     </div>

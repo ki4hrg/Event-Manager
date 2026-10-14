@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { dateKey } from "@/lib/hotels";
+import { requirePermission } from "@/lib/permissions";
 import { getEvent } from "../../../../../actions";
 import { getBlockFormChoices, getHotelBlock, importPickupGuests, savePickupCounts } from "../../../../../hotels/actions";
 import { PickupImport } from "../../../../../hotels/PickupImport";
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: "Pickup" };
 
 export default async function PickupPage({ params }: { params: Promise<{ id: string; blockId: string }> }) {
   const { id: eventId, blockId } = await params;
+  await requirePermission("HOTELS", "WRITE", eventId);
   const [event, block, choices] = await Promise.all([getEvent(eventId), getHotelBlock(blockId, eventId), getBlockFormChoices(eventId)]);
   if (!event || !block) notFound();
 
@@ -42,7 +44,7 @@ export default async function PickupPage({ params }: { params: Promise<{ id: str
             { label: "Pickup" },
           ]}
         />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Pickup · {venue.name}</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">Pickup · {venue.name}</h1>
       </div>
       <div className="max-w-5xl">
         <PickupImport

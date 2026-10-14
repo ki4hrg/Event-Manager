@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
+import { btnOutlinedSm } from "@/lib/buttonStyles";
 
 const fieldClass =
   "block rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-2 py-1.5";
@@ -64,7 +65,7 @@ export function CsvButton({ fileName, rows }: { fileName: string; rows: Record<s
         a.click();
         URL.revokeObjectURL(url);
       }}
-      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+      className={`${btnOutlinedSm} disabled:opacity-50`}
     >
       CSV
     </button>

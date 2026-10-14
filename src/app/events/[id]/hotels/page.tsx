@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
+import { hasPermission } from "@/lib/permissions";
 import { BLOCK_TYPE_LABELS, dateKey, formatDateKey } from "@/lib/hotels";
 import { getEvent } from "../../actions";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
@@ -17,11 +18,12 @@ export const metadata: Metadata = { title: "Hotels" };
 
 export default async function HotelsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
-  const [event, proposals, choices, blocks] = await Promise.all([
+  const [event, proposals, choices, blocks, canWrite] = await Promise.all([
     getEvent(eventId),
     getHotelProposals(eventId),
     getProposalFormChoices(eventId),
     getHotelBlocks(eventId),
+    hasPermission("HOTELS", "WRITE", eventId),
   ]);
   if (!event) notFound();
 
@@ -38,7 +40,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
         <Toast />
       </Suspense>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6">
-        <div>
+        <div className="min-w-0">
           <Breadcrumbs
             items={[
               { label: "Events", href: "/events" },
@@ -48,9 +50,11 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
           />
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Hotels</h1>
         </div>
-        <Link href={`/events/${eventId}/hotels/proposals/new`} className={`${btnPrimary} text-sm self-start sm:self-auto`}>
-          Add Proposal
-        </Link>
+        {canWrite && (
+          <Link href={`/events/${eventId}/hotels/proposals/new`} className={`${btnPrimary} text-sm self-start sm:self-auto`}>
+            Add Proposal
+          </Link>
+        )}
       </div>
 
       {blocks.length > 0 && (

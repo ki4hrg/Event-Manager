@@ -551,7 +551,7 @@ export function ProposalForm({
         </Field>
       </Fieldset>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <SaveButton label={isEdit ? "Save" : "Create Proposal"} />
         {isEdit ? (
           <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>

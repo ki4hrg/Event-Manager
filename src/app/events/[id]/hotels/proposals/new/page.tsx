@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
+import { requirePermission } from "@/lib/permissions";
 import { getEvent } from "../../../../actions";
 import { createHotelProposal, getProposalFormChoices } from "../../../../hotels/actions";
 import { ProposalForm } from "../../../../hotels/ProposalForm";
@@ -18,6 +19,7 @@ export default async function NewProposalPage({
   searchParams: Promise<{ venueId?: string }>;
 }) {
   const { id: eventId } = await params;
+  await requirePermission("HOTELS", "WRITE", eventId);
   const { venueId } = await searchParams;
   const [event, choices] = await Promise.all([getEvent(eventId), getProposalFormChoices(eventId)]);
   if (!event) notFound();

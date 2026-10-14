@@ -65,6 +65,7 @@ export function PickupPanel({
             (confirming ? (
               <span className="flex items-center gap-2">
                 <button
+                  type="button"
                   disabled={pending}
                   onClick={() =>
                     startTransition(async () => {
@@ -77,12 +78,12 @@ export function PickupPanel({
                 >
                   Clear all?
                 </button>
-                <button onClick={() => setConfirming(false)} className="text-gray-500 dark:text-gray-400 hover:underline">
+                <button type="button" disabled={pending} onClick={() => setConfirming(false)} className="text-gray-500 dark:text-gray-400 hover:underline disabled:opacity-50">
                   Cancel
                 </button>
               </span>
             ) : (
-              <button onClick={() => setConfirming(true)} className="text-red-600 dark:text-red-400 hover:underline">
+              <button type="button" onClick={() => setConfirming(true)} className="text-red-600 dark:text-red-400 hover:underline">
                 Clear
               </button>
             ))}

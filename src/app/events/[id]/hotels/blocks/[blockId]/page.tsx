@@ -56,7 +56,7 @@ export default async function BlockPage({ params }: { params: Promise<{ id: stri
               { label: venue.name },
             ]}
           />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">
             {venue.name}
             {block.isHq && <span className="ml-2 text-base text-gray-500 dark:text-gray-400">HQ</span>}
           </h1>
@@ -77,6 +77,7 @@ export default async function BlockPage({ params }: { params: Promise<{ id: stri
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 min-w-0">
           <BlockForm
+            key={block.updatedAt.toISOString()}
             block={toBlockValues(block)}
             pickup={pickup}
             roomTypes={choices.roomTypes}

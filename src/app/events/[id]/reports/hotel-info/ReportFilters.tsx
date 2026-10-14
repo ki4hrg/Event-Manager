@@ -36,6 +36,7 @@ export function ReportFilters({
 
   return (
     <div className="print:hidden mb-6 flex flex-wrap items-center gap-3">
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Block type</span>
       {BLOCK_TYPES.map((t) => (
         <label key={t.value} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
           <input
