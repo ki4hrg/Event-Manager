@@ -1,9 +1,9 @@
 "use server";
 
-import { PermissionResource, type Prisma } from "@prisma/client";
+import { PermissionResource, type HotelBlockType, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loadPermissionsForUser, requirePermission } from "@/lib/permissions";
-import { dateKey } from "@/lib/hotels";
+import { dateFromKey, dateKey } from "@/lib/hotels";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 
@@ -155,6 +155,89 @@ export async function getBlockMonitoring() {
       return { ...row, event: { id: b.proposal.event.id, name: b.proposal.event.name, startDate: getDateKeyInTimezone(b.proposal.event.startDate, b.proposal.event.timezone) } };
     })
     .sort((a, b) => (a.cutoffDate ?? "9999").localeCompare(b.cutoffDate ?? "9999") || a.event.startDate.localeCompare(b.event.startDate));
+}
+
+export type PatternFilters = { seriesId?: string; city?: string; blockTypes: HotelBlockType[]; from?: string; to?: string };
+
+// A block has pickup on file when the hotel's report or a count was loaded.
+// One with nothing loaded is unknown, not zero, so it stays out of the pattern.
+function hasPickup(b: BlockForTotals) {
+  return b.pickupGuests.length > 0 || b.pickupCounts.length > 0 || b.nights.some((n) => n.otherReservations > 0);
+}
+
+// Rooms picked up per night across ended events, each night keyed by its
+// offset from the event's start date so editions in different weeks line up.
+export async function getPickupPattern(filters: PatternFilters) {
+  const { eventWhere } = await hotelSession();
+  const proposalWhere: Prisma.HotelProposalWhereInput = {
+    block: { isNot: null },
+    ...(filters.blockTypes.length ? { blockType: { in: filters.blockTypes } } : {}),
+    ...(filters.city ? { venue: { city: filters.city } } : {}),
+  };
+  const events = await prisma.event.findMany({
+    where: {
+      AND: [
+        eventWhere,
+        { endDate: { lt: new Date() } },
+        { hotelProposals: { some: proposalWhere } },
+        filters.seriesId === "__blank__" ? { seriesId: null } : filters.seriesId ? { seriesId: filters.seriesId } : {},
+        filters.from ? { startDate: { gte: new Date(`${filters.from}T00:00:00Z`) } } : {},
+        filters.to ? { startDate: { lte: new Date(`${filters.to}T23:59:59Z`) } } : {},
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      startDate: true,
+      timezone: true,
+      actualAttendance: true,
+      series: { select: { id: true, name: true } },
+      hotelProposals: { where: proposalWhere, select: { block: { select: blockPickupSelect } } },
+    },
+    orderBy: { startDate: "desc" },
+  });
+  const withPickup = [];
+  const noPickup = [];
+  for (const e of events) {
+    const startDate = getDateKeyInTimezone(e.startDate, e.timezone);
+    const blocks = e.hotelProposals.flatMap((p) => (p.block && hasPickup(p.block) ? [p.block] : []));
+    if (blocks.length === 0) {
+      noPickup.push({ id: e.id, name: e.name, startDate });
+      continue;
+    }
+    const start = dateFromKey(startDate).getTime();
+    const nights: Record<number, { night: string; blocked: number; pickedUp: number }> = {};
+    for (const b of blocks) {
+      for (const r of blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts })) {
+        const offset = Math.round((dateFromKey(r.night).getTime() - start) / 86_400_000);
+        const cell = (nights[offset] ??= { night: r.night, blocked: 0, pickedUp: 0 });
+        cell.blocked += r.blocked;
+        cell.pickedUp += r.pickedUp;
+      }
+    }
+    withPickup.push({
+      id: e.id,
+      name: e.name,
+      startDate,
+      series: e.series,
+      actualAttendance: e.actualAttendance,
+      hotels: blocks.map((b) => b.proposal.venue.name),
+      nights,
+    });
+  }
+  return { events: withPickup, noPickup };
+}
+
+// Cities of the tenant's lodging venues, for the pattern filter.
+export async function getHotelCities() {
+  const { tenantId } = await hotelSession();
+  const rows = await prisma.venue.findMany({
+    where: { tenantId, isLodging: true, city: { not: null } },
+    select: { city: true },
+    distinct: ["city"],
+    orderBy: { city: "asc" },
+  });
+  return rows.flatMap((r) => (r.city ? [r.city] : []));
 }
 
 export async function getSeriesChoices() {
