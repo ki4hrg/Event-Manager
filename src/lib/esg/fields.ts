@@ -35,7 +35,13 @@ export type EsgFieldDef = {
   hint?: string;
   // Render across the full card width (long text).
   wide?: boolean;
+  // Text fields: offer the event's rooms / vendors / the tenant's venues /
+  // key staff as suggestions. The value stays free text.
+  suggest?: SuggestSource;
 };
+
+export type SuggestSource = "room" | "vendor" | "venue" | "contact";
+export type SuggestAttr = "city" | "state" | "country" | "title" | "organization";
 
 export type EsgDerivedSource =
   | "eventName"
@@ -129,13 +135,13 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
     ],
     fields: [
       col("preMeetingAt", "Pre-event meeting", "datetime", { required: true }),
-      txt("preMeetingLocation", "Pre-event meeting location", "text", { required: true }),
+      txt("preMeetingLocation", "Pre-event meeting location", "text", { required: true, suggest: "room" }),
       txt("preMeetingAttendees", "Pre-event meeting attendees", "textarea", { required: true }),
       col("postMeetingAt", "Post-event meeting", "datetime", { required: true }),
-      txt("postMeetingLocation", "Post-event meeting location", "text", { required: true }),
+      txt("postMeetingLocation", "Post-event meeting location", "text", { required: true, suggest: "room" }),
       txt("postMeetingAttendees", "Post-event meeting attendees", "textarea", { required: true }),
       col("moveInRequired", "Pre-event move-in & set-up required", "bool"),
-      txt("moveInScheduleBy", "Move-in schedule provided by", "text", { hint: "e.g. name of contractor" }),
+      txt("moveInScheduleBy", "Move-in schedule provided by", "text", { hint: "e.g. name of contractor", suggest: "vendor" }),
       txt("datesComments", "Other dates & times (e.g. registration hours)", "richtext"),
     ],
   },
@@ -198,7 +204,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
     fields: [
       col("reservationMethod", "Reservation method", "option", { required: true, optionCategory: "reservation_method" }),
       col("thirdPartyHousing", "Third-party housing provider used", "bool"),
-      txt("housingProviderName", "Housing provider company"),
+      txt("housingProviderName", "Housing provider company", "text", { suggest: "vendor" }),
       txt("suites", "Suites", "textarea"),
       txt("occupancy", "Double / single occupancy", "textarea"),
       txt("housingAccessibility", "Accessibility / special needs rooms", "richtext", { required: true }),
@@ -220,15 +226,15 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
     letter: "I",
     title: "Function Space",
     fields: [
-      txt("offsiteVenues", "Off-site venue(s)", "textarea"),
-      txt("functionRooms", "Function rooms", "textarea"),
-      txt("messageCenter", "Message center", "textarea"),
-      txt("offices", "Office(s)", "textarea"),
-      txt("registrationAreas", "Registration area(s)", "textarea"),
-      txt("lounges", "Lounge(s)", "textarea"),
-      txt("speakerReadyRooms", "Speaker ready room(s)", "textarea"),
-      txt("pressRoom", "Press room", "textarea"),
-      txt("storage", "Storage", "textarea"),
+      txt("offsiteVenues", "Off-site venue(s)", "textarea", { suggest: "venue" }),
+      txt("functionRooms", "Function rooms", "textarea", { suggest: "room" }),
+      txt("messageCenter", "Message center", "textarea", { suggest: "room" }),
+      txt("offices", "Office(s)", "textarea", { suggest: "room" }),
+      txt("registrationAreas", "Registration area(s)", "textarea", { suggest: "room" }),
+      txt("lounges", "Lounge(s)", "textarea", { suggest: "room" }),
+      txt("speakerReadyRooms", "Speaker ready room(s)", "textarea", { suggest: "room" }),
+      txt("pressRoom", "Press room", "textarea", { suggest: "room" }),
+      txt("storage", "Storage", "textarea", { suggest: "room" }),
       txt("readerBoardInfo", "General reader board information", "textarea"),
       txt("functionSpaceComments", "Other function space comments", "richtext"),
     ],
@@ -239,8 +245,8 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
     derived: [{ source: "exhibitBooths", label: "Booths" }],
     fields: [
       col("masterExhibitFunctionId", "Exhibit function", "function"),
-      txt("exhibitLocation", "Location(s) of exhibits"),
-      txt("exhibitorRegLocation", "Exhibitor registration location(s)"),
+      txt("exhibitLocation", "Location(s) of exhibits", "text", { suggest: "room" }),
+      txt("exhibitorRegLocation", "Exhibitor registration location(s)", "text", { suggest: "room" }),
       col("grossSqFt", "Gross square feet", "int"),
       col("netSqFt", "Net square feet", "int"),
       col("rulesAttached", "Exhibit rules & regulations attached", "bool"),
@@ -344,7 +350,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
       txt("outboundShipping", "Expected outbound shipping requirements", "richtext", { required: true }),
       txt("dockUsage", "Dock usage", "textarea"),
       txt("freightElevator", "Freight elevator usage", "textarea"),
-      txt("drayageBy", "Drayage handled by"),
+      txt("drayageBy", "Drayage handled by", "text", { suggest: "vendor" }),
       txt("shippingComments", "Other shipping / receiving comments", "richtext"),
     ],
     grids: [{ grid: "shipments", label: "Shipments", required: true }],
@@ -402,7 +408,16 @@ export const ESG_WRITABLE_FIELDS: EsgFieldDef[] = [...ESG_HEADER_FIELDS, ...ESG_
 
 // Grid columns. Kinds reuse EsgFieldKind; "function" picks one of the
 // event's functions.
-export type SpecGridColumn = { key: string; label: string; kind: EsgFieldKind; required?: boolean };
+// `fill` copies attributes of a picked suggestion into sibling columns that
+// are still blank (column key → attribute), e.g. a venue's city.
+export type SpecGridColumn = {
+  key: string;
+  label: string;
+  kind: EsgFieldKind;
+  required?: boolean;
+  suggest?: SuggestSource;
+  fill?: Record<string, SuggestAttr>;
+};
 
 export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
   vips: [
@@ -425,29 +440,29 @@ export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
   transfers: [
     { key: "label", label: "Off-site function", kind: "text", required: true },
     { key: "functionId", label: "Linked function", kind: "function" },
-    { key: "departureLocation", label: "Departure location", kind: "text" },
+    { key: "departureLocation", label: "Departure location", kind: "text", suggest: "venue" },
     { key: "departureAt", label: "Departure", kind: "datetime" },
-    { key: "dropoffLocation", label: "Drop-off location", kind: "text" },
+    { key: "dropoffLocation", label: "Drop-off location", kind: "text", suggest: "venue" },
     { key: "dropoffAt", label: "Drop-off", kind: "datetime" },
-    { key: "returnLocation", label: "Return location", kind: "text" },
+    { key: "returnLocation", label: "Return location", kind: "text", suggest: "venue" },
     { key: "returnAt", label: "Return", kind: "datetime" },
-    { key: "provider", label: "Provider", kind: "text" },
+    { key: "provider", label: "Provider", kind: "text", suggest: "vendor" },
   ],
   shipments: [
     { key: "fromText", label: "From (contact & address)", kind: "text" },
     { key: "toText", label: "To (contact & address)", kind: "text" },
-    { key: "shipper", label: "Shipper", kind: "text" },
+    { key: "shipper", label: "Shipper", kind: "text", suggest: "vendor" },
     { key: "itemCount", label: "# of items", kind: "int" },
     { key: "expectedDelivery", label: "Expected delivery", kind: "date" },
   ],
   coverage: [
     { key: "kind", label: "Service", kind: "option", required: true },
-    { key: "location", label: "Location", kind: "text" },
+    { key: "location", label: "Location", kind: "text", suggest: "room" },
     { key: "startAt", label: "Start", kind: "datetime" },
     { key: "endAt", label: "End", kind: "datetime" },
   ],
   keys: [
-    { key: "location", label: "Location", kind: "text" },
+    { key: "location", label: "Location", kind: "text", suggest: "room" },
     { key: "functionId", label: "Function", kind: "function" },
     { key: "startAt", label: "Start", kind: "datetime" },
     { key: "endAt", label: "End", kind: "datetime" },
@@ -457,7 +472,13 @@ export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
   futureDates: [
     { key: "startDate", label: "Start", kind: "date" },
     { key: "endDate", label: "End", kind: "date" },
-    { key: "facility", label: "Facility", kind: "text" },
+    {
+      key: "facility",
+      label: "Facility",
+      kind: "text",
+      suggest: "venue",
+      fill: { city: "city", state: "state", country: "country" },
+    },
     { key: "city", label: "City", kind: "text" },
     { key: "state", label: "State / province", kind: "text" },
     { key: "country", label: "Country", kind: "text" },
@@ -466,7 +487,13 @@ export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
   distributions: [
     { key: "action", label: "Report", kind: "option", required: true },
     { key: "actionDate", label: "Date", kind: "date" },
-    { key: "byName", label: "By (full name)", kind: "text" },
+    {
+      key: "byName",
+      label: "By (full name)",
+      kind: "text",
+      suggest: "contact",
+      fill: { byTitle: "title", byEmployer: "organization" },
+    },
     { key: "byTitle", label: "Title", kind: "text" },
     { key: "byEmployer", label: "Employer", kind: "text" },
     { key: "method", label: "Delivered via", kind: "text" },

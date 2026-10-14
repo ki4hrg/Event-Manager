@@ -202,7 +202,7 @@ export function SpecSectionCard({
                 type="button"
                 onClick={toggleNa}
                 disabled={pending}
-                className="py-1 text-gray-500 dark:text-gray-400 hover:underline disabled:opacity-50"
+                className="py-1 text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
               >
                 {na ? "Mark applicable" : "Not applicable"}
               </button>
@@ -213,7 +213,7 @@ export function SpecSectionCard({
                 onClick={() => setEditing(true)}
                 className="py-1 text-blue-600 dark:text-blue-400 hover:underline"
               >
-                {letter === "header" ? "Edit dates" : `Edit section ${letter}`}
+                {letter === "header" ? "Edit dates" : `Edit ${title}`}
               </button>
             )}
           </div>
@@ -263,6 +263,7 @@ export function SpecSectionCard({
                           choices={choices}
                           optionCategory={f.optionCategory}
                           placeholder={inherited[f.key]?.value}
+                          suggest={f.suggest}
                         />
                         {f.hint && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{f.hint}</p>}
                         {inherited[f.key] && (

@@ -147,6 +147,12 @@ function keyStaffEsgData(args: KeyStaffEsgArgs) {
   };
 }
 
+// New key staff go to the end of the event's order.
+async function nextKeyStaffSortOrder(db: Pick<typeof prisma, "eventKeyStaff">, eventId: string) {
+  const max = await db.eventKeyStaff.aggregate({ where: { eventId }, _max: { sortOrder: true } });
+  return (max._max.sortOrder ?? -1) + 1;
+}
+
 export type AddEventKeyStaffArgs = KeyStaffEsgArgs & {
   eventId: string;
   contactId: string;
@@ -162,6 +168,7 @@ export async function addEventKeyStaffCore(args: AddEventKeyStaffArgs, userId: s
       contactId: args.contactId,
       title: args.title,
       models: args.models,
+      sortOrder: await nextKeyStaffSortOrder(prisma, args.eventId),
       ...keyStaffEsgData(args),
     },
   });
@@ -193,6 +200,17 @@ export async function removeEventKeyStaffCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", eventId);
   await prisma.eventKeyStaff.delete({ where: { id: keyStaffId, eventId } });
+  await prisma.event.update({ where: { id: eventId }, data: { updatedById: userId } });
+}
+
+// Rewrites the event's key staff order; ids must all belong to the event.
+export async function reorderEventKeyStaffCore(eventId: string, orderedIds: string[], userId: string) {
+  await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", eventId);
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.eventKeyStaff.update({ where: { id, eventId }, data: { sortOrder: index } }),
+    ),
+  );
   await prisma.event.update({ where: { id: eventId }, data: { updatedById: userId } });
 }
 
@@ -229,6 +247,7 @@ export async function createContactAndAddKeyStaffCore(
         contactId: contact.id,
         title: args.title,
         models: args.models,
+        sortOrder: await nextKeyStaffSortOrder(tx, args.eventId),
         ...keyStaffEsgData(args),
       },
     });

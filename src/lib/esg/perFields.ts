@@ -16,8 +16,7 @@ export type PerDerivedSource =
   | "largestFb"
   | "largestFunction"
   | "breakouts"
-  | "exhibitSummary"
-  | "nextInSeries";
+  | "exhibitSummary";
 
 const col = (key: string, label: string, kind: EsgFieldKind, extra: Partial<EsgFieldDef> = {}): EsgFieldDef => ({
   key,
@@ -67,13 +66,13 @@ export const PER_SECTIONS: EsgSectionDef<PerDerivedSource>[] = [
   {
     letter: "III",
     title: "Hotel Room Information",
-    derived: [{ source: "housingSummary", label: "From the Hotels module" }],
+    derived: [{ source: "housingSummary", label: "From hotel blocks" }],
     fields: [
       col("usedSleepingRooms", "Event used sleeping rooms", "bool", { required: true }),
       col("hotelCount", "Number of hotels used", "int"),
       col("peakNightRooms", "Total rooms used on peak night", "int"),
       col("housingPerformedBy", "Housing services performed by", "option", { optionCategory: "per_housing_provider" }),
-      txt("housingFirmName", "Management firm / housing bureau name", "text"),
+      txt("housingFirmName", "Management firm / housing bureau name", "text", { suggest: "vendor" }),
       txt("hotelComments", "Hotel room comments"),
     ],
   },
@@ -131,10 +130,9 @@ export const PER_SECTIONS: EsgSectionDef<PerDerivedSource>[] = [
   {
     letter: "VIII",
     title: "Future Event Dates",
-    derived: [{ source: "nextInSeries", label: "Next event in this series" }],
     fields: [
       col("futureDatesConfirmed", "Future dates confirmed", "bool", { required: true }),
-      txt("nextOpenDate", "Next open date", "text"),
+      col("nextOpenDate", "Next open date", "date"),
       txt("futureDatesComments", "Future dates comments"),
     ],
     grids: [{ grid: "futureDates", label: "Future dates" }],

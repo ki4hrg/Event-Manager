@@ -9,6 +9,7 @@ import {
   addEventKeyStaff,
   updateEventKeyStaff,
   removeEventKeyStaff,
+  reorderEventKeyStaff,
   searchContactsForKeyStaff,
   createContactAndAddKeyStaff,
 } from "../actions";
@@ -84,6 +85,10 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     await updateEventKeyStaff(keyStaffId, id, formData);
   };
 
+  const reorderKeyStaffAction = async (orderedIds: string[]) => {
+    "use server";
+    await reorderEventKeyStaff(id, orderedIds);
+  };
   const removeKeyStaffAction = async (keyStaffId: string) => {
     "use server";
     await removeEventKeyStaff(keyStaffId, id);
@@ -153,6 +158,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             addKeyStaff={addKeyStaffAction}
             updateKeyStaff={updateKeyStaffAction}
             removeKeyStaff={removeKeyStaffAction}
+            reorderKeyStaff={reorderKeyStaffAction}
             searchContacts={searchContactsAction}
             createContact={createContactAction}
           />

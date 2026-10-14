@@ -14,6 +14,7 @@ import {
   addEventKeyStaffCore,
   updateEventKeyStaffCore,
   removeEventKeyStaffCore,
+  reorderEventKeyStaffCore,
   createContactAndAddKeyStaffCore,
   type EventWriteArgs,
 } from "./core";
@@ -164,6 +165,14 @@ export async function removeEventKeyStaff(keyStaffId: string, eventId: string) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
   await removeEventKeyStaffCore(keyStaffId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}`);
+}
+
+export async function reorderEventKeyStaff(eventId: string, orderedIds: string[]) {
+  const session = await requirePermission("EVENTS", "WRITE", eventId);
+  await reorderEventKeyStaffCore(eventId, orderedIds, session.user.id);
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath(`/events/${eventId}/post-event`);
+  revalidatePath(`/events/${eventId}/specifications`);
 }
 
 export async function createContactAndAddKeyStaff(eventId: string, formData: FormData) {

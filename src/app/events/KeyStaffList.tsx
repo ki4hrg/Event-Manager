@@ -8,6 +8,8 @@ import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { btnOutlinedSm } from "@/lib/buttonStyles";
+import { KeyStaffOrder } from "./KeyStaffOrder";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
 
@@ -16,6 +18,7 @@ type KeyStaffListProps = {
   addKeyStaff: (formData: FormData) => Promise<void>;
   updateKeyStaff: (id: string, formData: FormData) => Promise<void>;
   removeKeyStaff: (id: string) => Promise<void>;
+  reorderKeyStaff: (orderedIds: string[]) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
   createContact?: (formData: FormData) => Promise<void>;
 };
@@ -125,10 +128,12 @@ export function KeyStaffList({
   addKeyStaff,
   updateKeyStaff,
   removeKeyStaff,
+  reorderKeyStaff,
   searchContacts,
   createContact,
 }: KeyStaffListProps) {
   const canWrite = useCanWrite("EVENTS");
+  const [reordering, setReordering] = useState(false);
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -191,16 +196,25 @@ export function KeyStaffList({
           Key Staff
         </p>
         {canWrite && (
-          <button
-            onClick={() => {
-              setSelectedContact(null);
-              setSearchQuery("");
-              setFormView("search");
-            }}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Add
-          </button>
+          <div className="flex items-center gap-2">
+            {keyStaff.length > 1 && (
+              <button type="button" onClick={() => setReordering(!reordering)} className={btnOutlinedSm}>
+                {reordering ? "Done" : "Reorder"}
+              </button>
+            )}
+            {!reordering && (
+              <button
+                onClick={() => {
+                  setSelectedContact(null);
+                  setSearchQuery("");
+                  setFormView("search");
+                }}
+                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Add
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -398,7 +412,16 @@ export function KeyStaffList({
         </form>
       )}
 
-      {keyStaff.length === 0 ? (
+      {reordering ? (
+        <KeyStaffOrder
+          items={keyStaff.map((k) => ({
+            id: k.id,
+            name: `${k.contact.firstName} ${k.contact.lastName}`.trim(),
+            detail: k.title,
+          }))}
+          reorder={reorderKeyStaff}
+        />
+      ) : keyStaff.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">None added.</p>
       ) : (
         <div className="space-y-2">

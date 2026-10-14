@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useId, useState, useTransition, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -11,6 +12,8 @@ import { formatDateOnly, formatDayDateTime } from "@/lib/esg/format";
 import { SpecFieldInput, specInputClass, type SpecChoices, type SpecValue } from "./SpecFieldInput";
 
 export type SpecGridRow = { id: string; values: Record<string, SpecValue> };
+// A row the grid shows but doesn't own (e.g. a later event in the series).
+export type SpecGridLinkedRow = SpecGridRow & { href: string; linkLabel: string };
 
 function SaveButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -39,6 +42,33 @@ function cellText(column: SpecGridColumn, value: SpecValue, timezone: string, ch
   }
 }
 
+function RowValues({
+  columns,
+  row,
+  timezone,
+  choices,
+}: {
+  columns: SpecGridColumn[];
+  row: SpecGridRow;
+  timezone: string;
+  choices: SpecChoices;
+}) {
+  return (
+    <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1 min-w-0 flex-1 text-sm">
+      {columns.map((c) => {
+        const text = cellText(c, row.values[c.key] ?? null, timezone, choices);
+        if (!text) return null;
+        return (
+          <div key={c.key} className="min-w-0 break-words">
+            <dt className="inline text-gray-500 dark:text-gray-400">{c.label}: </dt>
+            <dd className="inline text-gray-900 dark:text-white">{text}</dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+}
+
 function RowForm({
   columns,
   row,
@@ -57,8 +87,22 @@ function RowForm({
   onCancel: () => void;
 }) {
   const formId = useId();
+  // Picking a suggestion (a venue, a key staff member) fills its blank
+  // sibling columns — city / state / country, title / employer.
+  const fillFromSuggestion = (e: FormEvent<HTMLFormElement>) => {
+    const input = e.target as HTMLInputElement;
+    const column = columns.find((c) => c.key === input.name);
+    if (!column?.suggest || !column.fill) return;
+    const picked = choices.suggestions?.[column.suggest].find((s) => s.value === input.value);
+    if (!picked?.attrs) return;
+    for (const [key, attr] of Object.entries(column.fill)) {
+      const target = e.currentTarget.elements.namedItem(key);
+      const value = picked.attrs[attr];
+      if (target instanceof HTMLInputElement && !target.value && value) target.value = value;
+    }
+  };
   return (
-    <form action={onSubmit} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+    <form action={onSubmit} onInput={fillFromSuggestion} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {columns.map((c) => (
           <div key={c.key}>
@@ -95,6 +139,7 @@ function RowForm({
                 value={row?.values[c.key] ?? null}
                 timezone={timezone}
                 choices={choices}
+                suggest={c.suggest}
               />
             )}
           </div>
@@ -115,6 +160,7 @@ export function SpecGridTable({
   required,
   columns,
   rows,
+  linkedRows = [],
   timezone,
   choices,
   createRow,
@@ -125,6 +171,7 @@ export function SpecGridTable({
   required?: boolean;
   columns: SpecGridColumn[];
   rows: SpecGridRow[];
+  linkedRows?: SpecGridLinkedRow[];
   timezone: string;
   choices: SpecChoices;
   createRow: (formData: FormData) => Promise<void>;
@@ -172,10 +219,20 @@ export function SpecGridTable({
           />
         </div>
       )}
-      {rows.length === 0 ? (
+      {rows.length === 0 && linkedRows.length === 0 ? (
         !adding && <p className="text-sm text-gray-500 dark:text-gray-400">None added.</p>
       ) : (
         <ul className="space-y-2">
+          {linkedRows.map((row) => (
+            <li key={row.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="flex items-start justify-between gap-3">
+                <RowValues columns={columns} row={row} timezone={timezone} choices={choices} />
+                <Link href={row.href} className="shrink-0 py-1 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                  {row.linkLabel}
+                </Link>
+              </div>
+            </li>
+          ))}
           {rows.map((row) =>
             editingId === row.id ? (
               <li key={row.id}>
@@ -196,18 +253,7 @@ export function SpecGridTable({
             ) : (
               <li key={row.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <div className="flex items-start justify-between gap-3">
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1 min-w-0 flex-1 text-sm">
-                    {columns.map((c) => {
-                      const text = cellText(c, row.values[c.key] ?? null, timezone, choices);
-                      if (!text) return null;
-                      return (
-                        <div key={c.key} className="min-w-0 break-words">
-                          <dt className="inline text-gray-500 dark:text-gray-400">{c.label}: </dt>
-                          <dd className="inline text-gray-900 dark:text-white">{text}</dd>
-                        </div>
-                      );
-                    })}
-                  </dl>
+                  <RowValues columns={columns} row={row} timezone={timezone} choices={choices} />
                   {canWrite && (
                     <div className="flex items-center gap-3 shrink-0 text-sm">
                       <button

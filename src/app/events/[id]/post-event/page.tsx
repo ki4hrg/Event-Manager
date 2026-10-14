@@ -8,7 +8,8 @@ import { getOptions } from "@/app/settings/actions";
 import { toDateInput } from "@/lib/esg/format";
 import { SPEC_GRID_COLUMNS, type EsgFieldDef, type SpecGrid } from "@/lib/esg/fields";
 import { PER_SECTIONS } from "@/lib/esg/perFields";
-import { perDerivedBlocks } from "@/lib/esg/per";
+import { perDerivedBlocks, perEditableFields, perSeriesFutureDates } from "@/lib/esg/per";
+import { reorderEventKeyStaff } from "../../actions";
 import {
   createSpecificationRow,
   deleteSpecificationRow,
@@ -18,7 +19,8 @@ import {
   updateSpecificationRow,
 } from "../../specifications/actions";
 import { SpecSectionCard } from "../../specifications/SpecSectionCard";
-import { SpecGridTable, type SpecGridRow } from "../../specifications/SpecGridTable";
+import { SpecGridTable, type SpecGridLinkedRow, type SpecGridRow } from "../../specifications/SpecGridTable";
+import { ReorderableKeyStaff } from "../../KeyStaffOrder";
 import type { SpecChoices, SpecValue } from "../../specifications/SpecFieldInput";
 import { EsgBlockView } from "../reports/esg/EsgBlocks";
 
@@ -42,7 +44,7 @@ export default async function PostEventPage({ params }: { params: Promise<{ id: 
     getOptions("per_av_setup"),
   ]);
   if (!result) notFound();
-  const { data, completeness } = result;
+  const { data, completeness, suggestions } = result;
   const { event } = data.narrative;
   const pe = data.postEvent as Record<string, unknown> | null;
   const narrative = (data.postEvent?.narrative as Record<string, unknown> | null) ?? {};
@@ -53,6 +55,7 @@ export default async function PostEventPage({ params }: { params: Promise<{ id: 
     vendors: [],
     contacts: [],
     functions: [],
+    suggestions,
   };
   const valuesFor = (fields: EsgFieldDef[]) =>
     Object.fromEntries(fields.map((f) => [f.key, serialize(f.kind, f.storage === "narrative" ? narrative[f.key] : pe?.[f.key])]));
@@ -62,6 +65,22 @@ export default async function PostEventPage({ params }: { params: Promise<{ id: 
       values: Object.fromEntries(SPEC_GRID_COLUMNS[grid].map((c) => [c.key, serialize(c.kind, row[c.key])])),
     }));
   const missingIn = (letter: string) => completeness.missing.filter((m) => m.section === letter).length;
+  // Later events in the series lead the Future dates grid (read-only).
+  const seriesRows: SpecGridLinkedRow[] = perSeriesFutureDates(data).map((r) => ({
+    id: r.id,
+    values: { ...r },
+    href: `/events/${r.id}`,
+    linkLabel: "View event",
+  }));
+  const reorderKeyStaff = async (orderedIds: string[]) => {
+    "use server";
+    await reorderEventKeyStaff(eventId, orderedIds);
+  };
+  const keyStaffItems = data.narrative.keyStaff.map((k) => ({
+    id: k.id,
+    name: `${k.contact.firstName} ${k.contact.lastName}`.trim(),
+    detail: k.title,
+  }));
 
   return (
     <>
@@ -120,16 +139,17 @@ export default async function PostEventPage({ params }: { params: Promise<{ id: 
             "use server";
             await setPostEventSectionNa(eventId, letter, value);
           };
-          const derivedBlocks = (section.derived ?? []).flatMap((d) =>
-            perDerivedBlocks(data, d.source, d.label).map((b) => ({ label: d.label, block: b })),
-          );
+          const fields = perEditableFields(data, section.fields);
+          const derivedGroups = (section.derived ?? [])
+            .map((d) => ({ def: d, blocks: perDerivedBlocks(data, d.source, d.label, true) }))
+            .filter((g) => g.blocks.length > 0);
           return (
             <SpecSectionCard
               key={letter}
               letter={letter}
               title={section.title}
-              fields={section.fields}
-              values={valuesFor(section.fields)}
+              fields={fields}
+              values={valuesFor(fields)}
               timezone={event.timezone}
               choices={choices}
               na={na.has(letter)}
@@ -137,16 +157,31 @@ export default async function PostEventPage({ params }: { params: Promise<{ id: 
               saveAction={saveAction}
               setNa={setNa}
               derived={
-                derivedBlocks.length > 0 ? (
+                derivedGroups.length > 0 ? (
                   <div className="space-y-4">
-                    {derivedBlocks.map((d, i) => (
-                      <div key={i}>
-                        {d.block.kind !== "fields" && (
-                          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{d.label}</h3>
-                        )}
-                        <EsgBlockView block={d.block} />
-                      </div>
-                    ))}
+                    {derivedGroups.map(({ def, blocks }) => {
+                      const body = (
+                        <div className="space-y-3">
+                          {blocks.map((b, i) => (
+                            <EsgBlockView key={i} block={b} />
+                          ))}
+                        </div>
+                      );
+                      return (
+                        <div key={def.source}>
+                          {blocks.some((b) => b.kind !== "fields") && (
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{def.label}</h3>
+                          )}
+                          {def.source === "keyContacts" ? (
+                            <ReorderableKeyStaff items={keyStaffItems} reorder={reorderKeyStaff}>
+                              {body}
+                            </ReorderableKeyStaff>
+                          ) : (
+                            body
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : undefined
               }
@@ -174,6 +209,7 @@ export default async function PostEventPage({ params }: { params: Promise<{ id: 
                           required={g.required}
                           columns={SPEC_GRID_COLUMNS[grid]}
                           rows={gridRows(grid)}
+                          linkedRows={grid === "futureDates" ? seriesRows : undefined}
                           timezone={event.timezone}
                           choices={choices}
                           createRow={createRow}

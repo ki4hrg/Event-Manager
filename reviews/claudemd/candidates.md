@@ -10,3 +10,6 @@
 - [styling] `btnOutlinedXs` in `buttonStyles` is the compact outlined report-toolbar button (Print / Save PDF, Office downloads, Share, Copy) — add it to the CLAUDE.md buttonStyles list (ux-sweep).
 - [filters] Free-typed number filters in URL search params commit on blur/Enter (uncontrolled input keyed on the param), not onChange, so each keystroke is not a history entry (src/app/hotels/reports/HotelReportFilters.tsx PatternFilters)
 - [dates] Event.startDate/endDate are calendar dates read as the UTC date (formatEventDate, EventForm); never convert them with getDateKeyInTimezone — that shifts midnight-UTC events a day early (#111)
+- [esg] ESG / PER text fields that name a room, vendor, venue or person carry `suggest` (+ `fill` on grid columns) and render a `<datalist>` from `loadSpecSuggestions` — free text stays the stored type; don't add a picker kind that forces an id (src/lib/esg/suggestions.ts)
+- [esg] A PER field the app can compute (§III housing from hotel blocks) is dropped from the editable fields via `perEditableFields` and shown under "From the event"; never show the same value both derived and editable (src/lib/esg/per.ts)
+- [key-staff] EventKeyStaff.sortOrder is the display order everywhere (event page, ESG §C, PER §II); creates append max+1, `reorderEventKeyStaffCore` rewrites it

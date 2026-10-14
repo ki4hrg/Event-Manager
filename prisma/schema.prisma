@@ -2334,6 +2334,7 @@ model EventPostEvent {
   extensiveAvExhibitors  Int?
   // §VIII Future dates
   futureDatesConfirmed   Boolean?
+  nextOpenDate           DateTime? @db.Date
 
   updatedById String?
   updatedBy   User?    @relation("EventPostEventUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)

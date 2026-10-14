@@ -382,9 +382,11 @@ export async function importFromEventCore(
           tx.eventKeyStaff.findMany({ where: { eventId: sourceEventId } }),
           tx.eventKeyStaff.findMany({
             where: { eventId: targetEventId },
-            select: { contactId: true, title: true },
+            select: { contactId: true, title: true, sortOrder: true },
           }),
         ]);
+        // Imported staff follow the target's existing order.
+        const base = existing.reduce((m, k) => Math.max(m, k.sortOrder + 1), 0);
         // @@unique([eventId, contactId, title]) can't carry the load here:
         // title is nullable and Postgres treats NULLs as distinct, so
         // skipDuplicates would let untitled staff through twice on a re-run.
@@ -398,7 +400,7 @@ export async function importFromEventCore(
             contactId: k.contactId,
             title: k.title,
             models: k.models,
-            sortOrder: k.sortOrder,
+            sortOrder: base + k.sortOrder,
           })),
         });
         keyStaffCount = written.count;
