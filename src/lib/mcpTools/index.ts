@@ -12,6 +12,7 @@ import { inventoryTools } from "./inventory";
 import { tenantTools } from "./tenants";
 import { specificationTools } from "./specifications";
 import { boothTools } from "./booths";
+import { hotelTools } from "./hotels";
 
 export const mcpTools: McpToolDefinition[] = [
   ...tenantTools,
@@ -19,6 +20,7 @@ export const mcpTools: McpToolDefinition[] = [
   ...specificationTools,
   ...functionTools,
   ...boothTools,
+  ...hotelTools,
   ...presentationTools,
   ...vendorTools,
   ...contactTools,
