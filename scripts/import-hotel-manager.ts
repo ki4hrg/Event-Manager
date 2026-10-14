@@ -13,7 +13,9 @@
 // Mapping:
 //   regions / areas / brands / room types / amenities / lead sources /
 //   proposal statuses → the tenant's CustomOptions (created when missing)
-//   event types → EventSeries; events → matched by name + start date, else created
+//   event types → EventSeries; events → matched by name + start date (within
+//   MATCH_DAYS, since the two apps disagree by a day on some events), else created
+//   in the event type's series, or an existing series the name starts with
 //   properties → lodging Venues (matched by name, else created with their Vendor);
 //   point of contact → Contact + VenueContact
 //   proposals (+ room grid, charges, amenities, documents, versions)
@@ -92,6 +94,9 @@ const FIELD_LABEL: Record<string, string> = {
   status_id: "Status", declined_reason: "Declined reason", earliest_checkin_date: "Check-in", latest_checkout_date: "Check-out",
   notes: "Notes", is_run_of_house: "Run of house", allowed_attrition: "Allowed attrition %", guaranteed_revenue: "Guaranteed revenue",
 };
+
+const MATCH_DAYS = 3;
+const daysApart = (a: string, b: string) => Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000;
 
 class DryRun extends Error {}
 
@@ -190,6 +195,13 @@ async function main() {
           seriesId.set(et.id as string, series.id);
         }
 
+        // "Annual Conference 2025" → the "Annual Conference" series (longest prefix wins).
+        const allSeries = await tx.eventSeries.findMany({ where: { tenantId }, select: { id: true, name: true } });
+        const seriesByPrefix = (name: string) =>
+          allSeries
+            .filter((x) => norm(name).startsWith(norm(x.name)))
+            .sort((a, b) => b.name.length - a.name.length)[0]?.id;
+
         const emEvents = await tx.event.findMany({ where: { tenantId }, select: { id: true, name: true, startDate: true, timezone: true, actualAttendance: true, membershipCount: true } });
         const eventMap = new Map<string, { id: string; timezone: string }>();
         // Venues by name (case-insensitive) — HM venues and properties both land here.
@@ -223,11 +235,18 @@ async function main() {
           const name = s(e.name)!;
           const start = day(e.start_date);
           const sameName = emEvents.filter((x) => norm(x.name) === norm(name));
-          const match = start ? sameName.find((x) => localDateKey(x.startDate, x.timezone) === start) : sameName.length === 1 ? sameName[0] : undefined;
+          const match = start
+            ? sameName
+                .filter((x) => daysApart(localDateKey(x.startDate, x.timezone), start) <= MATCH_DAYS)
+                .sort((a, b) => daysApart(localDateKey(a.startDate, a.timezone), start) - daysApart(localDateKey(b.startDate, b.timezone), start))[0]
+            : sameName.length === 1
+              ? sameName[0]
+              : undefined;
           const tz = s(e.timezone) ?? defaultTz;
           if (match) {
             eventMap.set(e.id as string, { id: match.id, timezone: match.timezone });
-            report.eventsMatched.push(`${name} (${start ?? "no date"}) → existing event ${match.id}`);
+            const emStart = localDateKey(match.startDate, match.timezone);
+            report.eventsMatched.push(`${name} (${start ?? "no date"}) → existing event starting ${emStart}${start && emStart !== start ? " (dates differ)" : ""}`);
             const fill: Prisma.EventUpdateInput = {};
             if (match.actualAttendance == null && e.attendance != null) fill.actualAttendance = n(e.attendance);
             if (match.membershipCount == null && e.membership != null) Object.assign(fill, { membershipCount: n(e.membership), isMembershipBased: true });
@@ -247,14 +266,15 @@ async function main() {
               startDate: zoned(start, "08:00", tz),
               endDate: zoned(end, "17:00", tz),
               timezone: tz,
-              seriesId: e.event_type_id ? seriesId.get(e.event_type_id as string) : undefined,
+              seriesId: (e.event_type_id ? seriesId.get(e.event_type_id as string) : undefined) ?? seriesByPrefix(name),
               actualAttendance: n(e.attendance),
               membershipCount: n(e.membership),
               isMembershipBased: e.membership != null,
             },
           });
           eventMap.set(e.id as string, { id: created.id, timezone: tz });
-          report.eventsCreated.push(`${name} (${start})`);
+          const series = allSeries.find((x) => x.id === ((e.event_type_id ? seriesId.get(e.event_type_id as string) : undefined) ?? seriesByPrefix(name)));
+          report.eventsCreated.push(`${name} (${start})${series ? ` in series ${series.name}` : ""}`);
           let order = 0;
           for (const ev of eventVenues.filter((x) => x.event_id === e.id)) {
             const hv = hmVenueById.get(ev.venue_id as string);
