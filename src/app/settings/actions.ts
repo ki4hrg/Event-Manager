@@ -249,6 +249,10 @@ async function propagateLabelRename(
         where: { reservationMethod: oldLabel, ...inTenant },
         data: { reservationMethod: newLabel },
       });
+      await tx.hotelBlock.updateMany({
+        where: { reservationMethod: oldLabel, proposal: inTenant },
+        data: { reservationMethod: newLabel },
+      });
       break;
     case "meal_type":
       await tx.cateringOrder.updateMany({ where: { mealType: oldLabel, ...inTenant }, data: { mealType: newLabel } });
@@ -281,12 +285,14 @@ async function propagateLabelRename(
     case "hotel_lead_source":
       await tx.hotelProposal.updateMany({ where: { leadSource: oldLabel, ...inTenant }, data: { leadSource: newLabel } });
       break;
-    case "hotel_room_type":
-      await tx.hotelProposalNight.updateMany({
-        where: { roomType: oldLabel, proposal: inTenant },
-        data: { roomType: newLabel },
-      });
+    case "hotel_room_type": {
+      const inTenantBlock = { proposal: inTenant };
+      await tx.hotelProposalNight.updateMany({ where: { roomType: oldLabel, proposal: inTenant }, data: { roomType: newLabel } });
+      await tx.hotelBlockNight.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
+      await tx.hotelPickupGuest.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
+      await tx.hotelPickupCount.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
       break;
+    }
     case "hotel_amenity":
       await tx.$executeRaw`
         UPDATE "HotelProposal" p SET "amenities" = array_replace(p."amenities", ${oldLabel}, ${newLabel})

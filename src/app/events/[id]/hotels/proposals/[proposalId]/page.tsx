@@ -8,7 +8,12 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getOptions } from "@/app/settings/actions";
 import { getEvent } from "../../../../actions";
+import Link from "next/link";
+import { btnSecondary } from "@/lib/buttonStyles";
+import { stageOf } from "@/lib/hotels";
+import { CreateBlockButton } from "../../../../hotels/CreateBlockButton";
 import {
+  createHotelBlock,
   deleteHotelProposal,
   getHotelProposal,
   getProposalFormChoices,
@@ -40,6 +45,11 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
     "use server";
     await deleteHotelProposal(proposalId, eventId);
   };
+  const createBlockAction = async () => {
+    "use server";
+    await createHotelBlock(proposalId, eventId);
+  };
+  const accepted = stageOf(proposal.status, choices.statuses) === "ACCEPTED";
 
   return (
     <>
@@ -63,6 +73,13 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
           <LastUpdated updatedAt={proposal.updatedAt} updatedBy={proposal.updatedBy} timezone={event.timezone} className="mt-2" />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
+          {proposal.block ? (
+            <Link href={`/events/${eventId}/hotels/blocks/${proposal.block.id}`} className={btnSecondary}>
+              Block
+            </Link>
+          ) : (
+            accepted && <CreateBlockButton action={createBlockAction} />
+          )}
           <DeleteButton action={deleteAction} resource="HOTELS" label="Delete Proposal" />
         </div>
       </div>

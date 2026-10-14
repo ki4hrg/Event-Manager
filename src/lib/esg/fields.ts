@@ -206,7 +206,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
       txt("inRoomDeliveries", "In-room deliveries", "textarea"),
       txt("roomDrops", "Room drops (outside doors)", "textarea"),
       txt("housingNotes", "Room blocks & other housing comments", "richtext", {
-        hint: "Until the Hotels module is connected, describe each hotel's block here (HQ hotel first).",
+        hint: "Blocks come from Hotels; use this for anything they don't cover.",
       }),
     ],
   },

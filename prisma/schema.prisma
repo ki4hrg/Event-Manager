@@ -39,6 +39,8 @@ model User {
   updatedEventSpecifications EventSpecification[]     @relation("EventSpecificationUpdatedBy")
   updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
   updatedHotelProposals      HotelProposal[]          @relation("HotelProposalUpdatedBy")
+  updatedHotelBlocks         HotelBlock[]             @relation("HotelBlockUpdatedBy")
+  hotelPickupImports         HotelPickupImport[]
   hotelProposalVersions      HotelProposalVersion[]
   updatedExhibitBoothGroups  ExhibitBoothGroup[]      @relation("ExhibitBoothGroupUpdatedBy")
   updatedPostEvents          EventPostEvent[]         @relation("EventPostEventUpdatedBy")
@@ -2426,6 +2428,7 @@ model HotelProposal {
   nights            HotelProposalNight[]
   charges           HotelCharge[]
   versions          HotelProposalVersion[]
+  block             HotelBlock?
   files             FileUpload[]
   updatedById       String?
   updatedBy         User?                  @relation("HotelProposalUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -2453,12 +2456,15 @@ model HotelCharge {
   id         String            @id @default(cuid())
   proposalId String?
   proposal   HotelProposal?    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  blockId    String?
+  block      HotelBlock?       @relation(fields: [blockId], references: [id], onDelete: Cascade)
   chargeType String
   amount     Decimal?          @db.Decimal(10, 2)
   scope      HotelChargeScope?
   sortOrder  Int               @default(0)
 
   @@index([proposalId])
+  @@index([blockId])
 }
 
 // The proposal as it stood at one revision: snapshot is the full proposal
@@ -2478,4 +2484,131 @@ model HotelProposalVersion {
 
   @@unique([proposalId, revision])
   @@index([createdById])
+}
+
+// The booked block an accepted proposal became (1:1). Nights start as copies
+// of the proposal's: contractedRooms keeps the signed number, rooms is the
+// current (final) block. Pickup is computed, never stored per night — see
+// src/lib/hotelPickup.ts.
+model HotelBlock {
+  id                String                @id @default(cuid())
+  proposalId        String                @unique
+  proposal          HotelProposal         @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  isHq              Boolean               @default(false)
+  checkIn           DateTime?             @db.Date
+  checkOut          DateTime?             @db.Date
+  reservationMethod String? // reservation_method option label
+  groupCode         String?
+  bookingLink       String?
+  bookingPhone      String?
+  cutoffDate        DateTime?             @db.Date
+  contractedOn      DateTime?             @db.Date
+  cutoffExercised   Boolean?
+  isRunOfHouse      Boolean               @default(false)
+  allowedAttrition  Decimal?              @db.Decimal(5, 2)
+  guaranteedRevenue Decimal?              @db.Decimal(10, 2)
+  distanceMiles     Decimal?              @db.Decimal(10, 2)
+  driveMinutes      Int?
+  compRooms         Int?
+  staffRooms        Int?
+  notes             String?
+  nights            HotelBlockNight[]
+  charges           HotelCharge[]
+  pickupImports     HotelPickupImport[]
+  pickupGuests      HotelPickupGuest[]
+  pickupCounts      HotelPickupCount[]
+  pickupSnapshots   HotelPickupSnapshot[]
+  updatedById       String?
+  updatedBy         User?                 @relation("HotelBlockUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([updatedById])
+}
+
+model HotelBlockNight {
+  id                String     @id @default(cuid())
+  blockId           String
+  block             HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  roomType          String?
+  night             DateTime   @db.Date
+  rate              Decimal?   @db.Decimal(10, 2)
+  contractedRooms   Int?
+  rooms             Int        @default(0)
+  // Reservations the hotel's report doesn't carry (booked by staff, etc.).
+  otherReservations Int        @default(0)
+
+  @@index([blockId])
+}
+
+enum HotelPickupMethod {
+  APPEND
+  MERGE
+  REPLACE
+  COUNTS
+}
+
+// One pickup upload or count entry, for the block's history. The current
+// pickup is the block's guests and counts, not any one import.
+model HotelPickupImport {
+  id           String             @id @default(cuid())
+  blockId      String
+  block        HotelBlock         @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  method       HotelPickupMethod
+  fileName     String?
+  inserted     Int                @default(0)
+  updated      Int                @default(0)
+  notes        String?
+  importedById String?
+  importedBy   User?              @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+  guests       HotelPickupGuest[]
+
+  @@index([blockId])
+  @@index([importedById])
+}
+
+// A reservation from the hotel's pickup report. Its nights are check-in up to
+// check-out; cancelled guests are kept but never counted.
+model HotelPickupGuest {
+  id                 String             @id @default(cuid())
+  blockId            String
+  block              HotelBlock         @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  importId           String?
+  import             HotelPickupImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+  guestName          String?
+  confirmationNumber String?
+  checkIn            DateTime?          @db.Date
+  checkOut           DateTime?          @db.Date
+  roomType           String?
+  cancelled          Boolean            @default(false)
+  rawStatus          String?
+
+  @@index([blockId, confirmationNumber])
+  @@index([importId])
+}
+
+// Rooms picked up on a night, entered by hand when the hotel sends totals
+// instead of a guest list. roomType null is a run-of-house (all types) total.
+model HotelPickupCount {
+  id       String     @id @default(cuid())
+  blockId  String
+  block    HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  night    DateTime   @db.Date
+  roomType String?
+  rooms    Int
+
+  @@index([blockId])
+}
+
+// Pickup per night as it stood on a day — written whenever pickup changes —
+// so the PER can report pickup at 90/60/30/21/14/7 days out.
+model HotelPickupSnapshot {
+  id      String     @id @default(cuid())
+  blockId String
+  block   HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  takenOn DateTime   @db.Date
+  nights  Json // { "YYYY-MM-DD": rooms }
+
+  @@unique([blockId, takenOn])
 }

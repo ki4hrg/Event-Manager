@@ -8,7 +8,8 @@ import { btnPrimary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { BLOCK_TYPE_LABELS, dateKey, formatDateKey } from "@/lib/hotels";
 import { getEvent } from "../../actions";
-import { getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
+import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
+import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,11 @@ export const metadata: Metadata = { title: "Hotels" };
 
 export default async function HotelsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
-  const [event, proposals, choices] = await Promise.all([
+  const [event, proposals, choices, blocks] = await Promise.all([
     getEvent(eventId),
     getHotelProposals(eventId),
     getProposalFormChoices(eventId),
+    getHotelBlocks(eventId),
   ]);
   if (!event) notFound();
 
@@ -44,13 +46,53 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
               { label: "Hotels" },
             ]}
           />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Hotel Proposals ({proposals.length})</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Hotels</h1>
         </div>
         <Link href={`/events/${eventId}/hotels/proposals/new`} className={`${btnPrimary} text-sm self-start sm:self-auto`}>
           Add Proposal
         </Link>
       </div>
 
+      {blocks.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Blocks</h2>
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
+            {blocks.map((b) => {
+              const t = pickupTotals(blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }));
+              const floor = b.allowedAttrition != null ? 100 - Number(b.allowedAttrition) : null;
+              const low = floor != null && t.percent != null && t.percent < floor;
+              return (
+                <Link
+                  key={b.id}
+                  href={`/events/${eventId}/hotels/blocks/${b.id}`}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-blue-600 dark:text-blue-400">
+                      {b.proposal.venue.name}
+                      {b.isHq && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">HQ</span>}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {[
+                        b.proposal.blockType ? BLOCK_TYPE_LABELS[b.proposal.blockType] : null,
+                        b.checkIn && b.checkOut ? `${formatDateKey(dateKey(b.checkIn))} – ${formatDateKey(dateKey(b.checkOut))}` : null,
+                        b.cutoffDate ? `cut-off ${formatDateKey(dateKey(b.cutoffDate))}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  <p className={`text-sm ${low ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-700 dark:text-gray-300"}`}>
+                    {t.pickedUp}/{t.blocked} room nights{t.percent != null && ` · ${t.percent}%`}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Proposals</h2>
       {proposals.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">No proposals yet.</p>
       ) : (
@@ -77,7 +119,10 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                     .join(" · ") || "—"}
                 </p>
               </div>
-              <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor(p.status)}`}>{p.status}</span>
+              <span className="flex items-center gap-2">
+                {p.block && <span className="text-xs text-gray-500 dark:text-gray-400">Block</span>}
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor(p.status)}`}>{p.status}</span>
+              </span>
             </Link>
           ))}
         </div>

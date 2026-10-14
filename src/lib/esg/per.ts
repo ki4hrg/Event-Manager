@@ -246,7 +246,7 @@ export function perDerivedBlocks(d: PerData, source: PerDerivedSource, label: st
     case "roomBlocks": {
       const hotels = n.housing.perHotels;
       if (hotels.length === 0) {
-        return [{ kind: "note", text: "Room blocks by night will come from the Hotels module; summarize each hotel's block in the comments until then." }];
+        return [{ kind: "note", text: "No room blocks. Add them under Hotels." }];
       }
       return hotels.map(
         (h): EsgBlock => ({
