@@ -9,8 +9,15 @@ import { useCanWrite } from "@/components/PermissionsProvider";
 
 type VenueFormProps = {
   venue?: Venue;
+  brands: string[];
+  areas: { label: string; group: string | null }[];
   action: (formData: FormData) => Promise<void>;
 };
+
+const fieldClass =
+  "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+const areaLabel = (a: { label: string; group: string | null }) => (a.group ? `${a.label} (${a.group})` : a.label);
 
 function SaveButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
@@ -26,10 +33,11 @@ function SaveButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function VenueForm({ venue, action }: VenueFormProps) {
+export function VenueForm({ venue, brands, areas, action }: VenueFormProps) {
   const isEdit = !!venue;
   const canWrite = useCanWrite("VENUES");
   const [editing, setEditing] = useState(false);
+  const [isLodging, setIsLodging] = useState(venue?.isLodging ?? false);
 
   if (isEdit && (!editing || !canWrite)) {
     const addressParts = [venue.address, venue.city, venue.state, venue.zip, venue.country].filter(Boolean);
@@ -51,6 +59,14 @@ export function VenueForm({ venue, action }: VenueFormProps) {
         <dl className="space-y-4">
           <ReadOnlyField label="Name" value={venue.name} />
           <ReadOnlyField label="Address" value={addressDisplay} />
+          {venue.isLodging && (
+            <ReadOnlyField
+              label="Lodging"
+              value={[venue.brand, venue.area ? areaLabel(areas.find((a) => a.label === venue.area) ?? { label: venue.area, group: null }) : null]
+                .filter(Boolean)
+                .join(" · ") || "Yes"}
+            />
+          )}
           <ReadOnlyField label="Notes" value={venue.notes} />
         </dl>
       </div>
@@ -166,6 +182,51 @@ export function VenueForm({ venue, action }: VenueFormProps) {
             defaultValue={venue?.country || ""}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+
+        <div className="space-y-4">
+          <input type="hidden" name="isLodging" value={String(isLodging)} />
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={isLodging}
+              onChange={(e) => setIsLodging(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            Sells sleeping rooms (hotel)
+          </label>
+          {isLodging && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="brand" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Brand
+                </label>
+                <select id="brand" name="brand" defaultValue={venue?.brand ?? ""} className={fieldClass}>
+                  <option value="">Not set</option>
+                  {venue?.brand && !brands.includes(venue.brand) && <option value={venue.brand}>{venue.brand}</option>}
+                  {brands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="area" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Area
+                </label>
+                <select id="area" name="area" defaultValue={venue?.area ?? ""} className={fieldClass}>
+                  <option value="">Not set</option>
+                  {venue?.area && !areas.some((a) => a.label === venue.area) && <option value={venue.area}>{venue.area}</option>}
+                  {areas.map((a) => (
+                    <option key={a.label} value={a.label}>
+                      {areaLabel(a)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>

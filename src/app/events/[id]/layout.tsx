@@ -23,6 +23,7 @@ const NAV_RESOURCES: PermissionResource[] = Array.from(
     "VENDORS",
     "FILES",
     "SHARE_LINKS",
+    "HOTELS",
   ]),
 );
 

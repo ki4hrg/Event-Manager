@@ -23,6 +23,7 @@ export async function Header() {
   const canViewVenues = hasGlobalView(permissions, PermissionResource.VENUES);
   const canViewContacts = hasGlobalView(permissions, PermissionResource.CONTACTS);
   const canViewVendors = hasGlobalView(permissions, PermissionResource.VENDORS);
+  const canViewHotels = hasGlobalView(permissions, PermissionResource.HOTELS);
   const canViewUsers =
     hasGlobalView(permissions, PermissionResource.USERS) ||
     hasGlobalView(permissions, PermissionResource.ROLES) ||
@@ -42,6 +43,7 @@ export async function Header() {
     canViewVenues && { href: "/venues", label: "Venues" },
     canViewContacts && { href: "/contacts", label: "Contacts" },
     canViewVendors && { href: "/vendors", label: "Vendors" },
+    canViewHotels && { href: "/hotels", label: "Hotels" },
     canViewStorageLocations && { href: "/storage-locations", label: "Storage" },
   ].filter((l): l is HeaderLink => !!l);
   const adminLinks: HeaderLink[] = [

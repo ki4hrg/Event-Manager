@@ -24,6 +24,10 @@ export type VenueWriteArgs = {
   zip: string | null;
   country: string | null;
   notes: string | null;
+  // Lodging fields; omitted (undefined) leaves them unchanged.
+  isLodging?: boolean;
+  brand?: string | null;
+  area?: string | null;
 };
 
 export async function createVenueCore(args: VenueWriteArgs, userId: string, tenantId: string) {
@@ -41,6 +45,9 @@ export async function createVenueCore(args: VenueWriteArgs, userId: string, tena
       zip: args.zip,
       country: args.country,
       notes: args.notes,
+      isLodging: args.isLodging,
+      brand: args.brand,
+      area: args.area,
       updatedById: userId,
     },
   });
@@ -64,6 +71,9 @@ export async function updateVenueCore(id: string, args: VenueWriteArgs, userId: 
         zip: args.zip,
         country: args.country,
         notes: args.notes,
+        isLodging: args.isLodging,
+        brand: args.brand,
+        area: args.area,
         updatedById: userId,
       },
     }),

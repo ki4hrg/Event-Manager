@@ -160,6 +160,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Supply Orders",    segment: "supply-orders",                   icon: <PackageIcon />,   sidebarSection: "supply-orders", resource: "SUPPLY_ORDERS" },
   { type: "group", label: "Resources" },
   { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon />,  resource: "VENDORS" },
+  { type: "link",  label: "Hotels",           segment: "hotels",                          icon: <BuildingIcon />,  resource: "HOTELS" },
   { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon />,    resource: "FILES" },
   { type: "group", label: "Reports" },
   { type: "link",  label: "Event Profile",   segment: "reports/event-profile",           icon: <ChartIcon /> },

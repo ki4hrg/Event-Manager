@@ -38,6 +38,8 @@ model User {
   updatedEvents              Event[]                  @relation("EventUpdatedBy")
   updatedEventSpecifications EventSpecification[]     @relation("EventSpecificationUpdatedBy")
   updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
+  updatedHotelProposals      HotelProposal[]          @relation("HotelProposalUpdatedBy")
+  hotelProposalVersions      HotelProposalVersion[]
   updatedExhibitBoothGroups  ExhibitBoothGroup[]      @relation("ExhibitBoothGroupUpdatedBy")
   updatedPostEvents          EventPostEvent[]         @relation("EventPostEventUpdatedBy")
   updatedVenues              Venue[]                  @relation("VenueUpdatedBy")
@@ -447,6 +449,7 @@ model Event {
   specKeys                EventSpecKey[]
   retiredFunctionNumbers  RetiredFunctionNumber[]
   exhibitBooths           ExhibitBooth[]
+  hotelProposals          HotelProposal[]
   exhibitBoothGroups      ExhibitBoothGroup[]
   postEvent               EventPostEvent?
   postEventFutureDates    EventPostEventFutureDate[]
@@ -462,26 +465,32 @@ model Event {
 }
 
 model Venue {
-  id          String         @id @default(cuid())
-  tenantId    String
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name        String
-  address     String?
-  city        String?
-  state       String?
-  zip         String?
-  country     String?
-  notes       String?
-  rooms       Room[]
-  roomGroups  RoomGroup[]
-  events      EventVenue[]
-  contacts    VenueContact[]
-  vendor      Vendor?
-  files       FileUpload[]
-  updatedById String?
-  updatedBy   User?          @relation("VenueUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id             String          @id @default(cuid())
+  tenantId       String
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  address        String?
+  city           String?
+  state          String?
+  zip            String?
+  country        String?
+  notes          String?
+  // Hotels module: a venue that sells sleeping rooms. brand / area are
+  // hotel_brand / hotel_area option labels (an area's group is its region).
+  isLodging      Boolean         @default(false)
+  brand          String?
+  area           String?
+  hotelProposals HotelProposal[]
+  rooms          Room[]
+  roomGroups     RoomGroup[]
+  events         EventVenue[]
+  contacts       VenueContact[]
+  vendor         Vendor?
+  files          FileUpload[]
+  updatedById    String?
+  updatedBy      User?           @relation("VenueUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@index([tenantId])
   @@index([updatedById])
@@ -1770,6 +1779,8 @@ model FileUpload {
   mediaDeliverable   MediaDeliverable? @relation(fields: [mediaDeliverableId], references: [id], onDelete: Cascade)
   venueId            String?
   venue              Venue?            @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  hotelProposalId    String?
+  hotelProposal      HotelProposal?    @relation(fields: [hotelProposalId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -1781,6 +1792,7 @@ model FileUpload {
   @@index([supplyOrderId])
   @@index([mediaDeliverableId])
   @@index([venueId])
+  @@index([hotelProposalId])
 }
 
 model ShareLink {
@@ -1876,6 +1888,7 @@ enum PermissionResource {
   FILES
   SHARE_LINKS
   API_KEYS
+  HOTELS
 }
 
 enum PermissionLevel {
@@ -2365,4 +2378,104 @@ model EventPostEventDistribution {
   updatedAt   DateTime  @updatedAt
 
   @@index([eventId])
+}
+
+// ---------------------------------------------------------------------------
+// Hotels module (ported from Hotel-Manager). A proposal is one lodging venue's
+// offer for one event; accepting it lets staff open that hotel's block. Rooms
+// are stored per room type per night — every rate, availability and pickup
+// figure hangs off (roomType, night). roomType is a hotel_room_type option
+// label; null means run of house.
+
+enum HotelBlockType {
+  STAFF
+  COURTESY
+  CONTRACT
+}
+
+enum HotelChargeScope {
+  PER_NIGHT
+  PER_STAY
+  PER_PERSON
+  PER_PERSON_PER_NIGHT
+}
+
+model HotelProposal {
+  id                String                 @id @default(cuid())
+  eventId           String
+  event             Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  venueId           String
+  venue             Venue                  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  // proposal_status option label; the option's group (REQUESTED / PENDING /
+  // ACCEPTED / DECLINED) is the workflow stage the app keys off.
+  status            String
+  leadSource        String? // hotel_lead_source option label
+  blockType         HotelBlockType?
+  submittedOn       DateTime?              @db.Date
+  checkIn           DateTime?              @db.Date
+  checkOut          DateTime?              @db.Date
+  declinedReason    String?
+  notes             String?
+  // Bumped by staff when the hotel sends a revised offer; each bump records a
+  // HotelProposalVersion.
+  revision          Int                    @default(1)
+  isRunOfHouse      Boolean                @default(false)
+  allowedAttrition  Decimal?               @db.Decimal(5, 2)
+  guaranteedRevenue Decimal?               @db.Decimal(10, 2)
+  amenities         String[]               @default([]) // hotel_amenity option labels
+  nights            HotelProposalNight[]
+  charges           HotelCharge[]
+  versions          HotelProposalVersion[]
+  files             FileUpload[]
+  updatedById       String?
+  updatedBy         User?                  @relation("HotelProposalUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([eventId])
+  @@index([venueId])
+  @@index([updatedById])
+}
+
+model HotelProposalNight {
+  id         String        @id @default(cuid())
+  proposalId String
+  proposal   HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  roomType   String?
+  night      DateTime      @db.Date
+  rate       Decimal?      @db.Decimal(10, 2)
+  rooms      Int?
+
+  @@index([proposalId])
+}
+
+model HotelCharge {
+  id         String            @id @default(cuid())
+  proposalId String?
+  proposal   HotelProposal?    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  chargeType String
+  amount     Decimal?          @db.Decimal(10, 2)
+  scope      HotelChargeScope?
+  sortOrder  Int               @default(0)
+
+  @@index([proposalId])
+}
+
+// The proposal as it stood at one revision: snapshot is the full proposal
+// (fields, nights, charges, amenities); changes lists what differs from the
+// previous revision as { field, from, to }.
+model HotelProposalVersion {
+  id          String        @id @default(cuid())
+  proposalId  String
+  proposal    HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  revision    Int
+  summary     String?
+  snapshot    Json
+  changes     Json          @default("[]")
+  createdById String?
+  createdBy   User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now())
+
+  @@unique([proposalId, revision])
+  @@index([createdById])
 }

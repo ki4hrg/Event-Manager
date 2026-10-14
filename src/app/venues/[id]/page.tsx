@@ -30,6 +30,9 @@ import { ContactList } from "../ContactList";
 import { getOptions } from "@/app/settings/actions";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { LastUpdated } from "@/components/LastUpdated";
+import { hasPermission } from "@/lib/permissions";
+import { getVenueHotelHistory } from "@/app/hotels/actions";
+import { HotelHistory } from "@/app/hotels/HotelHistory";
 
 export const dynamic = "force-dynamic";
 
@@ -48,15 +51,19 @@ export async function generateMetadata({
 
 export default async function VenuePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [venue, fileTypeOptions, venueFiles] = await Promise.all([
+  const [venue, fileTypeOptions, venueFiles, brands, areas, canViewHotels] = await Promise.all([
     getVenue(id),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { venueId: id }, orderBy: { createdAt: "asc" } }),
+    getOptions("hotel_brand"),
+    getOptions("hotel_area"),
+    hasPermission("HOTELS", "VIEW"),
   ]);
 
   if (!venue) {
     notFound();
   }
+  const hotelHistory = venue.isLodging && canViewHotels ? await getVenueHotelHistory(id) : [];
 
   const updateVenueWithId = async (formData: FormData) => {
     "use server";
@@ -142,7 +149,8 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-8 min-w-0">
-          <VenueForm venue={venue} action={updateVenueWithId} />
+          <VenueForm venue={venue} brands={brands.map((b) => b.label)} areas={areas} action={updateVenueWithId} />
+          {hotelHistory.length > 0 && <HotelHistory proposals={hotelHistory} />}
           {venue.vendor && (
             <form action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendor Details</h2>

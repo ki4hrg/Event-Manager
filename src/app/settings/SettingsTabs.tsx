@@ -11,6 +11,7 @@ const tabs = [
   { label: "Vendors", segment: "vendors" },
   { label: "Files", segment: "files" },
   { label: "Status", segment: "status" },
+  { label: "Hotels", segment: "hotels" },
   { label: "Specifications", segment: "specifications" },
   { label: "Organization", segment: "organization" },
 ];
