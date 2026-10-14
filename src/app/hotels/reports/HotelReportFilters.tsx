@@ -3,11 +3,14 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
+import { BLOCK_TYPES, parseBlockTypes } from "@/lib/hotels";
 
 const fieldClass =
   "block rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-2 py-1.5";
 
-export function HotelReportFilters({ series }: { series: { id: string; name: string }[] }) {
+const labelClass = "text-xs font-medium text-gray-500 dark:text-gray-400";
+
+function useSetParam() {
   const router = useRouter();
   const sp = useSearchParams();
   const set = (key: string, value: string) => {
@@ -16,9 +19,14 @@ export function HotelReportFilters({ series }: { series: { id: string; name: str
     else params.delete(key);
     router.push(`/hotels/reports?${params.toString()}`);
   };
+  return { sp, set };
+}
+
+function SeriesAndDates({ series }: { series: { id: string; name: string }[] }) {
+  const { sp, set } = useSetParam();
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+    <>
+      <label className={labelClass}>
         Series
         <select value={sp.get("series") ?? ""} onChange={(e) => set("series", e.target.value)} className={fieldClass}>
           <option value="">All</option>
@@ -30,14 +38,23 @@ export function HotelReportFilters({ series }: { series: { id: string; name: str
           ))}
         </select>
       </label>
-      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+      <label className={labelClass}>
         From
         <input type="date" value={sp.get("from") ?? ""} onChange={(e) => set("from", e.target.value)} className={fieldClass} />
       </label>
-      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+      <label className={labelClass}>
         To
         <input type="date" value={sp.get("to") ?? ""} onChange={(e) => set("to", e.target.value)} className={fieldClass} />
       </label>
+    </>
+  );
+}
+
+export function HotelReportFilters({ series }: { series: { id: string; name: string }[] }) {
+  const { sp, set } = useSetParam();
+  return (
+    <div className="flex flex-wrap items-end gap-3">
+      <SeriesAndDates series={series} />
       <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300 pb-1.5">
         <input
           type="checkbox"
@@ -47,6 +64,76 @@ export function HotelReportFilters({ series }: { series: { id: string; name: str
         />
         By hotel
       </label>
+    </div>
+  );
+}
+
+export function PatternFilters({ series, cities }: { series: { id: string; name: string }[]; cities: string[] }) {
+  const { sp, set } = useSetParam();
+  const types = parseBlockTypes(sp.get("types") ?? undefined);
+  const toggleType = (value: string, on: boolean) =>
+    set("types", BLOCK_TYPES.filter((t) => (t.value === value ? on : types.includes(t.value))).map((t) => t.value).join(","));
+  // Typed numbers commit on blur / Enter so each keystroke isn't a history entry.
+  const commit = (key: string) => (e: React.FocusEvent<HTMLInputElement> | React.KeyboardEvent<HTMLInputElement>) => {
+    if ("key" in e && e.key !== "Enter") return;
+    if (e.currentTarget.value !== (sp.get(key) ?? "")) set(key, e.currentTarget.value);
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <SeriesAndDates series={series} />
+        <label className={labelClass}>
+          City
+          <select value={sp.get("city") ?? ""} onChange={(e) => set("city", e.target.value)} className={fieldClass}>
+            <option value="">All</option>
+            {cities.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <fieldset className="flex items-center gap-3 pb-1.5">
+          {BLOCK_TYPES.map((t) => (
+            <label key={t.value} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={types.includes(t.value)}
+                onChange={(e) => toggleType(t.value, e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              {t.label}
+            </label>
+          ))}
+        </fieldset>
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className={labelClass}>
+          Basis
+          <select value={sp.get("basis") ?? ""} onChange={(e) => set("basis", e.target.value)} className={fieldClass}>
+            <option value="">Average</option>
+            <option value="highest">Highest</option>
+            <option value="latest">Most recent</option>
+          </select>
+        </label>
+        <label className={labelClass}>
+          Adjust %
+          <input
+            key={sp.get("adjust") ?? ""}
+            type="number"
+            step={5}
+            defaultValue={sp.get("adjust") ?? ""}
+            onBlur={commit("adjust")}
+            onKeyDown={commit("adjust")}
+            placeholder="0"
+            className={`${fieldClass} w-20`}
+          />
+        </label>
+        <label className={labelClass}>
+          New start
+          <input type="date" value={sp.get("start") ?? ""} onChange={(e) => set("start", e.target.value)} className={fieldClass} />
+        </label>
+      </div>
     </div>
   );
 }

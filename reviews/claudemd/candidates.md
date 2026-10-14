@@ -8,3 +8,4 @@
 - [nav] EventSidebar: every link gets its own icon so the collapsed (icon-only) rail stays scannable; reusing an icon across links (three BuildingIcons, four ClipboardIcons) made them indistinguishable (src/components/EventSidebar.tsx, ux-sweep).
 - [components] `InlineConfirmButton` (`src/components/InlineConfirmButton.tsx`) is the callback-flavoured inline confirm (row callbacks, bulk "Delete selected"); `InlineDeleteButton` stays for FormData actions. Never `window.confirm()` (ux-sweep).
 - [styling] `btnOutlinedXs` in `buttonStyles` is the compact outlined report-toolbar button (Print / Save PDF, Office downloads, Share, Copy) — add it to the CLAUDE.md buttonStyles list (ux-sweep).
+- [filters] Free-typed number filters in URL search params commit on blur/Enter (uncontrolled input keyed on the param), not onChange, so each keystroke is not a history entry (src/app/hotels/reports/HotelReportFilters.tsx PatternFilters)
