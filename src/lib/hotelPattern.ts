@@ -1,9 +1,9 @@
 // Block pattern math for the RFP report. Pure (no Prisma). Events of
 // different lengths line up by each night's role instead of its date. A
-// night is named for the day it follows, counted from the nearer anchor:
-// Start −n before the start; Start; Middle (the interior nights, averaged);
-// End −1; End (the closing day's night); End +n after it. Internally those
-// are pre-n / first / middle / last / end+0 / end+n.
+// night is named for the day it follows, hotel-stay style: Pre −n before the
+// start; First night; Middle nights (averaged); Last night (the one before
+// the closing day); Post +n from the closing day's night on. Internally
+// those are pre-n / first / middle / last / end+(n−1).
 //
 // Event start / end are calendar dates (the UTC date, as everywhere else in
 // the app); night keys are YYYY-MM-DD.
@@ -17,12 +17,11 @@ const addDays = (key: string, n: number) => dateKey(new Date(dateFromKey(key).ge
 const daysBetween = (a: string, b: string) => Math.round((dateFromKey(b).getTime() - dateFromKey(a).getTime()) / DAY);
 
 export function roleLabel(role: PatternRole): string {
-  if (role === "first") return "Start";
-  if (role === "middle") return "Middle";
-  if (role === "last") return "End −1";
-  if (role.startsWith("pre-")) return `Start −${role.slice(4)}`;
-  const n = Number(role.slice(4));
-  return n === 0 ? "End" : `End +${n}`;
+  if (role === "first") return "First night";
+  if (role === "middle") return "Middle nights";
+  if (role === "last") return "Last night";
+  if (role.startsWith("pre-")) return `Pre −${role.slice(4)}`;
+  return `Post +${Number(role.slice(4)) + 1}`;
 }
 
 function roleOrder(role: PatternRole): number {
@@ -40,7 +39,7 @@ export function offsetLabel(offset: number): string {
 
 export const sortRoles = (roles: Iterable<PatternRole>) => Array.from(new Set(roles)).sort((a, b) => roleOrder(a) - roleOrder(b));
 
-// Interior nights an event has between its Start and End −1 nights.
+// Interior nights an event has between its First and Last nights.
 export const middleNights = (start: string, end: string) => Math.max(0, daysBetween(start, end) - 2);
 
 // Rooms per role for one event. Every in-session night counts (0 when
