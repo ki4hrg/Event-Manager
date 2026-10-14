@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { requirePermission } from "@/lib/permissions";
 import { getEvent } from "../../../../actions";
 import { createBoothGroup, getBoothFormChoices } from "../../../../exhibits/actions";
 import { BoothGroupForm } from "../../../../exhibits/BoothForm";
@@ -17,6 +18,7 @@ export default async function NewBoothGroupPage({
   searchParams: Promise<{ functionId?: string }>;
 }) {
   const { id: eventId } = await params;
+  await requirePermission("FUNCTIONS", "WRITE", eventId);
   const { functionId } = await searchParams;
   const [event, choices] = await Promise.all([getEvent(eventId), getBoothFormChoices(eventId)]);
   if (!event) notFound();
