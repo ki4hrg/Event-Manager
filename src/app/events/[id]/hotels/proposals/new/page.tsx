@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { getDateKeyInTimezone } from "@/lib/agendaUtils";
+import { dateKey } from "@/lib/hotels";
 import { requirePermission } from "@/lib/permissions";
 import { getEvent } from "../../../../actions";
 import { createHotelProposal, getProposalFormChoices } from "../../../../hotels/actions";
@@ -45,8 +45,8 @@ export default async function NewProposalPage({
       <div className="max-w-5xl">
         <ProposalForm
           choices={choices}
-          defaultCheckIn={getDateKeyInTimezone(event.startDate, event.timezone)}
-          defaultCheckOut={getDateKeyInTimezone(event.endDate, event.timezone)}
+          defaultCheckIn={dateKey(event.startDate)}
+          defaultCheckOut={dateKey(event.endDate)}
           defaultVenueId={choices.venues.some((v) => v.id === venueId) ? venueId : undefined}
           action={createAction}
           cancelHref={`/events/${eventId}/hotels`}

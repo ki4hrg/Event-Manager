@@ -3,9 +3,8 @@
 import { PermissionResource, type HotelBlockType, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loadPermissionsForUser, requirePermission } from "@/lib/permissions";
-import { dateFromKey, dateKey } from "@/lib/hotels";
+import { dateKey } from "@/lib/hotels";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
-import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 
 // Events whose hotels this user may see across the tenant: every event with
 // HOTELS on unassigned events, otherwise only events they staff (mirrors
@@ -110,7 +109,6 @@ export async function getHotelPickupHistory(filters: HotelHistoryFilters) {
       id: true,
       name: true,
       startDate: true,
-      timezone: true,
       expectedAttendance: true,
       actualAttendance: true,
       membershipCount: true,
@@ -128,7 +126,7 @@ export async function getHotelPickupHistory(filters: HotelHistoryFilters) {
     return {
       id: e.id,
       name: e.name,
-      startDate: getDateKeyInTimezone(e.startDate, e.timezone),
+      startDate: dateKey(e.startDate),
       series: e.series,
       expectedAttendance: e.expectedAttendance,
       actualAttendance: e.actualAttendance,
@@ -147,12 +145,12 @@ export async function getBlockMonitoring() {
   const { eventWhere } = await hotelSession();
   const blocks = await prisma.hotelBlock.findMany({
     where: { proposal: { event: { AND: [eventWhere, { endDate: { gte: new Date() } }] } } },
-    select: { ...blockPickupSelect, proposal: { select: { ...blockPickupSelect.proposal.select, event: { select: { id: true, name: true, startDate: true, timezone: true } } } } },
+    select: { ...blockPickupSelect, proposal: { select: { ...blockPickupSelect.proposal.select, event: { select: { id: true, name: true, startDate: true } } } } },
   });
   return blocks
     .map((b) => {
       const { byNight: _byNight, ...row } = blockRow(b);
-      return { ...row, event: { id: b.proposal.event.id, name: b.proposal.event.name, startDate: getDateKeyInTimezone(b.proposal.event.startDate, b.proposal.event.timezone) } };
+      return { ...row, event: { id: b.proposal.event.id, name: b.proposal.event.name, startDate: dateKey(b.proposal.event.startDate) } };
     })
     .sort((a, b) => (a.cutoffDate ?? "9999").localeCompare(b.cutoffDate ?? "9999") || a.event.startDate.localeCompare(b.event.startDate));
 }
@@ -165,8 +163,8 @@ function hasPickup(b: BlockForTotals) {
   return b.pickupGuests.length > 0 || b.pickupCounts.length > 0 || b.nights.some((n) => n.otherReservations > 0);
 }
 
-// Rooms picked up per night across ended events, each night keyed by its
-// offset from the event's start date so editions in different weeks line up.
+// Rooms picked up per night across ended events, with each event's dates so
+// the report can line nights up by role (src/lib/hotelPattern.ts).
 export async function getPickupPattern(filters: PatternFilters) {
   const { eventWhere } = await hotelSession();
   const proposalWhere: Prisma.HotelProposalWhereInput = {
@@ -189,7 +187,7 @@ export async function getPickupPattern(filters: PatternFilters) {
       id: true,
       name: true,
       startDate: true,
-      timezone: true,
+      endDate: true,
       actualAttendance: true,
       series: { select: { id: true, name: true } },
       hotelProposals: { where: proposalWhere, select: { block: { select: blockPickupSelect } } },
@@ -199,30 +197,27 @@ export async function getPickupPattern(filters: PatternFilters) {
   const withPickup = [];
   const noPickup = [];
   for (const e of events) {
-    const startDate = getDateKeyInTimezone(e.startDate, e.timezone);
+    const startDate = dateKey(e.startDate);
     const blocks = e.hotelProposals.flatMap((p) => (p.block && hasPickup(p.block) ? [p.block] : []));
     if (blocks.length === 0) {
       noPickup.push({ id: e.id, name: e.name, startDate });
       continue;
     }
-    const start = dateFromKey(startDate).getTime();
-    const nights: Record<number, { night: string; blocked: number; pickedUp: number }> = {};
+    const pickedUp: Record<string, number> = {};
     for (const b of blocks) {
       for (const r of blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts })) {
-        const offset = Math.round((dateFromKey(r.night).getTime() - start) / 86_400_000);
-        const cell = (nights[offset] ??= { night: r.night, blocked: 0, pickedUp: 0 });
-        cell.blocked += r.blocked;
-        cell.pickedUp += r.pickedUp;
+        pickedUp[r.night] = (pickedUp[r.night] ?? 0) + r.pickedUp;
       }
     }
     withPickup.push({
       id: e.id,
       name: e.name,
       startDate,
+      endDate: dateKey(e.endDate),
       series: e.series,
       actualAttendance: e.actualAttendance,
       hotels: blocks.map((b) => b.proposal.venue.name),
-      nights,
+      pickedUp,
     });
   }
   return { events: withPickup, noPickup };
