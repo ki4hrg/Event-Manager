@@ -238,6 +238,17 @@ export async function getHotelCities() {
   return rows.flatMap((r) => (r.city ? [r.city] : []));
 }
 
+// Events that haven't ended, soonest first, to date the proposed block.
+export async function getProposalEventChoices() {
+  const { eventWhere } = await hotelSession();
+  const events = await prisma.event.findMany({
+    where: { AND: [eventWhere, { endDate: { gte: new Date(`${dateKey(new Date())}T00:00:00Z`) } }] },
+    select: { id: true, name: true, startDate: true, endDate: true, seriesId: true },
+    orderBy: { startDate: "asc" },
+  });
+  return events.map((e) => ({ id: e.id, name: e.name, seriesId: e.seriesId, startDate: dateKey(e.startDate), endDate: dateKey(e.endDate) }));
+}
+
 export async function getSeriesChoices() {
   const { tenantId } = await hotelSession();
   return prisma.eventSeries.findMany({ where: { tenantId }, select: { id: true, name: true }, orderBy: { name: "asc" } });
