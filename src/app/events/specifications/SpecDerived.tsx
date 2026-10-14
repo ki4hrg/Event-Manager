@@ -220,9 +220,9 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
       );
     case "housingBlocks":
       return (
-        <Block def={def}>
+        <Block def={def} edit={<EditLink href={`/events/${eventId}/hotels`} label="Hotels →" />}>
           {data.housing.roomBlocks.length === 0 ? (
-            <Empty>No room blocks. Add them under Hotels.</Empty>
+            <Empty>No room blocks.</Empty>
           ) : (
             <ul className="space-y-1">
               {data.housing.roomBlocks.map((b) => (
@@ -237,7 +237,7 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
       );
     case "exhibitBooths":
       return (
-        <Block def={def}>
+        <Block def={def} edit={<EditLink href={`/events/${eventId}/exhibits`} label="Exhibits →" />}>
           {data.boothCount === 0 ? <Empty>No booths yet.</Empty> : `${data.boothCount} booth(s)`}
         </Block>
       );

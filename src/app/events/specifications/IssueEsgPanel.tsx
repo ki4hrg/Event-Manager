@@ -81,7 +81,7 @@ export function IssueEsgPanel({
               onClick={() => run(issue)}
               className={`${btnPrimary} text-sm disabled:opacity-50`}
             >
-              {originated ? "Re-issue (mark revised)" : "Issue ESG"}
+              {pending ? "Saving..." : originated ? "Re-issue (mark revised)" : "Issue ESG"}
             </button>
           )}
           {canWrite &&
@@ -92,12 +92,13 @@ export function IssueEsgPanel({
                   type="button"
                   disabled={pending}
                   onClick={() => run(unlock)}
-                  className="text-red-600 dark:text-red-400 hover:underline"
+                  className="text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
                 >
                   Unlock & renumber
                 </button>
                 <button
                   type="button"
+                  disabled={pending}
                   onClick={() => setConfirmUnlock(false)}
                   className="text-gray-500 dark:text-gray-400 hover:underline"
                 >

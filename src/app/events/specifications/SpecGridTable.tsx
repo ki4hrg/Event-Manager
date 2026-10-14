@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -56,17 +56,18 @@ function RowForm({
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
 }) {
+  const formId = useId();
   return (
     <form action={onSubmit} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {columns.map((c) => (
           <div key={c.key}>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor={`${formId}-${c.key}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
               {c.label}
               {c.required && <span className="text-red-500 dark:text-red-400"> *</span>}
             </label>
             {c.key === "kind" || c.key === "action" ? (
-              <select name={c.key} required defaultValue={(row?.values[c.key] as string) ?? ""} className={specInputClass}>
+              <select id={`${formId}-${c.key}`} name={c.key} required defaultValue={(row?.values[c.key] as string) ?? ""} className={specInputClass}>
                 <option value="">Choose…</option>
                 {(c.key === "kind" ? COVERAGE_KINDS : DISTRIBUTION_ACTIONS).map((k) => (
                   <option key={k.value} value={k.value}>
@@ -77,6 +78,7 @@ function RowForm({
             ) : c.kind === "bool" ? (
               <label className="mt-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input
+                  id={`${formId}-${c.key}`}
                   type="checkbox"
                   name={c.key}
                   value="true"
@@ -87,6 +89,7 @@ function RowForm({
               </label>
             ) : (
               <SpecFieldInput
+                id={`${formId}-${c.key}`}
                 name={c.key}
                 kind={c.kind}
                 value={row?.values[c.key] ?? null}
@@ -210,7 +213,7 @@ export function SpecGridTable({
                       <button
                         type="button"
                         onClick={() => setEditingId(row.id)}
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                        className="py-1 text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         Edit
                       </button>

@@ -35,8 +35,8 @@ type ReportFiltersProps = {
 const chip = (active: boolean) =>
   `px-3 py-1 text-sm rounded-full border transition-colors ${
     active
-      ? "bg-blue-600 border-blue-600 text-white"
-      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
+      ? "bg-blue-600 dark:bg-blue-500 border-blue-600 dark:border-blue-500 text-white dark:text-white"
+      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500"
   }`;
 
 export function ReportFilters({
@@ -135,7 +135,7 @@ export function ReportFilters({
       {selectedParts.includes("IIIa") && functions.length > 1 && (
         <div>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Set-up orders for</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
             {functions.map((f) => (
               <button
                 key={f.value}

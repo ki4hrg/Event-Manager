@@ -131,7 +131,7 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
               key={s.letter}
               href={`#spec-${s.letter.toLowerCase()}`}
               title={s.title}
-              className={`shrink-0 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+              className={`shrink-0 rounded px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 ${
                 na.has(s.letter)
                   ? "text-gray-400 dark:text-gray-500"
                   : missingIn(s.letter) > 0
