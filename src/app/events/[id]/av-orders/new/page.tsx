@@ -44,7 +44,7 @@ export default async function NewAVOrderPage({
   const [availableFunctions, availablePresentations] = isFromSource
     ? [undefined, undefined]
     : await Promise.all([
-        prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" } }),
+        prisma.function.findMany({ where: { eventId }, include: { breakoutGroup: { select: { name: true } } }, orderBy: { name: "asc" } }),
         prisma.presentation.findMany({ where: { eventId }, orderBy: { title: "asc" } }),
       ]);
 

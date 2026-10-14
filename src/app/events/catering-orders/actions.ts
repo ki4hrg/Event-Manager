@@ -52,6 +52,7 @@ export async function getCateringOrders(eventId: string) {
           id: true,
           name: true,
           functionNumber: true,
+          breakoutGroup: { select: { name: true } },
           schedules: { select: { startTime: true, endTime: true, isPublic: true } },
         },
       },
@@ -69,6 +70,7 @@ export async function getCateringOrder(id: string) {
         include: {
           schedules: { orderBy: { startTime: "asc" } },
           rooms: { include: { room: { select: { id: true, name: true } } } },
+          breakoutGroup: { select: { name: true } },
         },
       },
       timelineItems: { orderBy: [{ sortOrder: "asc" }, { startTime: "asc" }] },
@@ -396,7 +398,7 @@ const cateringOrderForFunctionInclude = {
   vendors: { include: { vendor: { select: { id: true, name: true } } } },
   additionalServiceLocations: {
     include: {
-      function: { select: { id: true, name: true, functionNumber: true } },
+      function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
     },
   },
 } as const;

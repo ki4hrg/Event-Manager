@@ -65,8 +65,9 @@ export function FunctionNumberingControl({
             </button>
             <button
               type="button"
+              disabled={pending}
               onClick={() => setConfirming(false)}
-              className="text-gray-500 dark:text-gray-400 hover:underline"
+              className="text-gray-500 dark:text-gray-400 hover:underline disabled:opacity-50"
             >
               Cancel
             </button>

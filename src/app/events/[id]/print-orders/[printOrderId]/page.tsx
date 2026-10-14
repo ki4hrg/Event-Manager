@@ -101,7 +101,7 @@ export default async function PrintOrderPage({
     getResponsiblePartyVendors(eventId, "PRINT_ORDER"),
     getSubstatusOptions(),
     getOptions("print_distribution"),
-    prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" } }),
+    prisma.function.findMany({ where: { eventId }, include: { breakoutGroup: { select: { name: true } } }, orderBy: { name: "asc" } }),
     printOrder.presentationId
       ? Promise.resolve([])
       : prisma.presentation.findMany({

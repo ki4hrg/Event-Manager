@@ -36,7 +36,7 @@ export async function getSetupOrders(eventId: string) {
     where: { eventId },
     include: {
       room: { select: { id: true, name: true } },
-      functionLinks: { include: { function: { select: { id: true, name: true, functionNumber: true } } } },
+      functionLinks: { include: { function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } } } },
       presentationLinks: { include: { presentation: { select: { id: true, title: true } } } },
       tables: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       equipmentItems: { orderBy: [{ sortOrder: "asc" }, { item: "asc" }] },
@@ -57,7 +57,7 @@ export async function getSetupOrder(id: string) {
     include: {
       room: true,
       functionLinks: {
-        include: { function: { include: { schedules: { orderBy: { startTime: "asc" } } } } },
+        include: { function: { include: { schedules: { orderBy: { startTime: "asc" } }, breakoutGroup: { select: { name: true } } } } },
       },
       presentationLinks: { include: { presentation: { select: { id: true, title: true, eventId: true } } } },
       tables: { include: { providerVendor: { select: { id: true, name: true } } }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },

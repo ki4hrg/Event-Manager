@@ -31,7 +31,11 @@ export default async function NewCateringOrderPage({
     getEvent(eventId),
     getOptions("service_style"),
     getResponsiblePartyVendors(eventId, "CATERING_ORDER"),
-    prisma.function.findMany({ where: { eventId, cateringOrder: null }, orderBy: { name: "asc" } }),
+    prisma.function.findMany({
+      where: { eventId, cateringOrder: null },
+      select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } },
+      orderBy: { name: "asc" },
+    }),
     getOptions("meal_type"),
   ]);
 

@@ -70,6 +70,8 @@ import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { getEventRooms } from "@/lib/eventVenues";
+import { hasPermission } from "@/lib/permissions";
+import { btnSecondary } from "@/lib/buttonStyles";
 
 export const dynamic = "force-dynamic";
 
@@ -116,7 +118,10 @@ export default async function FunctionPage({
   );
 
   // Rooms across every event venue, venue-first then group then name
-  const rooms = await getEventRooms(eventId);
+  const [rooms, canWrite] = await Promise.all([
+    getEventRooms(eventId),
+    hasPermission("FUNCTIONS", "WRITE", eventId),
+  ]);
 
   const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, availableSupplyOrders, availableMediaDeliverables, workflowInstances, allTemplates, substatuses] = await Promise.all([
     getAvailableAVOrdersForFunction(eventId, functionId),
@@ -320,24 +325,23 @@ export default async function FunctionPage({
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           <a
             href={`/events/${eventId}/reports/function-detail?functions=${functionId}`}
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            className={btnSecondary}
           >
             Detail Report
           </a>
           <a
             href={`/events/${eventId}/functions/${functionId}/print`}
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            className={btnSecondary}
           >
             Print
           </a>
-          <form action={duplicateFunctionAction}>
-            <button
-              type="submit"
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              Duplicate
-            </button>
-          </form>
+          {canWrite && (
+            <form action={duplicateFunctionAction}>
+              <button type="submit" className={btnSecondary}>
+                Duplicate
+              </button>
+            </form>
+          )}
           <CancelOrDeleteButton
             resource="FUNCTIONS"
             status={fn.status ?? null}
@@ -492,7 +496,6 @@ export default async function FunctionPage({
               eventId={eventId}
               availableMediaDeliverables={availableMediaDeliverables}
               newMediaDeliverablePath={`/events/${eventId}/media-deliverables/new?functionId=${functionId}`}
-              emptyMessage="Media to display at this function (looped slides, sponsor video, etc.). Provided by a vendor or a sponsor contact."
               fillHeight
               linkMediaDeliverable={linkMediaDeliverableAction}
               unlinkMediaDeliverable={unlinkMediaDeliverableAction}
@@ -501,26 +504,28 @@ export default async function FunctionPage({
               <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white">Exhibit Booths</h3>
-                  <Link
-                    href={`/events/${eventId}/exhibits/new?functionId=${functionId}`}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    + Add booth
-                  </Link>
+                  {canWrite && (
+                    <Link
+                      href={`/events/${eventId}/exhibits/new?functionId=${functionId}`}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      + Add booth
+                    </Link>
+                  )}
                 </div>
                 {booths.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">No booths yet.</p>
                 ) : (
                   <ul className="space-y-1 text-sm">
                     {booths.map((b) => (
-                        <li key={b.id}>
-                          <Link href={`/events/${eventId}/exhibits/${b.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
-                            {b.boothNumber ? `Booth ${b.boothNumber} · ` : ""}
-                            {b.name}
-                          </Link>
-                          {b.companyName && <span className="text-gray-500 dark:text-gray-400"> — {b.companyName}</span>}
-                        </li>
-                      ))}
+                      <li key={b.id}>
+                        <Link href={`/events/${eventId}/exhibits/${b.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                          {b.boothNumber ? `Booth ${b.boothNumber} · ` : ""}
+                          {b.name}
+                        </Link>
+                        {b.companyName && <span className="text-gray-500 dark:text-gray-400"> — {b.companyName}</span>}
+                      </li>
+                    ))}
                   </ul>
                 )}
               </div>

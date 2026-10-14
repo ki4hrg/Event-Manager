@@ -83,7 +83,7 @@ export default async function MediaDeliverablePage({
     getSubstatusOptions(),
     getOptions("media_type"),
     getOptions("delivery_method"),
-    prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" }, select: { id: true, name: true, functionNumber: true } }),
+    prisma.function.findMany({ where: { eventId }, orderBy: { name: "asc" }, select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } }),
     prisma.presentation.findMany({ where: { eventId }, orderBy: { title: "asc" }, select: { id: true, title: true } }),
     getResponsibleParties({
       eventId,

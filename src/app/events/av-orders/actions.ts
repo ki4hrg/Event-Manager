@@ -48,7 +48,7 @@ export async function getAVOrders(eventId: string) {
   const rows = await prisma.aVOrder.findMany({
     where: { eventId },
     include: {
-      functionLinks: { include: { function: true } },
+      functionLinks: { include: { function: { include: { breakoutGroup: { select: { name: true } } } } } },
       presentationLinks: { include: { presentation: { select: { id: true, title: true } } } },
       vendors: { include: { vendor: { select: { id: true, name: true } } } },
     },
@@ -65,7 +65,7 @@ export async function getAVOrder(id: string) {
   const row = await prisma.aVOrder.findUnique({
     where: { id },
     include: {
-      functionLinks: { include: { function: { include: { schedules: { orderBy: { startTime: "asc" } } } } } },
+      functionLinks: { include: { function: { include: { schedules: { orderBy: { startTime: "asc" } }, breakoutGroup: { select: { name: true } } } } } },
       presentationLinks: { include: { presentation: true } },
       audioSection: {
         include: {

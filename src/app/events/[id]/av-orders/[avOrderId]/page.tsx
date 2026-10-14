@@ -109,7 +109,7 @@ export default async function AVOrderPage({
   ]);
 
   // Fetch tab-specific data
-  let availableFunctions: Awaited<ReturnType<typeof prisma.function.findMany>> = [];
+  let availableFunctions: { id: string; name: string; functionNumber: string | null; breakoutGroup: { name: string } | null }[] = [];
   let availablePresentations: Awaited<ReturnType<typeof prisma.presentation.findMany>> = [];
   let equipmentOptions: Awaited<ReturnType<typeof getEquipment>> = [];
   let equipmentCategories: Awaited<ReturnType<typeof getOptions>> = [];
@@ -118,6 +118,7 @@ export default async function AVOrderPage({
     [availableFunctions, availablePresentations, equipmentOptions, equipmentCategories, avOrderPartyOptions] = await Promise.all([
       prisma.function.findMany({
         where: { eventId, NOT: { avOrderFunctions: { some: { avOrderId } } } },
+        select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } },
         orderBy: { name: "asc" },
       }),
       prisma.presentation.findMany({

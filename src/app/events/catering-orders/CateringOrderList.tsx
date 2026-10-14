@@ -100,7 +100,7 @@ export function CateringOrderList({
         case "vendors": return compareValues(a.vendors.map((v) => v.vendor.name).join(", "), b.vendors.map((v) => v.vendor.name).join(", "), sortDir);
         case "serviceStyle": return compareValues(a.serviceStyle ?? "", b.serviceStyle ?? "", sortDir);
         case "guaranteeCount": return compareValues(a.guaranteeCount ?? 0, b.guaranteeCount ?? 0, sortDir);
-        case "function": return compareValues(a.function?.name ?? "", b.function?.name ?? "", sortDir);
+        case "function": return compareValues(a.function ? formatFunctionLabel(a.function) : "", b.function ? formatFunctionLabel(b.function) : "", sortDir);
         default: return 0;
       }
     });

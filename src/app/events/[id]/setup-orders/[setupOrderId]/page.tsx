@@ -126,6 +126,7 @@ export default async function SetupOrderPage({
         NOT: { setupOrderFunctions: { some: { setupOrderId } } },
         ...(setupOrder.roomId ? { rooms: { some: { roomId: setupOrder.roomId } } } : {}),
       },
+      include: { breakoutGroup: { select: { name: true } } },
       orderBy: { name: "asc" },
     }),
     prisma.presentation.findMany({

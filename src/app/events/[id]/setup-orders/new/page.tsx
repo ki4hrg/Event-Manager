@@ -53,7 +53,7 @@ export default async function NewSetupOrderPage({
       ? Promise.resolve([])
       : prisma.function.findMany({
           where: { eventId },
-          include: { rooms: true },
+          include: { rooms: true, breakoutGroup: { select: { name: true } } },
           orderBy: { name: "asc" },
         }),
   ]);
