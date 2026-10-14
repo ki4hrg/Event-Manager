@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  // No `output: "standalone"`: the image runs `next start` from the full build
+  // because its CMD also needs the Prisma CLI for baseline + migrate + seed.
   // Server-only document renderers for the ESG / PER downloads (exceljs uses
   // optional requires webpack shouldn't try to bundle).
   experimental: {

@@ -6,6 +6,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { cateringRelationshipLabel, computeServiceLocationCounts, type CateringRelationship } from "@/lib/cateringServiceLocations";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
 import { formatPhone } from "@/lib/format-phone";
+import { partyLabel } from "@/lib/partyLabel";
 import {
   reportTh as th,
   reportTd as td,
@@ -79,15 +80,6 @@ type UnscheduledGroup = {
   setupOrders: SetupOrder[];
   supplyOrders: SupplyOrder[];
 };
-
-function partyName(
-  vendor: { name: string } | null | undefined,
-  contact: { firstName: string; lastName: string } | null | undefined
-): string {
-  if (vendor) return vendor.name;
-  if (contact) return `${contact.firstName} ${contact.lastName}`;
-  return "—";
-}
 
 function vendorRole(
   providerVendor: { id: string } | null | undefined,
@@ -173,8 +165,8 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
             )}
             <p className="text-gray-600 dark:text-gray-400 mt-0.5">{vendorRole(item.providerVendor, item.operatorVendor, vendorId)}</p>
             <div className="mt-1 text-gray-500 dark:text-gray-400 space-y-0.5">
-              <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyName(item.providerVendor, item.providerContact)}</span></p>
-              <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyName(item.operatorVendor, item.operatorContact)}</span></p>
+              <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyLabel(item.providerVendor, item.providerContact) ?? "—"}</span></p>
+              <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyLabel(item.operatorVendor, item.operatorContact) ?? "—"}</span></p>
             </div>
             {item.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-1">{item.notes}</p>}
           </div>
@@ -200,8 +192,8 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
                 <td className={td}>{item.equipment?.name ?? "—"}</td>
                 <td className={td}>{item.quantity ?? 1}</td>
                 <td className={td}>{vendorRole(item.providerVendor, item.operatorVendor, vendorId)}</td>
-                <td className={td}>{partyName(item.providerVendor, item.providerContact)}</td>
-                <td className={td}>{partyName(item.operatorVendor, item.operatorContact)}</td>
+                <td className={td}>{partyLabel(item.providerVendor, item.providerContact) ?? "—"}</td>
+                <td className={td}>{partyLabel(item.operatorVendor, item.operatorContact) ?? "—"}</td>
                 <td className={td}>{item.notes ?? ""}</td>
               </tr>
             ))}
@@ -879,8 +871,8 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 mt-0.5">{vendorRole(row.providerVendor, row.operatorVendor, vendorId)}</p>
                       <div className="mt-1 text-gray-500 dark:text-gray-400 space-y-0.5">
-                        <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyName(row.providerVendor, row.providerContact)}</span></p>
-                        <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyName(row.operatorVendor, row.operatorContact)}</span></p>
+                        <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyLabel(row.providerVendor, row.providerContact) ?? "—"}</span></p>
+                        <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyLabel(row.operatorVendor, row.operatorContact) ?? "—"}</span></p>
                       </div>
                       {row.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-1">{row.notes}</p>}
                     </div>
@@ -904,8 +896,8 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
                           <td className={td}>{row.displayName}</td>
                           <td className={td}>{row.quantity}</td>
                           <td className={td}>{vendorRole(row.providerVendor, row.operatorVendor, vendorId)}</td>
-                          <td className={td}>{partyName(row.providerVendor, row.providerContact)}</td>
-                          <td className={td}>{partyName(row.operatorVendor, row.operatorContact)}</td>
+                          <td className={td}>{partyLabel(row.providerVendor, row.providerContact) ?? "—"}</td>
+                          <td className={td}>{partyLabel(row.operatorVendor, row.operatorContact) ?? "—"}</td>
                           <td className={td}>{row.notes}</td>
                         </tr>
                       ))}
@@ -928,8 +920,8 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
                     )}
                     <p className="text-gray-600 dark:text-gray-400 mt-0.5">{vendorRole(mix.providerVendor, mix.operatorVendor, vendorId)}</p>
                     <div className="mt-1 text-gray-500 dark:text-gray-400 space-y-0.5">
-                      <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyName(mix.providerVendor, mix.providerContact)}</span></p>
-                      <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyName(mix.operatorVendor, mix.operatorContact)}</span></p>
+                      <p>Provider: <span className="text-gray-700 dark:text-gray-300">{partyLabel(mix.providerVendor, mix.providerContact) ?? "—"}</span></p>
+                      <p>Operator: <span className="text-gray-700 dark:text-gray-300">{partyLabel(mix.operatorVendor, mix.operatorContact) ?? "—"}</span></p>
                     </div>
                     {mix.notes && <p className="text-gray-500 dark:text-gray-500 italic mt-1">{mix.notes}</p>}
                   </div>
@@ -953,8 +945,8 @@ function AVOrderSection({ order, vendorId }: { order: AVOrder; vendorId: string 
                         <td className={td}>{mix.description}</td>
                         <td className={td}>{mix.equipment?.name ?? "—"}</td>
                         <td className={td}>{vendorRole(mix.providerVendor, mix.operatorVendor, vendorId)}</td>
-                        <td className={td}>{partyName(mix.providerVendor, mix.providerContact)}</td>
-                        <td className={td}>{partyName(mix.operatorVendor, mix.operatorContact)}</td>
+                        <td className={td}>{partyLabel(mix.providerVendor, mix.providerContact) ?? "—"}</td>
+                        <td className={td}>{partyLabel(mix.operatorVendor, mix.operatorContact) ?? "—"}</td>
                         <td className={td}>{mix.notes ?? ""}</td>
                       </tr>
                     ))}
@@ -1119,7 +1111,7 @@ function SetupOrderSection({ order, vendorId }: { order: SetupOrder; vendorId: s
 
 function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId: string }) {
   const orderProvider = order.providerVendor ?? null;
-  const orderProviderName = partyName(order.providerVendor, order.providerContact);
+  const orderProviderName = partyLabel(order.providerVendor, order.providerContact);
   // Vendors only see items they're responsible for: either explicitly assigned
   // (item-level vendor matches) or inheriting from the order-level vendor.
   const visibleItems = order.items.filter((item) => {
@@ -1141,7 +1133,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
             {order.specificLocation ? ` — ${order.specificLocation}` : ""}
           </span>
           <PackingStatusRollup items={order.items} />
-          {orderProviderName !== "—" && <span>Provider: {orderProviderName}</span>}
+          {orderProviderName && <span>Provider: {orderProviderName}</span>}
         </div>
         <LastUpdated
           updatedAt={order.updatedAt}
@@ -1163,11 +1155,8 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
           <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs mb-2">
             {visibleItems.map((item) => {
               const itemLabel = item.equipment?.name ?? item.description ?? "—";
-              const itemProviderName = item.providerVendor
-                ? item.providerVendor.name
-                : item.providerContact
-                  ? `${item.providerContact.firstName} ${item.providerContact.lastName}`
-                  : orderProviderName;
+              const itemProviderName =
+                partyLabel(item.providerVendor, item.providerContact) ?? orderProviderName;
               return (
                 <div key={item.id} className="p-2">
                   <div className="flex items-baseline justify-between gap-2">
@@ -1179,7 +1168,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
                     {PACKING_STATUS_LABEL[item.packingStatus]} · {ACQUISITION_LABEL[item.acquisitionState]}
                   </p>
-                  {itemProviderName && itemProviderName !== "—" && (
+                  {itemProviderName && (
                     <p className="text-gray-500 dark:text-gray-400 mt-0.5">Provider: {itemProviderName}</p>
                   )}
                   {item.sourceLocation && (
@@ -1211,11 +1200,8 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
               <tbody>
                 {visibleItems.map((item) => {
                   const itemLabel = item.equipment?.name ?? item.description ?? "—";
-                  const itemProviderName = item.providerVendor
-                    ? item.providerVendor.name
-                    : item.providerContact
-                      ? `${item.providerContact.firstName} ${item.providerContact.lastName}`
-                      : orderProviderName;
+                  const itemProviderName =
+                    partyLabel(item.providerVendor, item.providerContact) ?? orderProviderName ?? "—";
                   return (
                     <tr key={item.id}>
                       <td className={td}>{itemLabel}</td>

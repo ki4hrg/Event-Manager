@@ -9,7 +9,7 @@ import { SectionDivider } from "@/components/SectionDivider";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { LastUpdated } from "@/components/LastUpdated";
-import { reportTh as th, reportTd as td, reportSectionCard as sectionCard } from "@/lib/reportStyles";
+import { reportTh as th, reportTd as td, reportSectionCard as sectionCard, labelMicroCaps } from "@/lib/reportStyles";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
 import { PACKING_STATUS_CLASS, PACKING_STATUS_LABEL } from "@/lib/statusConstants";
@@ -435,7 +435,7 @@ function CateringCard({
           {order.menuSections.map((section) => (
             <div key={section.id} className="border-t border-gray-200 dark:border-gray-700 pt-3 first:border-t-0 first:pt-0">
               {section.responsiblePartyVendor && (
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                <p className={`${labelMicroCaps} mb-1`}>
                   {section.responsiblePartyVendor.name}
                 </p>
               )}

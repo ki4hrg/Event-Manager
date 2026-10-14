@@ -442,6 +442,7 @@ export default async function SetupOrderPage({
             />
             <EquipmentTable
               items={setupOrder.equipmentItems}
+              resource="SETUP_ORDERS"
               partyVendors={flattenResponsiblePartyOptions(responsiblePartyVendors)}
               equipmentOptions={filteredEquipmentOptions}
               allEquipmentOptions={hasSetupEquipmentFilter ? equipmentOptions : undefined}

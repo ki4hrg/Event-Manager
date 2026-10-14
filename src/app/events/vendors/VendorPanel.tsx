@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import type { Vendor } from "@prisma/client";
 import { MODEL_LABELS } from "@/app/vendors/model-types";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { useDebouncedSearch } from "@/lib/useDebouncedSearch";
 
 type AssignedVendor = {
   id: string;
@@ -38,11 +39,8 @@ export function VendorPanel({
   const canWrite = useCanWrite("VENDORS");
   const canDelete = useCanDelete("VENDORS");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Vendor[]>([]);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [notes, setNotes] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNotes, setEditNotes] = useState("");
 
@@ -50,29 +48,12 @@ export function VendorPanel({
   const unassignedVendors = availableVendors.filter((v) => !assignedIdSet.has(v.id));
   const useDropdown = unassignedVendors.length <= DROPDOWN_THRESHOLD;
 
-  useEffect(() => {
-    if (useDropdown || searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const results = await searchEventVendors(searchQuery);
-        setSearchResults(results.filter((v) => !assignedIdSet.has(v.id)));
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchEventVendors, assignedVendors, useDropdown]);
+  const search = useDebouncedSearch(searchEventVendors, { enabled: !useDropdown });
+  const searchResults = search.results.filter((v) => !assignedIdSet.has(v.id));
 
   const handleSelect = (vendor: Vendor) => {
     setSelectedVendor(vendor);
-    setSearchQuery("");
-    setSearchResults([]);
+    search.clear();
   };
 
   const handleAdd = async () => {
@@ -102,7 +83,7 @@ export function VendorPanel({
             onClick={() => {
               setShowAddForm(true);
               setSelectedVendor(null);
-              setSearchQuery("");
+              search.clear();
               setNotes("");
             }}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
@@ -156,13 +137,13 @@ export function VendorPanel({
                 </label>
                 <input
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={search.query}
+                  onChange={(e) => search.setQuery(e.target.value)}
                   placeholder="Search by vendor name..."
                   autoFocus
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 />
-                {isSearching && (
+                {search.isSearching && (
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Searching...</p>
                 )}
                 {searchResults.length > 0 && (
@@ -184,7 +165,7 @@ export function VendorPanel({
                     ))}
                   </div>
                 )}
-                {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
+                {search.query.length >= 2 && !search.isSearching && searchResults.length === 0 && (
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     No vendors found.{" "}
                     <Link href={`/events/${eventId}/vendors`} className="text-blue-600 dark:text-blue-400 hover:underline">
@@ -239,7 +220,7 @@ export function VendorPanel({
               onClick={() => {
                 setShowAddForm(false);
                 setSelectedVendor(null);
-                setSearchQuery("");
+                search.clear();
                 setNotes("");
               }}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"

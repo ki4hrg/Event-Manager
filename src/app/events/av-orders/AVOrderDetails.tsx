@@ -4,19 +4,11 @@ import type { getAVOrderVendors } from "@/app/vendors/actions";
 import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
+import { partyLabel } from "@/lib/partyLabel";
 
 type AVOrderData = NonNullable<Awaited<ReturnType<typeof getAVOrder>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
 type VendorAssignment = Awaited<ReturnType<typeof getAVOrderVendors>>[number];
-
-function partyLabel(
-  vendor: { name: string } | null | undefined,
-  contact: { firstName: string; lastName: string } | null | undefined
-): string {
-  if (vendor) return vendor.name;
-  if (contact) return `${contact.firstName} ${contact.lastName}`;
-  return "—";
-}
 
 interface AVOrderDetailsProps {
   order: AVOrderData;
@@ -85,9 +77,9 @@ export function AVOrderDetails({
                 Input Group: {group.name}
               </p>
               <div className="text-xs text-gray-500 print:text-gray-600 mb-1">
-                Provider: {partyLabel(group.providerVendor, group.providerContact)}
+                Provider: {partyLabel(group.providerVendor, group.providerContact) ?? "—"}
                 {" · "}
-                Operator: {partyLabel(group.operatorVendor, group.operatorContact)}
+                Operator: {partyLabel(group.operatorVendor, group.operatorContact) ?? "—"}
               </div>
 
               {group.inputItems.length > 0 && (
@@ -109,9 +101,9 @@ export function AVOrderDetails({
                           {item.equipment?.name ?? "—"}
                         </td>
                         <td className="py-1 text-gray-600 print:text-gray-700 text-xs">
-                          {partyLabel(item.providerVendor, item.providerContact)}
+                          {partyLabel(item.providerVendor, item.providerContact) ?? "—"}
                           {" / "}
-                          {partyLabel(item.operatorVendor, item.operatorContact)}
+                          {partyLabel(item.operatorVendor, item.operatorContact) ?? "—"}
                         </td>
                       </tr>
                     ))}
@@ -145,9 +137,9 @@ export function AVOrderDetails({
                               </td>
                               <td className="py-0.5 pr-4 text-gray-600 print:text-gray-700 text-xs">{output.quantity}</td>
                               <td className="py-0.5 text-gray-600 print:text-gray-700 text-xs">
-                                {partyLabel(output.providerVendor, output.providerContact)}
+                                {partyLabel(output.providerVendor, output.providerContact) ?? "—"}
                                 {" / "}
-                                {partyLabel(output.operatorVendor, output.operatorContact)}
+                                {partyLabel(output.operatorVendor, output.operatorContact) ?? "—"}
                               </td>
                             </tr>
                           ))}
@@ -185,9 +177,9 @@ export function AVOrderDetails({
                     <td className="py-1.5 pr-4 text-gray-600 print:text-gray-700">{e.equipment?.name ?? "—"}</td>
                     <td className="py-1.5 pr-4 text-gray-900 print:text-black">{e.quantity}</td>
                     <td className="py-1.5 text-gray-600 print:text-gray-700">
-                      {partyLabel(e.providerVendor, e.providerContact)}
+                      {partyLabel(e.providerVendor, e.providerContact) ?? "—"}
                       {" / "}
-                      {partyLabel(e.operatorVendor, e.operatorContact)}
+                      {partyLabel(e.operatorVendor, e.operatorContact) ?? "—"}
                     </td>
                   </tr>
                 ))}

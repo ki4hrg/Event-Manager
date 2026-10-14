@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UNCAPPED } from "@/lib/accessLevels";
+import { useDebouncedSearch } from "@/lib/useDebouncedSearch";
 import {
   AccessLevelSelect,
   accessSelectClass,
@@ -54,28 +55,12 @@ export function EventAccessPanel({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<EventSearchResult[]>([]);
+  const { query, setQuery, results, clear } = useDebouncedSearch(searchEvents);
   const [grantLevel, setGrantLevel] = useState("VIEW");
 
   const [seriesId, setSeriesId] = useState("");
   const [seriesLevel, setSeriesLevel] = useState("VIEW");
 
-  useEffect(() => {
-    if (query.length < 2) return;
-    const timeoutId = setTimeout(async () => {
-      try {
-        setResults(await searchEvents(query));
-      } catch {
-        setResults([]);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [query, searchEvents]);
-
-  // Derived rather than cleared in the effect — a short query simply has no
-  // results to show, and stale ones shouldn't flash while the next search debounces.
-  const visibleResults = query.length < 2 ? [] : results;
 
   function run(fn: () => Promise<void>) {
     setError(null);
@@ -186,15 +171,14 @@ export function EventAccessPanel({
             onChange={setGrantLevel}
           />
         </div>
-        {visibleResults.length > 0 && (
+        {results.length > 0 && (
           <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-40 overflow-y-auto">
-            {visibleResults.map((e) => (
+            {results.map((e) => (
               <button
                 key={e.id}
                 type="button"
                 onClick={() => {
-                  setQuery("");
-                  setResults([]);
+                  clear();
                   run(() => grantEvent(e.id, grantLevel));
                 }}
                 className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-sm text-gray-900 dark:text-white"

@@ -518,6 +518,7 @@ export default async function AVOrderPage({
           <div className="lg:col-span-2 space-y-6">
             <EquipmentTable
               items={avOrder.equipmentItems}
+              resource="AV_ORDERS"
               vendorGroups={avOrderPartyOptions.responsiblePartyVendors}
               contactOptions={avOrderPartyOptions.contacts}
               contactsLabel="Presenters"

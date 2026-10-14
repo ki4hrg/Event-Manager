@@ -5,6 +5,7 @@
 import { formatEventDate, getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { withGroupDefaults } from "@/lib/boothGroups";
 import { formatPhone } from "@/lib/format-phone";
+import { partyLabel } from "@/lib/partyLabel";
 import { firmestGuestCount } from "@/lib/cateringGuestCount";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { compareFunctionNumbers, roomFunctionNumber } from "@/lib/functionNumbers";
@@ -452,14 +453,14 @@ function partyName(i: {
   providerVendor: { name: string } | null;
   providerContact: { firstName: string; lastName: string } | null;
 }) {
-  return i.providerVendor?.name ?? (i.providerContact ? person(i.providerContact) : null);
+  return partyLabel(i.providerVendor, i.providerContact);
 }
 
 function operatorName(i: {
   operatorVendor: { name: string } | null;
   operatorContact: { firstName: string; lastName: string } | null;
 }) {
-  return i.operatorVendor?.name ?? (i.operatorContact ? person(i.operatorContact) : null);
+  return partyLabel(i.operatorVendor, i.operatorContact);
 }
 
 function money(v: { toFixed: (n: number) => string } | null): string | null {
