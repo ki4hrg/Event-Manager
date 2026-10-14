@@ -23,6 +23,7 @@ import {
   addEventKeyStaffCore,
   updateEventKeyStaffCore,
   removeEventKeyStaffCore,
+  reorderEventKeyStaffCore,
   createContactAndAddKeyStaffCore,
   type EventWriteArgs,
 } from "@/app/events/core";
@@ -128,7 +129,8 @@ export const eventTools: McpToolDefinition[] = [
   },
   {
     name: "get_event",
-    description: "Fetch a single event by id, including its venues in order (the first is the primary venue).",
+    description:
+      "Fetch a single event by id, including its venues in order (the first is the primary venue) and its key staff in display order (ids for the *_event_key_staff tools).",
     inputSchema: {
       type: "object",
       properties: {
@@ -146,6 +148,10 @@ export const eventTools: McpToolDefinition[] = [
           ...eventVenuesInclude,
           series: { select: { id: true, name: true } },
           updatedBy: { select: { name: true, email: true } },
+          keyStaff: {
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, title: true, contact: { select: { id: true, firstName: true, lastName: true } } },
+          },
         },
       });
     },
@@ -271,6 +277,26 @@ export const eventTools: McpToolDefinition[] = [
       const eventId = requireString(args, "eventId");
       await removeEventKeyStaffCore(keyStaffId, eventId, userId);
       return { keyStaffId, removed: true };
+    },
+  },
+  {
+    name: "reorder_event_key_staff",
+    description:
+      "Set the display order of an event's key staff (event page, ESG and Post-Event Report contact lists). Pass every key-staff id (from get_event) in the desired order, lead planner first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        orderedIds: { type: "array", items: { type: "string" } },
+      },
+      required: ["eventId", "orderedIds"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const eventId = requireString(args, "eventId");
+      const orderedIds = optionalStringArray(args, "orderedIds");
+      await reorderEventKeyStaffCore(eventId, orderedIds, userId);
+      return { eventId, orderedIds };
     },
   },
   {

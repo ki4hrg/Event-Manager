@@ -13,7 +13,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { loadEsgNarrativeData, type EsgNarrativeData } from "@/lib/esg/narrativeData";
 import { functionStartKey } from "@/lib/esg/scheduleKey";
 import { buildFbAttendanceGrid, PER_FB_ROWS } from "@/lib/esg/fbGrid";
-import { formatDateOnly, formatDayDate, formatDayDateTime, isBlankText } from "@/lib/esg/format";
+import { formatDateOnly, formatDayDate, formatDayDateTime, isBlankText, toDateInput } from "@/lib/esg/format";
 import { DISTRIBUTION_ACTIONS, type EsgFieldDef } from "@/lib/esg/fields";
 import { PER_ATTRIBUTION, PER_SECTIONS, type PerDerivedSource } from "@/lib/esg/perFields";
 import { MEAL_BUCKETS } from "@/lib/esg/apex";
@@ -25,7 +25,7 @@ export async function loadPerData(eventId: string) {
   const narrative = await loadEsgNarrativeData(eventId);
   if (!narrative) return null;
   const { event } = narrative;
-  const [postEvent, functions, catering, booths, mealTypes, scheduleTypes, prior, next] = await Promise.all([
+  const [postEvent, functions, catering, booths, mealTypes, scheduleTypes, prior, later] = await Promise.all([
     prisma.eventPostEvent.findUnique({ where: { eventId } }),
     prisma.function.findMany({
       // `not` alone would also drop rows with no status (SQL NULL).
@@ -82,16 +82,16 @@ export async function loadPerData(eventId: string) {
         })
       : null,
     event.seriesId
-      ? prisma.event.findFirst({
+      ? prisma.event.findMany({
           where: { seriesId: event.seriesId, startDate: { gt: event.startDate }, NOT: { id: eventId } },
           orderBy: { startDate: "asc" },
           include: eventVenuesInclude,
         })
-      : null,
+      : [],
   ]);
   const support = new Set(scheduleTypes.filter((o) => o.group === "SETUP" || o.group === "TEARDOWN").map((o) => o.label));
   if (support.size === 0) ["Setup", "Breakdown"].forEach((l) => support.add(l));
-  return { narrative, postEvent, functions, catering, booths, mealTypes, support, prior, next };
+  return { narrative, postEvent, functions, catering, booths, mealTypes, support, prior, later };
 }
 
 export type PerData = NonNullable<Awaited<ReturnType<typeof loadPerData>>>;
@@ -126,7 +126,42 @@ function fieldValue(d: PerData, f: EsgFieldDef): EsgItem {
   if (raw === null || raw === undefined || raw === "") return { ...base, value: null };
   if (f.kind === "richtext") return { ...base, value: null, html: isBlankText(raw) ? null : (raw as string) };
   if (f.kind === "bool") return { ...base, value: raw ? "Yes" : "No" };
+  if (f.kind === "date") return { ...base, value: formatDateOnly(raw as Date) };
   return { ...base, value: String(raw) };
+}
+
+// §III figures the Hotels module supplies. A non-null value replaces the
+// matching §III field: the page hides its input and the report prints this.
+export function perHousingComputed(d: PerData): Record<"usedSleepingRooms" | "hotelCount" | "peakNightRooms", boolean | number | null> {
+  const { housing } = d.narrative;
+  if (housing.source !== "hotels") return { usedSleepingRooms: null, hotelCount: null, peakNightRooms: null };
+  const s = housing.perSummary;
+  return { usedSleepingRooms: s.usedSleepingRooms, hotelCount: s.hotelCount, peakNightRooms: s.peakNightRooms };
+}
+
+// Fields a derived block already covers, per source: entered on this page
+// but printed inside the block (attendance), or computed (housing).
+export function perComputedKeys(d: PerData): Set<string> {
+  const computed = perHousingComputed(d);
+  return new Set(Object.entries(computed).filter(([, v]) => v !== null).map(([k]) => k));
+}
+
+// Later events in the series as future-date rows. Event dates are calendar
+// dates read as the UTC date, like formatEventDate.
+export function perSeriesFutureDates(d: PerData) {
+  return d.later.map((e) => {
+    const v = e.venues[0]?.venue;
+    return {
+      id: e.id,
+      startDate: toDateInput(e.startDate),
+      endDate: toDateInput(e.endDate),
+      facility: v?.name ?? null,
+      city: v?.city ?? null,
+      state: v?.state ?? null,
+      country: v?.country ?? null,
+      comments: e.name,
+    };
+  });
 }
 
 function venueLine(e: { venues: { venue: { name: string; city: string | null; state: string | null; country: string | null } }[] }) {
@@ -143,7 +178,9 @@ function effectiveRoomCount(fn: PerData["functions"][number]): number {
   return ids.size;
 }
 
-export function perDerivedBlocks(d: PerData, source: PerDerivedSource, label: string): EsgBlock[] {
+// `forForm`: the Post-Event page, where values entered on that page show in
+// the section's own fields rather than under "From the event".
+export function perDerivedBlocks(d: PerData, source: PerDerivedSource, label: string, forForm = false): EsgBlock[] {
   const n: EsgNarrativeData = d.narrative;
   const { event } = n;
   const tz = event.timezone;
@@ -188,8 +225,12 @@ export function perDerivedBlocks(d: PerData, source: PerDerivedSource, label: st
                   ? null
                   : `${actual}${event.isMembershipBased && event.membershipCount ? ` (${Math.round((actual / event.membershipCount) * 100)}% of membership)` : ""}`,
             },
-            { label: "Domestic attendees", value: domestic == null ? null : `${domestic}${pct(domestic, actual)}` },
-            { label: "International attendees", value: intl == null ? null : `${intl}${pct(intl, actual)}` },
+            ...(forForm
+              ? []
+              : [
+                  { label: "Domestic attendees", value: domestic == null ? null : `${domestic}${pct(domestic, actual)}` },
+                  { label: "International attendees", value: intl == null ? null : `${intl}${pct(intl, actual)}` },
+                ]),
           ],
         },
       ];
@@ -229,19 +270,12 @@ export function perDerivedBlocks(d: PerData, source: PerDerivedSource, label: st
             },
           ];
     case "housingSummary": {
-      const s = n.housing.perSummary;
-      if (n.housing.source !== "hotels") return [];
-      return [
-        {
-          kind: "fields",
-          items: [
-            { label: "Event used sleeping rooms", value: yn(s.usedSleepingRooms) },
-            { label: "Number of hotels used", value: count(s.hotelCount) },
-            { label: "Total rooms used on peak night", value: count(s.peakNightRooms) },
-            { label: "Housing services performed by", value: s.performedBy },
-          ],
-        },
-      ];
+      const c = perHousingComputed(d);
+      const items: EsgItem[] = [];
+      if (c.usedSleepingRooms !== null) items.push({ label: "Event used sleeping rooms", value: yn(c.usedSleepingRooms as boolean), required: true });
+      if (c.hotelCount !== null) items.push({ label: "Number of hotels used", value: count(c.hotelCount as number) });
+      if (c.peakNightRooms !== null) items.push({ label: "Total rooms used on peak night", value: count(c.peakNightRooms as number) });
+      return items.length ? [{ kind: "fields", items }] : [];
     }
     case "roomBlocks": {
       const hotels = n.housing.perHotels;
@@ -406,21 +440,6 @@ export function perDerivedBlocks(d: PerData, source: PerDerivedSource, label: st
         },
       ];
     }
-    case "nextInSeries": {
-      if (!d.next) return [];
-      const { facility, place } = venueLine(d.next);
-      return [
-        {
-          kind: "fields",
-          items: [
-            { label: label, value: d.next.name },
-            { label: "Next published dates", value: `${formatEventDate(d.next.startDate, d.next.timezone)} – ${formatEventDate(d.next.endDate, d.next.timezone)}` },
-            { label: "Next facility", value: facility },
-            { label: "Next location", value: place },
-          ],
-        },
-      ];
-    }
     default: {
       const _exhaustive: never = source;
       throw new Error(`Unhandled PER source: ${_exhaustive}`);
@@ -430,14 +449,32 @@ export function perDerivedBlocks(d: PerData, source: PerDerivedSource, label: st
 
 function gridBlocks(d: PerData, grid: "futureDates" | "distributions"): EsgBlock | null {
   if (grid === "futureDates") {
-    const rows = d.narrative.grids.futureDates;
-    if (rows.length === 0) return null;
+    // Later events in the series first, then dates entered on the page.
+    const series = perSeriesFutureDates(d).map((r) => [
+      formatDateOnly(`${r.startDate}T00:00:00Z`),
+      formatDateOnly(`${r.endDate}T00:00:00Z`),
+      r.facility,
+      r.city,
+      r.state,
+      r.country,
+      r.comments,
+    ]);
+    const entered = d.narrative.grids.futureDates.map((r) => [
+      formatDateOnly(r.startDate),
+      formatDateOnly(r.endDate),
+      r.facility,
+      r.city,
+      r.state,
+      r.country,
+      r.comments,
+    ]);
+    if (series.length + entered.length === 0) return null;
     return {
       kind: "table",
       table: {
         title: "Future dates",
         columns: ["Start", "End", "Facility", "City", "State / province", "Country", "Comments"],
-        rows: rows.map((r) => [formatDateOnly(r.startDate), formatDateOnly(r.endDate), r.facility, r.city, r.state, r.country, r.comments]),
+        rows: [...series, ...entered],
       },
     };
   }
@@ -461,6 +498,13 @@ function gridBlocks(d: PerData, grid: "futureDates" | "distributions"): EsgBlock
 
 const SHOWN_IN_ATTENDANCE = new Set(["domesticAttendees", "internationalAttendees"]);
 
+// A section's editable fields on the Post-Event page: minus those the
+// Hotels module computes for this event.
+export function perEditableFields(d: PerData, fields: EsgFieldDef[]): EsgFieldDef[] {
+  const computed = perComputedKeys(d);
+  return fields.filter((f) => !computed.has(f.key));
+}
+
 export function assemblePerDocument(d: PerData, opts: { showBlank: boolean }): PerDocument {
   const { event } = d.narrative;
   const na = new Set(d.postEvent?.naSections ?? []);
@@ -468,8 +512,11 @@ export function assemblePerDocument(d: PerData, opts: { showBlank: boolean }): P
     if (na.has(s.letter)) return { letter: s.letter, title: s.title, na: true, blocks: [] };
     const blocks: EsgBlock[] = [];
     for (const def of s.derived ?? []) blocks.push(...perDerivedBlocks(d, def.source, def.label));
-    // Domestic / international print inside the attendance block (with %).
-    const items = s.fields.filter((f) => !SHOWN_IN_ATTENDANCE.has(f.key)).map((f) => fieldValue(d, f));
+    // Domestic / international print inside the attendance block (with %);
+    // computed housing figures inside the housing block.
+    const items = perEditableFields(d, s.fields)
+      .filter((f) => !SHOWN_IN_ATTENDANCE.has(f.key))
+      .map((f) => fieldValue(d, f));
     const kept = opts.showBlank ? items : items.filter((i) => i.value !== null || (i.html && !isBlankText(i.html)));
     if (kept.length) blocks.push({ kind: "fields", items: kept });
     for (const g of s.grids ?? []) {
@@ -493,12 +540,17 @@ export function assemblePerDocument(d: PerData, opts: { showBlank: boolean }): P
 // Required PER fields still missing (sections marked N/A exempt).
 export function perCompleteness(d: PerData) {
   const na = new Set(d.postEvent?.naSections ?? []);
+  const computed = perComputedKeys(d);
   const missing: { section: string; label: string }[] = [];
   let total = 0;
   for (const s of PER_SECTIONS) {
     if (na.has(s.letter)) continue;
     for (const f of s.fields) {
       if (!f.required) continue;
+      if (computed.has(f.key)) {
+        total++;
+        continue;
+      }
       total++;
       const v = fieldValue(d, f);
       if (v.value === null && (!v.html || isBlankText(v.html))) missing.push({ section: s.letter, label: f.label });

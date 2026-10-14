@@ -56,7 +56,6 @@ export type HousingInput = {
     usedSleepingRooms: boolean | null;
     hotelCount: number | null;
     peakNightRooms: number | null;
-    performedBy: string | null;
   };
 };
 
@@ -76,7 +75,7 @@ export async function loadHousingInput(eventId: string, spec: SpecHousingFields)
     reservationMethod: spec?.reservationMethod ?? null,
     thirdPartyProvider: spec?.thirdPartyHousing ? providerName : null,
     perHotels: [],
-    perSummary: { usedSleepingRooms: null, hotelCount: null, peakNightRooms: null, performedBy: null },
+    perSummary: { usedSleepingRooms: null, hotelCount: null, peakNightRooms: null },
   };
 
   const blocks = await prisma.hotelBlock.findMany({
@@ -160,7 +159,6 @@ export async function loadHousingInput(eventId: string, spec: SpecHousingFields)
       usedSleepingRooms: true,
       hotelCount: new Set(blocks.map((b) => b.proposal.venue.id)).size,
       peakNightRooms: anyPickup ? Math.max(...Array.from(actualByNight.values())) : null,
-      performedBy: null,
     },
   };
 }

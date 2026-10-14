@@ -60,6 +60,7 @@ export default async function SpecificationsPage({ params }: { params: Promise<{
     functions: [...data.functions]
       .sort((a, b) => compareFunctionNumbers(a.functionNumber, b.functionNumber) || a.name.localeCompare(b.name))
       .map((f) => ({ id: f.id, label: formatFunctionLabel(f) })),
+    suggestions: data.suggestions,
   };
 
   const valuesFor = (fields: EsgFieldDef[]) => {

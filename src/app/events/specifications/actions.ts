@@ -9,6 +9,7 @@ import { ESG_HEADER_FIELDS, SPEC_GRID_COLUMNS, SPEC_GRIDS, getEsgSection, type S
 import { parseEsgForm } from "@/lib/esg/parse";
 import { getPerSection } from "@/lib/esg/perFields";
 import { loadPerData, perCompleteness } from "@/lib/esg/per";
+import { loadSpecSuggestions } from "@/lib/esg/suggestions";
 import {
   createSpecRowCore,
   deleteSpecRowCore,
@@ -37,7 +38,8 @@ function revalidateSpec(eventId: string) {
 
 export async function getEventSpecification(eventId: string) {
   await requirePermission("EVENTS", "VIEW", eventId);
-  return loadEsgNarrativeData(eventId);
+  const [data, suggestions] = await Promise.all([loadEsgNarrativeData(eventId), loadSpecSuggestions(eventId)]);
+  return data ? { ...data, suggestions } : null;
 }
 
 // One section's form (letter "header" for Date Originated / Revised).
@@ -98,8 +100,8 @@ export async function unlockFunctionNumbers(eventId: string) {
 
 export async function getPostEventData(eventId: string) {
   await requirePermission("EVENTS", "VIEW", eventId);
-  const data = await loadPerData(eventId);
-  return data ? { data, completeness: perCompleteness(data) } : null;
+  const [data, suggestions] = await Promise.all([loadPerData(eventId), loadSpecSuggestions(eventId)]);
+  return data ? { data, completeness: perCompleteness(data), suggestions } : null;
 }
 
 export async function updatePostEventSection(eventId: string, letter: string, formData: FormData) {

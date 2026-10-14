@@ -1,9 +1,75 @@
 "use client";
 
+import { useRef } from "react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { PROVIDED_BY_LABELS } from "@/lib/esg/apex";
 import { toDateTimeLocal } from "@/lib/esg/format";
-import type { EsgFieldKind } from "@/lib/esg/fields";
+import type { EsgFieldKind, SuggestSource } from "@/lib/esg/fields";
+import type { Suggestion, SpecSuggestions } from "@/lib/esg/suggestions";
+
+const INSERT_LABELS: Record<SuggestSource, string> = {
+  room: "Insert room…",
+  venue: "Insert venue…",
+  vendor: "Insert vendor…",
+  contact: "Insert person…",
+};
+
+// Multi-line text with an "Insert room…" picker that drops the chosen name
+// at the cursor; the value stays free text.
+function TextareaWithInsert({
+  id,
+  name,
+  value,
+  placeholder,
+  suggest,
+  suggestions,
+}: {
+  id?: string;
+  name: string;
+  value: SpecValue;
+  placeholder?: string;
+  suggest: SuggestSource;
+  suggestions: Suggestion[];
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const insert = (text: string) => {
+    const ta = ref.current;
+    if (!ta || !text) return;
+    const start = ta.selectionStart ?? ta.value.length;
+    const end = ta.selectionEnd ?? start;
+    // Start on a fresh line unless the cursor already sits at one.
+    const before = ta.value.slice(0, start);
+    const prefix = before && !before.endsWith("\n") && !before.endsWith(" ") ? "\n" : "";
+    ta.setRangeText(prefix + text, start, end, "end");
+    ta.focus();
+  };
+  return (
+    <>
+      <textarea
+        ref={ref}
+        id={id}
+        name={name}
+        rows={3}
+        defaultValue={(value as string) ?? ""}
+        placeholder={placeholder}
+        className={specInputClass}
+      />
+      <select
+        aria-label={INSERT_LABELS[suggest]}
+        value=""
+        onChange={(e) => insert(e.target.value)}
+        className="mt-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 text-xs"
+      >
+        <option value="">{INSERT_LABELS[suggest]}</option>
+        {suggestions.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.value}
+          </option>
+        ))}
+      </select>
+    </>
+  );
+}
 
 // Serialized values: dates arrive as "YYYY-MM-DD", datetimes as ISO strings.
 export type SpecValue = string | number | boolean | null;
@@ -13,6 +79,7 @@ export type SpecChoices = {
   vendors: { id: string; label: string }[];
   contacts: { id: string; label: string }[];
   functions: { id: string; label: string }[];
+  suggestions?: SpecSuggestions;
 };
 
 export const specInputClass =
@@ -56,6 +123,7 @@ export function SpecFieldInput({
   optionCategory,
   id,
   placeholder,
+  suggest,
 }: {
   name: string;
   kind: EsgFieldKind;
@@ -65,19 +133,47 @@ export function SpecFieldInput({
   optionCategory?: string;
   id?: string;
   placeholder?: string;
+  suggest?: SuggestSource;
 }) {
   switch (kind) {
-    case "text":
+    case "text": {
+      const suggestions = suggest ? (choices.suggestions?.[suggest] ?? []) : [];
+      const listId = suggestions.length > 0 ? `${id ?? name}-suggestions` : undefined;
       return (
-        <input
-          id={id}
-          name={name}
-          defaultValue={(value as string) ?? ""}
-          placeholder={placeholder}
-          className={specInputClass}
-        />
+        <>
+          <input
+            id={id}
+            name={name}
+            list={listId}
+            autoComplete={listId ? "off" : undefined}
+            defaultValue={(value as string) ?? ""}
+            placeholder={placeholder}
+            className={specInputClass}
+          />
+          {listId && (
+            <datalist id={listId}>
+              {suggestions.map((s) => (
+                <option key={s.value} value={s.value} />
+              ))}
+            </datalist>
+          )}
+        </>
       );
-    case "textarea":
+    }
+    case "textarea": {
+      const suggestions = suggest ? (choices.suggestions?.[suggest] ?? []) : [];
+      if (suggest && suggestions.length > 0) {
+        return (
+          <TextareaWithInsert
+            id={id}
+            name={name}
+            value={value}
+            placeholder={placeholder}
+            suggest={suggest}
+            suggestions={suggestions}
+          />
+        );
+      }
       return (
         <textarea
           id={id}
@@ -88,6 +184,7 @@ export function SpecFieldInput({
           className={specInputClass}
         />
       );
+    }
     case "richtext":
       return (
         <div className="mt-1">
