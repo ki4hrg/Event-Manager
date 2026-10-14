@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { btnOutlinedXs } from "@/lib/buttonStyles";
 
 type DayOption = { value: string; label: string };
 type RoomOption = { value: string; label: string; groupId: string | null; groupName: string | null; groupSortOrder: number };
@@ -136,7 +137,7 @@ export function ReportFilters({
       {!hidePrint && (
         <a
           href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+          className={btnOutlinedXs}
         >
           Print / Save PDF
         </a>

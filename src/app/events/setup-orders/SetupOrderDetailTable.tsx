@@ -8,6 +8,7 @@ import { ResponsiblePartyField } from "@/components/ResponsiblePartyField";
 import type { ResponsiblePartyOptions } from "@/app/vendors/actions";
 import { isRichTextEmpty } from "@/lib/richText";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
 type DetailWithVendor = SetupOrderDetail & {
   responsiblePartyVendor: { id: string; name: string } | null;
@@ -191,14 +192,11 @@ export function SetupOrderDetailTable({
                         <button onClick={() => setEditingId(detail.id)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Edit</button>
                       )}
                       {canDelete && (
-                        <button
-                          onClick={async () => {
-                            if (confirm("Delete this setup detail?")) await deleteDetail(detail.id);
-                          }}
-                          className="text-red-600 hover:underline text-sm"
-                        >
-                          Delete
-                        </button>
+                        <InlineConfirmButton
+                          onConfirm={() => deleteDetail(detail.id)}
+                          resource="SETUP_ORDERS"
+                          requiredLevel="WRITE"
+                        />
                       )}
                     </div>
                   </div>

@@ -3,6 +3,7 @@
 import { Children, isValidElement, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { labelMicroCaps } from "@/lib/reportStyles";
+import { btnOutlinedXs } from "@/lib/buttonStyles";
 
 type TabDescriptor = {
   id: string;
@@ -73,7 +74,7 @@ export function GroupTabsClient({ tabs, initialId, children }: GroupTabsClientPr
             onClick={() => setMenuOpen((open) => !open)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="flex max-w-full items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            className={`flex max-w-full items-center gap-2 ${btnOutlinedXs}`}
           >
             <span className="truncate font-medium text-gray-900 dark:text-white">
               {active?.title ?? "Reports"}
@@ -126,7 +127,7 @@ export function GroupTabsClient({ tabs, initialId, children }: GroupTabsClientPr
         {active && (
           <a
             href={active.printHref}
-            className="shrink-0 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            className={`shrink-0 ${btnOutlinedXs}`}
           >
             Print / Save PDF
           </a>
