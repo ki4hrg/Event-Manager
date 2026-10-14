@@ -5,7 +5,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { reportTd, reportTh } from "@/lib/reportStyles";
 import { BLOCK_TYPE_LABELS, formatDateKey, formatNight, parseBlockTypes } from "@/lib/hotels";
-import { eventRoles, proposeNights, roleLabel, sortRoles } from "@/lib/hotelPattern";
+import { eventRoles, offsetLabel, proposeNights, roleLabel, sortRoles } from "@/lib/hotelPattern";
 import { getBlockMonitoring, getHotelCities, getHotelPickupHistory, getPickupPattern, getSeriesChoices, type PatternFilters } from "../actions";
 import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar } from "./HotelReportFilters";
 
@@ -323,7 +323,7 @@ async function Pattern({
                 </h2>
                 <CsvButton
                   fileName={`hotel-rfp-block-${start}.csv`}
-                  rows={dated.map((d) => ({ Night: d.night, Role: roleLabel(d.role), Rooms: Math.round(d.rooms) }))}
+                  rows={dated.map((d) => ({ Night: d.night, Offset: offsetLabel(d.offset), Role: roleLabel(d.role), Rooms: Math.round(d.rooms) }))}
                 />
               </div>
               <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
@@ -331,6 +331,7 @@ async function Pattern({
                   <thead>
                     <tr>
                       <th className={reportTh}>Night</th>
+                      <th className={reportTh}>Offset</th>
                       <th className={reportTh}>Role</th>
                       <th className={`${reportTh} text-right`}>Rooms</th>
                     </tr>
@@ -339,12 +340,13 @@ async function Pattern({
                     {dated.map((d) => (
                       <tr key={d.night}>
                         <td className={`${reportTd} whitespace-nowrap`}>{formatNight(d.night)}</td>
+                        <td className={`${reportTd} whitespace-nowrap tabular-nums`}>{offsetLabel(d.offset)}</td>
                         <td className={`${reportTd} text-gray-500 dark:text-gray-400`}>{roleLabel(d.role)}</td>
                         <td className={num}>{Math.round(d.rooms)}</td>
                       </tr>
                     ))}
                     <tr className="bg-blue-50 dark:bg-blue-900/30 font-semibold">
-                      <td className={`${reportTd} text-blue-700 dark:text-blue-300`} colSpan={2}>
+                      <td className={`${reportTd} text-blue-700 dark:text-blue-300`} colSpan={3}>
                         Room nights
                       </td>
                       <td className={num}>{dated.reduce((s, d) => s + Math.round(d.rooms), 0)}</td>

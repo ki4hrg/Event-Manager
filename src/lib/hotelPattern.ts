@@ -34,6 +34,11 @@ function roleOrder(role: PatternRole): number {
   return 2000 + Number(role.slice(4));
 }
 
+// "Start", "Start −1", "Start +2" — a night's distance from the start date.
+export function offsetLabel(offset: number): string {
+  return offset === 0 ? "Start" : `Start ${offset > 0 ? "+" : "−"}${Math.abs(offset)}`;
+}
+
 export const sortRoles = (roles: Iterable<PatternRole>) => Array.from(new Set(roles)).sort((a, b) => roleOrder(a) - roleOrder(b));
 
 // Rooms per role for one event. Every in-session night counts (0 when
@@ -71,18 +76,18 @@ export function nightRole(start: string, end: string, night: string): PatternRol
 // borrows: Middle from the average of First and Last; a one-night event
 // takes the larger of First and Last. Pre / post nights that round to no
 // rooms are trimmed from the ends.
-export function proposeNights(start: string, end: string, byRole: Map<PatternRole, number>): { night: string; role: PatternRole; rooms: number }[] {
+export function proposeNights(start: string, end: string, byRole: Map<PatternRole, number>): { night: string; offset: number; role: PatternRole; rooms: number }[] {
   const roles = Array.from(byRole.keys());
   const maxPre = Math.max(0, ...roles.filter((r) => r.startsWith("pre-")).map((r) => Number(r.slice(4))));
   const maxEnd = Math.max(-1, ...roles.filter((r) => r.startsWith("end+")).map((r) => Number(r.slice(4))));
   const first = byRole.get("first") ?? 0;
   const last = byRole.get("last") ?? 0;
   const oneNight = daysBetween(start, end) === 1;
-  const out: { night: string; role: PatternRole; rooms: number }[] = [];
+  const out: { night: string; offset: number; role: PatternRole; rooms: number }[] = [];
   for (let night = addDays(start, -maxPre); night <= addDays(end, maxEnd); night = addDays(night, 1)) {
     const role = nightRole(start, end, night);
     const rooms = oneNight && role === "first" ? Math.max(first, last) : role === "middle" ? (byRole.get("middle") ?? (first + last) / 2) : (byRole.get(role) ?? 0);
-    out.push({ night, role, rooms });
+    out.push({ night, offset: daysBetween(start, night), role, rooms });
   }
   const outside = (i: number) => out[i].role.startsWith("pre-") || out[i].role.startsWith("end+");
   let from = 0;
