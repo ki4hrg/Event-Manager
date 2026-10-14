@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getHotelInfoReportData } from "@/app/events/reports/actions";
+import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
+import { parseBlockTypes } from "@/lib/hotels";
+import { ReportFilters as HiReportFilters } from "@/app/events/[id]/reports/hotel-info/ReportFilters";
 import { getPostEventReportData } from "@/app/events/reports/actions";
 import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { ReportFilters as PerReportFilters } from "@/app/events/[id]/reports/post-event/ReportFilters";
@@ -770,6 +774,26 @@ async function renderItem(
               <PerReportFilters eventId={eventId} showBlank={showBlank} basePath={sharePath} paramPrefix={prefix} hidePrint />
             )}
             <PostEventReport doc={doc} />
+          </>
+        ),
+      };
+    }
+    case "HOTEL_INFO": {
+      const blockTypes = parseBlockTypes(
+        item.filtersLocked ? stored.blockTypes?.join(",") : (getString(sp[`${prefix}blockTypes`]) ?? stored.blockTypes?.join(",")),
+      );
+      const data = await getHotelInfoReportData(eventId, { blockTypes });
+      if (!data) notFound();
+      return {
+        id: item.id,
+        title,
+        printHref: blockTypes.length ? `${printBase}?blockTypes=${blockTypes.join(",")}` : printBase,
+        body: (
+          <>
+            {!item.filtersLocked && (
+              <HiReportFilters eventId={eventId} blockTypes={blockTypes} basePath={sharePath} paramPrefix={prefix} hidePrint />
+            )}
+            <HotelInfoReport data={data} />
           </>
         ),
       };

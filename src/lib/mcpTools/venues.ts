@@ -20,7 +20,7 @@ import {
   type RoomWriteArgs,
 } from "@/app/venues/core";
 import type { McpToolDefinition } from "./types";
-import { requireString, optionalString } from "./types";
+import { requireString, optionalString, partialString } from "./types";
 
 function readVenueArgs(args: Record<string, unknown>): VenueWriteArgs {
   return {
@@ -31,6 +31,9 @@ function readVenueArgs(args: Record<string, unknown>): VenueWriteArgs {
     zip: optionalString(args, "zip") ?? null,
     country: optionalString(args, "country") ?? null,
     notes: optionalString(args, "notes") ?? null,
+    isLodging: typeof args.isLodging === "boolean" ? args.isLodging : undefined,
+    brand: partialString(args, "brand"),
+    area: partialString(args, "area"),
   };
 }
 
@@ -42,6 +45,9 @@ const venueWriteProps = {
   zip: { type: "string", description: "Optional." },
   country: { type: "string", description: "Optional." },
   notes: { type: "string", description: "Optional." },
+  isLodging: { type: "boolean", description: "Sells sleeping rooms (a hotel for the Hotels module). Omit to leave unchanged." },
+  brand: { type: ["string", "null"], description: "hotel_brand option label. Omit to leave unchanged." },
+  area: { type: ["string", "null"], description: "hotel_area option label. Omit to leave unchanged." },
 } as const;
 
 function readRoomArgs(args: Record<string, unknown>): RoomWriteArgs {
@@ -133,7 +139,7 @@ export const venueTools: McpToolDefinition[] = [
   {
     name: "update_venue",
     description:
-      "Replace all writable fields on a venue. The backing Vendor row name is kept in sync.",
+      "Replace a venue's name, address and notes (lodging fields change only when given). The backing Vendor row name is kept in sync.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, ...venueWriteProps },

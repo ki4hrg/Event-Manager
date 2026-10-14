@@ -34,6 +34,7 @@ export const EVENT_SCOPED_PERMISSION_RESOURCES: PermissionResource[] = [
   "MEDIA_DELIVERABLES",
   "FILES",
   "SHARE_LINKS",
+  "HOTELS",
 ];
 
 // Global catalogs that event pages nonetheless read: order forms carry a vendor

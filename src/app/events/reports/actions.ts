@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { optionsWhereForEvent } from "@/lib/options";
 import { Prisma } from "@prisma/client";
-import type { AcquisitionState, PackingStatus } from "@prisma/client";
+import type { AcquisitionState, HotelBlockType, PackingStatus } from "@prisma/client";
 import type { ModelType } from "@/app/vendors/actions";
 import { buildPackingItems, type PackableItem } from "@/lib/packingItems";
 import { ACQUISITION_OPTIONS, PACKING_STATUS_OPTIONS } from "@/lib/statusConstants";
@@ -2045,3 +2045,87 @@ export async function getPostEventReportData(eventId: string, filters: { showBla
   if (!data) return null;
   return assemblePerDocument(data, { showBlank: filters.showBlank ?? false });
 }
+
+// ─── Hotel Information (guest-facing hotel blocks) ──────────────────────────
+
+export type HotelInfoFilters = { blockTypes?: string[] };
+
+const HOTEL_BLOCK_TYPES: Record<HotelBlockType, true> = { CONTRACT: true, COURTESY: true, STAFF: true };
+
+// What an attendee needs to book: never pickup, attrition or revenue.
+export async function getHotelInfoReportData(eventId: string, filters: HotelInfoFilters = {}) {
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
+  if (!event) return null;
+  const blockTypes = (filters.blockTypes ?? []).filter((t): t is HotelBlockType => t in HOTEL_BLOCK_TYPES);
+  const blocks = await prisma.hotelBlock.findMany({
+    where: {
+      proposal: {
+        eventId,
+        ...(blockTypes.length ? { blockType: { in: blockTypes } } : {}),
+      },
+    },
+    select: {
+      id: true,
+      isHq: true,
+      checkIn: true,
+      checkOut: true,
+      cutoffDate: true,
+      reservationMethod: true,
+      groupCode: true,
+      bookingLink: true,
+      bookingPhone: true,
+      distanceMiles: true,
+      driveMinutes: true,
+      isRunOfHouse: true,
+      nights: { select: { roomType: true, rate: true } },
+      charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
+      proposal: {
+        select: {
+          blockType: true,
+          amenities: true,
+          venue: { select: { name: true, address: true, city: true, state: true, zip: true, brand: true } },
+        },
+      },
+    },
+    orderBy: [{ isHq: "desc" }, { proposal: { venue: { name: "asc" } } }],
+  });
+  const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+  return {
+    hotels: blocks.map((b) => {
+      const rates = new Map<string, number[]>();
+      for (const n of b.nights) {
+        if (n.rate == null) continue;
+        const key = b.isRunOfHouse ? "Run of house" : (n.roomType ?? "Run of house");
+        rates.set(key, [...(rates.get(key) ?? []), Number(n.rate)]);
+      }
+      return {
+        id: b.id,
+        name: b.proposal.venue.name,
+        brand: b.proposal.venue.brand,
+        isHq: b.isHq,
+        blockType: b.proposal.blockType,
+        address: [b.proposal.venue.address, [b.proposal.venue.city, b.proposal.venue.state].filter(Boolean).join(", "), b.proposal.venue.zip]
+          .filter(Boolean)
+          .join(" "),
+        checkIn: day(b.checkIn),
+        checkOut: day(b.checkOut),
+        cutoffDate: day(b.cutoffDate),
+        reservationMethod: b.reservationMethod,
+        groupCode: b.groupCode,
+        bookingLink: b.bookingLink,
+        bookingPhone: b.bookingPhone,
+        distanceMiles: b.distanceMiles == null ? null : Number(b.distanceMiles),
+        driveMinutes: b.driveMinutes,
+        rates: Array.from(rates.entries()).map(([roomType, values]) => ({
+          roomType,
+          min: Math.min(...values),
+          max: Math.max(...values),
+        })),
+        charges: b.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount == null ? null : Number(c.amount), scope: c.scope })),
+        amenities: b.proposal.amenities,
+      };
+    }),
+  };
+}
+
+export type HotelInfoData = NonNullable<Awaited<ReturnType<typeof getHotelInfoReportData>>>;

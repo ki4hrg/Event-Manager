@@ -46,6 +46,7 @@ const REPORT_PATHS: Record<string, string> = {
   PACKING_LIST: "packing-list",
   ESG: "esg",
   POST_EVENT: "post-event",
+  HOTEL_INFO: "hotel-info",
 };
 
 function toDateInput(iso: string | null): string {

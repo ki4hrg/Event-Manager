@@ -235,6 +235,41 @@ export const DEFAULT_OPTIONS = {
     { label: "None", sortOrder: 2 },
     { label: "Other", sortOrder: 3 },
   ],
+  // Hotels module. A proposal status's group is its workflow stage — the app
+  // keys off REQUESTED / PENDING / ACCEPTED / DECLINED, never the label.
+  proposal_status: [
+    { label: "Lead Sent", color: "gray", group: "REQUESTED", sortOrder: 0 },
+    { label: "Received", color: "blue", group: "PENDING", sortOrder: 1 },
+    { label: "Under Review", color: "yellow", group: "PENDING", sortOrder: 2 },
+    { label: "Accepted", color: "green", group: "ACCEPTED", sortOrder: 3 },
+    { label: "Declined", color: "red", group: "DECLINED", sortOrder: 4 },
+  ],
+  hotel_room_type: [
+    { label: "King", sortOrder: 0 },
+    { label: "Double Queen", sortOrder: 1 },
+    { label: "Suite", sortOrder: 2 },
+  ],
+  hotel_amenity: [
+    { label: "Breakfast Included", sortOrder: 0 },
+    { label: "Free Wi-Fi", sortOrder: 1 },
+    { label: "Free Parking", sortOrder: 2 },
+    { label: "Airport Shuttle", sortOrder: 3 },
+  ],
+  hotel_lead_source: [
+    { label: "Direct", sortOrder: 0 },
+    { label: "CVB", sortOrder: 1 },
+  ],
+  hotel_brand: [
+    { label: "Hilton", sortOrder: 0 },
+    { label: "Marriott", sortOrder: 1 },
+    { label: "Hyatt", sortOrder: 2 },
+    { label: "IHG", sortOrder: 3 },
+    { label: "Choice Hotels", sortOrder: 4 },
+    { label: "Wyndham", sortOrder: 5 },
+    { label: "Best Western", sortOrder: 6 },
+    { label: "Accor", sortOrder: 7 },
+    { label: "Independent", sortOrder: 8 },
+  ],
   reservation_method: [
     { label: "Individual Reservations", sortOrder: 0 },
     { label: "Rooming List", sortOrder: 1 },

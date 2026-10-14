@@ -53,7 +53,7 @@ export function computeEsgCompleteness(input: EsgCompletenessInput): EsgComplete
     if (na.has(section.letter)) continue;
     for (const d of section.derived ?? []) {
       if (!d.required) continue;
-      // Until the Hotels module supplies blocks, the housing narrative stands in.
+      // An event without hotel blocks may describe its housing in the narrative instead.
       const ok =
         d.source === "housingBlocks"
           ? input.derived.housingBlocks || !isBlankText(input.spec?.narrative.housingNotes)

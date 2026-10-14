@@ -222,10 +222,7 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
       return (
         <Block def={def}>
           {data.housing.roomBlocks.length === 0 ? (
-            <Empty>
-              Room blocks by night will come from the Hotels module. Until then, describe each hotel&apos;s block under
-              &ldquo;Room blocks &amp; other housing comments&rdquo;.
-            </Empty>
+            <Empty>No room blocks. Add them under Hotels.</Empty>
           ) : (
             <ul className="space-y-1">
               {data.housing.roomBlocks.map((b) => (

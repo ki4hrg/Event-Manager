@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -249,6 +249,10 @@ async function propagateLabelRename(
         where: { reservationMethod: oldLabel, ...inTenant },
         data: { reservationMethod: newLabel },
       });
+      await tx.hotelBlock.updateMany({
+        where: { reservationMethod: oldLabel, proposal: inTenant },
+        data: { reservationMethod: newLabel },
+      });
       break;
     case "meal_type":
       await tx.cateringOrder.updateMany({ where: { mealType: oldLabel, ...inTenant }, data: { mealType: newLabel } });
@@ -273,6 +277,39 @@ async function propagateLabelRename(
       await tx.eventPostEvent.updateMany({
         where: { largestFunctionAvSetup: oldLabel, ...inTenant },
         data: { largestFunctionAvSetup: newLabel },
+      });
+      break;
+    case "proposal_status":
+      await tx.hotelProposal.updateMany({ where: { status: oldLabel, ...inTenant }, data: { status: newLabel } });
+      break;
+    case "hotel_lead_source":
+      await tx.hotelProposal.updateMany({ where: { leadSource: oldLabel, ...inTenant }, data: { leadSource: newLabel } });
+      break;
+    case "hotel_room_type": {
+      const inTenantBlock = { proposal: inTenant };
+      await tx.hotelProposalNight.updateMany({ where: { roomType: oldLabel, proposal: inTenant }, data: { roomType: newLabel } });
+      await tx.hotelBlockNight.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
+      await tx.hotelPickupGuest.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
+      await tx.hotelPickupCount.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
+      break;
+    }
+    case "hotel_amenity":
+      await tx.$executeRaw`
+        UPDATE "HotelProposal" p SET "amenities" = array_replace(p."amenities", ${oldLabel}, ${newLabel})
+        FROM "Event" e
+        WHERE e."id" = p."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(p."amenities")`;
+      break;
+    case "hotel_brand":
+      await tx.venue.updateMany({ where: { brand: oldLabel, tenantId }, data: { brand: newLabel } });
+      break;
+    case "hotel_area":
+      await tx.venue.updateMany({ where: { area: oldLabel, tenantId }, data: { area: newLabel } });
+      break;
+    case "hotel_region":
+      // An area's group is its region label.
+      await tx.customOption.updateMany({
+        where: { category: "hotel_area", group: oldLabel, tenantId },
+        data: { group: newLabel },
       });
       break;
     default: {

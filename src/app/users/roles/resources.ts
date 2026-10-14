@@ -36,6 +36,7 @@ const EVENT_SCOPED_RESOURCES: ResourceEntry[] = [
   { value: PermissionResource.MEDIA_DELIVERABLES, label: "Media Deliverables" },
   { value: PermissionResource.FILES, label: "Files" },
   { value: PermissionResource.SHARE_LINKS, label: "Share Links" },
+  { value: PermissionResource.HOTELS, label: "Hotels" },
 ];
 
 // Single source of truth for the resource × scope matrix used by both the form

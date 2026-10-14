@@ -56,6 +56,9 @@ function readVenueArgs(formData: FormData): VenueWriteArgs {
     zip: (formData.get("zip") as string) || null,
     country: (formData.get("country") as string) || null,
     notes: (formData.get("notes") as string) || null,
+    isLodging: formData.get("isLodging") === "true",
+    brand: (formData.get("brand") as string) || null,
+    area: (formData.get("area") as string) || null,
   };
 }
 

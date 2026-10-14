@@ -10,6 +10,9 @@ import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { getEsgData } from "@/app/events/reports/actions";
 import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
 import { resolveSharedEsgFilters } from "@/lib/esg/params";
+import { getHotelInfoReportData } from "@/app/events/reports/actions";
+import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
+import { parseBlockTypes } from "@/lib/hotels";
 import { getPostEventReportData } from "@/app/events/reports/actions";
 import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { PrintHeader } from "@/components/print/PrintHeader";
@@ -38,6 +41,7 @@ const REPORT_TITLES: Record<string, string> = {
   PACKING_LIST: "Packing list",
   ESG: "Event Specifications Guide",
   POST_EVENT: "Post-Event Report",
+  HOTEL_INFO: "Hotel Information",
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -512,6 +516,20 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <PrintHeader eventName={link.event.name} title="Post-Event Report" backHref={backHref} />
         <PostEventReport doc={doc} />
+      </div>
+    );
+  }
+
+  if (link.reportType === "HOTEL_INFO") {
+    const blockTypes = parseBlockTypes(
+      link.filtersLocked ? storedFilters.blockTypes?.join(",") : (getString(sp.blockTypes) ?? storedFilters.blockTypes?.join(",")),
+    );
+    const data = await getHotelInfoReportData(link.eventId, { blockTypes });
+    if (!data) notFound();
+    return (
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+        <PrintHeader eventName={link.event.name} title="Hotel Information" backHref={backHref} />
+        <HotelInfoReport data={data} />
       </div>
     );
   }

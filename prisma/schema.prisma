@@ -38,6 +38,10 @@ model User {
   updatedEvents              Event[]                  @relation("EventUpdatedBy")
   updatedEventSpecifications EventSpecification[]     @relation("EventSpecificationUpdatedBy")
   updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
+  updatedHotelProposals      HotelProposal[]          @relation("HotelProposalUpdatedBy")
+  updatedHotelBlocks         HotelBlock[]             @relation("HotelBlockUpdatedBy")
+  hotelPickupImports         HotelPickupImport[]
+  hotelProposalVersions      HotelProposalVersion[]
   updatedExhibitBoothGroups  ExhibitBoothGroup[]      @relation("ExhibitBoothGroupUpdatedBy")
   updatedPostEvents          EventPostEvent[]         @relation("EventPostEventUpdatedBy")
   updatedVenues              Venue[]                  @relation("VenueUpdatedBy")
@@ -447,6 +451,7 @@ model Event {
   specKeys                EventSpecKey[]
   retiredFunctionNumbers  RetiredFunctionNumber[]
   exhibitBooths           ExhibitBooth[]
+  hotelProposals          HotelProposal[]
   exhibitBoothGroups      ExhibitBoothGroup[]
   postEvent               EventPostEvent?
   postEventFutureDates    EventPostEventFutureDate[]
@@ -462,26 +467,32 @@ model Event {
 }
 
 model Venue {
-  id          String         @id @default(cuid())
-  tenantId    String
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name        String
-  address     String?
-  city        String?
-  state       String?
-  zip         String?
-  country     String?
-  notes       String?
-  rooms       Room[]
-  roomGroups  RoomGroup[]
-  events      EventVenue[]
-  contacts    VenueContact[]
-  vendor      Vendor?
-  files       FileUpload[]
-  updatedById String?
-  updatedBy   User?          @relation("VenueUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id             String          @id @default(cuid())
+  tenantId       String
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  address        String?
+  city           String?
+  state          String?
+  zip            String?
+  country        String?
+  notes          String?
+  // Hotels module: a venue that sells sleeping rooms. brand / area are
+  // hotel_brand / hotel_area option labels (an area's group is its region).
+  isLodging      Boolean         @default(false)
+  brand          String?
+  area           String?
+  hotelProposals HotelProposal[]
+  rooms          Room[]
+  roomGroups     RoomGroup[]
+  events         EventVenue[]
+  contacts       VenueContact[]
+  vendor         Vendor?
+  files          FileUpload[]
+  updatedById    String?
+  updatedBy      User?           @relation("VenueUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@index([tenantId])
   @@index([updatedById])
@@ -1770,6 +1781,8 @@ model FileUpload {
   mediaDeliverable   MediaDeliverable? @relation(fields: [mediaDeliverableId], references: [id], onDelete: Cascade)
   venueId            String?
   venue              Venue?            @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  hotelProposalId    String?
+  hotelProposal      HotelProposal?    @relation(fields: [hotelProposalId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -1781,6 +1794,7 @@ model FileUpload {
   @@index([supplyOrderId])
   @@index([mediaDeliverableId])
   @@index([venueId])
+  @@index([hotelProposalId])
 }
 
 model ShareLink {
@@ -1876,6 +1890,7 @@ enum PermissionResource {
   FILES
   SHARE_LINKS
   API_KEYS
+  HOTELS
 }
 
 enum PermissionLevel {
@@ -2365,4 +2380,235 @@ model EventPostEventDistribution {
   updatedAt   DateTime  @updatedAt
 
   @@index([eventId])
+}
+
+// ---------------------------------------------------------------------------
+// Hotels module (ported from Hotel-Manager). A proposal is one lodging venue's
+// offer for one event; accepting it lets staff open that hotel's block. Rooms
+// are stored per room type per night — every rate, availability and pickup
+// figure hangs off (roomType, night). roomType is a hotel_room_type option
+// label; null means run of house.
+
+enum HotelBlockType {
+  STAFF
+  COURTESY
+  CONTRACT
+}
+
+enum HotelChargeScope {
+  PER_NIGHT
+  PER_STAY
+  PER_PERSON
+  PER_PERSON_PER_NIGHT
+}
+
+model HotelProposal {
+  id                String                 @id @default(cuid())
+  eventId           String
+  event             Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  venueId           String
+  venue             Venue                  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  // proposal_status option label; the option's group (REQUESTED / PENDING /
+  // ACCEPTED / DECLINED) is the workflow stage the app keys off.
+  status            String
+  leadSource        String? // hotel_lead_source option label
+  blockType         HotelBlockType?
+  submittedOn       DateTime?              @db.Date
+  checkIn           DateTime?              @db.Date
+  checkOut          DateTime?              @db.Date
+  declinedReason    String?
+  notes             String?
+  // Bumped by staff when the hotel sends a revised offer; each bump records a
+  // HotelProposalVersion.
+  revision          Int                    @default(1)
+  isRunOfHouse      Boolean                @default(false)
+  allowedAttrition  Decimal?               @db.Decimal(5, 2)
+  guaranteedRevenue Decimal?               @db.Decimal(10, 2)
+  amenities         String[]               @default([]) // hotel_amenity option labels
+  nights            HotelProposalNight[]
+  charges           HotelCharge[]
+  versions          HotelProposalVersion[]
+  block             HotelBlock?
+  files             FileUpload[]
+  updatedById       String?
+  updatedBy         User?                  @relation("HotelProposalUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([eventId])
+  @@index([venueId])
+  @@index([updatedById])
+}
+
+model HotelProposalNight {
+  id         String        @id @default(cuid())
+  proposalId String
+  proposal   HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  roomType   String?
+  night      DateTime      @db.Date
+  rate       Decimal?      @db.Decimal(10, 2)
+  rooms      Int?
+
+  @@index([proposalId])
+}
+
+model HotelCharge {
+  id         String            @id @default(cuid())
+  proposalId String?
+  proposal   HotelProposal?    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  blockId    String?
+  block      HotelBlock?       @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  chargeType String
+  amount     Decimal?          @db.Decimal(10, 2)
+  scope      HotelChargeScope?
+  sortOrder  Int               @default(0)
+
+  @@index([proposalId])
+  @@index([blockId])
+}
+
+// The proposal as it stood at one revision: snapshot is the full proposal
+// (fields, nights, charges, amenities); changes lists what differs from the
+// previous revision as { field, from, to }.
+model HotelProposalVersion {
+  id          String        @id @default(cuid())
+  proposalId  String
+  proposal    HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  revision    Int
+  summary     String?
+  snapshot    Json
+  changes     Json          @default("[]")
+  createdById String?
+  createdBy   User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now())
+
+  @@unique([proposalId, revision])
+  @@index([createdById])
+}
+
+// The booked block an accepted proposal became (1:1). Nights start as copies
+// of the proposal's: contractedRooms keeps the signed number, rooms is the
+// current (final) block. Pickup is computed, never stored per night — see
+// src/lib/hotelPickup.ts.
+model HotelBlock {
+  id                String                @id @default(cuid())
+  proposalId        String                @unique
+  proposal          HotelProposal         @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  isHq              Boolean               @default(false)
+  checkIn           DateTime?             @db.Date
+  checkOut          DateTime?             @db.Date
+  reservationMethod String? // reservation_method option label
+  groupCode         String?
+  bookingLink       String?
+  bookingPhone      String?
+  cutoffDate        DateTime?             @db.Date
+  contractedOn      DateTime?             @db.Date
+  cutoffExercised   Boolean?
+  isRunOfHouse      Boolean               @default(false)
+  allowedAttrition  Decimal?              @db.Decimal(5, 2)
+  guaranteedRevenue Decimal?              @db.Decimal(10, 2)
+  distanceMiles     Decimal?              @db.Decimal(10, 2)
+  driveMinutes      Int?
+  compRooms         Int?
+  staffRooms        Int?
+  notes             String?
+  nights            HotelBlockNight[]
+  charges           HotelCharge[]
+  pickupImports     HotelPickupImport[]
+  pickupGuests      HotelPickupGuest[]
+  pickupCounts      HotelPickupCount[]
+  pickupSnapshots   HotelPickupSnapshot[]
+  updatedById       String?
+  updatedBy         User?                 @relation("HotelBlockUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([updatedById])
+}
+
+model HotelBlockNight {
+  id                String     @id @default(cuid())
+  blockId           String
+  block             HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  roomType          String?
+  night             DateTime   @db.Date
+  rate              Decimal?   @db.Decimal(10, 2)
+  contractedRooms   Int?
+  rooms             Int        @default(0)
+  // Reservations the hotel's report doesn't carry (booked by staff, etc.).
+  otherReservations Int        @default(0)
+
+  @@index([blockId])
+}
+
+enum HotelPickupMethod {
+  APPEND
+  MERGE
+  REPLACE
+  COUNTS
+}
+
+// One pickup upload or count entry, for the block's history. The current
+// pickup is the block's guests and counts, not any one import.
+model HotelPickupImport {
+  id           String             @id @default(cuid())
+  blockId      String
+  block        HotelBlock         @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  method       HotelPickupMethod
+  fileName     String?
+  inserted     Int                @default(0)
+  updated      Int                @default(0)
+  notes        String?
+  importedById String?
+  importedBy   User?              @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+  guests       HotelPickupGuest[]
+
+  @@index([blockId])
+  @@index([importedById])
+}
+
+// A reservation from the hotel's pickup report. Its nights are check-in up to
+// check-out; cancelled guests are kept but never counted.
+model HotelPickupGuest {
+  id                 String             @id @default(cuid())
+  blockId            String
+  block              HotelBlock         @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  importId           String?
+  import             HotelPickupImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+  guestName          String?
+  confirmationNumber String?
+  checkIn            DateTime?          @db.Date
+  checkOut           DateTime?          @db.Date
+  roomType           String?
+  cancelled          Boolean            @default(false)
+  rawStatus          String?
+
+  @@index([blockId, confirmationNumber])
+  @@index([importId])
+}
+
+// Rooms picked up on a night, entered by hand when the hotel sends totals
+// instead of a guest list. roomType null is a run-of-house (all types) total.
+model HotelPickupCount {
+  id       String     @id @default(cuid())
+  blockId  String
+  block    HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  night    DateTime   @db.Date
+  roomType String?
+  rooms    Int
+
+  @@index([blockId])
+}
+
+// Pickup per night as it stood on a day — written whenever pickup changes —
+// so the PER can report pickup at 90/60/30/21/14/7 days out.
+model HotelPickupSnapshot {
+  id      String     @id @default(cuid())
+  blockId String
+  block   HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  takenOn DateTime   @db.Date
+  nights  Json // { "YYYY-MM-DD": rooms }
+
+  @@unique([blockId, takenOn])
 }
