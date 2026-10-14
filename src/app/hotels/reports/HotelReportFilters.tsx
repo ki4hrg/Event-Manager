@@ -73,71 +73,90 @@ export function PatternFilters({ series, cities }: { series: { id: string; name:
   const types = parseBlockTypes(sp.get("types") ?? undefined);
   const toggleType = (value: string, on: boolean) =>
     set("types", BLOCK_TYPES.filter((t) => (t.value === value ? on : types.includes(t.value))).map((t) => t.value).join(","));
+  return (
+    <div className="flex flex-wrap items-end gap-3">
+      <SeriesAndDates series={series} />
+      <label className={labelClass}>
+        City
+        <select value={sp.get("city") ?? ""} onChange={(e) => set("city", e.target.value)} className={fieldClass}>
+          <option value="">All</option>
+          {cities.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
+      <fieldset className="flex items-center gap-3 pb-1.5">
+        {BLOCK_TYPES.map((t) => (
+          <label key={t.value} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={types.includes(t.value)}
+              onChange={(e) => toggleType(t.value, e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            {t.label}
+          </label>
+        ))}
+      </fieldset>
+    </div>
+  );
+}
+
+export function ShowBlockToggle() {
+  const { sp, set } = useSetParam();
+  return (
+    <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+      <input
+        type="checkbox"
+        checked={sp.get("block") === "1"}
+        onChange={(e) => set("block", e.target.checked ? "1" : "")}
+        className="rounded border-gray-300 dark:border-gray-600"
+      />
+      Show block
+    </label>
+  );
+}
+
+export function ProposalControls() {
+  const { sp, set } = useSetParam();
   // Typed numbers commit on blur / Enter so each keystroke isn't a history entry.
   const commit = (key: string) => (e: React.FocusEvent<HTMLInputElement> | React.KeyboardEvent<HTMLInputElement>) => {
     if ("key" in e && e.key !== "Enter") return;
     if (e.currentTarget.value !== (sp.get(key) ?? "")) set(key, e.currentTarget.value);
   };
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <SeriesAndDates series={series} />
-        <label className={labelClass}>
-          City
-          <select value={sp.get("city") ?? ""} onChange={(e) => set("city", e.target.value)} className={fieldClass}>
-            <option value="">All</option>
-            {cities.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <fieldset className="flex items-center gap-3 pb-1.5">
-          {BLOCK_TYPES.map((t) => (
-            <label key={t.value} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                checked={types.includes(t.value)}
-                onChange={(e) => toggleType(t.value, e.target.checked)}
-                className="rounded border-gray-300 dark:border-gray-600"
-              />
-              {t.label}
-            </label>
-          ))}
-        </fieldset>
-      </div>
-      <div className="flex flex-wrap items-end gap-3">
-        <label className={labelClass}>
-          Basis
-          <select value={sp.get("basis") ?? ""} onChange={(e) => set("basis", e.target.value)} className={fieldClass}>
-            <option value="">Average</option>
-            <option value="highest">Highest</option>
-            <option value="latest">Most recent</option>
-          </select>
-        </label>
-        <label className={labelClass}>
-          Adjust %
-          <input
-            key={sp.get("adjust") ?? ""}
-            type="number"
-            step={5}
-            defaultValue={sp.get("adjust") ?? ""}
-            onBlur={commit("adjust")}
-            onKeyDown={commit("adjust")}
-            placeholder="0"
-            className={`${fieldClass} w-20`}
-          />
-        </label>
-        <label className={labelClass}>
-          New start
-          <input type="date" value={sp.get("start") ?? ""} onChange={(e) => set("start", e.target.value)} className={fieldClass} />
-        </label>
-        <label className={labelClass}>
-          New end
-          <input type="date" value={sp.get("end") ?? ""} onChange={(e) => set("end", e.target.value)} className={fieldClass} />
-        </label>
-      </div>
+    <div className="flex flex-wrap items-end gap-3">
+      <label className={labelClass}>
+        Basis
+        <select value={sp.get("basis") ?? ""} onChange={(e) => set("basis", e.target.value)} className={fieldClass}>
+          <option value="">Average</option>
+          <option value="highest">Highest</option>
+          <option value="latest">Most recent</option>
+        </select>
+      </label>
+      <label className={labelClass}>
+        Adjust %
+        <input
+          key={sp.get("adjust") ?? ""}
+          type="number"
+          step={5}
+          defaultValue={sp.get("adjust") ?? ""}
+          onBlur={commit("adjust")}
+          onKeyDown={commit("adjust")}
+          placeholder="0"
+          className={`${fieldClass} w-20`}
+        />
+      </label>
+      <label className={labelClass}>
+        Start
+        <input type="date" value={sp.get("start") ?? ""} onChange={(e) => set("start", e.target.value)} className={fieldClass} />
+      </label>
+      <label className={labelClass}>
+        End
+        <input type="date" value={sp.get("end") ?? ""} onChange={(e) => set("end", e.target.value)} className={fieldClass} />
+      </label>
     </div>
   );
 }
