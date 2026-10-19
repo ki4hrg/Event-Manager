@@ -19,6 +19,10 @@ import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import { getSetupOrderDisplayName } from "./utils";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { ColumnPicker } from "@/components/ColumnPicker";
+import { parseHiddenColumns } from "@/lib/tableColumns";
+import { useHiddenColumns } from "@/lib/useHiddenColumns";
+import { SETUP_ORDER_TABLE_COLUMNS, type SetupOrderTableColumn } from "./tableColumns";
 
 type SetupOrder = Awaited<ReturnType<typeof getSetupOrders>>[number];
 
@@ -32,6 +36,7 @@ type Props = {
   initialVendor?: string;
   initialFunction?: string;
   initialLinked?: string;
+  initialHiddenColumns: string[];
   deleteSetupOrder: (formData: FormData) => Promise<void>;
   deleteSetupOrders: (ids: string[]) => Promise<void>;
   bulkUpdateSetupOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
@@ -51,6 +56,7 @@ export function SetupOrderList({
   initialVendor,
   initialFunction,
   initialLinked,
+  initialHiddenColumns,
   deleteSetupOrder,
   deleteSetupOrders,
   bulkUpdateSetupOrders,
@@ -76,6 +82,11 @@ export function SetupOrderList({
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
   const [bulkSubstatus, setBulkSubstatus] = useState("");
   const [bulkVendorId, setBulkVendorId] = useState("");
+  const columns = useHiddenColumns<SetupOrderTableColumn>(
+    "setup_orders",
+    parseHiddenColumns(initialHiddenColumns, SETUP_ORDER_TABLE_COLUMNS)
+  );
+  const show = columns.isVisible;
 
   function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -344,20 +355,28 @@ export function SetupOrderList({
         </div>
       ) : (
         <div className="space-y-2">
+          <div className="flex justify-end">
+            <ColumnPicker
+              columns={SETUP_ORDER_TABLE_COLUMNS}
+              hidden={columns.hidden}
+              onToggle={columns.setColumnHidden}
+              onShowAll={columns.showAll}
+            />
+          </div>
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
                   {canSelect && <th className={`${thBase} w-8`}><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" /></th>}
                   <th className={thSortable} onClick={() => handleSort("name")}>Name{sortIndicator(sortField === "name", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>
-                  <th className={thBase}>Workflow</th>
-                  <th className={thSortable} onClick={() => handleSort("vendors")}>Vendor(s){sortIndicator(sortField === "vendors", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("type")}>Type{sortIndicator(sortField === "type", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("room")}>Room{sortIndicator(sortField === "room", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("tables")}>Tables{sortIndicator(sortField === "tables", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("equipment")}>Equipment{sortIndicator(sortField === "equipment", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("functions")}>Functions{sortIndicator(sortField === "functions", sortDir)}</th>
+                  {show("status") && <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>}
+                  {show("workflow") && <th className={thBase}>Workflow</th>}
+                  {show("vendors") && <th className={thSortable} onClick={() => handleSort("vendors")}>Vendor(s){sortIndicator(sortField === "vendors", sortDir)}</th>}
+                  {show("type") && <th className={thSortable} onClick={() => handleSort("type")}>Type{sortIndicator(sortField === "type", sortDir)}</th>}
+                  {show("room") && <th className={thSortable} onClick={() => handleSort("room")}>Room{sortIndicator(sortField === "room", sortDir)}</th>}
+                  {show("tables") && <th className={thSortable} onClick={() => handleSort("tables")}>Tables{sortIndicator(sortField === "tables", sortDir)}</th>}
+                  {show("equipment") && <th className={thSortable} onClick={() => handleSort("equipment")}>Equipment{sortIndicator(sortField === "equipment", sortDir)}</th>}
+                  {show("functions") && <th className={thSortable} onClick={() => handleSort("functions")}>Functions{sortIndicator(sortField === "functions", sortDir)}</th>}
                 </tr>
                 <tr>
                   {/* Spacer under the select-all column; drops with it. */}
@@ -365,20 +384,22 @@ export function SetupOrderList({
                   <td className={filterCell}>
                     <input type="text" placeholder="Filter…" value={filters.name} onChange={(e) => setFilter("name", e.target.value)} className={filterInput} />
                   </td>
-                  <td className={filterCell}>
-                    <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
-                      <option value="">All</option>
-                      <option value="__blank__">(blank)</option>
-                      {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </td>
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
+                  {show("status") && (
+                    <td className={filterCell}>
+                      <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
+                        <option value="">All</option>
+                        <option value="__blank__">(blank)</option>
+                        {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {show("workflow") && <td className={filterCell} />}
+                  {show("vendors") && <td className={filterCell} />}
+                  {show("type") && <td className={filterCell} />}
+                  {show("room") && <td className={filterCell} />}
+                  {show("tables") && <td className={filterCell} />}
+                  {show("equipment") && <td className={filterCell} />}
+                  {show("functions") && <td className={filterCell} />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -391,24 +412,28 @@ export function SetupOrderList({
                       <td className="px-3 py-3 font-medium">
                         <Link href={`/events/${eventId}/setup-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{displayName}</Link>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>
-                      <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.vendors.length > 0 ? o.vendors.map((v) => v.vendor.name).join(", ") : "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.setupType || "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {o.room
-                          ? <Link href={`/events/${eventId}/rooms/${o.room.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.room.name}</Link>
-                          : "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.tables.length > 0 ? o.tables.length : "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.equipmentItems.length > 0 ? o.equipmentItems.length : "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {o.functions.length > 0
-                          ? o.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.functions[0])}</Link>
-                            : `${o.functions.length} functions`
-                          : <span className="text-orange-500">Unlinked</span>}
-                      </td>
+                      {show("status") && <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>}
+                      {show("workflow") && <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>}
+                      {show("vendors") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.vendors.length > 0 ? o.vendors.map((v) => v.vendor.name).join(", ") : "—"}</td>}
+                      {show("type") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.setupType || "—"}</td>}
+                      {show("room") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {o.room
+                            ? <Link href={`/events/${eventId}/rooms/${o.room.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.room.name}</Link>
+                            : "—"}
+                        </td>
+                      )}
+                      {show("tables") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.tables.length > 0 ? o.tables.length : "—"}</td>}
+                      {show("equipment") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.equipmentItems.length > 0 ? o.equipmentItems.length : "—"}</td>}
+                      {show("functions") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {o.functions.length > 0
+                            ? o.functions.length === 1
+                              ? <Link href={`/events/${eventId}/functions/${o.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.functions[0])}</Link>
+                              : `${o.functions.length} functions`
+                            : <span className="text-orange-500">Unlinked</span>}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
