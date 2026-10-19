@@ -29,6 +29,7 @@ type FunctionListProps = {
   initialStatus?: string;
   initialSchedule?: string;
   initialRoom?: string;
+  initialHiddenColumns: string[];
   duplicateFunction: (id: string) => Promise<void>;
   deleteFunction: (id: string) => Promise<void>;
   deleteFunctions: (ids: string[]) => Promise<void>;
@@ -74,6 +75,7 @@ export function FunctionList({
   initialStatus,
   initialSchedule,
   initialRoom,
+  initialHiddenColumns,
   duplicateFunction,
   deleteFunction,
   deleteFunctions,
@@ -382,6 +384,7 @@ export function FunctionList({
           initialStatus={initialStatus}
           initialSchedule={initialSchedule}
           initialRoom={initialRoom}
+          initialHiddenColumns={initialHiddenColumns}
           deleteFunctions={deleteFunctions}
           bulkUpdateFunctions={bulkUpdateFunctions}
         />

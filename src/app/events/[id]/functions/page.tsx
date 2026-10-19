@@ -6,6 +6,7 @@ import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunction
 import { FunctionNumberingControl } from "../../functions/FunctionNumberingControl";
 import { FunctionList } from "../../functions/FunctionList";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +22,12 @@ export default async function EventFunctionsPage({
 }) {
   const { id } = await params;
   const { status: initialStatus, schedule: initialSchedule, room: initialRoom } = (await searchParams) ?? {};
-  const [event, functions, functionTypes, substatuses] = await Promise.all([
+  const [event, functions, functionTypes, substatuses, hiddenColumns] = await Promise.all([
     getEvent(id),
     getFunctionsForTable(id),
     getOptions("function_type"),
     getSubstatusOptions(),
+    getHiddenColumns("functions"),
   ]);
 
   if (!event) {
@@ -96,6 +98,7 @@ export default async function EventFunctionsPage({
         initialStatus={initialStatus}
         initialSchedule={initialSchedule}
         initialRoom={initialRoom}
+        initialHiddenColumns={hiddenColumns}
         duplicateFunction={duplicateFunctionAction}
         deleteFunction={deleteFunctionAction}
         deleteFunctions={deleteFunctionsAction}
