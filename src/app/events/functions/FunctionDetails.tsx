@@ -4,6 +4,8 @@ import { Section, Field } from "@/components/print/PrintDetails";
 import { WorkflowSection } from "@/components/print/WorkflowSection";
 import { getSetupOrderDisplayName } from "../setup-orders/utils";
 import { formatPhone } from "@/lib/format-phone";
+import { resolveOptionLabel } from "@/lib/optionUtils";
+import type { CustomOption } from "@prisma/client";
 
 type FunctionData = NonNullable<Awaited<ReturnType<typeof getFunction>>>;
 type WorkflowInstance = Awaited<ReturnType<typeof getWorkflowInstances>>[number];
@@ -23,14 +25,18 @@ interface FunctionDetailsProps {
   fn: FunctionData;
   timezone: string;
   workflowInstances: WorkflowInstance[];
+  functionTypes: CustomOption[];
+  scheduleTypes: CustomOption[];
 }
 
 export function FunctionDetails({
   fn,
   timezone,
   workflowInstances,
+  functionTypes,
+  scheduleTypes,
 }: FunctionDetailsProps) {
-  const typeLabel = fn.type ?? null;
+  const typeLabel = resolveOptionLabel(fn.type, functionTypes) || null;
 
   return (
     <div className="space-y-2">
@@ -63,7 +69,7 @@ export function FunctionDetails({
                 return (
                   <tr key={s.id} className="border-t border-gray-100 print:border-gray-300">
                     <td className="py-1.5 pr-4 text-gray-900 print:text-black">
-                      {s.type ?? "—"}
+                      {resolveOptionLabel(s.type, scheduleTypes) || "—"}
                     </td>
                     <td className="py-1.5 pr-4 text-gray-900 print:text-black">
                       {s.startTime ? formatDateTime(s.startTime, timezone) : "—"}

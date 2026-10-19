@@ -10,3 +10,5 @@
 - [styling] `btnOutlinedXs` in `buttonStyles` is the compact outlined report-toolbar button (Print / Save PDF, Office downloads, Share, Copy) — add it to the CLAUDE.md buttonStyles list (ux-sweep).
 - [filters] Free-typed number filters in URL search params commit on blur/Enter (uncontrolled input keyed on the param), not onChange, so each keystroke is not a history entry (src/app/hotels/reports/HotelReportFilters.tsx PatternFilters)
 - [dates] Event.startDate/endDate are calendar dates read as the UTC date (formatEventDate, EventForm); never convert them with getDateKeyInTimezone — that shifts midnight-UTC events a day early (#111)
+- [print] Anything left rendered in print above a report body (e.g. ReportNav's `#top` anchor under a `space-y-*` parent) becomes a break point, so the global `section { break-inside: avoid-page }` pushes a first section taller than a page onto page 2 — blank first page. Print-hide such anchors (src/components/ReportNav.tsx)
+- [print] Wide print tables need `print:overflow-visible` on their `overflow-x-auto` wrapper — a scroll container prints clipped at its scroll position (src/app/events/[id]/functions/table-print/page.tsx)

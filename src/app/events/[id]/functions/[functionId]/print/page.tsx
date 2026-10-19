@@ -6,6 +6,7 @@ import { FunctionDetails } from "@/app/events/functions/FunctionDetails";
 import { getFunction } from "@/app/events/functions/actions";
 import { getEvent } from "../../../../actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
+import { getOptions } from "@/app/settings/actions";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +31,12 @@ export default async function FunctionPrintPage({
 }) {
   const { id: eventId, functionId } = await params;
 
-  const [event, fn, workflowInstances] = await Promise.all([
+  const [event, fn, workflowInstances, functionTypes, scheduleTypes] = await Promise.all([
     getEvent(eventId),
     getFunction(functionId),
     getWorkflowInstances("function", functionId, eventId),
+    getOptions("function_type"),
+    getOptions("schedule_type"),
   ]);
 
   if (!event || !fn) {
@@ -52,6 +55,8 @@ export default async function FunctionPrintPage({
         fn={fn}
         timezone={event.timezone}
         workflowInstances={workflowInstances}
+        functionTypes={functionTypes}
+        scheduleTypes={scheduleTypes}
       />
     </div>
   );

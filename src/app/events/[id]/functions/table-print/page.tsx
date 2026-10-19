@@ -9,6 +9,8 @@ import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import type { FunctionForTable } from "@/app/events/functions/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
+import { resolveOptionLabel } from "@/lib/optionUtils";
+import { getOptions } from "@/app/settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -55,9 +57,10 @@ export default async function FunctionTablePrintPage({
 }) {
   const { id: eventId } = await params;
 
-  const [event, functions] = await Promise.all([
+  const [event, functions, functionTypes] = await Promise.all([
     getEvent(eventId),
     getFunctionsForTable(eventId),
+    getOptions("function_type"),
   ]);
 
   if (!event) notFound();
@@ -70,68 +73,71 @@ export default async function FunctionTablePrintPage({
   const tz = event.timezone || "America/Chicago";
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-8 bg-white dark:bg-gray-900 print:bg-white print:px-0 print:py-0">
-      <PrintHeader
-        eventName={event.name}
-        title="Functions Table"
-        backHref={`/events/${eventId}/functions`}
-      />
+    <>
+      <style>{`@page { size: landscape; margin: 0.4in; }`}</style>
+      <div className="max-w-7xl mx-auto px-8 py-8 bg-white dark:bg-gray-900 print:bg-white print:px-0 print:py-0">
+        <PrintHeader
+          eventName={event.name}
+          title="Functions Table"
+          backHref={`/events/${eventId}/functions`}
+        />
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className={th}>Name</th>
-              <th className={th}>Earliest Start</th>
-              <th className={th}>Latest End</th>
-              <th className={th}>Notes</th>
-              <th className={th}>Type</th>
-              <th className={th}>Room(s)</th>
-              <th className={th}>Contact(s)</th>
-              <th className={th}>AV Order</th>
-              <th className={th}>Setup Order</th>
-              <th className={th}>Catering Order</th>
-              <th className={th}>Workflow</th>
-            </tr>
-          </thead>
-          <tbody>
-            {functions.map((fn) => (
-              <tr key={fn.id}>
-                <td className={`${td} font-medium`}>{formatFunctionLabel(fn)}</td>
-                <td className={`${td} whitespace-nowrap`}>{formatDateTime(getEarliestStart(fn), tz)}</td>
-                <td className={`${td} whitespace-nowrap`}>{formatDateTime(getLatestEnd(fn), tz)}</td>
-                <td className={td}>{fn.notes || "—"}</td>
-                <td className={`${td} whitespace-nowrap`}>
-                  {fn.type ?? "—"}
-                </td>
-                <td className={td}>
-                  {fn.rooms.length > 0 ? fn.rooms.map((r) => r.room.name).join(", ") : fn.offSiteLocation ? `Off-site: ${fn.offSiteLocation}` : "—"}
-                </td>
-                <td className={td}>
-                  {fn.contacts.length > 0
-                    ? fn.contacts.map((c) => `${c.contact.firstName} ${c.contact.lastName}`).join(", ")
-                    : "—"}
-                </td>
-                <td className={`${td} whitespace-nowrap`}>{fn.avOrders.length > 0 ? fn.avOrders.map((o) => o.name).join(", ") : "—"}</td>
-                <td className={`${td} whitespace-nowrap`}>
-                  {fn.setupOrders.length > 0 ? fn.setupOrders.map((o) => getSetupOrderDisplayName(o)).join(", ") : "—"}
-                </td>
-                <td className={`${td} whitespace-nowrap`}>{fn.cateringOrder?.name || "—"}</td>
-                <td className={`${td} whitespace-nowrap`}>{workflowLabel(workflowSummaries[fn.id])}</td>
+        <div className="overflow-x-auto print:overflow-visible">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className={`${th} print:whitespace-normal`}>Name</th>
+                <th className={`${th} print:whitespace-normal`}>Earliest Start</th>
+                <th className={`${th} print:whitespace-normal`}>Latest End</th>
+                <th className={`${th} print:whitespace-normal`}>Notes</th>
+                <th className={`${th} print:whitespace-normal`}>Type</th>
+                <th className={`${th} print:whitespace-normal`}>Room(s)</th>
+                <th className={`${th} print:whitespace-normal`}>Contact(s)</th>
+                <th className={`${th} print:whitespace-normal`}>AV Order</th>
+                <th className={`${th} print:whitespace-normal`}>Setup Order</th>
+                <th className={`${th} print:whitespace-normal`}>Catering Order</th>
+                <th className={`${th} print:whitespace-normal`}>Workflow</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {functions.map((fn) => (
+                <tr key={fn.id}>
+                  <td className={`${td} font-medium`}>{formatFunctionLabel(fn)}</td>
+                  <td className={`${td} whitespace-nowrap`}>{formatDateTime(getEarliestStart(fn), tz)}</td>
+                  <td className={`${td} whitespace-nowrap`}>{formatDateTime(getLatestEnd(fn), tz)}</td>
+                  <td className={td}>{fn.notes || "—"}</td>
+                  <td className={`${td} whitespace-nowrap print:whitespace-normal`}>
+                    {resolveOptionLabel(fn.type, functionTypes) || "—"}
+                  </td>
+                  <td className={td}>
+                    {fn.rooms.length > 0 ? fn.rooms.map((r) => r.room.name).join(", ") : fn.offSiteLocation ? `Off-site: ${fn.offSiteLocation}` : "—"}
+                  </td>
+                  <td className={td}>
+                    {fn.contacts.length > 0
+                      ? fn.contacts.map((c) => `${c.contact.firstName} ${c.contact.lastName}`).join(", ")
+                      : "—"}
+                  </td>
+                  <td className={`${td} whitespace-nowrap print:whitespace-normal`}>{fn.avOrders.length > 0 ? fn.avOrders.map((o) => o.name).join(", ") : "—"}</td>
+                  <td className={`${td} whitespace-nowrap print:whitespace-normal`}>
+                    {fn.setupOrders.length > 0 ? fn.setupOrders.map((o) => getSetupOrderDisplayName(o)).join(", ") : "—"}
+                  </td>
+                  <td className={`${td} whitespace-nowrap print:whitespace-normal`}>{fn.cateringOrder?.name || "—"}</td>
+                  <td className={`${td} whitespace-nowrap print:whitespace-normal`}>{workflowLabel(workflowSummaries[fn.id])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {functions.length === 0 && (
+          <p className="text-gray-500 dark:text-gray-400 py-8 text-sm">No functions found.</p>
+        )}
+
+        <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-6">
+          {functions.length} function{functions.length !== 1 ? "s" : ""} &middot; Generated{" "}
+          {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+        </p>
       </div>
-
-      {functions.length === 0 && (
-        <p className="text-gray-500 dark:text-gray-400 py-8 text-sm">No functions found.</p>
-      )}
-
-      <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 mt-6">
-        {functions.length} function{functions.length !== 1 ? "s" : ""} &middot; Generated{" "}
-        {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-      </p>
-    </div>
+    </>
   );
 }
