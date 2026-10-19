@@ -17,6 +17,7 @@ import {
 import { PresentationList } from "../../presentations/PresentationList";
 import { TrackPanel } from "../../presentations/TrackPanel";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getHiddenColumns } from "@/app/events/table-columns-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -31,12 +32,13 @@ export default async function PresentationsPage({
 }) {
   const { id: eventId } = await params;
   const { status: initialStatus, slot: initialSlot, speaker: initialSpeaker } = (await searchParams) ?? {};
-  const [event, presentations, tracks, presentationTypes, substatuses] = await Promise.all([
+  const [event, presentations, tracks, presentationTypes, substatuses, hiddenColumns] = await Promise.all([
     getEvent(eventId),
     getPresentations(eventId),
     getTracks(eventId),
     getOptions("presentation_type"),
     getSubstatusOptions(),
+    getHiddenColumns("presentations"),
   ]);
 
   if (!event) {
@@ -107,6 +109,7 @@ export default async function PresentationsPage({
         initialStatus={initialStatus}
         initialSlot={initialSlot}
         initialSpeaker={initialSpeaker}
+        initialHiddenColumns={hiddenColumns}
         duplicatePresentation={duplicatePresentationAction}
         deletePresentation={deletePresentationAction}
         deletePresentations={deletePresentationsAction}
