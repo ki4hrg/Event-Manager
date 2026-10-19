@@ -46,7 +46,7 @@ export function ReportNav({ links, sections, items, itemsLabel = "Functions & Pr
 
   return (
     <>
-      <div id="top" aria-hidden />
+      <div id="top" aria-hidden className="print:hidden" />
       <nav
         className="print:hidden sticky top-2 z-10 text-xs py-3 px-4 sm:px-6 bg-white dark:bg-gray-800 shadow-md rounded-lg"
       >

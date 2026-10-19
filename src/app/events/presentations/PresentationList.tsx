@@ -14,6 +14,10 @@ import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { ColumnPicker } from "@/components/ColumnPicker";
+import { parseHiddenColumns } from "@/lib/tableColumns";
+import { useHiddenColumns } from "@/lib/useHiddenColumns";
+import { PRESENTATION_TABLE_COLUMNS, type PresentationTableColumn } from "./tableColumns";
 import type {
   Presentation,
   PresentationContact,
@@ -43,6 +47,7 @@ type PresentationListProps = {
   initialStatus?: string;
   initialSlot?: string;
   initialSpeaker?: string;
+  initialHiddenColumns: string[];
   duplicatePresentation: (id: string) => Promise<void>;
   deletePresentation: (id: string) => Promise<void>;
   deletePresentations: (ids: string[]) => Promise<void>;
@@ -55,6 +60,12 @@ type PresentationListProps = {
 type SortField = "title" | "status" | "type" | "track" | "speaker" | "slots";
 type FilterState = { title: string; status: string; trackId: string; type: string; slot: PresenceFilter; speaker: PresenceFilter };
 const DEFAULT_FILTERS: FilterState = { title: "", status: "", trackId: "", type: "", slot: "", speaker: "" };
+
+// Hiding a column clears a filter that only its table header shows; status and
+// track stay in the toolbar either way.
+const COLUMN_FILTERS: Partial<Record<PresentationTableColumn, (keyof FilterState)[]>> = {
+  type: ["type"],
+};
 
 function primarySpeakerName(speakers: (PresentationContact & { contact: Contact })[]) {
   const primary = speakers.find((s) => s.isPrimary) ?? speakers[0];
@@ -71,6 +82,7 @@ export function PresentationList({
   initialStatus,
   initialSlot,
   initialSpeaker,
+  initialHiddenColumns,
   duplicatePresentation,
   deletePresentation,
   deletePresentations,
@@ -97,6 +109,23 @@ export function PresentationList({
   const [bulkSubstatus, setBulkSubstatus] = useState("");
   const [bulkTrackId, setBulkTrackId] = useState<string>("__no_change__");
   const [bulkType, setBulkType] = useState<string>("__no_change__");
+  const columns = useHiddenColumns<PresentationTableColumn>(
+    "presentations",
+    parseHiddenColumns(initialHiddenColumns, PRESENTATION_TABLE_COLUMNS)
+  );
+  const show = columns.isVisible;
+
+  function toggleColumn(key: PresentationTableColumn, hide: boolean) {
+    columns.setColumnHidden(key, hide);
+    const cleared = hide ? COLUMN_FILTERS[key] : undefined;
+    if (cleared) {
+      setFilters((prev) => {
+        const next = { ...prev };
+        for (const k of cleared) (next as Record<keyof FilterState, string>)[k] = DEFAULT_FILTERS[k];
+        return next;
+      });
+    }
+  }
 
   function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -407,44 +436,58 @@ export function PresentationList({
         </div>
       ) : (
         <div className="space-y-2">
+          <div className="flex justify-end">
+            <ColumnPicker
+              columns={PRESENTATION_TABLE_COLUMNS}
+              hidden={columns.hidden}
+              onToggle={toggleColumn}
+              onShowAll={columns.showAll}
+            />
+          </div>
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
                   {canSelect && <th className={`${thBase} w-8`}><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" /></th>}
                   <th className={thSortable} onClick={() => handleSort("title")}>Title{sortIndicator(sortField === "title", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("type")}>Type{sortIndicator(sortField === "type", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("track")}>Track{sortIndicator(sortField === "track", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("speaker")}>Primary Speaker{sortIndicator(sortField === "speaker", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("slots")}>Schedule{sortIndicator(sortField === "slots", sortDir)}</th>
+                  {show("status") && <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>}
+                  {show("type") && <th className={thSortable} onClick={() => handleSort("type")}>Type{sortIndicator(sortField === "type", sortDir)}</th>}
+                  {show("track") && <th className={thSortable} onClick={() => handleSort("track")}>Track{sortIndicator(sortField === "track", sortDir)}</th>}
+                  {show("speaker") && <th className={thSortable} onClick={() => handleSort("speaker")}>Primary Speaker{sortIndicator(sortField === "speaker", sortDir)}</th>}
+                  {show("slots") && <th className={thSortable} onClick={() => handleSort("slots")}>Schedule{sortIndicator(sortField === "slots", sortDir)}</th>}
                 </tr>
                 <tr>
                   {/* Spacer under the select-all column; drops with it. */}
                   {canSelect && <td className={filterCell} />}
                   <td className={filterCell}><input type="text" placeholder="Filter…" value={filters.title} onChange={(e) => setFilter("title", e.target.value)} className={filterInput} /></td>
-                  <td className={filterCell}>
-                    <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
-                      <option value="">All</option>
-                      <option value="__blank__">(blank)</option>
-                      {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </td>
-                  <td className={filterCell}>
-                    <select value={filters.type} onChange={(e) => setFilter("type", e.target.value)} className={filterInput}>
-                      <option value="">All</option>
-                      {presentationTypes.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
-                    </select>
-                  </td>
-                  <td className={filterCell}>
-                    <select value={filters.trackId} onChange={(e) => setFilter("trackId", e.target.value)} className={filterInput}>
-                      <option value="">All</option>
-                      <option value="__blank__">(blank)</option>
-                      {tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </td>
-                  <td className={filterCell} />
-                  <td className={filterCell} />
+                  {show("status") && (
+                    <td className={filterCell}>
+                      <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
+                        <option value="">All</option>
+                        <option value="__blank__">(blank)</option>
+                        {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {show("type") && (
+                    <td className={filterCell}>
+                      <select value={filters.type} onChange={(e) => setFilter("type", e.target.value)} className={filterInput}>
+                        <option value="">All</option>
+                        {presentationTypes.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {show("track") && (
+                    <td className={filterCell}>
+                      <select value={filters.trackId} onChange={(e) => setFilter("trackId", e.target.value)} className={filterInput}>
+                        <option value="">All</option>
+                        <option value="__blank__">(blank)</option>
+                        {tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {show("speaker") && <td className={filterCell} />}
+                  {show("slots") && <td className={filterCell} />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -457,18 +500,22 @@ export function PresentationList({
                       <td className="px-3 py-3 font-medium">
                         <Link href={`/events/${eventId}/presentations/${p.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{p.title}</Link>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={p.status} substatus={p.substatus} /></td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{p.type ? resolveOptionLabel(p.type, presentationTypes) : "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{p.track?.name ?? "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {speaker || "—"}
-                        {p.speakers.length > 1 && <span className="text-gray-400 dark:text-gray-500"> +{p.speakers.length - 1}</span>}
-                      </td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {p.slots.length > 0
-                          ? <span className="text-green-600 dark:text-green-400">{p.slots.length} block{p.slots.length !== 1 ? "s" : ""}</span>
-                          : <span className="text-orange-500">Not scheduled</span>}
-                      </td>
+                      {show("status") && <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={p.status} substatus={p.substatus} /></td>}
+                      {show("type") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{p.type ? resolveOptionLabel(p.type, presentationTypes) : "—"}</td>}
+                      {show("track") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{p.track?.name ?? "—"}</td>}
+                      {show("speaker") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {speaker || "—"}
+                          {p.speakers.length > 1 && <span className="text-gray-400 dark:text-gray-500"> +{p.speakers.length - 1}</span>}
+                        </td>
+                      )}
+                      {show("slots") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {p.slots.length > 0
+                            ? <span className="text-green-600 dark:text-green-400">{p.slots.length} block{p.slots.length !== 1 ? "s" : ""}</span>
+                            : <span className="text-orange-500">Not scheduled</span>}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

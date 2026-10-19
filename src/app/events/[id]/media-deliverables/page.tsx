@@ -10,6 +10,7 @@ import {
 } from "../../media-deliverables/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { getSubstatusOptions, getOptions } from "@/app/settings/actions";
+import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getFunctionOptions } from "../../functions/actions";
@@ -31,7 +32,7 @@ export default async function MediaDeliverablesPage({
   const { id: eventId } = await params;
   const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked } =
     (await searchParams) ?? {};
-  const [event, mediaDeliverables, substatuses, responsiblePartyVendors, functions, presentations, mediaTypeOptions] =
+  const [event, mediaDeliverables, substatuses, responsiblePartyVendors, functions, presentations, mediaTypeOptions, hiddenColumns] =
     await Promise.all([
       getEvent(eventId),
       getMediaDeliverables(eventId),
@@ -40,6 +41,7 @@ export default async function MediaDeliverablesPage({
       getFunctionOptions(eventId),
       getPresentationOptions(eventId),
       getOptions("media_type"),
+      getHiddenColumns("media_deliverables"),
     ]);
 
   if (!event) notFound();
@@ -102,6 +104,7 @@ export default async function MediaDeliverablesPage({
         initialVendor={initialVendor}
         initialFunction={initialFunction}
         initialLinked={initialLinked}
+        initialHiddenColumns={hiddenColumns}
         deleteMediaDeliverable={deleteMediaDeliverableAction}
         deleteMediaDeliverables={deleteMediaDeliverablesAction}
         bulkUpdateMediaDeliverables={bulkUpdateAction}

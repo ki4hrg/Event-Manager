@@ -18,6 +18,10 @@ import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { ColumnPicker } from "@/components/ColumnPicker";
+import { parseHiddenColumns } from "@/lib/tableColumns";
+import { useHiddenColumns } from "@/lib/useHiddenColumns";
+import { CATERING_ORDER_TABLE_COLUMNS, type CateringOrderTableColumn } from "./tableColumns";
 
 type CateringOrder = Awaited<ReturnType<typeof getCateringOrders>>[number];
 
@@ -30,6 +34,7 @@ type Props = {
   initialStatus?: string;
   initialVendor?: string;
   initialFunction?: string;
+  initialHiddenColumns: string[];
   deleteCateringOrder: (formData: FormData) => Promise<void>;
   deleteCateringOrders: (ids: string[]) => Promise<void>;
   bulkUpdateCateringOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string }) => Promise<void>;
@@ -48,6 +53,7 @@ export function CateringOrderList({
   initialStatus,
   initialVendor,
   initialFunction,
+  initialHiddenColumns,
   deleteCateringOrder,
   deleteCateringOrders,
   bulkUpdateCateringOrders,
@@ -72,6 +78,11 @@ export function CateringOrderList({
   const [bulkStatus, setBulkStatus] = useState<EntityStatus | "">("");
   const [bulkSubstatus, setBulkSubstatus] = useState("");
   const [bulkVendorId, setBulkVendorId] = useState("");
+  const columns = useHiddenColumns<CateringOrderTableColumn>(
+    "catering_orders",
+    parseHiddenColumns(initialHiddenColumns, CATERING_ORDER_TABLE_COLUMNS)
+  );
+  const show = columns.isVisible;
 
   function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -296,35 +307,45 @@ export function CateringOrderList({
         </div>
       ) : (
         <div className="space-y-2">
+          <div className="flex justify-end">
+            <ColumnPicker
+              columns={CATERING_ORDER_TABLE_COLUMNS}
+              hidden={columns.hidden}
+              onToggle={columns.setColumnHidden}
+              onShowAll={columns.showAll}
+            />
+          </div>
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
                   {canSelect && <th className={`${thBase} w-8`}><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" /></th>}
                   <th className={thSortable} onClick={() => handleSort("name")}>Name{sortIndicator(sortField === "name", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>
-                  <th className={thBase}>Workflow</th>
-                  <th className={thSortable} onClick={() => handleSort("vendors")}>Vendor(s){sortIndicator(sortField === "vendors", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("serviceStyle")}>Service Style{sortIndicator(sortField === "serviceStyle", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("guaranteeCount")}>Guarantee{sortIndicator(sortField === "guaranteeCount", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("function")}>Function{sortIndicator(sortField === "function", sortDir)}</th>
+                  {show("status") && <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>}
+                  {show("workflow") && <th className={thBase}>Workflow</th>}
+                  {show("vendors") && <th className={thSortable} onClick={() => handleSort("vendors")}>Vendor(s){sortIndicator(sortField === "vendors", sortDir)}</th>}
+                  {show("serviceStyle") && <th className={thSortable} onClick={() => handleSort("serviceStyle")}>Service Style{sortIndicator(sortField === "serviceStyle", sortDir)}</th>}
+                  {show("guaranteeCount") && <th className={thSortable} onClick={() => handleSort("guaranteeCount")}>Guarantee{sortIndicator(sortField === "guaranteeCount", sortDir)}</th>}
+                  {show("function") && <th className={thSortable} onClick={() => handleSort("function")}>Function{sortIndicator(sortField === "function", sortDir)}</th>}
                 </tr>
                 <tr>
                   {/* Spacer under the select-all column; drops with it. */}
                   {canSelect && <td className={filterCell} />}
                   <td className={filterCell}><input type="text" placeholder="Filter…" value={filters.name} onChange={(e) => setFilter("name", e.target.value)} className={filterInput} /></td>
-                  <td className={filterCell}>
-                    <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
-                      <option value="">All</option>
-                      <option value="__blank__">(blank)</option>
-                      {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </td>
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
+                  {show("status") && (
+                    <td className={filterCell}>
+                      <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
+                        <option value="">All</option>
+                        <option value="__blank__">(blank)</option>
+                        {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {show("workflow") && <td className={filterCell} />}
+                  {show("vendors") && <td className={filterCell} />}
+                  {show("serviceStyle") && <td className={filterCell} />}
+                  {show("guaranteeCount") && <td className={filterCell} />}
+                  {show("function") && <td className={filterCell} />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -336,16 +357,18 @@ export function CateringOrderList({
                       <td className="px-3 py-3 font-medium">
                         <Link href={`/events/${eventId}/catering-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.name}</Link>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>
-                      <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.vendors.length > 0 ? o.vendors.map((v) => v.vendor.name).join(", ") : "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.serviceStyle || "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.guaranteeCount ?? "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {o.function
-                          ? <Link href={`/events/${eventId}/functions/${o.function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.function)}</Link>
-                          : <span className="text-orange-500">Unlinked</span>}
-                      </td>
+                      {show("status") && <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>}
+                      {show("workflow") && <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>}
+                      {show("vendors") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.vendors.length > 0 ? o.vendors.map((v) => v.vendor.name).join(", ") : "—"}</td>}
+                      {show("serviceStyle") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.serviceStyle || "—"}</td>}
+                      {show("guaranteeCount") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.guaranteeCount ?? "—"}</td>}
+                      {show("function") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {o.function
+                            ? <Link href={`/events/${eventId}/functions/${o.function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.function)}</Link>
+                            : <span className="text-orange-500">Unlinked</span>}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

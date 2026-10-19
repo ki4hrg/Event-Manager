@@ -18,6 +18,10 @@ import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { ColumnPicker } from "@/components/ColumnPicker";
+import { parseHiddenColumns } from "@/lib/tableColumns";
+import { useHiddenColumns } from "@/lib/useHiddenColumns";
+import { PRINT_ORDER_TABLE_COLUMNS, type PrintOrderTableColumn } from "./tableColumns";
 
 type PrintOrder = Awaited<ReturnType<typeof getPrintOrders>>[number];
 
@@ -32,6 +36,7 @@ type Props = {
   initialVendor?: string;
   initialFunction?: string;
   initialLinked?: string;
+  initialHiddenColumns: string[];
   deletePrintOrder: (formData: FormData) => Promise<void>;
   deletePrintOrders: (ids: string[]) => Promise<void>;
   bulkUpdatePrintOrders: (ids: string[], updates: { status?: EntityStatus; substatus?: string | null; vendorId?: string; functionId?: string }) => Promise<void>;
@@ -52,6 +57,7 @@ export function PrintOrderList({
   initialVendor,
   initialFunction,
   initialLinked,
+  initialHiddenColumns,
   deletePrintOrder,
   deletePrintOrders,
   bulkUpdatePrintOrders,
@@ -78,6 +84,11 @@ export function PrintOrderList({
   const [bulkSubstatus, setBulkSubstatus] = useState("");
   const [bulkVendorId, setBulkVendorId] = useState("");
   const [bulkFunctionId, setBulkFunctionId] = useState("");
+  const columns = useHiddenColumns<PrintOrderTableColumn>(
+    "print_orders",
+    parseHiddenColumns(initialHiddenColumns, PRINT_ORDER_TABLE_COLUMNS)
+  );
+  const show = columns.isVisible;
 
   function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -337,18 +348,26 @@ export function PrintOrderList({
         </div>
       ) : (
         <div className="space-y-2">
+          <div className="flex justify-end">
+            <ColumnPicker
+              columns={PRINT_ORDER_TABLE_COLUMNS}
+              hidden={columns.hidden}
+              onToggle={columns.setColumnHidden}
+              onShowAll={columns.showAll}
+            />
+          </div>
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
                   {canSelect && <th className={`${thBase} w-8`}><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" /></th>}
                   <th className={thSortable} onClick={() => handleSort("name")}>Name{sortIndicator(sortField === "name", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>
-                  <th className={thBase}>Workflow</th>
-                  <th className={thSortable} onClick={() => handleSort("vendors")}>Vendor(s){sortIndicator(sortField === "vendors", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("items")}>Items{sortIndicator(sortField === "items", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("functions")}>Functions{sortIndicator(sortField === "functions", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("presentation")}>Presentation{sortIndicator(sortField === "presentation", sortDir)}</th>
+                  {show("status") && <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>}
+                  {show("workflow") && <th className={thBase}>Workflow</th>}
+                  {show("vendors") && <th className={thSortable} onClick={() => handleSort("vendors")}>Vendor(s){sortIndicator(sortField === "vendors", sortDir)}</th>}
+                  {show("items") && <th className={thSortable} onClick={() => handleSort("items")}>Items{sortIndicator(sortField === "items", sortDir)}</th>}
+                  {show("functions") && <th className={thSortable} onClick={() => handleSort("functions")}>Functions{sortIndicator(sortField === "functions", sortDir)}</th>}
+                  {show("presentation") && <th className={thSortable} onClick={() => handleSort("presentation")}>Presentation{sortIndicator(sortField === "presentation", sortDir)}</th>}
                 </tr>
                 <tr>
                   {/* Spacer under the select-all column; drops with it. */}
@@ -356,18 +375,20 @@ export function PrintOrderList({
                   <td className={filterCell}>
                     <input type="text" placeholder="Filter…" value={filters.name} onChange={(e) => setFilter("name", e.target.value)} className={filterInput} />
                   </td>
-                  <td className={filterCell}>
-                    <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
-                      <option value="">All</option>
-                      <option value="__blank__">(blank)</option>
-                      {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </td>
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
+                  {show("status") && (
+                    <td className={filterCell}>
+                      <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
+                        <option value="">All</option>
+                        <option value="__blank__">(blank)</option>
+                        {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {show("workflow") && <td className={filterCell} />}
+                  {show("vendors") && <td className={filterCell} />}
+                  {show("items") && <td className={filterCell} />}
+                  {show("functions") && <td className={filterCell} />}
+                  {show("presentation") && <td className={filterCell} />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -379,22 +400,26 @@ export function PrintOrderList({
                       <td className="px-3 py-3 font-medium">
                         <Link href={`/events/${eventId}/print-orders/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.name}</Link>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>
-                      <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.vendors.length > 0 ? o.vendors.map((v) => v.vendor.name).join(", ") : "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.items.length > 0 ? o.items.length : "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {o.functions.length > 0
-                          ? o.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${o.functions[0].function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.functions[0].function)}</Link>
-                            : `${o.functions.length} functions`
-                          : <span className="text-orange-500">Unlinked</span>}
-                      </td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {o.presentation
-                          ? <Link href={`/events/${eventId}/presentations/${o.presentation.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.presentation.title}</Link>
-                          : "—"}
-                      </td>
+                      {show("status") && <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={o.status} substatus={o.substatus} /></td>}
+                      {show("workflow") && <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[o.id]} /></td>}
+                      {show("vendors") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.vendors.length > 0 ? o.vendors.map((v) => v.vendor.name).join(", ") : "—"}</td>}
+                      {show("items") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{o.items.length > 0 ? o.items.length : "—"}</td>}
+                      {show("functions") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {o.functions.length > 0
+                            ? o.functions.length === 1
+                              ? <Link href={`/events/${eventId}/functions/${o.functions[0].function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(o.functions[0].function)}</Link>
+                              : `${o.functions.length} functions`
+                            : <span className="text-orange-500">Unlinked</span>}
+                        </td>
+                      )}
+                      {show("presentation") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {o.presentation
+                            ? <Link href={`/events/${eventId}/presentations/${o.presentation.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{o.presentation.title}</Link>
+                            : "—"}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

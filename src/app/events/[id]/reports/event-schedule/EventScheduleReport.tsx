@@ -127,12 +127,18 @@ function DayTable({
         })}
       </div>
       <div className="hidden sm:block print:block overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full table-fixed text-sm border-collapse">
+          <colgroup>
+            <col className="w-40" />
+            <col />
+            <col className="w-32" />
+            <col />
+          </colgroup>
           <thead>
             <tr>
-              <th className={`${th} w-40`}>Time</th>
+              <th className={th}>Time</th>
               <th className={th}>Function</th>
-              <th className={`${th} w-32`}>Type</th>
+              <th className={th}>Type</th>
               <th className={th}>Room(s)</th>
             </tr>
           </thead>
@@ -146,7 +152,7 @@ function DayTable({
                   <td className={`${td} whitespace-nowrap font-medium`}>
                     {timeRange(item.startTime, item.endTime, timezone)}
                   </td>
-                  <td className={`${td} font-semibold text-gray-900 dark:text-white print:text-black`}>
+                  <td className={`${td} break-words font-semibold text-gray-900 dark:text-white print:text-black`}>
                     {functionLabel(item)}
                     {item.notes && (
                       <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 print:text-gray-600 font-normal italic">
@@ -162,7 +168,7 @@ function DayTable({
                       </span>
                     )}
                   </td>
-                  <td className={td}>
+                  <td className={`${td} break-words`}>
                     {room || (subRows.length === 0 && <span className="text-gray-400 dark:text-gray-500">—</span>)}
                     {subRows.length > 0 && (
                       <ul className="mt-1 space-y-0.5 text-[12px] text-gray-600 dark:text-gray-300 print:text-gray-700 font-normal">
@@ -225,7 +231,11 @@ function CompactDayTable({
         })}
       </ul>
 
-      <table className="hidden sm:table print:table w-full text-xs border-collapse">
+      <table className="hidden sm:table print:table w-full table-fixed text-xs border-collapse">
+        <colgroup>
+          <col className="w-36" />
+          <col />
+        </colgroup>
         <tbody>
           {items.map((item) => {
             const room = roomLabel(item);
@@ -237,7 +247,7 @@ function CompactDayTable({
                 <td className="py-1 pr-3 align-top whitespace-nowrap font-medium tabular-nums text-gray-900 dark:text-white print:text-black">
                   {timeRange(item.startTime, item.endTime, timezone)}
                 </td>
-                <td className="py-1 align-top text-gray-900 dark:text-white print:text-black">
+                <td className="py-1 align-top break-words text-gray-900 dark:text-white print:text-black">
                   <span className="font-medium">{functionLabel(item)}</span>
                   {room && (
                     <span className="text-gray-500 dark:text-gray-400 print:text-gray-600">

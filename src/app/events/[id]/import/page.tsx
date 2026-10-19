@@ -4,7 +4,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { formatEventDate } from "@/lib/agendaUtils";
 import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
+import { resolveOptionLabel } from "@/lib/optionUtils";
+import type { CustomOption } from "@prisma/client";
 import { getEvent } from "@/app/events/actions";
+import { getOptions } from "@/app/settings/actions";
 import {
   getImportSourceOptions,
   getDefaultSource,
@@ -20,18 +23,18 @@ export const metadata: Metadata = { title: "Import" };
 
 type Content = Awaited<ReturnType<typeof getImportableContent>>;
 
-function toItems(content: Content) {
+function toItems(content: Content, functionTypes: CustomOption[], presentationTypes: CustomOption[]) {
   return {
     functions: content.functions.map((f) => ({
       id: f.id,
       label: formatBreakoutSessionName(f.name, f.breakoutGroup?.name),
-      sublabel: f.type || null,
+      sublabel: resolveOptionLabel(f.type, functionTypes) || null,
       alreadyPresent: f.alreadyPresent,
     })),
     presentations: content.presentations.map((p) => ({
       id: p.id,
       label: p.title,
-      sublabel: p.track?.name ?? p.type ?? null,
+      sublabel: p.track?.name ?? (resolveOptionLabel(p.type, presentationTypes) || null),
       alreadyPresent: p.alreadyPresent,
     })),
   };
@@ -41,21 +44,23 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   // Import writes into this event; a VIEW-only user should not reach the picker.
   await requirePermission("EVENTS", "WRITE", id);
-  const [event, sources, defaultSource] = await Promise.all([
+  const [event, sources, defaultSource, functionTypes, presentationTypes] = await Promise.all([
     getEvent(id),
     getImportSourceOptions(id),
     getDefaultSource(id),
+    getOptions("function_type"),
+    getOptions("presentation_type"),
   ]);
   if (!event) notFound();
 
   const initialSourceId = defaultSource?.id ?? sources[0]?.id ?? "";
   const content = initialSourceId
-    ? toItems(await getImportableContent(initialSourceId, id))
+    ? toItems(await getImportableContent(initialSourceId, id), functionTypes, presentationTypes)
     : { functions: [], presentations: [] };
 
   const loadContent = async (sourceEventId: string) => {
     "use server";
-    return toItems(await getImportableContent(sourceEventId, id));
+    return toItems(await getImportableContent(sourceEventId, id), functionTypes, presentationTypes);
   };
 
   const runImport = async (args: {

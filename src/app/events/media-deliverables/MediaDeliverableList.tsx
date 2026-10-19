@@ -19,6 +19,10 @@ import { asPresence, type PresenceFilter } from "@/lib/presenceFilter";
 import { PresenceFilterSelect } from "@/components/ui/PresenceFilterSelect";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { ColumnPicker } from "@/components/ColumnPicker";
+import { parseHiddenColumns } from "@/lib/tableColumns";
+import { useHiddenColumns } from "@/lib/useHiddenColumns";
+import { MEDIA_DELIVERABLE_TABLE_COLUMNS, type MediaDeliverableTableColumn } from "./tableColumns";
 
 type MediaDeliverable = Awaited<ReturnType<typeof getMediaDeliverables>>[number];
 
@@ -35,6 +39,7 @@ type Props = {
   initialVendor?: string;
   initialFunction?: string;
   initialLinked?: string;
+  initialHiddenColumns: string[];
   deleteMediaDeliverable: (formData: FormData) => Promise<void>;
   deleteMediaDeliverables: (ids: string[]) => Promise<void>;
   bulkUpdateMediaDeliverables: (
@@ -68,6 +73,7 @@ export function MediaDeliverableList({
   initialVendor,
   initialFunction,
   initialLinked,
+  initialHiddenColumns,
   deleteMediaDeliverable,
   deleteMediaDeliverables,
   bulkUpdateMediaDeliverables,
@@ -96,6 +102,11 @@ export function MediaDeliverableList({
   const [bulkMediaType, setBulkMediaType] = useState("");
   const [bulkFunctionId, setBulkFunctionId] = useState("");
   const [bulkPresentationId, setBulkPresentationId] = useState("");
+  const columns = useHiddenColumns<MediaDeliverableTableColumn>(
+    "media_deliverables",
+    parseHiddenColumns(initialHiddenColumns, MEDIA_DELIVERABLE_TABLE_COLUMNS)
+  );
+  const show = columns.isVisible;
 
   function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -395,18 +406,26 @@ export function MediaDeliverableList({
         </div>
       ) : (
         <div className="space-y-2">
+          <div className="flex justify-end">
+            <ColumnPicker
+              columns={MEDIA_DELIVERABLE_TABLE_COLUMNS}
+              hidden={columns.hidden}
+              onToggle={columns.setColumnHidden}
+              onShowAll={columns.showAll}
+            />
+          </div>
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
               <thead>
                 <tr>
                   {canSelect && <th className={`${thBase} w-8`}><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded" /></th>}
                   <th className={thSortable} onClick={() => handleSort("name")}>Name{sortIndicator(sortField === "name", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>
-                  <th className={thBase}>Workflow</th>
-                  <th className={thSortable} onClick={() => handleSort("mediaType")}>Media Type{sortIndicator(sortField === "mediaType", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("provider")}>Provider{sortIndicator(sortField === "provider", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("functions")}>Functions{sortIndicator(sortField === "functions", sortDir)}</th>
-                  <th className={thSortable} onClick={() => handleSort("presentations")}>Presentations{sortIndicator(sortField === "presentations", sortDir)}</th>
+                  {show("status") && <th className={thSortable} onClick={() => handleSort("status")}>Status{sortIndicator(sortField === "status", sortDir)}</th>}
+                  {show("workflow") && <th className={thBase}>Workflow</th>}
+                  {show("mediaType") && <th className={thSortable} onClick={() => handleSort("mediaType")}>Media Type{sortIndicator(sortField === "mediaType", sortDir)}</th>}
+                  {show("provider") && <th className={thSortable} onClick={() => handleSort("provider")}>Provider{sortIndicator(sortField === "provider", sortDir)}</th>}
+                  {show("functions") && <th className={thSortable} onClick={() => handleSort("functions")}>Functions{sortIndicator(sortField === "functions", sortDir)}</th>}
+                  {show("presentations") && <th className={thSortable} onClick={() => handleSort("presentations")}>Presentations{sortIndicator(sortField === "presentations", sortDir)}</th>}
                 </tr>
                 <tr>
                   {/* Spacer under the select-all column; drops with it. */}
@@ -414,18 +433,20 @@ export function MediaDeliverableList({
                   <td className={filterCell}>
                     <input type="text" placeholder="Filter…" value={filters.name} onChange={(e) => setFilter("name", e.target.value)} className={filterInput} />
                   </td>
-                  <td className={filterCell}>
-                    <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
-                      <option value="">All</option>
-                      <option value="__blank__">(blank)</option>
-                      {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </td>
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                  <td className={filterCell} />
+                  {show("status") && (
+                    <td className={filterCell}>
+                      <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)} className={filterInput}>
+                        <option value="">All</option>
+                        <option value="__blank__">(blank)</option>
+                        {EDIT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {show("workflow") && <td className={filterCell} />}
+                  {show("mediaType") && <td className={filterCell} />}
+                  {show("provider") && <td className={filterCell} />}
+                  {show("functions") && <td className={filterCell} />}
+                  {show("presentations") && <td className={filterCell} />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -438,24 +459,28 @@ export function MediaDeliverableList({
                       <td className="px-3 py-3 font-medium">
                         <Link href={`/events/${eventId}/media-deliverables/${d.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{d.name}</Link>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={d.status} substatus={d.substatus} /></td>
-                      <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[d.id]} /></td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{d.mediaType ?? "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{provider ?? "—"}</td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {d.functions.length > 0
-                          ? d.functions.length === 1
-                            ? <Link href={`/events/${eventId}/functions/${d.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(d.functions[0])}</Link>
-                            : `${d.functions.length} functions`
-                          : <span className="text-orange-500">—</span>}
-                      </td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {d.presentations.length > 0
-                          ? d.presentations.length === 1
-                            ? <Link href={`/events/${eventId}/presentations/${d.presentations[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{d.presentations[0].title}</Link>
-                            : `${d.presentations.length} presentations`
-                          : "—"}
-                      </td>
+                      {show("status") && <td className="px-3 py-3 whitespace-nowrap"><EntityStatusBadge status={d.status} substatus={d.substatus} /></td>}
+                      {show("workflow") && <td className="px-3 py-3 whitespace-nowrap"><WorkflowBadge summary={workflowSummaries[d.id]} /></td>}
+                      {show("mediaType") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{d.mediaType ?? "—"}</td>}
+                      {show("provider") && <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{provider ?? "—"}</td>}
+                      {show("functions") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {d.functions.length > 0
+                            ? d.functions.length === 1
+                              ? <Link href={`/events/${eventId}/functions/${d.functions[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{formatFunctionLabel(d.functions[0])}</Link>
+                              : `${d.functions.length} functions`
+                            : <span className="text-orange-500">—</span>}
+                        </td>
+                      )}
+                      {show("presentations") && (
+                        <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                          {d.presentations.length > 0
+                            ? d.presentations.length === 1
+                              ? <Link href={`/events/${eventId}/presentations/${d.presentations[0].id}`} className="text-blue-600 dark:text-blue-400 hover:underline">{d.presentations[0].title}</Link>
+                              : `${d.presentations.length} presentations`
+                            : "—"}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

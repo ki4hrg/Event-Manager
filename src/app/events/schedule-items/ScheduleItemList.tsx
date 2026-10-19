@@ -14,6 +14,10 @@ import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { formatFunctionLabel, matchesFunctionQuery } from "@/lib/functionNumbers";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { ColumnPicker } from "@/components/ColumnPicker";
+import { parseHiddenColumns } from "@/lib/tableColumns";
+import { useHiddenColumns } from "@/lib/useHiddenColumns";
+import { SCHEDULE_ITEM_TABLE_COLUMNS, type ScheduleItemTableColumn } from "./tableColumns";
 
 type ScheduleItemRow = Awaited<ReturnType<typeof getScheduleItems>>[number];
 
@@ -22,6 +26,7 @@ type Props = {
   eventId: string;
   scheduleTypes: CustomOption[];
   timezone: string;
+  initialHiddenColumns: string[];
   deleteScheduleItem: (formData: FormData) => Promise<void>;
   deleteScheduleItems: (ids: string[]) => Promise<void>;
   bulkUpdateScheduleItems: (ids: string[], updates: { type?: string; isPublic?: boolean }) => Promise<void>;
@@ -31,6 +36,12 @@ type SortField = "startTime" | "endTime" | "type" | "function" | "isPublic";
 
 type FilterState = { search: string; type: string; isPublic: string };
 const DEFAULT_FILTERS: FilterState = { search: "", type: "", isPublic: "" };
+
+// Hiding a column clears its filter, so no invisible filter keeps narrowing rows.
+const COLUMN_FILTERS: Partial<Record<ScheduleItemTableColumn, (keyof FilterState)[]>> = {
+  type: ["type"],
+  isPublic: ["isPublic"],
+};
 
 function formatDT(date: Date, timezone: string): string {
   return new Date(date).toLocaleString("en-US", {
@@ -62,6 +73,7 @@ export function ScheduleItemList({
   eventId,
   scheduleTypes,
   timezone,
+  initialHiddenColumns,
   deleteScheduleItem,
   deleteScheduleItems,
   bulkUpdateScheduleItems,
@@ -78,6 +90,26 @@ export function ScheduleItemList({
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkType, setBulkType] = useState("");
   const [bulkIsPublic, setBulkIsPublic] = useState("");
+  const columns = useHiddenColumns<ScheduleItemTableColumn>(
+    "schedule_items",
+    parseHiddenColumns(initialHiddenColumns, SCHEDULE_ITEM_TABLE_COLUMNS)
+  );
+  const show = columns.isVisible;
+  // Selection + Function + delete, plus whichever optional columns are showing.
+  const columnCount =
+    (canSelect ? 1 : 0) + 2 + SCHEDULE_ITEM_TABLE_COLUMNS.filter((c) => !("required" in c) && show(c.key)).length;
+
+  function toggleColumn(key: ScheduleItemTableColumn, hide: boolean) {
+    columns.setColumnHidden(key, hide);
+    const cleared = hide ? COLUMN_FILTERS[key] : undefined;
+    if (cleared) {
+      setFilters((prev) => {
+        const next = { ...prev };
+        for (const k of cleared) next[k] = DEFAULT_FILTERS[k];
+        return next;
+      });
+    }
+  }
 
   function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -325,148 +357,176 @@ export function ScheduleItemList({
           })}
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead>
-                <tr>
-                  {canSelect && (
-                    <th className={`${thBase} w-8`}>
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={toggleSelectAll}
-                        className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
-                      />
-                    </th>
-                  )}
-                  <th className={thSortable} onClick={() => handleSort("startTime")}>
-                    Date / Time{sortIndicator(sortField === "startTime", sortDir)}
-                  </th>
-                  <th className={thSortable} onClick={() => handleSort("type")}>
-                    Type{sortIndicator(sortField === "type", sortDir)}
-                  </th>
-                  <th className={thSortable} onClick={() => handleSort("function")}>
-                    Function{sortIndicator(sortField === "function", sortDir)}
-                  </th>
-                  <th className={thSortable} onClick={() => handleSort("isPublic")}>
-                    Public{sortIndicator(sortField === "isPublic", sortDir)}
-                  </th>
-                  <th className={thBase}>Notes</th>
-                  <th className={thBase}></th>
-                </tr>
-                {/* Filter row */}
-                <tr>
-                  {/* Spacer under the select-all column; drops with it. */}
-                  {canSelect && <td className={filterCell} />}
-                  <td className={filterCell} />
-                  <td className={filterCell}>
-                    <select
-                      value={filters.type}
-                      onChange={(e) => setFilter("type", e.target.value)}
-                      className={filterInput}
-                    >
-                      <option value="">All types</option>
-                      {scheduleTypes.map((t) => (
-                        <option key={t.id} value={t.label}>{t.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className={filterCell}>
-                    <input
-                      type="text"
-                      placeholder="Search…"
-                      value={filters.search}
-                      onChange={(e) => setFilter("search", e.target.value)}
-                      className={filterInput}
-                    />
-                  </td>
-                  <td className={filterCell}>
-                    <select
-                      value={filters.isPublic}
-                      onChange={(e) => setFilter("isPublic", e.target.value)}
-                      className={filterInput}
-                    >
-                      <option value="">All</option>
-                      <option value="true">Public</option>
-                      <option value="false">Private</option>
-                    </select>
-                  </td>
-                  <td className={filterCell} />
-                  <td className={filterCell} />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {sorted.length === 0 ? (
+        <div className="space-y-2">
+          <div className="flex justify-end">
+            <ColumnPicker
+              columns={SCHEDULE_ITEM_TABLE_COLUMNS}
+              hidden={columns.hidden}
+              onToggle={toggleColumn}
+              onShowAll={columns.showAll}
+            />
+          </div>
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead>
                   <tr>
-                    <td colSpan={canSelect ? 7 : 6} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                      No schedule items match the current filters.
-                    </td>
+                    {canSelect && (
+                      <th className={`${thBase} w-8`}>
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleSelectAll}
+                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
+                        />
+                      </th>
+                    )}
+                    {show("dateTime") && (
+                      <th className={thSortable} onClick={() => handleSort("startTime")}>
+                        Date / Time{sortIndicator(sortField === "startTime", sortDir)}
+                      </th>
+                    )}
+                    {show("type") && (
+                      <th className={thSortable} onClick={() => handleSort("type")}>
+                        Type{sortIndicator(sortField === "type", sortDir)}
+                      </th>
+                    )}
+                    <th className={thSortable} onClick={() => handleSort("function")}>
+                      Function{sortIndicator(sortField === "function", sortDir)}
+                    </th>
+                    {show("isPublic") && (
+                      <th className={thSortable} onClick={() => handleSort("isPublic")}>
+                        Public{sortIndicator(sortField === "isPublic", sortDir)}
+                      </th>
+                    )}
+                    {show("notes") && <th className={thBase}>Notes</th>}
+                    <th className={thBase}></th>
                   </tr>
-                ) : (
-                  sorted.map((item) => {
-                    const color = resolveOptionColor(item.type, scheduleTypes);
-                    const label = resolveOptionLabel(item.type, scheduleTypes);
-                    return (
-                      <tr
-                        key={item.id}
-                        className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-                          selected.has(item.id) ? "bg-blue-50 dark:bg-blue-900/20" : ""
-                        }`}
-                      >
-                        {canSelect && (
+                  {/* Filter row */}
+                  <tr>
+                    {/* Spacer under the select-all column; drops with it. */}
+                    {canSelect && <td className={filterCell} />}
+                    {show("dateTime") && <td className={filterCell} />}
+                    {show("type") && (
+                      <td className={filterCell}>
+                        <select
+                          value={filters.type}
+                          onChange={(e) => setFilter("type", e.target.value)}
+                          className={filterInput}
+                        >
+                          <option value="">All types</option>
+                          {scheduleTypes.map((t) => (
+                            <option key={t.id} value={t.label}>{t.label}</option>
+                          ))}
+                        </select>
+                      </td>
+                    )}
+                    <td className={filterCell}>
+                      <input
+                        type="text"
+                        placeholder="Search…"
+                        value={filters.search}
+                        onChange={(e) => setFilter("search", e.target.value)}
+                        className={filterInput}
+                      />
+                    </td>
+                    {show("isPublic") && (
+                      <td className={filterCell}>
+                        <select
+                          value={filters.isPublic}
+                          onChange={(e) => setFilter("isPublic", e.target.value)}
+                          className={filterInput}
+                        >
+                          <option value="">All</option>
+                          <option value="true">Public</option>
+                          <option value="false">Private</option>
+                        </select>
+                      </td>
+                    )}
+                    {show("notes") && <td className={filterCell} />}
+                    <td className={filterCell} />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {sorted.length === 0 ? (
+                    <tr>
+                      <td colSpan={columnCount} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No schedule items match the current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    sorted.map((item) => {
+                      const color = resolveOptionColor(item.type, scheduleTypes);
+                      const label = resolveOptionLabel(item.type, scheduleTypes);
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                            selected.has(item.id) ? "bg-blue-50 dark:bg-blue-900/20" : ""
+                          }`}
+                        >
+                          {canSelect && (
+                            <td className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={selected.has(item.id)}
+                                onChange={() => toggleRow(item.id)}
+                                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
+                              />
+                            </td>
+                          )}
+                          {show("dateTime") && (
+                            <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                              {formatRange(item)}
+                            </td>
+                          )}
+                          {show("type") && (
+                            <td className="px-3 py-2">
+                              {item.type ? (
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${colorClasses[color] ?? colorClasses.gray}`}
+                                >
+                                  {label || item.type}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
+                              )}
+                            </td>
+                          )}
+                          <td className="px-3 py-2 text-sm">
+                            <Link
+                              href={`/events/${eventId}/functions/${item.function.id}`}
+                              className="text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              {functionLabel(item)}
+                            </Link>
+                          </td>
+                          {show("isPublic") && (
+                            <td className="px-3 py-2">
+                              {item.isPublic && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">Public</span>
+                              )}
+                            </td>
+                          )}
+                          {show("notes") && (
+                            <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                              {item.notes || ""}
+                            </td>
+                          )}
                           <td className="px-3 py-2">
-                            <input
-                              type="checkbox"
-                              checked={selected.has(item.id)}
-                              onChange={() => toggleRow(item.id)}
-                              className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400"
+                            <InlineDeleteButton
+                              resource="FUNCTIONS"
+                              action={deleteScheduleItem}
+                              hiddenInputs={{ scheduleItemId: item.id }}
                             />
                           </td>
-                        )}
-                        <td className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          {formatRange(item)}
-                        </td>
-                        <td className="px-3 py-2">
-                          {item.type ? (
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${colorClasses[color] ?? colorClasses.gray}`}
-                            >
-                              {label || item.type}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-sm">
-                          <Link
-                            href={`/events/${eventId}/functions/${item.function.id}`}
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            {functionLabel(item)}
-                          </Link>
-                        </td>
-                        <td className="px-3 py-2">
-                          {item.isPublic && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Public</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                          {item.notes || ""}
-                        </td>
-                        <td className="px-3 py-2">
-                          <InlineDeleteButton
-                            resource="FUNCTIONS"
-                            action={deleteScheduleItem}
-                            hiddenInputs={{ scheduleItemId: item.id }}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

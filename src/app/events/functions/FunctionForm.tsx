@@ -6,6 +6,7 @@ import type { Function, Room, FunctionRoom, CustomOption, BreakoutGroup } from "
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { resolveOptionLabel } from "@/lib/optionUtils";
 
 type FunctionWithRelations = Function & {
   rooms: (FunctionRoom & { room: Room })[];
@@ -193,9 +194,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
 
   // Read-only view for existing functions
   if (isEdit && (!editing || !canWrite)) {
-    const typeLabel = fn.type
-      ? fn.type
-      : "—";
+    const typeLabel = resolveOptionLabel(fn.type, functionTypes) || "—";
     const roomNames = fn.rooms.length > 0
       ? fn.rooms.map((r) => r.room.name).join(", ")
       : fn.offSiteLocation

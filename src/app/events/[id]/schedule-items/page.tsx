@@ -10,6 +10,7 @@ import {
   bulkUpdateScheduleItems,
 } from "../../schedule-items/actions";
 import { ScheduleItemList } from "../../schedule-items/ScheduleItemList";
+import { getHiddenColumns } from "@/app/events/table-columns-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +22,11 @@ export default async function ScheduleItemsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: eventId } = await params;
-  const [event, items, scheduleTypes] = await Promise.all([
+  const [event, items, scheduleTypes, hiddenColumns] = await Promise.all([
     getEvent(eventId),
     getScheduleItems(eventId),
     getScheduleTypes(),
+    getHiddenColumns("schedule_items"),
   ]);
 
   if (!event) notFound();
@@ -67,6 +69,7 @@ export default async function ScheduleItemsPage({
         eventId={eventId}
         scheduleTypes={scheduleTypes}
         timezone={event.timezone}
+        initialHiddenColumns={hiddenColumns}
         deleteScheduleItem={deleteScheduleItemAction}
         deleteScheduleItems={deleteScheduleItemsAction}
         bulkUpdateScheduleItems={bulkUpdateScheduleItemsAction}

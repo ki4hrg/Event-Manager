@@ -5,6 +5,7 @@ import { getEvent } from "../../actions";
 import { getPrintOrders, deletePrintOrder, deletePrintOrders, bulkUpdatePrintOrders } from "../../print-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { getSubstatusOptions } from "@/app/settings/actions";
+import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getFunctionOptions } from "../../functions/actions";
@@ -24,12 +25,13 @@ export default async function PrintOrdersPage({
 }) {
   const { id: eventId } = await params;
   const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked } = (await searchParams) ?? {};
-  const [event, printOrders, substatuses, responsiblePartyVendors, functions] = await Promise.all([
+  const [event, printOrders, substatuses, responsiblePartyVendors, functions, hiddenColumns] = await Promise.all([
     getEvent(eventId),
     getPrintOrders(eventId),
     getSubstatusOptions(),
     getResponsiblePartyVendors(eventId, "PRINT_ORDER"),
     getFunctionOptions(eventId),
+    getHiddenColumns("print_orders"),
   ]);
 
   if (!event) notFound();
@@ -85,6 +87,7 @@ export default async function PrintOrdersPage({
         initialVendor={initialVendor}
         initialFunction={initialFunction}
         initialLinked={initialLinked}
+        initialHiddenColumns={hiddenColumns}
         deletePrintOrder={deletePrintOrderAction}
         deletePrintOrders={deletePrintOrdersAction}
         bulkUpdatePrintOrders={bulkUpdatePrintOrdersAction}

@@ -5,6 +5,7 @@ import { getEvent } from "../../actions";
 import { getAVOrders, deleteAVOrder, deleteAVOrders, bulkUpdateAVOrders } from "../../av-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { getSubstatusOptions } from "@/app/settings/actions";
+import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { AVOrderList } from "../../av-orders/AVOrderList";
@@ -23,11 +24,12 @@ export default async function AVOrdersPage({
 }) {
   const { id: eventId } = await params;
   const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked } = (await searchParams) ?? {};
-  const [event, avOrders, substatuses, responsiblePartyVendors] = await Promise.all([
+  const [event, avOrders, substatuses, responsiblePartyVendors, hiddenColumns] = await Promise.all([
     getEvent(eventId),
     getAVOrders(eventId),
     getSubstatusOptions(),
     getResponsiblePartyVendors(eventId, "AV_ORDER"),
+    getHiddenColumns("av_orders"),
   ]);
 
   if (!event) notFound();
@@ -76,6 +78,7 @@ export default async function AVOrdersPage({
         initialVendor={initialVendor}
         initialFunction={initialFunction}
         initialLinked={initialLinked}
+        initialHiddenColumns={hiddenColumns}
         deleteAVOrder={deleteAVOrderAction}
         deleteAVOrders={deleteAVOrdersAction}
         bulkUpdateAVOrders={bulkUpdateAVOrdersAction}

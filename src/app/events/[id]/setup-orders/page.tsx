@@ -5,6 +5,7 @@ import { getEvent } from "../../actions";
 import { getSetupOrders, deleteSetupOrder, deleteSetupOrders, bulkUpdateSetupOrders } from "../../setup-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { getSubstatusOptions } from "@/app/settings/actions";
+import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { SetupOrderList } from "../../setup-orders/SetupOrderList";
@@ -23,11 +24,12 @@ export default async function SetupOrdersPage({
 }) {
   const { id: eventId } = await params;
   const { status: initialStatus, vendor: initialVendor, function: initialFunction, linked: initialLinked } = (await searchParams) ?? {};
-  const [event, setupOrders, substatuses, responsiblePartyVendors] = await Promise.all([
+  const [event, setupOrders, substatuses, responsiblePartyVendors, hiddenColumns] = await Promise.all([
     getEvent(eventId),
     getSetupOrders(eventId),
     getSubstatusOptions(),
     getResponsiblePartyVendors(eventId, "SETUP_ORDER"),
+    getHiddenColumns("setup_orders"),
   ]);
 
   if (!event) notFound();
@@ -82,6 +84,7 @@ export default async function SetupOrdersPage({
         initialVendor={initialVendor}
         initialFunction={initialFunction}
         initialLinked={initialLinked}
+        initialHiddenColumns={hiddenColumns}
         deleteSetupOrder={deleteSetupOrderAction}
         deleteSetupOrders={deleteSetupOrdersAction}
         bulkUpdateSetupOrders={bulkUpdateSetupOrdersAction}
