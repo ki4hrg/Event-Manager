@@ -40,15 +40,15 @@ function spaceTable(days: RfpSpaceDay[], fb: boolean): Table {
     "Time",
     fb ? "Meal" : "Function",
     "Type",
-    ...(fb ? [] : ["Set-up"]),
+    ...(fb ? [] : ["Requested set-up"]),
     "Attendees",
-    ...(fb ? [] : ["Sq ft", "24-hr hold"]),
+    ...(fb ? [] : ["Approx. sq ft", "24-hr hold"]),
     ...(anyAv ? ["A/V"] : []),
     ...(anyRoom ? ["Room"] : []),
   ];
   return gridTable({
     columns,
-    numeric: columns.map((c) => c === "Attendees" || c === "Sq ft"),
+    numeric: columns.map((c) => c === "Attendees" || c === "Approx. sq ft"),
     rows: days.flatMap((d) =>
       d.rows.map((r, i) => [
         i === 0 ? d.label : "",
@@ -177,7 +177,7 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
       out.push(
         subheading("Function space"),
         blankTable(
-          ["Day", "Time", "Function", "Set-up", "Room", "Capacity for set-up", "24-hr hold available"],
+          ["Day", "Time", "Function", "Requested set-up", "Room", "Capacity for set-up", "24-hr hold available"],
           r.meetingSpace.map((m) => [m.day, m.time, m.name, m.setup ?? ""]),
         ),
         spacer(),

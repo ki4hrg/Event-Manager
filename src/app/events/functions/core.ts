@@ -52,6 +52,7 @@ export type FunctionEsgArgs = {
   postToReaderBoard?: boolean | null;
   readerBoardText?: string | null;
   hold24Hour?: boolean;
+  defaultSetup?: string | null; // setup_type label
   expectedAttendance?: number | null;
   setForCount?: number | null;
   actualAttendance?: number | null;
@@ -66,6 +67,7 @@ const ESG_SCALAR_KEYS = [
   "postToReaderBoard",
   "readerBoardText",
   "hold24Hour",
+  "defaultSetup",
   "expectedAttendance",
   "setForCount",
   "actualAttendance",
@@ -257,6 +259,7 @@ export async function duplicateFunctionCore(id: string, eventId: string, userId:
       postToReaderBoard: original.postToReaderBoard,
       readerBoardText: original.readerBoardText,
       hold24Hour: original.hold24Hour,
+      defaultSetup: original.defaultSetup,
       expectedAttendance: original.expectedAttendance,
       setForCount: original.setForCount,
       decorNotes: original.decorNotes,

@@ -223,6 +223,7 @@ export async function updateFunctionEsg(id: string, eventId: string, formData: F
       postToReaderBoard: post === "true" ? true : post === "false" ? false : null,
       readerBoardText: (formData.get("readerBoardText") as string) || null,
       hold24Hour: formData.get("hold24Hour") === "true",
+      defaultSetup: (formData.get("defaultSetup") as string) || null,
       expectedAttendance: intOrNull("expectedAttendance"),
       setForCount: intOrNull("setForCount"),
       actualAttendance: intOrNull("actualAttendance"),

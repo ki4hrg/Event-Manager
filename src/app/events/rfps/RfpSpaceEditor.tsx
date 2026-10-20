@@ -272,8 +272,8 @@ export function RfpSpaceEditor({
                     </label>
                     {meeting && (
                       <label className={smallLabel}>
-                        Set-up
-                        <TypeSelect label="Set-up" value={r.setup} options={setupTypes} onChange={(v) => set(r.key, { setup: v })} />
+                        Requested set-up
+                        <TypeSelect label="Requested set-up" value={r.setup} options={setupTypes} onChange={(v) => set(r.key, { setup: v })} />
                       </label>
                     )}
                     <label className={smallLabel}>
@@ -282,7 +282,7 @@ export function RfpSpaceEditor({
                     </label>
                     {meeting && (
                       <label className={smallLabel}>
-                        Sq ft
+                        Approx. sq ft
                         <input type="number" min={0} value={r.areaSqFt ?? ""} onChange={(e) => set(r.key, { areaSqFt: int(e.target.value) })} className={inputClass} />
                       </label>
                     )}

@@ -15,6 +15,7 @@ type FunctionEsgCardProps = {
     postToReaderBoard: boolean | null;
     readerBoardText: string | null;
     hold24Hour: boolean;
+    defaultSetup: string | null;
     expectedAttendance: number | null;
     setForCount: number | null;
     actualAttendance: number | null;
@@ -25,6 +26,7 @@ type FunctionEsgCardProps = {
     costCenter: string | null;
   };
   numbersLocked: boolean;
+  setupTypes: string[];
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -53,7 +55,7 @@ function numberNote(fn: FunctionEsgCardProps["fn"], locked: boolean): string {
   return locked ? "Locked" : "Auto (chronological)";
 }
 
-export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardProps) {
+export function FunctionEsgCard({ fn, numbersLocked, setupTypes, action }: FunctionEsgCardProps) {
   const canWrite = useCanWrite("FUNCTIONS");
   const [editing, setEditing] = useState(false);
   const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6";
@@ -79,6 +81,7 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
           <ReadOnlyField label="Set for" value={fn.setForCount != null ? String(fn.setForCount) : null} />
           <ReadOnlyField label="Actual attendance" value={fn.actualAttendance != null ? String(fn.actualAttendance) : null} />
           <ReadOnlyField label="24-hour hold" value={fn.hold24Hour ? "Yes" : "No"} />
+          <ReadOnlyField label="Default set-up" value={fn.defaultSetup} />
           <ReadOnlyField label="Cost center" value={fn.costCenter} />
         </dl>
         <dl className="grid grid-cols-1 gap-4 mt-4">
@@ -199,6 +202,20 @@ export function FunctionEsgCard({ fn, numbersLocked, action }: FunctionEsgCardPr
           />
           24-hour hold on the room
         </label>
+        <div>
+          <label htmlFor="defaultSetup" className={labelClass}>
+            Default set-up
+          </label>
+          <select id="defaultSetup" name="defaultSetup" defaultValue={fn.defaultSetup ?? ""} className={inputClass}>
+            <option value="">Not set</option>
+            {fn.defaultSetup && !setupTypes.includes(fn.defaultSetup) && <option value={fn.defaultSetup}>{fn.defaultSetup}</option>}
+            {setupTypes.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
         {(
           [
             ["decorNotes", "Décor", fn.decorNotes],

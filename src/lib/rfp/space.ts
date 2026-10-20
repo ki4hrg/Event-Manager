@@ -40,7 +40,8 @@ export type SpaceFunctionInput = {
   setForCount: number | null;
   offSiteLocation: string | null;
   rooms: string[];
-  setupTypes: string[];
+  setupTypes: string[]; // linked setup orders' set-ups
+  defaultSetup: string | null;
   avOrders: string[]; // linked AV orders' names
   schedules: Schedule[];
 };
@@ -127,7 +128,7 @@ export function functionSpaceRows(functions: SpaceFunctionInput[], support: Set<
         functionType: fn.type,
         name: formatFunctionLabel(fn),
         attendance: fn.setForCount ?? fn.expectedAttendance,
-        setup: fn.setupTypes.join(", ") || null,
+        setup: fn.setupTypes.join(", ") || fn.defaultSetup,
         areaSqFt: null,
         hold24: fn.hold24Hour || !!s?.spans,
         av: fn.avOrders.join(", ") || null,

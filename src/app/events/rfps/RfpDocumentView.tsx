@@ -137,9 +137,9 @@ function SpaceTable({ days, fb }: { days: RfpSpaceDay[]; fb: boolean }) {
               <th className={reportTh}>Time</th>
               <th className={reportTh}>{fb ? "Meal" : "Function"}</th>
               <th className={reportTh}>Type</th>
-              {!fb && <th className={reportTh}>Set-up</th>}
+              {!fb && <th className={reportTh}>Requested set-up</th>}
               <th className={`${reportTh} text-right`}>Attendees</th>
-              {!fb && <th className={`${reportTh} text-right`}>Sq ft</th>}
+              {!fb && <th className={`${reportTh} text-right`}>Approx. sq ft</th>}
               {!fb && <th className={reportTh}>24-hr hold</th>}
               {anyAv && <th className={reportTh}>A/V</th>}
               {anyRoom && <th className={reportTh}>Room</th>}
@@ -428,7 +428,7 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
           {doc.responseForm.meetingSpace.length > 0 && (
             <Sub title="Function space">
               <BlankTable
-                columns={["Day", "Time", "Function", "Set-up", "Room", "Capacity for set-up", "24-hr hold available"]}
+                columns={["Day", "Time", "Function", "Requested set-up", "Room", "Capacity for set-up", "24-hr hold available"]}
                 rows={doc.responseForm.meetingSpace.map((r) => [r.day, r.time, r.name, r.setup ?? ""])}
               />
             </Sub>

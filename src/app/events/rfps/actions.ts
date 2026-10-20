@@ -267,6 +267,7 @@ export async function getRfpSpaceCandidates(id: string, eventId: string) {
         setForCount: true,
         offSiteLocation: true,
         rooms: { select: { room: { select: { name: true } } } },
+        defaultSetup: true,
         setupOrderFunctions: { select: { setupOrder: { select: { setupType: true } } } },
         avOrderFunctions: { select: { avOrder: { select: { name: true } } } },
         schedules: scheduleSelect,

@@ -662,6 +662,9 @@ model Function {
   postToReaderBoard         Boolean?
   readerBoardText           String?
   hold24Hour                Boolean                        @default(false)
+  // The set-up the function needs before any setup order exists (a
+  // setup_type label); new setup orders from the function start from it.
+  defaultSetup              String?
   expectedAttendance        Int?
   setForCount               Int?
   actualAttendance          Int?
