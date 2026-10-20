@@ -13,6 +13,7 @@ import { btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
+import { effectiveScope } from "@/lib/areas";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { getEvent } from "../../../../actions";
 import type { RfpBlockArgs, RfpConcessionArgs, RfpFillArgs, RfpRecipientArgs, RfpSpaceArgs } from "../../../../rfps/core";
@@ -41,6 +42,10 @@ import { RfpSpaceEditor } from "../../../../rfps/RfpSpaceEditor";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "RFP" };
+
+// Each card is keyed on its own saved data, so saving one card remounts only
+// that card and leaves unsaved edits in the others alone.
+const contentKey = (data: unknown) => JSON.stringify(data);
 
 export default async function RfpPage({ params }: { params: Promise<{ id: string; rfpId: string }> }) {
   const { id: eventId, rfpId } = await params;
@@ -105,7 +110,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
   const day = (d: Date | null) => (d ? dateKey(d) : null);
   const arrival = day(rfp.arrivalDate) ?? dateKey(event.startDate);
   const departure = day(rfp.departureDate) ?? dateKey(event.endDate);
-  const spaceRows = (kind: RfpSpaceKind) => rfp.spaceRequests.filter((r) => r.kind === kind).map((r) => ({ ...r, day: day(r.day) }));
+  const spaceRows = (kind: RfpSpaceKind) => rfp.spaceRequests.filter((r) => r.kind === kind).map((r) => ({ ...r, day: day(r.day), endDay: day(r.endDay) }));
 
   return (
     <>
@@ -150,7 +155,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0 space-y-6">
           <RfpForm
-            key={rfp.updatedAt.toISOString()}
+            key={contentKey([rfp.title, rfp.status, rfp.sections, rfp.contactId, rfp.introduction, rfp.requirements, rfp.arrivalDate, rfp.departureDate, rfp.datesFlexible, rfp.dateNotes, rfp.alternateDates, rfp.peakRooms, rfp.reservationMethod, rfp.commissionNotes, rfp.fbMinimum, rfp.fbIncludes, rfp.fbHistoricalSpend, rfp.amenities, rfp.decisionMakerId, rfp.decisionMaker, rfp.regions, rfp.areas, rfp.responseDue, rfp.decisionBy, rfp.siteVisitBy, rfp.historyMatching])}
             kind="HOTEL"
             resource="HOTELS"
             values={{
@@ -162,8 +167,9 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
               decisionMakerId: rfp.decisionMakerId,
               decisionMakerName: rfp.decisionMakerContact ? `${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim() : null,
               decisionMaker: rfp.decisionMaker,
+              regions: rfp.regions,
               areas: rfp.areas,
-              eventAreas: event.hotelAreas,
+              eventScope: { regions: event.regions, areas: event.areas },
               sections: rfp.sections,
               introduction: rfp.introduction,
               requirements: rfp.requirements,
@@ -175,6 +181,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
               dateNotes: rfp.dateNotes,
               alternateDates: rfp.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
               peakRooms: rfp.peakRooms,
+              historyMatching: rfp.historyMatching,
               reservationMethod: rfp.reservationMethod,
               commissionNotes: rfp.commissionNotes,
               fbMinimum: rfp.fbMinimum?.toString() ?? null,
@@ -187,7 +194,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           />
           {rfp.sections.includes("blocks") && (
             <RfpBlocksEditor
-              key={`blocks-${rfp.updatedAt.toISOString()}`}
+              key={contentKey(rfp.hotelBlocks)}
               blocks={rfp.hotelBlocks.map((b) => ({
                 id: b.id,
                 contractType: b.contractType,
@@ -209,7 +216,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           )}
           {rfp.sections.includes("meetingSpace") && (
             <RfpSpaceEditor
-              key={`meeting-${rfp.updatedAt.toISOString()}`}
+              key={contentKey(spaceRows("MEETING"))}
               kind="MEETING"
               resource="HOTELS"
               rows={spaceRows("MEETING")}
@@ -222,7 +229,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           )}
           {rfp.sections.includes("fb") && (
             <RfpSpaceEditor
-              key={`fb-${rfp.updatedAt.toISOString()}`}
+              key={contentKey(spaceRows("FB"))}
               kind="FB"
               resource="HOTELS"
               rows={spaceRows("FB")}
@@ -235,7 +242,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           )}
           {rfp.sections.includes("concessions") && (
             <RfpConcessionsEditor
-              key={`concessions-${rfp.updatedAt.toISOString()}`}
+              key={contentKey(rfp.concessions)}
               resource="HOTELS"
               concessions={rfp.concessions.map((c) => ({ id: c.id, label: c.label, value: c.value, required: c.required }))}
               options={choices.concessions}
@@ -266,7 +273,8 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
             today={dateKey(new Date())}
             blocks={rfp.hotelBlocks.map((b) => ({ id: b.id, label: blockLabel(b.contractType, b.guestType) }))}
             hotels={choices.hotels}
-            areas={rfp.areas.length ? rfp.areas : event.hotelAreas}
+            scope={effectiveScope(rfp, event)}
+            areaOptions={choices.areas}
             add={addRecipientsAction}
             update={updateRecipientAction}
             remove={removeRecipientAction}

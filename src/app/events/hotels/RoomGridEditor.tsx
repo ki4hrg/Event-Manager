@@ -116,64 +116,60 @@ export function RoomGridEditor({
     setRows(state.rows.map((r) => (r.roomType === roomType ? { ...r, cells: { ...r.cells, [night]: { ...(r.cells[night] ?? EMPTY), [field]: value } } } : r)));
   const setTotal = (night: string, value: string) => onChange({ ...state, totals: { ...state.totals, [night]: value } });
   const setRohRate = (night: string, value: string) => onChange({ ...state, rohRates: { ...state.rohRates, [night]: value } });
-  // Copies the first night down a column (or down the totals).
-  const fillTotals = () => onChange({ ...state, totals: { ...state.totals, ...Object.fromEntries(keys.map((k) => [k, state.totals[keys[0]] ?? ""])) } });
-  const fillColumn = (roomType: string) =>
-    setRows(
-      state.rows.map((r) => (r.roomType === roomType ? { ...r, cells: { ...r.cells, ...Object.fromEntries(keys.map((k) => [k, { ...(r.cells[keys[0]] ?? EMPTY) }])) } } : r)),
-    );
-  const fillRohRates = () => onChange({ ...state, rohRates: { ...state.rohRates, ...Object.fromEntries(keys.map((k) => [k, state.rohRates[keys[0]] ?? ""])) } });
 
-  const edgeRemove = (edge: GridEdge) =>
-    onRemoveDay && keys.length > 1 ? (
-      <button
-        type="button"
-        onClick={() => onRemoveDay(edge)}
-        aria-label={`Remove ${edge === "before" ? "first" : "last"} night`}
-        className="ml-2 text-xs text-red-600 dark:text-red-400 hover:underline"
-      >
-        ×
-      </button>
-    ) : null;
-  const fill = (onClick: () => void) =>
-    keys.length > 1 ? (
-      <button type="button" onClick={onClick} className="text-xs font-normal text-blue-600 dark:text-blue-400 hover:underline">
-        Fill ↓
-      </button>
-    ) : null;
+  // Copies the first night's total, rooms and rates down every night.
+  const fillDown = () => {
+    const first = keys[0];
+    const all = (pick: (k: string) => string | undefined) => Object.fromEntries(keys.map((k) => [k, pick(first) ?? ""]));
+    onChange({
+      totals: { ...state.totals, ...all((k) => state.totals[k]) },
+      rohRates: { ...state.rohRates, ...all((k) => state.rohRates[k]) },
+      rows: state.rows.map((r) => ({ ...r, cells: { ...r.cells, ...Object.fromEntries(keys.map((k) => [k, { ...(r.cells[first] ?? EMPTY) }])) } })),
+    });
+  };
   const th = "py-1 px-1 text-center font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap align-bottom";
+  const sub = "text-xs font-normal text-gray-500 dark:text-gray-400";
+  const edgeLinks = (edge: GridEdge) =>
+    onAddDay || onRemoveDay ? (
+      <div className="flex flex-wrap gap-4">
+        {onAddDay && (
+          <button type="button" onClick={() => onAddDay(edge)} className={linkClass}>
+            + Add day {edge}
+          </button>
+        )}
+        {onRemoveDay && keys.length > 1 && (
+          <button type="button" onClick={() => onRemoveDay(edge)} className="text-sm text-red-600 dark:text-red-400 hover:underline">
+            Remove {edge === "before" ? "first" : "last"} day
+          </button>
+        )}
+      </div>
+    ) : null;
 
   return (
     <div className="space-y-2">
-      {onAddDay && (
-        <button type="button" onClick={() => onAddDay("before")} className={linkClass}>
-          + Add day before
-        </button>
-      )}
+      {edgeLinks("before")}
       <div className="overflow-x-auto">
         <table className="text-sm">
           <thead>
             <tr>
               <th className="py-1 pr-3 text-left font-medium text-gray-700 dark:text-gray-300 align-bottom">Night</th>
-              <th className={th}>
-                Total
-                <div>{fill(fillTotals)}</div>
-              </th>
+              <th className={th}>Total</th>
               <th className={th}>
                 {RUN_OF_HOUSE}
-                {withRate && <div className="text-xs font-normal text-gray-500 dark:text-gray-400">rooms / rate</div>}
-                {withRate && <div>{fill(fillRohRates)}</div>}
+                {withRate && <div className={sub}>rooms / rate</div>}
               </th>
               {state.rows.map((r) => (
                 <th key={r.roomType} className={th}>
                   {roomTypeLabel(r.roomType)}
-                  {withRate && <div className="text-xs font-normal text-gray-500 dark:text-gray-400">rooms / rate</div>}
-                  <div className="flex justify-center gap-2 text-xs font-normal">
-                    {fill(() => fillColumn(r.roomType))}
-                    <button type="button" onClick={() => setRows(state.rows.filter((x) => x.roomType !== r.roomType))} className="text-red-600 dark:text-red-400 hover:underline">
-                      Remove
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRows(state.rows.filter((x) => x.roomType !== r.roomType))}
+                    aria-label={`Remove ${r.roomType}`}
+                    className="ml-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                  >
+                    ×
+                  </button>
+                  {withRate && <div className={sub}>rooms / rate</div>}
                 </th>
               ))}
               <th className="py-1 pl-3 text-left align-bottom">
@@ -196,16 +192,12 @@ export function RoomGridEditor({
             </tr>
           </thead>
           <tbody>
-            {keys.map((k, i) => {
+            {keys.map((k) => {
               const { typed, roh } = nightMath(state, k);
               const isOver = roh < 0;
               return (
                 <tr key={k} className="align-top">
-                  <td className="py-1 pr-3 text-gray-900 dark:text-white whitespace-nowrap">
-                    {formatNight(k)}
-                    {i === 0 && edgeRemove("before")}
-                    {i === keys.length - 1 && i > 0 && edgeRemove("after")}
-                  </td>
+                  <td className="py-1 pr-3 text-gray-900 dark:text-white whitespace-nowrap">{formatNight(k)}</td>
                   <td className="py-1 px-1">
                     <input
                       aria-label={`${k} total rooms`}
@@ -276,14 +268,17 @@ export function RoomGridEditor({
           </tbody>
         </table>
       </div>
-      {onAddDay && (
-        <button type="button" onClick={() => onAddDay("after")} className={linkClass}>
-          + Add day after
-        </button>
-      )}
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        Peak night {totals.peak} · {totals.roomNights} room nights
-      </p>
+      {edgeLinks("after")}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <span className="text-gray-500 dark:text-gray-400">
+          Peak night {totals.peak} · {totals.roomNights} room nights
+        </span>
+        {keys.length > 1 && (
+          <button type="button" onClick={fillDown} className="text-blue-600 dark:text-blue-400 hover:underline">
+            Copy first night to all
+          </button>
+        )}
+      </div>
       {over.length > 0 && (
         <p className="text-sm text-red-600 dark:text-red-400">Room types exceed the total on {over.map(formatNight).join(", ")}.</p>
       )}

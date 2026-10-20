@@ -12,6 +12,9 @@ export type SpaceRow = {
   functionId: string | null;
   cateringOrderId: string | null;
   day: string | null; // YYYY-MM-DD, event-local; null until scheduled
+  // Last day of a row that repeats daily (same times) or, with a 24-hr hold,
+  // runs straight through; null for a single day.
+  endDay: string | null;
   startTime: string | null; // HH:MM, event-local
   endTime: string | null;
   functionType: string | null;
@@ -38,6 +41,7 @@ export type SpaceFunctionInput = {
   offSiteLocation: string | null;
   rooms: string[];
   setupTypes: string[];
+  avOrders: string[]; // linked AV orders' names
   schedules: Schedule[];
 };
 
@@ -77,27 +81,56 @@ function ownSchedules(schedules: Schedule[], support: Set<string>) {
 
 export const DAY_TBD = "Day TBD";
 
+const nextDay = (key: string) => new Date(Date.parse(`${key}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+// Every day a row covers, first to last.
+export function spaceRowDays(r: Pick<SpaceRow, "day" | "endDay">): (string | null)[] {
+  if (!r.day) return [null];
+  const out = [r.day];
+  while (r.endDay && out[out.length - 1] < r.endDay && out.length < 60) out.push(nextDay(out[out.length - 1]));
+  return out;
+}
+
+type Slot = { day: string; endDay: string | null; startTime: string; endTime: string; spans: boolean };
+
+// A function's times as rows: same start and end on consecutive days fold
+// into one repeating row; one schedule running over several days is one
+// row through its last day.
+function slots(schedules: Schedule[], timezone: string): Slot[] {
+  const out: Slot[] = [];
+  for (const s of schedules) {
+    const day = getDateKeyInTimezone(s.startTime, timezone);
+    const last = getDateKeyInTimezone(s.endTime, timezone);
+    const slot = { day, endDay: last > day ? last : null, startTime: localTime(s.startTime, timezone), endTime: localTime(s.endTime, timezone), spans: last > day };
+    const prev = out.find((o) => !o.spans && !slot.spans && o.startTime === slot.startTime && o.endTime === slot.endTime && nextDay(o.endDay ?? o.day) === day);
+    if (prev) prev.endDay = day;
+    else out.push(slot);
+  }
+  return out;
+}
+
 // One MEETING row per scheduled time of each on-site function; a function
 // with no schedule yet is one row with no day or time.
 export function functionSpaceRows(functions: SpaceFunctionInput[], support: Set<string>, timezone: string, withRooms: boolean): SpaceRow[] {
   return functions
     .filter((fn) => !fn.offSiteLocation)
     .flatMap((fn) => {
-      const times = ownSchedules(fn.schedules, support);
+      const times = slots(ownSchedules(fn.schedules, support), timezone);
       return (times.length ? times : [null]).map((s) => ({
         kind: "MEETING" as const,
         functionId: fn.id,
         cateringOrderId: null,
-        day: s ? getDateKeyInTimezone(s.startTime, timezone) : null,
-        startTime: s ? localTime(s.startTime, timezone) : null,
-        endTime: s ? localTime(s.endTime, timezone) : null,
+        day: s?.day ?? null,
+        endDay: s?.endDay ?? null,
+        startTime: s?.startTime ?? null,
+        endTime: s?.endTime ?? null,
         functionType: fn.type,
         name: formatFunctionLabel(fn),
         attendance: fn.setForCount ?? fn.expectedAttendance,
         setup: fn.setupTypes.join(", ") || null,
         areaSqFt: null,
-        av: null,
-        hold24: fn.hold24Hour,
+        hold24: fn.hold24Hour || !!s?.spans,
+        av: fn.avOrders.join(", ") || null,
         room: withRooms ? fn.rooms.join(", ") || null : null,
       }));
     });
@@ -114,6 +147,7 @@ export function cateringSpaceRows(orders: SpaceCateringInput[], support: Set<str
         functionId: null,
         cateringOrderId: o.id,
         day: s ? getDateKeyInTimezone(s.startTime, timezone) : null,
+        endDay: null,
         startTime: s ? localTime(s.startTime, timezone) : null,
         endTime: s ? localTime(s.endTime, timezone) : null,
         functionType: o.mealType,

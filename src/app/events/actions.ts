@@ -183,3 +183,13 @@ export async function createContactAndAddKeyStaff(eventId: string, formData: For
   );
   revalidatePath(`/events/${eventId}`);
 }
+
+// Where the event looks for hotels and reports by area: whole regions and
+// single areas (an RFP may set its own).
+export async function updateEventAreas(id: string, scope: { regions: string[]; areas: string[] }) {
+  const session = await requirePermission("EVENTS", "WRITE", id);
+  const clean = (list: string[]) => Array.from(new Set(list.filter(Boolean)));
+  await prisma.event.update({ where: { id, tenantId: session.tenantId }, data: { regions: clean(scope.regions), areas: clean(scope.areas), updatedById: session.user.id } });
+  revalidatePath(`/events/${id}/settings`);
+  revalidatePath(`/events/${id}/hotels`);
+}

@@ -11,7 +11,7 @@ const richClass =
   "text-sm text-gray-900 dark:text-white print:text-black [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1";
 const num = `${reportTd} text-right tabular-nums`;
 const muted = "text-sm text-gray-500 dark:text-gray-400 print:text-gray-600";
-const subhead = "text-sm font-semibold text-gray-900 dark:text-white print:text-black mt-4 mb-2 first:mt-0";
+const subhead = "text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300 print:text-gray-800 mb-2";
 const card = "border border-gray-200 dark:border-gray-700 rounded-lg p-3";
 const mobile = "sm:hidden print:hidden space-y-2";
 const desktop = "hidden sm:block print:block overflow-x-auto print:overflow-visible";
@@ -28,7 +28,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Sub({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="print:break-inside-avoid">
+    <div className="print:break-inside-avoid mt-6 pt-5 border-t border-gray-100 dark:border-gray-700 print:border-gray-200 first:mt-0 first:pt-0 first:border-0">
       <h3 className={subhead}>{title}</h3>
       {children}
     </div>
@@ -250,7 +250,7 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
           ) : null,
         )}
         {doc.history && (
-          <Sub title="Event history">
+          <Sub title={doc.historyOf ? `Event history — ${doc.historyOf} blocks` : "Event history"}>
             {doc.history.length === 0 ? (
               <p className={muted}>No past events with room pickup.</p>
             ) : (
@@ -433,9 +433,11 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
               />
             </Sub>
           )}
-          <Sub title="Food & beverage">
-            <BlankTable columns={["F&B function", "Average per-person price"]} rows={[...doc.responseForm.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]} />
-          </Sub>
+          {doc.responseForm.mealTypes.length > 0 && (
+            <Sub title="Food & beverage">
+              <BlankTable columns={["F&B function", "Average per-person price"]} rows={[...doc.responseForm.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]} />
+            </Sub>
+          )}
           {doc.responseForm.concessions.length > 0 && (
             <Sub title="Concessions offered">
               <BlankTable columns={["Concession", "Offered"]} rows={doc.responseForm.concessions.map((c) => [c])} />

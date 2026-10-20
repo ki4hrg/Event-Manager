@@ -9,7 +9,9 @@ import { requirePermission } from "@/lib/permissions";
 import { getEvent, updateEvent, deleteEvent, getEventSeriesOptions } from "../../actions";
 import { EventForm } from "../../EventForm";
 import { getStatusDefaults, clearStatusDefault, saveAllStatusDefaults } from "@/app/events/status-defaults/actions";
-import { getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { updateEventAreas } from "../../actions";
+import { EventAreasPanel } from "../../EventAreasPanel";
 import { StatusDefaultsPanel } from "@/app/events/status-defaults/StatusDefaultsPanel";
 import type { EntityStatus, StatusModelType } from "@prisma/client";
 
@@ -22,12 +24,14 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
   // The page is edit-only end to end — event details, status defaults, delete —
   // so it gates as a whole rather than hiding three panels individually.
   const { tenantId } = await requirePermission("EVENTS", "WRITE", id);
-  const [event, venues, series, statusDefaults, substatuses] = await Promise.all([
+  const [event, venues, series, statusDefaults, substatuses, regionOptions, areaOptions] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ where: { tenantId }, orderBy: { name: "asc" } }),
     getEventSeriesOptions(),
     getStatusDefaults(id),
     getSubstatusOptions(),
+    getOptions("hotel_region"),
+    getOptions("hotel_area"),
   ]);
 
   if (!event) notFound();
@@ -35,6 +39,11 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
   const updateEventAction = async (formData: FormData) => {
     "use server";
     await updateEvent(id, formData);
+  };
+
+  const saveAreasAction = async (scope: { regions: string[]; areas: string[] }) => {
+    "use server";
+    await updateEventAreas(id, scope);
   };
 
   const deleteEventAction = async () => {
@@ -91,6 +100,17 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
           saveAll={saveAllAction}
           clearDefault={clearDefaultAction}
         />
+
+        <div>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Areas</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Regions and areas this event draws hotels from.</p>
+          <EventAreasPanel
+            value={{ regions: event.regions, areas: event.areas }}
+            regions={regionOptions.map((o) => o.label)}
+            areas={areaOptions.map((o) => ({ label: o.label, region: o.group }))}
+            save={saveAreasAction}
+          />
+        </div>
 
         <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
           <h2 className="text-lg font-medium text-red-700 dark:text-red-400 mb-1">

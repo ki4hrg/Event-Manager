@@ -97,8 +97,9 @@ export default async function NewRfpPage({
             decisionMakerId: null,
             decisionMakerName: null,
             decisionMaker: null,
+            regions: [],
             areas: [],
-            eventAreas: event.hotelAreas,
+            eventScope: { regions: event.regions, areas: event.areas },
             sections: sectionsFor("HOTEL")
               .map((s) => s.key)
               .filter((k) => k !== "fb" || cateringCount > 0),
@@ -113,6 +114,7 @@ export default async function NewRfpPage({
             alternateDates: [],
             // A block filled from the pattern report brings its peak along.
             peakRooms: blocks.length ? Math.max(...blocks[0].nights.map((n) => n.rooms)) : null,
+            historyMatching: false,
             reservationMethod: null,
             commissionNotes: null,
             fbMinimum: null,

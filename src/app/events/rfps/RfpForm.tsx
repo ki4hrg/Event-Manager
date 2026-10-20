@@ -9,6 +9,8 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatDateKey, formatMoney } from "@/lib/hotels";
 import { FB_INCLUDES, RFP_STATUS_LABELS, sectionsFor } from "@/lib/rfp/sections";
+import { effectiveScope, isEmptyScope, scopeLabels, type AreaOption, type AreaScope } from "@/lib/areas";
+import { AreaChecklist } from "@/components/AreaChecklist";
 
 export type RfpValues = {
   title: string;
@@ -19,8 +21,9 @@ export type RfpValues = {
   decisionMakerId: string | null;
   decisionMakerName: string | null; // the contact's name, for a contact outside key staff
   decisionMaker: string | null; // typed when not a contact
+  regions: string[];
   areas: string[];
-  eventAreas: string[]; // used when areas is empty
+  eventScope: AreaScope; // used when the RFP sets no regions or areas
   sections: string[];
   introduction: string | null;
   requirements: string | null;
@@ -32,6 +35,7 @@ export type RfpValues = {
   dateNotes: string | null;
   alternateDates: { startDate: string; endDate: string }[];
   peakRooms: number | null;
+  historyMatching: boolean;
   reservationMethod: string | null;
   commissionNotes: string | null;
   fbMinimum: string | null;
@@ -42,7 +46,8 @@ export type RfpValues = {
 
 export type RfpFormChoices = {
   contacts: { id: string; label: string }[];
-  areas: { label: string; region: string | null }[];
+  regions: string[];
+  areas: AreaOption[];
   reservationMethods: string[];
   amenities: string[];
 };
@@ -139,8 +144,9 @@ export function RfpForm({
       ? (choices.contacts.find((c) => c.id === values.decisionMakerId)?.label ?? values.decisionMakerName)
       : values.decisionMaker;
     if (deciderName) rows.push(["Decision maker", deciderName]);
-    const areas = values.areas.length ? values.areas : values.eventAreas;
-    if (areas.length) rows.push(["Hotel areas", `${areas.join(", ")}${values.areas.length ? "" : " (event)"}`]);
+    const own = { regions: values.regions, areas: values.areas };
+    const scope = effectiveScope(own, values.eventScope);
+    if (!isEmptyScope(scope)) rows.push(["Hotel areas", `${scopeLabels(scope).join(", ")}${isEmptyScope(own) ? " (event)" : ""}`]);
     if (values.reservationMethod) rows.push(["Reservations", values.reservationMethod]);
     if (sections.has("fb") && values.fbMinimum) rows.push(["F&B minimum", formatMoney(values.fbMinimum)]);
     if (values.amenities.length) rows.push(["Amenities", values.amenities.join(", ")]);
@@ -309,22 +315,23 @@ export function RfpForm({
         </div>
       </div>
 
-      {choices.areas.length > 0 && (
+      {(choices.regions.length > 0 || choices.areas.length > 0) && (
         <div>
           <p className={labelClass}>Hotel areas</p>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-            {Array.from(new Set([...choices.areas.map((a) => a.label), ...values.areas])).map((a) => (
-              <label key={a} className={checkLabel}>
-                <input type="checkbox" name="areas" value={a} defaultChecked={values.areas.includes(a)} className={checkClass} />
-                {a}
-                {choices.areas.find((x) => x.label === a)?.region && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{choices.areas.find((x) => x.label === a)!.region}</span>
-                )}
-              </label>
-            ))}
+          <div className="mt-1">
+            <AreaChecklist regions={choices.regions} areas={choices.areas} value={{ regions: values.regions, areas: values.areas }} />
           </div>
-          {values.eventAreas.length > 0 && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Event: {values.eventAreas.join(", ")}</p>}
+          {!isEmptyScope(values.eventScope) && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Event: {scopeLabels(values.eventScope).join(", ")}</p>}
         </div>
+      )}
+
+      {sections.has("history") ? (
+        <label className={checkLabel}>
+          <input type="checkbox" name="historyMatching" value="true" defaultChecked={values.historyMatching} className={checkClass} />
+          Event history: only blocks matching this RFP&apos;s contract and guest types
+        </label>
+      ) : (
+        values.historyMatching && <input type="hidden" name="historyMatching" value="true" />
       )}
 
       {sections.has("blocks") ? (

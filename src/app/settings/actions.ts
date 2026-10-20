@@ -142,6 +142,7 @@ async function propagateLabelRename(
   switch (category) {
     case "function_type":
       await tx.function.updateMany({ where: { type: oldLabel, ...inTenant }, data: { type: newLabel } });
+      await tx.rfpSpaceRequest.updateMany({ where: { kind: "MEETING", functionType: oldLabel, rfp: inTenant }, data: { functionType: newLabel } });
       break;
     case "schedule_type":
       await tx.functionSchedule.updateMany({
@@ -151,6 +152,7 @@ async function propagateLabelRename(
       break;
     case "setup_type":
       await tx.setupOrder.updateMany({ where: { setupType: oldLabel, ...inTenant }, data: { setupType: newLabel } });
+      await tx.rfpSpaceRequest.updateMany({ where: { setup: oldLabel, rfp: inTenant }, data: { setup: newLabel } });
       break;
     case "presentation_type":
       await tx.presentation.updateMany({ where: { type: oldLabel, ...inTenant }, data: { type: newLabel } });
@@ -245,6 +247,7 @@ async function propagateLabelRename(
       });
       break;
     case "reservation_method":
+      await tx.rfp.updateMany({ where: { reservationMethod: oldLabel, ...inTenant }, data: { reservationMethod: newLabel } });
       await tx.eventSpecification.updateMany({
         where: { reservationMethod: oldLabel, ...inTenant },
         data: { reservationMethod: newLabel },
@@ -256,6 +259,7 @@ async function propagateLabelRename(
       break;
     case "meal_type":
       await tx.cateringOrder.updateMany({ where: { mealType: oldLabel, ...inTenant }, data: { mealType: newLabel } });
+      await tx.rfpSpaceRequest.updateMany({ where: { kind: "FB", functionType: oldLabel, rfp: inTenant }, data: { functionType: newLabel } });
       break;
     case "booth_type":
       await tx.exhibitBooth.updateMany({ where: { boothType: oldLabel, ...inTenant }, data: { boothType: newLabel } });
@@ -303,12 +307,21 @@ async function propagateLabelRename(
         UPDATE "HotelProposal" p SET "amenities" = array_replace(p."amenities", ${oldLabel}, ${newLabel})
         FROM "Event" e
         WHERE e."id" = p."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(p."amenities")`;
+      await tx.$executeRaw`
+        UPDATE "Rfp" r SET "amenities" = array_replace(r."amenities", ${oldLabel}, ${newLabel})
+        FROM "Event" e
+        WHERE e."id" = r."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(r."amenities")`;
       break;
     case "hotel_brand":
       await tx.venue.updateMany({ where: { brand: oldLabel, tenantId }, data: { brand: newLabel } });
       break;
     case "hotel_area":
       await tx.venue.updateMany({ where: { area: oldLabel, tenantId }, data: { area: newLabel } });
+      await tx.$executeRaw`UPDATE "Event" SET "areas" = array_replace("areas", ${oldLabel}, ${newLabel}) WHERE "tenantId" = ${tenantId} AND ${oldLabel} = ANY("areas")`;
+      await tx.$executeRaw`
+        UPDATE "Rfp" r SET "areas" = array_replace(r."areas", ${oldLabel}, ${newLabel})
+        FROM "Event" e
+        WHERE e."id" = r."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(r."areas")`;
       break;
     case "rfp_concession":
       await tx.rfpConcession.updateMany({ where: { label: oldLabel, rfp: inTenant }, data: { label: newLabel } });
@@ -319,6 +332,11 @@ async function propagateLabelRename(
         where: { category: "hotel_area", group: oldLabel, tenantId },
         data: { group: newLabel },
       });
+      await tx.$executeRaw`UPDATE "Event" SET "regions" = array_replace("regions", ${oldLabel}, ${newLabel}) WHERE "tenantId" = ${tenantId} AND ${oldLabel} = ANY("regions")`;
+      await tx.$executeRaw`
+        UPDATE "Rfp" r SET "regions" = array_replace(r."regions", ${oldLabel}, ${newLabel})
+        FROM "Event" e
+        WHERE e."id" = r."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(r."regions")`;
       break;
     default: {
       const _exhaustive: never = category;
