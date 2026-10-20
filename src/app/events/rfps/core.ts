@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
 import { dateFromKey, dateKey } from "@/lib/hotels";
 import { resourceForKind } from "@/lib/rfp/kinds";
+import { buildComparison } from "@/lib/rfp/compare";
 import { parseSections } from "@/lib/rfp/sections";
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
 
@@ -218,4 +219,45 @@ export async function updateRfpRecipientCore(recipientId: string, id: string, ev
 export async function removeRfpRecipientCore(recipientId: string, id: string, eventId: string, userId: string) {
   await authorizeRfp(id, eventId, "WRITE", userId);
   await prisma.rfpRecipient.delete({ where: { id: recipientId, rfpId: id, rfp: { eventId } } });
+}
+
+// Every proposal answering the RFP against what each block asked for
+// (src/lib/rfp/compare.ts). Shared by the compare page and MCP.
+export async function getRfpComparisonCore(id: string, eventId: string, userId: string) {
+  await authorizeRfp(id, eventId, "VIEW", userId);
+  const [rfp, event, proposals] = await Promise.all([
+    prisma.rfp.findFirstOrThrow({
+      where: { id, eventId },
+      select: {
+        title: true,
+        concessions: { orderBy: { sortOrder: "asc" }, select: { id: true, label: true, value: true, required: true } },
+        hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, blockType: true, targetRate: true, nights: { select: { night: true, rooms: true } } } },
+      },
+    }),
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { name: true } }),
+    prisma.hotelProposal.findMany({
+      where: { rfpId: id, eventId },
+      select: {
+        id: true,
+        status: true,
+        revision: true,
+        rfpBlockId: true,
+        allowedAttrition: true,
+        guaranteedRevenue: true,
+        amenities: true,
+        venue: { select: { name: true } },
+        block: { select: { id: true } },
+        nights: { select: { night: true, rooms: true, rate: true } },
+        charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
+        concessions: { select: { concessionId: true, offered: true, met: true } },
+      },
+    }),
+  ]);
+  return buildComparison({
+    title: rfp.title,
+    eventName: event.name,
+    blocks: rfp.hotelBlocks,
+    concessions: rfp.concessions,
+    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, hasBlock: p.block != null })),
+  });
 }

@@ -11,19 +11,19 @@ import { functionStartKey } from "@/lib/esg/scheduleKey";
 import { patternStats, proposedRoles, proposeNights, type PatternBasis } from "@/lib/hotelPattern";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { buildRfpDocument } from "@/lib/rfp/document";
-import { buildComparison } from "@/lib/rfp/compare";
 import { parseSections } from "@/lib/rfp/sections";
 import { getPickupPattern } from "@/app/hotels/actions";
 import {
   addRfpRecipientsCore,
   createRfpCore,
   deleteRfpCore,
-  removeRfpRecipientCore,
-  updateRfpRecipientCore,
+  getRfpComparisonCore,
   issueRfpCore,
+  removeRfpRecipientCore,
   saveRfpBlocksCore,
   saveRfpConcessionsCore,
   updateRfpCore,
+  updateRfpRecipientCore,
   type RfpBlockArgs,
   type RfpConcessionArgs,
   type RfpRecipientArgs,
@@ -255,37 +255,11 @@ export async function getRfpDocument(id: string, eventId: string) {
   });
 }
 
-// Every proposal answering the RFP against what each block asked for.
 export async function getRfpComparison(id: string, eventId: string) {
-  const rfp = await getRfp(id, eventId);
+  const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
   if (!rfp) return null;
-  const [event, proposals] = await Promise.all([
-    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { name: true } }),
-    prisma.hotelProposal.findMany({
-      where: { rfpId: id, eventId },
-      select: {
-        id: true,
-        status: true,
-        revision: true,
-        rfpBlockId: true,
-        allowedAttrition: true,
-        guaranteedRevenue: true,
-        amenities: true,
-        venue: { select: { name: true } },
-        block: { select: { id: true } },
-        nights: { select: { night: true, rooms: true, rate: true } },
-        charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
-        concessions: { select: { concessionId: true, offered: true, met: true } },
-      },
-    }),
-  ]);
-  return buildComparison({
-    title: rfp.title,
-    eventName: event.name,
-    blocks: rfp.hotelBlocks,
-    concessions: rfp.concessions,
-    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, hasBlock: p.block != null })),
-  });
+  const session = await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
+  return getRfpComparisonCore(id, eventId, session.user.id);
 }
 
 // A requested block filled from past pickup (src/lib/hotelPattern.ts), dated
