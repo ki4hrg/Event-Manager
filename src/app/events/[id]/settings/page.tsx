@@ -13,6 +13,8 @@ import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { updateEventAreas } from "../../actions";
 import { EventAreasPanel } from "../../EventAreasPanel";
 import { StatusDefaultsPanel } from "@/app/events/status-defaults/StatusDefaultsPanel";
+import { getEventInboxAddress, setEventInboxSlug } from "@/app/events/inbox/actions";
+import { InboxAddressPanel } from "@/app/events/inbox/InboxAddressPanel";
 import type { EntityStatus, StatusModelType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +26,7 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
   // The page is edit-only end to end — event details, status defaults, delete —
   // so it gates as a whole rather than hiding three panels individually.
   const { tenantId } = await requirePermission("EVENTS", "WRITE", id);
-  const [event, venues, series, statusDefaults, substatuses, regionOptions, areaOptions] = await Promise.all([
+  const [event, venues, series, statusDefaults, substatuses, regionOptions, areaOptions, inbox] = await Promise.all([
     getEvent(id),
     prisma.venue.findMany({ where: { tenantId }, orderBy: { name: "asc" } }),
     getEventSeriesOptions(),
@@ -32,6 +34,7 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
     getSubstatusOptions(),
     getOptions("hotel_region"),
     getOptions("hotel_area"),
+    getEventInboxAddress(id),
   ]);
 
   if (!event) notFound();
@@ -44,6 +47,11 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
   const saveAreasAction = async (scope: { regions: string[]; areas: string[] }) => {
     "use server";
     await updateEventAreas(id, scope);
+  };
+
+  const saveInboxAction = async (slug: string | null) => {
+    "use server";
+    await setEventInboxSlug(id, slug);
   };
 
   const deleteEventAction = async () => {
@@ -110,6 +118,12 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
             areas={areaOptions.map((o) => ({ label: o.label, region: o.group }))}
             save={saveAreasAction}
           />
+        </div>
+
+        <div id="inbox" className="scroll-mt-24">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Inbox</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Mail sent to this address lands in the event&apos;s Inbox.</p>
+          <InboxAddressPanel {...inbox} save={saveInboxAction} />
         </div>
 
         <div className="border-t border-gray-200 dark:border-gray-700 pt-6">

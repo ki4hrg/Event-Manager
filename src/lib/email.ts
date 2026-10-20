@@ -20,6 +20,10 @@ const MAILGUN_DOMAIN = readEnv("MAILGUN_DOMAIN");
 const MAILGUN_FROM = readEnv("MAILGUN_FROM");
 const MAILGUN_BASE_URL = readEnv("MAILGUN_BASE_URL", "https://api.mailgun.net");
 const APP_BASE_URL = readEnv("NEXTAUTH_URL", "http://localhost:3000");
+// Inbound mail (docs/proposals/email-ingest.md): the domain event inbox
+// addresses live on, and the secret the Cloudflare Email Worker signs with.
+const INBOUND_EMAIL_DOMAIN = readEnv("INBOUND_EMAIL_DOMAIN").toLowerCase();
+const INBOUND_EMAIL_SECRET = readEnv("INBOUND_EMAIL_SECRET");
 
 export const INVITE_TOKEN_EXPIRY_HOURS = 168; // 7 days
 export const RESET_TOKEN_EXPIRY_HOURS = 1;
@@ -27,6 +31,14 @@ export const RESET_TOKEN_EXPIRY_HOURS = 1;
 function appUrl(path: string): string {
   const base = APP_BASE_URL.replace(/\/$/, "");
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+export function getInboundEmailDomain(): string | null {
+  return INBOUND_EMAIL_DOMAIN || null;
+}
+
+export function getInboundEmailSecret(): string | null {
+  return INBOUND_EMAIL_SECRET || null;
 }
 
 export function isEmailConfigured(): boolean {

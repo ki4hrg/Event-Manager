@@ -98,6 +98,7 @@ export function TenantForm({ tenant, saveAction, deleteAction }: Props) {
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Short handle used by the MCP connector&apos;s <code>tenant</code> argument. Lowercase
             letters, digits, and dashes.
+            {tenant && <> Also the first part of every event inbox address; changing it changes them all.</>}
           </p>
         </div>
         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">

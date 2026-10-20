@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
 import { hasGlobalView, loadPermissionsForUser, type PermissionGrant } from "@/lib/permissions";
 import { getTenantContext } from "@/lib/tenant";
+import { prisma } from "@/lib/prisma";
 import { AdminDropdown } from "./AdminDropdown";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { MobileNav, type HeaderLink } from "./MobileNav";
@@ -38,6 +39,13 @@ export async function Header() {
     permissions,
     PermissionResource.STORAGE_LOCATIONS,
   );
+  // Mail to the org's inbox domain that named no event; the link exists only
+  // while some waits, since there is nothing else to do on that page.
+  const unrouted =
+    canViewHotels && ctx?.active
+      ? await prisma.inboundEmail.count({ where: { tenantId: ctx.active.id, eventId: null, status: "HELD" } })
+      : 0;
+
   const mainLinks: HeaderLink[] = [
     canViewEvents && { href: "/events", label: "Events" },
     canViewVenues && { href: "/venues", label: "Venues" },
@@ -45,6 +53,7 @@ export async function Header() {
     canViewVendors && { href: "/vendors", label: "Vendors" },
     canViewHotels && { href: "/hotels", label: "Hotels" },
     canViewStorageLocations && { href: "/storage-locations", label: "Storage" },
+    unrouted > 0 && { href: "/inbox", label: `Unrouted mail (${unrouted})` },
   ].filter((l): l is HeaderLink => !!l);
   const adminLinks: HeaderLink[] = [
     canViewUsers && { href: "/users", label: "Users" },

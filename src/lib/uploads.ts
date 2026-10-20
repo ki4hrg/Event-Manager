@@ -43,11 +43,13 @@ const ENTITY_DIRS = {
   venue: "venues",
   hotelProposal: "hotel-proposals",
   rfp: "rfps",
+  inboundEmail: "inbound-emails",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_DIRS;
 
-export const VALID_ENTITY_TYPES = Object.keys(ENTITY_DIRS) as EntityType[];
+// What /api/upload accepts. Inbound-email files arrive only by mail.
+export const VALID_ENTITY_TYPES: EntityType[] = (Object.keys(ENTITY_DIRS) as EntityType[]).filter((t) => t !== "inboundEmail");
 
 export const ENTITY_FK_FIELD: Record<EntityType, string> = {
   event: "eventId",
@@ -60,9 +62,12 @@ export const ENTITY_FK_FIELD: Record<EntityType, string> = {
   venue: "venueId",
   hotelProposal: "hotelProposalId",
   rfp: "rfpId",
+  inboundEmail: "inboundEmailId",
 };
 
-export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId">): EntityType {
+type FileOwner = Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId" | "inboundEmailId">;
+
+export function getEntityTypeFromRecord(record: FileOwner): EntityType {
   if (record.eventId) return "event";
   if (record.cateringOrderId) return "cateringOrder";
   if (record.avOrderId) return "avOrder";
@@ -72,11 +77,12 @@ export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "ca
   if (record.mediaDeliverableId) return "mediaDeliverable";
   if (record.hotelProposalId) return "hotelProposal";
   if (record.rfpId) return "rfp";
-  return "venue";
+  if (record.venueId) return "venue";
+  return "inboundEmail";
 }
 
-export function getEntityIdFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId">): string {
-  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.supplyOrderId ?? record.mediaDeliverableId ?? record.hotelProposalId ?? record.rfpId ?? record.venueId)!;
+export function getEntityIdFromRecord(record: FileOwner): string {
+  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.supplyOrderId ?? record.mediaDeliverableId ?? record.hotelProposalId ?? record.rfpId ?? record.venueId ?? record.inboundEmailId)!;
 }
 
 export function getUploadDir(entityType: EntityType, entityId: string): string {
@@ -90,7 +96,7 @@ export function getUploadPath(entityType: EntityType, entityId: string, storedNa
 // Resolve the eventId that owns this file, walking through the parent entity.
 // Returns null for venue-attached files (which have no event scope).
 export async function resolveFileEventId(
-  record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId">,
+  record: FileOwner,
 ): Promise<string | null> {
   return resolveEntityEventId(getEntityTypeFromRecord(record), getEntityIdFromRecord(record));
 }
@@ -131,9 +137,22 @@ export async function resolveEntityEventId(entityType: EntityType, entityId: str
       const o = await prisma.rfp.findUnique({ where: { id: entityId }, select: { eventId: true } });
       return o?.eventId ?? null;
     }
+    case "inboundEmail": {
+      const o = await prisma.inboundEmail.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
     case "venue":
       return null;
   }
+}
+
+// The tenant of a file whose owner has no event: an Unrouted inbound email's.
+// The permission check for such a file runs against the active tenant, so the
+// caller must also match this. Null: not an inbound-email-only file.
+export async function inboundFileTenantId(record: FileOwner): Promise<string | null> {
+  if (getEntityTypeFromRecord(record) !== "inboundEmail" || !record.inboundEmailId) return null;
+  const o = await prisma.inboundEmail.findUnique({ where: { id: record.inboundEmailId }, select: { tenantId: true } });
+  return o?.tenantId ?? null;
 }
 
 export function formatFileSize(bytes: number): string {

@@ -149,6 +149,11 @@ const ChevronRightIcon = () => (
     <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
   </svg>
 );
+const InboxIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm0 2h12v6h-3.38a1 1 0 00-.9.55L11.38 13H8.62l-.34-1.45a1 1 0 00-.9-.55H4V5z" clipRule="evenodd" />
+  </svg>
+);
 export const HamburgerIcon = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-5 h-5 shrink-0">
     <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -196,6 +201,7 @@ const NAV: NavItem[] = [
   { type: "group", label: "Resources" },
   { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon />,  resource: "VENDORS" },
   { type: "link",  label: "Hotels",           segment: "hotels",                          icon: <BedIcon />,  resource: "HOTELS" },
+  { type: "link",  label: "Inbox",            segment: "inbox",                           icon: <InboxIcon />, resource: "HOTELS" },
   { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon />,    resource: "FILES" },
   { type: "group", label: "Documentation" },
   { type: "link",  label: "Specifications",   segment: "specifications",                  icon: <DocumentIcon />,  resource: "EVENTS" },
