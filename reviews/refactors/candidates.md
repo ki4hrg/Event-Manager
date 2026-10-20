@@ -58,3 +58,4 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 - [styles] Done: report toolbar buttons (Print / Save PDF, Office downloads, Share, Copy) use `btnOutlinedXs` from `src/lib/buttonStyles.ts` (ux-sweep).
 - [docx] The shared docx primitives live in `src/lib/esg/renderDocx.ts` and are imported by `src/lib/rfp/renderDocx.ts`; move them to a neutral `src/lib/docx.ts` if a third document type appears (RFP PR)
 - [hotels] `getPickupPattern` (src/app/hotels/actions.ts) reads the active tenant via `hotelSession`; the RFP document/fill call it from event pages where the active tenant matches the event. A tenant-explicit plain loader would remove that coupling (RFP PR)
+- [hotels] Proposal revision snapshots (`HotelProposalVersion`) do not include RFP concession answers (`HotelProposalConcession`); add them to `snapshotOf`/`diffSnapshots` if answer history matters (src/app/events/hotels/core.ts, RFP stage 3)

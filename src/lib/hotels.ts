@@ -6,7 +6,7 @@
 // checks in for that night — so nights run from check-in up to, but not
 // including, check-out.
 
-import type { HotelBlockType, HotelChargeScope } from "@prisma/client";
+import type { ConcessionMet, HotelBlockType, HotelChargeScope } from "@prisma/client";
 
 // proposal_status options carry one of these as their group.
 export type ProposalStage = "REQUESTED" | "PENDING" | "ACCEPTED" | "DECLINED";
@@ -43,6 +43,9 @@ export const CHARGE_SCOPE_LABELS: Record<HotelChargeScope, string> = {
   PER_PERSON: "Per person",
   PER_PERSON_PER_NIGHT: "Per person per night",
 };
+
+// How a proposal answers one of its RFP's concessions.
+export const MET_LABELS: Record<ConcessionMet, string> = { MET: "Met", PARTIAL: "Partial", NOT_MET: "Not met" };
 
 // The stage of a proposal_status label, from the tenant's options.
 export function stageOf(

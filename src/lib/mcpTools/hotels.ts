@@ -92,12 +92,33 @@ const proposalProps = {
   amenities: { type: "array", items: { type: "string" }, description: "hotel_amenity option labels." },
   nights: { type: "array", items: nightSchema, description: "The full room grid (replaces it). Each night must fall in the stay." },
   charges: { type: "array", items: chargeSchema, description: "The full charge list (replaces it)." },
+  concessions: {
+    type: "array",
+    description: "Answers to the RFP's concessions (only for a proposal linked to an RFP; ids from get_rfp). Replaces all answers.",
+    items: {
+      type: "object",
+      properties: {
+        concessionId: { type: "string" },
+        met: { type: ["string", "null"], enum: ["MET", "PARTIAL", "NOT_MET", null] },
+        offered: { type: ["string", "null"] },
+      },
+      required: ["concessionId"],
+    },
+  },
 } as const;
 
 const PROPOSAL_KEYS = [
   "venueId", "status", "leadSource", "blockType", "submittedOn", "checkIn", "checkOut", "declinedReason", "notes", "revision",
-  "revisionSummary", "isRunOfHouse", "allowedAttrition", "guaranteedRevenue", "amenities", "nights", "charges",
+  "revisionSummary", "isRunOfHouse", "allowedAttrition", "guaranteedRevenue", "amenities", "nights", "charges", "concessions",
 ] as const satisfies readonly (keyof ProposalWriteArgs)[];
+
+function checkConcessions(v: unknown) {
+  if (v === undefined) return;
+  if (!Array.isArray(v)) throw new Error("concessions must be a list");
+  for (const c of v as { met?: unknown }[]) {
+    if (c.met != null && !["MET", "PARTIAL", "NOT_MET"].includes(String(c.met))) throw new Error("met must be MET, PARTIAL or NOT_MET");
+  }
+}
 
 const proposalInclude = {
   venue: { select: { name: true } },
@@ -195,6 +216,8 @@ export const hotelTools: McpToolDefinition[] = [
           leadSource: true,
           venue: { select: { id: true, name: true } },
           block: { select: { id: true } },
+          rfp: { select: { id: true, title: true } },
+          rfpBlockId: true,
         },
         orderBy: [{ venue: { name: "asc" } }, { createdAt: "asc" }],
       });
@@ -202,7 +225,8 @@ export const hotelTools: McpToolDefinition[] = [
   },
   {
     name: "get_hotel_proposal",
-    description: "Get one hotel proposal with its nightly room grid (room type × night: rooms, rate), charges, amenities, terms, and every revision (snapshot + field changes).",
+    description:
+      "Get one hotel proposal with its nightly room grid (room type × night: rooms, rate), charges, amenities, terms, every revision (snapshot + field changes), and — when it answers an RFP — the RFP, its block and concession answers.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -214,13 +238,20 @@ export const hotelTools: McpToolDefinition[] = [
       await requirePermissionForUser(userId, "HOTELS", "VIEW", eventId);
       return prisma.hotelProposal.findFirst({
         where: { id: requireString(args, "id"), eventId },
-        include: { ...proposalInclude, versions: { orderBy: { revision: "desc" } }, block: { select: { id: true } } },
+        include: {
+          ...proposalInclude,
+          versions: { orderBy: { revision: "desc" } },
+          block: { select: { id: true } },
+          rfp: { select: { id: true, title: true } },
+          concessions: { include: { concession: { select: { label: true, value: true, required: true } } } },
+        },
       });
     },
   },
   {
     name: "create_hotel_proposal",
-    description: "Create a hotel's proposal for an event. venueId and status are required; nights is the room grid.",
+    description:
+      "Create a hotel's proposal for an event. venueId and status are required; nights is the room grid. For a proposal answering an RFP block, use record_rfp_response instead.",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" }, ...proposalProps },
@@ -229,6 +260,7 @@ export const hotelTools: McpToolDefinition[] = [
     },
     handler: (args, { userId }) => {
       checkCharges(args.charges);
+      if (args.concessions !== undefined) throw new Error("Only a proposal answering an RFP has concessions — use record_rfp_response");
       const blank: ProposalWriteArgs = {
         venueId: "", status: "", leadSource: null, blockType: null, submittedOn: null, checkIn: null, checkOut: null,
         declinedReason: null, notes: null, revision: 1, revisionSummary: null, isRunOfHouse: false, allowedAttrition: null,
@@ -252,6 +284,7 @@ export const hotelTools: McpToolDefinition[] = [
       const eventId = requireString(args, "eventId");
       await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
       checkCharges(args.charges);
+      checkConcessions(args.concessions);
       return updateHotelProposalCore(id, eventId, merged(await currentProposal(id, eventId), args, PROPOSAL_KEYS), userId);
     },
   },

@@ -6,13 +6,14 @@
 // HotelProposalVersion row for the current revision, so earlier revisions stay
 // frozen and the current one always matches the proposal.
 
-import type { HotelBlockType, HotelChargeScope, Prisma } from "@prisma/client";
+import type { ConcessionMet, HotelBlockType, HotelChargeScope, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { dateFromKey, dateKey, nightKeys } from "@/lib/hotels";
 
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
 export type ProposalChargeArgs = { chargeType: string; amount: number | null; scope: HotelChargeScope | null };
+export type ProposalConcessionArgs = { concessionId: string; offered: string | null; met: ConcessionMet | null };
 
 export type ProposalWriteArgs = {
   venueId: string;
@@ -34,6 +35,8 @@ export type ProposalWriteArgs = {
   charges: ProposalChargeArgs[];
   // Create only: the requested RFP block this offer answers.
   rfpBlockId?: string | null;
+  // Answers to the RFP's concessions; undefined leaves them as they are.
+  concessions?: ProposalConcessionArgs[];
 };
 
 // What a version snapshot holds (and what the diff compares).
@@ -218,6 +221,22 @@ async function recordVersion(tx: Prisma.TransactionClient, proposalId: string, s
   });
 }
 
+// Rewrites a proposal's concession answers. Every concession must belong to
+// the RFP the proposal answers; rows with nothing in them aren't stored.
+async function writeConcessions(tx: Prisma.TransactionClient, proposalId: string, rfpId: string | null, rows: ProposalConcessionArgs[] | undefined) {
+  if (rows === undefined) return;
+  const filled = rows.filter((c) => c.met || c.offered?.trim());
+  if (filled.length && !rfpId) throw new Error("Only a proposal answering an RFP has concessions");
+  const ids = Array.from(new Set(filled.map((c) => c.concessionId)));
+  if (ids.length && (await tx.rfpConcession.count({ where: { id: { in: ids }, rfpId: rfpId! } })) !== ids.length) {
+    throw new PermissionError("NOT_FOUND", "Concession not found");
+  }
+  await tx.hotelProposalConcession.deleteMany({ where: { proposalId } });
+  await tx.hotelProposalConcession.createMany({
+    data: filled.map((c) => ({ proposalId, concessionId: c.concessionId, offered: c.offered?.trim() || null, met: c.met })),
+  });
+}
+
 export async function createHotelProposalCore(eventId: string, args: ProposalWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   validate(args);
@@ -246,6 +265,7 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
         charges: { create: chargeRows(args) },
       },
     });
+    await writeConcessions(tx, proposal.id, rfpBlock?.rfpId ?? null, args.concessions);
     await recordVersion(tx, proposal.id, args.revisionSummary, userId);
     return proposal;
   });
@@ -255,7 +275,7 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   validate(args);
   await assertProposalRefs(eventId, args);
-  const existing = await prisma.hotelProposal.findFirst({ where: { id, eventId }, select: { revision: true } });
+  const existing = await prisma.hotelProposal.findFirst({ where: { id, eventId }, select: { revision: true, rfpId: true } });
   if (!existing) throw new PermissionError("NOT_FOUND");
   if (args.revision < existing.revision) throw new Error(`Revision cannot go back below ${existing.revision}`);
   return prisma.$transaction(async (tx) => {
@@ -270,6 +290,7 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
         charges: { create: chargeRows(args) },
       },
     });
+    await writeConcessions(tx, id, existing.rfpId, args.concessions);
     await recordVersion(tx, id, args.revisionSummary, userId);
     return proposal;
   });

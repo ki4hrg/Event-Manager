@@ -18,3 +18,4 @@
 - [docx] Office documents reuse the ESG renderer's exported primitives (`fieldsTable`, `gridTable`, `richParagraphs`, `chrome`, `styles`, `numbering` in src/lib/esg/renderDocx.ts) rather than redeclaring styles (src/lib/rfp/renderDocx.ts)
 - [hotels] Block-type UI labels read "Contract attendee / Courtesy attendee / Staff"; enum values and URL params unchanged (src/lib/hotels.ts)
 - [hotels] Room-grid editing is the shared `RoomGridEditor` (rooms, optionally + rate) used by ProposalForm and RFP blocks (src/app/events/hotels/RoomGridEditor.tsx)
+- [rfps] Child rows that other records point at (RFP blocks ← proposals, RFP concessions ← concession answers) save in place by id (update kept, create new, delete missing) rather than delete-and-recreate, which would SetNull/cascade the links (src/app/events/rfps/core.ts)

@@ -17,12 +17,13 @@ import {
   addRfpRecipientsCore,
   createRfpCore,
   deleteRfpCore,
-  removeRfpRecipientCore,
-  updateRfpRecipientCore,
+  getRfpComparisonCore,
   issueRfpCore,
+  removeRfpRecipientCore,
   saveRfpBlocksCore,
   saveRfpConcessionsCore,
   updateRfpCore,
+  updateRfpRecipientCore,
   type RfpBlockArgs,
   type RfpConcessionArgs,
   type RfpRecipientArgs,
@@ -254,6 +255,13 @@ export async function getRfpDocument(id: string, eventId: string) {
   });
 }
 
+export async function getRfpComparison(id: string, eventId: string) {
+  const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
+  if (!rfp) return null;
+  const session = await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
+  return getRfpComparisonCore(id, eventId, session.user.id);
+}
+
 // A requested block filled from past pickup (src/lib/hotelPattern.ts), dated
 // to this event. Read-only; the editor applies it to its grid.
 export async function getRfpPatternFill(
@@ -341,7 +349,7 @@ export async function issueRfp(id: string, eventId: string) {
   const doc = await getRfpDocument(id, eventId);
   if (!doc) notFound();
   const { renderRfpDocx, rfpFileName } = await import("@/lib/rfp/renderDocx");
-  await issueRfpCore(id, eventId, { fileName: rfpFileName(doc), buffer: await renderRfpDocx(doc) }, session.user.id);
+  await issueRfpCore(id, eventId, { fileName: rfpFileName(doc.meta.eventName, doc.meta.title), buffer: await renderRfpDocx(doc) }, session.user.id);
   revalidatePath(rfpBase(eventId, kind));
   revalidatePath(rfpPath(eventId, kind, id));
   redirect(`${rfpPath(eventId, kind, id)}?success=RFP issued`);

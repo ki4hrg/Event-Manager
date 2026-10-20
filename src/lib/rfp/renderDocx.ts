@@ -2,10 +2,11 @@
 // download route and by Issue). Same look as the ESG: the primitives come
 // from src/lib/esg/renderDocx.ts.
 
-import { Document, HeadingLevel, Packer, Paragraph, TextRun, type Table } from "docx";
+import { Document, HeadingLevel, Packer, PageOrientation, Paragraph, TextRun, type Table } from "docx";
 import { FONT, chrome, fieldsTable, gridTable, numbering, richParagraphs, spacer, styles, textParagraphs } from "@/lib/esg/renderDocx";
 import { formatNight } from "@/lib/hotels";
 import type { RfpDocument } from "@/lib/rfp/document";
+import { comparisonRows, type RfpComparison } from "@/lib/rfp/compare";
 
 const heading = (text: string) =>
   new Paragraph({ heading: HeadingLevel.HEADING_2, keepNext: true, children: [new TextRun({ text, font: FONT })] });
@@ -139,8 +140,8 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
   return out;
 }
 
-export function rfpFileName(doc: RfpDocument) {
-  return `${`${doc.meta.eventName} - ${doc.meta.title}`.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim()}.docx`;
+export function rfpFileName(eventName: string, title: string) {
+  return `${`${eventName} - ${title}`.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim()}.docx`;
 }
 
 export async function renderRfpDocx(doc: RfpDocument): Promise<Buffer> {
@@ -164,5 +165,48 @@ export async function renderRfpDocx(doc: RfpDocument): Promise<Buffer> {
   ];
   return Packer.toBuffer(
     new Document({ creator: "Event Manager", title: `${meta.eventName} — ${meta.title}`, numbering, styles, sections: [{ ...head, properties: {}, children }] }),
+  );
+}
+
+// Bid comparison: one landscape table per requested block, a column per
+// hotel. Cells short of the request are marked "▼".
+export async function renderRfpCompareDocx(data: RfpComparison): Promise<Buffer> {
+  const title = `${data.title} — Bid comparison`;
+  const children: (Paragraph | Table)[] = [
+    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: title, font: FONT, size: 36, bold: true })] }),
+  ];
+  for (const g of data.groups) {
+    children.push(heading(g.label));
+    if (g.requested) {
+      children.push(
+        note(
+          `Requested ${g.requested.roomNights} room nights · peak ${g.requested.peak}${g.requested.targetRate != null ? ` · target $${g.requested.targetRate.toFixed(2)}` : ""}`,
+        ),
+      );
+    }
+    if (g.offers.length === 0) {
+      children.push(note("No proposals yet."), spacer());
+      continue;
+    }
+    const rows = comparisonRows(g, data.concessions);
+    children.push(
+      gridTable({
+        columns: ["", ...(g.requested ? ["Requested"] : []), ...g.offers.map((o) => o.hotel)],
+        numeric: [false, ...(g.requested ? [true] : []), ...g.offers.map(() => true)],
+        rows: rows.map((r) => [r.label, ...(g.requested ? [r.requested] : []), ...r.cells.map((c) => (c.short ? `▼ ${c.text}` : c.text))]),
+      }),
+      spacer(),
+    );
+  }
+  if (data.groups.some((g) => g.offers.length)) children.push(note("▼ falls short of the request."));
+  const head = chrome("Bid comparison", data.eventName, data.title, "");
+  return Packer.toBuffer(
+    new Document({
+      creator: "Event Manager",
+      title: `${data.eventName} — ${title}`,
+      numbering,
+      styles,
+      sections: [{ ...head, properties: { page: { size: { orientation: PageOrientation.LANDSCAPE } } }, children }],
+    }),
   );
 }

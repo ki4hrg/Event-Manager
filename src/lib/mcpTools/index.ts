@@ -13,6 +13,7 @@ import { tenantTools } from "./tenants";
 import { specificationTools } from "./specifications";
 import { boothTools } from "./booths";
 import { hotelTools } from "./hotels";
+import { rfpTools } from "./rfps";
 
 export const mcpTools: McpToolDefinition[] = [
   ...tenantTools,
@@ -21,6 +22,7 @@ export const mcpTools: McpToolDefinition[] = [
   ...functionTools,
   ...boothTools,
   ...hotelTools,
+  ...rfpTools,
   ...presentationTools,
   ...vendorTools,
   ...contactTools,
