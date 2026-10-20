@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import type { HotelBlockType, HotelChargeScope } from "@prisma/client";
+import type { ConcessionMet, HotelBlockType, HotelChargeScope } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import {
@@ -13,6 +13,7 @@ import {
   CHARGE_SCOPES,
   formatDateKey,
   formatMoney,
+  MET_LABELS,
   nightKeys,
   stageOf,
 } from "@/lib/hotels";
@@ -83,6 +84,13 @@ function Fieldset({ title, children, aside }: { title: string; children: ReactNo
   );
 }
 
+// The RFP's requested concessions with this proposal's answers.
+export type ConcessionAnswer = { id: string; label: string; value: string | null; required: boolean; offered: string | null; met: ConcessionMet | null };
+
+function concessionLine(c: ConcessionAnswer) {
+  return [c.met ? MET_LABELS[c.met] : null, c.offered].filter(Boolean).join(" · ") || "—";
+}
+
 // A new proposal answering a requested RFP block starts as a copy of it.
 export type ProposalTemplate = {
   rfpBlockId: string;
@@ -107,7 +115,7 @@ function initialRows(values: Pick<ProposalValues, "nights" | "isRunOfHouse"> | n
   }));
 }
 
-function Details({ values, choices }: { values: ProposalValues; choices: ProposalChoices }) {
+function Details({ values, choices, concessions }: { values: ProposalValues; choices: ProposalChoices; concessions: ConcessionAnswer[] }) {
   const rows: [string, ReactNode][] = [
     ["Hotel", choices.venues.find((v) => v.id === values.venueId)?.label ?? "—"],
     ["Status", values.status],
@@ -142,6 +150,22 @@ function Details({ values, choices }: { values: ProposalValues; choices: Proposa
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Rooms</h3>
         <RoomGrid nights={values.nights} />
       </div>
+      {concessions.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Concessions</h3>
+          <ul className="text-sm divide-y divide-gray-100 dark:divide-gray-700">
+            {concessions.map((c) => (
+              <li key={c.id} className="flex flex-wrap justify-between gap-x-3 py-1.5 text-gray-900 dark:text-white">
+                <span>
+                  {c.label}
+                  {c.value && <span className="text-gray-500 dark:text-gray-400"> (asked {c.value})</span>}
+                </span>
+                <span className={c.met === "NOT_MET" ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"}>{concessionLine(c)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {values.charges.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Charges</h3>
@@ -169,11 +193,13 @@ export function ProposalForm({
   defaultCheckOut,
   defaultVenueId,
   fromRfp,
+  concessions = [],
   action,
   cancelHref,
 }: {
   proposal?: ProposalValues | null;
   fromRfp?: ProposalTemplate;
+  concessions?: ConcessionAnswer[];
   choices: ProposalChoices;
   defaultCheckIn?: string | null;
   defaultCheckOut?: string | null;
@@ -194,6 +220,8 @@ export function ProposalForm({
     (proposal?.charges ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })),
   );
 
+  const [answers, setAnswers] = useState(concessions);
+
   if (!editing || !canWrite) {
     return (
       <div className={cardClass}>
@@ -205,7 +233,7 @@ export function ProposalForm({
             </button>
           )}
         </div>
-        {proposal && <Details values={proposal} choices={choices} />}
+        {proposal && <Details values={proposal} choices={choices} concessions={concessions} />}
       </div>
     );
   }
@@ -245,6 +273,13 @@ export function ProposalForm({
       <input type="hidden" name="charges" value={chargesJson} />
       <input type="hidden" name="isRunOfHouse" value={String(runOfHouse)} />
       {!isEdit && fromRfp && <input type="hidden" name="rfpBlockId" value={fromRfp.rfpBlockId} />}
+      {answers.length > 0 && (
+        <input
+          type="hidden"
+          name="concessions"
+          value={JSON.stringify(answers.map((a) => ({ concessionId: a.id, offered: a.offered, met: a.met })))}
+        />
+      )}
 
       <Fieldset title="Proposal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -350,6 +385,45 @@ export function ProposalForm({
           <RoomGridEditor keys={keys} rows={rows} runOfHouse={runOfHouse} roomTypes={choices.roomTypes} withRate onChange={setRows} />
         )}
       </Fieldset>
+
+      {answers.length > 0 && (
+        <Fieldset title="Concessions">
+          <div className="space-y-2">
+            {answers.map((a, i) => {
+              const set = (patch: Partial<ConcessionAnswer>) => setAnswers((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+              return (
+                <div key={a.id} className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-gray-900 dark:text-white min-w-[10rem] flex-1">
+                    {a.label}
+                    {a.value && <span className="text-gray-500 dark:text-gray-400"> (asked {a.value})</span>}
+                    {a.required && <span className="text-gray-500 dark:text-gray-400"> · required</span>}
+                  </span>
+                  <select
+                    aria-label={`${a.label} met`}
+                    value={a.met ?? ""}
+                    onChange={(e) => set({ met: (e.target.value || null) as ConcessionMet | null })}
+                    className={`${inputClass} mt-0 w-auto`}
+                  >
+                    <option value="">—</option>
+                    {(Object.keys(MET_LABELS) as ConcessionMet[]).map((m) => (
+                      <option key={m} value={m}>
+                        {MET_LABELS[m]}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label={`${a.label} offered`}
+                    placeholder="Offered"
+                    value={a.offered ?? ""}
+                    onChange={(e) => set({ offered: e.target.value || null })}
+                    className={`${inputClass} mt-0 flex-1 min-w-[8rem]`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </Fieldset>
+      )}
 
       <Fieldset title="Terms">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

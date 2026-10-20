@@ -10,6 +10,7 @@ import {
   deleteHotelProposalCore,
   updateHotelProposalCore,
   type ProposalChargeArgs,
+  type ProposalConcessionArgs,
   type ProposalNightArgs,
   type ProposalWriteArgs,
 } from "./core";
@@ -56,7 +57,8 @@ export async function getHotelProposal(id: string, eventId: string) {
         include: { createdBy: { select: { name: true, email: true } } },
       },
       block: { select: { id: true } },
-      rfp: { select: { id: true, title: true } },
+      rfp: { select: { id: true, title: true, concessions: { orderBy: { sortOrder: "asc" } } } },
+      concessions: true,
       updatedBy: { select: { name: true, email: true } },
     },
   });
@@ -123,6 +125,7 @@ function readProposal(formData: FormData): ProposalWriteArgs {
     nights: readJson<ProposalNightArgs>(formData, "nights"),
     charges: readJson<ProposalChargeArgs>(formData, "charges"),
     rfpBlockId: str("rfpBlockId"),
+    concessions: formData.has("concessions") ? readJson<ProposalConcessionArgs>(formData, "concessions") : undefined,
   };
 }
 

@@ -11,6 +11,7 @@ import { functionStartKey } from "@/lib/esg/scheduleKey";
 import { patternStats, proposedRoles, proposeNights, type PatternBasis } from "@/lib/hotelPattern";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { buildRfpDocument } from "@/lib/rfp/document";
+import { buildComparison } from "@/lib/rfp/compare";
 import { parseSections } from "@/lib/rfp/sections";
 import { getPickupPattern } from "@/app/hotels/actions";
 import {
@@ -254,6 +255,39 @@ export async function getRfpDocument(id: string, eventId: string) {
   });
 }
 
+// Every proposal answering the RFP against what each block asked for.
+export async function getRfpComparison(id: string, eventId: string) {
+  const rfp = await getRfp(id, eventId);
+  if (!rfp) return null;
+  const [event, proposals] = await Promise.all([
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { name: true } }),
+    prisma.hotelProposal.findMany({
+      where: { rfpId: id, eventId },
+      select: {
+        id: true,
+        status: true,
+        revision: true,
+        rfpBlockId: true,
+        allowedAttrition: true,
+        guaranteedRevenue: true,
+        amenities: true,
+        venue: { select: { name: true } },
+        block: { select: { id: true } },
+        nights: { select: { night: true, rooms: true, rate: true } },
+        charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
+        concessions: { select: { concessionId: true, offered: true, met: true } },
+      },
+    }),
+  ]);
+  return buildComparison({
+    title: rfp.title,
+    eventName: event.name,
+    blocks: rfp.hotelBlocks,
+    concessions: rfp.concessions,
+    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, hasBlock: p.block != null })),
+  });
+}
+
 // A requested block filled from past pickup (src/lib/hotelPattern.ts), dated
 // to this event. Read-only; the editor applies it to its grid.
 export async function getRfpPatternFill(
@@ -341,7 +375,7 @@ export async function issueRfp(id: string, eventId: string) {
   const doc = await getRfpDocument(id, eventId);
   if (!doc) notFound();
   const { renderRfpDocx, rfpFileName } = await import("@/lib/rfp/renderDocx");
-  await issueRfpCore(id, eventId, { fileName: rfpFileName(doc), buffer: await renderRfpDocx(doc) }, session.user.id);
+  await issueRfpCore(id, eventId, { fileName: rfpFileName(doc.meta.eventName, doc.meta.title), buffer: await renderRfpDocx(doc) }, session.user.id);
   revalidatePath(rfpBase(eventId, kind));
   revalidatePath(rfpPath(eventId, kind, id));
   redirect(`${rfpPath(eventId, kind, id)}?success=RFP issued`);

@@ -28,7 +28,10 @@ export default async function NewProposalPage({
     rfpBlockId
       ? prisma.rfpHotelBlock.findFirst({
           where: { id: rfpBlockId, rfp: { eventId } },
-          include: { nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] } },
+          include: {
+            nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
+            rfp: { select: { concessions: { orderBy: { sortOrder: "asc" } } } },
+          },
         })
       : null,
   ]);
@@ -72,6 +75,14 @@ export default async function NewProposalPage({
           defaultCheckIn={checkIn}
           defaultCheckOut={checkOut}
           fromRfp={fromRfp}
+          concessions={(rfpBlock?.rfp.concessions ?? []).map((c) => ({
+            id: c.id,
+            label: c.label,
+            value: c.value,
+            required: c.required,
+            offered: null,
+            met: null,
+          }))}
           defaultVenueId={choices.venues.some((v) => v.id === venueId) ? venueId : undefined}
           action={createAction}
           cancelHref={`/events/${eventId}/hotels`}

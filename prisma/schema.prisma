@@ -2411,28 +2411,28 @@ enum HotelChargeScope {
 }
 
 model HotelProposal {
-  id                String                 @id @default(cuid())
+  id                String                    @id @default(cuid())
   eventId           String
-  event             Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event             Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
   venueId           String
-  venue             Venue                  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue             Venue                     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   // proposal_status option label; the option's group (REQUESTED / PENDING /
   // ACCEPTED / DECLINED) is the workflow stage the app keys off.
   status            String
   leadSource        String? // hotel_lead_source option label
   blockType         HotelBlockType?
-  submittedOn       DateTime?              @db.Date
-  checkIn           DateTime?              @db.Date
-  checkOut          DateTime?              @db.Date
+  submittedOn       DateTime?                 @db.Date
+  checkIn           DateTime?                 @db.Date
+  checkOut          DateTime?                 @db.Date
   declinedReason    String?
   notes             String?
   // Bumped by staff when the hotel sends a revised offer; each bump records a
   // HotelProposalVersion.
-  revision          Int                    @default(1)
-  isRunOfHouse      Boolean                @default(false)
-  allowedAttrition  Decimal?               @db.Decimal(5, 2)
-  guaranteedRevenue Decimal?               @db.Decimal(10, 2)
-  amenities         String[]               @default([]) // hotel_amenity option labels
+  revision          Int                       @default(1)
+  isRunOfHouse      Boolean                   @default(false)
+  allowedAttrition  Decimal?                  @db.Decimal(5, 2)
+  guaranteedRevenue Decimal?                  @db.Decimal(10, 2)
+  amenities         String[]                  @default([]) // hotel_amenity option labels
   nights            HotelProposalNight[]
   charges           HotelCharge[]
   versions          HotelProposalVersion[]
@@ -2440,13 +2440,14 @@ model HotelProposal {
   files             FileUpload[]
   // The RFP and requested block this offer answers, when it came from one.
   rfpId             String?
-  rfp               Rfp?                   @relation(fields: [rfpId], references: [id], onDelete: SetNull)
+  rfp               Rfp?                      @relation(fields: [rfpId], references: [id], onDelete: SetNull)
   rfpBlockId        String?
-  rfpBlock          RfpHotelBlock?         @relation(fields: [rfpBlockId], references: [id], onDelete: SetNull)
+  rfpBlock          RfpHotelBlock?            @relation(fields: [rfpBlockId], references: [id], onDelete: SetNull)
+  concessions       HotelProposalConcession[]
   updatedById       String?
-  updatedBy         User?                  @relation("HotelProposalUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  updatedBy         User?                     @relation("HotelProposalUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
 
   @@index([eventId])
   @@index([venueId])
@@ -2705,15 +2706,36 @@ model RfpRecipient {
 // A term we ask for. label is an rfp_concession option label (free text
 // allowed); value is free text ("1/40", "20%", "30 days").
 model RfpConcession {
-  id        String  @id @default(cuid())
+  id        String                    @id @default(cuid())
   rfpId     String
-  rfp       Rfp     @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  rfp       Rfp                       @relation(fields: [rfpId], references: [id], onDelete: Cascade)
   label     String
   value     String?
-  required  Boolean @default(false)
-  sortOrder Int     @default(0)
+  required  Boolean                   @default(false)
+  sortOrder Int                       @default(0)
+  responses HotelProposalConcession[]
 
   @@index([rfpId])
+}
+
+enum ConcessionMet {
+  MET
+  PARTIAL
+  NOT_MET
+}
+
+// A proposal's answer to one requested concession of its RFP.
+model HotelProposalConcession {
+  id           String         @id @default(cuid())
+  proposalId   String
+  proposal     HotelProposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  concessionId String
+  concession   RfpConcession  @relation(fields: [concessionId], references: [id], onDelete: Cascade)
+  offered      String?
+  met          ConcessionMet?
+
+  @@unique([proposalId, concessionId])
+  @@index([concessionId])
 }
 
 // One requested hotel block (contract attendee / courtesy attendee / staff).

@@ -3,8 +3,8 @@
 //
 // An RFP is event-scoped: every lookup carries eventId, children go through
 // { rfp: { eventId } }. The permission resource follows the kind
-// (resourceForKind). Requested blocks are updated in place by id (proposals
-// link to them); concessions are replaced whole on save.
+// (resourceForKind). Requested blocks and concessions are updated in place
+// by id on save — proposals link to blocks and answer concessions.
 
 import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync } from "fs";
@@ -38,7 +38,7 @@ export type RfpBlockArgs = {
   nights: { roomType: string | null; night: string; rooms: number }[];
 };
 
-export type RfpConcessionArgs = { label: string; value: string | null; required: boolean };
+export type RfpConcessionArgs = { id?: string | null; label: string; value: string | null; required: boolean };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // Requested nights may run this far either side of the event (arrivals, move-in).
@@ -156,10 +156,16 @@ export async function saveRfpConcessionsCore(id: string, eventId: string, conces
   await authorizeRfp(id, eventId, "WRITE", userId);
   const rows = concessions
     .filter((c) => c.label.trim())
-    .map((c, i) => ({ label: c.label.trim(), value: c.value?.trim() || null, required: c.required, sortOrder: i }));
+    .map((c, i) => ({ id: c.id ?? null, label: c.label.trim(), value: c.value?.trim() || null, required: c.required, sortOrder: i }));
+  const existing = new Set((await prisma.rfpConcession.findMany({ where: { rfpId: id }, select: { id: true } })).map((c) => c.id));
+  const kept = rows.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
   await prisma.$transaction(async (tx) => {
-    await tx.rfpConcession.deleteMany({ where: { rfpId: id, rfp: { eventId } } });
-    await tx.rfpConcession.createMany({ data: rows.map((r) => ({ ...r, rfpId: id })) });
+    // A removed concession takes the hotels' answers to it along (cascade).
+    await tx.rfpConcession.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
+    for (const { id: concessionId, ...data } of rows) {
+      if (concessionId && existing.has(concessionId)) await tx.rfpConcession.update({ where: { id: concessionId, rfpId: id }, data });
+      else await tx.rfpConcession.create({ data: { ...data, rfpId: id } });
+    }
     await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
   });
 }

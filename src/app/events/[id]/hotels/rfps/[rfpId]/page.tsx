@@ -113,6 +113,11 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           <LastUpdated updatedAt={rfp.updatedAt} updatedBy={rfp.updatedBy} timezone={event.timezone} className="mt-2" />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
+          {rfp.hotelProposals.length > 0 && (
+            <Link href={`${base}/compare`} className={btnSecondary}>
+              Compare bids
+            </Link>
+          )}
           <Link href={`${base}/print`} className={btnSecondary}>
             Print / Save PDF
           </Link>
@@ -170,7 +175,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
             <RfpConcessionsEditor
               key={`concessions-${rfp.updatedAt.toISOString()}`}
               resource="HOTELS"
-              concessions={rfp.concessions.map((c) => ({ label: c.label, value: c.value, required: c.required }))}
+              concessions={rfp.concessions.map((c) => ({ id: c.id, label: c.label, value: c.value, required: c.required }))}
               options={choices.concessions}
               save={saveConcessionsAction}
             />

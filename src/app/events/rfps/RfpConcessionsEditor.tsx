@@ -11,7 +11,7 @@ const inputClass =
   "px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 
-type Row = { label: string; value: string; required: boolean };
+type Row = { id: string | null; label: string; value: string; required: boolean };
 
 export function RfpConcessionsEditor({
   resource,
@@ -28,7 +28,7 @@ export function RfpConcessionsEditor({
   const canWrite = useCanWrite(resource);
   const [pending, startTransition] = useTransition();
   const [dirty, setDirty] = useState(false);
-  const [rows, setRows] = useState<Row[]>(concessions.map((c) => ({ label: c.label, value: c.value ?? "", required: c.required })));
+  const [rows, setRows] = useState<Row[]>(concessions.map((c) => ({ id: c.id ?? null, label: c.label, value: c.value ?? "", required: c.required })));
   const used = new Set(rows.map((r) => r.label));
   const unused = options.filter((o) => !used.has(o));
 
@@ -39,7 +39,7 @@ export function RfpConcessionsEditor({
   const set = (i: number, patch: Partial<Row>) => update(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const onSave = () =>
     startTransition(async () => {
-      await save(rows.map((r) => ({ label: r.label, value: r.value || null, required: r.required })));
+      await save(rows.map((r) => ({ id: r.id, label: r.label, value: r.value || null, required: r.required })));
       setDirty(false);
       router.refresh();
     });
@@ -90,8 +90,8 @@ export function RfpConcessionsEditor({
             aria-label="Add concession"
             value=""
             onChange={(e) => {
-              if (e.target.value === "__other__") update([...rows, { label: "", value: "", required: false }]);
-              else if (e.target.value) update([...rows, { label: e.target.value, value: "", required: false }]);
+              if (e.target.value === "__other__") update([...rows, { id: null, label: "", value: "", required: false }]);
+              else if (e.target.value) update([...rows, { id: null, label: e.target.value, value: "", required: false }]);
             }}
             className={inputClass}
           >
