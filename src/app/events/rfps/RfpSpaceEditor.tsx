@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PermissionResource, RfpSpaceKind } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -188,7 +188,10 @@ export function RfpSpaceEditor({
   const [candidates, setCandidates] = useState<SpaceRow[] | null>(null);
   const [loading, startLoading] = useTransition();
   const [nextKey, setNextKey] = useState(initial.length);
-  const [rows, setRows] = useState<Row[]>(initial.map((r, i) => ({ ...r, key: i })));
+  // Rows keep their place while being edited — re-sorting on every change
+  // would move (and remount) the row under the cursor, closing an open date
+  // picker. They're sorted on load and when saved.
+  const [rows, setRows] = useState<Row[]>(() => sortSpaceRows(initial).map((r, i) => ({ ...r, key: i })));
 
   const update = (next: Row[]) => {
     setRows(next);
@@ -223,92 +226,86 @@ export function RfpSpaceEditor({
       router.refresh();
     });
   const int = (v: string) => (v === "" ? null : parseInt(v));
-  const sorted = sortSpaceRows(rows);
-  const days = Array.from(new Set(sorted.map((r) => r.day)));
 
   return (
     <div className={`${cardClass} space-y-4`}>
       <h2 className="text-lg font-medium text-gray-900 dark:text-white">{copy.title}</h2>
       {rows.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">{copy.empty}</p>}
-      <fieldset disabled={!canWrite} className="space-y-4">
-        {days.map((d) => (
-          <div key={d ?? DAY_TBD} className="space-y-2">
-            <p className={dayHeading}>{dayLabel(d)}</p>
-            {sorted
-              .filter((r) => r.day === d)
-              .map((r) => (
-                <div key={r.key} className={rowCard}>
-                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                    <label className={`${smallLabel} col-span-2 sm:col-span-3`}>
-                      {copy.name}
-                      <input value={r.name} onChange={(e) => set(r.key, { name: e.target.value })} className={inputClass} />
-                    </label>
-                    <label className={smallLabel}>
-                      Day
-                      <input type="date" value={r.day ?? ""} onChange={(e) => set(r.key, { day: e.target.value || null, ...(e.target.value ? {} : { endDay: null }) })} className={inputClass} />
-                    </label>
-                    <label className={smallLabel}>
-                      Through
-                      <input
-                        type="date"
-                        disabled={!r.day}
-                        min={r.day ?? undefined}
-                        value={r.endDay ?? ""}
-                        onChange={(e) => set(r.key, { endDay: e.target.value || null })}
-                        className={inputClass}
-                      />
-                    </label>
-                    <label className={smallLabel}>
-                      Start
-                      <input type="time" value={r.startTime ?? ""} onChange={(e) => set(r.key, { startTime: e.target.value || null })} className={inputClass} />
-                    </label>
-                    <label className={smallLabel}>
-                      End
-                      <input type="time" value={r.endTime ?? ""} onChange={(e) => set(r.key, { endTime: e.target.value || null })} className={inputClass} />
-                    </label>
-                    <label className={smallLabel}>
-                      Type
-                      <TypeSelect label="Type" value={r.functionType} options={types} onChange={(v) => set(r.key, { functionType: v })} />
-                    </label>
-                    {meeting && (
-                      <label className={smallLabel}>
-                        Requested set-up
-                        <TypeSelect label="Requested set-up" value={r.setup} options={setupTypes} onChange={(v) => set(r.key, { setup: v })} />
-                      </label>
-                    )}
-                    <label className={smallLabel}>
-                      Attendees
-                      <input type="number" min={0} value={r.attendance ?? ""} onChange={(e) => set(r.key, { attendance: int(e.target.value) })} className={inputClass} />
-                    </label>
-                    {meeting && (
-                      <label className={smallLabel}>
-                        Approx. sq ft
-                        <input type="number" min={0} value={r.areaSqFt ?? ""} onChange={(e) => set(r.key, { areaSqFt: int(e.target.value) })} className={inputClass} />
-                      </label>
-                    )}
-                    <label className={smallLabel}>
-                      Room
-                      <input value={r.room ?? ""} onChange={(e) => set(r.key, { room: e.target.value || null })} className={inputClass} />
-                    </label>
-                    <label className={`${smallLabel} col-span-2`}>
-                      A/V
-                      <input value={r.av ?? ""} onChange={(e) => set(r.key, { av: e.target.value || null })} className={inputClass} />
-                    </label>
-                    {meeting && (
-                      <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300 sm:mt-5">
-                        <input type="checkbox" checked={r.hold24} onChange={(e) => set(r.key, { hold24: e.target.checked })} className={checkClass} />
-                        24-hr hold
-                      </label>
-                    )}
-                  </div>
-                  {canWrite && (
-                    <button type="button" onClick={() => update(rows.filter((x) => x.key !== r.key))} className="text-xs text-red-600 dark:text-red-400 hover:underline">
-                      Remove
-                    </button>
-                  )}
-                </div>
-              ))}
-          </div>
+      <fieldset disabled={!canWrite} className="space-y-2">
+        {rows.map((r, i) => (
+          <Fragment key={r.key}>
+            {(i === 0 || rows[i - 1].day !== r.day) && <p className={`${dayHeading} ${i === 0 ? "" : "pt-2"}`}>{dayLabel(r.day)}</p>}
+            <div className={rowCard}>
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                <label className={`${smallLabel} col-span-2 sm:col-span-3`}>
+                  {copy.name}
+                  <input value={r.name} onChange={(e) => set(r.key, { name: e.target.value })} className={inputClass} />
+                </label>
+                <label className={smallLabel}>
+                  Day
+                  <input type="date" value={r.day ?? ""} onChange={(e) => set(r.key, { day: e.target.value || null, ...(e.target.value ? {} : { endDay: null }) })} className={inputClass} />
+                </label>
+                <label className={smallLabel}>
+                  Through
+                  <input
+                    type="date"
+                    disabled={!r.day}
+                    min={r.day ?? undefined}
+                    value={r.endDay ?? ""}
+                    onChange={(e) => set(r.key, { endDay: e.target.value || null })}
+                    className={inputClass}
+                  />
+                </label>
+                <label className={smallLabel}>
+                  Start
+                  <input type="time" value={r.startTime ?? ""} onChange={(e) => set(r.key, { startTime: e.target.value || null })} className={inputClass} />
+                </label>
+                <label className={smallLabel}>
+                  End
+                  <input type="time" value={r.endTime ?? ""} onChange={(e) => set(r.key, { endTime: e.target.value || null })} className={inputClass} />
+                </label>
+                <label className={smallLabel}>
+                  Type
+                  <TypeSelect label="Type" value={r.functionType} options={types} onChange={(v) => set(r.key, { functionType: v })} />
+                </label>
+                {meeting && (
+                  <label className={smallLabel}>
+                    Requested set-up
+                    <TypeSelect label="Requested set-up" value={r.setup} options={setupTypes} onChange={(v) => set(r.key, { setup: v })} />
+                  </label>
+                )}
+                <label className={smallLabel}>
+                  Attendees
+                  <input type="number" min={0} value={r.attendance ?? ""} onChange={(e) => set(r.key, { attendance: int(e.target.value) })} className={inputClass} />
+                </label>
+                {meeting && (
+                  <label className={smallLabel}>
+                    Approx. sq ft
+                    <input type="number" min={0} value={r.areaSqFt ?? ""} onChange={(e) => set(r.key, { areaSqFt: int(e.target.value) })} className={inputClass} />
+                  </label>
+                )}
+                <label className={smallLabel}>
+                  Room
+                  <input value={r.room ?? ""} onChange={(e) => set(r.key, { room: e.target.value || null })} className={inputClass} />
+                </label>
+                <label className={`${smallLabel} col-span-2`}>
+                  A/V
+                  <input value={r.av ?? ""} onChange={(e) => set(r.key, { av: e.target.value || null })} className={inputClass} />
+                </label>
+                {meeting && (
+                  <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300 sm:mt-5">
+                    <input type="checkbox" checked={r.hold24} onChange={(e) => set(r.key, { hold24: e.target.checked })} className={checkClass} />
+                    24-hr hold
+                  </label>
+                )}
+              </div>
+              {canWrite && (
+                <button type="button" onClick={() => update(rows.filter((x) => x.key !== r.key))} className="text-xs text-red-600 dark:text-red-400 hover:underline">
+                  Remove
+                </button>
+              )}
+            </div>
+          </Fragment>
         ))}
       </fieldset>
       {canWrite && candidates && <Picker kind={kind} rows={rows} candidates={candidates} onAdd={append} onClose={() => setCandidates(null)} />}
