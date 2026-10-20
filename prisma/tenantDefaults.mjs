@@ -286,16 +286,21 @@ export const DEFAULT_OPTIONS = {
     { label: "Housing Bureau", sortOrder: 2 },
   ],
   // Terms an RFP asks for; each RFP row adds its own value ("1/40", "20%").
+  // group is the APEX "Concessions Desired" heading: ROOMS (guest rooms), FB
+  // (food & beverage) or OTHER.
   rfp_concession: [
-    { label: "Comp ratio", sortOrder: 0 },
-    { label: "Attrition", sortOrder: 1 },
-    { label: "Cut-off", sortOrder: 2 },
-    { label: "Rate cap", sortOrder: 3 },
-    { label: "Deposit schedule", sortOrder: 4 },
-    { label: "Complimentary Wi-Fi", sortOrder: 5 },
-    { label: "Parking", sortOrder: 6 },
-    { label: "Staff rate", sortOrder: 7 },
-    { label: "Upgrades", sortOrder: 8 },
+    { label: "Comp ratio", group: "ROOMS", sortOrder: 0 },
+    { label: "Attrition", group: "ROOMS", sortOrder: 1 },
+    { label: "Cut-off", group: "ROOMS", sortOrder: 2 },
+    { label: "Rate cap", group: "ROOMS", sortOrder: 3 },
+    { label: "Staff rate", group: "ROOMS", sortOrder: 4 },
+    { label: "Upgrades", group: "ROOMS", sortOrder: 5 },
+    { label: "Waived resort fee", group: "ROOMS", sortOrder: 6 },
+    { label: "F&B discount", group: "FB", sortOrder: 7 },
+    { label: "Complimentary Wi-Fi", group: "OTHER", sortOrder: 8 },
+    { label: "Parking", group: "OTHER", sortOrder: 9 },
+    { label: "Deposit schedule", group: "OTHER", sortOrder: 10 },
+    { label: "Waived meeting room rental", group: "OTHER", sortOrder: 11 },
   ],
 };
 

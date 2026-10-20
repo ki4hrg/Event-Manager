@@ -11,6 +11,7 @@ type Dec = { toString(): string } | null;
 export type CompareInput = {
   title: string;
   eventName: string;
+  amenities: string[]; // requested
   blocks: { id: string; contractType: HotelContractType; guestType: string | null; targetRate: Dec; nights: { night: Date; rooms: number }[] }[];
   concessions: { id: string; label: string; value: string | null; required: boolean }[];
   proposals: {
@@ -60,6 +61,7 @@ export type CompareGroup = {
 export type RfpComparison = {
   title: string;
   eventName: string;
+  amenities: string[];
   concessions: CompareInput["concessions"];
   groups: CompareGroup[];
 };
@@ -131,7 +133,7 @@ export function buildComparison(input: CompareInput): RfpComparison {
   });
   const loose = input.proposals.filter((p) => !p.rfpBlockId || !input.blocks.some((b) => b.id === p.rfpBlockId));
   if (loose.length) groups.push(group("Not tied to a requested block", null, loose, input.concessions));
-  return { title: input.title, eventName: input.eventName, concessions: input.concessions, groups };
+  return { title: input.title, eventName: input.eventName, amenities: input.amenities, concessions: input.concessions, groups };
 }
 
 export function metSummary(o: CompareOffer, total: number): string {
@@ -148,7 +150,7 @@ const money = (n: number | null) => (n == null ? "—" : formatMoney(n));
 // The comparison table for one group as text, shared by the page and the
 // .docx: one row per measure, concession and night; `short` marks a cell
 // that falls short of the request.
-export function comparisonRows(g: CompareGroup, concessions: CompareInput["concessions"]): CompareRow[] {
+export function comparisonRows(g: CompareGroup, concessions: CompareInput["concessions"], amenities: string[] = []): CompareRow[] {
   const req = g.requested;
   const row = (label: string, requested: string, cell: (o: CompareOffer) => { text: string; short?: boolean }): CompareRow => ({
     label,
@@ -170,7 +172,10 @@ export function comparisonRows(g: CompareGroup, concessions: CompareInput["conce
     row("Attrition", "", (o) => ({ text: o.attrition ?? "—" })),
     row("Guaranteed revenue", "", (o) => ({ text: o.guaranteedRevenue ?? "—" })),
     row("Charges", "", (o) => ({ text: o.charges.join("\n") || "—" })),
-    row("Amenities", "", (o) => ({ text: o.amenities.join(", ") || "—" })),
+    row("Amenities", amenities.join(", "), (o) => {
+      const missing = amenities.filter((a) => !o.amenities.includes(a));
+      return { text: [o.amenities.join(", ") || "—", missing.length ? `missing ${missing.join(", ")}` : null].filter(Boolean).join("\n"), short: missing.length > 0 };
+    }),
     ...(concessions.length ? [row("Concessions", `${concessions.length} asked`, (o) => ({ text: metSummary(o, concessions.length), short: o.met.requiredNotMet > 0 }))] : []),
     ...concessions.map((c) =>
       row(`${c.label}${c.required ? " *" : ""}`, c.value ?? "", (o) => {

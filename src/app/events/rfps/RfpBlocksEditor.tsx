@@ -48,10 +48,14 @@ function keysBetween(from: string, to: string) {
   return out;
 }
 
-// One column per room type; Run of House (null) when nothing is requested yet.
-function toRows(nights: RfpBlockValues["nights"]): GridRow[] {
+// One column per room type; for a new block, one Run of House column with
+// the RFP's peak rooms on each night.
+function toRows(nights: RfpBlockValues["nights"], keys: string[] = [], peakRooms: number | null = null): GridRow[] {
   const types = Array.from(new Set(nights.map((n) => n.roomType)));
-  if (types.length === 0) return [{ roomType: null, cells: {} }];
+  if (types.length === 0) {
+    const cells = peakRooms ? Object.fromEntries(keys.map((k) => [k, { rooms: String(peakRooms), rate: "" }])) : {};
+    return [{ roomType: null, cells }];
+  }
   return types.map((t) => ({
     roomType: t,
     cells: Object.fromEntries(nights.filter((n) => n.roomType === t).map((n) => [n.night, { rooms: String(n.rooms), rate: "" }])),
@@ -150,8 +154,9 @@ function HistoryFill({
 
 export function RfpBlocksEditor({
   blocks: initial,
-  eventStart,
-  eventEnd,
+  arrival,
+  departure,
+  peakRooms,
   roomTypes,
   guestTypes,
   series,
@@ -160,8 +165,11 @@ export function RfpBlocksEditor({
   fill,
 }: {
   blocks: RfpBlockValues[];
-  eventStart: string;
-  eventEnd: string;
+  // The RFP's requested dates (the event's when unset) and peak rooms: a
+  // block's default nights and rooms per night.
+  arrival: string;
+  departure: string;
+  peakRooms: number | null;
   roomTypes: string[];
   guestTypes: string[];
   series: { id: string; name: string }[];
@@ -174,9 +182,9 @@ export function RfpBlocksEditor({
   const [pending, startTransition] = useTransition();
   const [dirty, setDirty] = useState(false);
   const [nextId, setNextId] = useState(initial.length);
-  // A block's nights start at the event's, widened to any it already requests.
-  const lastNight = eventEnd > eventStart ? addDays(eventEnd, -1) : eventStart;
-  const range = (nights: string[]) => ({ from: [eventStart, ...nights].sort()[0], to: [lastNight, ...nights].sort().reverse()[0] });
+  // A block's nights start at the RFP's, widened to any it already requests.
+  const lastNight = departure > arrival ? addDays(departure, -1) : arrival;
+  const range = (nights: string[]) => ({ from: [arrival, ...nights].sort()[0], to: [lastNight, ...nights].sort().reverse()[0] });
   const [blocks, setBlocks] = useState<BlockState[]>(() =>
     initial.map((b, i) => ({
       id: i,
@@ -205,14 +213,18 @@ export function RfpBlocksEditor({
         targetRate: "",
         notes: "",
         ...range([]),
-        rows: toRows([]),
+        rows: toRows([], keysBetween(arrival, lastNight), peakRooms),
       },
     ]);
     setNextId((n) => n + 1);
     setDirty(true);
   };
-  const addDay = (b: BlockState, edge: GridEdge) =>
-    change(b.id, edge === "before" ? { from: addDays(b.from, -1) } : { to: addDays(b.to, 1) });
+  // A new day starts at the peak rooms in the first column.
+  const addDay = (b: BlockState, edge: GridEdge) => {
+    const night = edge === "before" ? addDays(b.from, -1) : addDays(b.to, 1);
+    const rows = peakRooms && b.rows.length ? [{ ...b.rows[0], cells: { ...b.rows[0].cells, [night]: { rooms: String(peakRooms), rate: "" } } }, ...b.rows.slice(1)] : b.rows;
+    change(b.id, { ...(edge === "before" ? { from: night } : { to: night }), rows });
+  };
   const removeDay = (b: BlockState, edge: GridEdge) =>
     change(b.id, edge === "before" ? { from: addDays(b.from, 1) } : { to: addDays(b.to, -1) });
   // Fills the first column (Run of House unless the block names a type).

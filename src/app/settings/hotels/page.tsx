@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getOptions, createOption, updateOption, deleteOption, reorderOptions, type OptionCategory } from "../actions";
 import { OptionList } from "../OptionList";
 import { PROPOSAL_STAGES } from "@/lib/hotels";
+import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,9 @@ export default async function SettingsHotelsPage() {
   const groupsFor = (category: OptionCategory) => {
     if (category === "proposal_status") {
       return { groupLabel: "Stage", groupOptions: PROPOSAL_STAGES.map((s) => ({ value: s.value, label: s.label })) };
+    }
+    if (category === "rfp_concession") {
+      return { groupLabel: "Heading", groupOptions: CONCESSION_GROUPS.map((g) => ({ value: g.value, label: g.label })) };
     }
     if (category === "hotel_area") {
       return { groupLabel: "Region", groupOptions: regions.map((r) => ({ value: r.label, label: r.label })) };

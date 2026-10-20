@@ -13,15 +13,17 @@ import {
   removeRfpRecipientCore,
   saveRfpBlocksCore,
   saveRfpConcessionsCore,
+  saveRfpSpaceCore,
   updateRfpCore,
   updateRfpRecipientCore,
   type RfpBlockArgs,
   type RfpConcessionArgs,
+  type RfpSpaceArgs,
   type RfpWriteArgs,
 } from "@/app/events/rfps/core";
 import { createHotelProposalCore, type ProposalConcessionArgs, type ProposalWriteArgs } from "@/app/events/hotels/core";
 import type { McpToolDefinition } from "./types";
-import { partialBoolean, partialString, requireString } from "./types";
+import { partialBoolean, partialInt, partialString, requireString } from "./types";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const CONTRACT_TYPES = new Set(["CONTRACT", "COURTESY"]);
@@ -102,14 +104,46 @@ const rfpProps = {
   sections: {
     type: "array",
     items: { type: "string", enum: RFP_SECTIONS.map((s) => s.key) },
-    description: "Document parts that print after the cover: blocks, meetingSpace, fb, concessions, history, requirements.",
+    description:
+      "Optional document parts: blocks (guest rooms), meetingSpace (function space rows), fb (F&B rows + minimum), concessions, history, requirements (other requirements), responseForm (blank tables the hotel fills in). Contact, event profile, dates and proposal specifications always print.",
   },
-  introduction: { type: ["string", "null"], description: "HTML (paragraphs, lists, bold/italic)." },
-  requirements: { type: ["string", "null"], description: "HTML." },
+  introduction: { type: ["string", "null"], description: "Statement of need. HTML (paragraphs, lists, bold/italic)." },
+  requirements: { type: ["string", "null"], description: "Other requirements. HTML." },
   contactId: { type: ["string", "null"], description: "Our point of contact — a contact id, usually one of the event's key staff." },
-  showRoomNames: { type: "boolean", description: "Print room names in the meeting-space part." },
-  excludedFunctionTypes: { type: "array", items: { type: "string" }, description: "function_type labels left out of the meeting-space part." },
+  arrivalDate: { type: ["string", "null"], description: "Requested arrival, YYYY-MM-DD. With departureDate, the default nights of new block grids." },
+  departureDate: { type: ["string", "null"], description: "Requested departure, YYYY-MM-DD." },
+  datesFlexible: { type: "boolean" },
+  dateNotes: { type: ["string", "null"] },
+  alternateDates: {
+    type: "array",
+    description: "Up to three alternate arrival/departure pairs; replaces the list.",
+    items: { type: "object", properties: { startDate: { type: "string" }, endDate: { type: "string" } }, required: ["startDate", "endDate"] },
+  },
+  peakRooms: { type: ["integer", "null"], description: "Rooms on the peak night; the default rooms per night in a new block grid." },
+  reservationMethod: { type: ["string", "null"], description: "reservation_method option label." },
+  commissionNotes: { type: ["string", "null"], description: "Rebates, assessments or commissions on room rates." },
+  fbMinimum: { type: ["number", "null"] },
+  fbIncludes: { type: "array", items: { type: "string", enum: ["TAX", "SERVICE", "GRATUITY"] }, description: "What the F&B minimum includes." },
+  fbHistoricalSpend: { type: ["number", "null"] },
+  amenities: { type: "array", items: { type: "string" }, description: "Requested amenities: hotel_amenity option labels." },
+  decisionMaker: { type: ["string", "null"], description: "Final decision maker (name & role)." },
+  siteVisitBy: { type: ["string", "null"], description: "YYYY-MM-DD." },
 } as const;
+
+function partialNumber(args: Record<string, unknown>, key: string): number | null | undefined {
+  if (!(key in args)) return undefined;
+  const v = args[key];
+  if (v === null) return null;
+  if (typeof v !== "number" || !Number.isFinite(v)) throw new Error(`${key} must be a number`);
+  return v;
+}
+
+function alternateList(args: Record<string, unknown>): { startDate: string; endDate: string }[] | undefined {
+  if (!("alternateDates" in args)) return undefined;
+  const v = args.alternateDates;
+  if (!Array.isArray(v)) throw new Error("alternateDates must be a list");
+  return v.map((a: Record<string, unknown>) => ({ startDate: String(a.startDate ?? ""), endDate: String(a.endDate ?? "") }));
+}
 
 function mergeRfp(current: RfpWriteArgs, args: Record<string, unknown>): RfpWriteArgs {
   const status = partialString(args, "status");
@@ -124,8 +158,20 @@ function mergeRfp(current: RfpWriteArgs, args: Record<string, unknown>): RfpWrit
     introduction: pick(partialString(args, "introduction"), current.introduction),
     requirements: pick(partialString(args, "requirements"), current.requirements),
     contactId: pick(partialString(args, "contactId"), current.contactId),
-    showRoomNames: pick(partialBoolean(args, "showRoomNames") ?? undefined, current.showRoomNames),
-    excludedFunctionTypes: pick(stringList(args, "excludedFunctionTypes"), current.excludedFunctionTypes),
+    arrivalDate: pick(dateArg(args, "arrivalDate"), current.arrivalDate),
+    departureDate: pick(dateArg(args, "departureDate"), current.departureDate),
+    datesFlexible: pick(partialBoolean(args, "datesFlexible") ?? undefined, current.datesFlexible),
+    dateNotes: pick(partialString(args, "dateNotes"), current.dateNotes),
+    alternateDates: pick(alternateList(args), current.alternateDates),
+    peakRooms: pick(partialInt(args, "peakRooms"), current.peakRooms),
+    reservationMethod: pick(partialString(args, "reservationMethod"), current.reservationMethod),
+    commissionNotes: pick(partialString(args, "commissionNotes"), current.commissionNotes),
+    fbMinimum: pick(partialNumber(args, "fbMinimum"), current.fbMinimum),
+    fbIncludes: pick(stringList(args, "fbIncludes"), current.fbIncludes),
+    fbHistoricalSpend: pick(partialNumber(args, "fbHistoricalSpend"), current.fbHistoricalSpend),
+    amenities: pick(stringList(args, "amenities"), current.amenities),
+    decisionMaker: pick(partialString(args, "decisionMaker"), current.decisionMaker),
+    siteVisitBy: pick(dateArg(args, "siteVisitBy"), current.siteVisitBy),
   };
 }
 
@@ -168,7 +214,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "get_rfp",
     description:
-      "Get one RFP: details, document parts, requested hotel blocks (room type × night rooms, target rate), concessions, recipients (hotel, sent date, declined, state: NOT_SENT / AWAITING / OVERDUE / DECLINED / RESPONDED), and the proposals linked to it.",
+      "Get one RFP: details (requested dates, alternates, peak rooms, F&B minimum, amenities, decision timeline), document parts, requested hotel blocks (room type × night rooms, target rate), function-space rows, concessions, recipients (hotel, sent date, declined, state: NOT_SENT / AWAITING / OVERDUE / DECLINED / RESPONDED), and the proposals linked to it.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -185,6 +231,8 @@ export const rfpTools: McpToolDefinition[] = [
           contact: { select: { id: true, firstName: true, lastName: true } },
           hotelBlocks: { orderBy: { sortOrder: "asc" }, include: { nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] } } },
           concessions: { orderBy: { sortOrder: "asc" } },
+          alternateDates: { orderBy: { sortOrder: "asc" } },
+          spaceRequests: { orderBy: { sortOrder: "asc" } },
           recipients: { orderBy: { createdAt: "asc" }, include: recipientInclude },
           hotelProposals: { select: { id: true, status: true, revision: true, rfpBlockId: true, venue: { select: { id: true, name: true } } } },
           files: { select: { id: true, fileName: true, fileType: true, createdAt: true }, orderBy: { createdAt: "desc" } },
@@ -220,8 +268,20 @@ export const rfpTools: McpToolDefinition[] = [
         introduction: null,
         requirements: null,
         contactId: null,
-        showRoomNames: false,
-        excludedFunctionTypes: [],
+        arrivalDate: null,
+        departureDate: null,
+        datesFlexible: false,
+        dateNotes: null,
+        alternateDates: [],
+        peakRooms: null,
+        reservationMethod: null,
+        commissionNotes: null,
+        fbMinimum: null,
+        fbIncludes: [],
+        fbHistoricalSpend: null,
+        amenities: [],
+        decisionMaker: null,
+        siteVisitBy: null,
       };
       return createRfpCore(requireString(args, "eventId"), kind, mergeRfp(blank, args), "blocks" in args ? readBlocks(args.blocks) : [], userId);
     },
@@ -239,7 +299,8 @@ export const rfpTools: McpToolDefinition[] = [
       const id = requireString(args, "id");
       const eventId = requireString(args, "eventId");
       await rfpFor(id, eventId, userId, "WRITE");
-      const r = await prisma.rfp.findFirstOrThrow({ where: { id, eventId } });
+      const r = await prisma.rfp.findFirstOrThrow({ where: { id, eventId }, include: { alternateDates: { orderBy: { sortOrder: "asc" } } } });
+      const day = (d: Date | null) => (d ? dateKey(d) : null);
       const current: RfpWriteArgs = {
         title: r.title,
         status: r.status,
@@ -249,8 +310,20 @@ export const rfpTools: McpToolDefinition[] = [
         introduction: r.introduction,
         requirements: r.requirements,
         contactId: r.contactId,
-        showRoomNames: r.showRoomNames,
-        excludedFunctionTypes: r.excludedFunctionTypes,
+        arrivalDate: day(r.arrivalDate),
+        departureDate: day(r.departureDate),
+        datesFlexible: r.datesFlexible,
+        dateNotes: r.dateNotes,
+        alternateDates: r.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
+        peakRooms: r.peakRooms,
+        reservationMethod: r.reservationMethod,
+        commissionNotes: r.commissionNotes,
+        fbMinimum: r.fbMinimum == null ? null : Number(r.fbMinimum),
+        fbIncludes: r.fbIncludes,
+        fbHistoricalSpend: r.fbHistoricalSpend == null ? null : Number(r.fbHistoricalSpend),
+        amenities: r.amenities,
+        decisionMaker: r.decisionMaker,
+        siteVisitBy: day(r.siteVisitBy),
       };
       return updateRfpCore(id, eventId, mergeRfp(current, args), userId);
     },
@@ -282,6 +355,72 @@ export const rfpTools: McpToolDefinition[] = [
     handler: async (args, { userId }) => {
       await saveRfpBlocksCore(requireString(args, "id"), requireString(args, "eventId"), readBlocks(args.blocks), userId);
       return { ok: true };
+    },
+  },
+  {
+    name: "set_rfp_space_requests",
+    description:
+      "Replace an RFP's function-space and F&B rows (the APEX function grid). Pass an existing row's id (get_rfp) to keep it. kind MEETING rows take functionType from function_type labels and setup from setup_type; FB rows take a meal_type label. functionId / cateringOrderId (list_functions / list_catering_orders) record which of this event's items a row came from.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "RFP id." },
+        eventId: { type: "string" },
+        rows: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: ["string", "null"] },
+              kind: { type: "string", enum: ["MEETING", "FB"] },
+              functionId: { type: ["string", "null"] },
+              cateringOrderId: { type: ["string", "null"] },
+              day: { type: "string", description: "YYYY-MM-DD." },
+              startTime: { type: ["string", "null"], description: "HH:MM, 24-hour, event-local." },
+              endTime: { type: ["string", "null"] },
+              functionType: { type: ["string", "null"] },
+              name: { type: "string" },
+              attendance: { type: ["integer", "null"] },
+              setup: { type: ["string", "null"] },
+              areaSqFt: { type: ["integer", "null"] },
+              av: { type: ["string", "null"] },
+              hold24: { type: "boolean" },
+              room: { type: ["string", "null"] },
+            },
+            required: ["kind", "day", "name"],
+          },
+        },
+      },
+      required: ["id", "eventId", "rows"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      if (!Array.isArray(args.rows)) throw new Error("rows must be a list");
+      const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+      const int = (v: unknown) => (typeof v === "number" ? v : null);
+      const rows = (args.rows as Record<string, unknown>[]).map(
+        (r): RfpSpaceArgs => ({
+          id: str(r.id),
+          kind: r.kind === "FB" ? "FB" : r.kind === "MEETING" ? "MEETING" : (String(r.kind) as RfpSpaceArgs["kind"]),
+          functionId: str(r.functionId),
+          cateringOrderId: str(r.cateringOrderId),
+          day: String(r.day ?? ""),
+          startTime: str(r.startTime),
+          endTime: str(r.endTime),
+          functionType: str(r.functionType),
+          name: String(r.name ?? ""),
+          attendance: int(r.attendance),
+          setup: str(r.setup),
+          areaSqFt: int(r.areaSqFt),
+          av: str(r.av),
+          hold24: r.hold24 === true,
+          room: str(r.room),
+        }),
+      );
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      await saveRfpSpaceCore(id, eventId, rows, userId);
+      return prisma.rfpSpaceRequest.findMany({ where: { rfpId: id }, orderBy: { sortOrder: "asc" } });
     },
   },
   {

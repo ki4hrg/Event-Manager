@@ -12,7 +12,7 @@ const desktop = "hidden sm:block print:block overflow-x-auto print:overflow-visi
 
 const money = (n: number | null) => (n == null ? "—" : formatMoney(n));
 
-function Group({ g, concessions, eventId }: { g: CompareGroup; concessions: RfpComparison["concessions"]; eventId: string | null }) {
+function Group({ g, concessions, amenities, eventId }: { g: CompareGroup; concessions: RfpComparison["concessions"]; amenities: string[]; eventId: string | null }) {
   const hotel = (o: CompareOffer) =>
     eventId ? (
       <Link href={`/events/${eventId}/hotels/proposals/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-black">
@@ -21,7 +21,7 @@ function Group({ g, concessions, eventId }: { g: CompareGroup; concessions: RfpC
     ) : (
       o.hotel
     );
-  const table = comparisonRows(g, concessions);
+  const table = comparisonRows(g, concessions, amenities);
   return (
     <section className={reportSectionCard}>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white print:text-black">{g.label}</h2>
@@ -101,7 +101,7 @@ export function RfpCompareView({ data, eventId }: { data: RfpComparison; eventId
   return (
     <div className="space-y-6 print:space-y-4">
       {data.groups.map((g, i) => (
-        <Group key={i} g={g} concessions={data.concessions} eventId={eventId} />
+        <Group key={i} g={g} concessions={data.concessions} amenities={data.amenities} eventId={eventId} />
       ))}
     </div>
   );
