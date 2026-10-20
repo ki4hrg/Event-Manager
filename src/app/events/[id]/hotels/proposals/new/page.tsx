@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { dateKey } from "@/lib/hotels";
+import { dateFromKey, dateKey } from "@/lib/hotels";
+import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { getEvent } from "../../../../actions";
 import { createHotelProposal, getProposalFormChoices } from "../../../../hotels/actions";
-import { ProposalForm } from "../../../../hotels/ProposalForm";
+import { ProposalForm, type ProposalTemplate } from "../../../../hotels/ProposalForm";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,36 @@ export default async function NewProposalPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ venueId?: string }>;
+  searchParams: Promise<{ venueId?: string; rfpBlockId?: string }>;
 }) {
   const { id: eventId } = await params;
   await requirePermission("HOTELS", "WRITE", eventId);
-  const { venueId } = await searchParams;
-  const [event, choices] = await Promise.all([getEvent(eventId), getProposalFormChoices(eventId)]);
+  const { venueId, rfpBlockId } = await searchParams;
+  const [event, choices, rfpBlock] = await Promise.all([
+    getEvent(eventId),
+    getProposalFormChoices(eventId),
+    rfpBlockId
+      ? prisma.rfpHotelBlock.findFirst({
+          where: { id: rfpBlockId, rfp: { eventId } },
+          include: { nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] } },
+        })
+      : null,
+  ]);
   if (!event) notFound();
+
+  // Recording a hotel's answer to an RFP block: start from what was requested.
+  const fromRfp: ProposalTemplate | undefined = rfpBlock
+    ? {
+        rfpBlockId: rfpBlock.id,
+        blockType: rfpBlock.blockType,
+        isRunOfHouse: rfpBlock.isRunOfHouse,
+        status: choices.statuses.find((s) => s.group === "PENDING")?.label ?? null,
+        nights: rfpBlock.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rate: null, rooms: n.rooms })),
+      }
+    : undefined;
+  const nights = rfpBlock?.nights.map((n) => dateKey(n.night)) ?? [];
+  const checkIn = nights.length ? nights[0] : dateKey(event.startDate);
+  const checkOut = nights.length ? dateKey(new Date(dateFromKey(nights[nights.length - 1]).getTime() + 86_400_000)) : dateKey(event.endDate);
 
   const createAction = async (formData: FormData) => {
     "use server";
@@ -45,8 +69,9 @@ export default async function NewProposalPage({
       <div className="max-w-5xl">
         <ProposalForm
           choices={choices}
-          defaultCheckIn={dateKey(event.startDate)}
-          defaultCheckOut={dateKey(event.endDate)}
+          defaultCheckIn={checkIn}
+          defaultCheckOut={checkOut}
+          fromRfp={fromRfp}
           defaultVenueId={choices.venues.some((v) => v.id === venueId) ? venueId : undefined}
           action={createAction}
           cancelHref={`/events/${eventId}/hotels`}

@@ -73,6 +73,11 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
           <LastUpdated updatedAt={proposal.updatedAt} updatedBy={proposal.updatedBy} timezone={event.timezone} className="mt-2" />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
+          {proposal.rfp && (
+            <Link href={`/events/${eventId}/hotels/rfps/${proposal.rfp.id}`} className={btnSecondary}>
+              RFP
+            </Link>
+          )}
           {proposal.block ? (
             <Link href={`/events/${eventId}/hotels/blocks/${proposal.block.id}`} className={btnSecondary}>
               Block

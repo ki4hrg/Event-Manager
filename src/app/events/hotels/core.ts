@@ -32,6 +32,8 @@ export type ProposalWriteArgs = {
   amenities: string[];
   nights: ProposalNightArgs[];
   charges: ProposalChargeArgs[];
+  // Create only: the requested RFP block this offer answers.
+  rfpBlockId?: string | null;
 };
 
 // What a version snapshot holds (and what the diff compares).
@@ -220,11 +222,25 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   validate(args);
   await assertProposalRefs(eventId, args);
+  const rfpBlock = args.rfpBlockId
+    ? await prisma.rfpHotelBlock.findFirst({ where: { id: args.rfpBlockId, rfp: { eventId } }, select: { id: true, rfpId: true } })
+    : null;
+  if (args.rfpBlockId && !rfpBlock) throw new PermissionError("NOT_FOUND", "RFP block not found");
   return prisma.$transaction(async (tx) => {
+    // A hotel answering an RFP is one of its recipients, listed or not.
+    if (rfpBlock) {
+      await tx.rfpRecipient.upsert({
+        where: { rfpId_venueId: { rfpId: rfpBlock.rfpId, venueId: args.venueId } },
+        create: { rfpId: rfpBlock.rfpId, venueId: args.venueId },
+        update: {},
+      });
+    }
     const proposal = await tx.hotelProposal.create({
       data: {
         ...scalarData(args),
         eventId,
+        rfpId: rfpBlock?.rfpId ?? null,
+        rfpBlockId: rfpBlock?.id ?? null,
         updatedById: userId,
         nights: { create: nightRows(args) },
         charges: { create: chargeRows(args) },

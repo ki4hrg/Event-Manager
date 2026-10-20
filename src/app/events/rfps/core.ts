@@ -3,8 +3,8 @@
 //
 // An RFP is event-scoped: every lookup carries eventId, children go through
 // { rfp: { eventId } }. The permission resource follows the kind
-// (resourceForKind). Requested blocks and concessions are replaced whole on
-// save, like a proposal's nights.
+// (resourceForKind). Requested blocks are updated in place by id (proposals
+// link to them); concessions are replaced whole on save.
 
 import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync } from "fs";
@@ -30,6 +30,7 @@ export type RfpWriteArgs = {
 };
 
 export type RfpBlockArgs = {
+  id?: string | null; // an existing block keeps its id (and its proposals' links)
   blockType: HotelBlockType;
   isRunOfHouse: boolean;
   targetRate: number | null;
@@ -90,7 +91,7 @@ export async function createRfpCore(
       eventId,
       kind,
       updatedById: userId,
-      hotelBlocks: { create: blockRows.map((b, i) => ({ ...b, sortOrder: i, nights: { create: b.nights } })) },
+      hotelBlocks: { create: blockRows.map(({ id: _id, ...b }, i) => ({ ...b, sortOrder: i, nights: { create: b.nights } })) },
     },
   });
 }
@@ -125,19 +126,27 @@ async function validBlocks(eventId: string, blocks: RfpBlockArgs[]) {
         seen.add(key);
         return { roomType, night: dateFromKey(n.night), rooms: n.rooms };
       });
-    return { blockType: b.blockType, isRunOfHouse: b.isRunOfHouse, targetRate: b.targetRate, notes: b.notes?.trim() || null, nights };
+    return { id: b.id ?? null, blockType: b.blockType, isRunOfHouse: b.isRunOfHouse, targetRate: b.targetRate, notes: b.notes?.trim() || null, nights };
   });
 }
 
 export async function saveRfpBlocksCore(id: string, eventId: string, blocks: RfpBlockArgs[], userId: string) {
   await authorizeRfp(id, eventId, "WRITE", userId);
   const rows = await validBlocks(eventId, blocks);
+  const existing = new Set((await prisma.rfpHotelBlock.findMany({ where: { rfpId: id }, select: { id: true } })).map((b) => b.id));
+  const kept = rows.flatMap((b) => (b.id && existing.has(b.id) ? [b.id] : []));
   await prisma.$transaction(async (tx) => {
-    // Proposals linked to a requested block keep their link to the RFP; the
-    // block link is dropped (SetNull) when its block is replaced.
-    await tx.rfpHotelBlock.deleteMany({ where: { rfpId: id, rfp: { eventId } } });
+    // Blocks are updated in place so proposals answering them stay linked; a
+    // removed block's proposals keep their RFP link and lose the block (SetNull).
+    await tx.rfpHotelBlock.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
     for (let i = 0; i < rows.length; i++) {
-      await tx.rfpHotelBlock.create({ data: { ...rows[i], rfpId: id, sortOrder: i, nights: { create: rows[i].nights } } });
+      const { id: blockId, nights, ...data } = rows[i];
+      if (blockId && existing.has(blockId)) {
+        await tx.rfpHotelBlockNight.deleteMany({ where: { blockId } });
+        await tx.rfpHotelBlock.update({ where: { id: blockId, rfpId: id }, data: { ...data, sortOrder: i, nights: { create: nights } } });
+      } else {
+        await tx.rfpHotelBlock.create({ data: { ...data, rfpId: id, sortOrder: i, nights: { create: nights } } });
+      }
     }
     await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
   });
@@ -177,4 +186,30 @@ export async function issueRfpCore(id: string, eventId: string, file: { fileName
     }),
     prisma.rfp.update({ where: { id, eventId }, data: { issuedOn: today, status: status === "DRAFT" ? "ISSUED" : status, updatedById: userId } }),
   ]);
+}
+
+export type RfpRecipientArgs = { sentOn: string | null; declinedToBid: boolean; notes: string | null };
+
+// Adds hotels (the tenant's venues) to an RFP; ones already on it are skipped.
+export async function addRfpRecipientsCore(id: string, eventId: string, venueIds: string[], userId: string) {
+  await authorizeRfp(id, eventId, "WRITE", userId);
+  const tenantId = await requireEventTenantId(eventId);
+  const ids = Array.from(new Set(venueIds));
+  const venues = await prisma.venue.count({ where: { id: { in: ids }, tenantId } });
+  if (venues !== ids.length) throw new PermissionError("NOT_FOUND", "Hotel not found");
+  await prisma.rfpRecipient.createMany({ data: ids.map((venueId) => ({ rfpId: id, venueId })), skipDuplicates: true });
+}
+
+export async function updateRfpRecipientCore(recipientId: string, id: string, eventId: string, args: RfpRecipientArgs, userId: string) {
+  await authorizeRfp(id, eventId, "WRITE", userId);
+  if (args.sentOn && !DATE_RE.test(args.sentOn)) throw new Error(`Invalid date: ${args.sentOn}`);
+  await prisma.rfpRecipient.update({
+    where: { id: recipientId, rfpId: id, rfp: { eventId } },
+    data: { sentOn: args.sentOn ? dateFromKey(args.sentOn) : null, declinedToBid: args.declinedToBid, notes: args.notes?.trim() || null },
+  });
+}
+
+export async function removeRfpRecipientCore(recipientId: string, id: string, eventId: string, userId: string) {
+  await authorizeRfp(id, eventId, "WRITE", userId);
+  await prisma.rfpRecipient.delete({ where: { id: recipientId, rfpId: id, rfp: { eventId } } });
 }

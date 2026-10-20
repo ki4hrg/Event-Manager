@@ -13,6 +13,7 @@ import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
 import { getRfps } from "../../rfps/actions";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
+import { recipientState, recipientSummary } from "@/lib/rfp/recipients";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +122,15 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                       r.hotelBlocks.map((b) => BLOCK_TYPE_LABELS[b.blockType]).join(", ") || null,
                       r.responseDue ? `due ${formatDateKey(dateKey(r.responseDue))}` : null,
                       r.issuedOn ? `issued ${formatDateKey(dateKey(r.issuedOn))}` : null,
+                      recipientSummary(
+                        r.recipients.map(
+                          (x) =>
+                            recipientState(
+                              { ...x, responses: r.hotelProposals.filter((p) => p.venueId === x.venueId).length },
+                              r.responseDue,
+                            ).state,
+                        ),
+                      ),
                     ]
                       .filter(Boolean)
                       .join(" · ") || "—"}
@@ -150,6 +160,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                 <p className="font-medium text-blue-600 dark:text-blue-400">
                   {p.venue.name}
                   {p.revision > 1 && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">rev {p.revision}</span>}
+                  {p.rfp && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{p.rfp.title}</span>}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {[
