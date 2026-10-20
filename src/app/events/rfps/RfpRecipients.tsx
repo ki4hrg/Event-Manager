@@ -1,0 +1,173 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { InlineDeleteButton } from "@/components/InlineDeleteButton";
+import { useCanWrite } from "@/components/PermissionsProvider";
+import { colorClasses } from "@/lib/colors";
+import { dateFromKey } from "@/lib/hotels";
+import { RECIPIENT_STATE_COLORS, recipientState } from "@/lib/rfp/recipients";
+import type { RfpRecipientArgs } from "./core";
+
+export type RecipientRow = {
+  id: string;
+  venueId: string;
+  name: string;
+  location: string | null;
+  sentOn: string | null; // YYYY-MM-DD
+  declinedToBid: boolean;
+  notes: string | null;
+  responses: { id: string; status: string }[];
+};
+
+const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4";
+const smallInput =
+  "px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
+const link = "text-sm text-blue-600 dark:text-blue-400 hover:underline";
+
+export function RfpRecipients({
+  eventId,
+  recipients,
+  responseDue,
+  today,
+  blocks,
+  hotels,
+  add,
+  update,
+  remove,
+}: {
+  eventId: string;
+  recipients: RecipientRow[];
+  responseDue: string | null;
+  today: string;
+  blocks: { id: string; label: string }[];
+  hotels: { id: string; label: string }[];
+  add: (venueIds: string[]) => Promise<void>;
+  update: (recipientId: string, args: RfpRecipientArgs) => Promise<void>;
+  remove: (recipientId: string) => Promise<void>;
+}) {
+  const router = useRouter();
+  const canWrite = useCanWrite("HOTELS");
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const listed = new Set(recipients.map((r) => r.venueId));
+  const unlisted = hotels.filter((h) => !listed.has(h.id));
+  const due = responseDue ? dateFromKey(responseDue) : null;
+
+  const run = (fn: () => Promise<void>) =>
+    startTransition(async () => {
+      setError(null);
+      try {
+        await fn();
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Something went wrong");
+      }
+    });
+  const patch = (r: RecipientRow, changes: Partial<RfpRecipientArgs>) =>
+    run(() => update(r.id, { sentOn: r.sentOn, declinedToBid: r.declinedToBid, notes: r.notes, ...changes }));
+
+  return (
+    <div className={`${cardClass} space-y-3`}>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Sent to</h2>
+      {recipients.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No hotels yet.</p>}
+      <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+        {recipients.map((r) => {
+          const { state, label } = recipientState(
+            { sentOn: r.sentOn ? dateFromKey(r.sentOn) : null, declinedToBid: r.declinedToBid, responses: r.responses.length },
+            due,
+            today,
+          );
+          return (
+            <li key={r.id} className="py-3 space-y-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{r.name}</p>
+                  {r.location && <p className="text-xs text-gray-500 dark:text-gray-400">{r.location}</p>}
+                </div>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[RECIPIENT_STATE_COLORS[state]]}`}>{label}</span>
+              </div>
+              <fieldset disabled={!canWrite || pending} className="flex flex-wrap items-center gap-3 text-sm">
+                <label className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                  Sent
+                  <input
+                    key={r.sentOn ?? "none"}
+                    type="date"
+                    aria-label={`${r.name} sent on`}
+                    defaultValue={r.sentOn ?? ""}
+                    onBlur={(e) => e.target.value !== (r.sentOn ?? "") && patch(r, { sentOn: e.target.value || null })}
+                    className={smallInput}
+                  />
+                </label>
+                {!r.sentOn && canWrite && (
+                  <button type="button" onClick={() => patch(r, { sentOn: today })} className={link}>
+                    Sent today
+                  </button>
+                )}
+                {r.responses.length === 0 && (
+                  <label className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={r.declinedToBid}
+                      onChange={(e) => patch(r, { declinedToBid: e.target.checked })}
+                      className="rounded border-gray-300 dark:border-gray-600"
+                    />
+                    Declined to bid
+                  </label>
+                )}
+              </fieldset>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {r.responses.map((p, i) => (
+                  <Link key={p.id} href={`/events/${eventId}/hotels/proposals/${p.id}`} className={link}>
+                    {r.responses.length === 1 ? "Proposal" : `Proposal ${i + 1}`} · {p.status}
+                  </Link>
+                ))}
+                {canWrite &&
+                  !r.declinedToBid &&
+                  blocks.map((b) => (
+                    <Link
+                      key={b.id}
+                      href={`/events/${eventId}/hotels/proposals/new?rfpBlockId=${b.id}&venueId=${r.venueId}`}
+                      className={link}
+                    >
+                      {blocks.length === 1 ? "Record response" : `Record ${b.label.toLowerCase()} response`}
+                    </Link>
+                  ))}
+                {r.responses.length === 0 && (
+                  <InlineDeleteButton
+                    action={async () => run(() => remove(r.id))}
+                    hiddenInputs={{}}
+                    label="Remove"
+                    resource="HOTELS"
+                    requiredLevel="WRITE"
+                  />
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {canWrite && unlisted.length > 0 && (
+        <select
+          aria-label="Add hotel"
+          value=""
+          disabled={pending}
+          onChange={(e) => {
+            const id = e.target.value;
+            if (id) run(() => add([id]));
+          }}
+          className={`${smallInput} w-full`}
+        >
+          <option value="">+ Hotel</option>
+          {unlisted.map((h) => (
+            <option key={h.id} value={h.id}>
+              {h.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+    </div>
+  );
+}

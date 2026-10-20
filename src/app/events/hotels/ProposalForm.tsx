@@ -83,7 +83,16 @@ function Fieldset({ title, children, aside }: { title: string; children: ReactNo
   );
 }
 
-function initialRows(values: ProposalValues | null, roomTypes: string[]): GridRow[] {
+// A new proposal answering a requested RFP block starts as a copy of it.
+export type ProposalTemplate = {
+  rfpBlockId: string;
+  blockType: HotelBlockType;
+  isRunOfHouse: boolean;
+  status: string | null;
+  nights: GridNight[];
+};
+
+function initialRows(values: Pick<ProposalValues, "nights" | "isRunOfHouse"> | null, roomTypes: string[]): GridRow[] {
   if (!values || values.nights.length === 0) {
     return values?.isRunOfHouse ? [{ roomType: null, cells: {} }] : roomTypes.slice(0, 1).map((t) => ({ roomType: t, cells: {} }));
   }
@@ -159,10 +168,12 @@ export function ProposalForm({
   defaultCheckIn,
   defaultCheckOut,
   defaultVenueId,
+  fromRfp,
   action,
   cancelHref,
 }: {
   proposal?: ProposalValues | null;
+  fromRfp?: ProposalTemplate;
   choices: ProposalChoices;
   defaultCheckIn?: string | null;
   defaultCheckOut?: string | null;
@@ -173,12 +184,12 @@ export function ProposalForm({
   const isEdit = !!proposal;
   const canWrite = useCanWrite("HOTELS");
   const [editing, setEditing] = useState(!isEdit);
-  const [status, setStatus] = useState(proposal?.status ?? choices.statuses[0]?.label ?? "");
+  const [status, setStatus] = useState(proposal?.status ?? fromRfp?.status ?? choices.statuses[0]?.label ?? "");
   const [revision, setRevision] = useState(proposal?.revision ?? 1);
   const [checkIn, setCheckIn] = useState(proposal ? proposal.checkIn ?? "" : defaultCheckIn ?? "");
   const [checkOut, setCheckOut] = useState(proposal ? proposal.checkOut ?? "" : defaultCheckOut ?? "");
-  const [runOfHouse, setRunOfHouse] = useState(proposal?.isRunOfHouse ?? false);
-  const [rows, setRows] = useState<GridRow[]>(() => initialRows(proposal ?? null, choices.roomTypes));
+  const [runOfHouse, setRunOfHouse] = useState(proposal?.isRunOfHouse ?? fromRfp?.isRunOfHouse ?? false);
+  const [rows, setRows] = useState<GridRow[]>(() => initialRows(proposal ?? fromRfp ?? null, choices.roomTypes));
   const [charges, setCharges] = useState(
     (proposal?.charges ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })),
   );
@@ -233,6 +244,7 @@ export function ProposalForm({
       <input type="hidden" name="nights" value={nightsJson} />
       <input type="hidden" name="charges" value={chargesJson} />
       <input type="hidden" name="isRunOfHouse" value={String(runOfHouse)} />
+      {!isEdit && fromRfp && <input type="hidden" name="rfpBlockId" value={fromRfp.rfpBlockId} />}
 
       <Fieldset title="Proposal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -258,7 +270,7 @@ export function ProposalForm({
             </select>
           </Field>
           <Field label="Block type" htmlFor="p-blockType">
-            <select id="p-blockType" name="blockType" defaultValue={proposal?.blockType ?? ""} className={inputClass}>
+            <select id="p-blockType" name="blockType" defaultValue={proposal?.blockType ?? fromRfp?.blockType ?? ""} className={inputClass}>
               <option value="">Not set</option>
               {BLOCK_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>

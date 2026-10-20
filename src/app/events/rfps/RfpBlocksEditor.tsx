@@ -11,6 +11,7 @@ import { RoomGridEditor, visibleGridRows, type GridRow } from "../hotels/RoomGri
 import type { RfpBlockArgs } from "./core";
 
 export type RfpBlockValues = {
+  id: string;
   blockType: HotelBlockType;
   isRunOfHouse: boolean;
   targetRate: string | null;
@@ -23,6 +24,7 @@ type FillResult = { events: number; nights: { night: string; rooms: number }[] }
 
 type BlockState = {
   id: number;
+  savedId: string | null;
   blockType: HotelBlockType;
   isRunOfHouse: boolean;
   targetRate: string;
@@ -146,6 +148,7 @@ export function RfpBlocksEditor({
   const [blocks, setBlocks] = useState<BlockState[]>(() =>
     initial.map((b, i) => ({
       id: i,
+      savedId: b.id,
       blockType: b.blockType,
       isRunOfHouse: b.isRunOfHouse,
       targetRate: b.targetRate ?? "",
@@ -169,7 +172,7 @@ export function RfpBlocksEditor({
   const addBlock = () => {
     const used = new Set(blocks.map((b) => b.blockType));
     const blockType = BLOCK_TYPES.find((t) => !used.has(t.value))?.value ?? "CONTRACT";
-    setBlocks((prev) => [...prev, { id: nextId, blockType, isRunOfHouse: false, targetRate: "", notes: "", rows: roomTypes.slice(0, 1).map((t) => ({ roomType: t, cells: {} })) }]);
+    setBlocks((prev) => [...prev, { id: nextId, savedId: null, blockType, isRunOfHouse: false, targetRate: "", notes: "", rows: roomTypes.slice(0, 1).map((t) => ({ roomType: t, cells: {} })) }]);
     setNextId((n) => n + 1);
     setDirty(true);
   };
@@ -184,6 +187,7 @@ export function RfpBlocksEditor({
     startTransition(async () => {
       await save(
         blocks.map((b) => ({
+          id: b.savedId,
           blockType: b.blockType,
           isRunOfHouse: b.isRunOfHouse,
           targetRate: b.targetRate !== "" ? Number(b.targetRate) : null,

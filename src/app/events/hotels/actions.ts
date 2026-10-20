@@ -29,6 +29,7 @@ const listInclude = {
   venue: { select: { id: true, name: true, city: true, state: true, brand: true } },
   nights: { select: { night: true, roomType: true, rooms: true, rate: true } },
   block: { select: { id: true } },
+  rfp: { select: { id: true, title: true } },
   _count: { select: { files: true } },
 } as const;
 
@@ -55,6 +56,7 @@ export async function getHotelProposal(id: string, eventId: string) {
         include: { createdBy: { select: { name: true, email: true } } },
       },
       block: { select: { id: true } },
+      rfp: { select: { id: true, title: true } },
       updatedBy: { select: { name: true, email: true } },
     },
   });
@@ -120,6 +122,7 @@ function readProposal(formData: FormData): ProposalWriteArgs {
     amenities: formData.getAll("amenities") as string[],
     nights: readJson<ProposalNightArgs>(formData, "nights"),
     charges: readJson<ProposalChargeArgs>(formData, "charges"),
+    rfpBlockId: str("rfpBlockId"),
   };
 }
 

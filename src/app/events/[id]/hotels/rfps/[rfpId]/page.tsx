@@ -11,25 +11,30 @@ import { getOptions } from "@/app/settings/actions";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
+import { blockLabel } from "@/lib/rfp/document";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { getEvent } from "../../../../actions";
-import type { RfpBlockArgs, RfpConcessionArgs } from "../../../../rfps/core";
+import type { RfpBlockArgs, RfpConcessionArgs, RfpRecipientArgs } from "../../../../rfps/core";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import type { HotelBlockType } from "@prisma/client";
 import {
+  addRfpRecipients,
   deleteRfp,
   getRfp,
   getRfpFormChoices,
   getRfpPatternFill,
   issueRfp,
+  removeRfpRecipient,
   saveRfpBlocks,
   saveRfpConcessions,
   updateRfp,
+  updateRfpRecipient,
 } from "../../../../rfps/actions";
 import { IssueRfpButton } from "../../../../rfps/IssueRfpButton";
 import { RfpBlocksEditor } from "../../../../rfps/RfpBlocksEditor";
 import { RfpConcessionsEditor } from "../../../../rfps/RfpConcessionsEditor";
 import { RfpForm } from "../../../../rfps/RfpForm";
+import { RfpRecipients } from "../../../../rfps/RfpRecipients";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +74,18 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
   const fillAction = async (args: { seriesId: string | null; blockType: HotelBlockType | null; basis: PatternBasis; adjust: number }) => {
     "use server";
     return getRfpPatternFill(eventId, args);
+  };
+  const addRecipientsAction = async (venueIds: string[]) => {
+    "use server";
+    await addRfpRecipients(rfpId, eventId, venueIds);
+  };
+  const updateRecipientAction = async (recipientId: string, args: RfpRecipientArgs) => {
+    "use server";
+    await updateRfpRecipient(recipientId, rfpId, eventId, args);
+  };
+  const removeRecipientAction = async (recipientId: string) => {
+    "use server";
+    await removeRfpRecipient(recipientId, rfpId, eventId);
   };
   const contactName = rfp.contact ? `${rfp.contact.firstName} ${rfp.contact.lastName}`.trim() : null;
 
@@ -133,6 +150,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
             <RfpBlocksEditor
               key={`blocks-${rfp.updatedAt.toISOString()}`}
               blocks={rfp.hotelBlocks.map((b) => ({
+                id: b.id,
                 blockType: b.blockType,
                 isRunOfHouse: b.isRunOfHouse,
                 targetRate: b.targetRate?.toString() ?? null,
@@ -159,6 +177,32 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           )}
         </div>
         <div className="space-y-6 min-w-0">
+          <RfpRecipients
+            eventId={eventId}
+            recipients={rfp.recipients.flatMap((r) =>
+              r.venue
+                ? [
+                    {
+                      id: r.id,
+                      venueId: r.venue.id,
+                      name: r.venue.name,
+                      location: [r.venue.city, r.venue.state].filter(Boolean).join(", ") || null,
+                      sentOn: r.sentOn ? dateKey(r.sentOn) : null,
+                      declinedToBid: r.declinedToBid,
+                      notes: r.notes,
+                      responses: rfp.hotelProposals.filter((p) => p.venueId === r.venue!.id).map((p) => ({ id: p.id, status: p.status })),
+                    },
+                  ]
+                : [],
+            )}
+            responseDue={rfp.responseDue ? dateKey(rfp.responseDue) : null}
+            today={dateKey(new Date())}
+            blocks={rfp.hotelBlocks.map((b) => ({ id: b.id, label: blockLabel(b.blockType) }))}
+            hotels={choices.hotels}
+            add={addRecipientsAction}
+            update={updateRecipientAction}
+            remove={removeRecipientAction}
+          />
           <FileUploadPanel entityType="rfp" entityId={rfpId} files={rfp.files} fileTypeOptions={fileTypeOptions} revalidateTarget={base} />
         </div>
       </div>
