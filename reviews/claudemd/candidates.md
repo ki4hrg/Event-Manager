@@ -28,3 +28,5 @@
 - [hotels] Room grids are total-driven: a night's Total is entered, typed room types are counts within it, Run of House is the computed remainder (`nightMath` / `gridNights` in `src/app/events/hotels/RoomGridEditor.tsx`). Don't add an editable ROH cell back — it's what let totals drift past the peak.
 - [options] hotel_amenity is property features; anything complimentary or discounted (Wi-Fi, parking, breakfast) is an rfp_concession. Keep the two lists disjoint.
 - [components] FileUploadPanel puts the file input on its own full-width row; a flex-1 file input clips "Choose file" in narrow side columns.
+- [events] Event.regions / Event.areas (hotel_region / hotel_area labels) are the event's area scope, set in event settings; anything filtering by area should go through `inScope` / `effectiveScope` (`src/lib/areas.ts`) so a region covers its areas.
+- [rfps] Client cards on one page that save independently are keyed on their own saved data (`contentKey`), not the parent's updatedAt — a shared key remounts every card on any save and drops unsaved edits.

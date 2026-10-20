@@ -5,11 +5,12 @@ import { notFound, redirect } from "next/navigation";
 import type { RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
-import { dateKey } from "@/lib/hotels";
+import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { patternStats, proposedRoles, proposeNights } from "@/lib/hotelPattern";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { buildRfpDocument } from "@/lib/rfp/document";
 import { parseSections } from "@/lib/rfp/sections";
+import { effectiveScope, scopeLabels } from "@/lib/areas";
 import { cateringSpaceRows, functionSpaceRows, sortSpaceRows } from "@/lib/rfp/space";
 import { getPickupPattern } from "@/app/hotels/actions";
 import {
@@ -104,7 +105,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
       orderBy: { sortOrder: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "reservation_method", "rfp_concession"] } },
+      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_region", "hotel_area", "reservation_method", "rfp_concession"] } },
       select: { category: true, label: true, group: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -131,6 +132,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
     amenities: of("hotel_amenity"),
     reservationMethods: of("reservation_method"),
     // hotel_area labels with their region (the option's group).
+    regions: of("hotel_region"),
     areas: options.filter((o) => o.category === "hotel_area").map((o) => ({ label: o.label, region: o.group })),
     concessions: options.filter((o) => o.category === "rfp_concession").map((o) => ({ label: o.label, group: o.group })),
     series,
@@ -165,7 +167,8 @@ export async function getRfpDocument(id: string, eventId: string) {
         seriesId: true,
         expectedAttendance: true,
         tenant: { select: { name: true } },
-        hotelAreas: true,
+        regions: true,
+        areas: true,
         venues: { orderBy: { sortOrder: "asc" }, take: 1, select: { venue: { select: { city: true, state: true } } } },
         specification: { select: { eventType: true, eventScope: true, eventFrequency: true, narrative: true } },
       },
@@ -183,9 +186,13 @@ export async function getRfpDocument(id: string, eventId: string) {
   const sections = new Set(rfp.sections);
   const titleOf = (contactId: string | null) => keyStaff.find((k) => k.contactId === contactId)?.title ?? null;
   // Pickup history reads across the tenant's events, so it needs HOTELS beyond this one event.
+  // History of every block, or only blocks like this RFP's (its contract and guest types).
+  const matching = rfp.historyMatching && rfp.hotelBlocks.length > 0;
+  const contractTypes = matching ? Array.from(new Set(rfp.hotelBlocks.map((b) => b.contractType))) : [];
+  const guestTypes = matching ? Array.from(new Set(rfp.hotelBlocks.flatMap((b) => (b.guestType ? [b.guestType] : [])))) : [];
   const history =
     sections.has("history") && event.seriesId && (await hasPermission("HOTELS", "VIEW"))
-      ? (await getPickupPattern({ seriesId: event.seriesId, contractTypes: [], guestTypes: [] })).events
+      ? (await getPickupPattern({ seriesId: event.seriesId, contractTypes, guestTypes })).events
       : [];
   const venue = event.venues[0]?.venue;
   const narrative = (event.specification?.narrative as Record<string, unknown> | null) ?? {};
@@ -204,7 +211,8 @@ export async function getRfpDocument(id: string, eventId: string) {
       ...rfp,
       sections: parseSections(rfp.kind, rfp.sections),
       contactTitle: titleOf(rfp.contactId),
-      areas: rfp.areas.length ? rfp.areas : event.hotelAreas,
+      historyOf: matching ? Array.from(new Set(rfp.hotelBlocks.map((b) => blockTypeLabel(b.contractType, b.guestType)))).join(", ") : null,
+      locations: scopeLabels(effectiveScope(rfp, event)),
       // "Name — Title" for a contact, else what was typed.
       decisionMaker: rfp.decisionMakerContact
         ? [`${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim(), titleOf(rfp.decisionMakerId)].filter(Boolean).join(" — ")
@@ -260,6 +268,7 @@ export async function getRfpSpaceCandidates(id: string, eventId: string) {
         offSiteLocation: true,
         rooms: { select: { room: { select: { name: true } } } },
         setupOrderFunctions: { select: { setupOrder: { select: { setupType: true } } } },
+        avOrderFunctions: { select: { avOrder: { select: { name: true } } } },
         schedules: scheduleSelect,
       },
     }),
@@ -283,6 +292,7 @@ export async function getRfpSpaceCandidates(id: string, eventId: string) {
         ...fn,
         rooms: roomNames(fn.rooms),
         setupTypes: Array.from(new Set(fn.setupOrderFunctions.flatMap((s) => (s.setupOrder.setupType ? [s.setupOrder.setupType] : [])))),
+        avOrders: fn.avOrderFunctions.map((a) => a.avOrder.name),
       })),
       support,
       event.timezone,
@@ -355,6 +365,7 @@ function readRfp(formData: FormData): RfpWriteArgs {
     dateNotes: str("dateNotes"),
     alternateDates: readJson<{ startDate: string; endDate: string }>(formData, "alternateDates"),
     peakRooms: formData.get("peakRooms") ? parseInt(formData.get("peakRooms") as string) : null,
+    historyMatching: formData.get("historyMatching") === "true",
     reservationMethod: str("reservationMethod"),
     commissionNotes: str("commissionNotes"),
     fbMinimum: formData.get("fbMinimum") ? Number(formData.get("fbMinimum")) : null,
@@ -363,6 +374,7 @@ function readRfp(formData: FormData): RfpWriteArgs {
     amenities: formData.getAll("amenities") as string[],
     decisionMakerId: str("decisionMakerId"),
     decisionMaker: str("decisionMaker"),
+    regions: formData.getAll("regions") as string[],
     areas: formData.getAll("areas") as string[],
     siteVisitBy: str("siteVisitBy"),
   };

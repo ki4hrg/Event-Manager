@@ -129,7 +129,7 @@ function Picker({ kind, rows, candidates, onAdd, onClose }: { kind: RfpSpaceKind
                         {c.name}
                         <span className="text-gray-500 dark:text-gray-400">
                           {" "}
-                          · {[c.startTime ? formatClockRange(c.startTime, c.endTime) : null, c.functionType, c.attendance != null ? `${c.attendance}` : null].filter(Boolean).join(" · ")}
+                          · {[c.endDay ? `through ${formatNight(c.endDay)}` : null, c.startTime ? formatClockRange(c.startTime, c.endTime) : null, c.functionType, c.attendance != null ? `${c.attendance}` : null].filter(Boolean).join(" · ")}
                           {done && " · added"}
                         </span>
                       </span>
@@ -204,6 +204,7 @@ export function RfpSpaceEditor({
     functionId: null,
     cateringOrderId: null,
     day: defaultDay,
+    endDay: null,
     startTime: null,
     endTime: null,
     functionType: null,
@@ -244,7 +245,18 @@ export function RfpSpaceEditor({
                     </label>
                     <label className={smallLabel}>
                       Day
-                      <input type="date" value={r.day ?? ""} onChange={(e) => set(r.key, { day: e.target.value || null })} className={inputClass} />
+                      <input type="date" value={r.day ?? ""} onChange={(e) => set(r.key, { day: e.target.value || null, ...(e.target.value ? {} : { endDay: null }) })} className={inputClass} />
+                    </label>
+                    <label className={smallLabel}>
+                      Through
+                      <input
+                        type="date"
+                        disabled={!r.day}
+                        min={r.day ?? undefined}
+                        value={r.endDay ?? ""}
+                        onChange={(e) => set(r.key, { endDay: e.target.value || null })}
+                        className={inputClass}
+                      />
                     </label>
                     <label className={smallLabel}>
                       Start

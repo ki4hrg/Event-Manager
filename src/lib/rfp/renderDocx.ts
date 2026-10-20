@@ -12,7 +12,7 @@ const heading = (text: string) =>
   new Paragraph({ heading: HeadingLevel.HEADING_1, keepNext: true, children: [new TextRun({ text, font: FONT })] });
 
 const subheading = (text: string) =>
-  new Paragraph({ heading: HeadingLevel.HEADING_2, keepNext: true, children: [new TextRun({ text, font: FONT })] });
+  new Paragraph({ heading: HeadingLevel.HEADING_2, keepNext: true, spacing: { before: 280, after: 100 }, children: [new TextRun({ text, font: FONT })] });
 
 const note = (text: string) => new Paragraph({ children: [new TextRun({ text, italics: true, size: 18, color: "666666", font: FONT })] });
 
@@ -93,7 +93,7 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
     if (html) out.push(subheading(title), ...richParagraphs(html), spacer());
   }
   if (doc.history) {
-    out.push(subheading("Event history"));
+    out.push(subheading(doc.historyOf ? `Event history — ${doc.historyOf} blocks` : "Event history"));
     if (doc.history.length === 0) out.push(note("No past events with room pickup."));
     else
       out.push(
@@ -182,11 +182,12 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
         ),
         spacer(),
       );
-    out.push(
-      subheading("Food & beverage"),
-      blankTable(["F&B function", "Average per-person price"], [...r.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]),
-      spacer(),
-    );
+    if (r.mealTypes.length)
+      out.push(
+        subheading("Food & beverage"),
+        blankTable(["F&B function", "Average per-person price"], [...r.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]),
+        spacer(),
+      );
     if (r.concessions.length) out.push(subheading("Concessions offered"), blankTable(["Concession", "Offered"], r.concessions.map((c) => [c])), spacer());
   }
 

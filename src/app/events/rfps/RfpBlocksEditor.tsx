@@ -48,6 +48,22 @@ function keysBetween(from: string, to: string) {
   return out;
 }
 
+const basisText = (basis: PatternBasis, events: number) => {
+  const of = `${events} event${events === 1 ? "" : "s"}`;
+  switch (basis) {
+    case "average":
+      return `Average pickup per night across ${of}`;
+    case "highest":
+      return `Highest pickup per night across ${of}`;
+    case "latest":
+      return "Pickup of the most recent event";
+    default: {
+      const _exhaustive: never = basis;
+      throw new Error(`Unhandled basis: ${_exhaustive}`);
+    }
+  }
+};
+
 function HistoryFill({
   block,
   guestTypes,
@@ -94,7 +110,8 @@ function HistoryFill({
         return;
       }
       onFilled(result.nights);
-      setMessage(`Filled from ${result.events} event${result.events === 1 ? "" : "s"}.`);
+      const pct = Number(adjust) || 0;
+      setMessage(`${basisText(basis, result.events)}${pct ? `, ${pct > 0 ? "+" : ""}${pct}%` : ""}.`);
     });
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -123,12 +140,13 @@ function HistoryFill({
         ))}
       </select>
       <select aria-label="Basis" value={basis} onChange={(e) => setBasis(e.target.value as PatternBasis)} className={smallInput}>
-        <option value="average">Average</option>
-        <option value="highest">Highest</option>
-        <option value="latest">Latest</option>
+        <option value="average">Average pickup per night</option>
+        <option value="highest">Highest pickup per night</option>
+        <option value="latest">Most recent event&apos;s pickup</option>
       </select>
       <label className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
-        <input aria-label="Adjust %" type="number" value={adjust} onChange={(e) => setAdjust(e.target.value)} className={`${smallInput} w-20`} />%
+        Adjust ±
+        <input aria-label="Adjust by percent" type="number" step={5} value={adjust} onChange={(e) => setAdjust(e.target.value)} className={`${smallInput} w-20`} />%
       </label>
       <button type="button" onClick={run} disabled={pending} className={`${btnSecondary} disabled:opacity-50`}>
         {pending ? "Filling..." : "Fill"}

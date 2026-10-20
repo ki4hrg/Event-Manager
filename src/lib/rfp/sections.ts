@@ -50,18 +50,3 @@ export const FB_INCLUDES = [
 ] as const;
 
 export const SPACE_KIND_LABELS = { MEETING: "Meeting space", FB: "Food & beverage" } as const;
-
-// F&B function types the APEX RFP asks a facility to price per person.
-export const APEX_FB_PRICE_TYPES = [
-  "Morning Break",
-  "Afternoon Break",
-  "Reception",
-  "Plated Breakfast",
-  "Buffet Breakfast",
-  "Continental Breakfast",
-  "Hot Plated Lunch",
-  "Cold Plated Lunch",
-  "Buffet Lunch",
-  "Plated Dinner",
-  "Buffet Dinner",
-] as const;

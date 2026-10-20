@@ -33,6 +33,7 @@ export type RfpWriteArgs = {
   dateNotes: string | null;
   alternateDates: { startDate: string; endDate: string }[]; // replaces the list
   peakRooms: number | null;
+  historyMatching: boolean; // history shows only blocks of this RFP's contract / guest types
   reservationMethod: string | null;
   commissionNotes: string | null;
   fbMinimum: number | null;
@@ -41,7 +42,8 @@ export type RfpWriteArgs = {
   amenities: string[];
   decisionMakerId: string | null; // a contact; decisionMaker is the typed fallback
   decisionMaker: string | null;
-  areas: string[]; // hotel_area labels; empty uses the event's
+  regions: string[]; // hotel_region labels; with areas empty, the event's apply
+  areas: string[]; // hotel_area labels
   siteVisitBy: string | null;
 };
 
@@ -51,6 +53,7 @@ export type RfpSpaceArgs = {
   functionId?: string | null;
   cateringOrderId?: string | null;
   day: string | null; // YYYY-MM-DD; null until scheduled
+  endDay: string | null; // repeats (or, with a 24-hr hold, runs) through this day
   startTime: string | null; // HH:MM, event-local
   endTime: string | null;
   functionType: string | null;
@@ -136,6 +139,7 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs) {
     datesFlexible: args.datesFlexible,
     dateNotes: args.dateNotes?.trim() || null,
     peakRooms: args.peakRooms,
+    historyMatching: args.historyMatching,
     reservationMethod: args.reservationMethod,
     commissionNotes: args.commissionNotes?.trim() || null,
     fbMinimum: money(args.fbMinimum, "F&B minimum"),
@@ -144,6 +148,7 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs) {
     amenities: Array.from(new Set(args.amenities.filter(Boolean))),
     decisionMakerId: args.decisionMakerId,
     decisionMaker: args.decisionMakerId ? null : args.decisionMaker?.trim() || null,
+    regions: Array.from(new Set(args.regions.filter(Boolean))),
     areas: Array.from(new Set(args.areas.filter(Boolean))),
     siteVisitBy: day(args.siteVisitBy),
     alternateDates: {
@@ -274,7 +279,8 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
     .map((r, i) => {
       if (r.kind !== "MEETING" && r.kind !== "FB") throw new Error(`Unknown space kind: ${r.kind}`);
       if (kind && r.kind !== kind) throw new Error(`${r.name}: expected a ${kind} row`);
-      if (r.day && (!DATE_RE.test(r.day) || r.day < first || r.day > last)) throw new Error(`${r.name}: day ${r.day} is too far from the event`);
+      for (const d of [r.day, r.endDay]) if (d && (!DATE_RE.test(d) || d < first || d > last)) throw new Error(`${r.name}: day ${d} is too far from the event`);
+      if (r.endDay && (!r.day || r.endDay < r.day)) throw new Error(`${r.name}: "through" must be on or after the day`);
       for (const t of [r.startTime, r.endTime]) if (t && !TIME_RE.test(t)) throw new Error(`${r.name}: time must be HH:MM`);
       for (const n of [r.attendance, r.areaSqFt]) if (n != null && (!Number.isInteger(n) || n < 0)) throw new Error(`${r.name}: numbers must be whole and not negative`);
       if (r.functionId && !ownFunctions.has(r.functionId)) throw new PermissionError("NOT_FOUND", "Function not found");
@@ -285,6 +291,7 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
         functionId: r.functionId ?? null,
         cateringOrderId: r.cateringOrderId ?? null,
         day: r.day ? dateFromKey(r.day) : null,
+        endDay: r.day && r.endDay && r.endDay > r.day ? dateFromKey(r.endDay) : null,
         startTime: r.startTime || null,
         endTime: r.endTime || null,
         functionType: r.functionType?.trim() || null,

@@ -10,8 +10,8 @@ import { hasPermission } from "@/lib/permissions";
 import { blockTypeLabel, dateKey, formatDateKey } from "@/lib/hotels";
 import { getEvent } from "../../actions";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
-import { getHotelBlocks, getHotelProposals, getProposalFormChoices, updateEventHotelAreas } from "../../hotels/actions";
-import { EventHotelAreas } from "../../hotels/EventHotelAreas";
+import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
+import { scopeLabels } from "@/lib/areas";
 import { getRfps } from "../../rfps/actions";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { recipientState, recipientSummary } from "@/lib/rfp/recipients";
@@ -32,10 +32,6 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
   ]);
   if (!event) notFound();
 
-  const saveAreasAction = async (areas: string[]) => {
-    "use server";
-    await updateEventHotelAreas(eventId, areas);
-  };
   const statusColor = (label: string) => colorClasses[choices.statuses.find((s) => s.label === label)?.color ?? "gray"] ?? colorClasses.gray;
   const peakRooms = (nights: (typeof proposals)[number]["nights"]) => {
     const byNight = new Map<string, number>();
@@ -111,9 +107,14 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
       )}
 
       {choices.areas.length > 0 && (
-        <div className="mb-6">
-          <EventHotelAreas areas={event.hotelAreas} options={choices.areas} save={saveAreasAction} />
-        </div>
+        <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+          Areas: <span className="text-gray-900 dark:text-white">{scopeLabels(event).join(" · ") || "Any"}</span>
+          {canWrite && (
+            <Link href={`/events/${eventId}/settings`} className="ml-2 text-blue-600 dark:text-blue-400 hover:underline">
+              Event settings
+            </Link>
+          )}
+        </p>
       )}
 
       {rfps.length > 0 && (

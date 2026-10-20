@@ -147,13 +147,13 @@ export function ProposalControls({
       <label className={labelClass}>
         Basis
         <select value={sp.get("basis") ?? ""} onChange={(e) => set("basis", e.target.value)} className={fieldClass}>
-          <option value="">Average</option>
-          <option value="highest">Highest</option>
-          <option value="latest">Most recent</option>
+          <option value="">Average pickup per night</option>
+          <option value="highest">Highest pickup per night</option>
+          <option value="latest">Most recent event&apos;s pickup</option>
         </select>
       </label>
       <label className={labelClass}>
-        Adjust %
+        Adjust ± %
         <input
           key={sp.get("adjust") ?? ""}
           type="number"

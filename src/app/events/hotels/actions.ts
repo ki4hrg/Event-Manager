@@ -98,13 +98,6 @@ export async function getProposalFormChoices(eventId: string) {
   };
 }
 
-// The hotel areas this event's RFPs target unless an RFP sets its own.
-export async function updateEventHotelAreas(eventId: string, areas: string[]) {
-  await requirePermission("HOTELS", "WRITE", eventId);
-  await prisma.event.update({ where: { id: eventId }, data: { hotelAreas: Array.from(new Set(areas.filter(Boolean))) } });
-  revalidatePath(`/events/${eventId}/hotels`);
-}
-
 function readJson<T>(formData: FormData, key: string): T[] {
   const raw = formData.get(key);
   if (typeof raw !== "string" || !raw) return [];

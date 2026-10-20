@@ -7,6 +7,7 @@ import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { colorClasses } from "@/lib/colors";
 import { dateFromKey } from "@/lib/hotels";
+import { inScope, isEmptyScope, scopeLabels, type AreaOption, type AreaScope } from "@/lib/areas";
 import { RECIPIENT_STATE_COLORS, recipientState } from "@/lib/rfp/recipients";
 import type { RfpRecipientArgs } from "./core";
 
@@ -33,7 +34,8 @@ export function RfpRecipients({
   today,
   blocks,
   hotels,
-  areas,
+  scope,
+  areaOptions,
   add,
   update,
   remove,
@@ -44,8 +46,9 @@ export function RfpRecipients({
   today: string;
   blocks: { id: string; label: string }[];
   hotels: { id: string; label: string; area: string | null }[];
-  // The areas this RFP targets (its own, else the event's); empty = all.
-  areas: string[];
+  // Where this RFP looks for hotels (its own scope, else the event's); empty = all.
+  scope: AreaScope;
+  areaOptions: AreaOption[];
   add: (venueIds: string[]) => Promise<void>;
   update: (recipientId: string, args: RfpRecipientArgs) => Promise<void>;
   remove: (recipientId: string) => Promise<void>;
@@ -56,7 +59,7 @@ export function RfpRecipients({
   const [error, setError] = useState<string | null>(null);
   const listed = new Set(recipients.map((r) => r.venueId));
   const [showAll, setShowAll] = useState(false);
-  const inArea = (h: { area: string | null }) => areas.length === 0 || (h.area != null && areas.includes(h.area));
+  const inArea = (h: { area: string | null }) => inScope(h.area, scope, areaOptions);
   const unlisted = hotels.filter((h) => !listed.has(h.id) && (showAll || inArea(h)));
   const outside = hotels.filter((h) => !listed.has(h.id) && !inArea(h)).length;
   const due = responseDue ? dateFromKey(responseDue) : null;
@@ -174,9 +177,9 @@ export function RfpRecipients({
           ))}
         </select>
       )}
-      {canWrite && areas.length > 0 && (
+      {canWrite && !isEmptyScope(scope) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="text-gray-500 dark:text-gray-400">{areas.join(" · ")}</span>
+          <span className="text-gray-500 dark:text-gray-400">{scopeLabels(scope).join(" · ")}</span>
           <div className="flex flex-wrap gap-3">
             {!showAll && unlisted.length > 1 && (
               <button type="button" disabled={pending} onClick={() => run(() => add(unlisted.map((h) => h.id)))} className={link}>

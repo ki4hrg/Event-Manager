@@ -8,8 +8,8 @@
 
 import type { HotelContractType, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { blockTypeLabel, dateKey, formatDateKey, formatMoney, formatNight, RUN_OF_HOUSE, roomTypeLabel } from "@/lib/hotels";
-import { APEX_FB_PRICE_TYPES, CONCESSION_GROUPS, concessionGroupOf, FB_INCLUDES, type ConcessionGroup, type RfpSection } from "@/lib/rfp/sections";
-import { DAY_TBD, formatClockRange, sortSpaceRows } from "@/lib/rfp/space";
+import { CONCESSION_GROUPS, concessionGroupOf, FB_INCLUDES, type ConcessionGroup, type RfpSection } from "@/lib/rfp/sections";
+import { DAY_TBD, formatClockRange, sortSpaceRows, spaceRowDays } from "@/lib/rfp/space";
 
 export type RfpBlockDoc = {
   label: string; // "Contract · Attendees block"
@@ -76,6 +76,7 @@ export type RfpDocument = {
     accessibility: string | null;
   };
   history: RfpHistoryRow[] | null;
+  historyOf: string | null; // "Contract · Attendees" when history is limited to blocks like this RFP's
   // III. Requirements
   statementOfNeed: string | null; // RichTextEditor HTML
   locations: string[]; // preferred hotel areas
@@ -113,7 +114,8 @@ export type RfpDocumentInput = {
     issuedOn: Date | null;
     siteVisitBy: Date | null;
     decisionMaker: string | null;
-    areas: string[]; // the RFP's own, else the event's
+    historyOf: string | null;
+    locations: string[]; // preferred regions / areas (the RFP's own, else the event's)
     introduction: string | null;
     requirements: string | null;
     arrivalDate: Date | null;
@@ -141,6 +143,7 @@ export type RfpDocumentInput = {
     spaceRequests: {
       kind: RfpSpaceKind;
       day: Date | null;
+      endDay: Date | null;
       startTime: string | null;
       endTime: string | null;
       functionType: string | null;
@@ -225,8 +228,14 @@ function blockDoc(b: RfpDocumentInput["rfp"]["hotelBlocks"][number]): RfpBlockDo
   };
 }
 
+// One line per day a row covers (a repeating row prints on each day, as on
+// the APEX and hotel forms), grouped by day.
+function expand(rows: RfpDocumentInput["rfp"]["spaceRequests"]) {
+  return rows.flatMap((r) => spaceRowDays({ day: r.day ? dateKey(r.day) : null, endDay: r.endDay ? dateKey(r.endDay) : null }).map((day) => ({ ...r, day })));
+}
+
 function spaceDays(rows: RfpDocumentInput["rfp"]["spaceRequests"]): RfpSpaceDay[] {
-  const sorted = sortSpaceRows(rows.map((r) => ({ ...r, day: r.day ? dateKey(r.day) : null })));
+  const sorted = sortSpaceRows(expand(rows));
   const days = Array.from(new Set(sorted.map((r) => r.day)));
   return days.map((day) => ({
     day,
@@ -289,7 +298,7 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
   const allNights = Array.from(new Set(blocks.flatMap((b) => b.nights)));
   const peakAcross = Math.max(0, ...allNights.map((k) => sum(blocks.map((b) => b.totals[k] ?? 0))));
   const largest = meeting.reduce<(typeof meeting)[number] | null>((best, r) => ((r.attendance ?? 0) > (best?.attendance ?? 0) ? r : best), null);
-  const atOnce = mostAtOnce(meeting.map((r) => ({ ...r, day: r.day ? dateKey(r.day) : null })));
+  const atOnce = mostAtOnce(expand(meeting));
 
   const arrival = rfp.arrivalDate ? dateKey(rfp.arrivalDate) : null;
   const departure = rfp.departureDate ? dateKey(rfp.departureDate) : null;
@@ -331,8 +340,9 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
       accessibility: spec.accessibility,
     },
     history: on.has("history") ? historyRows(input) : null,
+    historyOf: rfp.historyOf,
     statementOfNeed: rfp.introduction,
-    locations: rfp.areas,
+    locations: rfp.locations,
     dates: {
       preferred: arrival && departure ? dateSpan(arrival, departure) : arrival ? formatDateKey(arrival) : null,
       alternates: rfp.alternateDates.map((a) => dateSpan(dateKey(a.startDate), dateKey(a.endDate))),
@@ -386,7 +396,8 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
       ? {
           roomTypes: Array.from(new Set(blocks.flatMap((b) => b.roomTypes))),
           meetingSpace: spaceDays(meeting).flatMap((d) => d.rows.map((r) => ({ day: d.label, time: r.time, name: r.name, setup: r.setup }))),
-          mealTypes: [...APEX_FB_PRICE_TYPES],
+          // The F&B the RFP asks for, by type (or name when untyped).
+          mealTypes: on.has("fb") ? Array.from(new Set(fbRows.map((r) => r.functionType ?? r.name))) : [],
           concessions: rfp.concessions.map((c) => c.label),
         }
       : null,

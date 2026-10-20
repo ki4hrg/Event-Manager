@@ -442,8 +442,11 @@ model Event {
   membershipCount         Int?
   expectedAttendance      Int?
   actualAttendance        Int?
-  // hotel_area labels hotel RFPs target by default (an RFP may override).
-  hotelAreas              String[]                     @default([])
+  // Where the event looks for hotels (and reports by area): whole regions
+  // (hotel_region labels) and single areas (hotel_area labels). Hotel RFPs
+  // use these unless they set their own.
+  regions                 String[]                     @default([])
+  areas                   String[]                     @default([])
   functionNumbersLockedAt DateTime?
   specification           EventSpecification?
   specVips                EventSpecVip[]
@@ -2677,6 +2680,8 @@ model Rfp {
   dateNotes            String?
   alternateDates       RfpAlternateDate[]
   peakRooms            Int?
+  // Event history shows only blocks of this RFP's contract / guest types.
+  historyMatching      Boolean            @default(false)
   reservationMethod    String? // reservation_method option label
   commissionNotes      String? // rebates, assessments or commissions on rates
   fbMinimum            Decimal?           @db.Decimal(10, 2)
@@ -2688,7 +2693,8 @@ model Rfp {
   decisionMakerId      String?
   decisionMakerContact Contact?           @relation("RfpDecisionMaker", fields: [decisionMakerId], references: [id], onDelete: SetNull)
   decisionMaker        String?
-  // hotel_area labels the RFP targets; empty uses the event's hotelAreas.
+  // Regions / areas the RFP targets; both empty uses the event's.
+  regions              String[]           @default([])
   areas                String[]           @default([])
   siteVisitBy          DateTime?          @db.Date
   spaceRequests        RfpSpaceRequest[]
@@ -2740,6 +2746,8 @@ model RfpSpaceRequest {
   cateringOrderId String?
   cateringOrder   CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: SetNull)
   day             DateTime?      @db.Date // null = not scheduled yet
+  // Repeats daily through this day (same times), or spans to it with a 24-hr hold.
+  endDay          DateTime?      @db.Date
   startTime       String?
   endTime         String?
   // function_type label for MEETING rows, meal_type label for FB rows.
