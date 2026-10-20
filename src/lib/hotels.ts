@@ -19,14 +19,14 @@ export const PROPOSAL_STAGES: { value: ProposalStage; label: string }[] = [
 ];
 
 export const BLOCK_TYPES: { value: HotelBlockType; label: string }[] = [
-  { value: "CONTRACT", label: "Contract" },
-  { value: "COURTESY", label: "Courtesy" },
+  { value: "CONTRACT", label: "Contract attendee" },
+  { value: "COURTESY", label: "Courtesy attendee" },
   { value: "STAFF", label: "Staff" },
 ];
 
 export const BLOCK_TYPE_LABELS: Record<HotelBlockType, string> = {
-  CONTRACT: "Contract",
-  COURTESY: "Courtesy",
+  CONTRACT: "Contract attendee",
+  COURTESY: "Courtesy attendee",
   STAFF: "Staff",
 };
 

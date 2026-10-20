@@ -39,6 +39,7 @@ model User {
   updatedEventSpecifications EventSpecification[]     @relation("EventSpecificationUpdatedBy")
   updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
   updatedHotelProposals      HotelProposal[]          @relation("HotelProposalUpdatedBy")
+  updatedRfps                Rfp[]                    @relation("RfpUpdatedBy")
   updatedHotelBlocks         HotelBlock[]             @relation("HotelBlockUpdatedBy")
   hotelPickupImports         HotelPickupImport[]
   hotelProposalVersions      HotelProposalVersion[]
@@ -452,6 +453,7 @@ model Event {
   retiredFunctionNumbers  RetiredFunctionNumber[]
   exhibitBooths           ExhibitBooth[]
   hotelProposals          HotelProposal[]
+  rfps                    Rfp[]
   exhibitBoothGroups      ExhibitBoothGroup[]
   postEvent               EventPostEvent?
   postEventFutureDates    EventPostEventFutureDate[]
@@ -483,6 +485,7 @@ model Venue {
   brand          String?
   area           String?
   hotelProposals HotelProposal[]
+  rfpRecipients  RfpRecipient[]
   rooms          Room[]
   roomGroups     RoomGroup[]
   events         EventVenue[]
@@ -592,6 +595,7 @@ model Contact {
   specFinalBillFor            EventSpecification[]      @relation("SpecFinalBillContact")
   specVips                    EventSpecVip[]
   exhibitBooths               ExhibitBooth[]
+  rfpContactFor               Rfp[]
   updatedById                 String?
   updatedBy                   User?                     @relation("ContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                  @default(now())
@@ -1302,6 +1306,7 @@ model Vendor {
   specSecurityFor             EventSpecification[]       @relation("SpecSecurityVendor")
   specFirstAidFor             EventSpecification[]       @relation("SpecFirstAidVendor")
   specTransportationFor       EventSpecification[]       @relation("SpecTransportationVendor")
+  rfpRecipients               RfpRecipient[]
   updatedById                 String?
   updatedBy                   User?                      @relation("VendorUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                   @default(now())
@@ -1783,6 +1788,8 @@ model FileUpload {
   venue              Venue?            @relation(fields: [venueId], references: [id], onDelete: Cascade)
   hotelProposalId    String?
   hotelProposal      HotelProposal?    @relation(fields: [hotelProposalId], references: [id], onDelete: Cascade)
+  rfpId              String?
+  rfp                Rfp?              @relation(fields: [rfpId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -1795,6 +1802,7 @@ model FileUpload {
   @@index([mediaDeliverableId])
   @@index([venueId])
   @@index([hotelProposalId])
+  @@index([rfpId])
 }
 
 model ShareLink {
@@ -2430,6 +2438,11 @@ model HotelProposal {
   versions          HotelProposalVersion[]
   block             HotelBlock?
   files             FileUpload[]
+  // The RFP and requested block this offer answers, when it came from one.
+  rfpId             String?
+  rfp               Rfp?                   @relation(fields: [rfpId], references: [id], onDelete: SetNull)
+  rfpBlockId        String?
+  rfpBlock          RfpHotelBlock?         @relation(fields: [rfpBlockId], references: [id], onDelete: SetNull)
   updatedById       String?
   updatedBy         User?                  @relation("HotelProposalUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt         DateTime               @default(now())
@@ -2438,6 +2451,8 @@ model HotelProposal {
   @@index([eventId])
   @@index([venueId])
   @@index([updatedById])
+  @@index([rfpId])
+  @@index([rfpBlockId])
 }
 
 model HotelProposalNight {
@@ -2615,4 +2630,115 @@ model HotelPickupSnapshot {
   nights  Json // { "YYYY-MM-DD": rooms }
 
   @@unique([blockId, takenOn])
+}
+
+// ---------------------------------------------------------------------------
+// RFPs — what we ask vendors for. Generic header; each kind hangs its own
+// requested detail off it (hotels: RfpHotelBlock). See docs/proposals/rfp-tools.md.
+
+enum RfpKind {
+  HOTEL
+}
+
+enum RfpStatus {
+  DRAFT
+  ISSUED
+  CLOSED
+}
+
+model Rfp {
+  id                    String          @id @default(cuid())
+  eventId               String
+  event                 Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  kind                  RfpKind
+  title                 String
+  status                RfpStatus       @default(DRAFT)
+  responseDue           DateTime?       @db.Date
+  decisionBy            DateTime?       @db.Date
+  issuedOn              DateTime?       @db.Date
+  // Document parts that are on; keys from RFP_SECTIONS (src/lib/rfp/sections.ts).
+  sections              String[]        @default([])
+  introduction          String? // RichTextEditor HTML
+  requirements          String? // RichTextEditor HTML
+  // Our point of contact, printed on the document.
+  contactId             String?
+  contact               Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  // Meeting space: room names are usually left for the hotel to assign.
+  showRoomNames         Boolean         @default(false)
+  // function_type labels left out of the meeting-space part.
+  excludedFunctionTypes String[]        @default([])
+  recipients            RfpRecipient[]
+  concessions           RfpConcession[]
+  hotelBlocks           RfpHotelBlock[]
+  hotelProposals        HotelProposal[]
+  files                 FileUpload[]
+  updatedById           String?
+  updatedBy             User?           @relation("RfpUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([eventId])
+  @@index([contactId])
+  @@index([updatedById])
+}
+
+// Who an RFP went to: hotels are Venues, other kinds Vendors.
+model RfpRecipient {
+  id            String    @id @default(cuid())
+  rfpId         String
+  rfp           Rfp       @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  venueId       String?
+  venue         Venue?    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  vendorId      String?
+  vendor        Vendor?   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  sentOn        DateTime? @db.Date
+  declinedToBid Boolean   @default(false)
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  @@unique([rfpId, venueId])
+  @@unique([rfpId, vendorId])
+  @@index([venueId])
+  @@index([vendorId])
+}
+
+// A term we ask for. label is an rfp_concession option label (free text
+// allowed); value is free text ("1/40", "20%", "30 days").
+model RfpConcession {
+  id        String  @id @default(cuid())
+  rfpId     String
+  rfp       Rfp     @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  label     String
+  value     String?
+  required  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  @@index([rfpId])
+}
+
+// One requested hotel block (contract attendee / courtesy attendee / staff).
+model RfpHotelBlock {
+  id           String               @id @default(cuid())
+  rfpId        String
+  rfp          Rfp                  @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  blockType    HotelBlockType
+  isRunOfHouse Boolean              @default(false)
+  targetRate   Decimal?             @db.Decimal(10, 2)
+  notes        String?
+  sortOrder    Int                  @default(0)
+  nights       RfpHotelBlockNight[]
+  proposals    HotelProposal[]
+
+  @@index([rfpId])
+}
+
+model RfpHotelBlockNight {
+  id       String        @id @default(cuid())
+  blockId  String
+  block    RfpHotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  roomType String? // null = run of house
+  night    DateTime      @db.Date
+  rooms    Int
+
+  @@index([blockId])
 }

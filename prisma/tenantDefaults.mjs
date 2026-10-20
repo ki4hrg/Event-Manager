@@ -107,6 +107,7 @@ export const DEFAULT_OPTIONS = {
     { label: "Menu", sortOrder: 5 },
     { label: "Spec Sheet", sortOrder: 6 },
     { label: "Other", sortOrder: 7 },
+    { label: "RFP", sortOrder: 8 },
   ],
   print_distribution: [
     { label: "Staged in Room", sortOrder: 0 },
@@ -274,6 +275,18 @@ export const DEFAULT_OPTIONS = {
     { label: "Individual Reservations", sortOrder: 0 },
     { label: "Rooming List", sortOrder: 1 },
     { label: "Housing Bureau", sortOrder: 2 },
+  ],
+  // Terms an RFP asks for; each RFP row adds its own value ("1/40", "20%").
+  rfp_concession: [
+    { label: "Comp ratio", sortOrder: 0 },
+    { label: "Attrition", sortOrder: 1 },
+    { label: "Cut-off", sortOrder: 2 },
+    { label: "Rate cap", sortOrder: 3 },
+    { label: "Deposit schedule", sortOrder: 4 },
+    { label: "Complimentary Wi-Fi", sortOrder: 5 },
+    { label: "Parking", sortOrder: 6 },
+    { label: "Staff rate", sortOrder: 7 },
+    { label: "Upgrades", sortOrder: 8 },
   ],
 };
 

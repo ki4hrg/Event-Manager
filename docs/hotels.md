@@ -16,6 +16,15 @@ Ported from Hotel-Manager. Sleeping-room blocks for an event, from proposal to p
 
 Pickup is computed, never stored per night: `src/lib/hotelPickup.ts` is the single calculation (guests staying that night + entered counts + other reservations; run-of-house pools all types). Attrition: a block is "at risk" when pickup % < 100 − allowed attrition.
 
+## RFPs
+
+What we ask hotels for, before any proposal comes back. `Rfp` (generic, `kind = HOTEL`) with requested `RfpHotelBlock`s — one per block type (contract attendee / courtesy attendee / staff), each a room type × night grid of requested rooms plus a target rate — and `RfpConcession`s (labels from the `rfp_concession` option list, free-text values, required or not).
+
+- **Editor** — `/events/[id]/hotels/rfps/[rfpId]`: details and document parts, blocks (shared `RoomGridEditor`), concessions. *Fill from history* fills a block from past pickup of that block type (`patternStats` / `proposedRoles` / `proposeNights` in `src/lib/hotelPattern.ts`); the pattern report's *Use in RFP* starts a new RFP the same way.
+- **Document** — `src/lib/rfp/document.ts` builds one `RfpDocument` from live data: cover, room blocks, meeting space (on-site functions, set-up/tear-down rows dropped, function types excludable, room names optional), F&B (the ESG day × meal grid, expected counts), concessions, event history (the series' ended events with pickup), additional requirements. Each part after the cover is optional (`Rfp.sections`). Rendered by `RfpDocumentView` (`/print`) and `src/lib/rfp/renderDocx.ts` (`/api/events/[id]/rfps/[rfpId]?format=docx`).
+- **Issue** — files the rendered .docx on the RFP (`file_type` "RFP"), stamps `issuedOn`, moves Draft → Issued.
+- Not shareable: RFPs go out as files.
+
 ## ESG / PER
 
 `loadHousingInput` (`src/lib/esg/housing.ts`) reports an event's blocks with `source: "hotels"`: ESG §G room blocks by night (final rooms), PER §III hotel count and peak night (actual pickup), PER §IV per hotel contracted / final / pickup at 90, 60, 30, 21, 14, 7 days before the first night / actual. A days-out cell comes from booking dates when every active guest staying that night has one and the night has no undated rooms (entered counts, other reservations); otherwise from the latest snapshot on or before that day. A cancelled guest without a cancel date is left out. Events without blocks keep the Specifications page fallback.

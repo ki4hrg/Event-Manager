@@ -103,3 +103,40 @@ export function proposeNights(start: string, end: string, byRole: Map<PatternRol
   while (to > from && outside(to - 1) && Math.round(out[to - 1].rooms) === 0) to--;
   return out.slice(from, to);
 }
+
+export type PatternBasis = "average" | "highest" | "latest";
+
+export type PatternEvent = { startDate: string; endDate: string; pickedUp: Record<string, number>; blocked: Record<string, number> };
+
+// Per-role figures across past events (newest first): pickup and block,
+// averaged and maxed, the latest event's pickup, and each role's share of the
+// average peak. Middle only counts events long enough to have one; any other
+// role an event lacks had no rooms that night.
+export function patternStats(events: PatternEvent[]) {
+  const rows = events.map((e) => ({ roles: eventRoles(e.startDate, e.endDate, e.pickedUp), blockRoles: eventRoles(e.startDate, e.endDate, e.blocked) }));
+  const roles = sortRoles(rows.flatMap((r) => Array.from(r.roles.keys())));
+  const valuesFor = (role: string, of: (r: (typeof rows)[number]) => Map<string, number>) =>
+    rows.flatMap((r) => (of(r).has(role) ? [of(r).get(role)!] : role === "middle" ? [] : [0]));
+  const mean = (ns: number[]) => (ns.length ? ns.reduce((s, n) => s + n, 0) / ns.length : 0);
+  const max = (ns: number[]) => Math.max(0, ...ns);
+  const byRole = (of: (r: (typeof rows)[number]) => Map<string, number>, agg: (ns: number[]) => number) =>
+    new Map(roles.map((role) => [role, agg(valuesFor(role, of))]));
+  const average = byRole((r) => r.roles, mean);
+  const avgPeak = Math.max(0, ...Array.from(average.values()));
+  return {
+    roles,
+    average,
+    highest: byRole((r) => r.roles, max),
+    averageBlock: byRole((r) => r.blockRoles, mean),
+    highestBlock: byRole((r) => r.blockRoles, max),
+    latest: new Map(roles.flatMap((role) => (rows[0]?.roles.has(role) || role !== "middle" ? [[role, rows[0]?.roles.get(role) ?? 0] as const] : []))),
+    shape: new Map(Array.from(average, ([role, n]) => [role, avgPeak ? Math.round((n / avgPeak) * 100) : 0])),
+    observedMiddle: max(events.map((e) => middleNights(e.startDate, e.endDate))),
+  };
+}
+
+// Whole rooms per role for a new block: the chosen basis, adjusted by a percentage.
+export function proposedRoles(stats: ReturnType<typeof patternStats>, basis: PatternBasis, adjust: number): Map<PatternRole, number> {
+  const base = basis === "highest" ? stats.highest : basis === "latest" ? stats.latest : stats.average;
+  return new Map(Array.from(base, ([role, n]) => [role, Math.max(0, Math.round(n * (1 + adjust / 100)))]));
+}

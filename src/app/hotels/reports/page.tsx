@@ -5,7 +5,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { reportTd, reportTh } from "@/lib/reportStyles";
 import { BLOCK_TYPE_LABELS, formatDateKey, formatNight, parseBlockTypes } from "@/lib/hotels";
-import { eventRoles, middleNights, offsetLabel, proposeNights, roleLabel, sortRoles } from "@/lib/hotelPattern";
+import { eventRoles, offsetLabel, patternStats, proposedRoles, proposeNights, roleLabel, type PatternBasis } from "@/lib/hotelPattern";
 import { getBlockMonitoring, getHotelCities, getHotelPickupHistory, getPickupPattern, getProposalEventChoices, getSeriesChoices, type PatternFilters } from "../actions";
 import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar, ProposalControls, ShowBlockToggle } from "./HotelReportFilters";
 
@@ -185,8 +185,6 @@ async function Monitoring() {
   );
 }
 
-type Basis = "average" | "highest" | "latest";
-
 async function Pattern({
   filters,
   basis,
@@ -197,7 +195,7 @@ async function Pattern({
   showBlock,
 }: {
   filters: PatternFilters;
-  basis: Basis;
+  basis: PatternBasis;
   adjust: number;
   forEvent?: string;
   customStart?: string;
@@ -229,26 +227,22 @@ async function Pattern({
     peak: peakOf(e.pickedUp),
     blockPeak: peakOf(e.blocked),
   }));
-  const roles = sortRoles(rows.flatMap((r) => Array.from(r.roles.keys())));
-  // Middle only counts events long enough to have one; any other role an
-  // event lacks had no rooms that night.
-  const valuesFor = (role: string, of: (r: (typeof rows)[number]) => Map<string, number>) =>
-    rows.flatMap((r) => (of(r).has(role) ? [of(r).get(role)!] : role === "middle" ? [] : [0]));
+  const stats = patternStats(events);
+  const { roles, average, highest, averageBlock, highestBlock, shape, observedMiddle } = stats;
   const mean = (ns: number[]) => (ns.length ? ns.reduce((s, n) => s + n, 0) / ns.length : 0);
   const max = (ns: number[]) => Math.max(0, ...ns);
-  const byRole = (of: (r: (typeof rows)[number]) => Map<string, number>, agg: (ns: number[]) => number) =>
-    new Map(roles.map((role) => [role, agg(valuesFor(role, of))]));
-  const average = byRole((r) => r.roles, mean);
-  const highest = byRole((r) => r.roles, max);
-  const averageBlock = byRole((r) => r.blockRoles, mean);
-  const highestBlock = byRole((r) => r.blockRoles, max);
-  const latest = new Map(roles.flatMap((role) => (rows[0]?.roles.has(role) || role !== "middle" ? [[role, rows[0]?.roles.get(role) ?? 0] as const] : [])));
-  const base = basis === "highest" ? highest : basis === "latest" ? latest : average;
-  const proposed = new Map(Array.from(base, ([role, n]) => [role, Math.max(0, Math.round(n * (1 + adjust / 100)))]));
-  const avgPeak = Math.max(0, ...Array.from(average.values()));
-  const shape = new Map(Array.from(average, ([role, n]) => [role, avgPeak ? Math.round((n / avgPeak) * 100) : 0]));
-  const observedMiddle = max(rows.map((r) => middleNights(r.startDate, r.endDate)));
+  const proposed = proposedRoles(stats, basis, adjust);
   const dated = start && end && end >= start ? proposeNights(start, end, proposed, observedMiddle) : null;
+  // A new RFP for the target event, its first block filled from this pattern.
+  const rfpHref = (eventId: string) => {
+    const q = new URLSearchParams({ basis, adjust: String(adjust) });
+    if (filters.seriesId && filters.seriesId !== "__blank__") q.set("series", filters.seriesId);
+    if (filters.blockTypes.length === 1) q.set("blockType", filters.blockTypes[0]);
+    if (filters.city) q.set("city", filters.city);
+    if (filters.from) q.set("from", filters.from);
+    if (filters.to) q.set("to", filters.to);
+    return `/events/${eventId}/hotels/rfps/new?${q.toString()}`;
+  };
   const adjustLabel = adjust ? ` (${adjust > 0 ? "+" : ""}${adjust}%)` : "";
 
   const csvRow = (label: string, dates: string, values: Map<string, number>, roomNights: number | null, peak: number | null) => ({
@@ -379,7 +373,14 @@ async function Pattern({
                 {target && ` · ${target.name}`}
                 {dated && ` · ${formatNight(start!)} – ${formatNight(end!)}`}
               </h2>
-              <CsvButton fileName={dated ? `hotel-rfp-block-${start}.csv` : "hotel-rfp-block.csv"} rows={proposedCsv} />
+              <div className="flex flex-wrap items-center gap-3">
+                {target && dated && (
+                  <Link href={rfpHref(target.id)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                    Use in RFP
+                  </Link>
+                )}
+                <CsvButton fileName={dated ? `hotel-rfp-block-${start}.csv` : "hotel-rfp-block.csv"} rows={proposedCsv} />
+              </div>
             </div>
             <ProposalControls events={upcoming} selected={target?.id ?? "custom"} />
             <div className="mt-3 max-w-md bg-white dark:bg-gray-800 shadow rounded-lg">

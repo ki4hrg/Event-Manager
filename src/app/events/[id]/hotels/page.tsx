@@ -4,13 +4,15 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
-import { btnPrimary } from "@/lib/buttonStyles";
+import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { hasPermission } from "@/lib/permissions";
 import { BLOCK_TYPE_LABELS, dateKey, formatDateKey } from "@/lib/hotels";
 import { getEvent } from "../../actions";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
+import { getRfps } from "../../rfps/actions";
+import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +20,12 @@ export const metadata: Metadata = { title: "Hotels" };
 
 export default async function HotelsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
-  const [event, proposals, choices, blocks, canWrite] = await Promise.all([
+  const [event, proposals, choices, blocks, rfps, canWrite] = await Promise.all([
     getEvent(eventId),
     getHotelProposals(eventId),
     getProposalFormChoices(eventId),
     getHotelBlocks(eventId),
+    getRfps(eventId, "HOTEL"),
     hasPermission("HOTELS", "WRITE", eventId),
   ]);
   if (!event) notFound();
@@ -51,9 +54,14 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Hotels</h1>
         </div>
         {canWrite && (
-          <Link href={`/events/${eventId}/hotels/proposals/new`} className={`${btnPrimary} text-sm self-start sm:self-auto`}>
-            Add Proposal
-          </Link>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <Link href={`/events/${eventId}/hotels/rfps/new`} className={`${btnSecondary} text-sm`}>
+              New RFP
+            </Link>
+            <Link href={`/events/${eventId}/hotels/proposals/new`} className={`${btnPrimary} text-sm`}>
+              Add Proposal
+            </Link>
+          </div>
         )}
       </div>
 
@@ -92,6 +100,37 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                 </Link>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {rfps.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">RFPs</h2>
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
+            {rfps.map((r) => (
+              <Link
+                key={r.id}
+                href={`/events/${eventId}/hotels/rfps/${r.id}`}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-blue-600 dark:text-blue-400">{r.title}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {[
+                      r.hotelBlocks.map((b) => BLOCK_TYPE_LABELS[b.blockType]).join(", ") || null,
+                      r.responseDue ? `due ${formatDateKey(dateKey(r.responseDue))}` : null,
+                      r.issuedOn ? `issued ${formatDateKey(dateKey(r.issuedOn))}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </p>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[RFP_STATUS_COLORS[r.status]]}`}>
+                  {RFP_STATUS_LABELS[r.status]}
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
       )}

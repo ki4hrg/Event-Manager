@@ -13,11 +13,11 @@ import {
   CHARGE_SCOPES,
   formatDateKey,
   formatMoney,
-  formatNight,
   nightKeys,
   stageOf,
 } from "@/lib/hotels";
 import { RoomGrid, type GridNight } from "./RoomGrid";
+import { RoomGridEditor, visibleGridRows, type GridRow } from "./RoomGridEditor";
 
 export type ProposalValues = {
   venueId: string;
@@ -48,8 +48,6 @@ export type ProposalChoices = {
 
 const inputClass =
   "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
-const cellInputClass =
-  "w-16 px-1.5 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm text-right";
 const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 
@@ -84,11 +82,6 @@ function Fieldset({ title, children, aside }: { title: string; children: ReactNo
     </fieldset>
   );
 }
-
-type Cell = { rooms: string; rate: string };
-type GridRow = { roomType: string | null; cells: Record<string, Cell> };
-
-const ROH = "__roh__";
 
 function initialRows(values: ProposalValues | null, roomTypes: string[]): GridRow[] {
   if (!values || values.nights.length === 0) {
@@ -208,30 +201,7 @@ export function ProposalForm({
 
   const keys = nightKeys(checkIn || null, checkOut || null);
   const stage = stageOf(status, choices.statuses);
-  const gridRows = runOfHouse ? rows.filter((r) => r.roomType === null) : rows.filter((r) => r.roomType !== null);
-  const visibleRows = runOfHouse && gridRows.length === 0 ? [{ roomType: null, cells: {} }] : gridRows;
-  const usedTypes = new Set(visibleRows.map((r) => r.roomType));
-  const unusedTypes = choices.roomTypes.filter((t) => !usedTypes.has(t));
-
-  const setCell = (roomType: string | null, night: string, field: keyof Cell, value: string) =>
-    setRows((prev) => {
-      const exists = prev.some((r) => r.roomType === roomType);
-      const base = exists ? prev : [...prev, { roomType, cells: {} }];
-      return base.map((r) =>
-        r.roomType === roomType
-          ? { ...r, cells: { ...r.cells, [night]: { ...(r.cells[night] ?? { rooms: "", rate: "" }), [field]: value } } }
-          : r,
-      );
-    });
-  // Copies the first night's rooms and rate across the stay.
-  const fillRow = (roomType: string | null) =>
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.roomType !== roomType || keys.length === 0) return r;
-        const first = r.cells[keys[0]] ?? { rooms: "", rate: "" };
-        return { ...r, cells: { ...r.cells, ...Object.fromEntries(keys.map((k) => [k, { ...first }])) } };
-      }),
-    );
+  const visibleRows = visibleGridRows(rows, runOfHouse);
 
   const nightsJson = JSON.stringify(
     visibleRows.flatMap((r) =>
@@ -365,87 +335,7 @@ export function ProposalForm({
         {keys.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">Set check-in and check-out to enter rooms.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="text-sm">
-              <thead>
-                <tr>
-                  <th className="py-1 pr-3 text-left font-medium text-gray-700 dark:text-gray-300">Room type</th>
-                  {keys.map((k) => (
-                    <th key={k} className="py-1 px-1 text-center font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                      {formatNight(k)}
-                    </th>
-                  ))}
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRows.map((r) => (
-                  <tr key={r.roomType ?? ROH} className="align-top">
-                    <td className="py-1 pr-3 text-gray-900 dark:text-white whitespace-nowrap">
-                      {r.roomType ?? "Run of house"}
-                      <div className="text-xs text-gray-500 dark:text-gray-400">rooms / rate</div>
-                    </td>
-                    {keys.map((k) => {
-                      const c = r.cells[k] ?? { rooms: "", rate: "" };
-                      return (
-                        <td key={k} className="py-1 px-1">
-                          <div className="flex flex-col gap-1">
-                            <input
-                              aria-label={`${r.roomType ?? "Run of house"} ${k} rooms`}
-                              type="number"
-                              min={0}
-                              value={c.rooms}
-                              onChange={(e) => setCell(r.roomType, k, "rooms", e.target.value)}
-                              className={cellInputClass}
-                            />
-                            <input
-                              aria-label={`${r.roomType ?? "Run of house"} ${k} rate`}
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              placeholder="$"
-                              value={c.rate}
-                              onChange={(e) => setCell(r.roomType, k, "rate", e.target.value)}
-                              className={cellInputClass}
-                            />
-                          </div>
-                        </td>
-                      );
-                    })}
-                    <td className="py-1 pl-2 whitespace-nowrap">
-                      <button type="button" onClick={() => fillRow(r.roomType)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                        Fill →
-                      </button>
-                      {!runOfHouse && (
-                        <button
-                          type="button"
-                          onClick={() => setRows((prev) => prev.filter((x) => x.roomType !== r.roomType))}
-                          className="block text-xs text-red-600 dark:text-red-400 hover:underline mt-1"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {!runOfHouse && keys.length > 0 && unusedTypes.length > 0 && (
-          <select
-            aria-label="Add room type"
-            value=""
-            onChange={(e) => e.target.value && setRows((prev) => [...prev, { roomType: e.target.value, cells: {} }])}
-            className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
-          >
-            <option value="">+ Room type</option>
-            {unusedTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+          <RoomGridEditor keys={keys} rows={rows} runOfHouse={runOfHouse} roomTypes={choices.roomTypes} withRate onChange={setRows} />
         )}
       </Fieldset>
 

@@ -1,7 +1,8 @@
 // .docx rendering of the ESG / PER documents (server-only; lazy-imported by
 // the download route). A structured equivalent of the APEX forms, not a
 // facsimile: one key/value table per section, real tables for grids, Part II
-// on a landscape page, a page break before each set-up / booth order.
+// on a landscape page, a page break before each set-up / booth order. The
+// exported primitives are shared with src/lib/rfp/renderDocx.ts.
 
 import {
   AlignmentType,
@@ -27,7 +28,7 @@ import { htmlToBlocks, type RichRun } from "@/lib/esg/richText";
 import type { EsgBlock, EsgDocument, EsgItem, EsgScheduleRow, EsgSection, EsgSetupOrder, EsgTable } from "@/lib/esg/types";
 import type { PerDocument } from "@/lib/esg/per";
 
-const FONT = "Calibri";
+export const FONT = "Calibri";
 const BULLETS = "esg-bullets";
 const NUMBERED = "esg-numbered";
 const BORDER = { style: BorderStyle.SINGLE, size: 4, color: "BFBFBF" } as const;
@@ -41,7 +42,7 @@ function runs(r: RichRun[], size = 20): TextRun[] {
   );
 }
 
-function textParagraphs(text: string | null, opts: { bold?: boolean; size?: number; color?: string } = {}): Paragraph[] {
+export function textParagraphs(text: string | null, opts: { bold?: boolean; size?: number; color?: string } = {}): Paragraph[] {
   if (!text) return [new Paragraph({ children: [new TextRun({ text: "—", color: "999999", size: opts.size ?? 20, font: FONT })] })];
   return [
     new Paragraph({
@@ -52,7 +53,7 @@ function textParagraphs(text: string | null, opts: { bold?: boolean; size?: numb
   ];
 }
 
-function richParagraphs(html: string): Paragraph[] {
+export function richParagraphs(html: string): Paragraph[] {
   const out: Paragraph[] = [];
   for (const b of htmlToBlocks(html)) {
     if (b.type === "paragraph") out.push(new Paragraph({ children: runs(b.runs, b.heading ? 22 : 20), spacing: { after: 60 } }));
@@ -78,7 +79,7 @@ function cell(children: Paragraph[], opts: { shade?: boolean; width?: number } =
   });
 }
 
-function fieldsTable(items: EsgItem[]): Table {
+export function fieldsTable(items: EsgItem[]): Table {
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: items.map(
@@ -94,7 +95,7 @@ function fieldsTable(items: EsgItem[]): Table {
   });
 }
 
-function gridTable(t: { columns: string[]; rows: (string | null)[][]; numeric?: boolean[] }): Table {
+export function gridTable(t: { columns: string[]; rows: (string | null)[][]; numeric?: boolean[] }): Table {
   const align = (i: number) => (t.numeric?.[i] ? AlignmentType.RIGHT : AlignmentType.LEFT);
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -142,7 +143,7 @@ function blockElements(block: EsgBlock): (Paragraph | Table)[] {
   }
 }
 
-function spacer() {
+export function spacer() {
   return new Paragraph({ children: [], spacing: { after: 80 } });
 }
 
@@ -182,7 +183,7 @@ function scheduleTable(rows: EsgScheduleRow[]): (Paragraph | Table)[] {
   return out.length ? out : [new Paragraph({ children: [new TextRun({ text: "No scheduled functions.", font: FONT })] })];
 }
 
-function chrome(title: string, eventName: string, sub: string, attribution: string) {
+export function chrome(title: string, eventName: string, sub: string, attribution: string) {
   return {
     headers: {
       default: new Header({
@@ -212,7 +213,7 @@ function chrome(title: string, eventName: string, sub: string, attribution: stri
   };
 }
 
-const numbering = {
+export const numbering = {
   config: [
     {
       reference: BULLETS,
@@ -225,7 +226,7 @@ const numbering = {
   ],
 };
 
-const styles = {
+export const styles = {
   default: { document: { run: { font: FONT, size: 20 } } },
   paragraphStyles: [
     { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", run: { size: 30, bold: true, font: FONT }, paragraph: { spacing: { before: 240, after: 120 } } },
