@@ -10,7 +10,8 @@ import { hasPermission } from "@/lib/permissions";
 import { blockTypeLabel, dateKey, formatDateKey } from "@/lib/hotels";
 import { getEvent } from "../../actions";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
-import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
+import { getHotelBlocks, getHotelProposals, getProposalFormChoices, updateEventHotelAreas } from "../../hotels/actions";
+import { EventHotelAreas } from "../../hotels/EventHotelAreas";
 import { getRfps } from "../../rfps/actions";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { recipientState, recipientSummary } from "@/lib/rfp/recipients";
@@ -31,6 +32,10 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
   ]);
   if (!event) notFound();
 
+  const saveAreasAction = async (areas: string[]) => {
+    "use server";
+    await updateEventHotelAreas(eventId, areas);
+  };
   const statusColor = (label: string) => colorClasses[choices.statuses.find((s) => s.label === label)?.color ?? "gray"] ?? colorClasses.gray;
   const peakRooms = (nights: (typeof proposals)[number]["nights"]) => {
     const byNight = new Map<string, number>();
@@ -103,6 +108,12 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
             })}
           </div>
         </section>
+      )}
+
+      {choices.areas.length > 0 && (
+        <div className="mb-6">
+          <EventHotelAreas areas={event.hotelAreas} options={choices.areas} save={saveAreasAction} />
+        </div>
       )}
 
       {rfps.length > 0 && (

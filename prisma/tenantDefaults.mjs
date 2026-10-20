@@ -259,11 +259,18 @@ export const DEFAULT_OPTIONS = {
     { label: "Exhibitors", sortOrder: 3 },
     { label: "VIP", sortOrder: 4 },
   ],
+  // Features a property has. Anything complimentary or discounted (Wi-Fi,
+  // parking, breakfast) is a concession (rfp_concession), not an amenity.
   hotel_amenity: [
-    { label: "Breakfast Included", sortOrder: 0 },
-    { label: "Free Wi-Fi", sortOrder: 1 },
-    { label: "Free Parking", sortOrder: 2 },
-    { label: "Airport Shuttle", sortOrder: 3 },
+    { label: "On-site Restaurant", sortOrder: 0 },
+    { label: "Fitness Center", sortOrder: 1 },
+    { label: "Indoor Pool", sortOrder: 2 },
+    { label: "Outdoor Pool", sortOrder: 3 },
+    { label: "Business Center", sortOrder: 4 },
+    { label: "Airport Shuttle", sortOrder: 5 },
+    { label: "Valet Parking", sortOrder: 6 },
+    { label: "Spa", sortOrder: 7 },
+    { label: "Golf", sortOrder: 8 },
   ],
   hotel_lead_source: [
     { label: "Direct", sortOrder: 0 },
@@ -280,10 +287,10 @@ export const DEFAULT_OPTIONS = {
     { label: "Accor", sortOrder: 7 },
     { label: "Independent", sortOrder: 8 },
   ],
+  // The APEX RFP's methods of reservation.
   reservation_method: [
     { label: "Individual Reservations", sortOrder: 0 },
     { label: "Rooming List", sortOrder: 1 },
-    { label: "Housing Bureau", sortOrder: 2 },
   ],
   // Terms an RFP asks for; each RFP row adds its own value ("1/40", "20%").
   // group is the APEX "Concessions Desired" heading: ROOMS (guest rooms), FB
@@ -296,6 +303,7 @@ export const DEFAULT_OPTIONS = {
     { label: "Staff rate", group: "ROOMS", sortOrder: 4 },
     { label: "Upgrades", group: "ROOMS", sortOrder: 5 },
     { label: "Waived resort fee", group: "ROOMS", sortOrder: 6 },
+    { label: "Complimentary breakfast", group: "ROOMS", sortOrder: 6 },
     { label: "F&B discount", group: "FB", sortOrder: 7 },
     { label: "Complimentary Wi-Fi", group: "OTHER", sortOrder: 8 },
     { label: "Parking", group: "OTHER", sortOrder: 9 },

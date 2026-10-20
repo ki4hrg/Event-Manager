@@ -315,6 +315,11 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
             <Rich html={doc.statementOfNeed} />
           </Sub>
         )}
+        {doc.locations.length > 0 && (
+          <Sub title="Location">
+            <p className="text-sm text-gray-900 dark:text-white print:text-black">Preferred areas: {doc.locations.join(" · ")}</p>
+          </Sub>
+        )}
         <Sub title="Dates">
           <Facts items={dateFacts} />
           {doc.dates.notes && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{doc.dates.notes}</p>}

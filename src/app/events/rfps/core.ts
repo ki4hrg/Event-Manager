@@ -39,7 +39,9 @@ export type RfpWriteArgs = {
   fbIncludes: string[];
   fbHistoricalSpend: number | null;
   amenities: string[];
+  decisionMakerId: string | null; // a contact; decisionMaker is the typed fallback
   decisionMaker: string | null;
+  areas: string[]; // hotel_area labels; empty uses the event's
   siteVisitBy: string | null;
 };
 
@@ -48,7 +50,7 @@ export type RfpSpaceArgs = {
   kind: RfpSpaceKind;
   functionId?: string | null;
   cateringOrderId?: string | null;
-  day: string; // YYYY-MM-DD
+  day: string | null; // YYYY-MM-DD; null until scheduled
   startTime: string | null; // HH:MM, event-local
   endTime: string | null;
   functionType: string | null;
@@ -114,10 +116,11 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs) {
     if (!a.startDate || !a.endDate || a.endDate <= a.startDate) throw new Error("Each alternate needs an arrival before its departure");
   }
   if (args.peakRooms != null && (!Number.isInteger(args.peakRooms) || args.peakRooms < 0)) throw new Error("Peak rooms must be a whole number");
-  if (args.contactId) {
+  const contactIds = [args.contactId, args.decisionMakerId].filter((c): c is string => !!c);
+  if (contactIds.length) {
     const tenantId = await requireEventTenantId(eventId);
-    const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
-    if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
+    const found = await prisma.contact.count({ where: { id: { in: contactIds }, tenantId } });
+    if (found < new Set(contactIds).size) throw new PermissionError("NOT_FOUND", "Contact not found");
   }
   return {
     title: args.title.trim(),
@@ -139,7 +142,9 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs) {
     fbIncludes: args.fbIncludes.filter((f) => FB_INCLUDE_KEYS.has(f)),
     fbHistoricalSpend: money(args.fbHistoricalSpend, "F&B historical spend"),
     amenities: Array.from(new Set(args.amenities.filter(Boolean))),
-    decisionMaker: args.decisionMaker?.trim() || null,
+    decisionMakerId: args.decisionMakerId,
+    decisionMaker: args.decisionMakerId ? null : args.decisionMaker?.trim() || null,
+    areas: Array.from(new Set(args.areas.filter(Boolean))),
     siteVisitBy: day(args.siteVisitBy),
     alternateDates: {
       create: alternates.map((a, i) => ({ startDate: dateFromKey(a.startDate), endDate: dateFromKey(a.endDate), sortOrder: i })),
@@ -191,7 +196,7 @@ async function validBlocks(eventId: string, blocks: RfpBlockArgs[]) {
     if (b.targetRate != null && (!Number.isFinite(b.targetRate) || b.targetRate < 0)) throw new Error("Target rate cannot be negative");
     const seen = new Set<string>();
     const nights = b.nights
-      .filter((n) => n.rooms > 0)
+      .filter((n) => n.rooms >= 0)
       .map((n) => {
         if (!DATE_RE.test(n.night) || n.night < first || n.night > last) throw new Error(`Night ${n.night} is too far from the event`);
         if (!Number.isInteger(n.rooms)) throw new Error("Rooms must be whole numbers");
@@ -248,9 +253,10 @@ export async function saveRfpConcessionsCore(id: string, eventId: string, conces
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-// Replaces the RFP's function-space rows, updating kept ones in place by id.
-// Rows copied from a function or catering order must point at this event's.
-export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpaceArgs[], userId: string) {
+// Replaces the RFP's function-space rows — only those of `kind` when given —
+// updating kept ones in place by id. Rows copied from a function or catering
+// order must point at this event's.
+export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpaceArgs[], userId: string, kind?: RfpSpaceKind) {
   await authorizeRfp(id, eventId, "WRITE", userId);
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { startDate: true, endDate: true } });
   const first = addDays(dateKey(event.startDate), -NIGHT_WINDOW_DAYS);
@@ -267,7 +273,8 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
     .filter((r) => r.name.trim())
     .map((r, i) => {
       if (r.kind !== "MEETING" && r.kind !== "FB") throw new Error(`Unknown space kind: ${r.kind}`);
-      if (!DATE_RE.test(r.day) || r.day < first || r.day > last) throw new Error(`${r.name}: day ${r.day} is too far from the event`);
+      if (kind && r.kind !== kind) throw new Error(`${r.name}: expected a ${kind} row`);
+      if (r.day && (!DATE_RE.test(r.day) || r.day < first || r.day > last)) throw new Error(`${r.name}: day ${r.day} is too far from the event`);
       for (const t of [r.startTime, r.endTime]) if (t && !TIME_RE.test(t)) throw new Error(`${r.name}: time must be HH:MM`);
       for (const n of [r.attendance, r.areaSqFt]) if (n != null && (!Number.isInteger(n) || n < 0)) throw new Error(`${r.name}: numbers must be whole and not negative`);
       if (r.functionId && !ownFunctions.has(r.functionId)) throw new PermissionError("NOT_FOUND", "Function not found");
@@ -277,7 +284,7 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
         kind: r.kind,
         functionId: r.functionId ?? null,
         cateringOrderId: r.cateringOrderId ?? null,
-        day: dateFromKey(r.day),
+        day: r.day ? dateFromKey(r.day) : null,
         startTime: r.startTime || null,
         endTime: r.endTime || null,
         functionType: r.functionType?.trim() || null,
@@ -291,10 +298,11 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
         sortOrder: i,
       };
     });
-  const existing = new Set((await prisma.rfpSpaceRequest.findMany({ where: { rfpId: id }, select: { id: true } })).map((r) => r.id));
+  const scope = { rfpId: id, ...(kind ? { kind } : {}) };
+  const existing = new Set((await prisma.rfpSpaceRequest.findMany({ where: scope, select: { id: true } })).map((r) => r.id));
   const kept = data.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
   await prisma.$transaction(async (tx) => {
-    await tx.rfpSpaceRequest.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
+    await tx.rfpSpaceRequest.deleteMany({ where: { ...scope, id: { notIn: kept } } });
     for (const { id: rowId, ...row } of data) {
       if (rowId && existing.has(rowId)) await tx.rfpSpaceRequest.update({ where: { id: rowId, rfpId: id }, data: row });
       else await tx.rfpSpaceRequest.create({ data: { ...row, rfpId: id } });

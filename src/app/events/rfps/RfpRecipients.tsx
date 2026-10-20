@@ -33,6 +33,7 @@ export function RfpRecipients({
   today,
   blocks,
   hotels,
+  areas,
   add,
   update,
   remove,
@@ -42,7 +43,9 @@ export function RfpRecipients({
   responseDue: string | null;
   today: string;
   blocks: { id: string; label: string }[];
-  hotels: { id: string; label: string }[];
+  hotels: { id: string; label: string; area: string | null }[];
+  // The areas this RFP targets (its own, else the event's); empty = all.
+  areas: string[];
   add: (venueIds: string[]) => Promise<void>;
   update: (recipientId: string, args: RfpRecipientArgs) => Promise<void>;
   remove: (recipientId: string) => Promise<void>;
@@ -52,7 +55,10 @@ export function RfpRecipients({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const listed = new Set(recipients.map((r) => r.venueId));
-  const unlisted = hotels.filter((h) => !listed.has(h.id));
+  const [showAll, setShowAll] = useState(false);
+  const inArea = (h: { area: string | null }) => areas.length === 0 || (h.area != null && areas.includes(h.area));
+  const unlisted = hotels.filter((h) => !listed.has(h.id) && (showAll || inArea(h)));
+  const outside = hotels.filter((h) => !listed.has(h.id) && !inArea(h)).length;
   const due = responseDue ? dateFromKey(responseDue) : null;
 
   const run = (fn: () => Promise<void>) =>
@@ -163,9 +169,27 @@ export function RfpRecipients({
           {unlisted.map((h) => (
             <option key={h.id} value={h.id}>
               {h.label}
+              {showAll && h.area && !inArea(h) ? ` (${h.area})` : ""}
             </option>
           ))}
         </select>
+      )}
+      {canWrite && areas.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="text-gray-500 dark:text-gray-400">{areas.join(" · ")}</span>
+          <div className="flex flex-wrap gap-3">
+            {!showAll && unlisted.length > 1 && (
+              <button type="button" disabled={pending} onClick={() => run(() => add(unlisted.map((h) => h.id)))} className={link}>
+                Add all {unlisted.length}
+              </button>
+            )}
+            {outside > 0 && (
+              <button type="button" onClick={() => setShowAll((v) => !v)} className={link}>
+                {showAll ? "Only these areas" : `Show all hotels (+${outside})`}
+              </button>
+            )}
+          </div>
+        </div>
       )}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>

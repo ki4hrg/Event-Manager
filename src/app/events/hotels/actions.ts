@@ -77,7 +77,7 @@ export async function getProposalFormChoices(eventId: string) {
       orderBy: { name: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_lead_source"] } },
+      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_lead_source", "hotel_area"] } },
       select: { category: true, label: true, group: true, color: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -94,7 +94,15 @@ export async function getProposalFormChoices(eventId: string) {
     guestTypes: of("hotel_guest_type").map((o) => o.label),
     amenities: of("hotel_amenity").map((o) => o.label),
     leadSources: of("hotel_lead_source").map((o) => o.label),
+    areas: of("hotel_area").map((o) => ({ label: o.label, region: o.group })),
   };
+}
+
+// The hotel areas this event's RFPs target unless an RFP sets its own.
+export async function updateEventHotelAreas(eventId: string, areas: string[]) {
+  await requirePermission("HOTELS", "WRITE", eventId);
+  await prisma.event.update({ where: { id: eventId }, data: { hotelAreas: Array.from(new Set(areas.filter(Boolean))) } });
+  revalidatePath(`/events/${eventId}/hotels`);
 }
 
 function readJson<T>(formData: FormData, key: string): T[] {

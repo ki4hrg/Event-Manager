@@ -442,6 +442,8 @@ model Event {
   membershipCount         Int?
   expectedAttendance      Int?
   actualAttendance        Int?
+  // hotel_area labels hotel RFPs target by default (an RFP may override).
+  hotelAreas              String[]                     @default([])
   functionNumbersLockedAt DateTime?
   specification           EventSpecification?
   specVips                EventSpecVip[]
@@ -595,7 +597,8 @@ model Contact {
   specFinalBillFor            EventSpecification[]      @relation("SpecFinalBillContact")
   specVips                    EventSpecVip[]
   exhibitBooths               ExhibitBooth[]
-  rfpContactFor               Rfp[]
+  rfpContactFor               Rfp[]                     @relation("RfpContact")
+  rfpDecisionMakerFor         Rfp[]                     @relation("RfpDecisionMaker")
   updatedById                 String?
   updatedBy                   User?                     @relation("ContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                  @default(now())
@@ -2650,52 +2653,58 @@ enum RfpStatus {
 }
 
 model Rfp {
-  id                String             @id @default(cuid())
-  eventId           String
-  event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  kind              RfpKind
-  title             String
-  status            RfpStatus          @default(DRAFT)
-  responseDue       DateTime?          @db.Date
-  decisionBy        DateTime?          @db.Date
-  issuedOn          DateTime?          @db.Date
+  id                   String             @id @default(cuid())
+  eventId              String
+  event                Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  kind                 RfpKind
+  title                String
+  status               RfpStatus          @default(DRAFT)
+  responseDue          DateTime?          @db.Date
+  decisionBy           DateTime?          @db.Date
+  issuedOn             DateTime?          @db.Date
   // Document parts that are on; keys from RFP_SECTIONS (src/lib/rfp/sections.ts).
-  sections          String[]           @default([])
-  introduction      String? // RichTextEditor HTML
-  requirements      String? // RichTextEditor HTML
+  sections             String[]           @default([])
+  introduction         String? // RichTextEditor HTML
+  requirements         String? // RichTextEditor HTML
   // Our point of contact, printed on the document.
-  contactId         String?
-  contact           Contact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId            String?
+  contact              Contact?           @relation("RfpContact", fields: [contactId], references: [id], onDelete: SetNull)
   // Requested arrival / departure (the preferred dates); a block grid's
   // nights default to them, and peakRooms fills those nights.
-  arrivalDate       DateTime?          @db.Date
-  departureDate     DateTime?          @db.Date
-  datesFlexible     Boolean            @default(false)
-  dateNotes         String?
-  alternateDates    RfpAlternateDate[]
-  peakRooms         Int?
-  reservationMethod String? // reservation_method option label
-  commissionNotes   String? // rebates, assessments or commissions on rates
-  fbMinimum         Decimal?           @db.Decimal(10, 2)
+  arrivalDate          DateTime?          @db.Date
+  departureDate        DateTime?          @db.Date
+  datesFlexible        Boolean            @default(false)
+  dateNotes            String?
+  alternateDates       RfpAlternateDate[]
+  peakRooms            Int?
+  reservationMethod    String? // reservation_method option label
+  commissionNotes      String? // rebates, assessments or commissions on rates
+  fbMinimum            Decimal?           @db.Decimal(10, 2)
   // What the F&B minimum includes: keys from FB_INCLUDES (src/lib/rfp/sections.ts).
-  fbIncludes        String[]           @default([])
-  fbHistoricalSpend Decimal?           @db.Decimal(10, 2)
-  amenities         String[]           @default([]) // hotel_amenity option labels
-  decisionMaker     String?
-  siteVisitBy       DateTime?          @db.Date
-  spaceRequests     RfpSpaceRequest[]
-  recipients        RfpRecipient[]
-  concessions       RfpConcession[]
-  hotelBlocks       RfpHotelBlock[]
-  hotelProposals    HotelProposal[]
-  files             FileUpload[]
-  updatedById       String?
-  updatedBy         User?              @relation("RfpUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  fbIncludes           String[]           @default([])
+  fbHistoricalSpend    Decimal?           @db.Decimal(10, 2)
+  amenities            String[]           @default([]) // hotel_amenity option labels
+  // Final decision maker: a contact (usually key staff) or free text.
+  decisionMakerId      String?
+  decisionMakerContact Contact?           @relation("RfpDecisionMaker", fields: [decisionMakerId], references: [id], onDelete: SetNull)
+  decisionMaker        String?
+  // hotel_area labels the RFP targets; empty uses the event's hotelAreas.
+  areas                String[]           @default([])
+  siteVisitBy          DateTime?          @db.Date
+  spaceRequests        RfpSpaceRequest[]
+  recipients           RfpRecipient[]
+  concessions          RfpConcession[]
+  hotelBlocks          RfpHotelBlock[]
+  hotelProposals       HotelProposal[]
+  files                FileUpload[]
+  updatedById          String?
+  updatedBy            User?              @relation("RfpUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@index([eventId])
   @@index([contactId])
+  @@index([decisionMakerId])
   @@index([updatedById])
 }
 
@@ -2730,7 +2739,7 @@ model RfpSpaceRequest {
   function        Function?      @relation(fields: [functionId], references: [id], onDelete: SetNull)
   cateringOrderId String?
   cateringOrder   CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: SetNull)
-  day             DateTime       @db.Date
+  day             DateTime?      @db.Date // null = not scheduled yet
   startTime       String?
   endTime         String?
   // function_type label for MEETING rows, meal_type label for FB rows.

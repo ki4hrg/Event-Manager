@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
-import type { RfpKind, RfpStatus } from "@prisma/client";
+import type { RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
@@ -80,6 +80,7 @@ export async function getRfp(id: string, eventId: string) {
     where: { id, eventId },
     include: {
       contact: { select: { id: true, firstName: true, lastName: true, organization: true, email: true, phone: true } },
+      decisionMakerContact: { select: { id: true, firstName: true, lastName: true } },
       concessions: { orderBy: { sortOrder: "asc" } },
       hotelBlocks: { orderBy: { sortOrder: "asc" }, include: { nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] } } },
       alternateDates: { orderBy: { sortOrder: "asc" } },
@@ -103,14 +104,14 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
       orderBy: { sortOrder: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "reservation_method", "rfp_concession"] } },
+      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "reservation_method", "rfp_concession"] } },
       select: { category: true, label: true, group: true },
       orderBy: { sortOrder: "asc" },
     }),
     prisma.eventSeries.findMany({ where: { tenantId: session.tenantId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.venue.findMany({
       where: { tenantId: session.tenantId, isLodging: true },
-      select: { id: true, name: true, city: true, state: true },
+      select: { id: true, name: true, city: true, state: true, area: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -129,9 +130,11 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
     guestTypes: of("hotel_guest_type"),
     amenities: of("hotel_amenity"),
     reservationMethods: of("reservation_method"),
+    // hotel_area labels with their region (the option's group).
+    areas: options.filter((o) => o.category === "hotel_area").map((o) => ({ label: o.label, region: o.group })),
     concessions: options.filter((o) => o.category === "rfp_concession").map((o) => ({ label: o.label, group: o.group })),
     series,
-    hotels: hotels.map((h) => ({ id: h.id, label: [h.name, [h.city, h.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ") })),
+    hotels: hotels.map((h) => ({ id: h.id, area: h.area, label: [h.name, [h.city, h.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ") })),
   };
 }
 
@@ -162,19 +165,23 @@ export async function getRfpDocument(id: string, eventId: string) {
         seriesId: true,
         expectedAttendance: true,
         tenant: { select: { name: true } },
+        hotelAreas: true,
         venues: { orderBy: { sortOrder: "asc" }, take: 1, select: { venue: { select: { city: true, state: true } } } },
         specification: { select: { eventType: true, eventScope: true, eventFrequency: true, narrative: true } },
       },
     }),
-    rfp.contactId
-      ? prisma.eventKeyStaff.findFirst({ where: { eventId, contactId: rfp.contactId }, select: { title: true }, orderBy: { sortOrder: "asc" } })
-      : null,
+    prisma.eventKeyStaff.findMany({
+      where: { eventId, contactId: { in: [rfp.contactId, rfp.decisionMakerId].filter((c): c is string => !!c) } },
+      select: { contactId: true, title: true },
+      orderBy: { sortOrder: "asc" },
+    }),
     prisma.customOption.findMany({
       where: { tenant: { events: { some: { id: eventId } } }, category: "rfp_concession" },
       select: { label: true, group: true },
     }),
   ]);
   const sections = new Set(rfp.sections);
+  const titleOf = (contactId: string | null) => keyStaff.find((k) => k.contactId === contactId)?.title ?? null;
   // Pickup history reads across the tenant's events, so it needs HOTELS beyond this one event.
   const history =
     sections.has("history") && event.seriesId && (await hasPermission("HOTELS", "VIEW"))
@@ -196,7 +203,12 @@ export async function getRfpDocument(id: string, eventId: string) {
     rfp: {
       ...rfp,
       sections: parseSections(rfp.kind, rfp.sections),
-      contactTitle: keyStaff?.title ?? null,
+      contactTitle: titleOf(rfp.contactId),
+      areas: rfp.areas.length ? rfp.areas : event.hotelAreas,
+      // "Name — Title" for a contact, else what was typed.
+      decisionMaker: rfp.decisionMakerContact
+        ? [`${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim(), titleOf(rfp.decisionMakerId)].filter(Boolean).join(" — ")
+        : rfp.decisionMaker,
       // Files staff attached for the hotels; the RFP's own issued copies aren't attachments.
       attachments: rfp.files.filter((f) => f.fileType !== "RFP").map((f) => f.fileName),
     },
@@ -349,7 +361,9 @@ function readRfp(formData: FormData): RfpWriteArgs {
     fbIncludes: formData.getAll("fbIncludes") as string[],
     fbHistoricalSpend: formData.get("fbHistoricalSpend") ? Number(formData.get("fbHistoricalSpend")) : null,
     amenities: formData.getAll("amenities") as string[],
+    decisionMakerId: str("decisionMakerId"),
     decisionMaker: str("decisionMaker"),
+    areas: formData.getAll("areas") as string[],
     siteVisitBy: str("siteVisitBy"),
   };
 }
@@ -394,10 +408,10 @@ export async function saveRfpConcessions(id: string, eventId: string, concession
   revalidatePath(rfpPath(eventId, kind, id));
 }
 
-export async function saveRfpSpace(id: string, eventId: string, rows: RfpSpaceArgs[]) {
+export async function saveRfpSpace(id: string, eventId: string, spaceKind: RfpSpaceKind, rows: RfpSpaceArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await saveRfpSpaceCore(id, eventId, rows, session.user.id);
+  await saveRfpSpaceCore(id, eventId, rows, session.user.id, spaceKind === "FB" ? "FB" : "MEETING");
   revalidatePath(rfpPath(eventId, kind, id));
 }
 

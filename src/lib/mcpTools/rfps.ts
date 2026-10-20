@@ -126,7 +126,9 @@ const rfpProps = {
   fbIncludes: { type: "array", items: { type: "string", enum: ["TAX", "SERVICE", "GRATUITY"] }, description: "What the F&B minimum includes." },
   fbHistoricalSpend: { type: ["number", "null"] },
   amenities: { type: "array", items: { type: "string" }, description: "Requested amenities: hotel_amenity option labels." },
-  decisionMaker: { type: ["string", "null"], description: "Final decision maker (name & role)." },
+  decisionMakerId: { type: ["string", "null"], description: "Final decision maker as a contact id (usually key staff). Clears decisionMaker." },
+  decisionMaker: { type: ["string", "null"], description: "Final decision maker typed in (name & role), when not a contact." },
+  areas: { type: "array", items: { type: "string" }, description: "hotel_area labels this RFP targets; empty uses the event's hotel areas." },
   siteVisitBy: { type: ["string", "null"], description: "YYYY-MM-DD." },
 } as const;
 
@@ -170,7 +172,9 @@ function mergeRfp(current: RfpWriteArgs, args: Record<string, unknown>): RfpWrit
     fbIncludes: pick(stringList(args, "fbIncludes"), current.fbIncludes),
     fbHistoricalSpend: pick(partialNumber(args, "fbHistoricalSpend"), current.fbHistoricalSpend),
     amenities: pick(stringList(args, "amenities"), current.amenities),
+    decisionMakerId: pick(partialString(args, "decisionMakerId"), current.decisionMakerId),
     decisionMaker: pick(partialString(args, "decisionMaker"), current.decisionMaker),
+    areas: pick(stringList(args, "areas"), current.areas),
     siteVisitBy: pick(dateArg(args, "siteVisitBy"), current.siteVisitBy),
   };
 }
@@ -280,7 +284,9 @@ export const rfpTools: McpToolDefinition[] = [
         fbIncludes: [],
         fbHistoricalSpend: null,
         amenities: [],
+        decisionMakerId: null,
         decisionMaker: null,
+        areas: [],
         siteVisitBy: null,
       };
       return createRfpCore(requireString(args, "eventId"), kind, mergeRfp(blank, args), "blocks" in args ? readBlocks(args.blocks) : [], userId);
@@ -322,7 +328,9 @@ export const rfpTools: McpToolDefinition[] = [
         fbIncludes: r.fbIncludes,
         fbHistoricalSpend: r.fbHistoricalSpend == null ? null : Number(r.fbHistoricalSpend),
         amenities: r.amenities,
+        decisionMakerId: r.decisionMakerId,
         decisionMaker: r.decisionMaker,
+        areas: r.areas,
         siteVisitBy: day(r.siteVisitBy),
       };
       return updateRfpCore(id, eventId, mergeRfp(current, args), userId);
@@ -375,7 +383,7 @@ export const rfpTools: McpToolDefinition[] = [
               kind: { type: "string", enum: ["MEETING", "FB"] },
               functionId: { type: ["string", "null"] },
               cateringOrderId: { type: ["string", "null"] },
-              day: { type: "string", description: "YYYY-MM-DD." },
+              day: { type: ["string", "null"], description: "YYYY-MM-DD; null when not scheduled yet." },
               startTime: { type: ["string", "null"], description: "HH:MM, 24-hour, event-local." },
               endTime: { type: ["string", "null"] },
               functionType: { type: ["string", "null"] },
@@ -387,7 +395,7 @@ export const rfpTools: McpToolDefinition[] = [
               hold24: { type: "boolean" },
               room: { type: ["string", "null"] },
             },
-            required: ["kind", "day", "name"],
+            required: ["kind", "name"],
           },
         },
       },
@@ -404,7 +412,7 @@ export const rfpTools: McpToolDefinition[] = [
           kind: r.kind === "FB" ? "FB" : r.kind === "MEETING" ? "MEETING" : (String(r.kind) as RfpSpaceArgs["kind"]),
           functionId: str(r.functionId),
           cateringOrderId: str(r.cateringOrderId),
-          day: String(r.day ?? ""),
+          day: str(r.day),
           startTime: str(r.startTime),
           endTime: str(r.endTime),
           functionType: str(r.functionType),

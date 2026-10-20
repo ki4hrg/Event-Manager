@@ -118,6 +118,7 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
 
   out.push(heading("III. Requirements"));
   if (doc.statementOfNeed) out.push(subheading("Statement of need"), ...richParagraphs(doc.statementOfNeed), spacer());
+  if (doc.locations.length) out.push(subheading("Location"), ...textParagraphs(`Preferred areas: ${doc.locations.join(" · ")}`), spacer());
   out.push(
     subheading("Dates"),
     ...facts([
