@@ -2,7 +2,7 @@
 // asked for. One group per requested block, plus one for RFP proposals not
 // tied to a block. Read by the compare page and its .docx. Pure.
 
-import type { ConcessionMet, HotelBlockType, HotelChargeScope } from "@prisma/client";
+import type { ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
 import { CHARGE_SCOPE_LABELS, dateKey, formatMoney, formatNight, MET_LABELS } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
 
@@ -11,7 +11,7 @@ type Dec = { toString(): string } | null;
 export type CompareInput = {
   title: string;
   eventName: string;
-  blocks: { id: string; blockType: HotelBlockType; targetRate: Dec; nights: { night: Date; rooms: number }[] }[];
+  blocks: { id: string; contractType: HotelContractType; guestType: string | null; targetRate: Dec; nights: { night: Date; rooms: number }[] }[];
   concessions: { id: string; label: string; value: string | null; required: boolean }[];
   proposals: {
     id: string;
@@ -123,7 +123,7 @@ export function buildComparison(input: CompareInput): RfpComparison {
   const groups = input.blocks.map((b) => {
     const req = byNight(b.nights);
     return group(
-      blockLabel(b.blockType),
+      blockLabel(b.contractType, b.guestType),
       { byNight: req, peak: Math.max(0, ...Object.values(req)), roomNights: sum(Object.values(req)), targetRate: num(b.targetRate) },
       input.proposals.filter((p) => p.rfpBlockId === b.id),
       input.concessions,

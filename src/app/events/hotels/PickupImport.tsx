@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import type { HotelPickupMethod } from "@prisma/client";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
-import { formatNight, nightKeys } from "@/lib/hotels";
+import { formatNight, nightKeys, roomTypeLabel } from "@/lib/hotels";
 
 type GuestArgs = {
   guestName: string | null;
@@ -75,13 +75,11 @@ function guessColumns(headers: string[]): Record<FieldKey, string> {
 
 function GuestImport({
   roomTypes,
-  isRunOfHouse,
   hasGuests,
   importGuests,
   done,
 }: {
   roomTypes: string[];
-  isRunOfHouse: boolean;
   hasGuests: boolean;
   importGuests: (method: ImportMethod, fileName: string | null, guests: GuestArgs[]) => Promise<void>;
   done: (message: string) => void;
@@ -188,7 +186,7 @@ function GuestImport({
             </div>
           </div>
 
-          {!isRunOfHouse && rawRoomTypes.length > 0 && (
+          {rawRoomTypes.length > 0 && (
             <div>
               <h3 className={headingClass}>Room types</h3>
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -319,11 +317,11 @@ function CountEntry({
               <tbody>
                 {roomTypes.map((t) => (
                   <tr key={t ?? "__all__"}>
-                    <td className="py-1 pr-3 text-gray-900 dark:text-white whitespace-nowrap">{t ?? "All rooms"}</td>
+                    <td className="py-1 pr-3 text-gray-900 dark:text-white whitespace-nowrap">{roomTypeLabel(t)}</td>
                     {nights.map((n) => (
                       <td key={n} className="py-1 px-1">
                         <input
-                          aria-label={`${t ?? "All rooms"} ${n}`}
+                          aria-label={`${roomTypeLabel(t)} ${n}`}
                           type="number"
                           min={0}
                           value={values[cellKey(t, n)] ?? ""}
@@ -351,7 +349,6 @@ export function PickupImport({
   blockHref,
   checkIn,
   checkOut,
-  isRunOfHouse,
   blockRoomTypes,
   tenantRoomTypes,
   hasGuests,
@@ -362,8 +359,8 @@ export function PickupImport({
   blockHref: string;
   checkIn: string | null;
   checkOut: string | null;
-  isRunOfHouse: boolean;
-  blockRoomTypes: string[];
+  // The block's room types; null is its Run of House allotment.
+  blockRoomTypes: (string | null)[];
   tenantRoomTypes: string[];
   hasGuests: boolean;
   counts: CountArgs[];
@@ -375,12 +372,12 @@ export function PickupImport({
     router.push(`${blockHref}?success=${encodeURIComponent(message)}`);
     router.refresh();
   };
-  const countTypes: (string | null)[] = isRunOfHouse || blockRoomTypes.length === 0 ? [null] : blockRoomTypes;
+  const countTypes = blockRoomTypes.length === 0 ? [null] : blockRoomTypes;
+  const typed = blockRoomTypes.filter((t): t is string => t != null);
   return (
     <div className="space-y-6">
       <GuestImport
-        roomTypes={Array.from(new Set([...blockRoomTypes, ...tenantRoomTypes]))}
-        isRunOfHouse={isRunOfHouse}
+        roomTypes={Array.from(new Set([...typed, ...tenantRoomTypes]))}
         hasGuests={hasGuests}
         importGuests={importGuests}
         done={done}

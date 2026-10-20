@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
-import { BLOCK_TYPES, formatNight, parseBlockTypes } from "@/lib/hotels";
+import { CONTRACT_TYPES, formatNight } from "@/lib/hotels";
 
 const fieldClass =
   "block rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-2 py-1.5";
@@ -71,11 +71,8 @@ export function HotelReportFilters({ series }: { series: { id: string; name: str
   );
 }
 
-export function PatternFilters({ series, cities }: { series: { id: string; name: string }[]; cities: string[] }) {
+export function PatternFilters({ series, cities, guestTypes }: { series: { id: string; name: string }[]; cities: string[]; guestTypes: string[] }) {
   const { sp, set } = useSetParam();
-  const types = parseBlockTypes(sp.get("types") ?? undefined);
-  const toggleType = (value: string, on: boolean) =>
-    set("types", BLOCK_TYPES.filter((t) => (t.value === value ? on : types.includes(t.value))).map((t) => t.value).join(","));
   return (
     <div className="flex flex-wrap items-end gap-3">
       <SeriesAndDates series={series} />
@@ -90,19 +87,28 @@ export function PatternFilters({ series, cities }: { series: { id: string; name:
           ))}
         </select>
       </label>
-      <fieldset className="flex items-center gap-3 pb-1.5">
-        {BLOCK_TYPES.map((t) => (
-          <label key={t.value} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={types.includes(t.value)}
-              onChange={(e) => toggleType(t.value, e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600"
-            />
-            {t.label}
-          </label>
-        ))}
-      </fieldset>
+      <label className={labelClass}>
+        Contract
+        <select value={sp.get("contract") ?? ""} onChange={(e) => set("contract", e.target.value)} className={fieldClass}>
+          <option value="">All</option>
+          {CONTRACT_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className={labelClass}>
+        Guests
+        <select value={sp.get("guest") ?? ""} onChange={(e) => set("guest", e.target.value)} className={fieldClass}>
+          <option value="">All</option>
+          {guestTypes.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

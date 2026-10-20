@@ -7,7 +7,7 @@ import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-group
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 import { requirePermission } from "@/lib/permissions";
-import { parseBlockTypes } from "@/lib/hotels";
+import { hotelInfoGuestTypes } from "@/lib/hotels";
 import { ReportFilters } from "./ReportFilters";
 import { HotelInfoReport } from "./HotelInfoReport";
 
@@ -20,15 +20,15 @@ export default async function HotelInfoReportPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ blockTypes?: string; addToDashboard?: string }>;
+  searchParams: Promise<{ guestTypes?: string; addToDashboard?: string }>;
 }) {
   const { id: eventId } = await params;
   const sp = await searchParams;
   await requirePermission("HOTELS", "VIEW", eventId);
-  const blockTypes = parseBlockTypes(sp.blockTypes);
+  const guestTypes = hotelInfoGuestTypes(sp.guestTypes);
   const [event, data, dashboardChoices] = await Promise.all([
     getEvent(eventId),
-    getHotelInfoReportData(eventId, { blockTypes }),
+    getHotelInfoReportData(eventId, { guestTypes }),
     listShareLinkGroupChoicesForEvent(eventId),
   ]);
   if (!event || !data) notFound();
@@ -49,12 +49,13 @@ export default async function HotelInfoReportPage({
         <AddToDashboardBanner eventId={eventId} addToDashboardId={sp.addToDashboard} dashboardChoices={dashboardChoices} />
         <ReportFilters
           eventId={eventId}
-          blockTypes={blockTypes}
+          guestTypes={data.guestTypes}
+          guestTypeOptions={data.guestTypeOptions}
           shareButton={
             <ShareReportButton
               eventId={eventId}
               reportType="HOTEL_INFO"
-              currentFilters={{ blockTypes }}
+              currentFilters={{ guestTypes: data.guestTypes }}
               dashboardChoices={dashboardChoices}
               addToDashboardId={sp.addToDashboard}
             />

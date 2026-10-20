@@ -6,7 +6,7 @@
 // checks in for that night — so nights run from check-in up to, but not
 // including, check-out.
 
-import type { ConcessionMet, HotelBlockType, HotelChargeScope } from "@prisma/client";
+import type { ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
 
 // proposal_status options carry one of these as their group.
 export type ProposalStage = "REQUESTED" | "PENDING" | "ACCEPTED" | "DECLINED";
@@ -18,17 +18,26 @@ export const PROPOSAL_STAGES: { value: ProposalStage; label: string }[] = [
   { value: "DECLINED", label: "Declined" },
 ];
 
-export const BLOCK_TYPES: { value: HotelBlockType; label: string }[] = [
-  { value: "CONTRACT", label: "Contract attendee" },
-  { value: "COURTESY", label: "Courtesy attendee" },
-  { value: "STAFF", label: "Staff" },
+// A block's type is its contract type (fixed: contract carries attrition,
+// courtesy doesn't) plus its guest type (a hotel_guest_type option label).
+export const CONTRACT_TYPES: { value: HotelContractType; label: string }[] = [
+  { value: "CONTRACT", label: "Contract" },
+  { value: "COURTESY", label: "Courtesy" },
 ];
 
-export const BLOCK_TYPE_LABELS: Record<HotelBlockType, string> = {
-  CONTRACT: "Contract attendee",
-  COURTESY: "Courtesy attendee",
-  STAFF: "Staff",
+export const CONTRACT_TYPE_LABELS: Record<HotelContractType, string> = {
+  CONTRACT: "Contract",
+  COURTESY: "Courtesy",
 };
+
+// "Contract · Attendees"; either half may be missing.
+export function blockTypeLabel(contractType: HotelContractType | null, guestType: string | null): string | null {
+  return [contractType ? CONTRACT_TYPE_LABELS[contractType] : null, guestType].filter(Boolean).join(" · ") || null;
+}
+
+// A night's null room type is the Run of House allotment.
+export const RUN_OF_HOUSE = "Run of House";
+export const roomTypeLabel = (roomType: string | null) => roomType ?? RUN_OF_HOUSE;
 
 export const CHARGE_SCOPES: { value: HotelChargeScope; label: string }[] = [
   { value: "PER_NIGHT", label: "Per night" },
@@ -72,6 +81,11 @@ export function parseDateKey(value: FormDataEntryValue | string | null | undefin
 }
 
 // Night keys from check-in up to (not including) check-out.
+// The date key n days after (or before, when negative) a key.
+export function addDays(key: string, n: number): string {
+  return dateKey(new Date(dateFromKey(key).getTime() + n * 86_400_000));
+}
+
 export function nightKeys(checkIn: string | null, checkOut: string | null): string[] {
   if (!checkIn || !checkOut || checkOut <= checkIn) return [];
   const keys: string[] = [];
@@ -98,8 +112,19 @@ export function formatMoney(value: string | number | null | undefined): string {
   return Number.isFinite(n) ? n.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "—";
 }
 
-// "CONTRACT,STAFF" (a URL param) → validated block-type list.
-export function parseBlockTypes(raw: string | undefined): HotelBlockType[] {
-  const valid = new Set<string>(BLOCK_TYPES.map((t) => t.value));
-  return (raw ?? "").split(",").filter((t): t is HotelBlockType => valid.has(t));
+// Hotel Information's guest-type filter: "?guestTypes=Attendees,VIP", else a
+// share link's stored guestTypes, else blockTypes stored before the block
+// type split (CONTRACT / COURTESY → Attendees, STAFF → Staff). Labels are
+// checked against the tenant's list by the report reader.
+export function hotelInfoGuestTypes(param: string | undefined, stored?: { guestTypes?: string[]; blockTypes?: string[] }): string[] {
+  if (param != null) return param.split(",").filter(Boolean);
+  if (stored?.guestTypes) return stored.guestTypes;
+  return Array.from(new Set((stored?.blockTypes ?? []).map((t) => (t === "STAFF" ? "Staff" : "Attendees"))));
+}
+
+// "CONTRACT,COURTESY" (a URL param) → validated contract-type list; unknown
+// values drop out, so a stale link means no filter.
+export function parseContractTypes(raw: string | undefined): HotelContractType[] {
+  const valid = new Set<string>(CONTRACT_TYPES.map((t) => t.value));
+  return (raw ?? "").split(",").filter((t): t is HotelContractType => valid.has(t));
 }

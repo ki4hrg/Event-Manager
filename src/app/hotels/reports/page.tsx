@@ -4,9 +4,9 @@ import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { reportTd, reportTh } from "@/lib/reportStyles";
-import { BLOCK_TYPE_LABELS, formatDateKey, formatNight, parseBlockTypes } from "@/lib/hotels";
+import { blockTypeLabel, formatDateKey, formatNight, parseContractTypes } from "@/lib/hotels";
 import { eventRoles, offsetLabel, patternStats, proposedRoles, proposeNights, roleLabel, type PatternBasis } from "@/lib/hotelPattern";
-import { getBlockMonitoring, getHotelCities, getHotelPickupHistory, getPickupPattern, getProposalEventChoices, getSeriesChoices, type PatternFilters } from "../actions";
+import { getBlockMonitoring, getHotelCities, getHotelGuestTypes, getHotelPickupHistory, getPickupPattern, getProposalEventChoices, getSeriesChoices, type PatternFilters } from "../actions";
 import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar, ProposalControls, ShowBlockToggle } from "./HotelReportFilters";
 
 export const dynamic = "force-dynamic";
@@ -103,7 +103,7 @@ async function History({ seriesId, from, to, byHotel }: { seriesId?: string; fro
                         <td className={`${reportTd} pl-8`} colSpan={3}>
                           {h.hotel}
                           {h.isHq && " (HQ)"}
-                          {h.blockType && <span className="text-gray-500 dark:text-gray-400"> · {BLOCK_TYPE_LABELS[h.blockType]}</span>}
+                          {blockTypeLabel(h.contractType, h.guestType) && <span className="text-gray-500 dark:text-gray-400"> · {blockTypeLabel(h.contractType, h.guestType)}</span>}
                         </td>
                         <td className={`${reportTd} text-right`}>{h.blocked}</td>
                         <td className={`${reportTd} text-right`}>{h.pickedUp}</td>
@@ -202,8 +202,11 @@ async function Pattern({
   customEnd?: string;
   showBlock: boolean;
 }) {
+  // An unknown guest type in the URL means no filter, not an empty pattern.
+  const guestTypes = await getHotelGuestTypes();
+  const valid = { ...filters, guestTypes: filters.guestTypes.filter((g) => guestTypes.includes(g)) };
   const [{ events, noPickup }, series, cities, upcoming] = await Promise.all([
-    getPickupPattern(filters),
+    getPickupPattern(valid),
     getSeriesChoices(),
     getHotelCities(),
     getProposalEventChoices(),
@@ -237,7 +240,8 @@ async function Pattern({
   const rfpHref = (eventId: string) => {
     const q = new URLSearchParams({ basis, adjust: String(adjust) });
     if (filters.seriesId && filters.seriesId !== "__blank__") q.set("series", filters.seriesId);
-    if (filters.blockTypes.length === 1) q.set("blockType", filters.blockTypes[0]);
+    if (valid.contractTypes.length === 1) q.set("contract", valid.contractTypes[0]);
+    if (valid.guestTypes.length === 1) q.set("guest", valid.guestTypes[0]);
     if (filters.city) q.set("city", filters.city);
     if (filters.from) q.set("from", filters.from);
     if (filters.to) q.set("to", filters.to);
@@ -299,7 +303,7 @@ async function Pattern({
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <PatternFilterBar series={series} cities={cities} />
+        <PatternFilterBar series={series} cities={cities} guestTypes={guestTypes} />
         <CsvButton fileName="hotel-rfp-pattern.csv" rows={csv} />
       </div>
       {noPickup.length > 0 && (
@@ -440,7 +444,8 @@ export default async function HotelReportsPage({
     to?: string;
     byHotel?: string;
     city?: string;
-    types?: string;
+    contract?: string;
+    guest?: string;
     basis?: string;
     adjust?: string;
     start?: string;
@@ -462,7 +467,7 @@ export default async function HotelReportsPage({
         <Monitoring />
       ) : view === "pattern" ? (
         <Pattern
-          filters={{ seriesId: sp.series || undefined, city: sp.city || undefined, blockTypes: parseBlockTypes(sp.types), from, to }}
+          filters={{ seriesId: sp.series || undefined, city: sp.city || undefined, contractTypes: parseContractTypes(sp.contract), guestTypes: sp.guest ? [sp.guest] : [], from, to }}
           basis={sp.basis === "highest" || sp.basis === "latest" ? sp.basis : "average"}
           adjust={Number.isFinite(adjust) ? Math.min(200, Math.max(-90, adjust)) : 0}
           forEvent={sp.for || undefined}

@@ -1,53 +1,59 @@
 "use client";
 
-import { formatNight } from "@/lib/hotels";
+import { formatNight, roomTypeLabel, RUN_OF_HOUSE } from "@/lib/hotels";
 
-// Room type × night grid editor shared by proposals (rooms + rate per cell)
-// and RFP blocks (rooms only). The parent owns the rows; run of house is a
-// single row with a null room type.
+// Night × room-type grid editor shared by proposals (rooms + rate per cell)
+// and RFP blocks (rooms only), laid out like the APEX / hotel RFP forms: one
+// row per night, one column per room type, a Total column. A null room type
+// is the Run of House allotment and can sit beside typed rooms. The parent
+// owns the rows (one GridRow per room-type column) and the nights shown;
+// onAddDay / onRemoveDay, when given, grow or trim the range at either edge.
 
 export type GridCell = { rooms: string; rate: string };
 export type GridRow = { roomType: string | null; cells: Record<string, GridCell> };
+export type GridEdge = "before" | "after";
 
 const EMPTY: GridCell = { rooms: "", rate: "" };
-const ROH = "__roh__";
+const ROH = "__blank__";
 
 const cellInputClass =
   "w-16 px-1.5 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm text-right";
+const linkClass = "text-sm text-blue-600 dark:text-blue-400 hover:underline";
 
-// The rows the grid shows: the run-of-house row, or the typed rows.
-export function visibleGridRows(rows: GridRow[], runOfHouse: boolean): GridRow[] {
-  const shown = runOfHouse ? rows.filter((r) => r.roomType === null) : rows.filter((r) => r.roomType !== null);
-  return runOfHouse && shown.length === 0 ? [{ roomType: null, cells: {} }] : shown;
+const roomsOf = (c: GridCell | undefined) => parseInt(c?.rooms ?? "") || 0;
+
+// Rooms per night across every column, and the peak / total they make.
+export function gridTotals(keys: string[], rows: GridRow[]) {
+  const byNight = Object.fromEntries(keys.map((k) => [k, rows.reduce((s, r) => s + roomsOf(r.cells[k]), 0)]));
+  const values = Object.values(byNight);
+  return { byNight, peak: Math.max(0, ...values), roomNights: values.reduce((s, n) => s + n, 0) };
 }
 
 export function RoomGridEditor({
   keys,
   rows,
-  runOfHouse,
   roomTypes,
   withRate,
   onChange,
+  onAddDay,
+  onRemoveDay,
 }: {
   keys: string[];
   rows: GridRow[];
-  runOfHouse: boolean;
   roomTypes: string[];
   withRate: boolean;
   onChange: (rows: GridRow[]) => void;
+  onAddDay?: (edge: GridEdge) => void;
+  onRemoveDay?: (edge: GridEdge) => void;
 }) {
-  const visibleRows = visibleGridRows(rows, runOfHouse);
-  const usedTypes = new Set(visibleRows.map((r) => r.roomType));
-  const unusedTypes = roomTypes.filter((t) => !usedTypes.has(t));
+  const used = new Set(rows.map((r) => r.roomType));
+  const unusedTypes = roomTypes.filter((t) => !used.has(t));
+  const totals = gridTotals(keys, rows);
 
-  const setCell = (roomType: string | null, night: string, field: keyof GridCell, value: string) => {
-    const base = rows.some((r) => r.roomType === roomType) ? rows : [...rows, { roomType, cells: {} }];
-    onChange(
-      base.map((r) => (r.roomType === roomType ? { ...r, cells: { ...r.cells, [night]: { ...(r.cells[night] ?? EMPTY), [field]: value } } } : r)),
-    );
-  };
-  // Copies the first night across the stay.
-  const fillRow = (roomType: string | null) =>
+  const setCell = (roomType: string | null, night: string, field: keyof GridCell, value: string) =>
+    onChange(rows.map((r) => (r.roomType === roomType ? { ...r, cells: { ...r.cells, [night]: { ...(r.cells[night] ?? EMPTY), [field]: value } } } : r)));
+  // Copies the first night down the column.
+  const fillColumn = (roomType: string | null) =>
     onChange(
       rows.map((r) => {
         if (r.roomType !== roomType || keys.length === 0) return r;
@@ -55,36 +61,78 @@ export function RoomGridEditor({
         return { ...r, cells: { ...r.cells, ...Object.fromEntries(keys.map((k) => [k, { ...first }])) } };
       }),
     );
+  const addColumn = (value: string) => onChange([...rows, { roomType: value === ROH ? null : value, cells: {} }]);
+
+  const edgeRemove = (edge: GridEdge) =>
+    onRemoveDay && keys.length > 1 ? (
+      <button type="button" onClick={() => onRemoveDay(edge)} aria-label={`Remove ${edge === "before" ? "first" : "last"} night`} className="ml-2 text-xs text-red-600 dark:text-red-400 hover:underline">
+        ×
+      </button>
+    ) : null;
 
   return (
-    <>
+    <div className="space-y-2">
+      {onAddDay && (
+        <button type="button" onClick={() => onAddDay("before")} className={linkClass}>
+          + Add day before
+        </button>
+      )}
       <div className="overflow-x-auto">
         <table className="text-sm">
           <thead>
             <tr>
-              <th className="py-1 pr-3 text-left font-medium text-gray-700 dark:text-gray-300">Room type</th>
-              {keys.map((k) => (
-                <th key={k} className="py-1 px-1 text-center font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                  {formatNight(k)}
+              <th className="py-1 pr-3 text-left font-medium text-gray-700 dark:text-gray-300">Night</th>
+              {rows.map((r) => (
+                <th key={r.roomType ?? ROH} className="py-1 px-1 text-center font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap align-bottom">
+                  {roomTypeLabel(r.roomType)}
+                  {withRate && <div className="text-xs font-normal text-gray-500 dark:text-gray-400">rooms / rate</div>}
+                  <div className="flex justify-center gap-2 text-xs font-normal">
+                    <button type="button" onClick={() => fillColumn(r.roomType)} className="text-blue-600 dark:text-blue-400 hover:underline">
+                      Fill ↓
+                    </button>
+                    <button type="button" onClick={() => onChange(rows.filter((x) => x.roomType !== r.roomType))} className="text-red-600 dark:text-red-400 hover:underline">
+                      Remove
+                    </button>
+                  </div>
                 </th>
               ))}
-              <th />
+              {rows.length > 1 && <th className="py-1 pl-3 text-right font-medium text-gray-700 dark:text-gray-300 align-bottom">Total</th>}
+              <th className="py-1 pl-3 text-left align-bottom">
+                {(!used.has(null) || unusedTypes.length > 0) && (
+                  <select
+                    aria-label="Add room type"
+                    value=""
+                    onChange={(e) => e.target.value && addColumn(e.target.value)}
+                    className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm font-normal"
+                  >
+                    <option value="">+ Room type</option>
+                    {!used.has(null) && <option value={ROH}>{RUN_OF_HOUSE}</option>}
+                    {unusedTypes.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((r) => (
-              <tr key={r.roomType ?? ROH} className="align-top">
+            {keys.map((k, i) => (
+              <tr key={k} className="align-top">
                 <td className="py-1 pr-3 text-gray-900 dark:text-white whitespace-nowrap">
-                  {r.roomType ?? "Run of house"}
-                  {withRate && <div className="text-xs text-gray-500 dark:text-gray-400">rooms / rate</div>}
+                  {formatNight(k)}
+                  {i === 0 && edgeRemove("before")}
+                  {i === keys.length - 1 && i > 0 && edgeRemove("after")}
                 </td>
-                {keys.map((k) => {
+                {rows.map((r) => {
                   const c = r.cells[k] ?? EMPTY;
+                  const label = `${roomTypeLabel(r.roomType)} ${k}`;
                   return (
-                    <td key={k} className="py-1 px-1">
-                      <div className="flex flex-col gap-1">
+                    <td key={r.roomType ?? ROH} className="py-1 px-1">
+                      <div className="flex justify-center gap-1">
                         <input
-                          aria-label={`${r.roomType ?? "Run of house"} ${k} rooms`}
+                          aria-label={`${label} rooms`}
                           type="number"
                           min={0}
                           value={c.rooms}
@@ -93,7 +141,7 @@ export function RoomGridEditor({
                         />
                         {withRate && (
                           <input
-                            aria-label={`${r.roomType ?? "Run of house"} ${k} rate`}
+                            aria-label={`${label} rate`}
                             type="number"
                             min={0}
                             step="0.01"
@@ -107,40 +155,21 @@ export function RoomGridEditor({
                     </td>
                   );
                 })}
-                <td className="py-1 pl-2 whitespace-nowrap">
-                  <button type="button" onClick={() => fillRow(r.roomType)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                    Fill →
-                  </button>
-                  {!runOfHouse && (
-                    <button
-                      type="button"
-                      onClick={() => onChange(rows.filter((x) => x.roomType !== r.roomType))}
-                      className="block text-xs text-red-600 dark:text-red-400 hover:underline mt-1"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </td>
+                {rows.length > 1 && <td className="py-1 pl-3 text-right tabular-nums text-gray-900 dark:text-white">{totals.byNight[k]}</td>}
+                <td />
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {!runOfHouse && unusedTypes.length > 0 && (
-        <select
-          aria-label="Add room type"
-          value=""
-          onChange={(e) => e.target.value && onChange([...rows, { roomType: e.target.value, cells: {} }])}
-          className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
-        >
-          <option value="">+ Room type</option>
-          {unusedTypes.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+      {onAddDay && (
+        <button type="button" onClick={() => onAddDay("after")} className={linkClass}>
+          + Add day after
+        </button>
       )}
-    </>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        Peak night {totals.peak} · {totals.roomNights} room nights
+      </p>
+    </div>
   );
 }

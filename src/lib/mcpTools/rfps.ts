@@ -1,4 +1,4 @@
-import type { HotelBlockType, RfpKind, RfpStatus } from "@prisma/client";
+import type { HotelContractType, RfpKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
@@ -24,7 +24,7 @@ import type { McpToolDefinition } from "./types";
 import { partialBoolean, partialString, requireString } from "./types";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const BLOCK_TYPES = new Set(["CONTRACT", "COURTESY", "STAFF"]);
+const CONTRACT_TYPES = new Set(["CONTRACT", "COURTESY"]);
 const STATUSES = new Set(["DRAFT", "ISSUED", "CLOSED"]);
 const MET = new Set(["MET", "PARTIAL", "NOT_MET"]);
 
@@ -53,8 +53,8 @@ const blockSchema = {
   type: "object",
   properties: {
     id: { type: ["string", "null"], description: "An existing block's id (get_rfp) to keep it and the proposals linked to it; omit for a new block." },
-    blockType: { type: "string", enum: ["CONTRACT", "COURTESY", "STAFF"], description: "CONTRACT = contract attendee, COURTESY = courtesy attendee, STAFF = staff." },
-    isRunOfHouse: { type: "boolean" },
+    contractType: { type: "string", enum: ["CONTRACT", "COURTESY"], description: "CONTRACT carries attrition; COURTESY is held without it." },
+    guestType: { type: ["string", "null"], description: "Who the rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
     targetRate: { type: ["number", "null"] },
     notes: { type: ["string", "null"] },
     nights: {
@@ -63,7 +63,7 @@ const blockSchema = {
       items: {
         type: "object",
         properties: {
-          roomType: { type: ["string", "null"], description: "hotel_room_type option label; null for run of house." },
+          roomType: { type: ["string", "null"], description: "hotel_room_type option label; null = Run of House (may sit beside typed rooms)." },
           night: { type: "string", description: "YYYY-MM-DD — the check-in date of that night." },
           rooms: { type: "integer" },
         },
@@ -71,18 +71,18 @@ const blockSchema = {
       },
     },
   },
-  required: ["blockType", "nights"],
+  required: ["contractType", "nights"],
 } as const;
 
 function readBlocks(v: unknown): RfpBlockArgs[] {
   if (!Array.isArray(v)) throw new Error("blocks must be a list");
   return v.map((b: Record<string, unknown>) => {
-    if (!BLOCK_TYPES.has(String(b.blockType))) throw new Error("blockType must be CONTRACT, COURTESY or STAFF");
+    if (!CONTRACT_TYPES.has(String(b.contractType))) throw new Error("contractType must be CONTRACT or COURTESY");
     if (!Array.isArray(b.nights)) throw new Error("each block needs nights");
     return {
       id: typeof b.id === "string" ? b.id : null,
-      blockType: b.blockType as HotelBlockType,
-      isRunOfHouse: b.isRunOfHouse === true,
+      contractType: b.contractType as HotelContractType,
+      guestType: typeof b.guestType === "string" ? b.guestType : null,
       targetRate: typeof b.targetRate === "number" ? b.targetRate : null,
       notes: typeof b.notes === "string" ? b.notes : null,
       nights: (b.nights as Record<string, unknown>[]).map((n) => ({
@@ -149,7 +149,7 @@ export const rfpTools: McpToolDefinition[] = [
           status: true,
           responseDue: true,
           issuedOn: true,
-          hotelBlocks: { select: { id: true, blockType: true }, orderBy: { sortOrder: "asc" } },
+          hotelBlocks: { select: { id: true, contractType: true, guestType: true }, orderBy: { sortOrder: "asc" } },
           recipients: { select: { venueId: true, sentOn: true, declinedToBid: true } },
           hotelProposals: { select: { venueId: true } },
         },
@@ -451,7 +451,8 @@ export const rfpTools: McpToolDefinition[] = [
         venueId: requireString(args, "venueId"),
         status: str("status") ?? pending?.label ?? "",
         leadSource: null,
-        blockType: block.blockType,
+        contractType: block.contractType,
+        guestType: block.guestType,
         submittedOn: str("submittedOn") ?? null,
         checkIn: str("checkIn") ?? keys[0] ?? null,
         checkOut: str("checkOut") ?? (keys.length ? dayAfter(keys[keys.length - 1]) : null),
@@ -459,7 +460,6 @@ export const rfpTools: McpToolDefinition[] = [
         notes: str("notes") ?? null,
         revision: 1,
         revisionSummary: null,
-        isRunOfHouse: block.isRunOfHouse,
         allowedAttrition: typeof args.allowedAttrition === "number" ? args.allowedAttrition : null,
         guaranteedRevenue: typeof args.guaranteedRevenue === "number" ? args.guaranteedRevenue : null,
         amenities: stringList(args, "amenities") ?? [],

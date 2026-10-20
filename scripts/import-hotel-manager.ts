@@ -26,7 +26,7 @@
 import { randomUUID } from "crypto";
 import { copyFileSync, existsSync, mkdirSync, statSync } from "fs";
 import path from "path";
-import { Prisma, PrismaClient, type HotelBlockType, type HotelChargeScope, type HotelPickupMethod } from "@prisma/client";
+import { Prisma, PrismaClient, type HotelChargeScope, type HotelContractType, type HotelPickupMethod } from "@prisma/client";
 import { dateFromKey, dateKey, nightKeys } from "../src/lib/hotels";
 import { blockPickup, pickupByNight } from "../src/lib/hotelPickup";
 
@@ -85,7 +85,16 @@ const SCOPE: Record<string, HotelChargeScope> = {
   "per-person": "PER_PERSON",
   "per-person-per-night": "PER_PERSON_PER_NIGHT",
 };
-const BLOCK_TYPE: Record<string, HotelBlockType> = { contract: "CONTRACT", courtesy: "COURTESY", staff: "STAFF" };
+// Hotel-Manager's single block type → contract type + guest type (staff blocks are contracted).
+const BLOCK_TYPE: Record<string, { contractType: HotelContractType; guestType: string }> = {
+  contract: { contractType: "CONTRACT", guestType: "Attendees" },
+  courtesy: { contractType: "COURTESY", guestType: "Attendees" },
+  staff: { contractType: "CONTRACT", guestType: "Staff" },
+};
+const blockTypeText = (raw: unknown) => {
+  const t = BLOCK_TYPE[String(raw)];
+  return t ? `${t.contractType === "CONTRACT" ? "Contract" : "Courtesy"} · ${t.guestType}` : null;
+};
 const PICKUP_METHOD: Record<string, HotelPickupMethod> = { merge: "MERGE", replace: "REPLACE", append: "APPEND", "manual-count": "COUNTS" };
 const RESERVATION_METHOD: Record<string, string> = { "self-book": "Individual Reservations", "rooming-list": "Rooming List" };
 const STAGE_COLOR: Record<string, string> = { REQUESTED: "gray", PENDING: "blue", ACCEPTED: "green", DECLINED: "red" };
@@ -353,14 +362,14 @@ async function main() {
               venueId,
               status: status!,
               leadSource: await option("hotel_lead_source", s(leadById.get(p.lead_source_id as string)?.name)),
-              blockType: BLOCK_TYPE[String(p.block_type)] ?? null,
+              contractType: BLOCK_TYPE[String(p.block_type)]?.contractType ?? null,
+              guestType: await option("hotel_guest_type", BLOCK_TYPE[String(p.block_type)]?.guestType ?? null),
               submittedOn: day(p.submission_date) ? dateFromKey(day(p.submission_date)!) : null,
               checkIn: checkIn ? dateFromKey(checkIn) : null,
               checkOut: checkOut ? dateFromKey(checkOut) : null,
               declinedReason: s(p.declined_reason),
               notes: s(p.notes),
               revision: n(p.revision_number) ?? 1,
-              isRunOfHouse: ROH,
               allowedAttrition: n(p.allowed_attrition),
               guaranteedRevenue: n(p.guaranteed_revenue),
               amenities: proposalAmenities
@@ -384,9 +393,9 @@ async function main() {
           // snapshot is the proposal as imported (HM's child snapshots were
           // taken before the edit).
           const current = {
-            venueName: created.venue.name, status: created.status, leadSource: created.leadSource, blockType: created.blockType,
+            venueName: created.venue.name, status: created.status, leadSource: created.leadSource, blockType: blockTypeText(p.block_type),
             submittedOn: day(created.submittedOn), checkIn, checkOut, declinedReason: created.declinedReason, notes: created.notes,
-            isRunOfHouse: created.isRunOfHouse, allowedAttrition: created.allowedAttrition?.toString() ?? null,
+            allowedAttrition: created.allowedAttrition?.toString() ?? null,
             guaranteedRevenue: created.guaranteedRevenue?.toString() ?? null, amenities: [...created.amenities].sort(),
             nights: created.nights.map((x) => ({ roomType: x.roomType, night: dateKey(x.night), rate: x.rate?.toString() ?? null, rooms: x.rooms })),
             charges: created.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount?.toString() ?? null, scope: c.scope })),
@@ -400,9 +409,9 @@ async function main() {
               ? current
               : {
                   venueName: nameOf("property_id", v.property_id), status: nameOf("status_id", v.status_id),
-                  leadSource: nameOf("lead_source_id", v.lead_source_id), blockType: BLOCK_TYPE[String(v.block_type)] ?? null,
+                  leadSource: nameOf("lead_source_id", v.lead_source_id), blockType: blockTypeText(v.block_type),
                   submittedOn: day(v.submission_date), checkIn: day(v.earliest_checkin_date), checkOut: day(v.latest_checkout_date),
-                  declinedReason: s(v.declined_reason), notes: s(v.notes), isRunOfHouse: v.is_run_of_house === true,
+                  declinedReason: s(v.declined_reason), notes: s(v.notes),
                   allowedAttrition: s(v.allowed_attrition), guaranteedRevenue: s(v.guaranteed_revenue),
                   amenities: versionAmenities.filter((a) => a.version_id === v.id).map((a) => s(a.amenity_name)).filter(Boolean).sort(),
                   nights: versionRooms
@@ -484,7 +493,6 @@ async function main() {
               bookingPhone: s(b.booking_phone),
               cutoffDate: day(b.reservation_deadline) ? dateFromKey(day(b.reservation_deadline)!) : null,
               contractedOn: day(b.created_date) ? dateFromKey(day(b.created_date)!) : null,
-              isRunOfHouse: ROH,
               allowedAttrition: n(b.allowed_attrition),
               guaranteedRevenue: n(b.guaranteed_revenue),
               distanceMiles: n(b.distance_from_venue) ?? n(dist?.distance_miles),
@@ -533,14 +541,14 @@ async function main() {
 
           const full = await tx.hotelBlock.findUniqueOrThrow({
             where: { id: block.id },
-            select: { isRunOfHouse: true, nights: true, pickupGuests: true, pickupCounts: true },
+            select: { nights: true, pickupGuests: true, pickupCounts: true },
           });
           const event = eventMap.get(hmProposal.event_id as string)!;
           await tx.hotelPickupSnapshot.create({
             data: {
               blockId: block.id,
               takenOn: dateFromKey(localDateKey(new Date(), event.timezone)),
-              nights: pickupByNight(blockPickup({ isRunOfHouse: full.isRunOfHouse, nights: full.nights, guests: full.pickupGuests, counts: full.pickupCounts })),
+              nights: pickupByNight(blockPickup({ nights: full.nights, guests: full.pickupGuests, counts: full.pickupCounts })),
             },
           });
         }

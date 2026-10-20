@@ -74,7 +74,7 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
               <div key={i} className="print:break-inside-avoid">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white print:text-black">{b.label}</p>
                 <p className={`${muted} mb-2`}>
-                  {[b.isRunOfHouse ? "Run of house" : null, `Peak ${b.peak}`, `${b.roomNights} room nights`, b.targetRate ? `Target rate ${b.targetRate}` : null]
+                  {[`Peak ${b.peak}`, `${b.roomNights} room nights`, b.targetRate ? `Target rate ${b.targetRate}` : null]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>

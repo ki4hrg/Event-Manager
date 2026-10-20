@@ -2,8 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { optionsWhereForEvent } from "@/lib/options";
+import { roomTypeLabel } from "@/lib/hotels";
 import { Prisma } from "@prisma/client";
-import type { AcquisitionState, HotelBlockType, PackingStatus } from "@prisma/client";
+import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import type { ModelType } from "@/app/vendors/actions";
 import { buildPackingItems, type PackableItem } from "@/lib/packingItems";
 import { ACQUISITION_OPTIONS, PACKING_STATUS_OPTIONS } from "@/lib/statusConstants";
@@ -2048,20 +2049,26 @@ export async function getPostEventReportData(eventId: string, filters: { showBla
 
 // ─── Hotel Information (guest-facing hotel blocks) ──────────────────────────
 
-export type HotelInfoFilters = { blockTypes?: string[] };
-
-const HOTEL_BLOCK_TYPES: Record<HotelBlockType, true> = { CONTRACT: true, COURTESY: true, STAFF: true };
+export type HotelInfoFilters = { guestTypes?: string[] };
 
 // What an attendee needs to book: never pickup, attrition or revenue.
 export async function getHotelInfoReportData(eventId: string, filters: HotelInfoFilters = {}) {
   const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
   if (!event) return null;
-  const blockTypes = (filters.blockTypes ?? []).filter((t): t is HotelBlockType => t in HOTEL_BLOCK_TYPES);
+  const guestTypeOptions = (
+    await prisma.customOption.findMany({
+      where: optionsWhereForEvent(eventId, "hotel_guest_type"),
+      select: { label: true },
+      orderBy: { sortOrder: "asc" },
+    })
+  ).map((o) => o.label);
+  // Labels the tenant no longer has drop out, so a stale link means no filter.
+  const guestTypes = (filters.guestTypes ?? []).filter((t) => guestTypeOptions.includes(t));
   const blocks = await prisma.hotelBlock.findMany({
     where: {
       proposal: {
         eventId,
-        ...(blockTypes.length ? { blockType: { in: blockTypes } } : {}),
+        ...(guestTypes.length ? { guestType: { in: guestTypes } } : {}),
       },
     },
     select: {
@@ -2076,12 +2083,12 @@ export async function getHotelInfoReportData(eventId: string, filters: HotelInfo
       bookingPhone: true,
       distanceMiles: true,
       driveMinutes: true,
-      isRunOfHouse: true,
       nights: { select: { roomType: true, rate: true } },
       charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
       proposal: {
         select: {
-          blockType: true,
+          contractType: true,
+          guestType: true,
           amenities: true,
           venue: { select: { name: true, address: true, city: true, state: true, zip: true, brand: true } },
         },
@@ -2091,11 +2098,13 @@ export async function getHotelInfoReportData(eventId: string, filters: HotelInfo
   });
   const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
   return {
+    guestTypeOptions,
+    guestTypes,
     hotels: blocks.map((b) => {
       const rates = new Map<string, number[]>();
       for (const n of b.nights) {
         if (n.rate == null) continue;
-        const key = b.isRunOfHouse ? "Run of house" : (n.roomType ?? "Run of house");
+        const key = roomTypeLabel(n.roomType);
         rates.set(key, [...(rates.get(key) ?? []), Number(n.rate)]);
       }
       return {
@@ -2103,7 +2112,7 @@ export async function getHotelInfoReportData(eventId: string, filters: HotelInfo
         name: b.proposal.venue.name,
         brand: b.proposal.venue.brand,
         isHq: b.isHq,
-        blockType: b.proposal.blockType,
+        guestType: b.proposal.guestType,
         address: [b.proposal.venue.address, [b.proposal.venue.city, b.proposal.venue.state].filter(Boolean).join(", "), b.proposal.venue.zip]
           .filter(Boolean)
           .join(" "),

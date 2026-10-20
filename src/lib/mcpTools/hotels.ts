@@ -1,4 +1,3 @@
-import type { HotelBlockType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
 import {
@@ -26,7 +25,7 @@ import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import type { McpToolDefinition } from "./types";
 import { requireString } from "./types";
 
-const BLOCK_TYPES = new Set(["CONTRACT", "COURTESY", "STAFF"]);
+const CONTRACT_TYPES = new Set(["CONTRACT", "COURTESY"]);
 const SCOPES = new Set(["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT"]);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -40,7 +39,7 @@ function merged<T extends object>(current: T, args: Record<string, unknown>, key
     if (typeof v === "string" && /date|checkIn|checkOut|cutoff|submittedOn|contractedOn/i.test(String(k)) && v && !DATE.test(v)) {
       throw new Error(`${String(k)} must be YYYY-MM-DD`);
     }
-    if (k === "blockType" && v != null && !BLOCK_TYPES.has(String(v))) throw new Error("blockType must be CONTRACT, COURTESY or STAFF");
+    if (k === "contractType" && v != null && !CONTRACT_TYPES.has(String(v))) throw new Error("contractType must be CONTRACT or COURTESY");
     (out as Record<string, unknown>)[k as string] = v === "" ? null : v;
   }
   return out;
@@ -56,7 +55,7 @@ function checkCharges(v: unknown) {
 const nightSchema = {
   type: "object",
   properties: {
-    roomType: { type: ["string", "null"], description: "hotel_room_type option label; null = run of house." },
+    roomType: { type: ["string", "null"], description: "hotel_room_type option label; null = Run of House (may sit beside typed rooms)." },
     night: { type: "string", description: "YYYY-MM-DD — the check-in date of that night." },
     rate: { type: ["number", "null"] },
     rooms: { type: ["integer", "null"] },
@@ -78,7 +77,8 @@ const proposalProps = {
   venueId: { type: "string", description: "The hotel (a venue id; list_venues). Usually one flagged isLodging." },
   status: { type: "string", description: "proposal_status option label. Its group (REQUESTED / PENDING / ACCEPTED / DECLINED) is the stage." },
   leadSource: { type: ["string", "null"], description: "hotel_lead_source option label." },
-  blockType: { type: ["string", "null"], enum: ["CONTRACT", "COURTESY", "STAFF", null] },
+  contractType: { type: ["string", "null"], enum: ["CONTRACT", "COURTESY", null], description: "CONTRACT carries attrition; COURTESY is held without it." },
+  guestType: { type: ["string", "null"], description: "Who the rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
   submittedOn: { type: ["string", "null"], description: "YYYY-MM-DD." },
   checkIn: { type: ["string", "null"], description: "Earliest check-in, YYYY-MM-DD." },
   checkOut: { type: ["string", "null"], description: "Latest check-out, YYYY-MM-DD. Nights run check-in up to, not including, check-out." },
@@ -86,7 +86,6 @@ const proposalProps = {
   notes: { type: ["string", "null"] },
   revision: { type: "integer", description: "Raise when the hotel sends a revised offer; freezes the previous revision in the history. Cannot go down." },
   revisionSummary: { type: ["string", "null"], description: "What changed in this revision." },
-  isRunOfHouse: { type: "boolean" },
   allowedAttrition: { type: ["number", "null"], description: "Percent, 0–100." },
   guaranteedRevenue: { type: ["number", "null"] },
   amenities: { type: "array", items: { type: "string" }, description: "hotel_amenity option labels." },
@@ -108,8 +107,8 @@ const proposalProps = {
 } as const;
 
 const PROPOSAL_KEYS = [
-  "venueId", "status", "leadSource", "blockType", "submittedOn", "checkIn", "checkOut", "declinedReason", "notes", "revision",
-  "revisionSummary", "isRunOfHouse", "allowedAttrition", "guaranteedRevenue", "amenities", "nights", "charges", "concessions",
+  "venueId", "status", "leadSource", "contractType", "guestType", "submittedOn", "checkIn", "checkOut", "declinedReason", "notes",
+  "revision", "revisionSummary", "allowedAttrition", "guaranteedRevenue", "amenities", "nights", "charges", "concessions",
 ] as const satisfies readonly (keyof ProposalWriteArgs)[];
 
 function checkConcessions(v: unknown) {
@@ -151,7 +150,6 @@ const blockProps = {
   cutoffDate: { type: ["string", "null"], description: "Reservation cut-off, YYYY-MM-DD." },
   contractedOn: { type: ["string", "null"], description: "YYYY-MM-DD." },
   cutoffExercised: { type: ["boolean", "null"] },
-  isRunOfHouse: { type: "boolean" },
   allowedAttrition: { type: ["number", "null"], description: "Percent, 0–100." },
   guaranteedRevenue: { type: ["number", "null"] },
   distanceMiles: { type: ["number", "null"] },
@@ -186,7 +184,7 @@ const blockDetailInclude = {
   charges: { orderBy: { sortOrder: "asc" as const } },
   pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
   pickupCounts: { select: { night: true, roomType: true, rooms: true } },
-  proposal: { select: { id: true, blockType: true, venue: { select: { id: true, name: true } } } },
+  proposal: { select: { id: true, contractType: true, guestType: true, venue: { select: { id: true, name: true } } } },
 };
 
 async function blockEvent(blockId: string): Promise<string> {
@@ -209,7 +207,8 @@ export const hotelTools: McpToolDefinition[] = [
         select: {
           id: true,
           status: true,
-          blockType: true,
+          contractType: true,
+          guestType: true,
           checkIn: true,
           checkOut: true,
           revision: true,
@@ -262,8 +261,8 @@ export const hotelTools: McpToolDefinition[] = [
       checkCharges(args.charges);
       if (args.concessions !== undefined) throw new Error("Only a proposal answering an RFP has concessions — use record_rfp_response");
       const blank: ProposalWriteArgs = {
-        venueId: "", status: "", leadSource: null, blockType: null, submittedOn: null, checkIn: null, checkOut: null,
-        declinedReason: null, notes: null, revision: 1, revisionSummary: null, isRunOfHouse: false, allowedAttrition: null,
+        venueId: "", status: "", leadSource: null, contractType: null, guestType: null, submittedOn: null, checkIn: null,
+        checkOut: null, declinedReason: null, notes: null, revision: 1, revisionSummary: null, allowedAttrition: null,
         guaranteedRevenue: null, amenities: [], nights: [], charges: [],
       };
       return createHotelProposalCore(requireString(args, "eventId"), merged(blank, args, PROPOSAL_KEYS), userId);
@@ -315,13 +314,14 @@ export const hotelTools: McpToolDefinition[] = [
         id: b.id,
         proposalId: b.proposal.id,
         hotel: b.proposal.venue,
-        blockType: b.proposal.blockType,
+        contractType: b.proposal.contractType,
+        guestType: b.proposal.guestType,
         isHq: b.isHq,
         checkIn: b.checkIn,
         checkOut: b.checkOut,
         cutoffDate: b.cutoffDate,
         allowedAttrition: b.allowedAttrition,
-        pickup: pickupTotals(blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts })),
+        pickup: pickupTotals(blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts })),
       }));
     },
   },
@@ -335,7 +335,7 @@ export const hotelTools: McpToolDefinition[] = [
       const eventId = await blockEvent(id);
       await requirePermissionForUser(userId, "HOTELS", "VIEW", eventId);
       const b = await prisma.hotelBlock.findUniqueOrThrow({ where: { id }, include: blockDetailInclude });
-      const rows = blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
+      const rows = blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
       return { id, eventId, proposalId: b.proposal.id, hotel: b.proposal.venue, ...toBlockValues(b), pickup: { totals: pickupTotals(rows), nights: rows } };
     },
   },
@@ -564,7 +564,7 @@ export const hotelTools: McpToolDefinition[] = [
       type: "object",
       properties: {
         eventId: { type: "string" },
-        blockTypes: { type: "array", items: { type: "string", enum: ["CONTRACT", "COURTESY", "STAFF"] }, description: "Default: all." },
+        guestTypes: { type: "array", items: { type: "string" }, description: "hotel_guest_type labels to include. Default: all." },
       },
       required: ["eventId"],
       additionalProperties: false,
@@ -572,8 +572,8 @@ export const hotelTools: McpToolDefinition[] = [
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
       await requirePermissionForUser(userId, "HOTELS", "VIEW", eventId);
-      const blockTypes = Array.isArray(args.blockTypes) ? (args.blockTypes as string[]).filter((t): t is HotelBlockType => BLOCK_TYPES.has(t)) : [];
-      return getHotelInfoReportData(eventId, { blockTypes });
+      const guestTypes = Array.isArray(args.guestTypes) ? (args.guestTypes as unknown[]).map(String) : [];
+      return getHotelInfoReportData(eventId, { guestTypes });
     },
   },
 ];

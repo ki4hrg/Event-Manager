@@ -3,7 +3,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { getHotelInfoReportData } from "@/app/events/reports/actions";
 import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
-import { parseBlockTypes } from "@/lib/hotels";
+import { hotelInfoGuestTypes } from "@/lib/hotels";
 import { getPostEventReportData } from "@/app/events/reports/actions";
 import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { getEsgData } from "@/app/events/reports/actions";
@@ -499,10 +499,8 @@ export default async function GroupItemPrintPage({ params, searchParams }: PageP
       );
     }
     case "HOTEL_INFO": {
-      const blockTypes = parseBlockTypes(
-        item.filtersLocked ? stored.blockTypes?.join(",") : (getString(sp.blockTypes) ?? stored.blockTypes?.join(",")),
-      );
-      const data = await getHotelInfoReportData(eventId, { blockTypes });
+      const guestTypes = hotelInfoGuestTypes(item.filtersLocked ? undefined : getString(sp.guestTypes), stored);
+      const data = await getHotelInfoReportData(eventId, { guestTypes });
       if (!data) notFound();
       return (
         <div className="p-4 sm:p-6 max-w-4xl mx-auto">

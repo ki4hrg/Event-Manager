@@ -250,6 +250,15 @@ export const DEFAULT_OPTIONS = {
     { label: "Double Queen", sortOrder: 1 },
     { label: "Suite", sortOrder: 2 },
   ],
+  // Who a block's rooms are for; its contract type (contract / courtesy) is
+  // fixed in the schema.
+  hotel_guest_type: [
+    { label: "Attendees", sortOrder: 0 },
+    { label: "Staff", sortOrder: 1 },
+    { label: "Speakers", sortOrder: 2 },
+    { label: "Exhibitors", sortOrder: 3 },
+    { label: "VIP", sortOrder: 4 },
+  ],
   hotel_amenity: [
     { label: "Breakfast Included", sortOrder: 0 },
     { label: "Free Wi-Fi", sortOrder: 1 },

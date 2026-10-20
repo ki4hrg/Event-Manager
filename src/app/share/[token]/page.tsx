@@ -40,7 +40,7 @@ import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventR
 import { ReportFilters as PerReportFilters } from "@/app/events/[id]/reports/post-event/ReportFilters";
 import { getHotelInfoReportData } from "@/app/events/reports/actions";
 import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
-import { parseBlockTypes } from "@/lib/hotels";
+import { hotelInfoGuestTypes } from "@/lib/hotels";
 import { ReportFilters as HiReportFilters } from "@/app/events/[id]/reports/hotel-info/ReportFilters";
 import { ShareShell } from "./ShareShell";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
@@ -756,21 +756,18 @@ export default async function SharePage({ params, searchParams }: PageProps) {
   }
 
   if (link.reportType === "HOTEL_INFO") {
-    const param = getString(sp.blockTypes);
-    const blockTypes = link.filtersLocked
-      ? parseBlockTypes(storedFilters.blockTypes?.join(","))
-      : parseBlockTypes(param ?? storedFilters.blockTypes?.join(","));
-    const data = await getHotelInfoReportData(link.eventId, { blockTypes });
+    const guestTypes = hotelInfoGuestTypes(link.filtersLocked ? undefined : getString(sp.guestTypes), storedFilters);
+    const data = await getHotelInfoReportData(link.eventId, { guestTypes });
     if (!data) notFound();
     return (
       <ShareShell
         eventName={link.event.name}
         reportTitle="Hotel Information"
         label={link.label}
-        printHref={blockTypes.length ? `${printBase}?blockTypes=${blockTypes.join(",")}` : printBase}
+        printHref={data.guestTypes.length ? `${printBase}?guestTypes=${encodeURIComponent(data.guestTypes.join(","))}` : printBase}
       >
         {!link.filtersLocked && (
-          <HiReportFilters eventId={link.eventId} blockTypes={blockTypes} basePath={`/share/${token}`} hidePrint />
+          <HiReportFilters eventId={link.eventId} guestTypes={data.guestTypes} guestTypeOptions={data.guestTypeOptions} basePath={`/share/${token}`} hidePrint />
         )}
         <HotelInfoReport data={data} />
       </ShareShell>

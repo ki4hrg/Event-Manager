@@ -3,10 +3,11 @@
 // (no Prisma), so the block page, the reports and the ESG / PER all agree.
 //
 // Rooms on a night = active guests staying that night + entered counts for
-// that night + the block night's other reservations. In a run-of-house block
-// every room type pools into one bucket (roomType null); otherwise guests and
-// counts land on their own room type, and a guest whose type the block
-// doesn't carry still counts toward the night's total.
+// that night + the block night's other reservations. A block night with a
+// null room type is the Run of House allotment. Guests and counts land on
+// their own room type when the block names it; any other type pools into Run
+// of House when the block has it, and otherwise still counts toward the
+// night's total outside the block.
 
 import { dateKey, nightKeys } from "./hotels";
 
@@ -40,15 +41,12 @@ export function guestNights(g: Pick<PickupGuestInput, "checkIn" | "checkOut">): 
 }
 
 // Rooms picked up per (roomType, night), keyed by bucket().
-function pickupBuckets(
-  isRunOfHouse: boolean,
-  nights: PickupNightInput[],
-  guests: PickupGuestInput[],
-  counts: PickupCountInput[],
-): Map<string, number> {
+function pickupBuckets(nights: PickupNightInput[], guests: PickupGuestInput[], counts: PickupCountInput[]): Map<string, number> {
   const out = new Map<string, number>();
+  const typed = new Set(nights.flatMap((n) => (n.roomType != null ? [n.roomType] : [])));
+  const pooled = nights.some((n) => n.roomType == null);
   const add = (roomType: string | null, night: string, n: number) => {
-    const key = bucket(isRunOfHouse ? null : roomType, night);
+    const key = bucket(roomType != null && (typed.has(roomType) || !pooled) ? roomType : null, night);
     out.set(key, (out.get(key) ?? 0) + n);
   };
   for (const g of guests) {
@@ -63,20 +61,19 @@ function pickupBuckets(
 // One row per block night, plus a row for any (roomType, night) that has
 // pickup but no block night — rooms picked up outside the block.
 export function blockPickup(block: {
-  isRunOfHouse: boolean;
   nights: PickupNightInput[];
   guests: PickupGuestInput[];
   counts: PickupCountInput[];
 }): NightPickup[] {
-  const buckets = pickupBuckets(block.isRunOfHouse, block.nights, block.guests, block.counts);
+  const buckets = pickupBuckets(block.nights, block.guests, block.counts);
   const rows: NightPickup[] = [];
   const seen = new Set<string>();
   for (const n of block.nights) {
-    const roomType = block.isRunOfHouse ? null : n.roomType;
+    const roomType = n.roomType;
     const key = bucket(roomType, dateKey(n.night));
     if (seen.has(key)) {
-      // Two block nights in one bucket (run of house with several types):
-      // merge the blocked numbers into the row already emitted.
+      // Two block nights in one bucket (a repeated night): merge the blocked
+      // numbers into the row already emitted.
       const row = rows.find((r) => bucket(r.roomType, r.night) === key)!;
       row.blocked += n.rooms;
       row.contracted = row.contracted == null && n.contractedRooms == null ? null : (row.contracted ?? 0) + (n.contractedRooms ?? 0);

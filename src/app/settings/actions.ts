@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_guest_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -291,8 +291,13 @@ async function propagateLabelRename(
       await tx.hotelBlockNight.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
       await tx.hotelPickupGuest.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
       await tx.hotelPickupCount.updateMany({ where: { roomType: oldLabel, block: inTenantBlock }, data: { roomType: newLabel } });
+      await tx.rfpHotelBlockNight.updateMany({ where: { roomType: oldLabel, block: { rfp: inTenant } }, data: { roomType: newLabel } });
       break;
     }
+    case "hotel_guest_type":
+      await tx.hotelProposal.updateMany({ where: { guestType: oldLabel, ...inTenant }, data: { guestType: newLabel } });
+      await tx.rfpHotelBlock.updateMany({ where: { guestType: oldLabel, rfp: inTenant }, data: { guestType: newLabel } });
+      break;
     case "hotel_amenity":
       await tx.$executeRaw`
         UPDATE "HotelProposal" p SET "amenities" = array_replace(p."amenities", ${oldLabel}, ${newLabel})

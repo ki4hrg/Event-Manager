@@ -6,10 +6,10 @@
 // HotelProposalVersion row for the current revision, so earlier revisions stay
 // frozen and the current one always matches the proposal.
 
-import type { ConcessionMet, HotelBlockType, HotelChargeScope, Prisma } from "@prisma/client";
+import type { ConcessionMet, HotelChargeScope, HotelContractType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
-import { dateFromKey, dateKey, nightKeys } from "@/lib/hotels";
+import { blockTypeLabel, dateFromKey, dateKey, nightKeys, roomTypeLabel } from "@/lib/hotels";
 
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
 export type ProposalChargeArgs = { chargeType: string; amount: number | null; scope: HotelChargeScope | null };
@@ -19,7 +19,8 @@ export type ProposalWriteArgs = {
   venueId: string;
   status: string;
   leadSource: string | null;
-  blockType: HotelBlockType | null;
+  contractType: HotelContractType | null;
+  guestType: string | null; // hotel_guest_type option label
   submittedOn: string | null; // YYYY-MM-DD
   checkIn: string | null;
   checkOut: string | null;
@@ -27,7 +28,6 @@ export type ProposalWriteArgs = {
   notes: string | null;
   revision: number;
   revisionSummary: string | null;
-  isRunOfHouse: boolean;
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
   amenities: string[];
@@ -44,13 +44,14 @@ export type ProposalSnapshot = {
   venueName: string;
   status: string;
   leadSource: string | null;
-  blockType: HotelBlockType | null;
+  // blockTypeLabel(contractType, guestType); older snapshots hold the
+  // retired CONTRACT / COURTESY / STAFF value.
+  blockType: string | null;
   submittedOn: string | null;
   checkIn: string | null;
   checkOut: string | null;
   declinedReason: string | null;
   notes: string | null;
-  isRunOfHouse: boolean;
   allowedAttrition: string | null;
   guaranteedRevenue: string | null;
   amenities: string[];
@@ -89,7 +90,7 @@ function nightRows(args: ProposalWriteArgs) {
   return args.nights
     .filter((n) => n.rate != null || n.rooms != null)
     .map((n) => ({
-      roomType: args.isRunOfHouse ? null : n.roomType,
+      roomType: n.roomType,
       night: dateFromKey(n.night),
       rate: n.rate,
       rooms: n.rooms,
@@ -107,14 +108,14 @@ function scalarData(args: ProposalWriteArgs) {
     venueId: args.venueId,
     status: args.status,
     leadSource: args.leadSource,
-    blockType: args.blockType,
+    contractType: args.contractType,
+    guestType: args.guestType,
     submittedOn: args.submittedOn ? dateFromKey(args.submittedOn) : null,
     checkIn: args.checkIn ? dateFromKey(args.checkIn) : null,
     checkOut: args.checkOut ? dateFromKey(args.checkOut) : null,
     declinedReason: args.declinedReason,
     notes: args.notes,
     revision: args.revision,
-    isRunOfHouse: args.isRunOfHouse,
     allowedAttrition: args.allowedAttrition,
     guaranteedRevenue: args.guaranteedRevenue,
     amenities: args.amenities,
@@ -137,13 +138,12 @@ export function snapshotOf(p: ProposalWithChildren): ProposalSnapshot {
     venueName: p.venue.name,
     status: p.status,
     leadSource: p.leadSource,
-    blockType: p.blockType,
+    blockType: blockTypeLabel(p.contractType, p.guestType),
     submittedOn: day(p.submittedOn),
     checkIn: day(p.checkIn),
     checkOut: day(p.checkOut),
     declinedReason: p.declinedReason,
     notes: p.notes,
-    isRunOfHouse: p.isRunOfHouse,
     allowedAttrition: dec(p.allowedAttrition),
     guaranteedRevenue: dec(p.guaranteedRevenue),
     amenities: [...p.amenities].sort(),
@@ -162,7 +162,6 @@ const FIELD_LABELS: [keyof ProposalSnapshot, string][] = [
   ["checkOut", "Check-out"],
   ["declinedReason", "Declined reason"],
   ["notes", "Notes"],
-  ["isRunOfHouse", "Run of house"],
   ["allowedAttrition", "Allowed attrition %"],
   ["guaranteedRevenue", "Guaranteed revenue"],
 ];
@@ -182,7 +181,7 @@ export function diffSnapshots(prev: ProposalSnapshot, next: ProposalSnapshot): P
 
   const cell = (n: ProposalSnapshot["nights"][number]) =>
     [n.rooms != null ? `${n.rooms} rooms` : null, n.rate != null ? `$${n.rate}` : null].filter(Boolean).join(" @ ") || null;
-  const nightMap = (s: ProposalSnapshot) => new Map(s.nights.map((n) => [`${n.night} ${n.roomType ?? "Run of house"}`, cell(n)]));
+  const nightMap = (s: ProposalSnapshot) => new Map(s.nights.map((n) => [`${n.night} ${roomTypeLabel(n.roomType)}`, cell(n)]));
   const before = nightMap(prev);
   const after = nightMap(next);
   for (const key of Array.from(new Set([...Array.from(before.keys()), ...Array.from(after.keys())])).sort()) {
@@ -303,6 +302,6 @@ export async function deleteHotelProposalCore(id: string, eventId: string, userI
 
 // Plain (client-serializable) form values for ProposalForm.
 export function toProposalValues(p: ProposalWithChildren & { venueId: string; revision: number }) {
-  const { venueName: _venueName, ...rest } = snapshotOf(p);
-  return { ...rest, venueId: p.venueId, revision: p.revision };
+  const { venueName: _venueName, blockType: _blockType, ...rest } = snapshotOf(p);
+  return { ...rest, contractType: p.contractType, guestType: p.guestType, venueId: p.venueId, revision: p.revision };
 }

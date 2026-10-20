@@ -90,7 +90,6 @@ export async function loadHousingInput(eventId: string, spec: SpecHousingFields)
       compRooms: true,
       staffRooms: true,
       notes: true,
-      isRunOfHouse: true,
       proposal: { select: { venue: { select: { id: true, name: true, brand: true } } } },
       nights: { select: { night: true, roomType: true, rooms: true, contractedRooms: true, otherReservations: true } },
       pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true, bookedOn: true, cancelledOn: true } },
@@ -108,7 +107,7 @@ export async function loadHousingInput(eventId: string, spec: SpecHousingFields)
   let anyPickup = false;
 
   const perHotels: PerHotelRow[] = blocks.map((b) => {
-    const rows = blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
+    const rows = blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
     const nightKeysSorted = Array.from(new Set(rows.map((r) => r.night))).sort();
     const firstNight = nightKeysSorted[0] ?? null;
     const sum = (night: string, pick: (r: (typeof rows)[number]) => number | null) => {

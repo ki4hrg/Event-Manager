@@ -14,9 +14,7 @@ import { dateKey } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { getEvent } from "../../../../actions";
-import type { RfpBlockArgs, RfpConcessionArgs, RfpRecipientArgs } from "../../../../rfps/core";
-import type { PatternBasis } from "@/lib/hotelPattern";
-import type { HotelBlockType } from "@prisma/client";
+import type { RfpBlockArgs, RfpConcessionArgs, RfpFillArgs, RfpRecipientArgs } from "../../../../rfps/core";
 import {
   addRfpRecipients,
   deleteRfp,
@@ -71,7 +69,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
     "use server";
     await saveRfpConcessions(rfpId, eventId, concessions);
   };
-  const fillAction = async (args: { seriesId: string | null; blockType: HotelBlockType | null; basis: PatternBasis; adjust: number }) => {
+  const fillAction = async (args: RfpFillArgs) => {
     "use server";
     return getRfpPatternFill(eventId, args);
   };
@@ -156,8 +154,8 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
               key={`blocks-${rfp.updatedAt.toISOString()}`}
               blocks={rfp.hotelBlocks.map((b) => ({
                 id: b.id,
-                blockType: b.blockType,
-                isRunOfHouse: b.isRunOfHouse,
+                contractType: b.contractType,
+                guestType: b.guestType,
                 targetRate: b.targetRate?.toString() ?? null,
                 notes: b.notes,
                 nights: b.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rooms: n.rooms })),
@@ -165,6 +163,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
               eventStart={dateKey(event.startDate)}
               eventEnd={dateKey(event.endDate)}
               roomTypes={choices.roomTypes}
+              guestTypes={choices.guestTypes}
               series={choices.series}
               defaultSeriesId={event.seriesId ?? null}
               save={saveBlocksAction}
@@ -202,7 +201,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
             )}
             responseDue={rfp.responseDue ? dateKey(rfp.responseDue) : null}
             today={dateKey(new Date())}
-            blocks={rfp.hotelBlocks.map((b) => ({ id: b.id, label: blockLabel(b.blockType) }))}
+            blocks={rfp.hotelBlocks.map((b) => ({ id: b.id, label: blockLabel(b.contractType, b.guestType) }))}
             hotels={choices.hotels}
             add={addRecipientsAction}
             update={updateRecipientAction}

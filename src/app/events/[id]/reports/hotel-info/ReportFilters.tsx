@@ -1,22 +1,23 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { BLOCK_TYPES } from "@/lib/hotels";
 import { btnOutlinedXs } from "@/lib/buttonStyles";
 
 type ReportFiltersProps = {
   eventId: string;
-  blockTypes: string[];
+  guestTypes: string[];
+  guestTypeOptions: string[];
   basePath?: string;
   paramPrefix?: string;
   shareButton?: React.ReactNode;
   hidePrint?: boolean;
 };
 
-// One filter (block types, all when none picked); actions stay visible at every width.
+// One filter (guest types, all when none picked); actions stay visible at every width.
 export function ReportFilters({
   eventId,
-  blockTypes,
+  guestTypes,
+  guestTypeOptions,
   basePath = `/events/${eventId}/reports/hotel-info`,
   paramPrefix = "",
   shareButton,
@@ -24,10 +25,10 @@ export function ReportFilters({
 }: ReportFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const key = `${paramPrefix}blockTypes`;
+  const key = `${paramPrefix}guestTypes`;
 
   const toggle = (value: string, on: boolean) => {
-    const next = on ? [...blockTypes, value] : blockTypes.filter((t) => t !== value);
+    const next = on ? [...guestTypes, value] : guestTypes.filter((t) => t !== value);
     const params = new URLSearchParams(searchParams.toString());
     if (next.length) params.set(key, next.join(","));
     else params.delete(key);
@@ -37,16 +38,16 @@ export function ReportFilters({
 
   return (
     <div className="print:hidden mb-6 flex flex-wrap items-center gap-3">
-      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Block type</span>
-      {BLOCK_TYPES.map((t) => (
-        <label key={t.value} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Guests</span>
+      {guestTypeOptions.map((t) => (
+        <label key={t} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
           <input
             type="checkbox"
-            checked={blockTypes.includes(t.value)}
-            onChange={(e) => toggle(t.value, e.target.checked)}
+            checked={guestTypes.includes(t)}
+            onChange={(e) => toggle(t, e.target.checked)}
             className="rounded border-gray-300 dark:border-gray-600"
           />
-          {t.label}
+          {t}
         </label>
       ))}
       <div className="ml-auto flex flex-wrap items-center gap-3">

@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { HotelBlockType, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
+import type { HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { parseContractTypes } from "@/lib/hotels";
 import {
   createHotelProposalCore,
   deleteHotelProposalCore,
@@ -76,7 +77,7 @@ export async function getProposalFormChoices(eventId: string) {
       orderBy: { name: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_amenity", "hotel_lead_source"] } },
+      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_lead_source"] } },
       select: { category: true, label: true, group: true, color: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -90,6 +91,7 @@ export async function getProposalFormChoices(eventId: string) {
     })),
     statuses: of("proposal_status").map((o) => ({ label: o.label, group: o.group, color: o.color })),
     roomTypes: of("hotel_room_type").map((o) => o.label),
+    guestTypes: of("hotel_guest_type").map((o) => o.label),
     amenities: of("hotel_amenity").map((o) => o.label),
     leadSources: of("hotel_lead_source").map((o) => o.label),
   };
@@ -110,7 +112,8 @@ function readProposal(formData: FormData): ProposalWriteArgs {
     venueId: formData.get("venueId") as string,
     status: formData.get("status") as string,
     leadSource: str("leadSource"),
-    blockType: str("blockType") as HotelBlockType | null,
+    contractType: parseContractTypes(str("contractType") ?? undefined)[0] ?? null,
+    guestType: str("guestType"),
     submittedOn: str("submittedOn"),
     checkIn: str("checkIn"),
     checkOut: str("checkOut"),
@@ -118,7 +121,6 @@ function readProposal(formData: FormData): ProposalWriteArgs {
     notes: str("notes"),
     revision: formData.get("revision") ? parseInt(formData.get("revision") as string) : 1,
     revisionSummary: str("revisionSummary"),
-    isRunOfHouse: formData.get("isRunOfHouse") === "true",
     allowedAttrition: num("allowedAttrition"),
     guaranteedRevenue: num("guaranteedRevenue"),
     amenities: formData.getAll("amenities") as string[],
@@ -156,7 +158,6 @@ export async function deleteHotelProposal(id: string, eventId: string) {
 
 // What the pickup math needs (src/lib/hotelPickup.ts).
 const pickupSelect = {
-  isRunOfHouse: true,
   nights: { orderBy: [{ night: "asc" as const }, { roomType: "asc" as const }] },
   pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
   pickupCounts: { select: { night: true, roomType: true, rooms: true } },
@@ -173,7 +174,7 @@ export async function getHotelBlocks(eventId: string) {
       checkOut: true,
       cutoffDate: true,
       allowedAttrition: true,
-      proposal: { select: { id: true, blockType: true, venue: { select: { id: true, name: true } } } },
+      proposal: { select: { id: true, contractType: true, guestType: true, venue: { select: { id: true, name: true } } } },
       ...pickupSelect,
     },
     orderBy: [{ isHq: "desc" }, { proposal: { venue: { name: "asc" } } }],
@@ -187,7 +188,7 @@ export async function getHotelBlock(blockId: string, eventId: string) {
   const block = await prisma.hotelBlock.findFirst({
     where: { id: blockId, proposal: { eventId } },
     include: {
-      proposal: { select: { id: true, blockType: true, revision: true, venue: { select: { id: true, name: true, city: true, state: true } } } },
+      proposal: { select: { id: true, contractType: true, guestType: true, revision: true, venue: { select: { id: true, name: true, city: true, state: true } } } },
       nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
       charges: { orderBy: { sortOrder: "asc" } },
       pickupCounts: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
@@ -247,7 +248,6 @@ export async function updateHotelBlock(blockId: string, eventId: string, formDat
       cutoffDate: str("cutoffDate"),
       contractedOn: str("contractedOn"),
       cutoffExercised: formData.get("cutoffExercised") === "true" ? true : formData.get("cutoffExercised") === "false" ? false : null,
-      isRunOfHouse: formData.get("isRunOfHouse") === "true",
       allowedAttrition: num("allowedAttrition"),
       guaranteedRevenue: num("guaranteedRevenue"),
       distanceMiles: num("distanceMiles"),

@@ -8,11 +8,12 @@
 
 import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync } from "fs";
-import type { HotelBlockType, RfpKind, RfpStatus } from "@prisma/client";
+import type { HotelContractType, RfpKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
-import { dateFromKey, dateKey } from "@/lib/hotels";
+import { CONTRACT_TYPE_LABELS, dateFromKey, dateKey } from "@/lib/hotels";
 import { resourceForKind } from "@/lib/rfp/kinds";
+import type { PatternBasis } from "@/lib/hotelPattern";
 import { buildComparison } from "@/lib/rfp/compare";
 import { parseSections } from "@/lib/rfp/sections";
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
@@ -32,11 +33,20 @@ export type RfpWriteArgs = {
 
 export type RfpBlockArgs = {
   id?: string | null; // an existing block keeps its id (and its proposals' links)
-  blockType: HotelBlockType;
-  isRunOfHouse: boolean;
+  contractType: HotelContractType;
+  guestType: string | null; // hotel_guest_type option label
   targetRate: number | null;
   notes: string | null;
   nights: { roomType: string | null; night: string; rooms: number }[];
+};
+
+// Fill from history: which past blocks to draw on (null = any).
+export type RfpFillArgs = {
+  seriesId: string | null;
+  contractType: HotelContractType | null;
+  guestType: string | null;
+  basis: PatternBasis;
+  adjust: number;
 };
 
 export type RfpConcessionArgs = { id?: string | null; label: string; value: string | null; required: boolean };
@@ -121,13 +131,14 @@ async function validBlocks(eventId: string, blocks: RfpBlockArgs[]) {
       .map((n) => {
         if (!DATE_RE.test(n.night) || n.night < first || n.night > last) throw new Error(`Night ${n.night} is too far from the event`);
         if (!Number.isInteger(n.rooms)) throw new Error("Rooms must be whole numbers");
-        const roomType = b.isRunOfHouse ? null : n.roomType || null;
+        const roomType = n.roomType || null; // null = Run of House
         const key = `${roomType ?? ""}|${n.night}`;
         if (seen.has(key)) throw new Error(`Night ${n.night} is listed twice`);
         seen.add(key);
         return { roomType, night: dateFromKey(n.night), rooms: n.rooms };
       });
-    return { id: b.id ?? null, blockType: b.blockType, isRunOfHouse: b.isRunOfHouse, targetRate: b.targetRate, notes: b.notes?.trim() || null, nights };
+    if (!CONTRACT_TYPE_LABELS[b.contractType]) throw new Error(`Unknown contract type: ${b.contractType}`);
+    return { id: b.id ?? null, contractType: b.contractType, guestType: b.guestType || null, targetRate: b.targetRate, notes: b.notes?.trim() || null, nights };
   });
 }
 
@@ -231,7 +242,7 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
       select: {
         title: true,
         concessions: { orderBy: { sortOrder: "asc" }, select: { id: true, label: true, value: true, required: true } },
-        hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, blockType: true, targetRate: true, nights: { select: { night: true, rooms: true } } } },
+        hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, contractType: true, guestType: true, targetRate: true, nights: { select: { night: true, rooms: true } } } },
       },
     }),
     prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { name: true } }),

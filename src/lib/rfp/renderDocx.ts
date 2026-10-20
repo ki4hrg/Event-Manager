@@ -32,7 +32,7 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
           children: [
             new TextRun({ text: b.label, bold: true, size: 20, font: FONT }),
             new TextRun({
-              text: [b.isRunOfHouse ? "Run of house" : null, `Peak ${b.peak}`, `${b.roomNights} room nights`, b.targetRate ? `Target rate ${b.targetRate}` : null]
+              text: [`Peak ${b.peak}`, `${b.roomNights} room nights`, b.targetRate ? `Target rate ${b.targetRate}` : null]
                 .filter(Boolean)
                 .map((t) => ` · ${t}`)
                 .join(""),

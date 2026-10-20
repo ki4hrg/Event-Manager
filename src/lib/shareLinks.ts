@@ -24,7 +24,9 @@ export type ShareLinkFilters = {
   showBlank?: boolean;
   /** ESG billing & signatories (tax ID, bill-to). Off unless set. */
   includeBilling?: boolean;
-  /** Hotel Information block types (HotelBlockType); all when empty. */
+  /** Hotel Information guest types (hotel_guest_type labels); all when empty. */
+  guestTypes?: string[];
+  /** Retired Hotel Information block types, read by hotelInfoGuestTypes. */
   blockTypes?: string[];
 };
 
