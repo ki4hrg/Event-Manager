@@ -12,7 +12,7 @@ import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
 import { resolveSharedEsgFilters } from "@/lib/esg/params";
 import { getHotelInfoReportData } from "@/app/events/reports/actions";
 import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
-import { parseBlockTypes } from "@/lib/hotels";
+import { hotelInfoGuestTypes } from "@/lib/hotels";
 import { getPostEventReportData } from "@/app/events/reports/actions";
 import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { PrintHeader } from "@/components/print/PrintHeader";
@@ -521,10 +521,8 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
   }
 
   if (link.reportType === "HOTEL_INFO") {
-    const blockTypes = parseBlockTypes(
-      link.filtersLocked ? storedFilters.blockTypes?.join(",") : (getString(sp.blockTypes) ?? storedFilters.blockTypes?.join(",")),
-    );
-    const data = await getHotelInfoReportData(link.eventId, { blockTypes });
+    const guestTypes = hotelInfoGuestTypes(link.filtersLocked ? undefined : getString(sp.guestTypes), storedFilters);
+    const data = await getHotelInfoReportData(link.eventId, { guestTypes });
     if (!data) notFound();
     return (
       <div className="p-4 sm:p-6 max-w-4xl mx-auto">

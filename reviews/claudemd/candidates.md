@@ -19,3 +19,6 @@
 - [hotels] Block-type UI labels read "Contract attendee / Courtesy attendee / Staff"; enum values and URL params unchanged (src/lib/hotels.ts)
 - [hotels] Room-grid editing is the shared `RoomGridEditor` (rooms, optionally + rate) used by ProposalForm and RFP blocks (src/app/events/hotels/RoomGridEditor.tsx)
 - [rfps] Child rows that other records point at (RFP blocks ← proposals, RFP concessions ← concession answers) save in place by id (update kept, create new, delete missing) rather than delete-and-recreate, which would SetNull/cascade the links (src/app/events/rfps/core.ts)
+- [hotels] Block type is two fields: `contractType` (fixed enum CONTRACT / COURTESY — the app keys off it) + `guestType` (`hotel_guest_type` option label). Staff is a guest type. Label with `blockTypeLabel`. (PR: hotel block terms)
+- [hotels] Run of House is a null night `roomType`, not a block flag; ROH can sit beside typed rooms. Pickup pools types the block doesn't name into ROH (`src/lib/hotelPickup.ts`). Display with `roomTypeLabel`, never a hard-coded "Run of house".
+- [reports] When a report filter's vocabulary changes, keep old share links working: translate the stored filter at read time (`hotelInfoGuestTypes` reads legacy `blockTypes`) rather than migrating ShareLink JSON.

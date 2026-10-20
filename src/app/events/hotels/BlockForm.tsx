@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import type { HotelChargeScope } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
-import { CHARGE_SCOPE_LABELS, CHARGE_SCOPES, formatDateKey, formatMoney, formatNight, nightKeys } from "@/lib/hotels";
+import { CHARGE_SCOPE_LABELS, CHARGE_SCOPES, formatDateKey, formatMoney, formatNight, nightKeys, roomTypeLabel, RUN_OF_HOUSE } from "@/lib/hotels";
 import type { NightPickup } from "@/lib/hotelPickup";
 
 export type BlockValues = {
@@ -19,7 +19,6 @@ export type BlockValues = {
   cutoffDate: string | null;
   contractedOn: string | null;
   cutoffExercised: boolean | null;
-  isRunOfHouse: boolean;
   allowedAttrition: string | null;
   guaranteedRevenue: string | null;
   distanceMiles: string | null;
@@ -90,7 +89,7 @@ export function PickupTable({ rows, attritionFloor }: { rows: NightPickup[]; att
             <div className="flex justify-between gap-3">
               <span className="font-medium text-gray-900 dark:text-white">
                 {formatNight(r.night)}
-                {showType && <span className="font-normal text-gray-500 dark:text-gray-400"> · {r.roomType ?? "Run of house"}</span>}
+                {showType && <span className="font-normal text-gray-500 dark:text-gray-400"> · {roomTypeLabel(r.roomType)}</span>}
               </span>
               <span className={low(r) ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}>
                 {r.pickedUp}/{r.blocked} · {pct(r.pickedUp, r.blocked)}
@@ -116,7 +115,7 @@ export function PickupTable({ rows, attritionFloor }: { rows: NightPickup[]; att
             {rows.map((r) => (
               <tr key={`${r.night}-${r.roomType}`}>
                 <td className={tdClass}>{formatNight(r.night)}</td>
-                {showType && <td className={tdClass}>{r.roomType ?? "Run of house"}</td>}
+                {showType && <td className={tdClass}>{roomTypeLabel(r.roomType)}</td>}
                 <td className={`${tdClass} text-right`}>{r.contracted ?? "—"}</td>
                 <td className={`${tdClass} text-right`}>{r.blocked}</td>
                 <td className={`${tdClass} text-right`}>{r.pickedUp}</td>
@@ -233,7 +232,6 @@ export function BlockForm({
   const [editing, setEditing] = useState(false);
   const [checkIn, setCheckIn] = useState(block.checkIn ?? "");
   const [checkOut, setCheckOut] = useState(block.checkOut ?? "");
-  const [runOfHouse, setRunOfHouse] = useState(block.isRunOfHouse);
   const [nights, setNights] = useState<EditNight[]>(() =>
     block.nights.map((n) => ({
       key: n.id,
@@ -295,7 +293,7 @@ export function BlockForm({
   const nightsJson = JSON.stringify(
     visible.map((n) => ({
       id: n.id,
-      roomType: runOfHouse ? null : n.roomType,
+      roomType: n.roomType,
       night: n.night,
       rate: n.rate !== "" ? Number(n.rate) : null,
       contractedRooms: n.contractedRooms !== "" ? parseInt(n.contractedRooms) : null,
@@ -319,7 +317,6 @@ export function BlockForm({
     >
       <input type="hidden" name="nights" value={nightsJson} />
       <input type="hidden" name="charges" value={chargesJson} />
-      <input type="hidden" name="isRunOfHouse" value={String(runOfHouse)} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Check-in" htmlFor="b-checkIn">
@@ -387,10 +384,6 @@ export function BlockForm({
           <input type="checkbox" name="isHq" value="true" defaultChecked={block.isHq} className="rounded border-gray-300 dark:border-gray-600" />
           HQ hotel
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input type="checkbox" checked={runOfHouse} onChange={(e) => setRunOfHouse(e.target.checked)} className="rounded border-gray-300 dark:border-gray-600" />
-          Run of house
-        </label>
       </div>
 
       <div>
@@ -400,7 +393,7 @@ export function BlockForm({
             <thead>
               <tr>
                 <th className={thClass}>Night</th>
-                {!runOfHouse && <th className={thClass}>Room type</th>}
+                <th className={thClass}>Room type</th>
                 <th className={`${thClass} text-right`}>Rate</th>
                 <th className={`${thClass} text-right`}>Contracted</th>
                 <th className={`${thClass} text-right`}>Blocked</th>
@@ -412,7 +405,7 @@ export function BlockForm({
               {visible.map((n) => (
                 <tr key={n.key}>
                   <td className={tdClass}>{formatNight(n.night)}</td>
-                  {!runOfHouse && <td className={tdClass}>{n.roomType ?? "Run of house"}</td>}
+                  <td className={tdClass}>{roomTypeLabel(n.roomType)}</td>
                   {(["rate", "contractedRooms", "rooms", "otherReservations"] as const).map((f) => (
                     <td key={f} className="py-1 px-1 text-right">
                       <input
@@ -442,35 +435,28 @@ export function BlockForm({
         </div>
         {keys.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {runOfHouse ? (
-              <button type="button" onClick={() => addRoomType(null)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                + Missing nights
-              </button>
-            ) : (
-              <>
-                <select
-                  aria-label="Room type"
-                  value={addType}
-                  onChange={(e) => setAddType(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
-                >
-                  <option value="">Room type…</option>
-                  {Array.from(new Set([...types.filter((t): t is string => !!t), ...roomTypes])).map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={!addType}
-                  onClick={() => addRoomType(addType)}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
-                >
-                  + Add nights
-                </button>
-              </>
-            )}
+            <select
+              aria-label="Room type"
+              value={addType}
+              onChange={(e) => setAddType(e.target.value)}
+              className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="">Room type…</option>
+              <option value="__blank__">{RUN_OF_HOUSE}</option>
+              {Array.from(new Set([...types.filter((t): t is string => !!t), ...roomTypes])).map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!addType}
+              onClick={() => addRoomType(addType === "__blank__" ? null : addType)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+            >
+              + Add nights
+            </button>
           </div>
         )}
       </div>

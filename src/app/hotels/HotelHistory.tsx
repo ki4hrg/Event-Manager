@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BLOCK_TYPE_LABELS } from "@/lib/hotels";
+import { blockTypeLabel } from "@/lib/hotels";
 import type { getVenueHotelHistory } from "./actions";
 
 type Proposal = Awaited<ReturnType<typeof getVenueHotelHistory>>[number];
@@ -16,7 +16,7 @@ export function HotelHistory({ proposals }: { proposals: Proposal[] }) {
               {p.event.name}
             </Link>
             <span className="text-gray-500 dark:text-gray-400">
-              {[p.blockType ? BLOCK_TYPE_LABELS[p.blockType] : null, p.status].filter(Boolean).join(" · ")}
+              {[blockTypeLabel(p.contractType, p.guestType), p.status].filter(Boolean).join(" · ")}
             </span>
           </li>
         ))}

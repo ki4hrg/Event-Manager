@@ -2,33 +2,35 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { HotelBlockType } from "@prisma/client";
+import type { HotelContractType } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
-import { BLOCK_TYPES, dateFromKey, dateKey } from "@/lib/hotels";
+import { addDays, CONTRACT_TYPES } from "@/lib/hotels";
 import type { PatternBasis } from "@/lib/hotelPattern";
-import { RoomGridEditor, visibleGridRows, type GridRow } from "../hotels/RoomGridEditor";
-import type { RfpBlockArgs } from "./core";
+import { RoomGridEditor, type GridEdge, type GridRow } from "../hotels/RoomGridEditor";
+import type { RfpBlockArgs, RfpFillArgs } from "./core";
 
 export type RfpBlockValues = {
   id: string;
-  blockType: HotelBlockType;
-  isRunOfHouse: boolean;
+  contractType: HotelContractType;
+  guestType: string | null;
   targetRate: string | null;
   notes: string | null;
   nights: { roomType: string | null; night: string; rooms: number }[];
 };
 
-type FillArgs = { seriesId: string | null; blockType: HotelBlockType | null; basis: PatternBasis; adjust: number };
 type FillResult = { events: number; nights: { night: string; rooms: number }[] };
 
 type BlockState = {
   id: number;
   savedId: string | null;
-  blockType: HotelBlockType;
-  isRunOfHouse: boolean;
+  contractType: HotelContractType;
+  guestType: string;
   targetRate: string;
   notes: string;
+  // Nights shown, first to last; each block keeps its own range.
+  from: string;
+  to: string;
   rows: GridRow[];
 };
 
@@ -40,39 +42,42 @@ const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 const linkButton = "text-sm text-blue-600 dark:text-blue-400 hover:underline";
 
-const DAY = 86_400_000;
-const addDays = (key: string, n: number) => dateKey(new Date(dateFromKey(key).getTime() + n * DAY));
-
 function keysBetween(from: string, to: string) {
   const out: string[] = [];
   for (let k = from; k <= to && out.length < 90; k = addDays(k, 1)) out.push(k);
   return out;
 }
 
-function toRows(b: RfpBlockValues): GridRow[] {
-  const types = Array.from(new Set(b.nights.map((n) => n.roomType)));
-  if (types.length === 0) return [];
+// One column per room type; Run of House (null) when nothing is requested yet.
+function toRows(nights: RfpBlockValues["nights"]): GridRow[] {
+  const types = Array.from(new Set(nights.map((n) => n.roomType)));
+  if (types.length === 0) return [{ roomType: null, cells: {} }];
   return types.map((t) => ({
     roomType: t,
-    cells: Object.fromEntries(b.nights.filter((n) => n.roomType === t).map((n) => [n.night, { rooms: String(n.rooms), rate: "" }])),
+    cells: Object.fromEntries(nights.filter((n) => n.roomType === t).map((n) => [n.night, { rooms: String(n.rooms), rate: "" }])),
   }));
 }
 
 function HistoryFill({
   block,
+  guestTypes,
   series,
   defaultSeriesId,
   fill,
   onFilled,
 }: {
   block: BlockState;
+  guestTypes: string[];
   series: { id: string; name: string }[];
   defaultSeriesId: string | null;
-  fill: (args: FillArgs) => Promise<FillResult>;
+  fill: (args: RfpFillArgs) => Promise<FillResult>;
   onFilled: (nights: FillResult["nights"]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [seriesId, setSeriesId] = useState(defaultSeriesId ?? "");
+  // History of this block's own kind by default; "" draws on every kind.
+  const [contractType, setContractType] = useState<string>(block.contractType);
+  const [guestType, setGuestType] = useState(block.guestType);
   const [basis, setBasis] = useState<PatternBasis>("average");
   const [adjust, setAdjust] = useState("0");
   const [message, setMessage] = useState<string | null>(null);
@@ -87,9 +92,15 @@ function HistoryFill({
   }
   const run = () =>
     startTransition(async () => {
-      const result = await fill({ seriesId: seriesId || null, blockType: block.blockType, basis, adjust: Number(adjust) || 0 });
+      const result = await fill({
+        seriesId: seriesId || null,
+        contractType: (contractType || null) as HotelContractType | null,
+        guestType: guestType || null,
+        basis,
+        adjust: Number(adjust) || 0,
+      });
       if (result.nights.length === 0) {
-        setMessage("No past pickup for this block type.");
+        setMessage("No past pickup matches.");
         return;
       }
       onFilled(result.nights);
@@ -102,6 +113,22 @@ function HistoryFill({
         {series.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}
+          </option>
+        ))}
+      </select>
+      <select aria-label="Contract type" value={contractType} onChange={(e) => setContractType(e.target.value)} className={smallInput}>
+        <option value="">Any contract</option>
+        {CONTRACT_TYPES.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </select>
+      <select aria-label="Guest type" value={guestType} onChange={(e) => setGuestType(e.target.value)} className={smallInput}>
+        <option value="">Any guests</option>
+        {guestTypes.map((g) => (
+          <option key={g} value={g}>
+            {g}
           </option>
         ))}
       </select>
@@ -126,6 +153,7 @@ export function RfpBlocksEditor({
   eventStart,
   eventEnd,
   roomTypes,
+  guestTypes,
   series,
   defaultSeriesId,
   save,
@@ -135,70 +163,88 @@ export function RfpBlocksEditor({
   eventStart: string;
   eventEnd: string;
   roomTypes: string[];
+  guestTypes: string[];
   series: { id: string; name: string }[];
   defaultSeriesId: string | null;
   save: (blocks: RfpBlockArgs[]) => Promise<void>;
-  fill: (args: FillArgs) => Promise<FillResult>;
+  fill: (args: RfpFillArgs) => Promise<FillResult>;
 }) {
   const router = useRouter();
   const canWrite = useCanWrite("HOTELS");
   const [pending, startTransition] = useTransition();
   const [dirty, setDirty] = useState(false);
   const [nextId, setNextId] = useState(initial.length);
+  // A block's nights start at the event's, widened to any it already requests.
+  const lastNight = eventEnd > eventStart ? addDays(eventEnd, -1) : eventStart;
+  const range = (nights: string[]) => ({ from: [eventStart, ...nights].sort()[0], to: [lastNight, ...nights].sort().reverse()[0] });
   const [blocks, setBlocks] = useState<BlockState[]>(() =>
     initial.map((b, i) => ({
       id: i,
       savedId: b.id,
-      blockType: b.blockType,
-      isRunOfHouse: b.isRunOfHouse,
+      contractType: b.contractType,
+      guestType: b.guestType ?? "",
       targetRate: b.targetRate ?? "",
       notes: b.notes ?? "",
-      rows: toRows(b),
+      ...range(b.nights.map((n) => n.night)),
+      rows: toRows(b.nights),
     })),
   );
-  // Nights shown: the event's nights, widened to any requested night outside them.
-  const lastNight = eventEnd > eventStart ? addDays(eventEnd, -1) : eventStart;
-  const saved = initial.flatMap((b) => b.nights.map((n) => n.night));
-  const [range, setRange] = useState(() => ({
-    from: [eventStart, ...saved].sort()[0],
-    to: [lastNight, ...saved].sort().reverse()[0],
-  }));
-  const keys = keysBetween(range.from, range.to);
 
   const change = (id: number, patch: Partial<BlockState>) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
     setDirty(true);
   };
   const addBlock = () => {
-    const used = new Set(blocks.map((b) => b.blockType));
-    const blockType = BLOCK_TYPES.find((t) => !used.has(t.value))?.value ?? "CONTRACT";
-    setBlocks((prev) => [...prev, { id: nextId, savedId: null, blockType, isRunOfHouse: false, targetRate: "", notes: "", rows: roomTypes.slice(0, 1).map((t) => ({ roomType: t, cells: {} })) }]);
+    setBlocks((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        savedId: null,
+        contractType: "CONTRACT",
+        guestType: guestTypes[0] ?? "",
+        targetRate: "",
+        notes: "",
+        ...range([]),
+        rows: toRows([]),
+      },
+    ]);
     setNextId((n) => n + 1);
     setDirty(true);
   };
+  const addDay = (b: BlockState, edge: GridEdge) =>
+    change(b.id, edge === "before" ? { from: addDays(b.from, -1) } : { to: addDays(b.to, 1) });
+  const removeDay = (b: BlockState, edge: GridEdge) =>
+    change(b.id, edge === "before" ? { from: addDays(b.from, 1) } : { to: addDays(b.to, -1) });
+  // Fills the first column (Run of House unless the block names a type).
   const applyFill = (b: BlockState, nights: FillResult["nights"]) => {
     const sorted = nights.map((n) => n.night).sort();
-    setRange((r) => ({ from: sorted[0] < r.from ? sorted[0] : r.from, to: sorted[sorted.length - 1] > r.to ? sorted[sorted.length - 1] : r.to }));
-    const roomType = b.isRunOfHouse ? null : (visibleGridRows(b.rows, false)[0]?.roomType ?? roomTypes[0] ?? null);
     const cells = Object.fromEntries(nights.map((n) => [n.night, { rooms: String(n.rooms), rate: "" }]));
-    change(b.id, { isRunOfHouse: b.isRunOfHouse || roomType === null, rows: [{ roomType, cells }] });
+    const [first, ...rest] = b.rows.length ? b.rows : toRows([]);
+    change(b.id, {
+      from: sorted[0] < b.from ? sorted[0] : b.from,
+      to: sorted[sorted.length - 1] > b.to ? sorted[sorted.length - 1] : b.to,
+      rows: [{ roomType: first.roomType, cells }, ...rest],
+    });
   };
   const onSave = () =>
     startTransition(async () => {
       await save(
-        blocks.map((b) => ({
-          id: b.savedId,
-          blockType: b.blockType,
-          isRunOfHouse: b.isRunOfHouse,
-          targetRate: b.targetRate !== "" ? Number(b.targetRate) : null,
-          notes: b.notes || null,
-          nights: visibleGridRows(b.rows, b.isRunOfHouse).flatMap((r) =>
-            keys.flatMap((k) => {
-              const rooms = parseInt(r.cells[k]?.rooms ?? "");
-              return rooms > 0 ? [{ roomType: r.roomType, night: k, rooms }] : [];
-            }),
-          ),
-        })),
+        blocks.map((b) => {
+          const keys = keysBetween(b.from, b.to);
+          return {
+            id: b.savedId,
+            contractType: b.contractType,
+            guestType: b.guestType || null,
+            targetRate: b.targetRate !== "" ? Number(b.targetRate) : null,
+            notes: b.notes || null,
+            nights: b.rows.flatMap((r) =>
+              keys.flatMap((k) => {
+                const rooms = parseInt(r.cells[k]?.rooms ?? "");
+                return rooms > 0 ? [{ roomType: r.roomType, night: k, rooms }] : [];
+              }),
+            ),
+          };
+        }),
       );
       setDirty(false);
       router.refresh();
@@ -206,37 +252,39 @@ export function RfpBlocksEditor({
 
   return (
     <div className={`${cardClass} space-y-4`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Room blocks</h2>
-        {canWrite && (
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setRange((r) => ({ ...r, from: addDays(r.from, -1) }))} className={linkButton}>
-              ← Night
-            </button>
-            <button type="button" onClick={() => setRange((r) => ({ ...r, to: addDays(r.to, 1) }))} className={linkButton}>
-              Night →
-            </button>
-          </div>
-        )}
-      </div>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Room blocks</h2>
       <fieldset disabled={!canWrite} className="space-y-6">
         {blocks.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No blocks requested.</p>}
         {blocks.map((b) => (
           <div key={b.id} className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4 first:border-0 first:pt-0">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label htmlFor={`b-${b.id}-type`} className={labelClass}>
-                  Block
+                <label htmlFor={`b-${b.id}-contract`} className={labelClass}>
+                  Contract type
                 </label>
                 <select
-                  id={`b-${b.id}-type`}
-                  value={b.blockType}
-                  onChange={(e) => change(b.id, { blockType: e.target.value as HotelBlockType })}
+                  id={`b-${b.id}-contract`}
+                  value={b.contractType}
+                  onChange={(e) => change(b.id, { contractType: e.target.value as HotelContractType })}
                   className={inputClass}
                 >
-                  {BLOCK_TYPES.map((t) => (
+                  {CONTRACT_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor={`b-${b.id}-guest`} className={labelClass}>
+                  Guest type
+                </label>
+                <select id={`b-${b.id}-guest`} value={b.guestType} onChange={(e) => change(b.id, { guestType: e.target.value })} className={inputClass}>
+                  <option value="">Not set</option>
+                  {b.guestType && !guestTypes.includes(b.guestType) && <option value={b.guestType}>{b.guestType}</option>}
+                  {guestTypes.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
                     </option>
                   ))}
                 </select>
@@ -256,23 +304,15 @@ export function RfpBlocksEditor({
                   className={inputClass}
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 sm:mt-6">
-                <input
-                  type="checkbox"
-                  checked={b.isRunOfHouse}
-                  onChange={(e) => change(b.id, { isRunOfHouse: e.target.checked })}
-                  className="rounded border-gray-300 dark:border-gray-600"
-                />
-                Run of house
-              </label>
             </div>
             <RoomGridEditor
-              keys={keys}
+              keys={keysBetween(b.from, b.to)}
               rows={b.rows}
-              runOfHouse={b.isRunOfHouse}
               roomTypes={roomTypes}
               withRate={false}
               onChange={(rows) => change(b.id, { rows })}
+              onAddDay={canWrite ? (edge) => addDay(b, edge) : undefined}
+              onRemoveDay={canWrite ? (edge) => removeDay(b, edge) : undefined}
             />
             <div>
               <label htmlFor={`b-${b.id}-notes`} className={labelClass}>
@@ -282,7 +322,14 @@ export function RfpBlocksEditor({
             </div>
             {canWrite && (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <HistoryFill block={b} series={series} defaultSeriesId={defaultSeriesId} fill={fill} onFilled={(nights) => applyFill(b, nights)} />
+                <HistoryFill
+                  block={b}
+                  guestTypes={guestTypes}
+                  series={series}
+                  defaultSeriesId={defaultSeriesId}
+                  fill={fill}
+                  onFilled={(nights) => applyFill(b, nights)}
+                />
                 <button
                   type="button"
                   onClick={() => {

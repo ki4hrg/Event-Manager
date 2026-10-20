@@ -24,7 +24,7 @@ export default async function BlockPage({ params }: { params: Promise<{ id: stri
   const [event, block, choices] = await Promise.all([getEvent(eventId), getHotelBlock(blockId, eventId), getBlockFormChoices(eventId)]);
   if (!event || !block) notFound();
 
-  const pickup = blockPickup({ isRunOfHouse: block.isRunOfHouse, nights: block.nights, guests: block.pickupGuests, counts: block.pickupCounts });
+  const pickup = blockPickup({ nights: block.nights, guests: block.pickupGuests, counts: block.pickupCounts });
   const totals = pickupTotals(pickup);
 
   const updateAction = async (formData: FormData) => {

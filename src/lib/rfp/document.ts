@@ -2,16 +2,15 @@
 // .docx renderer (src/lib/rfp/renderDocx.ts). Built from loaded rows by
 // buildRfpDocument; a part that is switched off is null. Pure.
 
-import type { HotelBlockType, RfpKind, RfpStatus } from "@prisma/client";
+import type { HotelContractType, RfpKind, RfpStatus } from "@prisma/client";
 import { formatTimeRange, getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
-import { BLOCK_TYPE_LABELS, dateKey, formatDateKey, formatMoney } from "@/lib/hotels";
+import { blockTypeLabel, dateKey, formatDateKey, formatMoney, roomTypeLabel } from "@/lib/hotels";
 import type { FbGrid } from "@/lib/esg/fbGrid";
 import type { RfpSection } from "@/lib/rfp/sections";
 
 export type RfpBlockDoc = {
-  label: string; // "Contract attendee block"
-  isRunOfHouse: boolean;
+  label: string; // "Contract · Attendees block"
   targetRate: string | null; // formatted
   notes: string | null;
   nights: string[]; // night keys, ascending
@@ -83,8 +82,8 @@ export type RfpDocumentInput = {
     contactTitle: string | null;
     concessions: { label: string; value: string | null; required: boolean }[];
     hotelBlocks: {
-      blockType: HotelBlockType;
-      isRunOfHouse: boolean;
+      contractType: HotelContractType;
+      guestType: string | null;
       targetRate: { toString(): string } | null;
       notes: string | null;
       nights: { roomType: string | null; night: Date; rooms: number }[];
@@ -120,19 +119,18 @@ export type RfpDocumentInput = {
 const sum = (ns: number[]) => ns.reduce((s, n) => s + n, 0);
 const fmtDay = (d: Date | null) => (d ? formatDateKey(dateKey(d)) : null);
 
-export const blockLabel = (t: HotelBlockType) => `${BLOCK_TYPE_LABELS[t]} block`;
+export const blockLabel = (contractType: HotelContractType, guestType: string | null) => `${blockTypeLabel(contractType, guestType)} block`;
 
 function blockDoc(b: RfpDocumentInput["rfp"]["hotelBlocks"][number]): RfpBlockDoc {
   const nights = Array.from(new Set(b.nights.map((n) => dateKey(n.night)))).sort();
-  const types = Array.from(new Set(b.nights.map((n) => n.roomType ?? "Run of house")));
+  const types = Array.from(new Set(b.nights.map((n) => roomTypeLabel(n.roomType))));
   const rows = types.map((roomType) => ({
     roomType,
-    rooms: Object.fromEntries(b.nights.filter((n) => (n.roomType ?? "Run of house") === roomType).map((n) => [dateKey(n.night), n.rooms])),
+    rooms: Object.fromEntries(b.nights.filter((n) => roomTypeLabel(n.roomType) === roomType).map((n) => [dateKey(n.night), n.rooms])),
   }));
   const totals = Object.fromEntries(nights.map((k) => [k, sum(rows.map((r) => r.rooms[k] ?? 0))]));
   return {
-    label: blockLabel(b.blockType),
-    isRunOfHouse: b.isRunOfHouse,
+    label: blockLabel(b.contractType, b.guestType),
     targetRate: b.targetRate != null ? formatMoney(b.targetRate.toString()) : null,
     notes: b.notes,
     nights,

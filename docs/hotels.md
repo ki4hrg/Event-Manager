@@ -7,6 +7,8 @@ Ported from Hotel-Manager. Sleeping-room blocks for an event, from proposal to p
 | Concept | Where |
 |---|---|
 | Hotel | A `Venue` with `isLodging` (+ `brand`, `area` option labels). `/hotels` lists them. |
+| Block type | Two fields on `HotelProposal` (and `RfpHotelBlock`): `contractType` (fixed enum: `CONTRACT` carries attrition, `COURTESY` is held without it) and `guestType` (a `hotel_guest_type` option label — Attendees, Staff, Speakers, Exhibitors, VIP). Shown together by `blockTypeLabel` ("Contract · Staff"). Staff is a guest type, never a contract type. |
+| Run of House | A room type: a night whose `roomType` is null (`RUN_OF_HOUSE` / `roomTypeLabel` in `src/lib/hotels.ts`). It can sit beside typed rooms in one grid ("Run of House 40 + Suite 5"). There is no block-level flag. |
 | Proposal | `HotelProposal` — one hotel's offer for one event: status (a `proposal_status` option whose `group` is the stage REQUESTED / PENDING / ACCEPTED / DECLINED), room grid (`HotelProposalNight`: room type × night → rooms, rate), charges, amenities, terms, documents (`FileUpload.hotelProposalId`). |
 | Revisions | `HotelProposalVersion` — every save refreshes the current revision's snapshot; raising `revision` freezes the previous one and records a field diff. |
 | Block | `HotelBlock` — an accepted proposal turned into the booked block (1:1). Nights keep `contractedRooms` (as signed) next to `rooms` (current / final) and `otherReservations`. |
@@ -14,13 +16,13 @@ Ported from Hotel-Manager. Sleeping-room blocks for an event, from proposal to p
 | Booking dates | `HotelPickupGuest.bookedOn` / `cancelledOn`, when the hotel's report has them (mapped in the CSV wizard; settable per guest via MCP `update_hotel_pickup_guest`). A merge never clears a known date; before the block starts, a guest new in a merge (or newly cancelled) without a date gets the import day. |
 | Snapshots | `HotelPickupSnapshot` — pickup per night as of a day, written on every pickup change. |
 
-Pickup is computed, never stored per night: `src/lib/hotelPickup.ts` is the single calculation (guests staying that night + entered counts + other reservations; run-of-house pools all types). Attrition: a block is "at risk" when pickup % < 100 − allowed attrition.
+Pickup is computed, never stored per night: `src/lib/hotelPickup.ts` is the single calculation (guests staying that night + entered counts + other reservations). Guests keep the room type they actually had. A guest or count lands on its own room type when the block names it; any other type pools into the block's Run of House allotment, or counts outside the block when it has none. Attrition: a block is "at risk" when pickup % < 100 − allowed attrition.
 
 ## RFPs
 
-What we ask hotels for, before any proposal comes back. `Rfp` (generic, `kind = HOTEL`) with requested `RfpHotelBlock`s — one per block type (contract attendee / courtesy attendee / staff), each a room type × night grid of requested rooms plus a target rate — and `RfpConcession`s (labels from the `rfp_concession` option list, free-text values, required or not).
+What we ask hotels for, before any proposal comes back. `Rfp` (generic, `kind = HOTEL`) with requested `RfpHotelBlock`s — one per contract type + guest type, each a night × room type grid of requested rooms plus a target rate — and `RfpConcession`s (labels from the `rfp_concession` option list, free-text values, required or not).
 
-- **Editor** — `/events/[id]/hotels/rfps/[rfpId]`: details and document parts, blocks (shared `RoomGridEditor`), concessions. *Fill from history* fills a block from past pickup of that block type (`patternStats` / `proposedRoles` / `proposeNights` in `src/lib/hotelPattern.ts`); the pattern report's *Use in RFP* starts a new RFP the same way.
+- **Editor** — `/events/[id]/hotels/rfps/[rfpId]`: details and document parts, blocks (shared `RoomGridEditor`), concessions. *Fill from history* fills a block from past pickup, filtered by contract type and guest type (the block's own by default, or any) (`patternStats` / `proposedRoles` / `proposeNights` in `src/lib/hotelPattern.ts`); the pattern report's *Use in RFP* starts a new RFP the same way.
 - **Document** — `src/lib/rfp/document.ts` builds one `RfpDocument` from live data: cover, room blocks, meeting space (on-site functions, set-up/tear-down rows dropped, function types excludable, room names optional), F&B (the ESG day × meal grid, expected counts), concessions, event history (the series' ended events with pickup), additional requirements. Each part after the cover is optional (`Rfp.sections`). Rendered by `RfpDocumentView` (`/print`) and `src/lib/rfp/renderDocx.ts` (`/api/events/[id]/rfps/[rfpId]?format=docx`).
 - **Recipients** — `RfpRecipient` per hotel: sent date, declined to bid. State is derived (`recipientState` in `src/lib/rfp/recipients.ts`): not sent / due in n days / overdue / declined / responded. *Record response* opens a new proposal prefilled from the requested block (`?rfpBlockId=`); creating it links `HotelProposal.rfpId` / `rfpBlockId` and adds the hotel as a recipient if it wasn't listed. Blocks are saved in place by id so those links survive edits.
 - **Concession answers** — a proposal answering an RFP records, per requested concession, Met / Partial / Not met plus what was offered (`HotelProposalConcession`). RFP concessions are saved in place by id; removing one drops its answers. Not part of the proposal's revision snapshot.
@@ -35,7 +37,7 @@ What we ask hotels for, before any proposal comes back. `Rfp` (generic, `kind = 
 
 ## Reports
 
-- **Hotel Information** (`/events/[id]/reports/hotel-info`, shareable) — guest-facing booking details; never pickup or contract money.
+- **Hotel Information** (`/events/[id]/reports/hotel-info`, shareable) — guest-facing booking details; never pickup or contract money. Filtered by guest type (`?guestTypes=`); share links saved before the block-type split keep their filter through `hotelInfoGuestTypes`.
 - **/hotels/reports** — pickup history across events (vs attendance and membership, per hotel) and monitoring of upcoming blocks.
 
 ## Importing Hotel-Manager

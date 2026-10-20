@@ -3,14 +3,15 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import type { ConcessionMet, HotelBlockType, HotelChargeScope } from "@prisma/client";
+import type { ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import {
-  BLOCK_TYPE_LABELS,
-  BLOCK_TYPES,
+  addDays,
+  blockTypeLabel,
   CHARGE_SCOPE_LABELS,
   CHARGE_SCOPES,
+  CONTRACT_TYPES,
   formatDateKey,
   formatMoney,
   MET_LABELS,
@@ -18,20 +19,20 @@ import {
   stageOf,
 } from "@/lib/hotels";
 import { RoomGrid, type GridNight } from "./RoomGrid";
-import { RoomGridEditor, visibleGridRows, type GridRow } from "./RoomGridEditor";
+import { RoomGridEditor, type GridEdge, type GridRow } from "./RoomGridEditor";
 
 export type ProposalValues = {
   venueId: string;
   status: string;
   leadSource: string | null;
-  blockType: HotelBlockType | null;
+  contractType: HotelContractType | null;
+  guestType: string | null;
   submittedOn: string | null;
   checkIn: string | null;
   checkOut: string | null;
   declinedReason: string | null;
   notes: string | null;
   revision: number;
-  isRunOfHouse: boolean;
   allowedAttrition: string | null;
   guaranteedRevenue: string | null;
   amenities: string[];
@@ -43,6 +44,7 @@ export type ProposalChoices = {
   venues: { id: string; label: string; isLodging: boolean }[];
   statuses: { label: string; group: string | null; color: string | null }[];
   roomTypes: string[];
+  guestTypes: string[];
   amenities: string[];
   leadSources: string[];
 };
@@ -72,6 +74,21 @@ function Field({ label, htmlFor, wide, children }: { label: string; htmlFor: str
   );
 }
 
+// A select over an option list that keeps a stored label no longer in it.
+function OptionSelect({ id, name, value, options }: { id: string; name: string; value: string | null; options: string[] }) {
+  return (
+    <select id={id} name={name} defaultValue={value ?? ""} className={inputClass}>
+      <option value="">Not set</option>
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function Fieldset({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
     <fieldset className="space-y-4">
@@ -94,16 +111,15 @@ function concessionLine(c: ConcessionAnswer) {
 // A new proposal answering a requested RFP block starts as a copy of it.
 export type ProposalTemplate = {
   rfpBlockId: string;
-  blockType: HotelBlockType;
-  isRunOfHouse: boolean;
+  contractType: HotelContractType;
+  guestType: string | null;
   status: string | null;
   nights: GridNight[];
 };
 
-function initialRows(values: Pick<ProposalValues, "nights" | "isRunOfHouse"> | null, roomTypes: string[]): GridRow[] {
-  if (!values || values.nights.length === 0) {
-    return values?.isRunOfHouse ? [{ roomType: null, cells: {} }] : roomTypes.slice(0, 1).map((t) => ({ roomType: t, cells: {} }));
-  }
+// One column per room type in the nights; Run of House when there are none.
+function initialRows(values: Pick<ProposalValues, "nights"> | null): GridRow[] {
+  if (!values || values.nights.length === 0) return [{ roomType: null, cells: {} }];
   const types = Array.from(new Set(values.nights.map((n) => n.roomType)));
   return types.map((t) => ({
     roomType: t,
@@ -120,7 +136,7 @@ function Details({ values, choices, concessions }: { values: ProposalValues; cho
     ["Hotel", choices.venues.find((v) => v.id === values.venueId)?.label ?? "—"],
     ["Status", values.status],
     ["Revision", values.revision],
-    ["Block type", values.blockType ? BLOCK_TYPE_LABELS[values.blockType] : "—"],
+    ["Block type", blockTypeLabel(values.contractType, values.guestType) ?? "—"],
     ["Lead source", values.leadSource ?? "—"],
     ["Submitted", formatDateKey(values.submittedOn)],
     ["Check-in", formatDateKey(values.checkIn)],
@@ -214,8 +230,7 @@ export function ProposalForm({
   const [revision, setRevision] = useState(proposal?.revision ?? 1);
   const [checkIn, setCheckIn] = useState(proposal ? proposal.checkIn ?? "" : defaultCheckIn ?? "");
   const [checkOut, setCheckOut] = useState(proposal ? proposal.checkOut ?? "" : defaultCheckOut ?? "");
-  const [runOfHouse, setRunOfHouse] = useState(proposal?.isRunOfHouse ?? fromRfp?.isRunOfHouse ?? false);
-  const [rows, setRows] = useState<GridRow[]>(() => initialRows(proposal ?? fromRfp ?? null, choices.roomTypes));
+  const [rows, setRows] = useState<GridRow[]>(() => initialRows(proposal ?? fromRfp ?? null));
   const [charges, setCharges] = useState(
     (proposal?.charges ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })),
   );
@@ -240,10 +255,12 @@ export function ProposalForm({
 
   const keys = nightKeys(checkIn || null, checkOut || null);
   const stage = stageOf(status, choices.statuses);
-  const visibleRows = visibleGridRows(rows, runOfHouse);
+  // The grid's edge-day links move check-in / check-out.
+  const addDay = (edge: GridEdge) => (edge === "before" ? setCheckIn(addDays(checkIn, -1)) : setCheckOut(addDays(checkOut, 1)));
+  const removeDay = (edge: GridEdge) => (edge === "before" ? setCheckIn(addDays(checkIn, 1)) : setCheckOut(addDays(checkOut, -1)));
 
   const nightsJson = JSON.stringify(
-    visibleRows.flatMap((r) =>
+    rows.flatMap((r) =>
       keys
         .map((k) => ({ k, c: r.cells[k] }))
         .filter(({ c }) => c && (c.rooms !== "" || c.rate !== ""))
@@ -271,7 +288,6 @@ export function ProposalForm({
     >
       <input type="hidden" name="nights" value={nightsJson} />
       <input type="hidden" name="charges" value={chargesJson} />
-      <input type="hidden" name="isRunOfHouse" value={String(runOfHouse)} />
       {!isEdit && fromRfp && <input type="hidden" name="rfpBlockId" value={fromRfp.rfpBlockId} />}
       {answers.length > 0 && (
         <input
@@ -304,15 +320,18 @@ export function ProposalForm({
               ))}
             </select>
           </Field>
-          <Field label="Block type" htmlFor="p-blockType">
-            <select id="p-blockType" name="blockType" defaultValue={proposal?.blockType ?? fromRfp?.blockType ?? ""} className={inputClass}>
+          <Field label="Contract type" htmlFor="p-contractType">
+            <select id="p-contractType" name="contractType" defaultValue={proposal?.contractType ?? fromRfp?.contractType ?? ""} className={inputClass}>
               <option value="">Not set</option>
-              {BLOCK_TYPES.map((t) => (
+              {CONTRACT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
               ))}
             </select>
+          </Field>
+          <Field label="Guest type" htmlFor="p-guestType">
+            <OptionSelect id="p-guestType" name="guestType" value={proposal ? proposal.guestType : (fromRfp?.guestType ?? null)} options={choices.guestTypes} />
           </Field>
           {stage === "DECLINED" && (
             <Field label="Declined reason" htmlFor="p-declinedReason" wide>
@@ -365,24 +384,11 @@ export function ProposalForm({
         </div>
       </Fieldset>
 
-      <Fieldset
-        title="Rooms"
-        aside={
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={runOfHouse}
-              onChange={(e) => setRunOfHouse(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600"
-            />
-            Run of house
-          </label>
-        }
-      >
+      <Fieldset title="Rooms">
         {keys.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">Set check-in and check-out to enter rooms.</p>
         ) : (
-          <RoomGridEditor keys={keys} rows={rows} runOfHouse={runOfHouse} roomTypes={choices.roomTypes} withRate onChange={setRows} />
+          <RoomGridEditor keys={keys} rows={rows} roomTypes={choices.roomTypes} withRate onChange={setRows} onAddDay={addDay} onRemoveDay={removeDay} />
         )}
       </Fieldset>
 

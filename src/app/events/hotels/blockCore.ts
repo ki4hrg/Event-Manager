@@ -29,14 +29,13 @@ export async function writePickupSnapshot(tx: Prisma.TransactionClient, blockId:
     where: { id: blockId },
     select: {
       proposal: { select: { event: { select: { timezone: true } } } },
-      isRunOfHouse: true,
       nights: { select: { night: true, roomType: true, rooms: true, contractedRooms: true, otherReservations: true } },
       pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
       pickupCounts: { select: { night: true, roomType: true, rooms: true } },
     },
   });
   const nights = pickupByNight(
-    blockPickup({ isRunOfHouse: block.isRunOfHouse, nights: block.nights, guests: block.pickupGuests, counts: block.pickupCounts }),
+    blockPickup({ nights: block.nights, guests: block.pickupGuests, counts: block.pickupCounts }),
   );
   const takenOn = eventToday(block.proposal.event.timezone);
   await tx.hotelPickupSnapshot.upsert({
@@ -73,7 +72,6 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
         isHq: hasHq === 0,
         checkIn: proposal.checkIn,
         checkOut: proposal.checkOut,
-        isRunOfHouse: proposal.isRunOfHouse,
         allowedAttrition: proposal.allowedAttrition,
         guaranteedRevenue: proposal.guaranteedRevenue,
         contractedOn: eventToday(event.timezone),
@@ -118,7 +116,6 @@ export type BlockWriteArgs = {
   cutoffDate: string | null;
   contractedOn: string | null;
   cutoffExercised: boolean | null;
-  isRunOfHouse: boolean;
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
   distanceMiles: number | null;
@@ -153,7 +150,7 @@ export async function updateHotelBlockCore(blockId: string, eventId: string, arg
     await tx.hotelBlockNight.deleteMany({ where: { blockId, id: { notIn: Array.from(keep) } } });
     for (const n of args.nights) {
       const data = {
-        roomType: args.isRunOfHouse ? null : n.roomType,
+        roomType: n.roomType,
         night: dateFromKey(n.night),
         rate: n.rate,
         contractedRooms: n.contractedRooms,
@@ -177,7 +174,6 @@ export async function updateHotelBlockCore(blockId: string, eventId: string, arg
         cutoffDate: day(args.cutoffDate),
         contractedOn: day(args.contractedOn),
         cutoffExercised: args.cutoffExercised,
-        isRunOfHouse: args.isRunOfHouse,
         allowedAttrition: args.allowedAttrition,
         guaranteedRevenue: args.guaranteedRevenue,
         distanceMiles: args.distanceMiles,
@@ -407,7 +403,6 @@ export function toBlockValues(b: Prisma.HotelBlockGetPayload<{ include: { nights
     cutoffDate: d(b.cutoffDate),
     contractedOn: d(b.contractedOn),
     cutoffExercised: b.cutoffExercised,
-    isRunOfHouse: b.isRunOfHouse,
     allowedAttrition: dec(b.allowedAttrition),
     guaranteedRevenue: dec(b.guaranteedRevenue),
     distanceMiles: dec(b.distanceMiles),

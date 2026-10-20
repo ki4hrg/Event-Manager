@@ -1,6 +1,6 @@
 "use server";
 
-import { PermissionResource, type HotelBlockType, type Prisma } from "@prisma/client";
+import { PermissionResource, type HotelContractType, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loadPermissionsForUser, requirePermission } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
@@ -51,7 +51,8 @@ export async function getVenueHotelHistory(venueId: string) {
       id: true,
       status: true,
       revision: true,
-      blockType: true,
+      contractType: true,
+      guestType: true,
       event: { select: { id: true, name: true, startDate: true, timezone: true } },
     },
     orderBy: { event: { startDate: "desc" } },
@@ -61,19 +62,18 @@ export async function getVenueHotelHistory(venueId: string) {
 const blockPickupSelect = {
   id: true,
   isHq: true,
-  isRunOfHouse: true,
   cutoffDate: true,
   allowedAttrition: true,
   nights: { select: { night: true, roomType: true, rooms: true, contractedRooms: true, otherReservations: true } },
   pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
   pickupCounts: { select: { night: true, roomType: true, rooms: true } },
-  proposal: { select: { blockType: true, venue: { select: { id: true, name: true } } } },
+  proposal: { select: { contractType: true, guestType: true, venue: { select: { id: true, name: true } } } },
 } satisfies Prisma.HotelBlockSelect;
 
 type BlockForTotals = Prisma.HotelBlockGetPayload<{ select: typeof blockPickupSelect }>;
 
 function blockRow(b: BlockForTotals) {
-  const rows = blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
+  const rows = blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
   const totals = pickupTotals(rows);
   const floor = b.allowedAttrition != null ? 100 - Number(b.allowedAttrition) : null;
   return {
@@ -81,7 +81,8 @@ function blockRow(b: BlockForTotals) {
     hotelId: b.proposal.venue.id,
     hotel: b.proposal.venue.name,
     isHq: b.isHq,
-    blockType: b.proposal.blockType,
+    contractType: b.proposal.contractType,
+    guestType: b.proposal.guestType,
     cutoffDate: b.cutoffDate ? dateKey(b.cutoffDate) : null,
     floor,
     atRisk: floor != null && totals.percent != null && totals.percent < floor,
@@ -155,7 +156,7 @@ export async function getBlockMonitoring() {
     .sort((a, b) => (a.cutoffDate ?? "9999").localeCompare(b.cutoffDate ?? "9999") || a.event.startDate.localeCompare(b.event.startDate));
 }
 
-export type PatternFilters = { seriesId?: string; city?: string; blockTypes: HotelBlockType[]; from?: string; to?: string };
+export type PatternFilters = { seriesId?: string; city?: string; contractTypes: HotelContractType[]; guestTypes: string[]; from?: string; to?: string };
 
 // A block has pickup on file when the hotel's report or a count was loaded.
 // One with nothing loaded is unknown, not zero, so it stays out of the pattern.
@@ -169,7 +170,8 @@ export async function getPickupPattern(filters: PatternFilters) {
   const { eventWhere } = await hotelSession();
   const proposalWhere: Prisma.HotelProposalWhereInput = {
     block: { isNot: null },
-    ...(filters.blockTypes.length ? { blockType: { in: filters.blockTypes } } : {}),
+    ...(filters.contractTypes.length ? { contractType: { in: filters.contractTypes } } : {}),
+    ...(filters.guestTypes.length ? { guestType: { in: filters.guestTypes } } : {}),
     ...(filters.city ? { venue: { city: filters.city } } : {}),
   };
   const events = await prisma.event.findMany({
@@ -206,7 +208,7 @@ export async function getPickupPattern(filters: PatternFilters) {
     const pickedUp: Record<string, number> = {};
     const blocked: Record<string, number> = {};
     for (const b of blocks) {
-      for (const r of blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts })) {
+      for (const r of blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts })) {
         pickedUp[r.night] = (pickedUp[r.night] ?? 0) + r.pickedUp;
         blocked[r.night] = (blocked[r.night] ?? 0) + r.blocked;
       }
@@ -224,6 +226,17 @@ export async function getPickupPattern(filters: PatternFilters) {
     });
   }
   return { events: withPickup, noPickup };
+}
+
+// The tenant's guest types, for the pattern filter.
+export async function getHotelGuestTypes() {
+  const { tenantId } = await hotelSession();
+  const rows = await prisma.customOption.findMany({
+    where: { tenantId, category: "hotel_guest_type" },
+    select: { label: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  return rows.map((r) => r.label);
 }
 
 // Cities of the tenant's lodging venues, for the pattern filter.

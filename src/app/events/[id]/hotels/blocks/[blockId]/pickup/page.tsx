@@ -51,8 +51,7 @@ export default async function PickupPage({ params }: { params: Promise<{ id: str
           blockHref={blockHref}
           checkIn={block.checkIn ? dateKey(block.checkIn) : null}
           checkOut={block.checkOut ? dateKey(block.checkOut) : null}
-          isRunOfHouse={block.isRunOfHouse}
-          blockRoomTypes={Array.from(new Set(block.nights.map((n) => n.roomType).filter((t): t is string => !!t)))}
+          blockRoomTypes={Array.from(new Set(block.nights.map((n) => n.roomType)))}
           tenantRoomTypes={choices.roomTypes}
           hasGuests={block.pickupGuests.length > 0}
           counts={block.pickupCounts.map((c) => ({ night: dateKey(c.night), roomType: c.roomType, rooms: c.rooms }))}

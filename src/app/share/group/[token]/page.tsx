@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getHotelInfoReportData } from "@/app/events/reports/actions";
 import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
-import { parseBlockTypes } from "@/lib/hotels";
+import { hotelInfoGuestTypes } from "@/lib/hotels";
 import { ReportFilters as HiReportFilters } from "@/app/events/[id]/reports/hotel-info/ReportFilters";
 import { getPostEventReportData } from "@/app/events/reports/actions";
 import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
@@ -779,19 +779,17 @@ async function renderItem(
       };
     }
     case "HOTEL_INFO": {
-      const blockTypes = parseBlockTypes(
-        item.filtersLocked ? stored.blockTypes?.join(",") : (getString(sp[`${prefix}blockTypes`]) ?? stored.blockTypes?.join(",")),
-      );
-      const data = await getHotelInfoReportData(eventId, { blockTypes });
+      const guestTypes = hotelInfoGuestTypes(item.filtersLocked ? undefined : getString(sp[`${prefix}guestTypes`]), stored);
+      const data = await getHotelInfoReportData(eventId, { guestTypes });
       if (!data) notFound();
       return {
         id: item.id,
         title,
-        printHref: blockTypes.length ? `${printBase}?blockTypes=${blockTypes.join(",")}` : printBase,
+        printHref: data.guestTypes.length ? `${printBase}?guestTypes=${encodeURIComponent(data.guestTypes.join(","))}` : printBase,
         body: (
           <>
             {!item.filtersLocked && (
-              <HiReportFilters eventId={eventId} blockTypes={blockTypes} basePath={sharePath} paramPrefix={prefix} hidePrint />
+              <HiReportFilters eventId={eventId} guestTypes={data.guestTypes} guestTypeOptions={data.guestTypeOptions} basePath={sharePath} paramPrefix={prefix} hidePrint />
             )}
             <HotelInfoReport data={data} />
           </>

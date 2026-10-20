@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
-import type { HotelBlockType, RfpKind, RfpStatus } from "@prisma/client";
+import type { RfpKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
 import { buildFbAttendanceGrid } from "@/lib/esg/fbGrid";
 import { functionStartKey } from "@/lib/esg/scheduleKey";
-import { patternStats, proposedRoles, proposeNights, type PatternBasis } from "@/lib/hotelPattern";
+import { patternStats, proposedRoles, proposeNights } from "@/lib/hotelPattern";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { buildRfpDocument } from "@/lib/rfp/document";
 import { parseSections } from "@/lib/rfp/sections";
@@ -26,6 +26,7 @@ import {
   updateRfpRecipientCore,
   type RfpBlockArgs,
   type RfpConcessionArgs,
+  type RfpFillArgs,
   type RfpRecipientArgs,
   type RfpWriteArgs,
 } from "./core";
@@ -62,7 +63,7 @@ export async function getRfps(eventId: string, kind: RfpKind) {
       status: true,
       responseDue: true,
       issuedOn: true,
-      hotelBlocks: { select: { blockType: true }, orderBy: { sortOrder: "asc" } },
+      hotelBlocks: { select: { contractType: true, guestType: true }, orderBy: { sortOrder: "asc" } },
       recipients: { select: { venueId: true, sentOn: true, declinedToBid: true } },
       hotelProposals: { select: { venueId: true } },
     },
@@ -99,7 +100,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
       orderBy: { sortOrder: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId: session.tenantId, category: { in: ["function_type", "hotel_room_type", "rfp_concession"] } },
+      where: { tenantId: session.tenantId, category: { in: ["function_type", "hotel_room_type", "hotel_guest_type", "rfp_concession"] } },
       select: { category: true, label: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -120,6 +121,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
     contacts: Array.from(contacts, ([id, label]) => ({ id, label })),
     functionTypes: of("function_type"),
     roomTypes: of("hotel_room_type"),
+    guestTypes: of("hotel_guest_type"),
     concessions: of("rfp_concession"),
     series,
     hotels: hotels.map((h) => ({ id: h.id, label: [h.name, [h.city, h.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ") })),
@@ -214,7 +216,7 @@ export async function getRfpDocument(id: string, eventId: string) {
   // Pickup history reads across the tenant's events, so it needs HOTELS beyond this one event.
   const history =
     sections.has("history") && event.seriesId && (await hasPermission("HOTELS", "VIEW"))
-      ? (await getPickupPattern({ seriesId: event.seriesId, blockTypes: [] })).events
+      ? (await getPickupPattern({ seriesId: event.seriesId, contractTypes: [], guestTypes: [] })).events
       : [];
   const venue = event.venues[0]?.venue;
 
@@ -266,14 +268,15 @@ export async function getRfpComparison(id: string, eventId: string) {
 // to this event. Read-only; the editor applies it to its grid.
 export async function getRfpPatternFill(
   eventId: string,
-  args: { seriesId: string | null; blockType: HotelBlockType | null; basis: PatternBasis; adjust: number; city?: string; from?: string; to?: string },
+  args: RfpFillArgs & { city?: string; from?: string; to?: string },
 ) {
   await requirePermission("HOTELS", "VIEW", eventId);
   if (!(await hasPermission("HOTELS", "VIEW"))) return { events: 0, nights: [] };
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { startDate: true, endDate: true } });
   const { events } = await getPickupPattern({
     seriesId: args.seriesId ?? undefined,
-    blockTypes: args.blockType ? [args.blockType] : [],
+    contractTypes: args.contractType ? [args.contractType] : [],
+    guestTypes: args.guestType ? [args.guestType] : [],
     city: args.city,
     from: args.from,
     to: args.to,

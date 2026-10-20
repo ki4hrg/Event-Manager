@@ -2397,10 +2397,11 @@ model EventPostEventDistribution {
 // figure hangs off (roomType, night). roomType is a hotel_room_type option
 // label; null means run of house.
 
-enum HotelBlockType {
-  STAFF
-  COURTESY
+// Contract carries attrition liability; courtesy is held without it. Who the
+// rooms are for is the separate guestType (hotel_guest_type option label).
+enum HotelContractType {
   CONTRACT
+  COURTESY
 }
 
 enum HotelChargeScope {
@@ -2420,7 +2421,8 @@ model HotelProposal {
   // ACCEPTED / DECLINED) is the workflow stage the app keys off.
   status            String
   leadSource        String? // hotel_lead_source option label
-  blockType         HotelBlockType?
+  contractType      HotelContractType?
+  guestType         String? // hotel_guest_type option label
   submittedOn       DateTime?                 @db.Date
   checkIn           DateTime?                 @db.Date
   checkOut          DateTime?                 @db.Date
@@ -2429,7 +2431,6 @@ model HotelProposal {
   // Bumped by staff when the hotel sends a revised offer; each bump records a
   // HotelProposalVersion.
   revision          Int                       @default(1)
-  isRunOfHouse      Boolean                   @default(false)
   allowedAttrition  Decimal?                  @db.Decimal(5, 2)
   guaranteedRevenue Decimal?                  @db.Decimal(10, 2)
   amenities         String[]                  @default([]) // hotel_amenity option labels
@@ -2460,7 +2461,7 @@ model HotelProposalNight {
   id         String        @id @default(cuid())
   proposalId String
   proposal   HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  roomType   String?
+  roomType   String? // null = Run of House
   night      DateTime      @db.Date
   rate       Decimal?      @db.Decimal(10, 2)
   rooms      Int?
@@ -2520,7 +2521,6 @@ model HotelBlock {
   cutoffDate        DateTime?             @db.Date
   contractedOn      DateTime?             @db.Date
   cutoffExercised   Boolean?
-  isRunOfHouse      Boolean               @default(false)
   allowedAttrition  Decimal?              @db.Decimal(5, 2)
   guaranteedRevenue Decimal?              @db.Decimal(10, 2)
   distanceMiles     Decimal?              @db.Decimal(10, 2)
@@ -2546,7 +2546,7 @@ model HotelBlockNight {
   id                String     @id @default(cuid())
   blockId           String
   block             HotelBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  roomType          String?
+  roomType          String? // null = Run of House
   night             DateTime   @db.Date
   rate              Decimal?   @db.Decimal(10, 2)
   contractedRooms   Int?
@@ -2743,8 +2743,8 @@ model RfpHotelBlock {
   id           String               @id @default(cuid())
   rfpId        String
   rfp          Rfp                  @relation(fields: [rfpId], references: [id], onDelete: Cascade)
-  blockType    HotelBlockType
-  isRunOfHouse Boolean              @default(false)
+  contractType HotelContractType
+  guestType    String? // hotel_guest_type option label
   targetRate   Decimal?             @db.Decimal(10, 2)
   notes        String?
   sortOrder    Int                  @default(0)

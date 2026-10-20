@@ -7,7 +7,7 @@ import { Toast } from "@/components/Toast";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { hasPermission } from "@/lib/permissions";
-import { BLOCK_TYPE_LABELS, dateKey, formatDateKey } from "@/lib/hotels";
+import { blockTypeLabel, dateKey, formatDateKey } from "@/lib/hotels";
 import { getEvent } from "../../actions";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
@@ -71,7 +71,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Blocks</h2>
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
             {blocks.map((b) => {
-              const t = pickupTotals(blockPickup({ isRunOfHouse: b.isRunOfHouse, nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }));
+              const t = pickupTotals(blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }));
               const floor = b.allowedAttrition != null ? 100 - Number(b.allowedAttrition) : null;
               const low = floor != null && t.percent != null && t.percent < floor;
               return (
@@ -87,7 +87,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {[
-                        b.proposal.blockType ? BLOCK_TYPE_LABELS[b.proposal.blockType] : null,
+                        blockTypeLabel(b.proposal.contractType, b.proposal.guestType),
                         b.checkIn && b.checkOut ? `${formatDateKey(dateKey(b.checkIn))} – ${formatDateKey(dateKey(b.checkOut))}` : null,
                         b.cutoffDate ? `cut-off ${formatDateKey(dateKey(b.cutoffDate))}` : null,
                       ]
@@ -119,7 +119,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                   <p className="font-medium text-blue-600 dark:text-blue-400">{r.title}</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {[
-                      r.hotelBlocks.map((b) => BLOCK_TYPE_LABELS[b.blockType]).join(", ") || null,
+                      r.hotelBlocks.map((b) => blockTypeLabel(b.contractType, b.guestType)).join(", ") || null,
                       r.responseDue ? `due ${formatDateKey(dateKey(r.responseDue))}` : null,
                       r.issuedOn ? `issued ${formatDateKey(dateKey(r.issuedOn))}` : null,
                       recipientSummary(
@@ -164,7 +164,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {[
-                    p.blockType ? BLOCK_TYPE_LABELS[p.blockType] : null,
+                    blockTypeLabel(p.contractType, p.guestType),
                     p.checkIn && p.checkOut ? `${formatDateKey(dateKey(p.checkIn))} – ${formatDateKey(dateKey(p.checkOut))}` : null,
                     p.nights.length > 0 ? `peak ${peakRooms(p.nights)} rooms` : null,
                     p.leadSource,

@@ -41,8 +41,8 @@ export default async function NewProposalPage({
   const fromRfp: ProposalTemplate | undefined = rfpBlock
     ? {
         rfpBlockId: rfpBlock.id,
-        blockType: rfpBlock.blockType,
-        isRunOfHouse: rfpBlock.isRunOfHouse,
+        contractType: rfpBlock.contractType,
+        guestType: rfpBlock.guestType,
         status: choices.statuses.find((s) => s.group === "PENDING")?.label ?? null,
         nights: rfpBlock.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rate: null, rooms: n.rooms })),
       }

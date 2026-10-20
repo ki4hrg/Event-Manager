@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { BLOCK_TYPES } from "@/lib/hotels";
+import { parseContractTypes } from "@/lib/hotels";
 import { sectionsFor } from "@/lib/rfp/sections";
 import { getEvent } from "../../../../actions";
 import { createRfp, getRfpFormChoices, getRfpPatternFill } from "../../../../rfps/actions";
@@ -16,14 +16,14 @@ export const metadata: Metadata = { title: "New RFP" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// ?basis=&adjust=&series=&blockType=&city=&from=&to= (from the RFP pattern
+// ?basis=&adjust=&series=&contract=&guest=&city=&from=&to= (from the RFP pattern
 // report) start the RFP with one block filled from that pattern.
 export default async function NewRfpPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ basis?: string; adjust?: string; series?: string; blockType?: string; city?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ basis?: string; adjust?: string; series?: string; contract?: string; guest?: string; city?: string; from?: string; to?: string }>;
 }) {
   const { id: eventId } = await params;
   await requirePermission("HOTELS", "WRITE", eventId);
@@ -38,13 +38,15 @@ export default async function NewRfpPage({
   let blocks: RfpBlockArgs[] = [];
   if (sp.basis) {
     const basis = sp.basis === "highest" || sp.basis === "latest" ? sp.basis : "average";
-    const blockType = BLOCK_TYPES.find((t) => t.value === sp.blockType)?.value ?? null;
+    const contractType = parseContractTypes(sp.contract)[0] ?? null;
+    const guestType = sp.guest && choices.guestTypes.includes(sp.guest) ? sp.guest : null;
     const adjust = Number.parseInt(sp.adjust ?? "", 10);
     const seriesId = choices.series.some((s) => s.id === sp.series) ? sp.series! : null;
     const day = (v?: string) => (v && DATE_RE.test(v) ? v : undefined);
     const fill = await getRfpPatternFill(eventId, {
       seriesId,
-      blockType,
+      contractType,
+      guestType,
       basis,
       adjust: Number.isFinite(adjust) ? adjust : 0,
       city: sp.city || undefined,
@@ -54,11 +56,11 @@ export default async function NewRfpPage({
     if (fill.nights.length) {
       blocks = [
         {
-          blockType: blockType ?? "CONTRACT",
-          isRunOfHouse: choices.roomTypes.length === 0,
+          contractType: contractType ?? "CONTRACT",
+          guestType: guestType ?? choices.guestTypes[0] ?? null,
           targetRate: null,
           notes: null,
-          nights: fill.nights.map((n) => ({ roomType: choices.roomTypes[0] ?? null, night: n.night, rooms: n.rooms })),
+          nights: fill.nights.map((n) => ({ roomType: null, night: n.night, rooms: n.rooms })),
         },
       ];
     }
