@@ -15,6 +15,7 @@ const LISTS: { category: OptionCategory; title: string; description: string; sho
   { category: "hotel_brand", title: "Brands", description: "" },
   { category: "hotel_region", title: "Regions", description: "" },
   { category: "hotel_area", title: "Areas", description: "" },
+  { category: "rfp_concession", title: "RFP Concessions", description: "" },
 ];
 
 export default async function SettingsHotelsPage() {

@@ -42,6 +42,7 @@ const ENTITY_DIRS = {
   mediaDeliverable: "media-deliverables",
   venue: "venues",
   hotelProposal: "hotel-proposals",
+  rfp: "rfps",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_DIRS;
@@ -58,9 +59,10 @@ export const ENTITY_FK_FIELD: Record<EntityType, string> = {
   mediaDeliverable: "mediaDeliverableId",
   venue: "venueId",
   hotelProposal: "hotelProposalId",
+  rfp: "rfpId",
 };
 
-export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId">): EntityType {
+export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId">): EntityType {
   if (record.eventId) return "event";
   if (record.cateringOrderId) return "cateringOrder";
   if (record.avOrderId) return "avOrder";
@@ -69,11 +71,12 @@ export function getEntityTypeFromRecord(record: Pick<FileUpload, "eventId" | "ca
   if (record.supplyOrderId) return "supplyOrder";
   if (record.mediaDeliverableId) return "mediaDeliverable";
   if (record.hotelProposalId) return "hotelProposal";
+  if (record.rfpId) return "rfp";
   return "venue";
 }
 
-export function getEntityIdFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId">): string {
-  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.supplyOrderId ?? record.mediaDeliverableId ?? record.hotelProposalId ?? record.venueId)!;
+export function getEntityIdFromRecord(record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId">): string {
+  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.supplyOrderId ?? record.mediaDeliverableId ?? record.hotelProposalId ?? record.rfpId ?? record.venueId)!;
 }
 
 export function getUploadDir(entityType: EntityType, entityId: string): string {
@@ -87,7 +90,7 @@ export function getUploadPath(entityType: EntityType, entityId: string, storedNa
 // Resolve the eventId that owns this file, walking through the parent entity.
 // Returns null for venue-attached files (which have no event scope).
 export async function resolveFileEventId(
-  record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId">,
+  record: Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId">,
 ): Promise<string | null> {
   return resolveEntityEventId(getEntityTypeFromRecord(record), getEntityIdFromRecord(record));
 }
@@ -122,6 +125,10 @@ export async function resolveEntityEventId(entityType: EntityType, entityId: str
     }
     case "hotelProposal": {
       const o = await prisma.hotelProposal.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
+    case "rfp": {
+      const o = await prisma.rfp.findUnique({ where: { id: entityId }, select: { eventId: true } });
       return o?.eventId ?? null;
     }
     case "venue":

@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -304,6 +304,9 @@ async function propagateLabelRename(
       break;
     case "hotel_area":
       await tx.venue.updateMany({ where: { area: oldLabel, tenantId }, data: { area: newLabel } });
+      break;
+    case "rfp_concession":
+      await tx.rfpConcession.updateMany({ where: { label: oldLabel, rfp: inTenant }, data: { label: newLabel } });
       break;
     case "hotel_region":
       // An area's group is its region label.
