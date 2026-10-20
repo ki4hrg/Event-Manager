@@ -1,6 +1,6 @@
 # Proposal — RFP tools (hotels first, then other vendors)
 
-Status: Stages 1–3 (hotel RFP, document export, recipients and responses, bid comparison) implemented; Stage 4 (MCP) and Stage 5 (other vendor kinds) next. Implementation notes in docs/hotels.md § RFPs.
+Status: Stages 1–4 (hotel RFP, document export, recipients and responses, bid comparison, MCP) implemented; Stage 5 (other vendor kinds) next. Implementation notes in docs/hotels.md § RFPs.
 
 ## Problem
 

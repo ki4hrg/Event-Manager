@@ -27,6 +27,7 @@ What we ask hotels for, before any proposal comes back. `Rfp` (generic, `kind = 
 - **Bid comparison** — `/events/[id]/hotels/rfps/[rfpId]/compare` (+ `/print`, `?doc=compare` .docx): one group per requested block, a column per hotel — room nights and peak vs requested, average rate vs target, room revenue, attrition, charges, amenities, each concession, each night with shortfall. Built by `buildComparison` / `comparisonRows` (`src/lib/rfp/compare.ts`), shared by the page and the .docx.
 - **Issue** — files the rendered .docx on the RFP (`file_type` "RFP"), stamps `issuedOn`, moves Draft → Issued.
 - Not shareable: RFPs go out as files.
+- **MCP** — `src/lib/mcpTools/rfps.ts`: `list_rfps` / `get_rfp`, `create_rfp` / `update_rfp` / `delete_rfp`, `set_rfp_blocks` / `set_rfp_concessions` (pass existing ids to keep links), `add_rfp_recipients` / `update_rfp_recipient` / `remove_rfp_recipient`, `record_rfp_response` (a proposal seeded from the requested block), `get_rfp_comparison`. `update_hotel_proposal` takes concession answers. Issuing the .docx stays in the app.
 
 ## ESG / PER
 
