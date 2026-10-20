@@ -14,17 +14,19 @@ import { dateKey } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { getEvent } from "../../../../actions";
-import type { RfpBlockArgs, RfpConcessionArgs, RfpFillArgs, RfpRecipientArgs } from "../../../../rfps/core";
+import type { RfpBlockArgs, RfpConcessionArgs, RfpFillArgs, RfpRecipientArgs, RfpSpaceArgs } from "../../../../rfps/core";
 import {
   addRfpRecipients,
   deleteRfp,
   getRfp,
   getRfpFormChoices,
   getRfpPatternFill,
+  getRfpSpaceCandidates,
   issueRfp,
   removeRfpRecipient,
   saveRfpBlocks,
   saveRfpConcessions,
+  saveRfpSpace,
   updateRfp,
   updateRfpRecipient,
 } from "../../../../rfps/actions";
@@ -33,6 +35,7 @@ import { RfpBlocksEditor } from "../../../../rfps/RfpBlocksEditor";
 import { RfpConcessionsEditor } from "../../../../rfps/RfpConcessionsEditor";
 import { RfpForm } from "../../../../rfps/RfpForm";
 import { RfpRecipients } from "../../../../rfps/RfpRecipients";
+import { RfpSpaceEditor } from "../../../../rfps/RfpSpaceEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +72,14 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
     "use server";
     await saveRfpConcessions(rfpId, eventId, concessions);
   };
+  const saveSpaceAction = async (rows: RfpSpaceArgs[]) => {
+    "use server";
+    await saveRfpSpace(rfpId, eventId, rows);
+  };
+  const spaceCandidatesAction = async () => {
+    "use server";
+    return getRfpSpaceCandidates(rfpId, eventId);
+  };
   const fillAction = async (args: RfpFillArgs) => {
     "use server";
     return getRfpPatternFill(eventId, args);
@@ -86,6 +97,9 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
     await removeRfpRecipient(recipientId, rfpId, eventId);
   };
   const contactName = rfp.contact ? `${rfp.contact.firstName} ${rfp.contact.lastName}`.trim() : null;
+  const day = (d: Date | null) => (d ? dateKey(d) : null);
+  const arrival = day(rfp.arrivalDate) ?? dateKey(event.startDate);
+  const departure = day(rfp.departureDate) ?? dateKey(event.endDate);
 
   return (
     <>
@@ -136,15 +150,27 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
             values={{
               title: rfp.title,
               status: rfp.status,
-              responseDue: rfp.responseDue ? dateKey(rfp.responseDue) : null,
-              decisionBy: rfp.decisionBy ? dateKey(rfp.decisionBy) : null,
+              responseDue: day(rfp.responseDue),
+              decisionBy: day(rfp.decisionBy),
+              siteVisitBy: day(rfp.siteVisitBy),
+              decisionMaker: rfp.decisionMaker,
               sections: rfp.sections,
               introduction: rfp.introduction,
               requirements: rfp.requirements,
               contactId: rfp.contactId,
               contactName,
-              showRoomNames: rfp.showRoomNames,
-              excludedFunctionTypes: rfp.excludedFunctionTypes,
+              arrivalDate: day(rfp.arrivalDate),
+              departureDate: day(rfp.departureDate),
+              datesFlexible: rfp.datesFlexible,
+              dateNotes: rfp.dateNotes,
+              alternateDates: rfp.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
+              peakRooms: rfp.peakRooms,
+              reservationMethod: rfp.reservationMethod,
+              commissionNotes: rfp.commissionNotes,
+              fbMinimum: rfp.fbMinimum?.toString() ?? null,
+              fbIncludes: rfp.fbIncludes,
+              fbHistoricalSpend: rfp.fbHistoricalSpend?.toString() ?? null,
+              amenities: rfp.amenities,
             }}
             choices={choices}
             action={updateAction}
@@ -160,14 +186,28 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
                 notes: b.notes,
                 nights: b.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rooms: n.rooms })),
               }))}
-              eventStart={dateKey(event.startDate)}
-              eventEnd={dateKey(event.endDate)}
+              arrival={arrival}
+              departure={departure}
+              peakRooms={rfp.peakRooms}
               roomTypes={choices.roomTypes}
               guestTypes={choices.guestTypes}
               series={choices.series}
               defaultSeriesId={event.seriesId ?? null}
               save={saveBlocksAction}
               fill={fillAction}
+            />
+          )}
+          {(rfp.sections.includes("meetingSpace") || rfp.sections.includes("fb")) && (
+            <RfpSpaceEditor
+              key={`space-${rfp.updatedAt.toISOString()}`}
+              resource="HOTELS"
+              rows={rfp.spaceRequests.map((r) => ({ ...r, day: dateKey(r.day) }))}
+              defaultDay={arrival}
+              functionTypes={choices.functionTypes}
+              mealTypes={choices.mealTypes}
+              setupTypes={choices.setupTypes}
+              loadCandidates={spaceCandidatesAction}
+              save={saveSpaceAction}
             />
           )}
           {rfp.sections.includes("concessions") && (

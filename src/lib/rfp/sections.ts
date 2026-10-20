@@ -1,18 +1,19 @@
 // The optional parts of an RFP document. Rfp.sections stores the keys that
-// are on; the cover (event, dates, due date, contact, introduction) always
-// prints. Pure, so client forms can import it.
+// are on; contact information, event profile, statement of need, dates and
+// proposal specifications always print. Pure, so client forms can import it.
 
 import type { RfpKind } from "@prisma/client";
 
-export type RfpSection = "blocks" | "meetingSpace" | "fb" | "concessions" | "history" | "requirements";
+export type RfpSection = "blocks" | "meetingSpace" | "fb" | "concessions" | "history" | "requirements" | "responseForm";
 
 export const RFP_SECTIONS: { key: RfpSection; label: string; kinds: RfpKind[] }[] = [
   { key: "blocks", label: "Room blocks", kinds: ["HOTEL"] },
-  { key: "meetingSpace", label: "Meeting space", kinds: ["HOTEL"] },
+  { key: "meetingSpace", label: "Function space", kinds: ["HOTEL"] },
   { key: "fb", label: "Food & beverage", kinds: ["HOTEL"] },
   { key: "concessions", label: "Concessions", kinds: ["HOTEL"] },
   { key: "history", label: "Event history", kinds: ["HOTEL"] },
-  { key: "requirements", label: "Additional requirements", kinds: ["HOTEL"] },
+  { key: "requirements", label: "Other requirements", kinds: ["HOTEL"] },
+  { key: "responseForm", label: "Response form", kinds: ["HOTEL"] },
 ];
 
 export function sectionsFor(kind: RfpKind) {
@@ -29,3 +30,38 @@ export function parseSections(kind: RfpKind, raw: string[]): RfpSection[] {
 
 export const RFP_STATUS_LABELS = { DRAFT: "Draft", ISSUED: "Issued", CLOSED: "Closed" } as const;
 export const RFP_STATUS_COLORS = { DRAFT: "gray", ISSUED: "blue", CLOSED: "green" } as const;
+
+// rfp_concession option groups: the APEX RFP's "Concessions Desired" headings.
+export type ConcessionGroup = "ROOMS" | "FB" | "OTHER";
+export const CONCESSION_GROUPS: { value: ConcessionGroup; label: string }[] = [
+  { value: "ROOMS", label: "Guest rooms" },
+  { value: "FB", label: "Food & beverage" },
+  { value: "OTHER", label: "Other" },
+];
+// An option's group, or OTHER for free text and ungrouped options.
+export const concessionGroupOf = (group: string | null | undefined): ConcessionGroup =>
+  group === "ROOMS" || group === "FB" ? group : "OTHER";
+
+// What an RFP's F&B minimum includes (Rfp.fbIncludes).
+export const FB_INCLUDES = [
+  { value: "TAX", label: "Tax" },
+  { value: "SERVICE", label: "Service charge" },
+  { value: "GRATUITY", label: "Gratuity" },
+] as const;
+
+export const SPACE_KIND_LABELS = { MEETING: "Meeting space", FB: "Food & beverage" } as const;
+
+// F&B function types the APEX RFP asks a facility to price per person.
+export const APEX_FB_PRICE_TYPES = [
+  "Morning Break",
+  "Afternoon Break",
+  "Reception",
+  "Plated Breakfast",
+  "Buffet Breakfast",
+  "Continental Breakfast",
+  "Hot Plated Lunch",
+  "Cold Plated Lunch",
+  "Buffet Lunch",
+  "Plated Dinner",
+  "Buffet Dinner",
+] as const;

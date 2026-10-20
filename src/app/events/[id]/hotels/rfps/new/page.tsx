@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { parseContractTypes } from "@/lib/hotels";
+import { dateKey, parseContractTypes } from "@/lib/hotels";
 import { sectionsFor } from "@/lib/rfp/sections";
 import { getEvent } from "../../../../actions";
 import { createRfp, getRfpFormChoices, getRfpPatternFill } from "../../../../rfps/actions";
@@ -93,6 +93,8 @@ export default async function NewRfpPage({
             status: "DRAFT",
             responseDue: null,
             decisionBy: null,
+            siteVisitBy: null,
+            decisionMaker: null,
             sections: sectionsFor("HOTEL")
               .map((s) => s.key)
               .filter((k) => k !== "fb" || cateringCount > 0),
@@ -100,8 +102,19 @@ export default async function NewRfpPage({
             requirements: null,
             contactId: null,
             contactName: null,
-            showRoomNames: false,
-            excludedFunctionTypes: [],
+            arrivalDate: dateKey(event.startDate),
+            departureDate: dateKey(event.endDate),
+            datesFlexible: false,
+            dateNotes: null,
+            alternateDates: [],
+            // A block filled from the pattern report brings its peak along.
+            peakRooms: blocks.length ? Math.max(...blocks[0].nights.map((n) => n.rooms)) : null,
+            reservationMethod: null,
+            commissionNotes: null,
+            fbMinimum: null,
+            fbIncludes: [],
+            fbHistoricalSpend: null,
+            amenities: [],
           }}
           choices={choices}
           action={createAction}

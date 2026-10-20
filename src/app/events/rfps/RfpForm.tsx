@@ -7,33 +7,50 @@ import type { PermissionResource, RfpKind, RfpStatus } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
-import { formatDateKey } from "@/lib/hotels";
-import { RFP_STATUS_LABELS, sectionsFor } from "@/lib/rfp/sections";
+import { formatDateKey, formatMoney } from "@/lib/hotels";
+import { FB_INCLUDES, RFP_STATUS_LABELS, sectionsFor } from "@/lib/rfp/sections";
 
 export type RfpValues = {
   title: string;
   status: RfpStatus;
   responseDue: string | null;
   decisionBy: string | null;
+  siteVisitBy: string | null;
+  decisionMaker: string | null;
   sections: string[];
   introduction: string | null;
   requirements: string | null;
   contactId: string | null;
   contactName: string | null;
-  showRoomNames: boolean;
-  excludedFunctionTypes: string[];
+  arrivalDate: string | null;
+  departureDate: string | null;
+  datesFlexible: boolean;
+  dateNotes: string | null;
+  alternateDates: { startDate: string; endDate: string }[];
+  peakRooms: number | null;
+  reservationMethod: string | null;
+  commissionNotes: string | null;
+  fbMinimum: string | null;
+  fbIncludes: string[];
+  fbHistoricalSpend: string | null;
+  amenities: string[];
 };
 
 export type RfpFormChoices = {
   contacts: { id: string; label: string }[];
-  functionTypes: string[];
+  reservationMethods: string[];
+  amenities: string[];
 };
+
+const MAX_ALTERNATES = 3;
 
 const inputClass =
   "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
 const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 const checkClass = "rounded border-gray-300 dark:border-gray-600";
+const checkLabel = "flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
+const legendClass = "text-sm font-semibold text-gray-900 dark:text-white";
 
 function SaveButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -54,6 +71,22 @@ function Field({ label, htmlFor, wide, children }: { label: string; htmlFor: str
     </div>
   );
 }
+
+function OptionSelect({ id, name, value, options }: { id: string; name: string; value: string | null; options: string[] }) {
+  return (
+    <select id={id} name={name} defaultValue={value ?? ""} className={inputClass}>
+      <option value="">Not set</option>
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+const span = (a: string | null, b: string | null) => (a || b ? `${formatDateKey(a)} – ${formatDateKey(b)}` : "—");
 
 export function RfpForm({
   kind,
@@ -78,17 +111,27 @@ export function RfpForm({
   const canWrite = useCanWrite(resource);
   const [editing, setEditing] = useState(!isEdit);
   const [sections, setSections] = useState(new Set(values.sections));
+  const [alternates, setAlternates] = useState(values.alternateDates);
   const parts = sectionsFor(kind);
 
   if (!editing || !canWrite) {
     const rows: [string, ReactNode][] = [
       ["Status", RFP_STATUS_LABELS[values.status]],
+      ["Contact", values.contactName ?? "—"],
+      ["Arrival – departure", span(values.arrivalDate, values.departureDate)],
+      ["Peak rooms", values.peakRooms ?? "—"],
       ["Responses due", formatDateKey(values.responseDue)],
       ["Decision by", formatDateKey(values.decisionBy)],
-      ["Contact", values.contactName ?? "—"],
-      ["Parts", parts.filter((p) => sections.has(p.key)).map((p) => p.label).join(", ") || "—"],
     ];
-    if (sections.has("meetingSpace") && values.excludedFunctionTypes.length) rows.push(["Meeting space leaves out", values.excludedFunctionTypes.join(", ")]);
+    if (values.datesFlexible || values.alternateDates.length) {
+      rows.push(["Alternates", [values.datesFlexible ? "Flexible" : null, ...values.alternateDates.map((a) => span(a.startDate, a.endDate))].filter(Boolean).join(" · ")]);
+    }
+    if (values.siteVisitBy) rows.push(["Site visit by", formatDateKey(values.siteVisitBy)]);
+    if (values.decisionMaker) rows.push(["Decision maker", values.decisionMaker]);
+    if (values.reservationMethod) rows.push(["Reservations", values.reservationMethod]);
+    if (sections.has("fb") && values.fbMinimum) rows.push(["F&B minimum", formatMoney(values.fbMinimum)]);
+    if (values.amenities.length) rows.push(["Amenities", values.amenities.join(", ")]);
+    rows.push(["Parts", parts.filter((p) => sections.has(p.key)).map((p) => p.label).join(", ") || "—"]);
     return (
       <div className={cardClass}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -118,6 +161,8 @@ export function RfpForm({
       else next.delete(key);
       return next;
     });
+  const setAlternate = (i: number, patch: Partial<{ startDate: string; endDate: string }>) =>
+    setAlternates((prev) => prev.map((a, j) => (j === i ? { ...a, ...patch } : a)));
 
   return (
     <form
@@ -130,6 +175,7 @@ export function RfpForm({
       {Object.entries(hiddenFields ?? {}).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
+      <input type="hidden" name="alternateDates" value={JSON.stringify(alternates.filter((a) => a.startDate || a.endDate))} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Title *" htmlFor="rfp-title" wide>
@@ -149,9 +195,7 @@ export function RfpForm({
         <Field label="Contact" htmlFor="rfp-contactId">
           <select id="rfp-contactId" name="contactId" defaultValue={values.contactId ?? ""} className={inputClass}>
             <option value="">None</option>
-            {values.contactId && !choices.contacts.some((c) => c.id === values.contactId) && (
-              <option value={values.contactId}>{values.contactName}</option>
-            )}
+            {values.contactId && !choices.contacts.some((c) => c.id === values.contactId) && <option value={values.contactId}>{values.contactName}</option>}
             {choices.contacts.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
@@ -159,78 +203,166 @@ export function RfpForm({
             ))}
           </select>
         </Field>
-        <Field label="Responses due" htmlFor="rfp-responseDue">
-          <input id="rfp-responseDue" type="date" name="responseDue" defaultValue={values.responseDue ?? ""} className={inputClass} />
-        </Field>
-        <Field label="Decision by" htmlFor="rfp-decisionBy">
-          <input id="rfp-decisionBy" type="date" name="decisionBy" defaultValue={values.decisionBy ?? ""} className={inputClass} />
-        </Field>
       </div>
+
+      <fieldset className="space-y-3">
+        <legend className={legendClass}>Dates & rooms</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Field label="Arrival" htmlFor="rfp-arrivalDate">
+            <input id="rfp-arrivalDate" type="date" name="arrivalDate" defaultValue={values.arrivalDate ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Departure" htmlFor="rfp-departureDate">
+            <input id="rfp-departureDate" type="date" name="departureDate" defaultValue={values.departureDate ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Peak rooms" htmlFor="rfp-peakRooms">
+            <input id="rfp-peakRooms" type="number" min={0} name="peakRooms" defaultValue={values.peakRooms ?? ""} className={inputClass} />
+          </Field>
+        </div>
+        <label className={checkLabel}>
+          <input type="checkbox" name="datesFlexible" value="true" defaultChecked={values.datesFlexible} className={checkClass} />
+          Dates flexible
+        </label>
+        {alternates.map((a, i) => (
+          <div key={i} className="flex flex-wrap items-end gap-2">
+            <label className={labelClass}>
+              Alternate arrival
+              <input type="date" value={a.startDate} onChange={(e) => setAlternate(i, { startDate: e.target.value })} className={inputClass} />
+            </label>
+            <label className={labelClass}>
+              Departure
+              <input type="date" value={a.endDate} onChange={(e) => setAlternate(i, { endDate: e.target.value })} className={inputClass} />
+            </label>
+            <button type="button" onClick={() => setAlternates((prev) => prev.filter((_, j) => j !== i))} className="pb-2 text-sm text-red-600 dark:text-red-400 hover:underline">
+              Remove
+            </button>
+          </div>
+        ))}
+        {alternates.length < MAX_ALTERNATES && (
+          <button
+            type="button"
+            onClick={() => setAlternates((prev) => [...prev, { startDate: "", endDate: "" }])}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            + Alternate dates
+          </button>
+        )}
+        <Field label="Date notes" htmlFor="rfp-dateNotes" wide>
+          <textarea id="rfp-dateNotes" name="dateNotes" rows={2} defaultValue={values.dateNotes ?? ""} className={inputClass} />
+        </Field>
+      </fieldset>
+
+      <fieldset className="space-y-3">
+        <legend className={legendClass}>Decision</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Responses due" htmlFor="rfp-responseDue">
+            <input id="rfp-responseDue" type="date" name="responseDue" defaultValue={values.responseDue ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Decision by" htmlFor="rfp-decisionBy">
+            <input id="rfp-decisionBy" type="date" name="decisionBy" defaultValue={values.decisionBy ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Site visit by" htmlFor="rfp-siteVisitBy">
+            <input id="rfp-siteVisitBy" type="date" name="siteVisitBy" defaultValue={values.siteVisitBy ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Decision maker" htmlFor="rfp-decisionMaker">
+            <input id="rfp-decisionMaker" name="decisionMaker" placeholder="Name & role" defaultValue={values.decisionMaker ?? ""} className={inputClass} />
+          </Field>
+        </div>
+      </fieldset>
 
       <div>
         <p className={labelClass}>Parts</p>
         <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
           {parts.map((p) => (
-            <label key={p.key} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                name="sections"
-                value={p.key}
-                checked={sections.has(p.key)}
-                onChange={(e) => toggle(p.key, e.target.checked)}
-                className={checkClass}
-              />
+            <label key={p.key} className={checkLabel}>
+              <input type="checkbox" name="sections" value={p.key} checked={sections.has(p.key)} onChange={(e) => toggle(p.key, e.target.checked)} className={checkClass} />
               {p.label}
             </label>
           ))}
         </div>
       </div>
 
-      {sections.has("meetingSpace") && (
-        <div className="space-y-2">
-          <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-            <input type="checkbox" name="showRoomNames" value="true" defaultChecked={values.showRoomNames} className={checkClass} />
-            Show room names
-          </label>
-          {choices.functionTypes.length > 0 && (
-            <div>
-              <p className={labelClass}>Leave out of meeting space</p>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-                {Array.from(new Set([...choices.functionTypes, ...values.excludedFunctionTypes])).map((t) => (
-                  <label key={t} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-                    <input
-                      type="checkbox"
-                      name="excludedFunctionTypes"
-                      value={t}
-                      defaultChecked={values.excludedFunctionTypes.includes(t)}
-                      className={checkClass}
-                    />
-                    {t}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
+      {sections.has("blocks") ? (
+        <fieldset className="space-y-3">
+          <legend className={legendClass}>Guest rooms</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Reservations" htmlFor="rfp-reservationMethod">
+              <OptionSelect id="rfp-reservationMethod" name="reservationMethod" value={values.reservationMethod} options={choices.reservationMethods} />
+            </Field>
+            <Field label="Rebates / commissions" htmlFor="rfp-commissionNotes">
+              <input id="rfp-commissionNotes" name="commissionNotes" defaultValue={values.commissionNotes ?? ""} className={inputClass} />
+            </Field>
+          </div>
+        </fieldset>
+      ) : (
+        <>
+          <input type="hidden" name="reservationMethod" value={values.reservationMethod ?? ""} />
+          <input type="hidden" name="commissionNotes" value={values.commissionNotes ?? ""} />
+        </>
+      )}
+
+      {choices.amenities.length > 0 && (
+        <div>
+          <p className={labelClass}>Requested amenities</p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+            {Array.from(new Set([...choices.amenities, ...values.amenities])).map((a) => (
+              <label key={a} className={checkLabel}>
+                <input type="checkbox" name="amenities" value={a} defaultChecked={values.amenities.includes(a)} className={checkClass} />
+                {a}
+              </label>
+            ))}
+          </div>
         </div>
       )}
-      {!sections.has("meetingSpace") && (
+
+      {sections.has("fb") ? (
+        <fieldset className="space-y-3">
+          <legend className={legendClass}>Food & beverage</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="F&B minimum" htmlFor="rfp-fbMinimum">
+              <input id="rfp-fbMinimum" type="number" min={0} step="0.01" placeholder="$" name="fbMinimum" defaultValue={values.fbMinimum ?? ""} className={inputClass} />
+            </Field>
+            <Field label="F&B historical spend" htmlFor="rfp-fbHistoricalSpend">
+              <input
+                id="rfp-fbHistoricalSpend"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="$"
+                name="fbHistoricalSpend"
+                defaultValue={values.fbHistoricalSpend ?? ""}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className={labelClass}>Minimum includes</span>
+            {FB_INCLUDES.map((f) => (
+              <label key={f.value} className={checkLabel}>
+                <input type="checkbox" name="fbIncludes" value={f.value} defaultChecked={values.fbIncludes.includes(f.value)} className={checkClass} />
+                {f.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : (
         <>
-          {values.showRoomNames && <input type="hidden" name="showRoomNames" value="true" />}
-          {values.excludedFunctionTypes.map((t) => (
-            <input key={t} type="hidden" name="excludedFunctionTypes" value={t} />
+          <input type="hidden" name="fbMinimum" value={values.fbMinimum ?? ""} />
+          <input type="hidden" name="fbHistoricalSpend" value={values.fbHistoricalSpend ?? ""} />
+          {values.fbIncludes.map((f) => (
+            <input key={f} type="hidden" name="fbIncludes" value={f} />
           ))}
         </>
       )}
 
       <div>
-        <p className={labelClass}>Introduction</p>
+        <p className={labelClass}>Statement of need</p>
         <div className="mt-1">
           <RichTextEditor name="introduction" defaultValue={values.introduction ?? ""} />
         </div>
       </div>
       {sections.has("requirements") ? (
         <div>
-          <p className={labelClass}>Additional requirements</p>
+          <p className={labelClass}>Other requirements</p>
           <div className="mt-1">
             <RichTextEditor name="requirements" defaultValue={values.requirements ?? ""} />
           </div>

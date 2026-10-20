@@ -8,14 +8,14 @@
 
 import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync } from "fs";
-import type { HotelContractType, RfpKind, RfpStatus } from "@prisma/client";
+import type { HotelContractType, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
-import { CONTRACT_TYPE_LABELS, dateFromKey, dateKey } from "@/lib/hotels";
+import { addDays, CONTRACT_TYPE_LABELS, dateFromKey, dateKey } from "@/lib/hotels";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import { buildComparison } from "@/lib/rfp/compare";
-import { parseSections } from "@/lib/rfp/sections";
+import { FB_INCLUDES, parseSections } from "@/lib/rfp/sections";
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
 
 export type RfpWriteArgs = {
@@ -27,8 +27,38 @@ export type RfpWriteArgs = {
   introduction: string | null;
   requirements: string | null;
   contactId: string | null;
-  showRoomNames: boolean;
-  excludedFunctionTypes: string[];
+  arrivalDate: string | null; // YYYY-MM-DD
+  departureDate: string | null;
+  datesFlexible: boolean;
+  dateNotes: string | null;
+  alternateDates: { startDate: string; endDate: string }[]; // replaces the list
+  peakRooms: number | null;
+  reservationMethod: string | null;
+  commissionNotes: string | null;
+  fbMinimum: number | null;
+  fbIncludes: string[];
+  fbHistoricalSpend: number | null;
+  amenities: string[];
+  decisionMaker: string | null;
+  siteVisitBy: string | null;
+};
+
+export type RfpSpaceArgs = {
+  id?: string | null; // an existing row keeps its id
+  kind: RfpSpaceKind;
+  functionId?: string | null;
+  cateringOrderId?: string | null;
+  day: string; // YYYY-MM-DD
+  startTime: string | null; // HH:MM, event-local
+  endTime: string | null;
+  functionType: string | null;
+  name: string;
+  attendance: number | null;
+  setup: string | null;
+  areaSqFt: number | null;
+  av: string | null;
+  hold24: boolean;
+  room: string | null;
 };
 
 export type RfpBlockArgs = {
@@ -64,9 +94,26 @@ async function authorizeRfp(id: string, eventId: string, action: PermissionActio
   return rfp;
 }
 
+const day = (v: string | null) => (v ? dateFromKey(v) : null);
+const FB_INCLUDE_KEYS = new Set<string>(FB_INCLUDES.map((f) => f.value));
+const MAX_ALTERNATE_DATES = 3;
+
+function money(v: number | null, label: string) {
+  if (v != null && (!Number.isFinite(v) || v < 0)) throw new Error(`${label} cannot be negative`);
+  return v;
+}
+
 async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs) {
   if (!args.title.trim()) throw new Error("Title is required");
-  for (const d of [args.responseDue, args.decisionBy]) if (d && !DATE_RE.test(d)) throw new Error(`Invalid date: ${d}`);
+  const alternates = args.alternateDates.filter((a) => a.startDate || a.endDate);
+  const dates = [args.responseDue, args.decisionBy, args.arrivalDate, args.departureDate, args.siteVisitBy, ...alternates.flatMap((a) => [a.startDate, a.endDate])];
+  for (const d of dates) if (d && !DATE_RE.test(d)) throw new Error(`Invalid date: ${d}`);
+  if (args.arrivalDate && args.departureDate && args.departureDate <= args.arrivalDate) throw new Error("Departure must be after arrival");
+  if (alternates.length > MAX_ALTERNATE_DATES) throw new Error(`At most ${MAX_ALTERNATE_DATES} alternate dates`);
+  for (const a of alternates) {
+    if (!a.startDate || !a.endDate || a.endDate <= a.startDate) throw new Error("Each alternate needs an arrival before its departure");
+  }
+  if (args.peakRooms != null && (!Number.isInteger(args.peakRooms) || args.peakRooms < 0)) throw new Error("Peak rooms must be a whole number");
   if (args.contactId) {
     const tenantId = await requireEventTenantId(eventId);
     const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
@@ -81,8 +128,22 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs) {
     introduction: args.introduction,
     requirements: args.requirements,
     contactId: args.contactId,
-    showRoomNames: args.showRoomNames,
-    excludedFunctionTypes: Array.from(new Set(args.excludedFunctionTypes.filter(Boolean))),
+    arrivalDate: day(args.arrivalDate),
+    departureDate: day(args.departureDate),
+    datesFlexible: args.datesFlexible,
+    dateNotes: args.dateNotes?.trim() || null,
+    peakRooms: args.peakRooms,
+    reservationMethod: args.reservationMethod,
+    commissionNotes: args.commissionNotes?.trim() || null,
+    fbMinimum: money(args.fbMinimum, "F&B minimum"),
+    fbIncludes: args.fbIncludes.filter((f) => FB_INCLUDE_KEYS.has(f)),
+    fbHistoricalSpend: money(args.fbHistoricalSpend, "F&B historical spend"),
+    amenities: Array.from(new Set(args.amenities.filter(Boolean))),
+    decisionMaker: args.decisionMaker?.trim() || null,
+    siteVisitBy: day(args.siteVisitBy),
+    alternateDates: {
+      create: alternates.map((a, i) => ({ startDate: dateFromKey(a.startDate), endDate: dateFromKey(a.endDate), sortOrder: i })),
+    },
   };
 }
 
@@ -110,7 +171,10 @@ export async function createRfpCore(
 export async function updateRfpCore(id: string, eventId: string, args: RfpWriteArgs, userId: string) {
   const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
   const data = await validate(eventId, kind, args);
-  return prisma.rfp.update({ where: { id, eventId }, data: { ...data, updatedById: userId } });
+  return prisma.$transaction(async (tx) => {
+    await tx.rfpAlternateDate.deleteMany({ where: { rfpId: id } });
+    return tx.rfp.update({ where: { id, eventId }, data: { ...data, updatedById: userId } });
+  });
 }
 
 export async function deleteRfpCore(id: string, eventId: string, userId: string) {
@@ -182,6 +246,63 @@ export async function saveRfpConcessionsCore(id: string, eventId: string, conces
   });
 }
 
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// Replaces the RFP's function-space rows, updating kept ones in place by id.
+// Rows copied from a function or catering order must point at this event's.
+export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpaceArgs[], userId: string) {
+  await authorizeRfp(id, eventId, "WRITE", userId);
+  const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { startDate: true, endDate: true } });
+  const first = addDays(dateKey(event.startDate), -NIGHT_WINDOW_DAYS);
+  const last = addDays(dateKey(event.endDate), NIGHT_WINDOW_DAYS);
+  const functionIds = rows.flatMap((r) => (r.functionId ? [r.functionId] : []));
+  const orderIds = rows.flatMap((r) => (r.cateringOrderId ? [r.cateringOrderId] : []));
+  const [functions, orders] = await Promise.all([
+    prisma.function.findMany({ where: { id: { in: functionIds }, eventId }, select: { id: true } }),
+    prisma.cateringOrder.findMany({ where: { id: { in: orderIds }, eventId }, select: { id: true } }),
+  ]);
+  const ownFunctions = new Set(functions.map((f) => f.id));
+  const ownOrders = new Set(orders.map((o) => o.id));
+  const data = rows
+    .filter((r) => r.name.trim())
+    .map((r, i) => {
+      if (r.kind !== "MEETING" && r.kind !== "FB") throw new Error(`Unknown space kind: ${r.kind}`);
+      if (!DATE_RE.test(r.day) || r.day < first || r.day > last) throw new Error(`${r.name}: day ${r.day} is too far from the event`);
+      for (const t of [r.startTime, r.endTime]) if (t && !TIME_RE.test(t)) throw new Error(`${r.name}: time must be HH:MM`);
+      for (const n of [r.attendance, r.areaSqFt]) if (n != null && (!Number.isInteger(n) || n < 0)) throw new Error(`${r.name}: numbers must be whole and not negative`);
+      if (r.functionId && !ownFunctions.has(r.functionId)) throw new PermissionError("NOT_FOUND", "Function not found");
+      if (r.cateringOrderId && !ownOrders.has(r.cateringOrderId)) throw new PermissionError("NOT_FOUND", "Catering order not found");
+      return {
+        id: r.id ?? null,
+        kind: r.kind,
+        functionId: r.functionId ?? null,
+        cateringOrderId: r.cateringOrderId ?? null,
+        day: dateFromKey(r.day),
+        startTime: r.startTime || null,
+        endTime: r.endTime || null,
+        functionType: r.functionType?.trim() || null,
+        name: r.name.trim(),
+        attendance: r.attendance,
+        setup: r.setup?.trim() || null,
+        areaSqFt: r.areaSqFt,
+        av: r.av?.trim() || null,
+        hold24: r.hold24,
+        room: r.room?.trim() || null,
+        sortOrder: i,
+      };
+    });
+  const existing = new Set((await prisma.rfpSpaceRequest.findMany({ where: { rfpId: id }, select: { id: true } })).map((r) => r.id));
+  const kept = data.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
+  await prisma.$transaction(async (tx) => {
+    await tx.rfpSpaceRequest.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
+    for (const { id: rowId, ...row } of data) {
+      if (rowId && existing.has(rowId)) await tx.rfpSpaceRequest.update({ where: { id: rowId, rfpId: id }, data: row });
+      else await tx.rfpSpaceRequest.create({ data: { ...row, rfpId: id } });
+    }
+    await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
+  });
+}
+
 // Files the rendered document on the RFP as a record of what went out,
 // stamps the issue date, and moves a draft to ISSUED.
 export async function issueRfpCore(id: string, eventId: string, file: { fileName: string; buffer: Buffer }, userId: string) {
@@ -241,6 +362,7 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
       where: { id, eventId },
       select: {
         title: true,
+        amenities: true,
         concessions: { orderBy: { sortOrder: "asc" }, select: { id: true, label: true, value: true, required: true } },
         hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, contractType: true, guestType: true, targetRate: true, nights: { select: { night: true, rooms: true } } } },
       },
@@ -267,6 +389,7 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
   return buildComparison({
     title: rfp.title,
     eventName: event.name,
+    amenities: rfp.amenities,
     blocks: rfp.hotelBlocks,
     concessions: rfp.concessions,
     proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, hasBlock: p.block != null })),
