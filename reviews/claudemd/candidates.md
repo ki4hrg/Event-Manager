@@ -32,3 +32,4 @@
 - [rfps] Client cards on one page that save independently are keyed on their own saved data (`contentKey`), not the parent's updatedAt — a shared key remounts every card on any save and drops unsaved edits.
 - [functions] Function.defaultSetup (setup_type label) is the set-up before any setup order exists; new setup orders from the function and RFP rows ("Requested set-up") start from it. Square footage stays RFP-only (`RfpSpaceRequest.areaSqFt`, a size guideline), not on functions or rooms.
 - [react] Don't re-sort or regroup an editable list on every keystroke: a row that moves remounts and loses focus / closes an open date picker. Sort on load and on save (RfpSpaceEditor).
+- [env] A new external API key (e.g. ANTHROPIC_API_KEY for email ingest) has no natural home among lib/{prisma,auth,uploads,email}; decide whether `@/lib/ai` joins the env allow-list or the key rides `@/lib/email` (docs/proposals/email-ingest.md § Config)
