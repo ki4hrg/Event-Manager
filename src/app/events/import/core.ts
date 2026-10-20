@@ -246,6 +246,7 @@ export async function importFromEventCore(
             postToReaderBoard: fn.postToReaderBoard,
             readerBoardText: fn.readerBoardText,
             hold24Hour: fn.hold24Hour,
+            defaultSetup: fn.defaultSetup,
             expectedAttendance: fn.expectedAttendance,
             setForCount: fn.setForCount,
             decorNotes: fn.decorNotes,

@@ -38,7 +38,7 @@ export default async function NewSetupOrderPage({
     functionId
       ? prisma.function.findUnique({
           where: { id: functionId },
-          select: { name: true, rooms: { take: 1, select: { roomId: true } } },
+          select: { name: true, defaultSetup: true, rooms: { take: 1, select: { roomId: true } } },
         })
       : presentationId
         ? prisma.presentation.findUnique({ where: { id: presentationId }, select: { title: true } })
@@ -98,6 +98,7 @@ export default async function NewSetupOrderPage({
         lockedFunctionId={functionId}
         lockedPresentationId={presentationId}
         defaultName={defaultName}
+        defaultSetupType={sourceData && "defaultSetup" in sourceData ? sourceData.defaultSetup : null}
         cancelPath={cancelPath}
         responsiblePartyOptions={responsiblePartyVendors}
       />

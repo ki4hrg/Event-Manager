@@ -153,6 +153,7 @@ async function propagateLabelRename(
     case "setup_type":
       await tx.setupOrder.updateMany({ where: { setupType: oldLabel, ...inTenant }, data: { setupType: newLabel } });
       await tx.rfpSpaceRequest.updateMany({ where: { setup: oldLabel, rfp: inTenant }, data: { setup: newLabel } });
+      await tx.function.updateMany({ where: { defaultSetup: oldLabel, ...inTenant }, data: { defaultSetup: newLabel } });
       break;
     case "presentation_type":
       await tx.presentation.updateMany({ where: { type: oldLabel, ...inTenant }, data: { type: newLabel } });
