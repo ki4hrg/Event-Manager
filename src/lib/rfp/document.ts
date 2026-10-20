@@ -9,7 +9,7 @@
 import type { HotelContractType, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { blockTypeLabel, dateKey, formatDateKey, formatMoney, formatNight, RUN_OF_HOUSE, roomTypeLabel } from "@/lib/hotels";
 import { APEX_FB_PRICE_TYPES, CONCESSION_GROUPS, concessionGroupOf, FB_INCLUDES, type ConcessionGroup, type RfpSection } from "@/lib/rfp/sections";
-import { formatClockRange, sortSpaceRows } from "@/lib/rfp/space";
+import { DAY_TBD, formatClockRange, sortSpaceRows } from "@/lib/rfp/space";
 
 export type RfpBlockDoc = {
   label: string; // "Contract · Attendees block"
@@ -35,7 +35,7 @@ export type RfpSpaceDocRow = {
   room: string | null;
 };
 
-export type RfpSpaceDay = { day: string; label: string; rows: RfpSpaceDocRow[] };
+export type RfpSpaceDay = { day: string | null; label: string; rows: RfpSpaceDocRow[] };
 
 export type RfpHistoryRow = {
   name: string;
@@ -78,6 +78,7 @@ export type RfpDocument = {
   history: RfpHistoryRow[] | null;
   // III. Requirements
   statementOfNeed: string | null; // RichTextEditor HTML
+  locations: string[]; // preferred hotel areas
   dates: { preferred: string | null; alternates: string[]; flexible: boolean; notes: string | null };
   facility: RfpFact[];
   blocks: RfpBlockDoc[] | null;
@@ -112,6 +113,7 @@ export type RfpDocumentInput = {
     issuedOn: Date | null;
     siteVisitBy: Date | null;
     decisionMaker: string | null;
+    areas: string[]; // the RFP's own, else the event's
     introduction: string | null;
     requirements: string | null;
     arrivalDate: Date | null;
@@ -138,7 +140,7 @@ export type RfpDocumentInput = {
     }[];
     spaceRequests: {
       kind: RfpSpaceKind;
-      day: Date;
+      day: Date | null;
       startTime: string | null;
       endTime: string | null;
       functionType: string | null;
@@ -224,11 +226,11 @@ function blockDoc(b: RfpDocumentInput["rfp"]["hotelBlocks"][number]): RfpBlockDo
 }
 
 function spaceDays(rows: RfpDocumentInput["rfp"]["spaceRequests"]): RfpSpaceDay[] {
-  const sorted = sortSpaceRows(rows.map((r) => ({ ...r, day: dateKey(r.day) })));
+  const sorted = sortSpaceRows(rows.map((r) => ({ ...r, day: r.day ? dateKey(r.day) : null })));
   const days = Array.from(new Set(sorted.map((r) => r.day)));
   return days.map((day) => ({
     day,
-    label: formatNight(day),
+    label: day ? formatNight(day) : DAY_TBD,
     rows: sorted
       .filter((r) => r.day === day)
       .map((r) => ({
@@ -247,8 +249,8 @@ function spaceDays(rows: RfpDocumentInput["rfp"]["spaceRequests"]): RfpSpaceDay[
 
 // Most meeting rows running at once on any day (APEX "breakout rooms
 // required simultaneously"); rows without both times don't count.
-export function mostAtOnce(rows: { day: string; startTime: string | null; endTime: string | null }[]): number {
-  const timed = rows.filter((r): r is { day: string; startTime: string; endTime: string } => !!r.startTime && !!r.endTime);
+export function mostAtOnce(rows: { day: string | null; startTime: string | null; endTime: string | null }[]): number {
+  const timed = rows.filter((r): r is { day: string; startTime: string; endTime: string } => !!r.day && !!r.startTime && !!r.endTime);
   let most = 0;
   for (const r of timed) {
     const at = timed.filter((o) => o.day === r.day && o.startTime <= r.startTime && r.startTime < o.endTime).length;
@@ -287,7 +289,7 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
   const allNights = Array.from(new Set(blocks.flatMap((b) => b.nights)));
   const peakAcross = Math.max(0, ...allNights.map((k) => sum(blocks.map((b) => b.totals[k] ?? 0))));
   const largest = meeting.reduce<(typeof meeting)[number] | null>((best, r) => ((r.attendance ?? 0) > (best?.attendance ?? 0) ? r : best), null);
-  const atOnce = mostAtOnce(meeting.map((r) => ({ ...r, day: dateKey(r.day) })));
+  const atOnce = mostAtOnce(meeting.map((r) => ({ ...r, day: r.day ? dateKey(r.day) : null })));
 
   const arrival = rfp.arrivalDate ? dateKey(rfp.arrivalDate) : null;
   const departure = rfp.departureDate ? dateKey(rfp.departureDate) : null;
@@ -330,6 +332,7 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
     },
     history: on.has("history") ? historyRows(input) : null,
     statementOfNeed: rfp.introduction,
+    locations: rfp.areas,
     dates: {
       preferred: arrival && departure ? dateSpan(arrival, departure) : arrival ? formatDateKey(arrival) : null,
       alternates: rfp.alternateDates.map((a) => dateSpan(dateKey(a.startDate), dateKey(a.endDate))),

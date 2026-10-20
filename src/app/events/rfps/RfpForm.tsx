@@ -16,7 +16,11 @@ export type RfpValues = {
   responseDue: string | null;
   decisionBy: string | null;
   siteVisitBy: string | null;
-  decisionMaker: string | null;
+  decisionMakerId: string | null;
+  decisionMakerName: string | null; // the contact's name, for a contact outside key staff
+  decisionMaker: string | null; // typed when not a contact
+  areas: string[];
+  eventAreas: string[]; // used when areas is empty
   sections: string[];
   introduction: string | null;
   requirements: string | null;
@@ -38,11 +42,13 @@ export type RfpValues = {
 
 export type RfpFormChoices = {
   contacts: { id: string; label: string }[];
+  areas: { label: string; region: string | null }[];
   reservationMethods: string[];
   amenities: string[];
 };
 
 const MAX_ALTERNATES = 3;
+const OTHER = "__other__";
 
 const inputClass =
   "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
@@ -112,6 +118,8 @@ export function RfpForm({
   const [editing, setEditing] = useState(!isEdit);
   const [sections, setSections] = useState(new Set(values.sections));
   const [alternates, setAlternates] = useState(values.alternateDates);
+  // The decision maker is a contact id, or OTHER for a typed name.
+  const [decider, setDecider] = useState(values.decisionMakerId ?? (values.decisionMaker ? OTHER : ""));
   const parts = sectionsFor(kind);
 
   if (!editing || !canWrite) {
@@ -127,7 +135,12 @@ export function RfpForm({
       rows.push(["Alternates", [values.datesFlexible ? "Flexible" : null, ...values.alternateDates.map((a) => span(a.startDate, a.endDate))].filter(Boolean).join(" · ")]);
     }
     if (values.siteVisitBy) rows.push(["Site visit by", formatDateKey(values.siteVisitBy)]);
-    if (values.decisionMaker) rows.push(["Decision maker", values.decisionMaker]);
+    const deciderName = values.decisionMakerId
+      ? (choices.contacts.find((c) => c.id === values.decisionMakerId)?.label ?? values.decisionMakerName)
+      : values.decisionMaker;
+    if (deciderName) rows.push(["Decision maker", deciderName]);
+    const areas = values.areas.length ? values.areas : values.eventAreas;
+    if (areas.length) rows.push(["Hotel areas", `${areas.join(", ")}${values.areas.length ? "" : " (event)"}`]);
     if (values.reservationMethod) rows.push(["Reservations", values.reservationMethod]);
     if (sections.has("fb") && values.fbMinimum) rows.push(["F&B minimum", formatMoney(values.fbMinimum)]);
     if (values.amenities.length) rows.push(["Amenities", values.amenities.join(", ")]);
@@ -263,8 +276,23 @@ export function RfpForm({
           <Field label="Site visit by" htmlFor="rfp-siteVisitBy">
             <input id="rfp-siteVisitBy" type="date" name="siteVisitBy" defaultValue={values.siteVisitBy ?? ""} className={inputClass} />
           </Field>
-          <Field label="Decision maker" htmlFor="rfp-decisionMaker">
-            <input id="rfp-decisionMaker" name="decisionMaker" placeholder="Name & role" defaultValue={values.decisionMaker ?? ""} className={inputClass} />
+          <Field label="Decision maker" htmlFor="rfp-decisionMakerId">
+            <input type="hidden" name="decisionMakerId" value={decider === OTHER ? "" : decider} />
+            <select id="rfp-decisionMakerId" value={decider} onChange={(e) => setDecider(e.target.value)} className={inputClass}>
+              <option value="">Not set</option>
+              {values.decisionMakerId && !choices.contacts.some((c) => c.id === values.decisionMakerId) && (
+                <option value={values.decisionMakerId}>{values.decisionMakerName}</option>
+              )}
+              {choices.contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+              <option value={OTHER}>Other…</option>
+            </select>
+            {decider === OTHER && (
+              <input aria-label="Decision maker name" name="decisionMaker" placeholder="Name & role" defaultValue={values.decisionMaker ?? ""} className={inputClass} />
+            )}
           </Field>
         </div>
       </fieldset>
@@ -280,6 +308,24 @@ export function RfpForm({
           ))}
         </div>
       </div>
+
+      {choices.areas.length > 0 && (
+        <div>
+          <p className={labelClass}>Hotel areas</p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+            {Array.from(new Set([...choices.areas.map((a) => a.label), ...values.areas])).map((a) => (
+              <label key={a} className={checkLabel}>
+                <input type="checkbox" name="areas" value={a} defaultChecked={values.areas.includes(a)} className={checkClass} />
+                {a}
+                {choices.areas.find((x) => x.label === a)?.region && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{choices.areas.find((x) => x.label === a)!.region}</span>
+                )}
+              </label>
+            ))}
+          </div>
+          {values.eventAreas.length > 0 && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Event: {values.eventAreas.join(", ")}</p>}
+        </div>
+      )}
 
       {sections.has("blocks") ? (
         <fieldset className="space-y-3">
@@ -356,6 +402,7 @@ export function RfpForm({
 
       <div>
         <p className={labelClass}>Statement of need</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">The services this RFP seeks and the length of the contract, in years.</p>
         <div className="mt-1">
           <RichTextEditor name="introduction" defaultValue={values.introduction ?? ""} />
         </div>

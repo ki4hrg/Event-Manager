@@ -73,11 +73,18 @@ export function FileUploadPanel({
 
       {canUpload && (
       <div className="space-y-3 mb-4">
+        {/* The file input gets a row of its own so narrow columns don't clip it. */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="block w-full min-w-0 text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-600"
+        />
         <div className="flex flex-wrap gap-2">
           <select
             value={selectedFileType}
             onChange={(e) => setSelectedFileType(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             <option value="">File type (optional)</option>
             {fileTypeOptions.map((opt) => (
@@ -86,12 +93,6 @@ export function FileUploadPanel({
               </option>
             ))}
           </select>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="flex-1 min-w-0 text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-600"
-          />
           <button
             onClick={handleUpload}
             disabled={uploading}

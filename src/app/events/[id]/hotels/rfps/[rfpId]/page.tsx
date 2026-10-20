@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import type { RfpSpaceKind } from "@prisma/client";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DeleteButton } from "@/components/DeleteButton";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
@@ -72,9 +73,13 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
     "use server";
     await saveRfpConcessions(rfpId, eventId, concessions);
   };
-  const saveSpaceAction = async (rows: RfpSpaceArgs[]) => {
+  const saveMeetingAction = async (rows: RfpSpaceArgs[]) => {
     "use server";
-    await saveRfpSpace(rfpId, eventId, rows);
+    await saveRfpSpace(rfpId, eventId, "MEETING", rows);
+  };
+  const saveFbAction = async (rows: RfpSpaceArgs[]) => {
+    "use server";
+    await saveRfpSpace(rfpId, eventId, "FB", rows);
   };
   const spaceCandidatesAction = async () => {
     "use server";
@@ -100,6 +105,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
   const day = (d: Date | null) => (d ? dateKey(d) : null);
   const arrival = day(rfp.arrivalDate) ?? dateKey(event.startDate);
   const departure = day(rfp.departureDate) ?? dateKey(event.endDate);
+  const spaceRows = (kind: RfpSpaceKind) => rfp.spaceRequests.filter((r) => r.kind === kind).map((r) => ({ ...r, day: day(r.day) }));
 
   return (
     <>
@@ -133,8 +139,8 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           <Link href={`${base}/print`} className={btnSecondary}>
             Print / Save PDF
           </Link>
-          <a href={`/api/events/${eventId}/rfps/${rfpId}?format=docx`} className={btnSecondary}>
-            Download .docx
+          <a href={`/api/events/${eventId}/rfps/${rfpId}?format=docx`} className={btnSecondary} download>
+            Word
           </a>
           <IssueRfpButton action={issueAction} resource="HOTELS" reissue={rfp.issuedOn != null} />
           <DeleteButton action={deleteAction} resource="HOTELS" label="Delete RFP" />
@@ -153,7 +159,11 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
               responseDue: day(rfp.responseDue),
               decisionBy: day(rfp.decisionBy),
               siteVisitBy: day(rfp.siteVisitBy),
+              decisionMakerId: rfp.decisionMakerId,
+              decisionMakerName: rfp.decisionMakerContact ? `${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim() : null,
               decisionMaker: rfp.decisionMaker,
+              areas: rfp.areas,
+              eventAreas: event.hotelAreas,
               sections: rfp.sections,
               introduction: rfp.introduction,
               requirements: rfp.requirements,
@@ -197,17 +207,30 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
               fill={fillAction}
             />
           )}
-          {(rfp.sections.includes("meetingSpace") || rfp.sections.includes("fb")) && (
+          {rfp.sections.includes("meetingSpace") && (
             <RfpSpaceEditor
-              key={`space-${rfp.updatedAt.toISOString()}`}
+              key={`meeting-${rfp.updatedAt.toISOString()}`}
+              kind="MEETING"
               resource="HOTELS"
-              rows={rfp.spaceRequests.map((r) => ({ ...r, day: dateKey(r.day) }))}
+              rows={spaceRows("MEETING")}
               defaultDay={arrival}
-              functionTypes={choices.functionTypes}
-              mealTypes={choices.mealTypes}
+              types={choices.functionTypes}
               setupTypes={choices.setupTypes}
               loadCandidates={spaceCandidatesAction}
-              save={saveSpaceAction}
+              save={saveMeetingAction}
+            />
+          )}
+          {rfp.sections.includes("fb") && (
+            <RfpSpaceEditor
+              key={`fb-${rfp.updatedAt.toISOString()}`}
+              kind="FB"
+              resource="HOTELS"
+              rows={spaceRows("FB")}
+              defaultDay={arrival}
+              types={choices.mealTypes}
+              setupTypes={choices.setupTypes}
+              loadCandidates={spaceCandidatesAction}
+              save={saveFbAction}
             />
           )}
           {rfp.sections.includes("concessions") && (
@@ -243,6 +266,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
             today={dateKey(new Date())}
             blocks={rfp.hotelBlocks.map((b) => ({ id: b.id, label: blockLabel(b.contractType, b.guestType) }))}
             hotels={choices.hotels}
+            areas={rfp.areas.length ? rfp.areas : event.hotelAreas}
             add={addRecipientsAction}
             update={updateRecipientAction}
             remove={removeRecipientAction}

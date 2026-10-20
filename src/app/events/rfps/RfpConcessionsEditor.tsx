@@ -14,6 +14,28 @@ const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 d
 
 const OTHER = "__other__";
 
+// The rfp_concession options under their headings, then Other…; one list for
+// both the row selects and "+ Concession".
+function ConcessionOptions({ options, available }: { options: { label: string; group: string | null }[]; available: (label: string) => boolean }) {
+  return (
+    <>
+      {CONCESSION_GROUPS.map((g) => {
+        const shown = options.filter((o) => concessionGroupOf(o.group) === g.value && available(o.label));
+        return shown.length ? (
+          <optgroup key={g.value} label={g.label}>
+            {shown.map((o) => (
+              <option key={o.label} value={o.label}>
+                {o.label}
+              </option>
+            ))}
+          </optgroup>
+        ) : null;
+      })}
+      <option value={OTHER}>Other…</option>
+    </>
+  );
+}
+
 // custom: the label was typed rather than picked from the rfp_concession list.
 type Row = { key: number; id: string | null; label: string; custom: boolean; value: string; required: boolean };
 
@@ -79,14 +101,7 @@ export function RfpConcessionsEditor({
                       onChange={(e) => set(r.key, e.target.value === OTHER ? { custom: true, label: "" } : { label: e.target.value })}
                       className={`${inputClass} flex-1 min-w-[10rem]`}
                     >
-                      {options
-                        .filter((o) => o.label === r.label || !used.has(o.label))
-                        .map((o) => (
-                          <option key={o.label} value={o.label}>
-                            {o.label}
-                          </option>
-                        ))}
-                      <option value={OTHER}>Other…</option>
+                      <ConcessionOptions options={options} available={(l) => l === r.label || !used.has(l)} />
                     </select>
                   )}
                   <input
@@ -126,19 +141,7 @@ export function RfpConcessionsEditor({
             className={inputClass}
           >
             <option value="">+ Concession</option>
-            {CONCESSION_GROUPS.map((g) => {
-              const unused = options.filter((o) => concessionGroupOf(o.group) === g.value && !used.has(o.label));
-              return unused.length ? (
-                <optgroup key={g.value} label={g.label}>
-                  {unused.map((o) => (
-                    <option key={o.label} value={o.label}>
-                      {o.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null;
-            })}
-            <option value={OTHER}>Other…</option>
+            <ConcessionOptions options={options} available={(l) => !used.has(l)} />
           </select>
         </div>
       )}

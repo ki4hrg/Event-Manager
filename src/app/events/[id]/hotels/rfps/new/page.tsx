@@ -94,7 +94,11 @@ export default async function NewRfpPage({
             responseDue: null,
             decisionBy: null,
             siteVisitBy: null,
+            decisionMakerId: null,
+            decisionMakerName: null,
             decisionMaker: null,
+            areas: [],
+            eventAreas: event.hotelAreas,
             sections: sectionsFor("HOTEL")
               .map((s) => s.key)
               .filter((k) => k !== "fb" || cateringCount > 0),

@@ -7,7 +7,7 @@ import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { addDays, CONTRACT_TYPES } from "@/lib/hotels";
 import type { PatternBasis } from "@/lib/hotelPattern";
-import { RoomGridEditor, type GridEdge, type GridRow } from "../hotels/RoomGridEditor";
+import { emptyGridState, gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "../hotels/RoomGridEditor";
 import type { RfpBlockArgs, RfpFillArgs } from "./core";
 
 export type RfpBlockValues = {
@@ -31,7 +31,7 @@ type BlockState = {
   // Nights shown, first to last; each block keeps its own range.
   from: string;
   to: string;
-  rows: GridRow[];
+  grid: GridState;
 };
 
 const inputClass =
@@ -46,20 +46,6 @@ function keysBetween(from: string, to: string) {
   const out: string[] = [];
   for (let k = from; k <= to && out.length < 90; k = addDays(k, 1)) out.push(k);
   return out;
-}
-
-// One column per room type; for a new block, one Run of House column with
-// the RFP's peak rooms on each night.
-function toRows(nights: RfpBlockValues["nights"], keys: string[] = [], peakRooms: number | null = null): GridRow[] {
-  const types = Array.from(new Set(nights.map((n) => n.roomType)));
-  if (types.length === 0) {
-    const cells = peakRooms ? Object.fromEntries(keys.map((k) => [k, { rooms: String(peakRooms), rate: "" }])) : {};
-    return [{ roomType: null, cells }];
-  }
-  return types.map((t) => ({
-    roomType: t,
-    cells: Object.fromEntries(nights.filter((n) => n.roomType === t).map((n) => [n.night, { rooms: String(n.rooms), rate: "" }])),
-  }));
 }
 
 function HistoryFill({
@@ -194,7 +180,7 @@ export function RfpBlocksEditor({
       targetRate: b.targetRate ?? "",
       notes: b.notes ?? "",
       ...range(b.nights.map((n) => n.night)),
-      rows: toRows(b.nights),
+      grid: toGridState(b.nights),
     })),
   );
 
@@ -213,31 +199,30 @@ export function RfpBlocksEditor({
         targetRate: "",
         notes: "",
         ...range([]),
-        rows: toRows([], keysBetween(arrival, lastNight), peakRooms),
+        grid: emptyGridState(keysBetween(arrival, lastNight), peakRooms),
       },
     ]);
     setNextId((n) => n + 1);
     setDirty(true);
   };
-  // A new day starts at the peak rooms in the first column.
+  // A new day starts at the peak rooms.
   const addDay = (b: BlockState, edge: GridEdge) => {
     const night = edge === "before" ? addDays(b.from, -1) : addDays(b.to, 1);
-    const rows = peakRooms && b.rows.length ? [{ ...b.rows[0], cells: { ...b.rows[0].cells, [night]: { rooms: String(peakRooms), rate: "" } } }, ...b.rows.slice(1)] : b.rows;
-    change(b.id, { ...(edge === "before" ? { from: night } : { to: night }), rows });
+    const grid = peakRooms ? { ...b.grid, totals: { ...b.grid.totals, [night]: String(peakRooms) } } : b.grid;
+    change(b.id, { ...(edge === "before" ? { from: night } : { to: night }), grid });
   };
   const removeDay = (b: BlockState, edge: GridEdge) =>
     change(b.id, edge === "before" ? { from: addDays(b.from, 1) } : { to: addDays(b.to, -1) });
-  // Fills the first column (Run of House unless the block names a type).
+  // Sets each night's total; typed rooms stay and Run of House takes the rest.
   const applyFill = (b: BlockState, nights: FillResult["nights"]) => {
     const sorted = nights.map((n) => n.night).sort();
-    const cells = Object.fromEntries(nights.map((n) => [n.night, { rooms: String(n.rooms), rate: "" }]));
-    const [first, ...rest] = b.rows.length ? b.rows : toRows([]);
     change(b.id, {
       from: sorted[0] < b.from ? sorted[0] : b.from,
       to: sorted[sorted.length - 1] > b.to ? sorted[sorted.length - 1] : b.to,
-      rows: [{ roomType: first.roomType, cells }, ...rest],
+      grid: { ...b.grid, totals: { ...b.grid.totals, ...Object.fromEntries(nights.map((n) => [n.night, String(n.rooms)])) } },
     });
   };
+  const over = blocks.some((b) => overNights(keysBetween(b.from, b.to), b.grid).length > 0);
   const onSave = () =>
     startTransition(async () => {
       await save(
@@ -249,12 +234,7 @@ export function RfpBlocksEditor({
             guestType: b.guestType || null,
             targetRate: b.targetRate !== "" ? Number(b.targetRate) : null,
             notes: b.notes || null,
-            nights: b.rows.flatMap((r) =>
-              keys.flatMap((k) => {
-                const rooms = parseInt(r.cells[k]?.rooms ?? "");
-                return rooms > 0 ? [{ roomType: r.roomType, night: k, rooms }] : [];
-              }),
-            ),
+            nights: gridNights(keys, b.grid).map(({ roomType, night, rooms }) => ({ roomType, night, rooms })),
           };
         }),
       );
@@ -319,10 +299,10 @@ export function RfpBlocksEditor({
             </div>
             <RoomGridEditor
               keys={keysBetween(b.from, b.to)}
-              rows={b.rows}
+              state={b.grid}
               roomTypes={roomTypes}
               withRate={false}
-              onChange={(rows) => change(b.id, { rows })}
+              onChange={(grid) => change(b.id, { grid })}
               onAddDay={canWrite ? (edge) => addDay(b, edge) : undefined}
               onRemoveDay={canWrite ? (edge) => removeDay(b, edge) : undefined}
             />
@@ -359,7 +339,7 @@ export function RfpBlocksEditor({
       </fieldset>
       {canWrite && (
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={onSave} disabled={pending || !dirty} className={`${btnPrimary} disabled:opacity-50`}>
+          <button type="button" onClick={onSave} disabled={pending || !dirty || over} className={`${btnPrimary} disabled:opacity-50`}>
             {pending ? "Saving..." : "Save blocks"}
           </button>
           <button type="button" onClick={addBlock} className={btnSecondary}>

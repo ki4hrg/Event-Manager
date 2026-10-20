@@ -25,3 +25,6 @@
 - [rfps] An RFP owns its function-space rows (`RfpSpaceRequest`), copied from functions / catering orders by "Add from functions" rather than read live — RFPs go out before the agenda exists, and what was asked must not drift after issue. Times are event-local "HH:MM" strings (`localTime` / `formatClock` in `src/lib/rfp/space.ts`).
 - [rfps] RFP document order follows the APEX Single Facility RFP (I contact … V proposal content); event profile reads the ESG EventSpecification rather than duplicating its fields on Rfp.
 - [options] `CustomOption.group` as a display heading (rfp_concession → ROOMS / FB / OTHER via `concessionGroupOf`), alongside its existing uses as a workflow key.
+- [hotels] Room grids are total-driven: a night's Total is entered, typed room types are counts within it, Run of House is the computed remainder (`nightMath` / `gridNights` in `src/app/events/hotels/RoomGridEditor.tsx`). Don't add an editable ROH cell back — it's what let totals drift past the peak.
+- [options] hotel_amenity is property features; anything complimentary or discounted (Wi-Fi, parking, breakfast) is an rfp_concession. Keep the two lists disjoint.
+- [components] FileUploadPanel puts the file input on its own full-width row; a flex-1 file input clips "Choose file" in narrow side columns.

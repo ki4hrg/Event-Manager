@@ -19,7 +19,7 @@ import {
   stageOf,
 } from "@/lib/hotels";
 import { RoomGrid, type GridNight } from "./RoomGrid";
-import { RoomGridEditor, type GridEdge, type GridRow } from "./RoomGridEditor";
+import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "./RoomGridEditor";
 
 export type ProposalValues = {
   venueId: string;
@@ -54,10 +54,10 @@ const inputClass =
 const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 
-function SaveButton({ label }: { label: string }) {
+function SaveButton({ label, disabled = false }: { label: string; disabled?: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={`${btnPrimary} disabled:opacity-50`}>
+    <button type="submit" disabled={pending || disabled} className={`${btnPrimary} disabled:opacity-50`}>
       {pending ? "Saving..." : label}
     </button>
   );
@@ -116,20 +116,6 @@ export type ProposalTemplate = {
   status: string | null;
   nights: GridNight[];
 };
-
-// One column per room type in the nights; Run of House when there are none.
-function initialRows(values: Pick<ProposalValues, "nights"> | null): GridRow[] {
-  if (!values || values.nights.length === 0) return [{ roomType: null, cells: {} }];
-  const types = Array.from(new Set(values.nights.map((n) => n.roomType)));
-  return types.map((t) => ({
-    roomType: t,
-    cells: Object.fromEntries(
-      values.nights
-        .filter((n) => n.roomType === t)
-        .map((n) => [n.night, { rooms: n.rooms?.toString() ?? "", rate: n.rate ?? "" }]),
-    ),
-  }));
-}
 
 function Details({ values, choices, concessions }: { values: ProposalValues; choices: ProposalChoices; concessions: ConcessionAnswer[] }) {
   const rows: [string, ReactNode][] = [
@@ -230,7 +216,7 @@ export function ProposalForm({
   const [revision, setRevision] = useState(proposal?.revision ?? 1);
   const [checkIn, setCheckIn] = useState(proposal ? proposal.checkIn ?? "" : defaultCheckIn ?? "");
   const [checkOut, setCheckOut] = useState(proposal ? proposal.checkOut ?? "" : defaultCheckOut ?? "");
-  const [rows, setRows] = useState<GridRow[]>(() => initialRows(proposal ?? fromRfp ?? null));
+  const [grid, setGrid] = useState<GridState>(() => toGridState(proposal?.nights ?? fromRfp?.nights ?? []));
   const [charges, setCharges] = useState(
     (proposal?.charges ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })),
   );
@@ -259,19 +245,8 @@ export function ProposalForm({
   const addDay = (edge: GridEdge) => (edge === "before" ? setCheckIn(addDays(checkIn, -1)) : setCheckOut(addDays(checkOut, 1)));
   const removeDay = (edge: GridEdge) => (edge === "before" ? setCheckIn(addDays(checkIn, 1)) : setCheckOut(addDays(checkOut, -1)));
 
-  const nightsJson = JSON.stringify(
-    rows.flatMap((r) =>
-      keys
-        .map((k) => ({ k, c: r.cells[k] }))
-        .filter(({ c }) => c && (c.rooms !== "" || c.rate !== ""))
-        .map(({ k, c }) => ({
-          roomType: r.roomType,
-          night: k,
-          rooms: c.rooms !== "" ? parseInt(c.rooms) : null,
-          rate: c.rate !== "" ? Number(c.rate) : null,
-        })),
-    ),
-  );
+  const nightsJson = JSON.stringify(gridNights(keys, grid));
+  const gridOver = overNights(keys, grid).length > 0;
   const chargesJson = JSON.stringify(
     charges
       .filter((c) => c.chargeType.trim())
@@ -388,7 +363,7 @@ export function ProposalForm({
         {keys.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">Set check-in and check-out to enter rooms.</p>
         ) : (
-          <RoomGridEditor keys={keys} rows={rows} roomTypes={choices.roomTypes} withRate onChange={setRows} onAddDay={addDay} onRemoveDay={removeDay} />
+          <RoomGridEditor keys={keys} state={grid} roomTypes={choices.roomTypes} withRate onChange={setGrid} onAddDay={addDay} onRemoveDay={removeDay} />
         )}
       </Fieldset>
 
@@ -534,7 +509,7 @@ export function ProposalForm({
       </Fieldset>
 
       <div className="flex flex-wrap gap-3">
-        <SaveButton label={isEdit ? "Save" : "Create Proposal"} />
+        <SaveButton label={isEdit ? "Save" : "Create Proposal"} disabled={gridOver} />
         {isEdit ? (
           <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>
             Cancel

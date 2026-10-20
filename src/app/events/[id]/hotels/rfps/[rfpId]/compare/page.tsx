@@ -35,8 +35,8 @@ export default async function RfpComparePage({ params }: { params: Promise<{ id:
           <Link href={`${base}/compare/print`} className={btnOutlinedXs}>
             Print / Save PDF
           </Link>
-          <a href={`/api/events/${eventId}/rfps/${rfpId}?format=docx&doc=compare`} className={btnOutlinedXs}>
-            Download .docx
+          <a href={`/api/events/${eventId}/rfps/${rfpId}?format=docx&doc=compare`} className={btnOutlinedXs} download>
+            Word
           </a>
         </div>
       </div>
