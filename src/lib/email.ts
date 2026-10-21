@@ -24,6 +24,8 @@ const APP_BASE_URL = readEnv("NEXTAUTH_URL", "http://localhost:3000");
 // addresses live on, and the secret the Cloudflare Email Worker signs with.
 const INBOUND_EMAIL_DOMAIN = readEnv("INBOUND_EMAIL_DOMAIN").toLowerCase();
 const INBOUND_EMAIL_SECRET = readEnv("INBOUND_EMAIL_SECRET");
+// Claude reads inbound mail and proposes records; blank turns parsing off.
+const ANTHROPIC_API_KEY = readEnv("ANTHROPIC_API_KEY");
 
 export const INVITE_TOKEN_EXPIRY_HOURS = 168; // 7 days
 export const RESET_TOKEN_EXPIRY_HOURS = 1;
@@ -39,6 +41,10 @@ export function getInboundEmailDomain(): string | null {
 
 export function getInboundEmailSecret(): string | null {
   return INBOUND_EMAIL_SECRET || null;
+}
+
+export function getAnthropicApiKey(): string | null {
+  return ANTHROPIC_API_KEY || null;
 }
 
 export function isEmailConfigured(): boolean {

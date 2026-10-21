@@ -1,6 +1,6 @@
 # Proposal — Email ingest (per-event inbox)
 
-Status: Phase 1 (inbox without AI) implemented. Phase 2 (pickup parsing) and
+Status: Phase 1 (inbox without AI) and Phase 2 (pickup parsing) implemented.
 Phase 3 (RFP responses) next. Where this design and the code differ, the code
 wins.
 
@@ -86,7 +86,9 @@ Setup steps: `workers/email-inbound/README.md`.
 - Forwards: the original sender is recovered from a forward-as-attachment or
   quoted forward headers (ported from Expense Tracker's `forwarded.ts`) and
   shown as "Originally". Matching uses the actual sender, so a member
-  forwarding hotel mail is trusted.
+  forwarding hotel mail is trusted. ORG_CONTACT — any other contact of the org
+  (and every known contact on Unrouted mail): labels the sender in blue but
+  stays Held, since the address isn't tied to this event.
 - Dedupe per recipient address: `<to>:msgid:<Message-ID>` (or a content
   hash). A Worker retry is a no-op; one message to two inboxes is two items.
 
@@ -116,8 +118,39 @@ downloads of Unrouted items also check the org (`inboundFileTenantId`).
 - **Unrouted mail** (`/inbox`, header link while any is waiting): Held / Done
   tabs; Route to an event re-matches the sender against that event.
 - Event Settings › **Inbox**: the address, copy, change, turn off.
+- **Diagnostics** (the raw .eml, SPF / DKIM / DMARC badges, the model that
+  read an item) show only to super admins and to accounts a super admin marks
+  *Show diagnostics* on the user page (`User.showDiagnostics`,
+  `canSeeDiagnostics` in `src/lib/tenant.ts`).
 
-## Parsing (phase 2–3)
+## Parsing (phase 2 implemented for pickup; phase 3 adds the RFP kinds)
+
+Implemented in `src/lib/inboundParse.ts` (the call) and
+`parseInboundEmail` / `applyInboundPickupCore` in
+`src/app/events/inbox/core.ts`. Review: `InboxReview.tsx` on the item page.
+
+- A parse starts, without being awaited, when an item becomes Received
+  (delivery from a known sender, Release, Move / Route). The item reads
+  *Received* ("Reading…") until it lands as Ready to review or Failed.
+  **Re-read** runs it again (also for an item a restart left Received).
+- Spreadsheets (CSV, XLSX via `src/lib/spreadsheetRows.ts`): the model sees
+  the first 25 rows numbered, and returns the header row, a column mapping,
+  the cancelled statuses and a room-type map. The review is the CSV wizard
+  (`GuestImport`, now fed a `source`) prefilled with that mapping, so the
+  reviewer can correct any of it; the mapping and row → guest step live in
+  `src/lib/pickupMapping.ts`, shared with the wizard.
+- PDFs and guest lists in the body: guest rows from the model, shown as a
+  table and imported as a whole.
+- Counts: the wizard's count grid prefilled for the chosen block; proposed
+  counts for a room type or night the block doesn't have are listed, not
+  saved.
+- Apply claims the item (PARSED → APPLIED) before importing, so a second click
+  can't import twice, and puts it back if the import fails. The block it went
+  to is kept in `proposal.blockId`.
+- No API key (`ANTHROPIC_API_KEY` blank): nothing is read; the inbox works as
+  in phase 1.
+
+Design notes, as planned:
 
 One pass per Received message. Inputs:
 
@@ -164,8 +197,8 @@ says it isn't configured.
 ## Phases
 
 1. **Inbox without AI** — done.
-2. **Pickup.** Parsing for `PICKUP_GUESTS` / `PICKUP_COUNTS`, review with an
-   import preview, apply through the pickup cores.
+2. **Pickup** — done. Parsing for `PICKUP_GUESTS` / `PICKUP_COUNTS`, review
+   in the import wizard, apply through the pickup cores.
 3. **RFP responses.** `RFP_PROPOSAL` / `RFP_DECLINE`; the RFP page shows the
    event address for use as the Reply-To.
 4. **Later.** Other kinds (vendor quotes, BEOs (banquet event orders),

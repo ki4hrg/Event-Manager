@@ -5,6 +5,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { Toast } from "@/components/Toast";
 import { hasPermission } from "@/lib/permissions";
+import { canSeeDiagnostics } from "@/lib/tenant";
 import {
   dismissInboundEmail,
   getInboxDestinationEvents,
@@ -21,7 +22,11 @@ export const metadata: Metadata = { title: "Unrouted mail" };
 
 export default async function UnroutedInboxItemPage({ params }: { params: Promise<{ itemId: string }> }) {
   const { itemId } = await params;
-  const [item, canWrite] = await Promise.all([getInboxItem(itemId, null), hasPermission("HOTELS", "WRITE")]);
+  const [item, canWrite, diagnostics] = await Promise.all([
+    getInboxItem(itemId, null),
+    hasPermission("HOTELS", "WRITE"),
+    canSeeDiagnostics(),
+  ]);
   if (!item) notFound();
   const destinations = canWrite ? await getInboxDestinationEvents(null) : [];
 
@@ -59,7 +64,7 @@ export default async function UnroutedInboxItemPage({ params }: { params: Promis
           ) : null
         }
       />
-      <InboxItemView item={item} />
+      <InboxItemView item={item} diagnostics={diagnostics} />
     </PageWrapper>
   );
 }

@@ -97,6 +97,17 @@ export async function requireSuperAdmin() {
   return ctx;
 }
 
+// Raw sources and debug detail (an inbox item's .eml, its SPF/DKIM/DMARC
+// results, the parser's model): super admins, and accounts a super admin has
+// flagged with showDiagnostics.
+export const canSeeDiagnostics = cache(async (): Promise<boolean> => {
+  const ctx = await getTenantContext();
+  if (!ctx) return false;
+  if (ctx.isSuperAdmin) return true;
+  const user = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { showDiagnostics: true } });
+  return user?.showDiagnostics ?? false;
+});
+
 export async function isSuperAdminUser(userId: string): Promise<boolean> {
   const { isSuperAdmin } = await accessibleTenantsForUser(userId);
   return isSuperAdmin;

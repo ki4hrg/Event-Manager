@@ -13,6 +13,9 @@ export const INBOX_VIEW_STATUSES: Record<InboxView, InboundStatus[]> = {
   done: ["APPLIED", "DISMISSED"],
 };
 
+// Not yet applied or dismissed.
+export const OPEN_STATUSES: InboundStatus[] = ["HELD", "RECEIVED", "PARSED", "FAILED"];
+
 export function parseInboxView(raw: string | undefined): InboxView {
   return INBOX_VIEWS.includes(raw as InboxView) ? (raw as InboxView) : "inbox";
 }
@@ -29,4 +32,11 @@ export const STATUS_LABELS: Record<InboundStatus, string> = {
 export const SENDER_MATCH_LABELS: Record<string, string> = {
   MEMBER: "Member",
   CONTACT: "Known contact",
+  ORG_CONTACT: "Org contact",
+};
+
+export const KIND_LABELS: Record<string, string> = {
+  PICKUP_GUESTS: "Pickup guest list",
+  PICKUP_COUNTS: "Pickup counts",
+  OTHER: "Other",
 };

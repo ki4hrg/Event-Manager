@@ -2,16 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { InboundStatus } from "@prisma/client";
+import { readFileSync } from "fs";
+import type { HotelPickupMethod, InboundStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { getInboundEmailDomain } from "@/lib/email";
+import { getUploadPath } from "@/lib/uploads";
+import { dateKey } from "@/lib/hotels";
+import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
+import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
+import type { InboundProposal } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
+import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
 import {
+  applyInboundPickupCore,
   dismissInboundEmailCore,
   fileInboundAttachmentCore,
+  inboundAttachments,
   purgeDismissedInboundEmails,
   releaseInboundEmailCore,
+  reparseInboundEmailCore,
   restoreInboundEmailCore,
   routeInboundEmailCore,
   setEventInboxSlugCore,
@@ -26,6 +36,7 @@ const listSelect = {
   subject: true,
   receivedAt: true,
   status: true,
+  kind: true,
   senderMatch: true,
   envelopeTo: true,
   _count: { select: { files: { where: { fileType: null } } } },
@@ -105,6 +116,110 @@ export async function fileInboundAttachment(fileId: string, id: string, eventId:
   await fileInboundAttachmentCore(fileId, id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/inbox/${id}`);
   revalidatePath(`/events/${eventId}/files`);
+}
+
+export async function reparseInboundEmail(id: string, eventId: string) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  await reparseInboundEmailCore(id, eventId, session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+}
+
+export async function applyInboundGuests(
+  id: string,
+  eventId: string,
+  blockId: string,
+  method: Exclude<HotelPickupMethod, "COUNTS">,
+  fileName: string | null,
+  guests: PickupGuestRow[],
+) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  await applyInboundPickupCore(id, eventId, blockId, { type: "guests", method, fileName, guests }, session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+}
+
+export async function applyInboundCounts(id: string, eventId: string, blockId: string, counts: PickupCountArgs[]) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  await applyInboundPickupCore(id, eventId, blockId, { type: "counts", counts }, session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+}
+
+// What the review of a pickup proposal needs: the event's blocks to apply to,
+// and for a spreadsheet, its rows read from the stored attachment with the
+// proposed mapping (the reviewer adjusts it in the wizard before applying).
+export async function getInboxReview(id: string, eventId: string) {
+  const { tenantId } = await requirePermission("HOTELS", "VIEW", eventId);
+  const item = await prisma.inboundEmail.findFirst({ where: { id, tenantId, eventId }, select: { proposal: true, subject: true } });
+  const proposal = item?.proposal as InboundProposal | null;
+  if (!item || !proposal || (proposal.kind !== "PICKUP_GUESTS" && proposal.kind !== "PICKUP_COUNTS")) return null;
+
+  const [blocks, roomTypeOptions] = await Promise.all([
+    prisma.hotelBlock.findMany({
+      where: { proposal: { eventId } },
+      select: {
+        id: true,
+        checkIn: true,
+        checkOut: true,
+        nights: { select: { roomType: true } },
+        pickupCounts: { select: { night: true, roomType: true, rooms: true } },
+        _count: { select: { pickupGuests: true } },
+        proposal: { select: { venue: { select: { name: true } } } },
+      },
+      orderBy: [{ isHq: "desc" }, { createdAt: "asc" }],
+    }),
+    prisma.customOption.findMany({
+      where: { tenantId, category: "hotel_room_type" },
+      select: { label: true },
+      orderBy: { sortOrder: "asc" },
+    }),
+  ]);
+
+  let sheet: {
+    fileName: string;
+    headers: string[];
+    rows: Record<string, string>[];
+    columns: PickupColumns;
+    roomMap: Record<string, string>;
+    statusMap: Record<string, boolean>;
+  } | null = null;
+  if (proposal.kind === "PICKUP_GUESTS" && proposal.sheet) {
+    const file = (await inboundAttachments(id))[proposal.sheet.attachment];
+    const kind = file && sheetKind(file.fileName, file.mimeType);
+    if (file && kind) {
+      const grid = await readGrid(readFileSync(getUploadPath("inboundEmail", id, file.storedName)), kind);
+      const { headers, rows } = gridToRows(grid, proposal.sheet.headerRow - 1);
+      // Only headers that exist; the wizard shows the rest unmapped.
+      const columns = Object.fromEntries(
+        PICKUP_FIELD_KEYS.map((k) => {
+          const h = proposal.sheet!.columns[k];
+          return [k, h && headers.includes(h) ? h : ""];
+        }),
+      ) as PickupColumns;
+      const cancelled = new Set(proposal.sheet.cancelledStatuses);
+      const statusMap = Object.fromEntries(
+        distinctValues(rows, columns.status).map((raw) => [raw, cancelled.has(raw) || DEFAULT_CANCELLED.test(raw)]),
+      );
+      const roomMap = Object.fromEntries(proposal.sheet.roomTypes.map((r) => [r.raw, r.roomType ?? ""]));
+      sheet = { fileName: file.fileName, headers, rows, columns, roomMap, statusMap };
+    }
+  }
+
+  return {
+    proposal,
+    fileName: item.subject ? `Email: ${item.subject}` : "Email",
+    tenantRoomTypes: roomTypeOptions.map((o) => o.label),
+    sheet,
+    blocks: blocks.map((b) => ({
+      id: b.id,
+      hotel: b.proposal.venue.name,
+      checkIn: b.checkIn ? dateKey(b.checkIn) : null,
+      checkOut: b.checkOut ? dateKey(b.checkOut) : null,
+      roomTypes: Array.from(new Set(b.nights.map((n) => n.roomType))),
+      hasGuests: b._count.pickupGuests > 0,
+      counts: b.pickupCounts.map((c) => ({ night: dateKey(c.night), roomType: c.roomType, rooms: c.rooms })),
+    })),
+  };
 }
 
 // Events an item can move to: ones the user can see in the active tenant.

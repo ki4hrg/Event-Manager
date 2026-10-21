@@ -30,6 +30,7 @@ interface UserFormProps {
     roleId: string | null;
     roleRef: { id: string; name: string } | null;
     isSuperAdmin?: boolean;
+    showDiagnostics?: boolean;
   };
   roles: RoleOption[];
   saveAction: (formData: FormData) => Promise<void>;
@@ -93,6 +94,16 @@ export function UserForm({
                 </span>
               </dd>
             </div>
+            {!user.isSuperAdmin && user.showDiagnostics && (
+              <div>
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Platform</dt>
+                <dd className="mt-1">
+                  <span className="px-2 py-0.5 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    Diagnostics
+                  </span>
+                </dd>
+              </div>
+            )}
             {user.isSuperAdmin && (
               <div>
                 <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Platform</dt>
@@ -197,6 +208,16 @@ export function UserForm({
                 className="rounded border-gray-300 dark:border-gray-600"
               />
               Super admin (every permission in every organization; can manage organizations)
+            </label>
+            <label className="mt-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                name="showDiagnostics"
+                value="true"
+                defaultChecked={user?.showDiagnostics ?? false}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              Show diagnostics (raw email, mail authentication, parser details)
             </label>
           </div>
         )}

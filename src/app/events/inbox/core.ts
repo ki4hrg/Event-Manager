@@ -1,11 +1,25 @@
 import path from "path";
 import { randomUUID } from "crypto";
-import { mkdirSync, rmSync, writeFileSync, copyFileSync } from "fs";
-import { Prisma, type InboundStatus } from "@prisma/client";
+import { mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "fs";
+import Anthropic from "@anthropic-ai/sdk";
+import { Prisma, type HotelPickupMethod, type InboundStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "@/lib/uploads";
-import { EMAIL_SOURCE_FILE_TYPE } from "./views";
+import { getDateKeyInTimezone } from "@/lib/agendaUtils";
+import { dateKey } from "@/lib/hotels";
+import { readGrid, sheetKind } from "@/lib/spreadsheetRows";
+import type { PickupGuestRow } from "@/lib/pickupMapping";
+import {
+  isParsingConfigured,
+  parseInboundMessage,
+  ParseError,
+  type InboundProposal,
+  type ParseAttachment,
+  type ParseBlock,
+} from "@/lib/inboundParse";
+import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
+import { EMAIL_SOURCE_FILE_TYPE, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
 
 // Event inboxes (docs/proposals/email-ingest.md). No "use server": the ingest
@@ -17,12 +31,12 @@ const PURGE_BATCH = 50;
 
 // ─── Sender matching ─────────────────────────────────────────────────────────
 
-export type SenderMatch = "MEMBER" | "CONTACT";
+export type SenderMatch = "MEMBER" | "CONTACT" | "ORG_CONTACT";
 
 // MEMBER: an account in this tenant. CONTACT: a contact of this tenant tied to
 // the event — at one of its venues, a hotel it has a proposal from or sent an
-// RFP to, one of its vendors, or its key staff. Anything else is unknown, and
-// so is every sender of mail that named no event.
+// RFP to, one of its vendors, or its key staff. ORG_CONTACT: any other contact
+// of this tenant, which labels the sender but doesn't let the mail past Held.
 export async function matchSender(
   address: string | null,
   tenantId: string,
@@ -35,7 +49,9 @@ export async function matchSender(
     select: { id: true },
   });
   if (member) return "MEMBER";
-  if (!eventId) return null;
+  const orgContact = await prisma.contact.findFirst({ where: { tenantId, email }, select: { id: true } });
+  if (!orgContact) return null;
+  if (!eventId) return "ORG_CONTACT";
   const contact = await prisma.contact.findFirst({
     where: {
       tenantId,
@@ -60,11 +76,11 @@ export async function matchSender(
     },
     select: { id: true },
   });
-  return contact ? "CONTACT" : null;
+  return contact ? "CONTACT" : "ORG_CONTACT";
 }
 
 export function arrivalStatus(eventId: string | null, match: SenderMatch | null): InboundStatus {
-  return eventId && match ? "RECEIVED" : "HELD";
+  return eventId && (match === "MEMBER" || match === "CONTACT") ? "RECEIVED" : "HELD";
 }
 
 // ─── Ingest ──────────────────────────────────────────────────────────────────
@@ -173,7 +189,165 @@ export async function ingestInboundEmail(
     throw err;
   }
 
+  if (status === "RECEIVED") startInboundParse(row.id);
   return { outcome: "stored", id: row.id, status, routed: eventId !== null };
+}
+
+// ─── Parsing ─────────────────────────────────────────────────────────────────
+
+// Runs the parse without holding up the caller (a delivery, a release, a
+// move). The item shows Received until the result lands; Re-read runs it again
+// if the process stopped first.
+export function startInboundParse(id: string) {
+  if (!isParsingConfigured()) return;
+  void parseInboundEmail(id).catch(() => {});
+}
+
+function parseFailure(err: unknown): string {
+  if (err instanceof ParseError) return err.message;
+  if (err instanceof Anthropic.APIError) return `Couldn't reach Claude (${err.status ?? "no response"})`;
+  return `Couldn't read the message: ${err instanceof Error ? err.message : String(err)}`;
+}
+
+async function parseBlocks(eventId: string): Promise<ParseBlock[]> {
+  const blocks = await prisma.hotelBlock.findMany({
+    where: { proposal: { eventId } },
+    select: {
+      id: true,
+      checkIn: true,
+      checkOut: true,
+      groupCode: true,
+      nights: { select: { roomType: true } },
+      proposal: { select: { venue: { select: { name: true } } } },
+    },
+  });
+  return blocks.map((b) => ({
+    id: b.id,
+    hotel: b.proposal.venue.name,
+    checkIn: b.checkIn ? dateKey(b.checkIn) : null,
+    checkOut: b.checkOut ? dateKey(b.checkOut) : null,
+    groupCode: b.groupCode,
+    roomTypes: Array.from(new Set(b.nights.map((n) => n.roomType))),
+  }));
+}
+
+// Attachments in the order the item lists them (Prisma createdAt, then id),
+// which is the order proposal.sheet.attachment indexes.
+export async function inboundAttachments(id: string) {
+  return prisma.fileUpload.findMany({
+    where: { inboundEmailId: id, fileType: null },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+}
+
+async function readAttachments(id: string): Promise<ParseAttachment[]> {
+  const files = await inboundAttachments(id);
+  return Promise.all(
+    files.map(async (f): Promise<ParseAttachment> => {
+      const path = getUploadPath("inboundEmail", id, f.storedName);
+      if (f.mimeType === "application/pdf" || f.fileName.toLowerCase().endsWith(".pdf")) {
+        return { fileName: f.fileName, type: "pdf", content: readFileSync(path) };
+      }
+      const kind = sheetKind(f.fileName, f.mimeType);
+      if (kind) {
+        try {
+          return { fileName: f.fileName, type: "sheet", grid: await readGrid(readFileSync(path), kind) };
+        } catch {
+          // Unreadable sheet: list it like any other file.
+        }
+      }
+      return { fileName: f.fileName, type: "other", mimeType: f.mimeType };
+    }),
+  );
+}
+
+async function parseInboundEmail(id: string) {
+  const item = await prisma.inboundEmail.findUnique({
+    where: { id },
+    include: { event: { select: { id: true, name: true, timezone: true } } },
+  });
+  if (!item?.event || !OPEN_STATUSES.includes(item.status) || item.status === "HELD") return;
+  const event = item.event;
+  // Only lands if the item is still open on the same event.
+  const settle = (data: Prisma.InboundEmailUpdateManyMutationInput) =>
+    prisma.inboundEmail.updateMany({
+      where: { id, eventId: event.id, status: { in: ["RECEIVED", "PARSED", "FAILED"] } },
+      data,
+    });
+  try {
+    const [blocks, attachments] = await Promise.all([parseBlocks(event.id), readAttachments(id)]);
+    const { proposal, model } = await parseInboundMessage({
+      subject: item.subject,
+      sender: item.sender,
+      forwardedFrom: item.forwardedFrom,
+      receivedAt: item.receivedAt,
+      textBody: item.textBody,
+      today: getDateKeyInTimezone(new Date(), event.timezone),
+      timezone: event.timezone,
+      eventName: event.name,
+      blocks,
+      attachments,
+    });
+    await settle({ status: "PARSED", kind: proposal.kind, proposal, model, error: null });
+  } catch (err) {
+    await settle({ status: "FAILED", error: parseFailure(err) });
+  }
+}
+
+// Re-read: a failed read, a wrong guess, or one that never finished.
+export async function reparseInboundEmailCore(id: string, eventId: string, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const item = await inboxItem(id, await requireEventTenantId(eventId), eventId);
+  if (!["RECEIVED", "PARSED", "FAILED"].includes(item.status)) return;
+  if (!isParsingConfigured()) throw new Error("Parsing isn't configured");
+  await prisma.inboundEmail.update({
+    where: { id },
+    data: { status: "RECEIVED", kind: null, proposal: Prisma.DbNull, model: null, error: null },
+  });
+  startInboundParse(id);
+}
+
+// ─── Apply ───────────────────────────────────────────────────────────────────
+
+export type InboundApply =
+  | { type: "guests"; method: Exclude<HotelPickupMethod, "COUNTS">; fileName: string | null; guests: PickupGuestRow[] }
+  | { type: "counts"; counts: PickupCountArgs[] };
+
+// Applies a reviewed proposal to a block through the pickup cores, as the
+// reviewer. The item is claimed first so a second click can't import twice,
+// and goes back to where it was if the import fails.
+export async function applyInboundPickupCore(
+  id: string,
+  eventId: string,
+  blockId: string,
+  apply: InboundApply,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const tenantId = await requireEventTenantId(eventId);
+  const item = await inboxItem(id, tenantId, eventId);
+  if (item.status !== "PARSED") throw new Error("This message has nothing to apply");
+  const claimed = await prisma.inboundEmail.updateMany({
+    where: { id, tenantId, eventId, status: "PARSED" },
+    data: { status: "APPLIED", handledById: userId, handledAt: new Date() },
+  });
+  if (claimed.count === 0) throw new Error("This message was already applied");
+  try {
+    if (apply.type === "guests") {
+      await importPickupGuestsCore(blockId, eventId, { method: apply.method, fileName: apply.fileName, guests: apply.guests }, userId);
+    } else {
+      await savePickupCountsCore(blockId, eventId, apply.counts, userId);
+    }
+  } catch (err) {
+    await prisma.inboundEmail.update({
+      where: { id },
+      data: { status: "PARSED", handledById: item.handledById, handledAt: item.handledAt },
+    });
+    throw err;
+  }
+  // Remember where it went.
+  const proposal = item.proposal as InboundProposal | null;
+  if (proposal) await prisma.inboundEmail.update({ where: { id }, data: { proposal: { ...proposal, blockId } } });
 }
 
 // ─── Purge ───────────────────────────────────────────────────────────────────
@@ -214,6 +388,7 @@ export async function releaseInboundEmailCore(id: string, eventId: string, userI
     where: { id, tenantId },
     data: { status: "RECEIVED", handledById: userId, handledAt: new Date() },
   });
+  startInboundParse(id);
 }
 
 // eventId null: an Unrouted item, checked against the tenant.
@@ -254,12 +429,13 @@ export async function routeInboundEmailCore(
   const item = await inboxItem(id, tenantId, fromEventId);
   if (item.status === "APPLIED") throw new Error("An applied item can't be moved");
   const match = await matchSender(item.senderAddress, tenantId, toEventId);
+  const status = arrivalStatus(toEventId, match);
   await prisma.inboundEmail.update({
     where: { id, tenantId },
     data: {
       eventId: toEventId,
       senderMatch: match,
-      status: arrivalStatus(toEventId, match),
+      status,
       kind: null,
       proposal: Prisma.DbNull,
       model: null,
@@ -268,6 +444,7 @@ export async function routeInboundEmailCore(
       handledAt: new Date(),
     },
   });
+  if (status === "RECEIVED") startInboundParse(id);
 }
 
 // Files one attachment on the event's Files page: a copy under the event with

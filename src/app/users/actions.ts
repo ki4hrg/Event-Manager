@@ -19,6 +19,7 @@ const userSummarySelect = {
   email: true,
   name: true,
   isSuperAdmin: true,
+  showDiagnostics: true,
   createdAt: true,
 } as const;
 
@@ -84,7 +85,9 @@ export async function createUser(formData: FormData) {
   const roleId = (formData.get("roleId") as string) || "";
   // Only a super admin may mint another super admin; the field is ignored
   // from anyone else even if they forge it into the form.
-  const makeSuperAdmin = (await isSuperAdmin()) && formData.get("isSuperAdmin") === "true";
+  const superAdmin = await isSuperAdmin();
+  const makeSuperAdmin = superAdmin && formData.get("isSuperAdmin") === "true";
+  const showDiagnostics = superAdmin && formData.get("showDiagnostics") === "true";
 
   if (!email) {
     throw new Error("Email is required");
@@ -121,6 +124,7 @@ export async function createUser(formData: FormData) {
       name,
       password: null,
       isSuperAdmin: makeSuperAdmin,
+      showDiagnostics,
       updatedById: session.user.id,
       memberships: { create: { tenantId, roleId: role.id } },
     },
@@ -162,6 +166,7 @@ export async function updateUser(id: string, formData: FormData) {
     where: superAdmin ? { id } : { id, memberships: { some: { tenantId } } },
     select: {
       isSuperAdmin: true,
+      showDiagnostics: true,
       memberships: { where: { tenantId }, select: { id: true, roleId: true } },
     },
   });
@@ -182,14 +187,16 @@ export async function updateUser(id: string, formData: FormData) {
     nextRoleId = (await resolveRole(submittedRoleId)).id;
   }
   let nextSuperAdmin = current.isSuperAdmin;
+  let nextDiagnostics = current.showDiagnostics;
   if (!isSelf && superAdmin && formData.has("isSuperAdminField")) {
     nextSuperAdmin = formData.get("isSuperAdmin") === "true";
+    nextDiagnostics = formData.get("showDiagnostics") === "true";
   }
 
   await prisma.$transaction([
     prisma.user.update({
       where: { id },
-      data: { email, name, isSuperAdmin: nextSuperAdmin, updatedById: session.user.id },
+      data: { email, name, isSuperAdmin: nextSuperAdmin, showDiagnostics: nextDiagnostics, updatedById: session.user.id },
     }),
     ...(membership && nextRoleId
       ? [

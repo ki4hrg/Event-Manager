@@ -36,6 +36,7 @@ services:
       MAILGUN_BASE_URL: ${MAILGUN_BASE_URL:-https://api.mailgun.net}
       INBOUND_EMAIL_DOMAIN: ${INBOUND_EMAIL_DOMAIN:-}
       INBOUND_EMAIL_SECRET: ${INBOUND_EMAIL_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:

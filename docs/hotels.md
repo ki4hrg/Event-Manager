@@ -41,6 +41,16 @@ What we ask hotels for, before any proposal comes back. `Rfp` (generic, `kind = 
 - **Hotel Information** (`/events/[id]/reports/hotel-info`, shareable) — guest-facing booking details; never pickup or contract money. Filtered by guest type (`?guestTypes=`); share links saved before the block-type split keep their filter through `hotelInfoGuestTypes`.
 - **/hotels/reports** — pickup history across events (vs attendance and membership, per hotel) and monitoring of upcoming blocks.
 
+## Email inbox
+
+Each event can have an inbox address (event Settings › Inbox). Hotels' pickup
+reports sent or forwarded there are read by Claude, which proposes the import:
+open the item under the event's **Inbox**, check the block and the mapping,
+and press Import (or Save counts). It goes through the same cores as the
+pickup page (`importPickupGuestsCore` MERGE / APPEND / REPLACE,
+`savePickupCountsCore`), so history and snapshots are the same. Design and
+setup: `docs/proposals/email-ingest.md`, `workers/email-inbound/README.md`.
+
 ## Importing Hotel-Manager
 
 `scripts/import-hotel-manager.ts` (header comment has the full mapping). Dry run by default; `--apply` commits and copies documents. Refuses to import twice into one tenant.

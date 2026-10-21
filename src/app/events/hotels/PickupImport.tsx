@@ -7,89 +7,63 @@ import Papa from "papaparse";
 import type { HotelPickupMethod } from "@prisma/client";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight, nightKeys, roomTypeLabel } from "@/lib/hotels";
+import {
+  DEFAULT_CANCELLED,
+  PICKUP_FIELDS,
+  distinctValues,
+  guessColumns,
+  hasUsableDates,
+  rowsToGuests,
+  type PickupColumns,
+  type PickupGuestRow,
+  type SheetRow,
+} from "@/lib/pickupMapping";
 
-type GuestArgs = {
-  guestName: string | null;
-  confirmationNumber: string | null;
-  checkIn: string | null;
-  checkOut: string | null;
-  roomType: string | null;
-  cancelled: boolean;
-  rawStatus: string | null;
-  bookedOn: string | null;
-  cancelledOn: string | null;
-};
+type GuestArgs = PickupGuestRow;
 type CountArgs = { night: string; roomType: string | null; rooms: number };
 type ImportMethod = Exclude<HotelPickupMethod, "COUNTS">;
 
-const FIELDS = [
-  { key: "cancelledOn", label: "Cancel date", guess: /(cancel|cxl)\w*\s*(date|dt)\b|(cancel|cxl)\w*\s+on\b|date\s*(cancel|cxl)/i },
-  { key: "bookedOn", label: "Booked date", guess: /book(ed|ing)?\s*(date|dt)\b|booked\s+on\b|res(ervation)?\s*(made|date|created)|date\s*(booked|made|created)|^created/i },
-  { key: "confirmation", label: "Confirmation #", guess: /conf|confirmation|res(ervation)?\s*(#|no|num|id)/i },
-  { key: "fullName", label: "Guest name", guess: /^(guest\s*)?name$|guest|full\s*name/i },
-  { key: "firstName", label: "First name", guess: /first/i },
-  { key: "lastName", label: "Last name", guess: /last|surname/i },
-  { key: "checkIn", label: "Check-in", guess: /arriv|check.?in|^in$/i },
-  { key: "checkOut", label: "Check-out", guess: /depart|check.?out|^out$/i },
-  { key: "roomType", label: "Room type", guess: /room\s*type|room|type/i },
-  { key: "status", label: "Status", guess: /status|state/i },
-] as const;
-type FieldKey = (typeof FIELDS)[number]["key"];
-
 const selectClass =
   "mt-1 block w-full px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
+// The block's room type a raw value maps to; fixed width so the raw value
+// beside it stays readable.
+const roomSelectClass =
+  "w-48 shrink-0 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
 const cellInputClass =
   "w-16 px-1.5 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm text-right";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6 space-y-4";
 const headingClass = "text-sm font-semibold text-gray-900 dark:text-white";
 
-// MM/DD/YYYY, M/D/YY or YYYY-MM-DD (optionally with a time) → YYYY-MM-DD.
-export function parseCsvDate(raw: string | undefined): string | null {
-  const v = (raw ?? "").trim();
-  if (!v) return null;
-  let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-  m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b/);
-  if (m) {
-    const year = m[3].length === 2 ? `20${m[3]}` : m[3];
-    return `${year}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
-  }
-  return null;
-}
+// A spreadsheet already read (from an inbox attachment), with the mapping to
+// start from. Without it the wizard asks for a CSV.
+export type GuestImportSource = {
+  fileName: string;
+  headers: string[];
+  rows: SheetRow[];
+  columns: PickupColumns;
+  roomMap: Record<string, string>;
+  statusMap: Record<string, boolean>;
+};
 
-function guessColumns(headers: string[]): Record<FieldKey, string> {
-  const used = new Set<string>();
-  const out = {} as Record<FieldKey, string>;
-  for (const f of FIELDS) {
-    const hit = headers.find((h) => !used.has(h) && f.guess.test(h));
-    out[f.key] = hit ?? "";
-    if (hit) used.add(hit);
-  }
-  // A full-name column beats first/last guesses that came from it.
-  if (out.fullName && (out.firstName === out.fullName || out.lastName === out.fullName)) {
-    out.firstName = "";
-    out.lastName = "";
-  }
-  return out;
-}
-
-function GuestImport({
+export function GuestImport({
   roomTypes,
   hasGuests,
   importGuests,
   done,
+  source,
 }: {
   roomTypes: string[];
   hasGuests: boolean;
   importGuests: (method: ImportMethod, fileName: string | null, guests: GuestArgs[]) => Promise<void>;
   done: (message: string) => void;
+  source?: GuestImportSource;
 }) {
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [rows, setRows] = useState<Record<string, string>[]>([]);
-  const [columns, setColumns] = useState<Record<FieldKey, string>>(() => guessColumns([]));
-  const [roomMap, setRoomMap] = useState<Record<string, string>>({});
-  const [statusMap, setStatusMap] = useState<Record<string, boolean>>({});
+  const [fileName, setFileName] = useState<string | null>(source?.fileName ?? null);
+  const [headers, setHeaders] = useState<string[]>(source?.headers ?? []);
+  const [rows, setRows] = useState<SheetRow[]>(source?.rows ?? []);
+  const [columns, setColumns] = useState<PickupColumns>(() => source?.columns ?? guessColumns([]));
+  const [roomMap, setRoomMap] = useState<Record<string, string>>(source?.roomMap ?? {});
+  const [statusMap, setStatusMap] = useState<Record<string, boolean>>(source?.statusMap ?? {});
   const [method, setMethod] = useState<ImportMethod>(hasGuests ? "MERGE" : "APPEND");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -112,37 +86,18 @@ function GuestImport({
     });
   };
 
-  const distinct = (col: string) =>
-    col ? Array.from(new Set(rows.map((r) => (r[col] ?? "").trim()).filter(Boolean))).sort() : [];
-  const rawRoomTypes = distinct(columns.roomType);
-  const rawStatuses = distinct(columns.status);
+  const rawRoomTypes = distinctValues(rows, columns.roomType);
+  const rawStatuses = distinctValues(rows, columns.status);
 
   const mappedRoom = (raw: string) => {
     if (raw in roomMap) return roomMap[raw] || null;
     return roomTypes.find((t) => t.toLowerCase() === raw.toLowerCase()) ?? raw;
   };
-  const isCancelled = (raw: string) => (raw in statusMap ? statusMap[raw] : /cancel|no.?show|void/i.test(raw));
+  const isCancelled = (raw: string) => (raw in statusMap ? statusMap[raw] : DEFAULT_CANCELLED.test(raw));
 
-  const guests: GuestArgs[] = rows.map((r) => {
-    const get = (k: FieldKey) => (columns[k] ? (r[columns[k]] ?? "").trim() : "");
-    const name = get("fullName") || [get("firstName"), get("lastName")].filter(Boolean).join(" ");
-    const status = get("status");
-    const room = get("roomType");
-    const cancelledOn = parseCsvDate(get("cancelledOn"));
-    return {
-      guestName: name || null,
-      confirmationNumber: get("confirmation") || null,
-      checkIn: parseCsvDate(get("checkIn")),
-      checkOut: parseCsvDate(get("checkOut")),
-      roomType: room ? mappedRoom(room) : null,
-      cancelled: cancelledOn ? true : status ? isCancelled(status) : false,
-      rawStatus: status || null,
-      bookedOn: parseCsvDate(get("bookedOn")),
-      cancelledOn,
-    };
-  });
-  const badDates = guests.filter((g) => !g.checkIn || !g.checkOut || g.checkOut <= g.checkIn).length;
-  const usable = guests.filter((g) => g.checkIn && g.checkOut && g.checkOut > g.checkIn);
+  const guests = rowsToGuests(rows, columns, mappedRoom, isCancelled);
+  const usable = guests.filter(hasUsableDates);
+  const badDates = guests.length - usable.length;
 
   const submit = () =>
     startTransition(async () => {
@@ -158,19 +113,23 @@ function GuestImport({
   return (
     <div className={cardClass}>
       <h2 className="text-lg font-medium text-gray-900 dark:text-white">Guest list</h2>
-      <input
-        type="file"
-        aria-label="Guest list CSV"
-        accept=".csv,text/csv"
-        onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
-        className="block text-sm text-gray-700 dark:text-gray-300"
-      />
+      {source ? (
+        <p className="text-sm text-gray-700 dark:text-gray-300 break-words">{source.fileName}</p>
+      ) : (
+        <input
+          type="file"
+          aria-label="Guest list CSV"
+          accept=".csv,text/csv"
+          onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
+          className="block text-sm text-gray-700 dark:text-gray-300"
+        />
+      )}
       {rows.length > 0 && (
         <>
           <div>
             <h3 className={headingClass}>Columns</h3>
             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {FIELDS.map((f) => (
+              {PICKUP_FIELDS.map((f) => (
                 <label key={f.key} className="text-sm text-gray-700 dark:text-gray-300">
                   {f.label}
                   <select value={columns[f.key]} onChange={(e) => setColumns((c) => ({ ...c, [f.key]: e.target.value }))} className={selectClass}>
@@ -192,11 +151,11 @@ function GuestImport({
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {rawRoomTypes.map((raw) => (
                   <label key={raw} className="flex items-center justify-between gap-3 text-sm text-gray-700 dark:text-gray-300">
-                    <span className="truncate">{raw}</span>
+                    <span className="min-w-0 break-words">{raw}</span>
                     <select
                       value={mappedRoom(raw) ?? ""}
                       onChange={(e) => setRoomMap((m) => ({ ...m, [raw]: e.target.value }))}
-                      className={`${selectClass} mt-0 w-48`}
+                      className={roomSelectClass}
                     >
                       <option value="">None</option>
                       {Array.from(new Set([...roomTypes, mappedRoom(raw) ?? ""].filter(Boolean))).map((t) => (
@@ -260,7 +219,7 @@ function GuestImport({
   );
 }
 
-function CountEntry({
+export function CountEntry({
   nights,
   roomTypes,
   initial,
