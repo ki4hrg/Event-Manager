@@ -26,6 +26,7 @@ import {
   dismissInboundEmailCore,
   fileInboundAttachmentCore,
   inboundAttachments,
+  orgInboxWhere,
   purgeDismissedInboundEmails,
   releaseInboundEmailCore,
   reparseInboundEmailCore,
@@ -483,21 +484,26 @@ export async function getInboxDestinationEvents(excludeEventId: string | null) {
   });
 }
 
-// ─── Unrouted (org-level) ────────────────────────────────────────────────────
+// ─── Org-wide (every visible event, plus Unrouted) ───────────────────────────
 
-export async function getUnroutedInbox(view: InboxView) {
-  const { tenantId } = await requirePermission("HOTELS", "VIEW");
-  await purgeDismissedInboundEmails(tenantId).catch(() => {});
-  return prisma.inboundEmail.findMany({
-    where: { tenantId, eventId: null, status: { in: INBOX_VIEW_STATUSES[view] } },
-    select: listSelect,
-    orderBy: { receivedAt: "desc" },
-  });
-}
-
-export async function countUnroutedInbox() {
-  const { tenantId } = await requirePermission("HOTELS", "VIEW");
-  return prisma.inboundEmail.count({ where: { tenantId, eventId: null, status: "HELD" } });
+export async function getOrgInbox(view: InboxView) {
+  const session = await requirePermission("HOTELS", "VIEW");
+  await purgeDismissedInboundEmails(session.tenantId).catch(() => {});
+  const where = await orgInboxWhere(session.user.id, session.tenantId);
+  const [items, counts] = await Promise.all([
+    prisma.inboundEmail.findMany({
+      where: { ...where, status: { in: INBOX_VIEW_STATUSES[view] } },
+      select: { ...listSelect, event: { select: { id: true, name: true } } },
+      orderBy: { receivedAt: "desc" },
+    }),
+    prisma.inboundEmail.groupBy({ by: ["status"], where, _count: true }),
+  ]);
+  const count = (statuses: InboundStatus[]) =>
+    counts.filter((c) => statuses.includes(c.status)).reduce((n, c) => n + c._count, 0);
+  return {
+    items,
+    counts: { inbox: count(INBOX_VIEW_STATUSES.inbox), held: count(INBOX_VIEW_STATUSES.held) },
+  };
 }
 
 // ─── Inbox address ───────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { InboundStatus } from "@prisma/client";
 import type { InboundProposal } from "@/lib/inboundParse";
 import { KIND_LABELS } from "./views";
+import { ReadingRefresh } from "./ReadingRefresh";
 
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6 space-y-2";
 const labelClass = "text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400";
@@ -31,7 +32,7 @@ export function InboxProposalPanel({
   return (
     <div className={cardClass}>
       <p className={labelClass}>{proposal ? KIND_LABELS[proposal.kind] ?? proposal.kind : "Claude"}</p>
-      {status === "RECEIVED" && <p className="text-sm text-gray-700 dark:text-gray-300">Reading… refresh in a minute.</p>}
+      {status === "RECEIVED" && <ReadingRefresh />}
       {status === "FAILED" && <p className="text-sm text-red-600 dark:text-red-400">{error ?? "Couldn't read this message."}</p>}
       {proposal && (
         <>

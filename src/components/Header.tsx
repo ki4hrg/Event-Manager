@@ -4,6 +4,9 @@ import { PermissionResource } from "@prisma/client";
 import { hasGlobalView, loadPermissionsForUser, type PermissionGrant } from "@/lib/permissions";
 import { getTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { getInboundEmailDomain } from "@/lib/email";
+import { orgInboxWhere } from "@/app/events/inbox/core";
+import { OPEN_STATUSES } from "@/app/events/inbox/views";
 import { AdminDropdown } from "./AdminDropdown";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { MobileNav, type HeaderLink } from "./MobileNav";
@@ -39,12 +42,16 @@ export async function Header() {
     permissions,
     PermissionResource.STORAGE_LOCATIONS,
   );
-  // Mail to the org's inbox domain that named no event; the link exists only
-  // while some waits, since there is nothing else to do on that page.
-  const unrouted =
+  // Open mail across the org's event inboxes and Unrouted: waiting to be read,
+  // reviewed or released. The link shows while inbound mail is set up, or
+  // while anything is still open.
+  const inboxOpen =
     canViewHotels && ctx?.active
-      ? await prisma.inboundEmail.count({ where: { tenantId: ctx.active.id, eventId: null, status: "HELD" } })
+      ? await prisma.inboundEmail.count({
+          where: { ...(await orgInboxWhere(ctx.userId, ctx.active.id)), status: { in: OPEN_STATUSES } },
+        })
       : 0;
+  const showInbox = canViewHotels && (inboxOpen > 0 || getInboundEmailDomain() != null);
 
   const mainLinks: HeaderLink[] = [
     canViewEvents && { href: "/events", label: "Events" },
@@ -53,7 +60,7 @@ export async function Header() {
     canViewVendors && { href: "/vendors", label: "Vendors" },
     canViewHotels && { href: "/hotels", label: "Hotels" },
     canViewStorageLocations && { href: "/storage-locations", label: "Storage" },
-    unrouted > 0 && { href: "/inbox", label: `Unrouted mail (${unrouted})` },
+    showInbox && { href: "/inbox", label: inboxOpen > 0 ? `Inbox (${inboxOpen})` : "Inbox" },
   ].filter((l): l is HeaderLink => !!l);
   const adminLinks: HeaderLink[] = [
     canViewUsers && { href: "/users", label: "Users" },

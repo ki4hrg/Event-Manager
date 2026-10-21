@@ -24,6 +24,7 @@ import {
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { createHotelProposalCore, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
+import { eventScopeWhere } from "@/app/events/core";
 import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
 import { EMAIL_SOURCE_FILE_TYPE, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
@@ -31,6 +32,11 @@ import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInb
 // Event inboxes (docs/proposals/email-ingest.md). No "use server": the ingest
 // is called by the signed /api/inbound-email route, and the person-facing
 // cores take a userId the caller has already authenticated.
+
+// The org-wide inbox: Unrouted mail plus mail on every event the user can see.
+export async function orgInboxWhere(userId: string, tenantId: string): Promise<Prisma.InboundEmailWhereInput> {
+  return { tenantId, OR: [{ eventId: null }, { event: await eventScopeWhere(userId, tenantId) }] };
+}
 
 export const PURGE_AFTER_DAYS = 90;
 const PURGE_BATCH = 50;

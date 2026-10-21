@@ -114,8 +114,11 @@ downloads of Unrouted items also check the org (`inboundFileTenantId`).
   attachments with *File on event*, the original .eml, sender and SPF / DKIM /
   DMARC badges; actions Release, Dismiss, Restore, Move to another event
   (`HOTELS` WRITE).
-- **Unrouted mail** (`/inbox`, header link while any is waiting): Held / Done
-  tabs; Route to an event re-matches the sender against that event.
+- **Org inbox** (`/inbox`, header link "Inbox (n)" counting open items): the
+  same tabs across every event the user can see, plus Unrouted mail (always
+  Held; Route to an event re-matches the sender against that event). Event
+  items open on their event's inbox.
+- A page showing an item being read refreshes itself until the read lands.
 - Event Settings › **Inbox**: the address, copy, change, turn off.
 - **Diagnostics** (the raw .eml, SPF / DKIM / DMARC badges, the model that
   read an item) show only to super admins and to accounts a super admin marks
