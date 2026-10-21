@@ -79,3 +79,7 @@
 - [forms] `RichTextEditor` posts through a hidden input the form's `onChange` never sees, so autosaving forms pass its `onChange` to bump the version; a disabled `<fieldset>` doesn't disable tiptap, so read-only views render the stored HTML (`SpecFieldInput.tsx`)
 - [reports] Paired entry/report routes (ESG, PER) share one header with Edit | Preview tabs plus Word/Excel/Print (`SpecDocHeader`); their `ReportFilters` get `hidePrint`
 - [reports] When a `SectionDivider` titles an ESG/PER section, render `EsgSectionView` with `heading={false}` so the title isn't printed twice
+- [autosave] An autosaving form that creates child rows gets their saved ids back from the save, keyed by a client row key, or the next save duplicates them (`saveVendorQuote` returns `lineIds` aligned to the posted lines; `VendorQuoteForm`, `RfpLineItemsEditor`)
+- [rfps] Every RFP lists on `/events/[id]/rfps` (`?kind=` filter); hotel RFP pages keep their `/hotels/rfps/*` URLs (linked from email and the inbox) but breadcrumb to RFPs. `rfpHref` / `newRfpHref` in src/lib/rfp/kinds.ts are the only URL builders, and each detail route redirects to its kind's tree
+- [ui] Short link menus (New X by kind; Download → Print / Word) are a `details/summary` `MenuButton` (src/app/events/rfps/MenuButton.tsx), not a modal or a row of secondary buttons; move to src/components/ once a second feature uses it
+- [copy] RFP responses: a hotel's is a "Proposal", a vendor's a "Quote"; no "bid" / "offer" in UI copy (`responseNoun` in src/lib/rfp/kinds.ts)

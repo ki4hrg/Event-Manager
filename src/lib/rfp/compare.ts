@@ -1,4 +1,4 @@
-// Bid comparison: each proposal answering an RFP against the block it was
+// Proposal comparison: each proposal answering an RFP against the block it was
 // asked for. One group per requested block, plus one for RFP proposals not
 // tied to a block. Read by the compare page and its .docx. Pure.
 

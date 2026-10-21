@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { PrintHeader } from "@/components/print/PrintHeader";
-import { getEvent } from "@/app/events/actions";
-import { getRfpDocument } from "@/app/events/rfps/actions";
-import { RfpDocumentView } from "@/app/events/rfps/RfpDocumentView";
+import { RfpPrint } from "@/app/events/rfps/RfpPrint";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +7,5 @@ export const metadata: Metadata = { title: "RFP (print)" };
 
 export default async function RfpPrintPage({ params }: { params: Promise<{ id: string; rfpId: string }> }) {
   const { id: eventId, rfpId } = await params;
-  const [event, doc] = await Promise.all([getEvent(eventId), getRfpDocument(rfpId, eventId)]);
-  if (!event || !doc) notFound();
-  return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      <PrintHeader eventName={event.name} title={doc.meta.title} backHref={`/events/${eventId}/hotels/rfps/${rfpId}`} />
-      <RfpDocumentView doc={doc} />
-    </div>
-  );
+  return <RfpPrint eventId={eventId} rfpId={rfpId} />;
 }

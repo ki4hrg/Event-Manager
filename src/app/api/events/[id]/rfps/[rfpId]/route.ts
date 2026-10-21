@@ -3,9 +3,9 @@ import { getRfpComparison, getRfpDocument } from "@/app/events/rfps/actions";
 import { getQuoteComparison } from "@/app/events/quotes/actions";
 import { prisma } from "@/lib/prisma";
 
-// .docx downloads of an RFP document (?doc=rfp, the default) and its bid
-// comparison (?doc=compare) — a binary stream, so a route handler rather than
-// a Server Action. Both readers check the kind's permission (VIEW on the
+// .docx downloads of an RFP document (?doc=rfp, the default) and its
+// proposal or quote comparison (?doc=compare) — a binary stream, so a route
+// handler rather than a Server Action. Both readers check the kind's permission (VIEW on the
 // event) before reading anything.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const data = await getRfpComparison(rfpId, eventId);
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
     buffer = await render.renderRfpCompareDocx(data);
-    name = render.rfpFileName(data.eventName, `${data.title} - Bid comparison`);
+    name = render.rfpFileName(data.eventName, `${data.title} - Proposal comparison`);
   }
 
   return new NextResponse(new Uint8Array(buffer), {

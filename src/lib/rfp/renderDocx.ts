@@ -250,10 +250,10 @@ export async function renderRfpDocx(doc: RfpDocument): Promise<Buffer> {
   );
 }
 
-// Bid comparison: one landscape table per requested block, a column per
+// Proposal comparison: one landscape table per requested block, a column per
 // hotel. Cells short of the request are marked "▼".
 export async function renderRfpCompareDocx(data: RfpComparison): Promise<Buffer> {
-  const title = `${data.title} — Bid comparison`;
+  const title = `${data.title} — Proposal comparison`;
   const children: (Paragraph | Table)[] = [
     new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: title, font: FONT, size: 36, bold: true })] }),
   ];
@@ -281,7 +281,7 @@ export async function renderRfpCompareDocx(data: RfpComparison): Promise<Buffer>
     );
   }
   if (data.groups.some((g) => g.offers.length)) children.push(note("▼ falls short of the request."));
-  const head = chrome("Bid comparison", data.eventName, data.title, "");
+  const head = chrome("Proposal comparison", data.eventName, data.title, "");
   return Packer.toBuffer(
     new Document({
       creator: "Event Manager",

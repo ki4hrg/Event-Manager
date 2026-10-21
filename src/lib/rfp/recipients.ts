@@ -21,7 +21,7 @@ export function recipientState(
   today: string = dateKey(new Date()),
 ): { state: RecipientState; label: string } {
   if (r.responses > 0) return { state: "RESPONDED", label: r.responses === 1 ? "Responded" : `Responded (${r.responses})` };
-  if (r.declinedToBid) return { state: "DECLINED", label: "Declined to bid" };
+  if (r.declinedToBid) return { state: "DECLINED", label: "Declined" };
   if (!r.sentOn) return { state: "NOT_SENT", label: "Not sent" };
   if (!responseDue) return { state: "AWAITING", label: "Awaiting" };
   const days = Math.round((responseDue.getTime() - dateFromKey(today).getTime()) / DAY);

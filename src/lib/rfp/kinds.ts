@@ -34,3 +34,30 @@ export const RFP_KIND_LABELS: Record<RfpKind, string> = {
 export const VENDOR_RFP_KINDS = ["AV", "CATERING", "PRINT", "OTHER"] as const satisfies readonly RfpKind[];
 export type VendorRfpKind = (typeof VENDOR_RFP_KINDS)[number];
 export const isVendorKind = (kind: RfpKind): kind is VendorRfpKind => kind !== "HOTEL";
+
+// Every RFP lists on the event's RFPs page. A hotel RFP's own pages stay under
+// Hotels (its URLs are in emails and the inbox); the rest under RFPs.
+export const RFP_KINDS: RfpKind[] = ["HOTEL", "AV", "CATERING", "PRINT", "OTHER"];
+export const rfpListHref = (eventId: string) => `/events/${eventId}/rfps`;
+
+export function rfpHref(eventId: string, kind: RfpKind, id: string) {
+  switch (kind) {
+    case "HOTEL":
+      return `/events/${eventId}/hotels/rfps/${id}`;
+    case "AV":
+    case "CATERING":
+    case "PRINT":
+    case "OTHER":
+      return `/events/${eventId}/rfps/${id}`;
+    default: {
+      const _exhaustive: never = kind;
+      throw new Error(`Unhandled RFP kind: ${_exhaustive}`);
+    }
+  }
+}
+
+export const newRfpHref = (eventId: string, kind: RfpKind) =>
+  kind === "HOTEL" ? `/events/${eventId}/hotels/rfps/new` : `/events/${eventId}/rfps/new?kind=${kind}`;
+
+// What a kind's responses are called: hotels send proposals, vendors quotes.
+export const responseNoun = (kind: RfpKind) => (kind === "HOTEL" ? "proposal" : "quote");

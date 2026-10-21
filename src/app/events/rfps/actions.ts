@@ -7,13 +7,14 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { patternStats, proposedRoles, proposeNights } from "@/lib/hotelPattern";
-import { RFP_KIND_LABELS, resourceForKind } from "@/lib/rfp/kinds";
+import { RFP_KINDS, resourceForKind, rfpHref, rfpListHref } from "@/lib/rfp/kinds";
 import type { LineItemRow } from "@/lib/rfp/lineItems";
 import { buildRfpDocument } from "@/lib/rfp/document";
-import { parseSections } from "@/lib/rfp/sections";
+import { BLANK, parseSections } from "@/lib/rfp/sections";
 import { effectiveScope, scopeLabels } from "@/lib/areas";
 import { cateringSpaceRows, functionSpaceRows, sortSpaceRows } from "@/lib/rfp/space";
 import { getPickupPattern } from "@/app/hotels/actions";
+import { eventScopeWhere } from "../core";
 import type { OfferHotel } from "@/lib/inboundParse";
 import {
   addNewRfpRecipientCore,
@@ -40,26 +41,14 @@ import {
   type RfpWriteArgs,
 } from "./core";
 
-// The page that lists an RFP of each kind: hotel RFPs under Hotels, the rest
-// on the event's RFPs page.
-function rfpBase(eventId: string, kind: RfpKind) {
-  switch (kind) {
-    case "HOTEL":
-      return `/events/${eventId}/hotels`;
-    case "AV":
-    case "CATERING":
-    case "PRINT":
-    case "OTHER":
-      return `/events/${eventId}/rfps`;
-    default: {
-      const _exhaustive: never = kind;
-      throw new Error(`Unhandled RFP kind: ${_exhaustive}`);
-    }
-  }
+// Every RFP lists on the event's RFPs page; Hotels shows a summary of the
+// hotel ones.
+function revalidateLists(eventId: string, kind: RfpKind) {
+  revalidatePath(rfpListHref(eventId));
+  if (kind === "HOTEL") revalidatePath(`/events/${eventId}/hotels`);
 }
 
-const rfpPath = (eventId: string, kind: RfpKind, id: string) =>
-  kind === "HOTEL" ? `${rfpBase(eventId, kind)}/rfps/${id}` : `${rfpBase(eventId, kind)}/${id}`;
+const rfpPath = rfpHref;
 
 // Reads the RFP's kind first so the permission check uses its resource; a
 // foreign id is a not-found.
@@ -92,7 +81,7 @@ export async function getRfps(eventId: string, kind: RfpKind) {
 // as responses.
 export async function getEventRfps(eventId: string) {
   await requirePermission("EVENTS", "VIEW", eventId);
-  const kinds = (Object.keys(RFP_KIND_LABELS) as RfpKind[]).filter(Boolean);
+  const kinds = RFP_KINDS;
   const allowed = (await Promise.all(kinds.map(async (k) => ((await hasPermission(resourceForKind(k), "VIEW", eventId)) ? k : null)))).filter(
     (k): k is RfpKind => k != null,
   );
@@ -138,6 +127,50 @@ export async function getRfp(id: string, eventId: string) {
       updatedBy: { select: { name: true, email: true } },
     },
   });
+}
+
+// The RFPs a vendor or hotel was sent and what it answered with (quotes,
+// proposals), on the events the user can see and the kinds they may view —
+// for the vendor and venue pages. Newest events first.
+export async function getRfpHistory(party: { vendorId: string } | { venueId: string }) {
+  const session = await requirePermission("vendorId" in party ? "VENDORS" : "VENUES", "VIEW");
+  const [allowed, event] = await Promise.all([
+    Promise.all(RFP_KINDS.map(async (k) => ((await hasPermission(resourceForKind(k), "VIEW")) ? k : null))),
+    eventScopeWhere(session.user.id, session.tenantId),
+  ]);
+  const kinds = allowed.filter((k): k is RfpKind => k != null);
+  const take = 25;
+  const eventSelect = { select: { id: true, name: true, startDate: true } } as const;
+  const rfpSelect = { select: { id: true, kind: true, title: true, status: true, responseDue: true, event: eventSelect } } as const;
+  const [recipients, quotes, proposals] = await Promise.all([
+    prisma.rfpRecipient.findMany({
+      where: { ...party, rfp: { kind: { in: kinds }, event } },
+      select: { id: true, sentOn: true, declinedToBid: true, rfp: rfpSelect },
+      orderBy: [{ rfp: { event: { startDate: "desc" } } }, { createdAt: "desc" }],
+      take,
+    }),
+    "vendorId" in party
+      ? prisma.vendorQuote.findMany({
+          where: {
+            vendorId: party.vendorId,
+            event,
+            // A quote without an RFP is event work (EVENTS, as Other services).
+            OR: [{ rfp: { kind: { in: kinds } } }, ...(kinds.includes("OTHER") ? [{ rfpId: null }] : [])],
+          },
+          select: { id: true, status: true, revision: true, rfpId: true, event: eventSelect },
+          orderBy: [{ event: { startDate: "desc" } }, { createdAt: "asc" }],
+          take,
+        })
+      : [],
+    "venueId" in party && kinds.includes("HOTEL")
+      ? prisma.hotelProposal.findMany({
+          where: { venueId: party.venueId, event, rfpId: { not: null } },
+          select: { id: true, status: true, rfpId: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : [],
+  ]);
+  return { recipients, quotes, proposals };
 }
 
 // Dropdown sources for the RFP editor: the event's key staff as the point of
@@ -428,6 +461,8 @@ function readJson<T>(formData: FormData, key: string): T[] {
 
 function readRfp(formData: FormData): RfpWriteArgs {
   const str = (k: string) => (formData.get(k) as string) || null;
+  // Selects post BLANK for "none".
+  const pick = (k: string) => (formData.get(k) === BLANK ? null : str(k));
   const status = formData.get("status") as string;
   return {
     title: (formData.get("title") as string) ?? "",
@@ -437,7 +472,7 @@ function readRfp(formData: FormData): RfpWriteArgs {
     sections: formData.getAll("sections") as string[],
     introduction: str("introduction"),
     requirements: str("requirements"),
-    contactId: str("contactId"),
+    contactId: pick("contactId"),
     arrivalDate: str("arrivalDate"),
     departureDate: str("departureDate"),
     datesFlexible: formData.get("datesFlexible") === "true",
@@ -445,18 +480,18 @@ function readRfp(formData: FormData): RfpWriteArgs {
     alternateDates: readJson<{ startDate: string; endDate: string }>(formData, "alternateDates"),
     peakRooms: formData.get("peakRooms") ? parseInt(formData.get("peakRooms") as string) : null,
     historyMatching: formData.get("historyMatching") === "true",
-    reservationMethod: str("reservationMethod"),
+    reservationMethod: pick("reservationMethod"),
     commissionNotes: str("commissionNotes"),
     fbMinimum: formData.get("fbMinimum") ? Number(formData.get("fbMinimum")) : null,
     fbIncludes: formData.getAll("fbIncludes") as string[],
     fbHistoricalSpend: formData.get("fbHistoricalSpend") ? Number(formData.get("fbHistoricalSpend")) : null,
     amenities: formData.getAll("amenities") as string[],
-    decisionMakerId: str("decisionMakerId"),
+    decisionMakerId: pick("decisionMakerId"),
     decisionMaker: str("decisionMaker"),
     regions: formData.getAll("regions") as string[],
     areas: formData.getAll("areas") as string[],
     siteVisitBy: str("siteVisitBy"),
-    service: formData.has("service") ? str("service") : undefined,
+    service: formData.has("service") ? pick("service") : undefined,
   };
 }
 
@@ -465,7 +500,7 @@ export async function createRfp(eventId: string, kind: RfpKind, formData: FormDa
   const raw = formData.get("blocks");
   const blocks = typeof raw === "string" && raw ? (JSON.parse(raw) as RfpBlockArgs[]) : [];
   const rfp = await createRfpCore(eventId, kind, readRfp(formData), blocks, session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
+  revalidateLists(eventId, kind);
   redirect(`${rfpPath(eventId, kind, rfp.id)}?success=RFP created`);
 }
 
@@ -473,7 +508,7 @@ export async function updateRfp(id: string, eventId: string, formData: FormData)
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   await updateRfpCore(id, eventId, readRfp(formData), session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
+  revalidateLists(eventId, kind);
   revalidatePath(rfpPath(eventId, kind, id));
 }
 
@@ -481,8 +516,8 @@ export async function deleteRfp(id: string, eventId: string) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "DELETE", eventId);
   await deleteRfpCore(id, eventId, session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
-  redirect(`${rfpBase(eventId, kind)}?success=RFP deleted`);
+  revalidateLists(eventId, kind);
+  redirect(`${rfpListHref(eventId)}?success=RFP deleted`);
 }
 
 // The card saves (blocks, line items, concessions, space) autosave without a
@@ -527,7 +562,7 @@ export async function issueRfp(id: string, eventId: string) {
   if (!doc) notFound();
   const { renderRfpDocx, rfpFileName } = await import("@/lib/rfp/renderDocx");
   await issueRfpCore(id, eventId, { fileName: rfpFileName(doc.meta.eventName, doc.meta.title), buffer: await renderRfpDocx(doc) }, session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
+  revalidateLists(eventId, kind);
   revalidatePath(rfpPath(eventId, kind, id));
   redirect(`${rfpPath(eventId, kind, id)}?success=RFP issued`);
 }
@@ -537,14 +572,14 @@ export async function addRfpRecipients(id: string, eventId: string, venueIds: st
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   await addRfpRecipientsCore(id, eventId, venueIds, session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
+  revalidateLists(eventId, kind);
 }
 
 export async function addNewRfpRecipient(id: string, eventId: string, hotel: OfferHotel) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   await addNewRfpRecipientCore(id, eventId, hotel, session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
+  revalidateLists(eventId, kind);
   revalidatePath("/venues");
 }
 
@@ -552,7 +587,7 @@ export async function addRfpVendorRecipients(id: string, eventId: string, vendor
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   await addRfpVendorRecipientsCore(id, eventId, vendorIds, session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
+  revalidateLists(eventId, kind);
   revalidatePath(rfpPath(eventId, kind, id));
 }
 
@@ -560,12 +595,12 @@ export async function updateRfpRecipient(recipientId: string, id: string, eventI
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   await updateRfpRecipientCore(recipientId, id, eventId, args, session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
+  revalidateLists(eventId, kind);
 }
 
 export async function removeRfpRecipient(recipientId: string, id: string, eventId: string) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   await removeRfpRecipientCore(recipientId, id, eventId, session.user.id);
-  revalidatePath(rfpBase(eventId, kind));
+  revalidateLists(eventId, kind);
 }
