@@ -475,7 +475,6 @@ export async function updateRfp(id: string, eventId: string, formData: FormData)
   await updateRfpCore(id, eventId, readRfp(formData), session.user.id);
   revalidatePath(rfpBase(eventId, kind));
   revalidatePath(rfpPath(eventId, kind, id));
-  redirect(`${rfpPath(eventId, kind, id)}?success=RFP updated`);
 }
 
 export async function deleteRfp(id: string, eventId: string) {
@@ -486,32 +485,39 @@ export async function deleteRfp(id: string, eventId: string) {
   redirect(`${rfpBase(eventId, kind)}?success=RFP deleted`);
 }
 
+// The card saves (blocks, line items, concessions, space) autosave without a
+// redirect and return each row's saved id, so the editor's next save updates
+// rows it just created.
 export async function saveRfpBlocks(id: string, eventId: string, blocks: RfpBlockArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await saveRfpBlocksCore(id, eventId, blocks, session.user.id);
+  const ids = await saveRfpBlocksCore(id, eventId, blocks, session.user.id);
   revalidatePath(rfpPath(eventId, kind, id));
+  return ids;
 }
 
 export async function saveRfpLineItems(id: string, eventId: string, rows: RfpLineItemArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await saveRfpLineItemsCore(id, eventId, rows, session.user.id);
+  const ids = await saveRfpLineItemsCore(id, eventId, rows, session.user.id);
   revalidatePath(rfpPath(eventId, kind, id));
+  return ids;
 }
 
 export async function saveRfpConcessions(id: string, eventId: string, concessions: RfpConcessionArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await saveRfpConcessionsCore(id, eventId, concessions, session.user.id);
+  const ids = await saveRfpConcessionsCore(id, eventId, concessions, session.user.id);
   revalidatePath(rfpPath(eventId, kind, id));
+  return ids;
 }
 
 export async function saveRfpSpace(id: string, eventId: string, spaceKind: RfpSpaceKind, rows: RfpSpaceArgs[]) {
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
-  await saveRfpSpaceCore(id, eventId, rows, session.user.id, spaceKind === "FB" ? "FB" : "MEETING");
+  const ids = await saveRfpSpaceCore(id, eventId, rows, session.user.id, spaceKind === "FB" ? "FB" : "MEETING");
   revalidatePath(rfpPath(eventId, kind, id));
+  return ids;
 }
 
 export async function issueRfp(id: string, eventId: string) {

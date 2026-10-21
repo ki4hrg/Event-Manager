@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { PermissionResource, RfpKind, RfpStatus } from "@prisma/client";
@@ -12,6 +12,8 @@ import { formatDateKey, formatMoney } from "@/lib/hotels";
 import { FB_INCLUDES, RFP_STATUS_LABELS, sectionsFor } from "@/lib/rfp/sections";
 import { effectiveScope, isEmptyScope, scopeLabels, type AreaOption, type AreaScope } from "@/lib/areas";
 import { AreaChecklist } from "@/components/AreaChecklist";
+import { useAutosave } from "@/lib/useAutosave";
+import { AutosaveStatus } from "./AutosaveStatus";
 
 export type RfpValues = {
   title: string;
@@ -106,7 +108,7 @@ const span = (a: string | null, b: string | null) => (a || b ? `${formatDateKey(
 export function RfpForm({
   kind,
   resource,
-  values,
+  values: current,
   choices,
   action,
   cancelHref,
@@ -116,23 +118,39 @@ export function RfpForm({
   resource: PermissionResource;
   values: RfpValues;
   choices: RfpFormChoices;
+  // Create submits; edit autosaves through it (no redirect).
   action: (formData: FormData) => Promise<void>;
-  // Set on create only; an edit form toggles back to view mode instead.
+  // Set on create only.
   cancelHref?: string;
   // Extra payload for create (e.g. blocks filled from history).
   hiddenFields?: Record<string, string>;
 }) {
   const isEdit = !cancelHref;
   const canWrite = useCanWrite(resource);
-  const [editing, setEditing] = useState(!isEdit);
+  // The form is uncontrolled and autosaves, so it keeps the values it mounted
+  // with; the refreshed ones after each save would only reset it.
+  const [values] = useState(current);
   const [sections, setSections] = useState(new Set(values.sections));
   const [alternates, setAlternates] = useState(values.alternateDates);
   // The decision maker is a contact id, or OTHER for a typed name.
   const [decider, setDecider] = useState(values.decisionMakerId ?? (values.decisionMaker ? OTHER : ""));
   const parts = sectionsFor(kind);
   const hotel = kind === "HOTEL";
+  // Each change bumps the version; the form's payload is read after the
+  // render that follows, so state-driven hidden inputs are current, and is
+  // kept for a save that runs after the form unmounts.
+  const formRef = useRef<HTMLFormElement>(null);
+  const payload = useRef<FormData | null>(null);
+  const [version, setVersion] = useState(0);
+  const bump = () => setVersion((v) => v + 1);
+  useEffect(() => {
+    if (formRef.current) payload.current = new FormData(formRef.current);
+  });
+  const status = useAutosave(version, async () => {
+    if (payload.current) await action(payload.current);
+  });
 
-  if (!editing || !canWrite) {
+  if (!canWrite) {
     const rows: [string, ReactNode][] = [
       ["Status", RFP_STATUS_LABELS[values.status]],
       ...(kind === "OTHER" ? [["Service", values.service ?? "—"] as [string, ReactNode]] : []),
@@ -171,11 +189,6 @@ export function RfpForm({
       <div className={cardClass}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
-          {canWrite && (
-            <button onClick={() => setEditing(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              Edit
-            </button>
-          )}
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
           {rows.map(([label, value]) => (
@@ -209,13 +222,13 @@ export function RfpForm({
     setAlternates((prev) => prev.map((a, j) => (j === i ? { ...a, ...patch } : a)));
 
   return (
-    <form
-      action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
-      }}
-      className={`${cardClass} space-y-6`}
-    >
+    <form ref={formRef} action={isEdit ? undefined : action} onChange={isEdit ? bump : undefined} className={`${cardClass} space-y-6`}>
+      {isEdit && (
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
+          <AutosaveStatus {...status} />
+        </div>
+      )}
       {Object.entries(hiddenFields ?? {}).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
@@ -283,7 +296,14 @@ export function RfpForm({
               {hotel ? "Departure" : "End"}
               <DateInput value={a.endDate} onChange={(v) => setAlternate(i, { endDate: v })} className={inputClass} />
             </label>
-            <button type="button" onClick={() => setAlternates((prev) => prev.filter((_, j) => j !== i))} className="pb-2 text-sm text-red-600 dark:text-red-400 hover:underline">
+            <button
+              type="button"
+              onClick={() => {
+                setAlternates((prev) => prev.filter((_, j) => j !== i));
+                bump();
+              }}
+              className="pb-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+            >
               Remove
             </button>
           </div>
@@ -357,33 +377,23 @@ export function RfpForm({
         </div>
       )}
 
-      {sections.has("history") ? (
-        <label className={checkLabel}>
-          <input type="checkbox" name="historyMatching" value="true" defaultChecked={values.historyMatching} className={checkClass} />
-          Event history: only blocks matching this RFP&apos;s contract and guest types
-        </label>
-      ) : (
-        values.historyMatching && <input type="hidden" name="historyMatching" value="true" />
-      )}
+      {/* A part's fields stay mounted while it's off, so they keep their values. */}
+      <label className={`${checkLabel} ${sections.has("history") ? "" : "hidden"}`}>
+        <input type="checkbox" name="historyMatching" value="true" defaultChecked={values.historyMatching} className={checkClass} />
+        Event history: only blocks matching this RFP&apos;s contract and guest types
+      </label>
 
-      {sections.has("blocks") ? (
-        <fieldset className="space-y-3">
-          <legend className={legendClass}>Guest rooms</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Reservations" htmlFor="rfp-reservationMethod">
-              <OptionSelect id="rfp-reservationMethod" name="reservationMethod" value={values.reservationMethod} options={choices.reservationMethods} />
-            </Field>
-            <Field label="Rebates / commissions" htmlFor="rfp-commissionNotes">
-              <input id="rfp-commissionNotes" name="commissionNotes" defaultValue={values.commissionNotes ?? ""} className={inputClass} />
-            </Field>
-          </div>
-        </fieldset>
-      ) : (
-        <>
-          <input type="hidden" name="reservationMethod" value={values.reservationMethod ?? ""} />
-          <input type="hidden" name="commissionNotes" value={values.commissionNotes ?? ""} />
-        </>
-      )}
+      <fieldset className={`space-y-3 ${sections.has("blocks") ? "" : "hidden"}`}>
+        <legend className={legendClass}>Guest rooms</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Reservations" htmlFor="rfp-reservationMethod">
+            <OptionSelect id="rfp-reservationMethod" name="reservationMethod" value={values.reservationMethod} options={choices.reservationMethods} />
+          </Field>
+          <Field label="Rebates / commissions" htmlFor="rfp-commissionNotes">
+            <input id="rfp-commissionNotes" name="commissionNotes" defaultValue={values.commissionNotes ?? ""} className={inputClass} />
+          </Field>
+        </div>
+      </fieldset>
 
       {hotel && choices.amenities.length > 0 && (
         <div>
@@ -399,76 +409,58 @@ export function RfpForm({
         </div>
       )}
 
-      {sections.has("fb") ? (
-        <fieldset className="space-y-3">
-          <legend className={legendClass}>Food & beverage</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="F&B minimum" htmlFor="rfp-fbMinimum">
-              <input id="rfp-fbMinimum" type="number" min={0} step="0.01" placeholder="$" name="fbMinimum" defaultValue={values.fbMinimum ?? ""} className={inputClass} />
-            </Field>
-            <Field label="F&B historical spend" htmlFor="rfp-fbHistoricalSpend">
-              <input
-                id="rfp-fbHistoricalSpend"
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="$"
-                name="fbHistoricalSpend"
-                defaultValue={values.fbHistoricalSpend ?? ""}
-                className={inputClass}
-              />
-            </Field>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <span className={labelClass}>Minimum includes</span>
-            {FB_INCLUDES.map((f) => (
-              <label key={f.value} className={checkLabel}>
-                <input type="checkbox" name="fbIncludes" value={f.value} defaultChecked={values.fbIncludes.includes(f.value)} className={checkClass} />
-                {f.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      ) : (
-        <>
-          <input type="hidden" name="fbMinimum" value={values.fbMinimum ?? ""} />
-          <input type="hidden" name="fbHistoricalSpend" value={values.fbHistoricalSpend ?? ""} />
-          {values.fbIncludes.map((f) => (
-            <input key={f} type="hidden" name="fbIncludes" value={f} />
+      <fieldset className={`space-y-3 ${sections.has("fb") ? "" : "hidden"}`}>
+        <legend className={legendClass}>Food & beverage</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="F&B minimum" htmlFor="rfp-fbMinimum">
+            <input id="rfp-fbMinimum" type="number" min={0} step="0.01" placeholder="$" name="fbMinimum" defaultValue={values.fbMinimum ?? ""} className={inputClass} />
+          </Field>
+          <Field label="F&B historical spend" htmlFor="rfp-fbHistoricalSpend">
+            <input
+              id="rfp-fbHistoricalSpend"
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="$"
+              name="fbHistoricalSpend"
+              defaultValue={values.fbHistoricalSpend ?? ""}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className={labelClass}>Minimum includes</span>
+          {FB_INCLUDES.map((f) => (
+            <label key={f.value} className={checkLabel}>
+              <input type="checkbox" name="fbIncludes" value={f.value} defaultChecked={values.fbIncludes.includes(f.value)} className={checkClass} />
+              {f.label}
+            </label>
           ))}
-        </>
-      )}
+        </div>
+      </fieldset>
 
       <div>
         <p className={labelClass}>Statement of need</p>
         <p className="text-xs text-gray-500 dark:text-gray-400">The services this RFP seeks and the length of the contract, in years.</p>
         <div className="mt-1">
-          <RichTextEditor name="introduction" defaultValue={values.introduction ?? ""} />
+          <RichTextEditor name="introduction" defaultValue={values.introduction ?? ""} onChange={isEdit ? bump : undefined} />
         </div>
       </div>
-      {sections.has("requirements") ? (
-        <div>
-          <p className={labelClass}>Other requirements</p>
-          <div className="mt-1">
-            <RichTextEditor name="requirements" defaultValue={values.requirements ?? ""} />
-          </div>
+      <div className={sections.has("requirements") ? "" : "hidden"}>
+        <p className={labelClass}>Other requirements</p>
+        <div className="mt-1">
+          <RichTextEditor name="requirements" defaultValue={values.requirements ?? ""} onChange={isEdit ? bump : undefined} />
         </div>
-      ) : (
-        <input type="hidden" name="requirements" value={values.requirements ?? ""} />
-      )}
+      </div>
 
-      <div className="flex flex-wrap gap-3">
-        <SaveButton label={isEdit ? "Save" : "Create RFP"} />
-        {isEdit ? (
-          <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>
-            Cancel
-          </button>
-        ) : (
+      {!isEdit && (
+        <div className="flex flex-wrap gap-3">
+          <SaveButton label="Create RFP" />
           <Link href={cancelHref!} className={btnSecondary}>
             Cancel
           </Link>
-        )}
-      </div>
+        </div>
+      )}
     </form>
   );
 }

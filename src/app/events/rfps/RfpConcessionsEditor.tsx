@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
-import { btnPrimary } from "@/lib/buttonStyles";
 import { CONCESSION_GROUPS, concessionGroupOf } from "@/lib/rfp/sections";
+import { useAutosave } from "@/lib/useAutosave";
+import { AutosaveStatus } from "./AutosaveStatus";
 import type { RfpConcessionArgs } from "./core";
 
 const inputClass =
@@ -70,41 +70,41 @@ export function RfpConcessionsEditor({
   resource: PermissionResource;
   concessions: RfpConcessionArgs[];
   options: { label: string; group: string | null }[];
-  save: (concessions: RfpConcessionArgs[]) => Promise<void>;
+  save: (concessions: RfpConcessionArgs[]) => Promise<(string | null)[]>;
 }) {
-  const router = useRouter();
   const canWrite = useCanWrite(resource);
-  const [pending, startTransition] = useTransition();
-  const [dirty, setDirty] = useState(false);
   const known = new Map(options.map((o) => [o.label, o.group]));
   const [nextKey, setNextKey] = useState(concessions.length);
   const [rows, setRows] = useState<Row[]>(
     concessions.map((c, i) => ({ key: i, id: c.id ?? null, label: c.label, custom: !known.has(c.label), value: c.value ?? "", required: c.required })),
   );
   const used = new Set(rows.map((r) => r.label));
+  // Saved ids by row key: a row created by one save is updated by the next.
+  const ids = useRef(new Map(rows.flatMap((r) => (r.id ? [[r.key, r.id] as const] : []))));
+  const status = useAutosave(rows, async (sent) => {
+    const saved = await save(sent.map((r) => ({ id: ids.current.get(r.key) ?? null, label: r.label, value: r.value || null, required: r.required })));
+    sent.forEach((r, i) => {
+      const id = saved[i];
+      if (id) ids.current.set(r.key, id);
+    });
+  });
 
-  const update = (next: Row[]) => {
-    setRows(next);
-    setDirty(true);
-  };
+  const update = (next: Row[]) => setRows(next);
   const set = (key: number, patch: Partial<Row>) => update(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const add = (label: string, custom: boolean) => {
     update([...rows, { key: nextKey, id: null, label, custom, value: "", required: false }]);
     setNextKey((k) => k + 1);
   };
-  const onSave = () =>
-    startTransition(async () => {
-      await save(rows.map((r) => ({ id: r.id, label: r.label, value: r.value || null, required: r.required })));
-      setDirty(false);
-      router.refresh();
-    });
 
   const groupOf = (r: Row) => concessionGroupOf(r.custom ? null : known.get(r.label));
   const groups = terms ? [{ value: "OTHER" as const, label: "" }] : CONCESSION_GROUPS;
 
   return (
     <div className={`${cardClass} space-y-4`}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">{terms ? "Terms" : "Concessions"}</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">{terms ? "Terms" : "Concessions"}</h2>
+        <AutosaveStatus {...status} />
+      </div>
       <fieldset disabled={!canWrite} className="space-y-4">
         {rows.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">None listed.</p>}
         {groups.map((g) => {
@@ -148,9 +148,6 @@ export function RfpConcessionsEditor({
       </fieldset>
       {canWrite && (
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={onSave} disabled={pending || !dirty} className={`${btnPrimary} disabled:opacity-50`}>
-            {pending ? "Saving..." : "Save concessions"}
-          </button>
           <select
             aria-label={terms ? "Add term" : "Add concession"}
             value=""

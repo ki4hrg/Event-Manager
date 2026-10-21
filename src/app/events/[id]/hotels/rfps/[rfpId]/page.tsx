@@ -27,6 +27,7 @@ import {
   deleteRfp,
   getRfp,
   getRfpFormChoices,
+  getRfpDocument,
   getRfpPatternFill,
   getRfpSpaceCandidates,
   issueRfp,
@@ -40,28 +41,34 @@ import {
 import { IssueRfpButton } from "../../../../rfps/IssueRfpButton";
 import { RfpBlocksEditor } from "../../../../rfps/RfpBlocksEditor";
 import { RfpConcessionsEditor } from "../../../../rfps/RfpConcessionsEditor";
+import { RfpDocumentView } from "../../../../rfps/RfpDocumentView";
 import { RfpForm } from "../../../../rfps/RfpForm";
 import { RfpRecipients } from "../../../../rfps/RfpRecipients";
 import { RfpSpaceEditor } from "../../../../rfps/RfpSpaceEditor";
+import { RfpTabs } from "../../../../rfps/RfpTabs";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "RFP" };
 
-// Each card is keyed on its own saved data, so saving one card remounts only
-// that card and leaves unsaved edits in the others alone.
-const contentKey = (data: unknown) => JSON.stringify(data);
-// Sibling cards can hold equal data (two empty lists): prefix with the card.
-const cardKey = (card: string, data: unknown) => `${card}:${contentKey(data)}`;
-
-export default async function RfpPage({ params }: { params: Promise<{ id: string; rfpId: string }> }) {
+// The cards autosave and aren't keyed on their data: a remount after each
+// save would drop the field being typed in.
+export default async function RfpPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; rfpId: string }>;
+  searchParams: Promise<{ view?: string }>;
+}) {
   const { id: eventId, rfpId } = await params;
-  const [event, rfp, choices, fileTypeOptions, canAddHotel] = await Promise.all([
+  const preview = (await searchParams).view === "preview";
+  const [event, rfp, choices, fileTypeOptions, canAddHotel, doc] = await Promise.all([
     getEvent(eventId),
     getRfp(rfpId, eventId),
     getRfpFormChoices(eventId, "HOTEL"),
     getOptions("file_type"),
     hasPermission("VENUES", "WRITE"),
+    preview ? getRfpDocument(rfpId, eventId) : null,
   ]);
   if (!event || !rfp || rfp.kind !== "HOTEL") notFound();
 
@@ -87,19 +94,19 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
   };
   const saveBlocksAction = async (blocks: RfpBlockArgs[]) => {
     "use server";
-    await saveRfpBlocks(rfpId, eventId, blocks);
+    return saveRfpBlocks(rfpId, eventId, blocks);
   };
   const saveConcessionsAction = async (concessions: RfpConcessionArgs[]) => {
     "use server";
-    await saveRfpConcessions(rfpId, eventId, concessions);
+    return saveRfpConcessions(rfpId, eventId, concessions);
   };
   const saveMeetingAction = async (rows: RfpSpaceArgs[]) => {
     "use server";
-    await saveRfpSpace(rfpId, eventId, "MEETING", rows);
+    return saveRfpSpace(rfpId, eventId, "MEETING", rows);
   };
   const saveFbAction = async (rows: RfpSpaceArgs[]) => {
     "use server";
-    await saveRfpSpace(rfpId, eventId, "FB", rows);
+    return saveRfpSpace(rfpId, eventId, "FB", rows);
   };
   const spaceCandidatesAction = async () => {
     "use server";
@@ -173,100 +180,102 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0 space-y-6">
-          <RfpForm
-            key={contentKey([rfp.title, rfp.status, rfp.sections, rfp.contactId, rfp.introduction, rfp.requirements, rfp.arrivalDate, rfp.departureDate, rfp.datesFlexible, rfp.dateNotes, rfp.alternateDates, rfp.peakRooms, rfp.reservationMethod, rfp.commissionNotes, rfp.fbMinimum, rfp.fbIncludes, rfp.fbHistoricalSpend, rfp.amenities, rfp.decisionMakerId, rfp.decisionMaker, rfp.regions, rfp.areas, rfp.responseDue, rfp.decisionBy, rfp.siteVisitBy, rfp.historyMatching])}
-            kind="HOTEL"
-            resource="HOTELS"
-            values={{
-              title: rfp.title,
-              status: rfp.status,
-              responseDue: day(rfp.responseDue),
-              decisionBy: day(rfp.decisionBy),
-              siteVisitBy: day(rfp.siteVisitBy),
-              decisionMakerId: rfp.decisionMakerId,
-              decisionMakerName: rfp.decisionMakerContact ? `${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim() : null,
-              decisionMaker: rfp.decisionMaker,
-              regions: rfp.regions,
-              areas: rfp.areas,
-              eventScope: { regions: event.regions, areas: event.areas },
-              sections: rfp.sections,
-              introduction: rfp.introduction,
-              requirements: rfp.requirements,
-              contactId: rfp.contactId,
-              contactName,
-              arrivalDate: day(rfp.arrivalDate),
-              departureDate: day(rfp.departureDate),
-              datesFlexible: rfp.datesFlexible,
-              dateNotes: rfp.dateNotes,
-              alternateDates: rfp.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
-              peakRooms: rfp.peakRooms,
-              historyMatching: rfp.historyMatching,
-              reservationMethod: rfp.reservationMethod,
-              commissionNotes: rfp.commissionNotes,
-              fbMinimum: rfp.fbMinimum?.toString() ?? null,
-              fbIncludes: rfp.fbIncludes,
-              fbHistoricalSpend: rfp.fbHistoricalSpend?.toString() ?? null,
-              amenities: rfp.amenities,
-            }}
-            choices={choices}
-            action={updateAction}
-          />
-          {rfp.sections.includes("blocks") && (
-            <RfpBlocksEditor
-              key={cardKey("hotelBlocks", rfp.hotelBlocks)}
-              blocks={rfp.hotelBlocks.map((b) => ({
-                id: b.id,
-                contractType: b.contractType,
-                guestType: b.guestType,
-                targetRate: b.targetRate?.toString() ?? null,
-                notes: b.notes,
-                nights: b.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rooms: n.rooms })),
-              }))}
-              arrival={arrival}
-              departure={departure}
-              peakRooms={rfp.peakRooms}
-              roomTypes={choices.roomTypes}
-              guestTypes={choices.guestTypes}
-              series={choices.series}
-              defaultSeriesId={event.seriesId ?? null}
-              save={saveBlocksAction}
-              fill={fillAction}
-            />
-          )}
-          {rfp.sections.includes("meetingSpace") && (
-            <RfpSpaceEditor
-              key={cardKey("spaceRows-MEETING", spaceRows("MEETING"))}
-              kind="MEETING"
-              resource="HOTELS"
-              rows={spaceRows("MEETING")}
-              defaultDay={arrival}
-              types={choices.functionTypes}
-              setupTypes={choices.setupTypes}
-              loadCandidates={spaceCandidatesAction}
-              save={saveMeetingAction}
-            />
-          )}
-          {rfp.sections.includes("fb") && (
-            <RfpSpaceEditor
-              key={cardKey("spaceRows-FB", spaceRows("FB"))}
-              kind="FB"
-              resource="HOTELS"
-              rows={spaceRows("FB")}
-              defaultDay={arrival}
-              types={choices.mealTypes}
-              setupTypes={choices.setupTypes}
-              loadCandidates={spaceCandidatesAction}
-              save={saveFbAction}
-            />
-          )}
-          {rfp.sections.includes("concessions") && (
-            <RfpConcessionsEditor
-              key={cardKey("concessions", rfp.concessions)}
-              resource="HOTELS"
-              concessions={rfp.concessions.map((c) => ({ id: c.id, label: c.label, value: c.value, required: c.required }))}
-              options={choices.concessions}
-              save={saveConcessionsAction}
-            />
+          <RfpTabs base={base} preview={preview} />
+          {doc ? (
+            <RfpDocumentView doc={doc} />
+          ) : (
+            <>
+              <RfpForm
+                kind="HOTEL"
+                resource="HOTELS"
+                values={{
+                  title: rfp.title,
+                  status: rfp.status,
+                  responseDue: day(rfp.responseDue),
+                  decisionBy: day(rfp.decisionBy),
+                  siteVisitBy: day(rfp.siteVisitBy),
+                  decisionMakerId: rfp.decisionMakerId,
+                  decisionMakerName: rfp.decisionMakerContact ? `${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim() : null,
+                  decisionMaker: rfp.decisionMaker,
+                  regions: rfp.regions,
+                  areas: rfp.areas,
+                  eventScope: { regions: event.regions, areas: event.areas },
+                  sections: rfp.sections,
+                  introduction: rfp.introduction,
+                  requirements: rfp.requirements,
+                  contactId: rfp.contactId,
+                  contactName,
+                  arrivalDate: day(rfp.arrivalDate),
+                  departureDate: day(rfp.departureDate),
+                  datesFlexible: rfp.datesFlexible,
+                  dateNotes: rfp.dateNotes,
+                  alternateDates: rfp.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
+                  peakRooms: rfp.peakRooms,
+                  historyMatching: rfp.historyMatching,
+                  reservationMethod: rfp.reservationMethod,
+                  commissionNotes: rfp.commissionNotes,
+                  fbMinimum: rfp.fbMinimum?.toString() ?? null,
+                  fbIncludes: rfp.fbIncludes,
+                  fbHistoricalSpend: rfp.fbHistoricalSpend?.toString() ?? null,
+                  amenities: rfp.amenities,
+                }}
+                choices={choices}
+                action={updateAction}
+              />
+              {rfp.sections.includes("blocks") && (
+                <RfpBlocksEditor
+                  blocks={rfp.hotelBlocks.map((b) => ({
+                    id: b.id,
+                    contractType: b.contractType,
+                    guestType: b.guestType,
+                    targetRate: b.targetRate?.toString() ?? null,
+                    notes: b.notes,
+                    nights: b.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rooms: n.rooms })),
+                  }))}
+                  arrival={arrival}
+                  departure={departure}
+                  peakRooms={rfp.peakRooms}
+                  roomTypes={choices.roomTypes}
+                  guestTypes={choices.guestTypes}
+                  series={choices.series}
+                  defaultSeriesId={event.seriesId ?? null}
+                  save={saveBlocksAction}
+                  fill={fillAction}
+                />
+              )}
+              {rfp.sections.includes("meetingSpace") && (
+                <RfpSpaceEditor
+                  kind="MEETING"
+                  resource="HOTELS"
+                  rows={spaceRows("MEETING")}
+                  defaultDay={arrival}
+                  types={choices.functionTypes}
+                  setupTypes={choices.setupTypes}
+                  loadCandidates={spaceCandidatesAction}
+                  save={saveMeetingAction}
+                />
+              )}
+              {rfp.sections.includes("fb") && (
+                <RfpSpaceEditor
+                  kind="FB"
+                  resource="HOTELS"
+                  rows={spaceRows("FB")}
+                  defaultDay={arrival}
+                  types={choices.mealTypes}
+                  setupTypes={choices.setupTypes}
+                  loadCandidates={spaceCandidatesAction}
+                  save={saveFbAction}
+                />
+              )}
+              {rfp.sections.includes("concessions") && (
+                <RfpConcessionsEditor
+                  resource="HOTELS"
+                  concessions={rfp.concessions.map((c) => ({ id: c.id, label: c.label, value: c.value, required: c.required }))}
+                  options={choices.concessions}
+                  save={saveConcessionsAction}
+                />
+              )}
+            </>
           )}
         </div>
         <div className="space-y-6 min-w-0">

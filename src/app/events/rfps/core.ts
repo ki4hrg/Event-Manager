@@ -241,25 +241,36 @@ async function validBlocks(eventId: string, blocks: RfpBlockArgs[]) {
   });
 }
 
+// The saved id of each row passed to a save*Core, in the order given; null
+// for a blank row that was dropped. An autosaving editor sends these back so
+// its next save updates the rows instead of creating them again.
+function alignIds<T>(given: T[], kept: (row: T) => boolean, saved: string[]): (string | null)[] {
+  let i = 0;
+  return given.map((row) => (kept(row) ? saved[i++] : null));
+}
+
 export async function saveRfpBlocksCore(id: string, eventId: string, blocks: RfpBlockArgs[], userId: string) {
   await authorizeRfp(id, eventId, "WRITE", userId);
   const rows = await validBlocks(eventId, blocks);
   const existing = new Set((await prisma.rfpHotelBlock.findMany({ where: { rfpId: id }, select: { id: true } })).map((b) => b.id));
   const kept = rows.flatMap((b) => (b.id && existing.has(b.id) ? [b.id] : []));
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     // Blocks are updated in place so proposals answering them stay linked; a
     // removed block's proposals keep their RFP link and lose the block (SetNull).
     await tx.rfpHotelBlock.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
+    const saved: string[] = [];
     for (let i = 0; i < rows.length; i++) {
       const { id: blockId, nights, ...data } = rows[i];
       if (blockId && existing.has(blockId)) {
         await tx.rfpHotelBlockNight.deleteMany({ where: { blockId } });
         await tx.rfpHotelBlock.update({ where: { id: blockId, rfpId: id }, data: { ...data, sortOrder: i, nights: { create: nights } } });
+        saved.push(blockId);
       } else {
-        await tx.rfpHotelBlock.create({ data: { ...data, rfpId: id, sortOrder: i, nights: { create: nights } } });
+        saved.push((await tx.rfpHotelBlock.create({ data: { ...data, rfpId: id, sortOrder: i, nights: { create: nights } }, select: { id: true } })).id);
       }
     }
     await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
+    return saved;
   });
 }
 
@@ -280,15 +291,20 @@ export async function saveRfpConcessionsCore(id: string, eventId: string, conces
   const rows = given.map((c, i) => ({ id: c.id ?? null, label: labels[i], value: c.value?.trim() || null, required: c.required, sortOrder: i }));
   const existing = new Set(current.map((c) => c.id));
   const kept = rows.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
-  await prisma.$transaction(async (tx) => {
+  const saved = await prisma.$transaction(async (tx) => {
     // A removed concession takes the hotels' answers to it along (cascade).
     await tx.rfpConcession.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
+    const out: string[] = [];
     for (const { id: concessionId, ...data } of rows) {
-      if (concessionId && existing.has(concessionId)) await tx.rfpConcession.update({ where: { id: concessionId, rfpId: id }, data });
-      else await tx.rfpConcession.create({ data: { ...data, rfpId: id } });
+      if (concessionId && existing.has(concessionId)) {
+        await tx.rfpConcession.update({ where: { id: concessionId, rfpId: id }, data });
+        out.push(concessionId);
+      } else out.push((await tx.rfpConcession.create({ data: { ...data, rfpId: id }, select: { id: true } })).id);
     }
     await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
+    return out;
   });
+  return alignIds(concessions, (c) => !!c.label.trim(), saved);
 }
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -343,14 +359,19 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
   const scope = { rfpId: id, ...(kind ? { kind } : {}) };
   const existing = new Set((await prisma.rfpSpaceRequest.findMany({ where: scope, select: { id: true } })).map((r) => r.id));
   const kept = data.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
-  await prisma.$transaction(async (tx) => {
+  const saved = await prisma.$transaction(async (tx) => {
     await tx.rfpSpaceRequest.deleteMany({ where: { ...scope, id: { notIn: kept } } });
+    const out: string[] = [];
     for (const { id: rowId, ...row } of data) {
-      if (rowId && existing.has(rowId)) await tx.rfpSpaceRequest.update({ where: { id: rowId, rfpId: id }, data: row });
-      else await tx.rfpSpaceRequest.create({ data: { ...row, rfpId: id } });
+      if (rowId && existing.has(rowId)) {
+        await tx.rfpSpaceRequest.update({ where: { id: rowId, rfpId: id }, data: row });
+        out.push(rowId);
+      } else out.push((await tx.rfpSpaceRequest.create({ data: { ...row, rfpId: id }, select: { id: true } })).id);
     }
     await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
+    return out;
   });
+  return alignIds(rows, (r) => !!r.name.trim(), saved);
 }
 
 // Replaces a vendor RFP's line items, updating kept ones in place by id so
@@ -417,15 +438,20 @@ export async function saveRfpLineItemsCore(id: string, eventId: string, rows: Rf
     });
   const existing = new Set((await prisma.rfpLineItem.findMany({ where: { rfpId: id }, select: { id: true } })).map((r) => r.id));
   const kept = data.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
-  await prisma.$transaction(async (tx) => {
+  const saved = await prisma.$transaction(async (tx) => {
     // A removed line's quote answers keep their price and lose the link (SetNull).
     await tx.rfpLineItem.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
+    const out: string[] = [];
     for (const { id: rowId, ...row } of data) {
-      if (rowId && existing.has(rowId)) await tx.rfpLineItem.update({ where: { id: rowId, rfpId: id }, data: row });
-      else await tx.rfpLineItem.create({ data: { ...row, rfpId: id } });
+      if (rowId && existing.has(rowId)) {
+        await tx.rfpLineItem.update({ where: { id: rowId, rfpId: id }, data: row });
+        out.push(rowId);
+      } else out.push((await tx.rfpLineItem.create({ data: { ...row, rfpId: id }, select: { id: true } })).id);
     }
     await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
+    return out;
   });
+  return alignIds(rows, (r) => !!r.description.trim(), saved);
 }
 
 // Support schedule types (set-up / tear-down): a line item's day and times

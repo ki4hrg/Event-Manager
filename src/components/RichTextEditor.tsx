@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState, useEffect } from "react";
+import { startTransition, useState, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
@@ -8,10 +8,16 @@ type RichTextEditorProps = {
   name: string;
   defaultValue?: string;
   placeholder?: string;
+  // Typing only — not the reset when defaultValue changes.
+  onChange?: (html: string) => void;
 };
 
-export function RichTextEditor({ name, defaultValue = "", placeholder }: RichTextEditorProps) {
+export function RichTextEditor({ name, defaultValue = "", placeholder, onChange }: RichTextEditorProps) {
   const [html, setHtml] = useState(defaultValue);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -19,6 +25,7 @@ export function RichTextEditor({ name, defaultValue = "", placeholder }: RichTex
     content: defaultValue,
     onUpdate: ({ editor }) => {
       setHtml(editor.getHTML());
+      onChangeRef.current?.(editor.getHTML());
     },
     editorProps: {
       attributes: {
@@ -30,7 +37,7 @@ export function RichTextEditor({ name, defaultValue = "", placeholder }: RichTex
 
   useEffect(() => {
     if (editor && defaultValue !== editor.getHTML()) {
-      editor.commands.setContent(defaultValue || "");
+      editor.commands.setContent(defaultValue || "", { emitUpdate: false });
       startTransition(() => setHtml(defaultValue || ""));
     }
   }, [defaultValue, editor]);

@@ -22,6 +22,7 @@ import {
   addRfpVendorRecipients,
   deleteRfp,
   getRfp,
+  getRfpDocument,
   getRfpFormChoices,
   getRfpLineItemCandidates,
   getRfpVendorChoices,
@@ -34,23 +35,34 @@ import {
 } from "../../../rfps/actions";
 import { IssueRfpButton } from "../../../rfps/IssueRfpButton";
 import { RfpConcessionsEditor } from "../../../rfps/RfpConcessionsEditor";
+import { RfpDocumentView } from "../../../rfps/RfpDocumentView";
 import { RfpForm } from "../../../rfps/RfpForm";
 import { RfpLineItemsEditor } from "../../../rfps/RfpLineItemsEditor";
+import { RfpTabs } from "../../../rfps/RfpTabs";
 import { VendorRfpRecipients } from "../../../rfps/VendorRfpRecipients";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "RFP" };
 
-// Each card is keyed on its own saved data, so saving one remounts only it.
-const contentKey = (data: unknown) => JSON.stringify(data);
-// Sibling cards can hold equal data (two empty lists): prefix with the card.
-const cardKey = (card: string, data: unknown) => `${card}:${contentKey(data)}`;
-
-// A vendor RFP (AV, catering, print, other services). Hotel RFPs live under Hotels.
-export default async function VendorRfpPage({ params }: { params: Promise<{ id: string; rfpId: string }> }) {
+// A vendor RFP (AV, catering, print, other services). Hotel RFPs live under
+// Hotels. The cards autosave and aren't keyed on their data: a remount after
+// each save would drop the field being typed in.
+export default async function VendorRfpPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; rfpId: string }>;
+  searchParams: Promise<{ view?: string }>;
+}) {
   const { id: eventId, rfpId } = await params;
-  const [event, rfp, fileTypeOptions] = await Promise.all([getEvent(eventId), getRfp(rfpId, eventId), getOptions("file_type")]);
+  const preview = (await searchParams).view === "preview";
+  const [event, rfp, fileTypeOptions, doc] = await Promise.all([
+    getEvent(eventId),
+    getRfp(rfpId, eventId),
+    getOptions("file_type"),
+    preview ? getRfpDocument(rfpId, eventId) : null,
+  ]);
   if (!event || !rfp || rfp.kind === "HOTEL") notFound();
   const kind = rfp.kind;
   const resource = resourceForKind(kind);
@@ -78,7 +90,7 @@ export default async function VendorRfpPage({ params }: { params: Promise<{ id: 
   };
   const saveLinesAction = async (rows: RfpLineItemArgs[]) => {
     "use server";
-    await saveRfpLineItems(rfpId, eventId, rows);
+    return saveRfpLineItems(rfpId, eventId, rows);
   };
   const candidatesAction = async () => {
     "use server";
@@ -86,7 +98,7 @@ export default async function VendorRfpPage({ params }: { params: Promise<{ id: 
   };
   const saveTermsAction = async (terms: RfpConcessionArgs[]) => {
     "use server";
-    await saveRfpConcessions(rfpId, eventId, terms);
+    return saveRfpConcessions(rfpId, eventId, terms);
   };
   const addRecipientsAction = async (vendorIds: string[]) => {
     "use server";
@@ -146,64 +158,68 @@ export default async function VendorRfpPage({ params }: { params: Promise<{ id: 
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0 space-y-6">
-          <RfpForm
-            key={contentKey([rfp.title, rfp.status, rfp.service, rfp.sections, rfp.contactId, rfp.introduction, rfp.requirements, rfp.arrivalDate, rfp.departureDate, rfp.datesFlexible, rfp.dateNotes, rfp.alternateDates, rfp.decisionMakerId, rfp.decisionMaker, rfp.responseDue, rfp.decisionBy, rfp.siteVisitBy])}
-            kind={kind}
-            resource={resource}
-            values={{
-              title: rfp.title,
-              status: rfp.status,
-              service: rfp.service,
-              responseDue: day(rfp.responseDue),
-              decisionBy: day(rfp.decisionBy),
-              siteVisitBy: day(rfp.siteVisitBy),
-              decisionMakerId: rfp.decisionMakerId,
-              decisionMakerName: rfp.decisionMakerContact ? `${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim() : null,
-              decisionMaker: rfp.decisionMaker,
-              regions: [],
-              areas: [],
-              eventScope: { regions: [], areas: [] },
-              sections: rfp.sections,
-              introduction: rfp.introduction,
-              requirements: rfp.requirements,
-              contactId: rfp.contactId,
-              contactName: rfp.contact ? `${rfp.contact.firstName} ${rfp.contact.lastName}`.trim() : null,
-              arrivalDate: day(rfp.arrivalDate),
-              departureDate: day(rfp.departureDate),
-              datesFlexible: rfp.datesFlexible,
-              dateNotes: rfp.dateNotes,
-              alternateDates: rfp.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
-              peakRooms: null,
-              historyMatching: false,
-              reservationMethod: null,
-              commissionNotes: null,
-              fbMinimum: null,
-              fbIncludes: [],
-              fbHistoricalSpend: null,
-              amenities: [],
-            }}
-            choices={choices}
-            action={updateAction}
-          />
-          {rfp.sections.includes("lineItems") && (
-            <RfpLineItemsEditor
-              key={cardKey("lineRows", lineRows)}
-              resource={resource}
-              rows={lineRows}
-              source={ORDER_SOURCE[kind]}
-              loadCandidates={candidatesAction}
-              save={saveLinesAction}
-            />
-          )}
-          {rfp.sections.includes("concessions") && (
-            <RfpConcessionsEditor
-              key={cardKey("concessions", rfp.concessions)}
-              terms
-              resource={resource}
-              concessions={rfp.concessions.map((c) => ({ id: c.id, label: c.label, value: c.value, required: c.required }))}
-              options={choices.terms}
-              save={saveTermsAction}
-            />
+          <RfpTabs base={base} preview={preview} />
+          {doc ? (
+            <RfpDocumentView doc={doc} />
+          ) : (
+            <>
+              <RfpForm
+                kind={kind}
+                resource={resource}
+                values={{
+                  title: rfp.title,
+                  status: rfp.status,
+                  service: rfp.service,
+                  responseDue: day(rfp.responseDue),
+                  decisionBy: day(rfp.decisionBy),
+                  siteVisitBy: day(rfp.siteVisitBy),
+                  decisionMakerId: rfp.decisionMakerId,
+                  decisionMakerName: rfp.decisionMakerContact ? `${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim() : null,
+                  decisionMaker: rfp.decisionMaker,
+                  regions: [],
+                  areas: [],
+                  eventScope: { regions: [], areas: [] },
+                  sections: rfp.sections,
+                  introduction: rfp.introduction,
+                  requirements: rfp.requirements,
+                  contactId: rfp.contactId,
+                  contactName: rfp.contact ? `${rfp.contact.firstName} ${rfp.contact.lastName}`.trim() : null,
+                  arrivalDate: day(rfp.arrivalDate),
+                  departureDate: day(rfp.departureDate),
+                  datesFlexible: rfp.datesFlexible,
+                  dateNotes: rfp.dateNotes,
+                  alternateDates: rfp.alternateDates.map((a) => ({ startDate: dateKey(a.startDate), endDate: dateKey(a.endDate) })),
+                  peakRooms: null,
+                  historyMatching: false,
+                  reservationMethod: null,
+                  commissionNotes: null,
+                  fbMinimum: null,
+                  fbIncludes: [],
+                  fbHistoricalSpend: null,
+                  amenities: [],
+                }}
+                choices={choices}
+                action={updateAction}
+              />
+              {rfp.sections.includes("lineItems") && (
+                <RfpLineItemsEditor
+                  resource={resource}
+                  rows={lineRows}
+                  source={ORDER_SOURCE[kind]}
+                  loadCandidates={candidatesAction}
+                  save={saveLinesAction}
+                />
+              )}
+              {rfp.sections.includes("concessions") && (
+                <RfpConcessionsEditor
+                  terms
+                  resource={resource}
+                  concessions={rfp.concessions.map((c) => ({ id: c.id, label: c.label, value: c.value, required: c.required }))}
+                  options={choices.terms}
+                  save={saveTermsAction}
+                />
+              )}
+            </>
           )}
         </div>
         <div className="space-y-6 min-w-0">

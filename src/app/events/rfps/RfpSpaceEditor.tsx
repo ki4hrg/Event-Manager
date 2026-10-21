@@ -1,13 +1,14 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { Fragment, useRef, useState, useTransition } from "react";
 import type { PermissionResource, RfpSpaceKind } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { DateInput } from "@/components/ui/DateInput";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight } from "@/lib/hotels";
 import { DAY_TBD, formatClockRange, sortSpaceRows, type SpaceRow } from "@/lib/rfp/space";
+import { useAutosave } from "@/lib/useAutosave";
+import { AutosaveStatus } from "./AutosaveStatus";
 import type { RfpSpaceArgs } from "./core";
 
 // One kind of the RFP's function-space rows (APEX function grid), grouped by
@@ -178,26 +179,30 @@ export function RfpSpaceEditor({
   types: string[];
   setupTypes: string[];
   loadCandidates: () => Promise<SpaceRow[]>;
-  save: (rows: RfpSpaceArgs[]) => Promise<void>;
+  save: (rows: RfpSpaceArgs[]) => Promise<(string | null)[]>;
 }) {
-  const router = useRouter();
   const canWrite = useCanWrite(resource);
   const copy = COPY[kind];
   const meeting = kind === "MEETING";
-  const [pending, startTransition] = useTransition();
-  const [dirty, setDirty] = useState(false);
   const [candidates, setCandidates] = useState<SpaceRow[] | null>(null);
   const [loading, startLoading] = useTransition();
   const [nextKey, setNextKey] = useState(initial.length);
   // Rows keep their place while being edited — re-sorting on every change
   // would move (and remount) the row under the cursor, closing an open date
-  // picker. They're sorted on load and when saved.
+  // picker. They're sorted on load, and saved sorted.
   const [rows, setRows] = useState<Row[]>(() => sortSpaceRows(initial).map((r, i) => ({ ...r, key: i })));
+  // Saved ids by row key: a row created by one save is updated by the next.
+  const ids = useRef(new Map(rows.flatMap((r) => (r.id ? [[r.key, r.id] as const] : []))));
+  const status = useAutosave(rows, async (sent) => {
+    const sorted = sortSpaceRows(sent);
+    const saved = await save(sorted.map(({ key, ...r }) => ({ ...r, id: ids.current.get(key) ?? null })));
+    sorted.forEach((r, i) => {
+      const id = saved[i];
+      if (id) ids.current.set(r.key, id);
+    });
+  });
 
-  const update = (next: Row[]) => {
-    setRows(next);
-    setDirty(true);
-  };
+  const update = (next: Row[]) => setRows(next);
   const set = (key: number, patch: Partial<Row>) => update(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const append = (added: SpaceRow[]) => {
     update([...rows, ...added.map((r, i) => ({ ...r, key: nextKey + i, id: null }))]);
@@ -220,17 +225,14 @@ export function RfpSpaceEditor({
     hold24: false,
     room: null,
   };
-  const onSave = () =>
-    startTransition(async () => {
-      await save(sortSpaceRows(rows).map(({ key: _key, ...r }) => r));
-      setDirty(false);
-      router.refresh();
-    });
   const int = (v: string) => (v === "" ? null : parseInt(v));
 
   return (
     <div className={`${cardClass} space-y-4`}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">{copy.title}</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">{copy.title}</h2>
+        <AutosaveStatus {...status} />
+      </div>
       {rows.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">{copy.empty}</p>}
       <fieldset disabled={!canWrite} className="space-y-2">
         {rows.map((r, i) => (
@@ -311,9 +313,6 @@ export function RfpSpaceEditor({
       {canWrite && candidates && <Picker kind={kind} rows={rows} candidates={candidates} onAdd={append} onClose={() => setCandidates(null)} />}
       {canWrite && (
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={onSave} disabled={pending || !dirty} className={`${btnPrimary} disabled:opacity-50`}>
-            {pending ? "Saving..." : `Save ${copy.title.toLowerCase()}`}
-          </button>
           <button type="button" onClick={() => append([blank])} className={btnSecondary}>
             {copy.add}
           </button>

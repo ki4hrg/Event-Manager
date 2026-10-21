@@ -1,7 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { Fragment, useRef, useState, useTransition } from "react";
 import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { DateInput } from "@/components/ui/DateInput";
@@ -9,6 +8,8 @@ import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight } from "@/lib/hotels";
 import { formatClockRange } from "@/lib/rfp/space";
 import type { LineItemRow } from "@/lib/rfp/lineItems";
+import { useAutosave } from "@/lib/useAutosave";
+import { AutosaveStatus } from "./AutosaveStatus";
 import type { RfpLineItemArgs } from "./core";
 
 // A vendor RFP's line items: copied from the event's orders of the RFP's
@@ -135,22 +136,24 @@ export function RfpLineItemsEditor({
   // "AV orders", "catering orders"…; null when the kind has none to copy from.
   source: string | null;
   loadCandidates: () => Promise<LineItemRow[]>;
-  save: (rows: RfpLineItemArgs[]) => Promise<void>;
+  save: (rows: RfpLineItemArgs[]) => Promise<(string | null)[]>;
 }) {
-  const router = useRouter();
   const canWrite = useCanWrite(resource);
-  const [pending, startTransition] = useTransition();
-  const [dirty, setDirty] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<LineItemRow[] | null>(null);
   const [loading, startLoading] = useTransition();
   const [nextKey, setNextKey] = useState(initial.length);
   const [rows, setRows] = useState<Row[]>(() => initial.map((r, i) => ({ ...r, key: i })));
+  // Saved ids by row key: a row created by one save is updated by the next.
+  const ids = useRef(new Map(rows.flatMap((r) => (r.id ? [[r.key, r.id] as const] : []))));
+  const status = useAutosave(rows, async (sent) => {
+    const saved = await save(sent.map(({ key, ...r }) => ({ ...r, id: ids.current.get(key) ?? null })));
+    sent.forEach((r, i) => {
+      const id = saved[i];
+      if (id) ids.current.set(r.key, id);
+    });
+  });
 
-  const update = (next: Row[]) => {
-    setRows(next);
-    setDirty(true);
-  };
+  const update = (next: Row[]) => setRows(next);
   const set = (key: number, patch: Partial<Row>) => update(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const append = (added: LineItemRow[]) => {
     update([...rows, ...added.map((r, i) => ({ ...r, key: nextKey + i, id: null }))]);
@@ -181,22 +184,14 @@ export function RfpLineItemsEditor({
     printItemId: null,
     cateringLineItemId: null,
   };
-  const onSave = () =>
-    startTransition(async () => {
-      setError(null);
-      try {
-        await save(rows.map(({ key: _key, ...r }) => r));
-        setDirty(false);
-        router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't save");
-      }
-    });
   const int = (v: string) => (v === "" ? null : parseInt(v));
 
   return (
     <div className={`${cardClass} space-y-4`}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Line items</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Line items</h2>
+        <AutosaveStatus {...status} />
+      </div>
       {rows.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No line items yet.</p>}
       <fieldset disabled={!canWrite} className="space-y-2">
         {rows.map((r, i) => (
@@ -263,9 +258,6 @@ export function RfpLineItemsEditor({
       {candidates && source && <Picker rows={rows} candidates={candidates} source={source} onAdd={append} onClose={() => setCandidates(null)} />}
       {canWrite && (
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={onSave} disabled={pending || !dirty} className={`${btnPrimary} disabled:opacity-50`}>
-            {pending ? "Saving..." : "Save line items"}
-          </button>
           <button type="button" onClick={() => append([blank])} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
             + Line item
           </button>
@@ -281,7 +273,6 @@ export function RfpLineItemsEditor({
           )}
         </div>
       )}
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }

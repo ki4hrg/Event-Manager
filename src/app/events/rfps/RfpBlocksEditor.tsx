@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState, useTransition } from "react";
 import type { HotelContractType } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
-import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { btnSecondary } from "@/lib/buttonStyles";
 import { addDays, CONTRACT_TYPES } from "@/lib/hotels";
 import type { PatternBasis } from "@/lib/hotelPattern";
+import { useAutosave } from "@/lib/useAutosave";
 import { emptyGridState, gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "../hotels/RoomGridEditor";
+import { AutosaveStatus } from "./AutosaveStatus";
 import type { RfpBlockArgs, RfpFillArgs } from "./core";
 
 export type RfpBlockValues = {
@@ -23,7 +24,6 @@ type FillResult = { events: number; nights: { night: string; rooms: number }[] }
 
 type BlockState = {
   id: number;
-  savedId: string | null;
   contractType: HotelContractType;
   guestType: string;
   targetRate: string;
@@ -178,13 +178,12 @@ export function RfpBlocksEditor({
   guestTypes: string[];
   series: { id: string; name: string }[];
   defaultSeriesId: string | null;
-  save: (blocks: RfpBlockArgs[]) => Promise<void>;
+  save: (blocks: RfpBlockArgs[]) => Promise<(string | null)[]>;
   fill: (args: RfpFillArgs) => Promise<FillResult>;
 }) {
-  const router = useRouter();
   const canWrite = useCanWrite("HOTELS");
-  const [pending, startTransition] = useTransition();
-  const [dirty, setDirty] = useState(false);
+  // Saved ids by local block id: a block created by one save is updated by the next.
+  const ids = useRef(new Map(initial.map((b, i) => [i, b.id] as const)));
   const [nextId, setNextId] = useState(initial.length);
   // A block's nights start at the RFP's, widened to any it already requests.
   const lastNight = departure > arrival ? addDays(departure, -1) : arrival;
@@ -192,7 +191,6 @@ export function RfpBlocksEditor({
   const [blocks, setBlocks] = useState<BlockState[]>(() =>
     initial.map((b, i) => ({
       id: i,
-      savedId: b.id,
       contractType: b.contractType,
       guestType: b.guestType ?? "",
       targetRate: b.targetRate ?? "",
@@ -204,14 +202,12 @@ export function RfpBlocksEditor({
 
   const change = (id: number, patch: Partial<BlockState>) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
-    setDirty(true);
   };
   const addBlock = () => {
     setBlocks((prev) => [
       ...prev,
       {
         id: nextId,
-        savedId: null,
         contractType: "CONTRACT",
         guestType: guestTypes[0] ?? "",
         targetRate: "",
@@ -221,7 +217,6 @@ export function RfpBlocksEditor({
       },
     ]);
     setNextId((n) => n + 1);
-    setDirty(true);
   };
   // A new day starts at the peak rooms.
   const addDay = (b: BlockState, edge: GridEdge) => {
@@ -241,13 +236,14 @@ export function RfpBlocksEditor({
     });
   };
   const over = blocks.some((b) => overNights(keysBetween(b.from, b.to), b.grid).length > 0);
-  const onSave = () =>
-    startTransition(async () => {
-      await save(
-        blocks.map((b) => {
+  const status = useAutosave(
+    blocks,
+    async (sent) => {
+      const saved = await save(
+        sent.map((b) => {
           const keys = keysBetween(b.from, b.to);
           return {
-            id: b.savedId,
+            id: ids.current.get(b.id) ?? null,
             contractType: b.contractType,
             guestType: b.guestType || null,
             targetRate: b.targetRate !== "" ? Number(b.targetRate) : null,
@@ -256,13 +252,20 @@ export function RfpBlocksEditor({
           };
         }),
       );
-      setDirty(false);
-      router.refresh();
-    });
+      sent.forEach((b, i) => {
+        const id = saved[i];
+        if (id) ids.current.set(b.id, id);
+      });
+    },
+    { invalid: over ? "room types add up to more than a night's total" : null },
+  );
 
   return (
     <div className={`${cardClass} space-y-4`}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Room blocks</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Room blocks</h2>
+        <AutosaveStatus {...status} />
+      </div>
       <fieldset disabled={!canWrite} className="space-y-6">
         {blocks.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No blocks requested.</p>}
         {blocks.map((b) => (
@@ -342,10 +345,7 @@ export function RfpBlocksEditor({
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    setBlocks((prev) => prev.filter((x) => x.id !== b.id));
-                    setDirty(true);
-                  }}
+                  onClick={() => setBlocks((prev) => prev.filter((x) => x.id !== b.id))}
                   className="text-sm text-red-600 dark:text-red-400 hover:underline"
                 >
                   Remove block
@@ -357,9 +357,6 @@ export function RfpBlocksEditor({
       </fieldset>
       {canWrite && (
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={onSave} disabled={pending || !dirty || over} className={`${btnPrimary} disabled:opacity-50`}>
-            {pending ? "Saving..." : "Save blocks"}
-          </button>
           <button type="button" onClick={addBlock} className={btnSecondary}>
             Add block
           </button>
