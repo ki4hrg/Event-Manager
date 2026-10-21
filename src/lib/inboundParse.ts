@@ -41,6 +41,22 @@ export type ProposalOffer = {
   amenities: string[];
   concessions: { concessionId: string; offered: string | null; met: ConcessionMetValue | null }[];
   hotelNotes: string | null;
+  // Who sent the offer, as the offer gives it: for adding a hotel the org
+  // doesn't have yet.
+  hotel: OfferHotel;
+};
+
+export type OfferHotel = {
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  contactFirstName: string | null;
+  contactLastName: string | null;
+  contactTitle: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
 };
 
 export type ProposalDecline = { rfpId: string | null; venueId: string | null; reason: string | null };
@@ -161,25 +177,61 @@ const offerSchema = object({
     items: object({ concessionId: str, offered: str, met: { type: "string", enum: ["", "MET", "PARTIAL", "NOT_MET"] } }),
   },
   hotelNotes: str,
+  hotel: object({
+    name: str,
+    address: str,
+    city: str,
+    state: str,
+    zip: str,
+    contactFirstName: str,
+    contactLastName: str,
+    contactTitle: str,
+    contactEmail: str,
+    contactPhone: str,
+  }),
 });
 
-const OUTPUT_SCHEMA = object({
+// One schema covering every kind compiles to a grammar the API refuses as too
+// large, so a read is two calls: classify (kind, summary, notes), then fill in
+// only that kind's fields.
+const CLASSIFY_SCHEMA = object({
   kind: { type: "string", enum: [...INBOUND_KINDS] },
-  blockId: str,
   summary: str,
   notes: str,
-  sheet: object({
-    attachment: { type: "integer" },
-    headerRow: { type: "integer" },
-    columns: object(Object.fromEntries(PICKUP_FIELD_KEYS.map((k) => [k, str]))),
-    cancelledStatuses: { type: "array", items: str },
-  }),
-  roomTypes: { type: "array", items: object({ raw: str, roomType: str }) },
-  guests: { type: "array", items: guestSchema },
-  counts: { type: "array", items: object({ night: str, roomType: str, rooms: { type: "integer" } }) },
-  offer: offerSchema,
-  decline: object({ rfpId: str, venueId: str, reason: str }),
 });
+
+const sheetSchema = object({
+  attachment: { type: "integer" },
+  headerRow: { type: "integer" },
+  columns: object(Object.fromEntries(PICKUP_FIELD_KEYS.map((k) => [k, str]))),
+  cancelledStatuses: { type: "array", items: str },
+});
+
+const DETAIL_SCHEMAS: Record<Exclude<InboundKind, "OTHER">, Record<string, unknown>> = {
+  PICKUP_GUESTS: object({
+    blockId: str,
+    sheet: sheetSchema,
+    roomTypes: { type: "array", items: object({ raw: str, roomType: str }) },
+    guests: { type: "array", items: guestSchema },
+  }),
+  PICKUP_COUNTS: object({
+    blockId: str,
+    counts: { type: "array", items: object({ night: str, roomType: str, rooms: { type: "integer" } }) },
+  }),
+  RFP_PROPOSAL: object({ offer: offerSchema }),
+  RFP_DECLINE: object({ decline: object({ rfpId: str, venueId: str, reason: str }) }),
+};
+
+// Every field of the wire format, empty: what a kind's detail call fills in.
+const EMPTY_WIRE = {
+  blockId: "",
+  sheet: { attachment: -1 },
+  roomTypes: [],
+  guests: [],
+  counts: [],
+  offer: null,
+  decline: null,
+};
 
 // "" → null, recursively.
 function emptyToNull(v: unknown): unknown {
@@ -224,7 +276,7 @@ Classify the message as one of:
 - RFP_DECLINE: a hotel saying it won't bid on, or can't host, an RFP.
 - OTHER: anything else.
 
-Text fields with nothing to say are "" (never null), and numbers that aren't given are -1. Lists that don't apply are empty. When there is no spreadsheet to map, set sheet.attachment to -1 and leave its other fields empty. Fill offer only for RFP_PROPOSAL and decline only for RFP_DECLINE; otherwise leave their fields "", -1 or empty.
+You'll be asked first for the kind, a summary and notes, then for the fields of that kind. Text fields with nothing to say are "" (never null), and numbers that aren't given are -1. Lists that don't apply are empty. When there is no spreadsheet to map, set sheet.attachment to -1 and leave its other fields empty.
 
 blockId (pickup kinds only): the hotel block the report is for, chosen from the candidate blocks by hotel name, group code and dates. "" when none fits or it's ambiguous; say why in notes.
 
@@ -245,6 +297,7 @@ For RFP_PROPOSAL, fill "offer":
 - amenities: those the hotel offers that match the org's amenity list exactly.
 - concessions: for each concession the RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
 - hotelNotes: anything else in the offer a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly.
+- hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
 
 For RFP_DECLINE, fill "decline": rfpId and venueId from the candidates (venueId should be one of that RFP's recipients), and the reason in a few words.
 
@@ -320,32 +373,53 @@ function buildContent(input: ParseInput): Anthropic.Beta.BetaContentBlockParam[]
 
 // ─── Call ────────────────────────────────────────────────────────────────────
 
-export async function parseInboundMessage(input: ParseInput): Promise<{ proposal: InboundProposal; model: string }> {
-  const apiKey = getAnthropicApiKey();
-  if (!apiKey) throw new ParseError("Parsing isn't configured");
-  const client = new Anthropic({ apiKey });
+async function callJson(
+  client: Anthropic,
+  content: Anthropic.Beta.BetaContentBlockParam[],
+  schema: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown>; model: string }> {
   // Long guest lists in a PDF make for long output, so stream.
   const stream = client.beta.messages.stream({
     model: PARSE_MODEL,
     max_tokens: 64000,
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
-    output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
+    output_config: { effort: "low", format: { type: "json_schema", schema } },
     system: SYSTEM,
-    messages: [{ role: "user", content: buildContent(input) }],
+    messages: [{ role: "user", content }],
   });
   const message = await stream.finalMessage();
   if (message.stop_reason === "refusal") throw new ParseError("Claude declined to read this message");
   if (message.stop_reason === "max_tokens") throw new ParseError("The message was too long to read in one pass");
   const text = message.content.find((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")?.text;
   if (!text) throw new ParseError("Claude returned no proposal");
-  let raw: InboundProposal;
   try {
-    raw = fromWire(JSON.parse(text));
+    return { data: JSON.parse(text) as Record<string, unknown>, model: message.model };
   } catch {
     throw new ParseError("Claude's proposal wasn't valid JSON");
   }
-  return { proposal: checkProposal(raw, input), model: message.model };
+}
+
+export async function parseInboundMessage(input: ParseInput): Promise<{ proposal: InboundProposal; model: string }> {
+  const apiKey = getAnthropicApiKey();
+  if (!apiKey) throw new ParseError("Parsing isn't configured");
+  const client = new Anthropic({ apiKey });
+  const content = buildContent(input);
+  const classified = await callJson(client, [...content, { type: "text", text: "First: the kind, summary and notes." }], CLASSIFY_SCHEMA);
+  const kind = classified.data.kind as InboundKind;
+  let detail: Record<string, unknown> = {};
+  let model = classified.model;
+  if (kind !== "OTHER" && kind in DETAIL_SCHEMAS) {
+    const second = await callJson(
+      client,
+      [...content, { type: "text", text: `This message is ${kind}. Now fill in the ${kind} fields.` }],
+      DETAIL_SCHEMAS[kind],
+    );
+    detail = second.data;
+    model = second.model;
+  }
+  const raw = fromWire({ ...EMPTY_WIRE, ...classified.data, ...detail, kind });
+  return { proposal: checkProposal(raw, input), model };
 }
 
 // The schema fixes the shape; this checks the references against what the
@@ -404,6 +478,18 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
     amenities: o.amenities.filter((a) => amenities.has(a)),
     concessions: o.concessions.filter((c) => concessionIds.has(c.concessionId)),
     hotelNotes: o.hotelNotes,
+    hotel: o.hotel ?? {
+      name: null,
+      address: null,
+      city: null,
+      state: null,
+      zip: null,
+      contactFirstName: null,
+      contactLastName: null,
+      contactTitle: null,
+      contactEmail: null,
+      contactPhone: null,
+    },
   };
 }
 

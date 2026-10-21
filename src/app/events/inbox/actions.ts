@@ -11,13 +11,14 @@ import { getUploadPath } from "@/lib/uploads";
 import { dateKey } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
-import type { InboundProposal } from "@/lib/inboundParse";
+import type { InboundProposal, OfferHotel } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { readProposal } from "@/app/events/hotels/proposalArgs";
 import { getProposalFormChoices } from "@/app/events/hotels/actions";
 import type { ProposalValues, ConcessionAnswer } from "@/app/events/hotels/ProposalForm";
 import {
+  createInboundHotelCore,
   applyInboundDeclineCore,
   applyInboundOfferCore,
   applyInboundPickupCore,
@@ -160,6 +161,13 @@ export async function applyInboundOffer(id: string, eventId: string, formData: F
   redirect(`/events/${eventId}/hotels/proposals/${proposalId}?success=Proposal created`);
 }
 
+export async function createInboundHotel(id: string, eventId: string, hotel: OfferHotel) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  await createInboundHotelCore(id, eventId, hotel, session.user.id);
+  revalidatePath(`/events/${eventId}/inbox/${id}`);
+  revalidatePath("/venues");
+}
+
 export async function applyInboundDecline(id: string, eventId: string, rfpId: string, venueId: string, reason: string | null) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   await applyInboundDeclineCore(id, eventId, rfpId, venueId, reason, session.user.id);
@@ -175,6 +183,13 @@ export async function getOfferReview(id: string, eventId: string) {
   const proposal = item?.proposal as InboundProposal | null;
   const offer = proposal?.kind === "RFP_PROPOSAL" ? proposal.offer : null;
   if (!offer) return null;
+  // Not matched to a candidate: an existing venue with the offer's hotel name
+  // is the one; otherwise the reviewer can add the hotel.
+  const byName =
+    !offer.venueId && offer.hotel?.name
+      ? await prisma.venue.findFirst({ where: { tenantId, name: { equals: offer.hotel.name.trim(), mode: "insensitive" } }, select: { id: true } })
+      : null;
+  const venueId = offer.venueId ?? byName?.id ?? null;
   const [choices, rfpBlock, existing] = await Promise.all([
     getProposalFormChoices(eventId),
     offer.rfpBlockId
@@ -183,16 +198,16 @@ export async function getOfferReview(id: string, eventId: string) {
           select: { id: true, contractType: true, guestType: true, rfp: { select: { concessions: { orderBy: { sortOrder: "asc" } } } } },
         })
       : null,
-    offer.venueId
+    venueId
       ? prisma.hotelProposal.findMany({
-          where: { eventId, venueId: offer.venueId },
+          where: { eventId, venueId },
           select: { id: true, revision: true, status: true },
         })
       : [],
   ]);
   const pending = choices.statuses.find((s) => s.group === "PENDING")?.label ?? choices.statuses[0]?.label ?? "";
   const draft: ProposalValues = {
-    venueId: offer.venueId ?? "",
+    venueId: venueId ?? "",
     status: pending,
     leadSource: null,
     contractType: rfpBlock?.contractType ?? null,
@@ -218,7 +233,14 @@ export async function getOfferReview(id: string, eventId: string) {
     offered: answers.get(c.id)?.offered ?? null,
     met: answers.get(c.id)?.met ?? null,
   }));
-  return { choices, draft, concessions, rfpBlock: rfpBlock ? { id: rfpBlock.id, contractType: rfpBlock.contractType, guestType: rfpBlock.guestType } : null, existing };
+  return {
+    choices,
+    draft,
+    concessions,
+    rfpBlock: rfpBlock ? { id: rfpBlock.id, contractType: rfpBlock.contractType, guestType: rfpBlock.guestType } : null,
+    existing,
+    newHotel: venueId ? null : (offer.hotel ?? null),
+  };
 }
 
 // RFPs a decline could be for, with the hotels each went to.

@@ -15,6 +15,7 @@ import {
   parseInboundMessage,
   ParseError,
   type InboundProposal,
+  type OfferHotel,
   type ParseAttachment,
   type ParseBlock,
   type ParseRfp,
@@ -23,6 +24,7 @@ import {
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { createHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
+import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
 import { EMAIL_SOURCE_FILE_TYPE, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
 
@@ -472,6 +474,46 @@ export async function applyInboundOfferCore(id: string, eventId: string, args: P
     return { appliedProposalId: proposal.id };
   });
   return proposalId;
+}
+
+// A hotel an offer came from that the org doesn't have yet: creates it as a
+// lodging venue with the offer's contact, and points the offer at it. A
+// venue with the same name is refused, so it gets picked instead.
+export async function createInboundHotelCore(id: string, eventId: string, hotel: OfferHotel, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const tenantId = await requireEventTenantId(eventId);
+  const item = await inboxItem(id, tenantId, eventId);
+  const proposal = item.proposal as InboundProposal | null;
+  if (item.status !== "PARSED" || proposal?.kind !== "RFP_PROPOSAL" || !proposal.offer) throw new Error("This message has no offer to add a hotel for");
+  const name = hotel.name?.trim();
+  if (!name) throw new Error("The hotel needs a name");
+  const same = await prisma.venue.findFirst({
+    where: { tenantId, name: { equals: name, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (same) throw new Error(`${name} is already in Venues; choose it in the proposal`);
+  const clean = (v: string | null) => v?.trim() || null;
+  const venue = await createVenueCore(
+    { name, address: clean(hotel.address), city: clean(hotel.city), state: clean(hotel.state), zip: clean(hotel.zip), country: null, notes: null, isLodging: true },
+    userId,
+    tenantId,
+  );
+  const first = clean(hotel.contactFirstName);
+  const last = clean(hotel.contactLastName);
+  if (first || last) {
+    const link = await createAndAddVenueContactCore(
+      { venueId: venue.id, firstName: first ?? "", lastName: last ?? "", email: clean(hotel.contactEmail), organization: name, role: clean(hotel.contactTitle) },
+      userId,
+      tenantId,
+    );
+    const phone = clean(hotel.contactPhone);
+    if (phone) await prisma.contact.update({ where: { id: link.contactId, tenantId }, data: { phone } });
+  }
+  await prisma.inboundEmail.update({
+    where: { id, tenantId },
+    data: { proposal: { ...proposal, offer: { ...proposal.offer, venueId: venue.id } } },
+  });
+  return venue;
 }
 
 // A hotel declining to bid: marks it on the RFP's recipient row, keeping when
