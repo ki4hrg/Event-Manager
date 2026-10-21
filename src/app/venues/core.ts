@@ -275,3 +275,23 @@ export async function createAndAddVenueContactCore(
   });
   return link;
 }
+
+// ---------------------------------------------------------------------------
+// Concessions (a lodging venue's standing offer to every group)
+
+export type VenueConcessionArgs = { label: string; value: string | null };
+
+// Replaces the hotel's concessions with this list, in order. Proposals keep
+// their own copies, so nothing else changes.
+export async function saveVenueConcessionsCore(venueId: string, concessions: VenueConcessionArgs[], userId: string, tenantId: string) {
+  await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  await assertVenueInTenant(venueId, tenantId);
+  const rows = concessions
+    .map((c) => ({ label: c.label.trim(), value: c.value?.trim() || null }))
+    .filter((c) => c.label);
+  await prisma.$transaction([
+    prisma.venueConcession.deleteMany({ where: { venueId } }),
+    prisma.venueConcession.createMany({ data: rows.map((c, i) => ({ ...c, venueId, sortOrder: i })) }),
+    prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } }),
+  ]);
+}

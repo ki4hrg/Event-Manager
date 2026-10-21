@@ -259,6 +259,7 @@ export async function getOfferReview(id: string, eventId: string) {
     draft,
     rfpChoices,
     rfpChoice,
+    offeredConcessions: offer.offeredConcessions ?? [],
     existing,
     newHotel: venueId ? null : (offer.hotel ?? null),
   };

@@ -26,7 +26,8 @@ export type CompareInput = {
     guaranteedRevenue: Dec;
     charges: { chargeType: string; amount: Dec; scope: HotelChargeScope | null }[];
     amenities: string[];
-    concessions: { concessionId: string; offered: string | null; met: ConcessionMet | null }[];
+    // Answers to requested concessions (concessionId), and ones offered unasked (label).
+    concessions: { concessionId: string | null; label: string | null; offered: string | null; met: ConcessionMet | null }[];
   }[];
 };
 
@@ -48,6 +49,7 @@ export type CompareOffer = {
   charges: string[];
   amenities: string[];
   concessions: Record<string, { met: ConcessionMet | null; offered: string | null }>;
+  alsoOffered: string[];
   met: { met: number; partial: number; notMet: number; requiredNotMet: number };
 };
 
@@ -85,7 +87,7 @@ function offer(p: CompareInput["proposals"][number], requested: Record<string, n
     const short = want - (rooms[night] ?? 0);
     if (short > 0) shortfall[night] = short;
   }
-  const answers = Object.fromEntries(p.concessions.map((c) => [c.concessionId, { met: c.met, offered: c.offered }]));
+  const answers = Object.fromEntries(p.concessions.flatMap((c) => (c.concessionId ? [[c.concessionId, { met: c.met, offered: c.offered }]] : [])));
   const metOf = (id: string) => answers[id]?.met ?? null;
   return {
     id: p.id,
@@ -106,6 +108,7 @@ function offer(p: CompareInput["proposals"][number], requested: Record<string, n
     ),
     amenities: p.amenities,
     concessions: answers,
+    alsoOffered: p.concessions.flatMap((c) => (c.label ? [[c.label, c.offered].filter(Boolean).join(": ")] : [])),
     met: {
       met: concessions.filter((c) => metOf(c.id) === "MET").length,
       partial: concessions.filter((c) => metOf(c.id) === "PARTIAL").length,
@@ -183,6 +186,7 @@ export function comparisonRows(g: CompareGroup, concessions: CompareInput["conce
         return { text: a ? [a.met ? MET_LABELS[a.met] : null, a.offered].filter(Boolean).join(" · ") || "—" : "—", short: a?.met === "NOT_MET" };
       }),
     ),
+    row("Also offered", "", (o) => ({ text: o.alsoOffered.join("\n") || "—" })),
     ...g.nights.map((night) =>
       row(formatNight(night), req ? String(req.byNight[night] ?? 0) : "", (o) => ({
         text: `${o.byNight[night] ?? 0}${o.shortfall[night] ? ` (−${o.shortfall[night]})` : ""}`,

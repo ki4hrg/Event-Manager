@@ -40,6 +40,9 @@ export type ProposalOffer = {
   guaranteedRevenue: number | null;
   amenities: string[];
   concessions: { concessionId: string; offered: string | null; met: ConcessionMetValue | null }[];
+  // Concessions the hotel offers that the RFP didn't ask for (all of them
+  // when it answers no RFP). Older reads have none.
+  offeredConcessions?: { label: string; offered: string | null }[];
   hotelNotes: string | null;
   // Who sent the offer, as the offer gives it: for adding a hotel the org
   // doesn't have yet.
@@ -120,6 +123,7 @@ export type ParseInput = {
   rfps: ParseRfp[];
   roomTypes: string[]; // the org's room type labels
   amenities: string[]; // the org's amenity labels
+  concessionLabels: string[]; // the org's concession labels
   attachments: ParseAttachment[];
 };
 
@@ -176,6 +180,7 @@ const offerSchema = object({
     type: "array",
     items: object({ concessionId: str, offered: str, met: { type: "string", enum: ["", "MET", "PARTIAL", "NOT_MET"] } }),
   },
+  offeredConcessions: { type: "array", items: object({ label: str, offered: str }) },
   hotelNotes: str,
   hotel: object({
     name: str,
@@ -294,8 +299,9 @@ For RFP_PROPOSAL, fill "offer":
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types when one fits, else "" for run of house / all types.
 - charges: other fees the hotel lists (resort fee, parking, deposits), with amount and scope when given.
 - allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee in dollars, if stated.
-- amenities: those the hotel offers that match the org's amenity list exactly.
+- amenities: features the property has (pool, fitness center, business center, restaurant) that match the org's amenity list exactly. Anything complimentary, discounted or negotiable (breakfast, Wi-Fi, parking, shuttle, upgrades, comp rooms, waived fees) is a concession, never an amenity.
 - concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
+- offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is one of the org's concession labels when one fits, else a few words of its own; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "".
 - hotelNotes: anything else in the offer a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly.
 - hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
 
@@ -340,6 +346,7 @@ function buildContent(input: ParseInput): Anthropic.Beta.BetaContentBlockParam[]
     "",
     `Org room types: ${input.roomTypes.join(", ") || "(none)"}`,
     `Org amenities: ${input.amenities.join(", ") || "(none)"}`,
+    `Org concessions: ${input.concessionLabels.join(", ") || "(none)"}`,
     "",
   ];
   input.attachments.forEach((a, i) => {
@@ -477,6 +484,13 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
     guaranteedRevenue: o.guaranteedRevenue,
     amenities: o.amenities.filter((a) => amenities.has(a)),
     concessions: o.concessions.filter((c) => concessionIds.has(c.concessionId)),
+    // Not ones the RFP asked for (those are answers), one per label.
+    offeredConcessions: (o.offeredConcessions ?? []).filter(
+      (c, i, all) =>
+        c.label?.trim() &&
+        !rfp?.concessions.some((r) => r.label.toLowerCase() === c.label.trim().toLowerCase()) &&
+        all.findIndex((x) => x.label?.trim().toLowerCase() === c.label.trim().toLowerCase()) === i,
+    ),
     hotelNotes: o.hotelNotes,
     hotel: o.hotel ?? {
       name: null,

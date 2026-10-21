@@ -397,7 +397,7 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
         block: { select: { id: true } },
         nights: { select: { night: true, rooms: true, rate: true } },
         charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
-        concessions: { select: { concessionId: true, offered: true, met: true } },
+        concessions: { select: { concessionId: true, label: true, offered: true, met: true }, orderBy: { sortOrder: "asc" } },
       },
     }),
   ]);

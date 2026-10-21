@@ -55,7 +55,7 @@ export async function getHotelProposal(id: string, eventId: string) {
       },
       block: { select: { id: true } },
       rfp: { select: { id: true, title: true, concessions: { orderBy: { sortOrder: "asc" } } } },
-      concessions: true,
+      concessions: { orderBy: { sortOrder: "asc" } },
       updatedBy: { select: { name: true, email: true } },
     },
   });
@@ -69,11 +69,18 @@ export async function getProposalFormChoices(eventId: string) {
   const [venues, options] = await Promise.all([
     prisma.venue.findMany({
       where: { tenantId },
-      select: { id: true, name: true, city: true, state: true, isLodging: true },
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        state: true,
+        isLodging: true,
+        concessions: { orderBy: { sortOrder: "asc" }, select: { label: true, value: true } },
+      },
       orderBy: { name: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_lead_source", "hotel_area"] } },
+      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_lead_source", "hotel_area", "rfp_concession"] } },
       select: { category: true, label: true, group: true, color: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -84,7 +91,9 @@ export async function getProposalFormChoices(eventId: string) {
       id: v.id,
       label: [v.name, [v.city, v.state].filter(Boolean).join(", ")].filter(Boolean).join(" — "),
       isLodging: v.isLodging,
+      concessions: v.concessions,
     })),
+    concessionOptions: of("rfp_concession").map((o) => ({ label: o.label, group: o.group })),
     statuses: of("proposal_status").map((o) => ({ label: o.label, group: o.group, color: o.color })),
     roomTypes: of("hotel_room_type").map((o) => o.label),
     guestTypes: of("hotel_guest_type").map((o) => o.label),

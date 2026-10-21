@@ -1,5 +1,5 @@
 import { parseContractTypes } from "@/lib/hotels";
-import type { ProposalChargeArgs, ProposalConcessionArgs, ProposalNightArgs, ProposalWriteArgs } from "./core";
+import type { ProposalChargeArgs, ProposalConcessionArgs, ProposalNightArgs, ProposalOfferedConcessionArgs, ProposalWriteArgs } from "./core";
 
 // ProposalForm's FormData → the proposal cores' args. Plain module: the
 // hotels actions and the inbox (applying a proposal read from email) share it.
@@ -39,6 +39,7 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     charges: readJson<ProposalChargeArgs>(formData, "charges"),
     rfpBlockId: str("rfpBlockId"),
     concessions: formData.has("concessions") ? readJson<ProposalConcessionArgs>(formData, "concessions") : undefined,
+    offeredConcessions: formData.has("offeredConcessions") ? readJson<ProposalOfferedConcessionArgs>(formData, "offeredConcessions") : undefined,
   };
 }
 

@@ -181,6 +181,7 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
                   : undefined
               }
               concessions={offer.rfpChoice?.concessions ?? []}
+              offeredConcessions={offer.offeredConcessions}
               newHotel={canAddVenue ? offer.newHotel : null}
               action={applyOffer}
               cancelHref={itemHref}

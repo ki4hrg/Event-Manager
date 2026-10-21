@@ -18,6 +18,7 @@ import {
   createAndAddVenueContactCore,
   type VenueWriteArgs,
   type RoomWriteArgs,
+  saveVenueConcessionsCore,
 } from "@/app/venues/core";
 import type { McpToolDefinition } from "./types";
 import { requireString, optionalString, partialString } from "./types";
@@ -84,7 +85,7 @@ export const venueTools: McpToolDefinition[] = [
   },
   {
     name: "get_venue",
-    description: "Fetch a single venue with rooms, room groups, contacts, and linked vendor.",
+    description: "Fetch a single venue with rooms, room groups, contacts, linked vendor, and (for a hotel) its standing concessions.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" } },
@@ -99,10 +100,35 @@ export const venueTools: McpToolDefinition[] = [
         include: {
           rooms: { orderBy: { name: "asc" } },
           roomGroups: { orderBy: { sortOrder: "asc" } },
+          concessions: { orderBy: { sortOrder: "asc" } },
           contacts: { include: { contact: true }, orderBy: { id: "asc" } },
           vendor: true,
         },
       });
+    },
+  },
+  {
+    name: "set_venue_concessions",
+    description:
+      "Replace a hotel's standing concessions — what it offers every group without negotiating (complimentary breakfast, Wi-Fi) — with this list, in order. label is usually an rfp_concession option label; value is the terms (\"Included\", \"$10/night\"). New proposals from the hotel start with them; existing proposals keep their own.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        venueId: { type: "string" },
+        concessions: {
+          type: "array",
+          items: { type: "object", properties: { label: { type: "string" }, value: { type: ["string", "null"] } }, required: ["label"] },
+        },
+      },
+      required: ["venueId", "concessions"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId, tenantId }) => {
+      const venueId = requireString(args, "venueId");
+      if (!Array.isArray(args.concessions)) throw new Error("concessions must be a list");
+      const rows = (args.concessions as Record<string, unknown>[]).map((c) => ({ label: String(c.label ?? ""), value: typeof c.value === "string" ? c.value : null }));
+      await saveVenueConcessionsCore(venueId, rows, userId, tenantId);
+      return prisma.venueConcession.findMany({ where: { venueId }, orderBy: { sortOrder: "asc" } });
     },
   },
   {

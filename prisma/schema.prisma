@@ -499,6 +499,9 @@ model Venue {
   isLodging      Boolean         @default(false)
   brand          String?
   area           String?
+  // What the hotel offers every group without negotiating (complimentary
+  // breakfast, Wi-Fi); a new proposal from it starts with them.
+  concessions    VenueConcession[]
   hotelProposals HotelProposal[]
   rfpRecipients  RfpRecipient[]
   rooms          Room[]
@@ -2825,14 +2828,31 @@ enum ConcessionMet {
 }
 
 // A proposal's answer to one requested concession of its RFP.
+// A concession in a proposal: an answer to one the RFP requested
+// (concessionId, met), or one the hotel offered unasked (label, no met).
+// A hotel's standing concession: label from the rfp_concession list (or
+// typed), value what it is ("Included", "$10/night").
+model VenueConcession {
+  id        String  @id @default(cuid())
+  venueId   String
+  venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  label     String
+  value     String?
+  sortOrder Int     @default(0)
+
+  @@index([venueId])
+}
+
 model HotelProposalConcession {
   id           String         @id @default(cuid())
   proposalId   String
   proposal     HotelProposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  concessionId String
-  concession   RfpConcession  @relation(fields: [concessionId], references: [id], onDelete: Cascade)
+  concessionId String?
+  concession   RfpConcession? @relation(fields: [concessionId], references: [id], onDelete: Cascade)
+  label        String? // rfp_concession option label or typed; unrequested rows only
   offered      String?
   met          ConcessionMet?
+  sortOrder    Int            @default(0)
 
   @@unique([proposalId, concessionId])
   @@index([concessionId])

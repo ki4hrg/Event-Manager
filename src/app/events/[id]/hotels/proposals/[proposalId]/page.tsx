@@ -98,6 +98,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
               const answer = proposal.concessions.find((a) => a.concessionId === c.id);
               return { id: c.id, label: c.label, value: c.value, required: c.required, offered: answer?.offered ?? null, met: answer?.met ?? null };
             })}
+            offeredConcessions={proposal.concessions.flatMap((c) => (c.concessionId ? [] : [{ label: c.label ?? "", offered: c.offered }]))}
             choices={choices}
             action={updateAction}
             cancelHref={`/events/${eventId}/hotels`}

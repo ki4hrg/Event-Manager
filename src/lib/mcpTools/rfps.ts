@@ -549,7 +549,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "record_rfp_response",
     description:
-      "Record a hotel's proposal in answer to one requested RFP block. Starts from the block (stay dates, room grid, block type) and the first Pending proposal status; any proposal field given overrides it (nights with rates, attrition, charges…). concessions answers the RFP's concessions. The hotel is added to the RFP's recipients if it wasn't. Returns the new proposal; edit it later with update_hotel_proposal.",
+      "Record a hotel's proposal in answer to one requested RFP block. Starts from the block (stay dates, room grid, block type) and the first Pending proposal status; any proposal field given overrides it (nights with rates, attrition, charges…). concessions answers the RFP's concessions; offeredConcessions lists ones it offers unasked (default: the hotel's standing concessions). The hotel is added to the RFP's recipients if it wasn't. Returns the new proposal; edit it later with update_hotel_proposal.",
     inputSchema: {
       type: "object",
       properties: {
@@ -576,6 +576,11 @@ export const rfpTools: McpToolDefinition[] = [
             properties: { concessionId: { type: "string" }, met: { type: ["string", "null"], enum: ["MET", "PARTIAL", "NOT_MET", null] }, offered: { type: ["string", "null"] } },
             required: ["concessionId"],
           },
+        },
+        offeredConcessions: {
+          type: "array",
+          description: "Concessions the hotel offers that the RFP didn't ask for: label (usually an rfp_concession option label) and offered terms.",
+          items: { type: "object", properties: { label: { type: "string" }, offered: { type: ["string", "null"] } }, required: ["label"] },
         },
       },
       required: ["eventId", "rfpBlockId", "venueId"],
@@ -631,6 +636,9 @@ export const rfpTools: McpToolDefinition[] = [
         charges: [],
         rfpBlockId: block.id,
         concessions,
+        offeredConcessions: Array.isArray(args.offeredConcessions)
+          ? (args.offeredConcessions as Record<string, unknown>[]).map((c) => ({ label: String(c.label ?? ""), offered: typeof c.offered === "string" ? c.offered : null }))
+          : undefined,
       };
       return createHotelProposalCore(eventId, proposal, userId);
     },

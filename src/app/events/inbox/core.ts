@@ -270,7 +270,7 @@ async function parseRfpContext(eventId: string, tenantId: string, senderAddresse
         })
       : [],
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["hotel_room_type", "hotel_amenity"] } },
+      where: { tenantId, category: { in: ["hotel_room_type", "hotel_amenity", "rfp_concession"] } },
       select: { category: true, label: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -309,6 +309,7 @@ async function parseRfpContext(eventId: string, tenantId: string, senderAddresse
     rfps: parseRfps,
     roomTypes: options.filter((o) => o.category === "hotel_room_type").map((o) => o.label),
     amenities: options.filter((o) => o.category === "hotel_amenity").map((o) => o.label),
+    concessionLabels: options.filter((o) => o.category === "rfp_concession").map((o) => o.label),
   };
 }
 

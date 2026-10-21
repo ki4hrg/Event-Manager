@@ -21,6 +21,7 @@ import {
 } from "@/lib/hotels";
 import { NEW_HOTEL } from "./proposalArgs";
 import { RoomGrid, type GridNight } from "./RoomGrid";
+import { ConcessionOptions, OTHER_CONCESSION } from "../rfps/RfpConcessionsEditor";
 import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "./RoomGridEditor";
 
 export type ProposalValues = {
@@ -43,7 +44,10 @@ export type ProposalValues = {
 };
 
 export type ProposalChoices = {
-  venues: { id: string; label: string; isLodging: boolean }[];
+  // concessions: the hotel's standing ones, which a new proposal starts with.
+  venues: { id: string; label: string; isLodging: boolean; concessions: { label: string; value: string | null }[] }[];
+  // The rfp_concession list, for concessions the hotel offers unasked.
+  concessionOptions: { label: string; group: string | null }[];
   statuses: { label: string; group: string | null; color: string | null }[];
   roomTypes: string[];
   guestTypes: string[];
@@ -111,6 +115,31 @@ function Fieldset({ title, children, aside }: { title: string; children: ReactNo
 // The RFP's requested concessions with this proposal's answers.
 export type ConcessionAnswer = { id: string; label: string; value: string | null; required: boolean; offered: string | null; met: ConcessionMet | null };
 
+// A concession the hotel offers unasked: label and terms.
+export type OfferedConcession = { label: string; offered: string | null };
+
+// standing: copied from the hotel's standing concessions and not edited, so
+// picking another hotel swaps it out.
+type OfferedRow = OfferedConcession & { key: number; custom: boolean; standing: boolean };
+
+// Row keys only (never rendered), so a module counter is safe.
+let offeredKey = 0;
+
+const sameLabel = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// The hotel's standing concessions folded into a new proposal: a requested one
+// fills that answer's offer (when blank), the rest are offered unasked.
+function withStanding(standing: { label: string; value: string | null }[], answers: ConcessionAnswer[], offered: OfferedConcession[]) {
+  const requested = (label: string) => answers.some((a) => sameLabel(a.label, label));
+  return {
+    answers: answers.map((a) => {
+      const s = standing.find((c) => sameLabel(c.label, a.label));
+      return s && !a.offered && !a.met ? { ...a, offered: s.value ?? s.label } : a;
+    }),
+    extra: standing.filter((c) => !requested(c.label) && !offered.some((o) => sameLabel(o.label, c.label))).map((c) => ({ label: c.label, offered: c.value })),
+  };
+}
+
 function concessionLine(c: ConcessionAnswer) {
   return [c.met ? MET_LABELS[c.met] : null, c.offered].filter(Boolean).join(" · ") || "—";
 }
@@ -147,7 +176,17 @@ const NEW_HOTEL_FIELDS: { key: keyof OfferHotel; label: string; wide?: boolean; 
   { key: "contactPhone", label: "Contact phone", type: "tel" },
 ];
 
-function Details({ values, choices, concessions }: { values: ProposalValues; choices: ProposalChoices; concessions: ConcessionAnswer[] }) {
+function Details({
+  values,
+  choices,
+  concessions,
+  offered,
+}: {
+  values: ProposalValues;
+  choices: ProposalChoices;
+  concessions: ConcessionAnswer[];
+  offered: OfferedConcession[];
+}) {
   const rows: [string, ReactNode][] = [
     ["Hotel", choices.venues.find((v) => v.id === values.venueId)?.label ?? "—"],
     ["Status", values.status],
@@ -182,10 +221,16 @@ function Details({ values, choices, concessions }: { values: ProposalValues; cho
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Rooms</h3>
         <RoomGrid nights={values.nights} />
       </div>
-      {concessions.length > 0 && (
+      {(concessions.length > 0 || offered.length > 0) && (
         <div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Concessions</h3>
           <ul className="text-sm divide-y divide-gray-100 dark:divide-gray-700">
+            {offered.map((c) => (
+              <li key={`offered-${c.label}`} className="flex flex-wrap justify-between gap-x-3 py-1.5 text-gray-900 dark:text-white">
+                <span>{c.label}</span>
+                <span className="text-gray-500 dark:text-gray-400">{c.offered ?? "Offered"}</span>
+              </li>
+            ))}
             {concessions.map((c) => (
               <li key={c.id} className="flex flex-wrap justify-between gap-x-3 py-1.5 text-gray-900 dark:text-white">
                 <span>
@@ -229,6 +274,7 @@ export function ProposalForm({
   rfpChoices,
   newHotel,
   concessions = [],
+  offeredConcessions = [],
   action,
   cancelHref,
 }: {
@@ -241,6 +287,8 @@ export function ProposalForm({
   // An emailed offer from a hotel not in Venues: offered as a new hotel.
   newHotel?: OfferHotel | null;
   concessions?: ConcessionAnswer[];
+  // Concessions offered unasked (a new proposal adds the hotel's standing ones).
+  offeredConcessions?: OfferedConcession[];
   choices: ProposalChoices;
   defaultCheckIn?: string | null;
   defaultCheckOut?: string | null;
@@ -261,14 +309,47 @@ export function ProposalForm({
     (initial?.charges ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })),
   );
 
-  const [answers, setAnswers] = useState(concessions);
   const [rfpBlockId, setRfpBlockId] = useState(fromRfp?.rfpBlockId ?? "");
   const [venueId, setVenueId] = useState(initial?.venueId || defaultVenueId || (newHotel ? NEW_HOTEL : ""));
+  const standingOf = (id: string) => (isEdit ? [] : (choices.venues.find((v) => v.id === id)?.concessions ?? []));
+  const toRows = (list: OfferedConcession[], standing: boolean): OfferedRow[] =>
+    list.map((c) => ({ ...c, key: offeredKey++, standing, custom: !choices.concessionOptions.some((o) => o.label === c.label) }));
+  const [seeded] = useState(() => withStanding(standingOf(venueId), concessions, offeredConcessions));
+  const [answers, setAnswers] = useState(seeded.answers);
+  const [offered, setOffered] = useState<OfferedRow[]>(() => [...toRows(offeredConcessions, false), ...toRows(seeded.extra, true)]);
+  // Swap the standing concessions for another hotel's or RFP's requests.
+  const reseed = (venue: string, nextAnswers: ConcessionAnswer[], kept: OfferedRow[]) => {
+    const own = kept.filter((r) => !r.standing);
+    const next = withStanding(standingOf(venue), nextAnswers, own);
+    setAnswers(next.answers);
+    setOffered([...own, ...toRows(next.extra, true)]);
+  };
   const rfpChoice = rfpChoices?.find((c) => c.id === rfpBlockId);
   const pickRfp = (id: string) => {
     setRfpBlockId(id);
-    setAnswers(rfpChoices?.find((c) => c.id === id)?.concessions ?? []);
+    // Leaving the RFP keeps what the hotel offered against its requests.
+    const kept = id
+      ? offered
+      : [
+          ...offered,
+          ...toRows(
+            answers
+              .filter((a) => (a.offered || a.met) && a.met !== "NOT_MET" && !offered.some((o) => sameLabel(o.label, a.label)))
+              .map((a) => ({ label: a.label, offered: a.offered })),
+            false,
+          ),
+        ];
+    reseed(venueId, rfpChoices?.find((c) => c.id === id)?.concessions ?? [], kept);
   };
+  const pickVenue = (id: string) => {
+    setVenueId(id);
+    if (!isEdit) reseed(id, answers, offered);
+  };
+  const addOffered = (label: string, custom: boolean) => {
+    setOffered((prev) => [...prev, { key: offeredKey++, label, offered: null, custom, standing: false }]);
+  };
+  const setOfferedRow = (key: number, patch: Partial<OfferedRow>) =>
+    setOffered((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch, standing: false } : r)));
   // A draft's block type follows the RFP block it answers.
   const defaultContractType = rfpChoices ? (rfpChoice?.contractType ?? null) : (initial?.contractType ?? fromRfp?.contractType ?? null);
   const defaultGuestType = rfpChoices ? (rfpChoice?.guestType ?? null) : initial ? initial.guestType : (fromRfp?.guestType ?? null);
@@ -284,7 +365,7 @@ export function ProposalForm({
             </button>
           )}
         </div>
-        {proposal && <Details values={proposal} choices={choices} concessions={concessions} />}
+        {proposal && <Details values={proposal} choices={choices} concessions={concessions} offered={offeredConcessions} />}
       </div>
     );
   }
@@ -321,6 +402,7 @@ export function ProposalForm({
           value={JSON.stringify(answers.map((a) => ({ concessionId: a.id, offered: a.offered, met: a.met })))}
         />
       )}
+      <input type="hidden" name="offeredConcessions" value={JSON.stringify(offered.map((r) => ({ label: r.label, offered: r.offered })))} />
 
       {!isEdit && rfpChoices && rfpChoices.length > 0 && (
         <Fieldset title="Source">
@@ -351,7 +433,7 @@ export function ProposalForm({
       <Fieldset title="Proposal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Hotel *" htmlFor="p-venueId" wide>
-            <select id="p-venueId" name="venueId" required value={venueId} onChange={(e) => setVenueId(e.target.value)} className={inputClass}>
+            <select id="p-venueId" name="venueId" required value={venueId} onChange={(e) => pickVenue(e.target.value)} className={inputClass}>
               <option value="">Select a hotel</option>
               {newHotel && <option value={NEW_HOTEL}>New hotel{newHotel.name ? `: ${newHotel.name}` : ""}</option>}
               {choices.venues.map((v) => (
@@ -460,9 +542,8 @@ export function ProposalForm({
         )}
       </Fieldset>
 
-      {answers.length > 0 && (
-        <Fieldset title="Concessions">
-          <div className="space-y-2">
+      <Fieldset title="Concessions">
+          {answers.length > 0 && <div className="space-y-2">
             {answers.map((a, i) => {
               const set = (patch: Partial<ConcessionAnswer>) => setAnswers((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)));
               return (
@@ -495,9 +576,64 @@ export function ProposalForm({
                 </div>
               );
             })}
+          </div>}
+          <div className="space-y-2">
+            {answers.length > 0 && offered.length > 0 && <p className={labelClass}>Also offered</p>}
+            {offered.map((r) => (
+              <div key={r.key} className="flex flex-wrap items-center gap-2">
+                {r.custom ? (
+                  <input
+                    aria-label="Concession"
+                    placeholder="Concession"
+                    value={r.label}
+                    onChange={(e) => setOfferedRow(r.key, { label: e.target.value })}
+                    className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+                  />
+                ) : (
+                  <select
+                    aria-label="Concession"
+                    value={r.label}
+                    onChange={(e) =>
+                      setOfferedRow(r.key, e.target.value === OTHER_CONCESSION ? { custom: true, label: "" } : { label: e.target.value })
+                    }
+                    className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+                  >
+                    <ConcessionOptions options={choices.concessionOptions} available={(l) => l === r.label || !offered.some((o) => o.label === l)} />
+                  </select>
+                )}
+                <input
+                  aria-label={`${r.label || "Concession"} terms`}
+                  placeholder="Included, $10/night…"
+                  value={r.offered ?? ""}
+                  onChange={(e) => setOfferedRow(r.key, { offered: e.target.value || null })}
+                  className={`${inlineInputClass} flex-1 min-w-[8rem]`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setOffered((prev) => prev.filter((x) => x.key !== r.key))}
+                  className="text-sm text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <select
+              aria-label="Add concession"
+              value=""
+              onChange={(e) => {
+                if (e.target.value === OTHER_CONCESSION) addOffered("", true);
+                else if (e.target.value) addOffered(e.target.value, false);
+              }}
+              className={inlineInputClass}
+            >
+              <option value="">+ Concession</option>
+              <ConcessionOptions
+                options={choices.concessionOptions}
+                available={(l) => !offered.some((o) => o.label === l) && !answers.some((a) => sameLabel(a.label, l))}
+              />
+            </select>
           </div>
         </Fieldset>
-      )}
 
       <Fieldset title="Terms">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

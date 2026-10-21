@@ -14,6 +14,8 @@ import { blockTypeLabel, dateFromKey, dateKey, nightKeys, roomTypeLabel } from "
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
 export type ProposalChargeArgs = { chargeType: string; amount: number | null; scope: HotelChargeScope | null };
 export type ProposalConcessionArgs = { concessionId: string; offered: string | null; met: ConcessionMet | null };
+// A concession the hotel offered without the RFP asking (or with no RFP).
+export type ProposalOfferedConcessionArgs = { label: string; offered: string | null };
 
 export type ProposalWriteArgs = {
   venueId: string;
@@ -37,6 +39,9 @@ export type ProposalWriteArgs = {
   rfpBlockId?: string | null;
   // Answers to the RFP's concessions; undefined leaves them as they are.
   concessions?: ProposalConcessionArgs[];
+  // Concessions offered unasked; undefined leaves them as they are, except on
+  // create, where they start as the hotel's standing concessions.
+  offeredConcessions?: ProposalOfferedConcessionArgs[];
 };
 
 // What a version snapshot holds (and what the diff compares).
@@ -225,15 +230,37 @@ async function recordVersion(tx: Prisma.TransactionClient, proposalId: string, s
 async function writeConcessions(tx: Prisma.TransactionClient, proposalId: string, rfpId: string | null, rows: ProposalConcessionArgs[] | undefined) {
   if (rows === undefined) return;
   const filled = rows.filter((c) => c.met || c.offered?.trim());
-  if (filled.length && !rfpId) throw new Error("Only a proposal answering an RFP has concessions");
+  if (filled.length && !rfpId) throw new Error("Only a proposal answering an RFP answers requested concessions");
   const ids = Array.from(new Set(filled.map((c) => c.concessionId)));
   if (ids.length && (await tx.rfpConcession.count({ where: { id: { in: ids }, rfpId: rfpId! } })) !== ids.length) {
     throw new PermissionError("NOT_FOUND", "Concession not found");
   }
-  await tx.hotelProposalConcession.deleteMany({ where: { proposalId } });
+  await tx.hotelProposalConcession.deleteMany({ where: { proposalId, concessionId: { not: null } } });
   await tx.hotelProposalConcession.createMany({
     data: filled.map((c) => ({ proposalId, concessionId: c.concessionId, offered: c.offered?.trim() || null, met: c.met })),
   });
+}
+
+// Rewrites the concessions a proposal offers unasked, in order (one per label).
+async function writeOfferedConcessions(tx: Prisma.TransactionClient, proposalId: string, rows: ProposalOfferedConcessionArgs[] | undefined) {
+  if (rows === undefined) return;
+  const seen = new Set<string>();
+  const kept = rows
+    .map((c) => ({ label: c.label.trim(), offered: c.offered?.trim() || null }))
+    .filter((c) => c.label && !seen.has(c.label.toLowerCase()) && seen.add(c.label.toLowerCase()));
+  await tx.hotelProposalConcession.deleteMany({ where: { proposalId, concessionId: null } });
+  await tx.hotelProposalConcession.createMany({ data: kept.map((c, i) => ({ proposalId, ...c, sortOrder: i })) });
+}
+
+// A new proposal's unasked concessions, when none are given: the hotel's
+// standing ones, less any the RFP requested (those are answered instead).
+async function defaultOfferedConcessions(venueId: string, rfpId: string | null): Promise<ProposalOfferedConcessionArgs[]> {
+  const [standing, requested] = await Promise.all([
+    prisma.venueConcession.findMany({ where: { venueId }, orderBy: { sortOrder: "asc" }, select: { label: true, value: true } }),
+    rfpId ? prisma.rfpConcession.findMany({ where: { rfpId }, select: { label: true } }) : [],
+  ]);
+  const asked = new Set(requested.map((r) => r.label.toLowerCase()));
+  return standing.filter((c) => !asked.has(c.label.toLowerCase())).map((c) => ({ label: c.label, offered: c.value }));
 }
 
 export async function createHotelProposalCore(eventId: string, args: ProposalWriteArgs, userId: string) {
@@ -244,6 +271,7 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
     ? await prisma.rfpHotelBlock.findFirst({ where: { id: args.rfpBlockId, rfp: { eventId } }, select: { id: true, rfpId: true } })
     : null;
   if (args.rfpBlockId && !rfpBlock) throw new PermissionError("NOT_FOUND", "RFP block not found");
+  const offered = args.offeredConcessions ?? (await defaultOfferedConcessions(args.venueId, rfpBlock?.rfpId ?? null));
   return prisma.$transaction(async (tx) => {
     // A hotel answering an RFP is one of its recipients, listed or not.
     if (rfpBlock) {
@@ -265,6 +293,7 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
       },
     });
     await writeConcessions(tx, proposal.id, rfpBlock?.rfpId ?? null, args.concessions);
+    await writeOfferedConcessions(tx, proposal.id, offered);
     await recordVersion(tx, proposal.id, args.revisionSummary, userId);
     return proposal;
   });
@@ -290,6 +319,7 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
       },
     });
     await writeConcessions(tx, id, existing.rfpId, args.concessions);
+    await writeOfferedConcessions(tx, id, args.offeredConcessions);
     await recordVersion(tx, id, args.revisionSummary, userId);
     return proposal;
   });

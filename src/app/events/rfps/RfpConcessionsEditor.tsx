@@ -12,11 +12,12 @@ const inputClass =
   "px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 
-const OTHER = "__other__";
+export const OTHER_CONCESSION = "__other__";
+const OTHER = OTHER_CONCESSION;
 
 // The rfp_concession options under their headings, then Other…; one list for
 // both the row selects and "+ Concession".
-function ConcessionOptions({ options, available }: { options: { label: string; group: string | null }[]; available: (label: string) => boolean }) {
+export function ConcessionOptions({ options, available }: { options: { label: string; group: string | null }[]; available: (label: string) => boolean }) {
   return (
     <>
       {CONCESSION_GROUPS.map((g) => {
@@ -39,16 +40,23 @@ function ConcessionOptions({ options, available }: { options: { label: string; g
 // custom: the label was typed rather than picked from the rfp_concession list.
 type Row = { key: number; id: string | null; label: string; custom: boolean; value: string; required: boolean };
 
+// An RFP's requested concessions, or (withRequired off) a hotel's standing ones.
 export function RfpConcessionsEditor({
   resource,
   concessions,
   options,
   save,
+  withRequired = true,
+  valueLabel = "Requested",
+  valuePlaceholder = "1/40, 20%, 30 days…",
 }: {
   resource: PermissionResource;
   concessions: RfpConcessionArgs[];
   options: { label: string; group: string | null }[];
   save: (concessions: RfpConcessionArgs[]) => Promise<void>;
+  withRequired?: boolean;
+  valueLabel?: string;
+  valuePlaceholder?: string;
 }) {
   const router = useRouter();
   const canWrite = useCanWrite(resource);
@@ -105,16 +113,18 @@ export function RfpConcessionsEditor({
                     </select>
                   )}
                   <input
-                    aria-label="Requested"
-                    placeholder="1/40, 20%, 30 days…"
+                    aria-label={valueLabel}
+                    placeholder={valuePlaceholder}
                     value={r.value}
                     onChange={(e) => set(r.key, { value: e.target.value })}
                     className={`${inputClass} flex-1 min-w-[8rem]`}
                   />
-                  <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-                    <input type="checkbox" checked={r.required} onChange={(e) => set(r.key, { required: e.target.checked })} className="rounded border-gray-300 dark:border-gray-600" />
-                    Required
-                  </label>
+                  {withRequired && (
+                    <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                      <input type="checkbox" checked={r.required} onChange={(e) => set(r.key, { required: e.target.checked })} className="rounded border-gray-300 dark:border-gray-600" />
+                      Required
+                    </label>
+                  )}
                   {canWrite && (
                     <button type="button" onClick={() => update(rows.filter((x) => x.key !== r.key))} className="text-sm text-red-600 dark:text-red-400 hover:underline">
                       Remove
