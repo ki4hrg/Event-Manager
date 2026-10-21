@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
@@ -19,6 +20,8 @@ import {
   getContractReview,
   getDeclineReview,
   getOfferReview,
+  getInboundOffers,
+  skipInboundOffer,
   dismissInboundEmail,
   fileInboundAttachment,
   getInboxDestinationEvents,
@@ -35,6 +38,7 @@ import { InboxProposalPanel } from "../../../inbox/InboxProposalPanel";
 import { InboxReview } from "../../../inbox/InboxReview";
 import { InboxDeclineReview } from "../../../inbox/InboxDeclineReview";
 import { InboxOfferForm } from "../../../inbox/InboxOfferForm";
+import { InboxOfferTabs } from "../../../inbox/InboxOfferTabs";
 import { InboxQuoteReview } from "../../../inbox/InboxQuoteReview";
 import { InboxBeoReview } from "../../../inbox/InboxBeoReview";
 import { InboxContractReview } from "../../../inbox/InboxContractReview";
@@ -47,8 +51,14 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Inbox item" };
 
-export default async function EventInboxItemPage({ params }: { params: Promise<{ id: string; itemId: string }> }) {
-  const { id: eventId, itemId } = await params;
+export default async function EventInboxItemPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; itemId: string }>;
+  searchParams: Promise<{ offer?: string }>;
+}) {
+  const [{ id: eventId, itemId }, sp] = await Promise.all([params, searchParams]);
   // Triage is EVENTS WRITE; each review shows only to who may apply its kind
   // (quote and contract reviews filter their own choices).
   const [event, item, canTriage, canHotels, canCatering, canAddVenue, diagnostics] = await Promise.all([
@@ -64,10 +74,15 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
   const proposal = item.proposal as InboundProposal | null;
   const parsing = isParsingConfigured();
   const kind = item.status === "PARSED" ? proposal?.kind : null;
+  // A message can hold several hotels' offers: ?offer=<n> (1-based) picks
+  // one, else the first still open.
+  const offers = proposal?.kind === "RFP_PROPOSAL" ? await getInboundOffers(itemId, eventId) : [];
+  const asked = parseInt(sp.offer ?? "") - 1;
+  const offerIndex = asked >= 0 && asked < offers.length ? asked : Math.max(0, offers.findIndex((o) => o.state === "OPEN"));
   const [destinations, review, offer, decline, quote, beo, contract] = await Promise.all([
     canTriage ? getInboxDestinationEvents(eventId) : [],
     canHotels && (kind === "PICKUP_GUESTS" || kind === "PICKUP_COUNTS") ? getInboxReview(itemId, eventId) : null,
-    canHotels && kind === "RFP_PROPOSAL" ? getOfferReview(itemId, eventId) : null,
+    canHotels && kind === "RFP_PROPOSAL" ? getOfferReview(itemId, eventId, offerIndex) : null,
     canHotels && kind === "RFP_DECLINE" ? getDeclineReview(itemId, eventId) : null,
     kind === "VENDOR_QUOTE" ? getQuoteReview(itemId, eventId) : null,
     canCatering && kind === "BEO" ? getBeoReview(itemId, eventId) : null,
@@ -88,13 +103,10 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
                   : `/events/${eventId}/catering-orders/${proposal.appliedTo.id}`,
           }
         : null;
-  const appliedProposal =
-    item.status === "APPLIED" && proposal?.appliedProposalId
-      ? await prisma.hotelProposal.findFirst({
-          where: { id: proposal.appliedProposalId, eventId },
-          select: { id: true, venue: { select: { name: true } } },
-        })
-      : null;
+  const appliedProposals = offers.flatMap((o) =>
+    o.proposalId ? [{ name: o.name, href: `/events/${eventId}/hotels/proposals/${o.proposalId}` }] : [],
+  );
+  const shownOffer = offers[offerIndex];
   const appliedTo =
     item.status === "APPLIED" && proposal?.blockId
       ? ((await prisma.hotelBlock.findFirst({
@@ -134,11 +146,15 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
   };
   const applyOffer = async (formData: FormData) => {
     "use server";
-    await applyInboundOffer(itemId, eventId, formData);
+    await applyInboundOffer(itemId, eventId, offerIndex, formData);
   };
   const applyRevision = async (proposalId: string, formData: FormData) => {
     "use server";
-    await applyInboundRevision(itemId, eventId, proposalId, formData);
+    await applyInboundRevision(itemId, eventId, offerIndex, proposalId, formData);
+  };
+  const skipOffer = async () => {
+    "use server";
+    await skipInboundOffer(itemId, eventId, offerIndex);
   };
   const applyDecline = async (rfpId: string, venueId: string, reason: string | null) => {
     "use server";
@@ -197,15 +213,29 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
           parsing={parsing}
           diagnostics={diagnostics}
           appliedTo={appliedTo}
-          appliedProposal={
-            appliedProposal
-              ? { name: appliedProposal.venue.name, href: `/events/${eventId}/hotels/proposals/${appliedProposal.id}` }
-              : null
-          }
+          appliedProposals={appliedProposals}
           appliedLink={appliedLink}
         />
+        {kind === "RFP_PROPOSAL" && <InboxOfferTabs offers={offers} active={offerIndex} itemHref={itemHref} />}
+        {kind === "RFP_PROPOSAL" && offers.length > 1 && shownOffer && shownOffer.state !== "OPEN" && (
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {shownOffer.state === "SKIPPED" ? (
+              "Skipped"
+            ) : shownOffer.state === "SAVING" ? (
+              "Saving…"
+            ) : shownOffer.proposalId ? (
+              <Link href={`/events/${eventId}/hotels/proposals/${shownOffer.proposalId}`} className="text-blue-600 dark:text-blue-400 underline">
+                {shownOffer.name} proposal
+              </Link>
+            ) : (
+              "Saved"
+            )}
+          </p>
+        )}
         {offer && (
           <InboxOfferForm
+            key={offerIndex}
+            skip={offers.length > 1 ? skipOffer : undefined}
             choices={offer.choices}
             draft={offer.draft}
             rfpChoices={offer.rfpChoices}

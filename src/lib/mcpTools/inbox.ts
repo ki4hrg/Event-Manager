@@ -85,12 +85,13 @@ export const inboxTools: McpToolDefinition[] = [
   {
     name: "apply_inbox_item",
     description:
-      "Apply a Ready item (status PARSED) as Claude read it, without the review form: pickup counts or guests go to the hotel block (blockId, else the block it was read as; guests merge by default), a decline marks the hotel declined on its RFP, a hotel offer becomes a proposal (venueId, else the hotel it was read as; newHotel: true adds a hotel not yet in Venues from the offer), a vendor quote is recorded (vendorId, else as read; newVendor: true adds a vendor by the quote's name), a BEO updates its catering order with the fields it states (cateringOrderId, else as read), a contract writes its terms onto what it covers (target + targetId, else as read). The message's attachments are filed on the record. Check the proposal with get_inbox_item first — this applies it unchanged; for corrections, apply in the app. Needs write on what it changes: hotels for pickup, offers and declines; the RFP's order type (events when standalone) for a quote; catering orders for a BEO; the covered record's for a contract.",
+      "Apply a Ready item (status PARSED) as Claude read it, without the review form: pickup counts or guests go to the hotel block (blockId, else the block it was read as; guests merge by default), a decline marks the hotel declined on its RFP, a hotel offer becomes a proposal (venueId, else the hotel it was read as; newHotel: true adds a hotel not yet in Venues from the offer; a message can hold several hotels' offers in proposal.offers — pass offerIndex, apply each in turn, and the item is Applied once every offer is saved or dismissed), a vendor quote is recorded (vendorId, else as read; newVendor: true adds a vendor by the quote's name), a BEO updates its catering order with the fields it states (cateringOrderId, else as read), a contract writes its terms onto what it covers (target + targetId, else as read). The message's attachments are filed on the record. Check the proposal with get_inbox_item first — this applies it unchanged; for corrections, apply in the app. Needs write on what it changes: hotels for pickup, offers and declines; the RFP's order type (events when standalone) for a quote; catering orders for a BEO; the covered record's for a contract.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
         blockId: { type: "string", description: "Pickup kinds: the hotel block (list_hotel_blocks)." },
+        offerIndex: { type: "integer", description: "RFP_PROPOSAL holding several offers: which one (0-based index into proposal.offers)." },
         venueId: { type: "string", description: "RFP_PROPOSAL / RFP_DECLINE: the hotel, when the read didn't settle it." },
         newHotel: { type: "boolean", description: "RFP_PROPOSAL from a hotel not in Venues: create it from the offer (needs VENUES write)." },
         method: { type: "string", enum: ["MERGE", "APPEND", "REPLACE"], description: "PICKUP_GUESTS: how the list meets the block's guests (default MERGE)." },
@@ -112,6 +113,7 @@ export const inboxTools: McpToolDefinition[] = [
         item.eventId,
         {
           blockId: partialString(args, "blockId"),
+          offerIndex: typeof args.offerIndex === "number" && Number.isInteger(args.offerIndex) ? args.offerIndex : null,
           venueId: partialString(args, "venueId"),
           newHotel: args.newHotel === true,
           method: method === "APPEND" || method === "REPLACE" || method === "MERGE" ? method : undefined,

@@ -16,13 +16,17 @@ import {
   ParseError,
   type InboundProposal,
   type OfferHotel,
+  type ProposalOffer,
   type ParseAttachment,
   type ParseBlock,
   type ParseRfp,
   type ParseVenue,
   type ParseVendorContext,
   type ContractTarget,
+  type OfferOutcome,
   offerAmenities,
+  offerOutcomes,
+  proposalOffers,
 } from "@/lib/inboundParse";
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { createHotelProposalCore, createNewHotelCore, toProposalValues, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
@@ -488,6 +492,8 @@ export async function reparseInboundEmailCore(id: string, eventId: string, userI
   const item = await inboxItem(id, await requireEventTenantId(eventId), eventId);
   if (!["RECEIVED", "PARSED", "FAILED"].includes(item.status)) return;
   if (!isParsingConfigured()) throw new Error("Parsing isn't configured");
+  // A fresh read forgets which offers became proposals.
+  if (hasAppliedOffer(item.proposal as InboundProposal | null)) throw new Error("Some of its offers are already saved as proposals");
   await prisma.inboundEmail.update({
     where: { id },
     data: { status: "RECEIVED", kind: null, proposal: Prisma.DbNull, model: null, error: null },
@@ -546,39 +552,111 @@ export async function applyInboundPickupCore(
   });
 }
 
+// ─── Hotel offers ────────────────────────────────────────────────────────────
+
+// One message can hold several hotels' offers (one sales rep, several
+// properties), each saved or skipped on its own. The item stays Ready until
+// every offer has an outcome.
+
+const hasAppliedOffer = (p: InboundProposal | null) => !!p && offerOutcomes(p).some((o) => o && !("skipped" in o));
+
+// Sets one offer's outcome. change sees the current outcome and the item's
+// status, and throws to refuse. The write is a compare-and-set on updatedAt,
+// so two offers saved at once can't overwrite each other's outcome. Returns
+// the offers still to handle.
+async function setOfferOutcome(
+  id: string,
+  eventId: string,
+  index: number,
+  userId: string,
+  change: (current: OfferOutcome, status: InboundStatus) => OfferOutcome,
+): Promise<number[]> {
+  const tenantId = await requireEventTenantId(eventId);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const item = await inboxItem(id, tenantId, eventId);
+    const proposal = item.proposal as InboundProposal | null;
+    if (!proposal || !proposalOffers(proposal)[index]) throw new Error("This message has no such offer");
+    const outcomes = offerOutcomes(proposal);
+    outcomes[index] = change(outcomes[index], item.status);
+    const open = outcomes.flatMap((o, i) => (o ? [] : [i]));
+    const updated = await prisma.inboundEmail.updateMany({
+      where: { id, tenantId, eventId, updatedAt: item.updatedAt },
+      data: {
+        proposal: { ...proposal, offerOutcomes: outcomes },
+        // Every offer skipped is the same as dismissing the message.
+        status: open.length ? "PARSED" : outcomes.some((o) => o && !("skipped" in o)) ? "APPLIED" : "DISMISSED",
+        handledById: userId,
+        handledAt: new Date(),
+      },
+    });
+    if (updated.count) return open;
+  }
+  throw new Error("This message is being changed by someone else; reload and try again");
+}
+
+// Claims an offer (so a second click can't save it twice), saves it, and
+// records the proposal; frees the claim if saving fails. Returns the
+// proposal, and the next offer still to handle.
+async function claimAndApplyOffer(id: string, eventId: string, index: number, userId: string, apply: () => Promise<string>) {
+  await setOfferOutcome(id, eventId, index, userId, (current, status) => {
+    if (status !== "PARSED") throw new Error("This message has nothing to apply");
+    if (current) throw new Error("This offer was already applied");
+    return { pending: true };
+  });
+  let proposalId: string;
+  try {
+    proposalId = await apply();
+  } catch (err) {
+    await setOfferOutcome(id, eventId, index, userId, () => null);
+    throw err;
+  }
+  const open = await setOfferOutcome(id, eventId, index, userId, () => ({ proposalId }));
+  return { proposalId, next: open[0] ?? null };
+}
+
 // A hotel's offer, as reviewed in the proposal form: creates the proposal
 // (and first the hotel, when it's one not in Venues yet) and files the
-// message's attachments on it. Returns the new proposal's id.
+// message's attachments on it.
 export async function applyInboundOfferCore(
   id: string,
   eventId: string,
+  index: number,
   args: ProposalWriteArgs,
   newHotel: OfferHotel | null,
   userId: string,
-): Promise<string> {
+) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
-  let proposalId = "";
-  await claimAndApply(id, eventId, userId, async () => {
+  return claimAndApplyOffer(id, eventId, index, userId, async () => {
     // A new hotel's profile starts with the amenities its offer confirms.
     const confirmed = args.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label);
     const venueId = newHotel ? (await createNewHotelCore(eventId, newHotel, confirmed, userId)).id : args.venueId;
     const proposal = await createHotelProposalCore(eventId, { ...args, venueId }, userId);
-    proposalId = proposal.id;
     await copyAttachmentsToProposal(id, proposal.id);
-    return { appliedProposalId: proposal.id };
+    return proposal.id;
   });
-  return proposalId;
 }
 
 // A revised offer, saved over the proposal it revises (args.revision says
 // which revision it becomes).
-export async function applyInboundRevisionCore(id: string, eventId: string, proposalId: string, args: ProposalWriteArgs, userId: string) {
+export async function applyInboundRevisionCore(id: string, eventId: string, index: number, proposalId: string, args: ProposalWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
-  await claimAndApply(id, eventId, userId, async () => {
+  return claimAndApplyOffer(id, eventId, index, userId, async () => {
     await updateHotelProposalCore(proposalId, eventId, args, userId);
     await copyAttachmentsToProposal(id, proposalId);
-    return { appliedProposalId: proposalId };
+    return proposalId;
   });
+}
+
+// Passes over one offer (a property the event won't use). Returns the next
+// offer still to handle.
+export async function skipInboundOfferCore(id: string, eventId: string, index: number, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const open = await setOfferOutcome(id, eventId, index, userId, (current, status) => {
+    if (status !== "PARSED") throw new Error("This message has nothing to apply");
+    if (current) throw new Error("This offer was already handled");
+    return { skipped: true };
+  });
+  return open[0] ?? null;
 }
 
 // The message's attachments, filed on the record it was applied to.
@@ -857,6 +935,17 @@ export async function dismissInboundEmailCore(id: string, eventId: string | null
   await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId ?? { tenantId });
   const item = await inboxItem(id, tenantId, eventId);
   if (item.status === "APPLIED" || item.status === "DISMISSED") return;
+  // Some offers already saved: the rest are passed over, and the item stays
+  // with the proposals it made rather than being purged.
+  const proposal = item.proposal as InboundProposal | null;
+  if (proposal && hasAppliedOffer(proposal)) {
+    const outcomes = offerOutcomes(proposal).map((o) => o ?? { skipped: true as const });
+    await prisma.inboundEmail.update({
+      where: { id, tenantId },
+      data: { status: "APPLIED", proposal: { ...proposal, offerOutcomes: outcomes }, handledById: userId, handledAt: new Date() },
+    });
+    return;
+  }
   await prisma.inboundEmail.update({
     where: { id, tenantId },
     data: { status: "DISMISSED", handledById: userId, handledAt: new Date() },
@@ -1053,7 +1142,7 @@ async function proposedGuests(id: string, proposal: InboundProposal): Promise<{ 
 }
 
 // The proposal an emailed offer reads as, for applying it unreviewed.
-async function offerArgs(eventId: string, offer: NonNullable<InboundProposal["offer"]>, venueId: string): Promise<ProposalWriteArgs> {
+async function offerArgs(eventId: string, offer: ProposalOffer, venueId: string): Promise<ProposalWriteArgs> {
   const tenantId = await requireEventTenantId(eventId);
   const [pending, block] = await Promise.all([
     prisma.customOption.findFirst({
@@ -1097,6 +1186,7 @@ async function offerArgs(eventId: string, offer: NonNullable<InboundProposal["of
 
 export type ApplyAsProposedArgs = {
   blockId?: string | null; // pickup kinds: the block, else the one it was read as
+  offerIndex?: number | null; // offers: which one, when the message holds several
   venueId?: string | null; // offers / declines: the hotel, else the one it was read as
   newHotel?: boolean; // an offer from a hotel not in Venues: create it from the offer
   method?: Exclude<HotelPickupMethod, "COUNTS">; // pickup guests: MERGE by default
@@ -1205,13 +1295,18 @@ export async function applyInboundAsProposedCore(id: string, eventId: string, ar
       return { applied: "decline", rfpId, venueId };
     }
     case "RFP_PROPOSAL": {
-      const offer = proposal.offer;
-      if (!offer) throw new Error("This read has no offer");
+      const offers = proposalOffers(proposal);
+      const outcomes = offerOutcomes(proposal);
+      const open = offers.flatMap((o, i) => (outcomes[i] ? [] : [`${i}: ${o.hotel?.name ?? "unnamed hotel"}`]));
+      if (args.offerIndex == null && offers.length > 1) throw new Error(`This message holds ${offers.length} offers; pass offerIndex (still open: ${open.join("; ")})`);
+      const index = args.offerIndex ?? 0;
+      const offer = offers[index];
+      if (!offer) throw new Error("This read has no such offer");
       const venueId = args.venueId ?? offer.venueId;
       if (!venueId && !args.newHotel) throw new Error("The offer's hotel isn't in Venues: pass venueId, or newHotel: true to add it from the offer");
       const proposalArgs = await offerArgs(eventId, offer, venueId ?? "");
-      const proposalId = await applyInboundOfferCore(id, eventId, proposalArgs, venueId ? null : offer.hotel, userId);
-      return { applied: "proposal", proposalId };
+      const { proposalId, next } = await applyInboundOfferCore(id, eventId, index, proposalArgs, venueId ? null : offer.hotel, userId);
+      return { applied: "proposal", proposalId, offerIndex: index, nextOfferIndex: next };
     }
     case "VENDOR_QUOTE": {
       const q = proposal.quote;

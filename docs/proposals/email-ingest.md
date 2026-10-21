@@ -235,6 +235,14 @@ says it isn't configured.
    unmentioned ones are left out. Concessions offered unasked must be on the
    concession list (others go in the notes); a new hotel's profile starts
    with the confirmed amenities.
+   One message can hold several hotels' offers (a sales rep covering more
+   than one property): the read gives one offer per property
+   (`proposal.offers`; older reads hold a single `offer`). The item page
+   shows a tab per hotel (`?offer=<n>`); each is saved as its own proposal
+   or skipped, and its outcome kept in `proposal.offerOutcomes`. The item
+   stays Ready until every offer has one. Dismissing it after some are
+   saved skips the rest and keeps it Applied, and Re-read is refused once
+   one is saved.
    Reading is two calls: classify (kind, summary, notes), then only that
    kind's fields — one schema for every kind compiled to a grammar the API
    rejected as too large.

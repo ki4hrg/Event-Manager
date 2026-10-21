@@ -17,7 +17,7 @@ export function InboxProposalPanel({
   parsing,
   diagnostics,
   appliedTo,
-  appliedProposal = null,
+  appliedProposals = [],
   appliedLink = null,
 }: {
   status: InboundStatus;
@@ -27,7 +27,8 @@ export function InboxProposalPanel({
   parsing: boolean;
   diagnostics: boolean;
   appliedTo: string | null;
-  appliedProposal?: { name: string; href: string } | null;
+  // Proposals saved from its offers (some may still be open).
+  appliedProposals?: { name: string; href: string }[];
   appliedLink?: { label: string; href: string } | null;
 }) {
   if (status === "HELD" || (!parsing && !proposal && !error)) return null;
@@ -43,14 +44,14 @@ export function InboxProposalPanel({
         </>
       )}
       {status === "APPLIED" && appliedTo && <p className="text-sm text-green-700 dark:text-green-400">Applied to {appliedTo}</p>}
-      {status === "APPLIED" && appliedProposal && (
-        <p className="text-sm text-green-700 dark:text-green-400">
+      {appliedProposals.map((p) => (
+        <p key={p.href} className="text-sm text-green-700 dark:text-green-400">
           Created{" "}
-          <Link href={appliedProposal.href} className="underline">
-            {appliedProposal.name} proposal
+          <Link href={p.href} className="underline">
+            {p.name} proposal
           </Link>
         </p>
-      )}
+      ))}
       {appliedLink && (
         <p className="text-sm text-green-700 dark:text-green-400">
           <Link href={appliedLink.href} className="underline">
