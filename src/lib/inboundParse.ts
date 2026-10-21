@@ -53,6 +53,12 @@ export type ProposalOffer = {
 
 export type OfferAmenity = { label: string; status: "CONFIRMED" | "UNAVAILABLE"; note: string | null };
 
+// Case, punctuation and spacing aside, the same text.
+const sameWords = (a: string, b: string) => {
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return norm(a) === norm(b);
+};
+
 export function offerAmenities(o: Pick<ProposalOffer, "amenities">): OfferAmenity[] {
   return o.amenities.map((a) => (typeof a === "string" ? { label: a, status: "CONFIRMED", note: null } : a));
 }
@@ -307,7 +313,8 @@ For RFP_PROPOSAL, fill "offer":
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types when one fits, else "" for run of house / all types.
 - charges: other fees the hotel lists (resort fee, parking, deposits), with amount and scope when given.
 - allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee in dollars, if stated.
-- amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"); note is the offer's wording or dates, or "". Leave out amenities the offer doesn't mention; never guess.
+- amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"). note is "" unless it tells the reader something the label doesn't: dates, hours, limits, a fee, a condition ("closed Apr 3–10", "6–9:30 am, 2 per room", "$35/night"). Never restate the label ("Business Center" → ""). Leave out amenities the offer doesn't mention; never guess.
+- An inclusion such as breakfast, Wi-Fi or parking is an amenity only when the property gives it to every guest. When the offer ties it to this group's rate or package ("rate includes breakfast for two", "group rate includes parking"), it's a concession (offeredConcessions, or the RFP's matching concession), not an amenity. When you can't tell which, list it as an amenity with note "Rate includes it; unclear whether standard for all guests".
 - Concessions are what's given or negotiated for this group (comp rooms, a reduced valet rate, meal vouchers, waived fees, upgrades). One service can be both: valet parking is an amenity, a reduced valet rate a concession.
 - concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
 - offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
@@ -494,7 +501,8 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
     guaranteedRevenue: o.guaranteedRevenue,
     amenities: offerAmenities(o)
       .filter((a, i, all) => amenities.has(a.label) && ["CONFIRMED", "UNAVAILABLE"].includes(a.status) && all.findIndex((x) => x.label === a.label) === i)
-      .map((a) => ({ label: a.label, status: a.status, note: a.note || null })),
+      // A note that only restates the label adds nothing.
+      .map((a) => ({ label: a.label, status: a.status, note: a.note && !sameWords(a.note, a.label) ? a.note : null })),
     concessions: o.concessions.filter((c) => concessionIds.has(c.concessionId)),
     // On the concession list, not ones the RFP asked for (those are answers), one per label.
     offeredConcessions: (o.offeredConcessions ?? [])
