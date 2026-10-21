@@ -66,6 +66,7 @@ const blockSchema = {
     contractType: { type: "string", enum: ["CONTRACT", "COURTESY"], description: "CONTRACT carries attrition; COURTESY is held without it." },
     guestType: { type: ["string", "null"], description: "Who the rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
     targetRate: { type: ["number", "null"] },
+    targetRateRequired: { type: "boolean", description: "The target rate is a ceiling (\"must be no more than\") rather than a target. Default false." },
     notes: { type: ["string", "null"] },
     nights: {
       type: "array",
@@ -94,6 +95,7 @@ function readBlocks(v: unknown): RfpBlockArgs[] {
       contractType: b.contractType as HotelContractType,
       guestType: typeof b.guestType === "string" ? b.guestType : null,
       targetRate: typeof b.targetRate === "number" ? b.targetRate : null,
+      targetRateRequired: b.targetRateRequired === true,
       notes: typeof b.notes === "string" ? b.notes : null,
       nights: (b.nights as Record<string, unknown>[]).map((n) => ({
         roomType: typeof n.roomType === "string" ? n.roomType : null,

@@ -239,11 +239,22 @@ export function RfpSpaceEditor({
           <Fragment key={r.key}>
             {(i === 0 || rows[i - 1].day !== r.day) && <p className={`${dayHeading} ${i === 0 ? "" : "pt-2"}`}>{dayLabel(r.day)}</p>}
             <div className={rowCard}>
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                <label className={`${smallLabel} col-span-2 sm:col-span-3`}>
+              {/* Name and type; then day, through, start and end on one line; then the rest. */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <label className={`${smallLabel} col-span-2 ${meeting ? "" : "sm:col-span-3"}`}>
                   {copy.name}
                   <input value={r.name} onChange={(e) => set(r.key, { name: e.target.value })} className={inputClass} />
                 </label>
+                <label className={`${smallLabel} ${meeting ? "" : "col-span-2 sm:col-span-1"}`}>
+                  Type
+                  <TypeSelect label="Type" value={r.functionType} options={types} onChange={(v) => set(r.key, { functionType: v })} />
+                </label>
+                {meeting && (
+                  <label className={smallLabel}>
+                    Requested set-up
+                    <TypeSelect label="Requested set-up" value={r.setup} options={setupTypes} onChange={(v) => set(r.key, { setup: v })} />
+                  </label>
+                )}
                 <label className={smallLabel}>
                   Day
                   <DateInput value={r.day ?? ""} onChange={(v) => set(r.key, { day: v || null, ...(v ? {} : { endDay: null }) })} className={inputClass} />
@@ -267,16 +278,6 @@ export function RfpSpaceEditor({
                   <input type="time" value={r.endTime ?? ""} onChange={(e) => set(r.key, { endTime: e.target.value || null })} className={inputClass} />
                 </label>
                 <label className={smallLabel}>
-                  Type
-                  <TypeSelect label="Type" value={r.functionType} options={types} onChange={(v) => set(r.key, { functionType: v })} />
-                </label>
-                {meeting && (
-                  <label className={smallLabel}>
-                    Requested set-up
-                    <TypeSelect label="Requested set-up" value={r.setup} options={setupTypes} onChange={(v) => set(r.key, { setup: v })} />
-                  </label>
-                )}
-                <label className={smallLabel}>
                   Attendees
                   <input type="number" min={0} value={r.attendance ?? ""} onChange={(e) => set(r.key, { attendance: int(e.target.value) })} className={inputClass} />
                 </label>
@@ -286,11 +287,11 @@ export function RfpSpaceEditor({
                     <input type="number" min={0} value={r.areaSqFt ?? ""} onChange={(e) => set(r.key, { areaSqFt: int(e.target.value) })} className={inputClass} />
                   </label>
                 )}
-                <label className={smallLabel}>
+                <label className={`${smallLabel} ${meeting ? "col-span-2" : ""}`}>
                   Room
                   <input value={r.room ?? ""} onChange={(e) => set(r.key, { room: e.target.value || null })} className={inputClass} />
                 </label>
-                <label className={`${smallLabel} col-span-2`}>
+                <label className={`${smallLabel} col-span-2 ${meeting ? "sm:col-span-3" : ""}`}>
                   A/V
                   <input value={r.av ?? ""} onChange={(e) => set(r.key, { av: e.target.value || null })} className={inputClass} />
                 </label>

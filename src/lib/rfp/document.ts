@@ -15,7 +15,8 @@ import { RFP_KIND_LABELS } from "@/lib/rfp/kinds";
 
 export type RfpBlockDoc = {
   label: string; // "Contract · Attendees block"
-  targetRate: string | null; // formatted; "room rate must be no more than"
+  targetRate: string | null; // formatted
+  targetRateRequired: boolean; // "must be no more than" rather than a target
   notes: string | null;
   nights: string[]; // night keys, ascending — the table's rows
   roomTypes: string[]; // the table's columns
@@ -149,6 +150,7 @@ export type RfpDocumentInput = {
       contractType: HotelContractType;
       guestType: string | null;
       targetRate: Dec;
+      targetRateRequired: boolean;
       notes: string | null;
       nights: { roomType: string | null; night: Date; rooms: number }[];
     }[];
@@ -243,6 +245,7 @@ function blockDoc(b: RfpDocumentInput["rfp"]["hotelBlocks"][number]): RfpBlockDo
   return {
     label: blockLabel(b.contractType, b.guestType),
     targetRate: b.targetRate != null ? formatMoney(b.targetRate.toString()) : null,
+    targetRateRequired: b.targetRateRequired,
     notes: b.notes,
     nights,
     roomTypes,
@@ -469,3 +472,7 @@ export function blockSummary(nights: { night: Date; rooms: number }[]): string |
   const peak = Math.max(0, ...Array.from(byNight.values()));
   return `peak ${peak} · ${sum(Array.from(byNight.values()))} room nights`;
 }
+
+// The block's rate line: a ceiling when required, else a target to aim for.
+export const targetRateLine = (b: Pick<RfpBlockDoc, "targetRate" | "targetRateRequired">) =>
+  b.targetRate ? (b.targetRateRequired ? `Room rate must be no more than ${b.targetRate}` : `Target room rate: ${b.targetRate}`) : null;

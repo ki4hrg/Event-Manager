@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { formatNight } from "@/lib/hotels";
 import { labelMicroCaps, reportSectionCard, reportTd, reportTh } from "@/lib/reportStyles";
-import { concessionOfferRows, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpLineGroup, type RfpSpaceDay } from "@/lib/rfp/document";
+import { concessionOfferRows, targetRateLine, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpLineGroup, type RfpSpaceDay } from "@/lib/rfp/document";
 
 // The RFP document on screen and on the /print route, in APEX Single
 // Facility RFP order. Same RfpDocument the .docx renders; data tables have a
@@ -393,7 +393,7 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
                 <div key={i} className="print:break-inside-avoid">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white print:text-black mb-2">{b.label}</p>
                   {b.nights.length > 0 && <BlockTable b={b} />}
-                  {b.targetRate && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Room rate must be no more than {b.targetRate}</p>}
+                  {b.targetRate && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{targetRateLine(b)}</p>}
                   {b.notes && <p className="mt-1 text-sm italic text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{b.notes}</p>}
                 </div>
               ))}

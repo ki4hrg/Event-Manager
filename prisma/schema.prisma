@@ -2902,16 +2902,18 @@ model HotelProposalConcession {
 
 // One requested hotel block (contract attendee / courtesy attendee / staff).
 model RfpHotelBlock {
-  id           String               @id @default(cuid())
-  rfpId        String
-  rfp          Rfp                  @relation(fields: [rfpId], references: [id], onDelete: Cascade)
-  contractType HotelContractType
-  guestType    String? // hotel_guest_type option label
-  targetRate   Decimal?             @db.Decimal(10, 2)
-  notes        String?
-  sortOrder    Int                  @default(0)
-  nights       RfpHotelBlockNight[]
-  proposals    HotelProposal[]
+  id                 String               @id @default(cuid())
+  rfpId              String
+  rfp                Rfp                  @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  contractType       HotelContractType
+  guestType          String? // hotel_guest_type option label
+  targetRate         Decimal?             @db.Decimal(10, 2)
+  // A ceiling ("must be no more than") rather than a target to aim for.
+  targetRateRequired Boolean              @default(false)
+  notes              String?
+  sortOrder          Int                  @default(0)
+  nights             RfpHotelBlockNight[]
+  proposals          HotelProposal[]
 
   @@index([rfpId])
 }

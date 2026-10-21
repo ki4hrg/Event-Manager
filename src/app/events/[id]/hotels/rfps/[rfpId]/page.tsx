@@ -229,6 +229,7 @@ export default async function RfpPage({
                     contractType: b.contractType,
                     guestType: b.guestType,
                     targetRate: b.targetRate?.toString() ?? null,
+                    targetRateRequired: b.targetRateRequired,
                     notes: b.notes,
                     nights: b.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rooms: n.rooms })),
                   }))}
