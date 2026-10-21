@@ -276,7 +276,15 @@ async function parseInboundEmail(id: string) {
       data,
     });
   try {
-    const [blocks, attachments] = await Promise.all([parseBlocks(event.id), readAttachments(id)]);
+    const [blocks, attachments, roomTypes] = await Promise.all([
+      parseBlocks(event.id),
+      readAttachments(id),
+      prisma.customOption.findMany({
+        where: { tenantId: item.tenantId, category: "hotel_room_type" },
+        select: { label: true },
+        orderBy: { sortOrder: "asc" },
+      }),
+    ]);
     const { proposal, model } = await parseInboundMessage({
       subject: item.subject,
       sender: item.sender,
@@ -287,6 +295,7 @@ async function parseInboundEmail(id: string) {
       timezone: event.timezone,
       eventName: event.name,
       blocks,
+      roomTypes: roomTypes.map((o) => o.label),
       attachments,
     });
     await settle({ status: "PARSED", kind: proposal.kind, proposal, model, error: null });

@@ -139,8 +139,13 @@ Implemented in `src/lib/inboundParse.ts` (the call) and
   (`GuestImport`, now fed a `source`) prefilled with that mapping, so the
   reviewer can correct any of it; the mapping and row → guest step live in
   `src/lib/pickupMapping.ts`, shared with the wizard.
-- PDFs and guest lists in the body: guest rows from the model, shown as a
-  table and imported as a whole.
+- PDFs and guest lists in the body: guest rows from the model, with each
+  room type kept as the report writes it (hotel codes such as NKR) and a
+  proposed code → room type map. They go through the same wizard, so the
+  mapping can be corrected before importing. Codes map to the block's own
+  room types, or to the org's when the block doesn't list the type (a Run of
+  House block still records what each guest booked; pickup math counts them
+  against Run of House).
 - Counts: the wizard's count grid prefilled for the chosen block; proposed
   counts for a room type or night the block doesn't have are listed, not
   saved.
