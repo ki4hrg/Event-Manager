@@ -66,3 +66,5 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 - [components] Add an `editable` prop to src/components/RichTextEditor.tsx so read-only views stop swapping in a stored-HTML render (RfpForm, SpecFieldInput)
 - [hotels] `RoomGrid` (src/app/events/hotels/RoomGrid.tsx) is no longer rendered; fold `GridNight` into `RoomGridEditor` and delete the file
 - [reports] The mobile "Show filters / N active" toggle + actions block is copied across ~10 `ReportFilters`; extract one shared shell
+- [security] No rate limiter exists; public forms throttle with DB counts per link (`assertLinkHasCapacity` in src/lib/forms/links.ts). A shared per-IP limiter would also cover /forgot-password and OAuth register
+- [uploads] The staff upload route (src/app/api/upload/route.ts) buffers before checking size and trusts client MIME/extension; reuse `sniffPublicUpload` + a Content-Length precheck

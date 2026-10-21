@@ -13,7 +13,8 @@ export type WorkflowEntityType =
   | "presentation"
   | "setup_order"
   | "supply_order"
-  | "media_deliverable";
+  | "media_deliverable"
+  | "form_submission";
 
 export const ENTITY_TYPE_RESOURCE: Record<WorkflowEntityType, PermissionResource> = {
   function: "FUNCTIONS",
@@ -24,4 +25,5 @@ export const ENTITY_TYPE_RESOURCE: Record<WorkflowEntityType, PermissionResource
   setup_order: "SETUP_ORDERS",
   supply_order: "SUPPLY_ORDERS",
   media_deliverable: "MEDIA_DELIVERABLES",
+  form_submission: "FORMS",
 };

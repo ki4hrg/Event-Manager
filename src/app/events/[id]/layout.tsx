@@ -14,6 +14,7 @@ import {
 } from "@/lib/eventPermissions";
 import { SECTION_RESOURCE } from "../sidebar-sections";
 import { getEvent } from "../actions";
+import { prisma } from "@/lib/prisma";
 
 // Resources with a dedicated sidebar entry. Reports, the agenda and the inbox
 // read across several of these and gate on their own pages, so they stay visible. VENDORS
@@ -25,6 +26,7 @@ const NAV_RESOURCES: PermissionResource[] = Array.from(
     "FILES",
     "SHARE_LINKS",
     "HOTELS",
+    "FORMS",
   ]),
 );
 
@@ -86,6 +88,10 @@ export default async function EventLayout({
   const permissions = { ...eventScoped, ...globalScoped };
 
   const deniedResources = NAV_RESOURCES.filter((r) => !canDo(permissions, r, "VIEW"));
+  // Submissions waiting for review, beside the Forms link.
+  const openForms = canDo(permissions, "FORMS", "VIEW")
+    ? await prisma.formSubmission.count({ where: { eventId: id, state: "SUBMITTED" } })
+    : 0;
   const deniedWriteResources = ALL_RESOURCES.filter(
     (r) => !canDo(permissions, r, "WRITE"),
   );
@@ -99,6 +105,7 @@ export default async function EventLayout({
           deniedResources={deniedResources}
           deniedWriteResources={deniedWriteResources}
           sidebarCollapsed={sidebarCollapsed === "true"}
+          sidebarBadges={{ forms: openForms }}
           header={<Header />}
         >
           {children}

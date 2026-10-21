@@ -72,6 +72,8 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { getEventRooms } from "@/lib/eventVenues";
 import { hasPermission } from "@/lib/permissions";
 import { btnSecondary } from "@/lib/buttonStyles";
+import { FUNCTION_REVIEW_SECTIONS } from "@/lib/forms/meta";
+import { FormLinkEntry } from "../../../forms/FormLinkEntry";
 
 export const dynamic = "force-dynamic";
 
@@ -336,6 +338,19 @@ export default async function FunctionPage({
           >
             Print
           </a>
+          <FormLinkEntry
+            eventId={eventId}
+            formType="FUNCTION_REVIEW"
+            title="Request review"
+            target={{ field: "functionId", id: functionId }}
+            sections={FUNCTION_REVIEW_SECTIONS}
+            recipients={fn.contacts.map((c) => ({
+              contactId: c.contact.id,
+              name: [c.contact.firstName, c.contact.lastName].filter(Boolean).join(" "),
+              email: c.contact.email,
+            }))}
+            defaultCloseDate={defaultFormCloseDate(event.startDate)}
+          />
           {canWrite && (
             <form action={duplicateFunctionAction}>
               <button type="submit" className={btnSecondary}>
@@ -538,4 +553,12 @@ export default async function FunctionPage({
     </>
   );
 
+}
+
+// A form link stays open until the event starts, or 30 days when that's
+// sooner or already past. YYYY-MM-DD for the date input.
+function defaultFormCloseDate(eventStart: Date | null): string {
+  const inMonth = new Date(Date.now() + 30 * 86_400_000);
+  const start = eventStart && eventStart.getTime() > Date.now() + 86_400_000 ? eventStart : null;
+  return (start && start < inMonth ? start : inMonth).toISOString().slice(0, 10);
 }

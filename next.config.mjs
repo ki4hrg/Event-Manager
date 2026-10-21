@@ -11,6 +11,21 @@ const nextConfig = {
   // but Next's App Router can't host a route segment whose folder starts with a
   // dot — so the handlers live under /api/well-known/* and we rewrite the spec
   // paths onto them. claude.ai fetches these to discover the auth server.
+  // Public form links carry their token in the path: keep it out of Referer
+  // headers and search indexes. (Caching needs no header: the pages are
+  // force-dynamic, which Next already serves as private, no-store.)
+  async headers() {
+    return [
+      {
+        source: "/f/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

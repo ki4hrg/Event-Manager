@@ -8,6 +8,7 @@ import type { EntityStatus } from "@prisma/client";
 import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { getResponsibleParties, type ResponsiblePartyPool } from "@/lib/responsibleParties";
+import { createMediaDeliverableCore } from "./core";
 
 async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId: string) {
   const found = await prisma.mediaDeliverable.findUnique({
@@ -101,37 +102,18 @@ export async function getMediaDeliverable(id: string) {
 
 export async function createMediaDeliverable(eventId: string, formData: FormData) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
-  const name = (formData.get("name") as string)?.trim();
   const functionIds = (formData.getAll("functionIds") as string[]).filter(Boolean);
   const presentationIds = (formData.getAll("presentationIds") as string[]).filter(Boolean);
-
-  const defaults = await resolveCreateStatus(eventId, "MEDIA_DELIVERABLE");
-  const data = parseDeliverableData(formData);
-
-  const deliverable = await prisma.mediaDeliverable.create({
-    data: {
-      name,
-      eventId,
-      ...data,
-      status: defaults.status,
-      substatus: defaults.substatus,
-      updatedById: session.user.id,
+  const deliverable = await createMediaDeliverableCore(
+    eventId,
+    {
+      name: (formData.get("name") as string)?.trim() ?? "",
+      ...parseDeliverableData(formData),
+      functionIds,
+      presentationIds,
     },
-  });
-
-  await Promise.all([
-    functionIds.length
-      ? prisma.mediaDeliverableFunction.createMany({
-          data: functionIds.map((functionId) => ({ mediaDeliverableId: deliverable.id, functionId })),
-        })
-      : Promise.resolve(null),
-    presentationIds.length
-      ? prisma.mediaDeliverablePresentation.createMany({
-          data: presentationIds.map((presentationId) => ({ mediaDeliverableId: deliverable.id, presentationId })),
-        })
-      : Promise.resolve(null),
-    autoAssignDefaultWorkflows("media_deliverable", deliverable.id, eventId),
-  ]);
+    session.user.id,
+  );
 
   for (const functionId of functionIds) revalidatePath(`/events/${eventId}/functions/${functionId}`);
   for (const presentationId of presentationIds) revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
