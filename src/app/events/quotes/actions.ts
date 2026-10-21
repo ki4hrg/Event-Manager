@@ -5,11 +5,11 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { resourceForKind } from "@/lib/rfp/kinds";
-import { buildQuoteComparison } from "@/lib/rfp/compareQuotes";
 import {
   awardVendorQuoteCore,
   createVendorQuoteCore,
   deleteVendorQuoteCore,
+  getQuoteComparisonCore,
   quoteResource,
   updateVendorQuoteCore,
   type QuoteLineArgs,
@@ -78,38 +78,8 @@ export async function getQuoteFormChoices(eventId: string, rfpId: string | null)
 export async function getQuoteComparison(rfpId: string, eventId: string) {
   const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
   if (!rfp || rfp.kind === "HOTEL") return null;
-  await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
-  const [full, event] = await Promise.all([
-    prisma.rfp.findFirstOrThrow({
-      where: { id: rfpId, eventId },
-      select: {
-        title: true,
-        lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true, group: true, description: true, quantity: true, unit: true } },
-        quotes: {
-          select: {
-            id: true,
-            status: true,
-            revision: true,
-            validUntil: true,
-            serviceCharge: true,
-            tax: true,
-            otherFees: true,
-            depositAmount: true,
-            depositDue: true,
-            vendor: { select: { name: true } },
-            lines: { select: { rfpLineItemId: true, description: true, quantity: true, unitPrice: true, amount: true }, orderBy: { sortOrder: "asc" } },
-          },
-        },
-      },
-    }),
-    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { name: true } }),
-  ]);
-  return buildQuoteComparison({
-    title: full.title,
-    eventName: event.name,
-    lineItems: full.lineItems,
-    quotes: full.quotes.map((q) => ({ ...q, vendor: q.vendor.name })),
-  });
+  const session = await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
+  return getQuoteComparisonCore(rfpId, eventId, session.user.id);
 }
 
 function readQuote(formData: FormData): QuoteWriteArgs {

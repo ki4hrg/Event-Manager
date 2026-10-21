@@ -1,7 +1,35 @@
 # Proposal — Vendor RFPs (RFP tools phase 5)
 
-Status: Proposed. Follows docs/proposals/rfp-tools.md (hotel RFPs, phases
-1–4). Where this design and the code differ, the code wins.
+Status: Phases 1–4 implemented (vendor RFPs, quotes, award, comparison,
+MCP); phase 5 (inbox kinds) next. Follows docs/proposals/rfp-tools.md
+(hotel RFPs, phases 1–4). Where this design and the code differ, the code
+wins.
+
+## As built
+
+- Terms come from their own `rfp_term` list (Settings › Vendors, mergeable
+  like concessions), not the hotel `rfp_concession` list; they're stored as
+  `RfpConcession` rows on the vendor RFP and print as "Terms". Quotes record
+  deposit, validity and cancellation as fields rather than per-term answers.
+- The RFP document builder (`src/lib/rfp/document.ts`) serves every kind:
+  vendor kinds turn on line items, terms, other requirements and a pricing
+  response form; hotel-only parts are off.
+- Line-item candidates: `rfpLineItemCandidatesCore` (`src/app/events/rfps/core.ts`)
+  over the pure builders in `src/lib/rfp/lineItems.ts`. AV equipment
+  includes the order's video section; a catering order contributes its meal
+  (type · style, count) plus its line items; day and times come from the
+  linked functions' own schedules (times only for a single sitting).
+- Recipients picker: vendors tagged for the kind's order type, or untagged,
+  are "Suggested"; for Other services, the vendors already on the event.
+- Quotes: `src/app/events/quotes/` (core, actions, form, compare view,
+  Accept). Files on a quote are `FileUpload.vendorQuoteId` (entity type
+  `vendorQuote`). A standalone quote is guarded by EVENTS.
+- MCP: `create_rfp` takes `kind` and `service`; `set_rfp_line_items`,
+  `fill_rfp_line_items` (copies from orders, skipping items already
+  copied); `add_rfp_recipients` takes `vendorIds`; `get_rfp_comparison`
+  compares quotes on a vendor RFP; `src/lib/mcpTools/quotes.ts` has
+  `list_vendor_quotes`, `get_vendor_quote`, `record_vendor_quote`,
+  `update_vendor_quote`, `award_vendor_quote`, `delete_vendor_quote`.
 
 ## Problem
 

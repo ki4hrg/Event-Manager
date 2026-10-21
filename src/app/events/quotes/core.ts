@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { dateFromKey } from "@/lib/hotels";
 import { resourceForKind } from "@/lib/rfp/kinds";
+import { buildQuoteComparison } from "@/lib/rfp/compareQuotes";
 
 export type QuoteLineArgs = {
   id?: string | null;
@@ -184,4 +185,44 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
     await tx.printOrderVendor.createMany({ data: print.map((o) => ({ printOrderId: o.id, vendorId })), skipDuplicates: true });
   });
   return { orders: ids("avOrderId").length + ids("cateringOrderId").length + ids("printOrderId").length };
+}
+
+// The quotes answering a vendor RFP against its line items
+// (src/lib/rfp/compareQuotes.ts). Shared by the compare page, .docx and MCP.
+export async function getQuoteComparisonCore(rfpId: string, eventId: string, userId: string) {
+  const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
+  if (!rfp) throw new PermissionError("NOT_FOUND", "RFP not found");
+  if (rfp.kind === "HOTEL") throw new Error("A hotel RFP compares proposals, not quotes");
+  await requirePermissionForUser(userId, resourceForKind(rfp.kind), "VIEW", eventId);
+  const [full, event] = await Promise.all([
+    prisma.rfp.findFirstOrThrow({
+      where: { id: rfpId, eventId },
+      select: {
+        title: true,
+        lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true, group: true, description: true, quantity: true, unit: true } },
+        quotes: {
+          select: {
+            id: true,
+            status: true,
+            revision: true,
+            validUntil: true,
+            serviceCharge: true,
+            tax: true,
+            otherFees: true,
+            depositAmount: true,
+            depositDue: true,
+            vendor: { select: { name: true } },
+            lines: { select: { rfpLineItemId: true, description: true, quantity: true, unitPrice: true, amount: true }, orderBy: { sortOrder: "asc" } },
+          },
+        },
+      },
+    }),
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { name: true } }),
+  ]);
+  return buildQuoteComparison({
+    title: full.title,
+    eventName: event.name,
+    lineItems: full.lineItems,
+    quotes: full.quotes.map((q) => ({ ...q, vendor: q.vendor.name })),
+  });
 }

@@ -8,7 +8,7 @@ import { hasPermission, requirePermission } from "@/lib/permissions";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { patternStats, proposedRoles, proposeNights } from "@/lib/hotelPattern";
 import { RFP_KIND_LABELS, resourceForKind } from "@/lib/rfp/kinds";
-import { avLineItems, cateringLineItems, printLineItems, type LineItemRow } from "@/lib/rfp/lineItems";
+import type { LineItemRow } from "@/lib/rfp/lineItems";
 import { buildRfpDocument } from "@/lib/rfp/document";
 import { parseSections } from "@/lib/rfp/sections";
 import { effectiveScope, scopeLabels } from "@/lib/areas";
@@ -20,6 +20,7 @@ import {
   addRfpRecipientsCore,
   addRfpVendorRecipientsCore,
   saveRfpLineItemsCore,
+  rfpLineItemCandidatesCore,
   createRfpCore,
   deleteRfpCore,
   getRfpComparisonCore,
@@ -381,80 +382,8 @@ export async function getRfpVendorChoices(eventId: string, kind: RfpKind) {
 // The event's orders of the RFP's kind as line items, for "Add from orders".
 export async function getRfpLineItemCandidates(id: string, eventId: string): Promise<LineItemRow[]> {
   const kind = await rfpKind(id, eventId);
-  await requirePermission(resourceForKind(kind), "VIEW", eventId);
-  const scheduleSelect = { select: { type: true, startTime: true, endTime: true } } as const;
-  const [event, support] = await Promise.all([
-    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { timezone: true } }),
-    supportScheduleTypes(eventId),
-  ]);
-  const itemSelect = { select: { id: true, item: true, quantity: true, notes: true }, orderBy: { sortOrder: "asc" } } as const;
-  switch (kind) {
-    case "AV": {
-      const orders = await prisma.aVOrder.findMany({
-        where: { eventId },
-        select: {
-          id: true,
-          name: true,
-          equipmentItems: itemSelect,
-          videoSection: { select: { equipmentItems: itemSelect } },
-          functionLinks: { select: { function: { select: { schedules: scheduleSelect } } } },
-        },
-        orderBy: { name: "asc" },
-      });
-      return avLineItems(
-        orders.map((o) => ({
-          id: o.id,
-          name: o.name,
-          items: [...o.equipmentItems, ...(o.videoSection?.equipmentItems ?? [])],
-          schedules: o.functionLinks.flatMap((l) => l.function.schedules),
-        })),
-        support,
-        event.timezone,
-      );
-    }
-    case "CATERING": {
-      const orders = await prisma.cateringOrder.findMany({
-        where: { eventId },
-        select: {
-          id: true,
-          name: true,
-          mealType: true,
-          serviceStyle: true,
-          expectedCount: true,
-          confirmedCount: true,
-          guaranteeCount: true,
-          dietaryNotes: true,
-          function: { select: { schedules: scheduleSelect } },
-          lineItems: { select: { id: true, description: true, quantity: true, unitType: true, notes: true }, orderBy: { sortOrder: "asc" } },
-        },
-        orderBy: { name: "asc" },
-      });
-      return cateringLineItems(
-        orders.map((o) => ({ ...o, schedules: o.function?.schedules ?? [] })),
-        support,
-        event.timezone,
-      );
-    }
-    case "PRINT": {
-      const orders = await prisma.printOrder.findMany({
-        where: { eventId },
-        select: {
-          id: true,
-          name: true,
-          items: { select: { id: true, description: true, quantity: true, distributionMethod: true, notes: true }, orderBy: { sortOrder: "asc" } },
-        },
-        orderBy: { name: "asc" },
-      });
-      return printLineItems(orders);
-    }
-    case "HOTEL":
-    case "OTHER":
-      return [];
-    default: {
-      const _exhaustive: never = kind;
-      throw new Error(`Unhandled RFP kind: ${_exhaustive}`);
-    }
-  }
+  const session = await requirePermission(resourceForKind(kind), "VIEW", eventId);
+  return rfpLineItemCandidatesCore(id, eventId, session.user.id);
 }
 
 export async function getRfpComparison(id: string, eventId: string) {

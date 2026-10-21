@@ -17,7 +17,7 @@ import { requireListLabels } from "@/lib/hotelLabels";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import { buildComparison } from "@/lib/rfp/compare";
 import { FB_INCLUDES, parseSections } from "@/lib/rfp/sections";
-import type { LineItemRow } from "@/lib/rfp/lineItems";
+import { avLineItems, cateringLineItems, printLineItems, type LineItemRow } from "@/lib/rfp/lineItems";
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
 import type { OfferHotel } from "@/lib/inboundParse";
 import { createNewHotelCore } from "@/app/events/hotels/core";
@@ -426,6 +426,94 @@ export async function saveRfpLineItemsCore(id: string, eventId: string, rows: Rf
     }
     await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
   });
+}
+
+// Support schedule types (set-up / tear-down): a line item's day and times
+// come from the other schedules when there are any.
+async function supportTypes(eventId: string) {
+  const options = await prisma.customOption.findMany({
+    where: { tenant: { events: { some: { id: eventId } } }, category: "schedule_type", group: { in: ["SETUP", "TEARDOWN"] } },
+    select: { label: true },
+  });
+  return new Set(options.length ? options.map((o) => o.label) : ["Setup", "Breakdown"]);
+}
+
+// The event's orders of the RFP's kind as line items, for "Add from orders".
+export async function rfpLineItemCandidatesCore(id: string, eventId: string, userId: string): Promise<LineItemRow[]> {
+  const { kind } = await authorizeRfp(id, eventId, "VIEW", userId);
+  const scheduleSelect = { select: { type: true, startTime: true, endTime: true } } as const;
+  const [event, support] = await Promise.all([
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { timezone: true } }),
+    supportTypes(eventId),
+  ]);
+  const itemSelect = { select: { id: true, item: true, quantity: true, notes: true }, orderBy: { sortOrder: "asc" } } as const;
+  switch (kind) {
+    case "AV": {
+      const orders = await prisma.aVOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          equipmentItems: itemSelect,
+          videoSection: { select: { equipmentItems: itemSelect } },
+          functionLinks: { select: { function: { select: { schedules: scheduleSelect } } } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return avLineItems(
+        orders.map((o) => ({
+          id: o.id,
+          name: o.name,
+          items: [...o.equipmentItems, ...(o.videoSection?.equipmentItems ?? [])],
+          schedules: o.functionLinks.flatMap((l) => l.function.schedules),
+        })),
+        support,
+        event.timezone,
+      );
+    }
+    case "CATERING": {
+      const orders = await prisma.cateringOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          mealType: true,
+          serviceStyle: true,
+          expectedCount: true,
+          confirmedCount: true,
+          guaranteeCount: true,
+          dietaryNotes: true,
+          function: { select: { schedules: scheduleSelect } },
+          lineItems: { select: { id: true, description: true, quantity: true, unitType: true, notes: true }, orderBy: { sortOrder: "asc" } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return cateringLineItems(
+        orders.map((o) => ({ ...o, schedules: o.function?.schedules ?? [] })),
+        support,
+        event.timezone,
+      );
+    }
+    case "PRINT": {
+      const orders = await prisma.printOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          items: { select: { id: true, description: true, quantity: true, distributionMethod: true, notes: true }, orderBy: { sortOrder: "asc" } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return printLineItems(orders);
+    }
+    case "HOTEL":
+    case "OTHER":
+      return [];
+    default: {
+      const _exhaustive: never = kind;
+      throw new Error(`Unhandled RFP kind: ${_exhaustive}`);
+    }
+  }
 }
 
 // Files the rendered document on the RFP as a record of what went out,

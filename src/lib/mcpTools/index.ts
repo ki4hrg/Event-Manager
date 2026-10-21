@@ -14,6 +14,7 @@ import { specificationTools } from "./specifications";
 import { boothTools } from "./booths";
 import { hotelTools } from "./hotels";
 import { rfpTools } from "./rfps";
+import { quoteTools } from "./quotes";
 
 export const mcpTools: McpToolDefinition[] = [
   ...tenantTools,
@@ -23,6 +24,7 @@ export const mcpTools: McpToolDefinition[] = [
   ...boothTools,
   ...hotelTools,
   ...rfpTools,
+  ...quoteTools,
   ...presentationTools,
   ...vendorTools,
   ...contactTools,

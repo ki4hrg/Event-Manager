@@ -1,6 +1,6 @@
 # Proposal — RFP tools (hotels first, then other vendors)
 
-Status: Stages 1–4 (hotel RFP, document export, recipients and responses, bid comparison, MCP) implemented, then revised after first use: block type split into contract type + guest type, Run of House as a room type, RFP-owned function-space rows, requested dates / peak rooms, and an APEX-ordered document. Stage 5 (other vendor kinds) next. Implementation notes in docs/hotels.md § RFPs; where this design and the code differ, the code and docs/hotels.md win.
+Status: Stages 1–4 (hotel RFP, document export, recipients and responses, bid comparison, MCP) implemented, then revised after first use: block type split into contract type + guest type, Run of House as a room type, RFP-owned function-space rows, requested dates / peak rooms, and an APEX-ordered document. Stage 5 (other vendor kinds) implemented per docs/proposals/vendor-rfps.md. Implementation notes in docs/hotels.md § RFPs; where this design and the code differ, the code and docs/hotels.md win.
 
 ## Problem
 

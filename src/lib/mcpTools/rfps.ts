@@ -2,12 +2,18 @@ import type { HotelContractType, RfpKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
 import { coveredByProfile, dateKey, labelKey } from "@/lib/hotels";
-import { resourceForKind } from "@/lib/rfp/kinds";
+import { resourceForKind, VENDOR_RFP_KINDS } from "@/lib/rfp/kinds";
+import { hasPermissionForUser } from "@/lib/permissions";
 import { recipientState } from "@/lib/rfp/recipients";
-import { RFP_SECTIONS } from "@/lib/rfp/sections";
+import { RFP_SECTIONS, sectionsFor } from "@/lib/rfp/sections";
+import { sourceOrderId, type LineItemRow } from "@/lib/rfp/lineItems";
 import {
   addRfpRecipientsCore,
+  addRfpVendorRecipientsCore,
   createRfpCore,
+  rfpLineItemCandidatesCore,
+  saveRfpLineItemsCore,
+  type RfpLineItemArgs,
   deleteRfpCore,
   getRfpComparisonCore,
   removeRfpRecipientCore,
@@ -21,6 +27,7 @@ import {
   type RfpSpaceArgs,
   type RfpWriteArgs,
 } from "@/app/events/rfps/core";
+import { getQuoteComparisonCore } from "@/app/events/quotes/core";
 import { createHotelProposalCore, type ProposalConcessionArgs, type ProposalWriteArgs } from "@/app/events/hotels/core";
 import { readProposalAmenities } from "./hotels";
 import type { McpToolDefinition } from "./types";
@@ -106,8 +113,9 @@ const rfpProps = {
     type: "array",
     items: { type: "string", enum: RFP_SECTIONS.map((s) => s.key) },
     description:
-      "Optional document parts: blocks (guest rooms), meetingSpace (function space rows), fb (F&B rows + minimum), concessions, history, requirements (other requirements), responseForm (blank tables the hotel fills in). Contact, event profile, dates and proposal specifications always print.",
+      "Optional document parts. Hotel RFPs: blocks (guest rooms), meetingSpace (function space rows), fb (F&B rows + minimum), concessions, history, requirements (other requirements), responseForm (blank tables the hotel fills in). Vendor RFPs: lineItems, concessions (printed as Terms), requirements, responseForm (pricing and terms to fill in). Contact, event profile, dates and proposal specifications always print.",
   },
+  service: { type: ["string", "null"], description: "kind OTHER only: what it's for — an rfp_service option label (Transportation, DMC, Security…)." },
   introduction: { type: ["string", "null"], description: "Statement of need. HTML (paragraphs, lists, bold/italic)." },
   requirements: { type: ["string", "null"], description: "Other requirements. HTML." },
   contactId: { type: ["string", "null"], description: "Our point of contact — a contact id, usually one of the event's key staff." },
@@ -181,39 +189,103 @@ function mergeRfp(current: RfpWriteArgs, args: Record<string, unknown>): RfpWrit
     regions: pick(stringList(args, "regions"), current.regions),
     areas: pick(stringList(args, "areas"), current.areas),
     siteVisitBy: pick(dateArg(args, "siteVisitBy"), current.siteVisitBy),
+    // Undefined leaves it as it is.
+    service: partialString(args, "service"),
   };
 }
 
-const recipientInclude = { venue: { select: { id: true, name: true, city: true, state: true } } } as const;
+const recipientInclude = { venue: { select: { id: true, name: true, city: true, state: true } }, vendor: { select: { id: true, name: true } } } as const;
+
+// A recipient's responses: a hotel's proposals, a vendor's quotes.
+const responsesOf = (
+  r: { venueId: string | null; vendorId: string | null },
+  proposals: { venueId: string }[],
+  quotes: { vendorId: string }[],
+) => (r.venueId ? proposals.filter((p) => p.venueId === r.venueId).length : quotes.filter((q) => q.vendorId === r.vendorId).length);
+
+// The RFP kinds whose permission resource the user can view on this event.
+async function viewableKinds(userId: string, eventId: string): Promise<RfpKind[]> {
+  const kinds: RfpKind[] = ["HOTEL", ...VENDOR_RFP_KINDS];
+  const allowed = await Promise.all(kinds.map((k) => hasPermissionForUser(userId, resourceForKind(k), "VIEW", eventId)));
+  return kinds.filter((_, i) => allowed[i]);
+}
+
+const lineItemSchema = {
+  type: "object",
+  properties: {
+    id: { type: ["string", "null"], description: "An existing line's id (get_rfp) to keep it and the quote lines answering it; omit for a new line." },
+    group: { type: ["string", "null"], description: "Heading it prints under (the source order's name when copied)." },
+    description: { type: "string" },
+    quantity: { type: ["integer", "null"] },
+    unit: { type: ["string", "null"], description: "each, day, hour, guests…" },
+    day: { type: ["string", "null"], description: "YYYY-MM-DD, event-local." },
+    endDay: { type: ["string", "null"], description: "Through this day, YYYY-MM-DD." },
+    startTime: { type: ["string", "null"], description: "HH:MM, event-local." },
+    endTime: { type: ["string", "null"] },
+    notes: { type: ["string", "null"] },
+    avOrderId: { type: ["string", "null"] },
+    cateringOrderId: { type: ["string", "null"] },
+    printOrderId: { type: ["string", "null"] },
+    equipmentItemId: { type: ["string", "null"] },
+    printItemId: { type: ["string", "null"] },
+    cateringLineItemId: { type: ["string", "null"] },
+  },
+  required: ["description"],
+} as const;
+
+function readLineItems(v: unknown): RfpLineItemArgs[] {
+  if (!Array.isArray(v)) throw new Error("lineItems must be a list");
+  const s = (x: unknown) => (typeof x === "string" && x ? x : null);
+  return v.map((r: Record<string, unknown>) => ({
+    id: s(r.id),
+    group: s(r.group),
+    description: String(r.description ?? ""),
+    quantity: typeof r.quantity === "number" ? r.quantity : null,
+    unit: s(r.unit),
+    day: s(r.day),
+    endDay: s(r.endDay),
+    startTime: s(r.startTime),
+    endTime: s(r.endTime),
+    notes: s(r.notes),
+    avOrderId: s(r.avOrderId),
+    cateringOrderId: s(r.cateringOrderId),
+    printOrderId: s(r.printOrderId),
+    equipmentItemId: s(r.equipmentItemId),
+    printItemId: s(r.printItemId),
+    cateringLineItemId: s(r.cateringLineItemId),
+  }));
+}
 
 export const rfpTools: McpToolDefinition[] = [
   {
     name: "list_rfps",
     description:
-      "List an event's RFPs (requests for proposal sent to hotels): title, status, response due date, issue date, requested block types, and recipient counts by state. Returns summary shape — use `get_rfp` for full detail (requested nights, concessions, recipients, linked proposals).",
+      "List an event's RFPs — hotel (kind HOTEL) and vendor (AV, CATERING, PRINT, OTHER): kind, service, title, status, response due date, issue date, requested block types (hotel), and recipient counts by state. Only kinds the caller may view. Returns summary shape — use `get_rfp` for full detail (requested nights or line items, concessions / terms, recipients, linked proposals or quotes).",
     inputSchema: { type: "object", properties: { eventId: { type: "string" } }, required: ["eventId"], additionalProperties: false },
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
-      await requirePermissionForUser(userId, "HOTELS", "VIEW", eventId);
+      await requirePermissionForUser(userId, "EVENTS", "VIEW", eventId);
       const rfps = await prisma.rfp.findMany({
-        where: { eventId },
+        where: { eventId, kind: { in: await viewableKinds(userId, eventId) } },
         select: {
           id: true,
           kind: true,
+          service: true,
           title: true,
           status: true,
           responseDue: true,
           issuedOn: true,
           hotelBlocks: { select: { id: true, contractType: true, guestType: true }, orderBy: { sortOrder: "asc" } },
-          recipients: { select: { venueId: true, sentOn: true, declinedToBid: true } },
+          recipients: { select: { venueId: true, vendorId: true, sentOn: true, declinedToBid: true } },
           hotelProposals: { select: { venueId: true } },
+          quotes: { select: { vendorId: true } },
         },
         orderBy: { createdAt: "asc" },
       });
-      return rfps.map(({ recipients, hotelProposals, ...r }) => {
+      return rfps.map(({ recipients, hotelProposals, quotes, ...r }) => {
         const counts: Record<string, number> = {};
         for (const x of recipients) {
-          const { state } = recipientState({ ...x, responses: hotelProposals.filter((p) => p.venueId === x.venueId).length }, r.responseDue);
+          const { state } = recipientState({ ...x, responses: responsesOf(x, hotelProposals, quotes) }, r.responseDue);
           counts[state] = (counts[state] ?? 0) + 1;
         }
         return { ...r, recipients: counts };
@@ -223,7 +295,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "get_rfp",
     description:
-      "Get one RFP: details (requested dates, alternates, peak rooms, F&B minimum, amenities, decision timeline), document parts, requested hotel blocks (room type × night rooms, target rate), function-space rows, concessions, recipients (hotel, sent date, declined, state: NOT_SENT / AWAITING / OVERDUE / DECLINED / RESPONDED), and the proposals linked to it.",
+      "Get one RFP: details (requested dates, alternates, peak rooms, F&B minimum, amenities, decision timeline, service), document parts, requested hotel blocks (room type × night rooms, target rate) or vendor line items (with the order / item each was copied from), function-space rows, concessions (terms on vendor RFPs), recipients (hotel or vendor, sent date, declined, state: NOT_SENT / AWAITING / OVERDUE / DECLINED / RESPONDED), and the proposals or quotes linked to it.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -243,7 +315,9 @@ export const rfpTools: McpToolDefinition[] = [
           alternateDates: { orderBy: { sortOrder: "asc" } },
           spaceRequests: { orderBy: { sortOrder: "asc" } },
           recipients: { orderBy: { createdAt: "asc" }, include: recipientInclude },
-          hotelProposals: { select: { id: true, status: true, revision: true, rfpBlockId: true, venue: { select: { id: true, name: true } } } },
+          hotelProposals: { select: { id: true, status: true, revision: true, rfpBlockId: true, venueId: true, venue: { select: { id: true, name: true } } } },
+          lineItems: { orderBy: { sortOrder: "asc" } },
+          quotes: { select: { id: true, status: true, revision: true, vendorId: true, vendor: { select: { name: true } } } },
           files: { select: { id: true, fileName: true, fileType: true, createdAt: true }, orderBy: { createdAt: "desc" } },
         },
       });
@@ -251,7 +325,7 @@ export const rfpTools: McpToolDefinition[] = [
         ...rfp,
         recipients: rfp.recipients.map((r) => ({
           ...r,
-          ...recipientState({ ...r, responses: rfp.hotelProposals.filter((p) => p.venue.id === r.venueId).length }, rfp.responseDue),
+          ...recipientState({ ...r, responses: responsesOf(r, rfp.hotelProposals, rfp.quotes) }, rfp.responseDue),
         })),
       };
     },
@@ -259,21 +333,29 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "create_rfp",
     description:
-      "Create a hotel RFP for an event. title is required; sections defaults to every part. blocks are the requested room blocks (see set_rfp_blocks). Add concessions with set_rfp_concessions and hotels with add_rfp_recipients.",
+      "Create an RFP for an event. kind HOTEL (default) goes to hotels; AV, CATERING, PRINT or OTHER (with service) go to vendors. title is required; sections defaults to every part of the kind. Hotel: blocks are the requested room blocks (see set_rfp_blocks), concessions via set_rfp_concessions, hotels via add_rfp_recipients. Vendor: line items via fill_rfp_line_items / set_rfp_line_items, terms via set_rfp_concessions (rfp_term labels), vendors via add_rfp_recipients (vendorIds).",
     inputSchema: {
       type: "object",
-      properties: { eventId: { type: "string" }, ...rfpProps, blocks: { type: "array", items: blockSchema } },
+      properties: {
+        eventId: { type: "string" },
+        kind: { type: "string", enum: ["HOTEL", ...VENDOR_RFP_KINDS] },
+        ...rfpProps,
+        blocks: { type: "array", items: blockSchema, description: "HOTEL only." },
+      },
       required: ["eventId", "title"],
       additionalProperties: false,
     },
     handler: (args, { userId }) => {
-      const kind: RfpKind = "HOTEL";
+      const raw = partialString(args, "kind") ?? "HOTEL";
+      if (raw !== "HOTEL" && !(VENDOR_RFP_KINDS as readonly string[]).includes(raw)) throw new Error("kind must be HOTEL, AV, CATERING, PRINT or OTHER");
+      const kind = raw as RfpKind;
+      if (kind !== "HOTEL" && "blocks" in args) throw new Error("Only a hotel RFP has room blocks");
       const blank: RfpWriteArgs = {
         title: "",
         status: "DRAFT",
         responseDue: null,
         decisionBy: null,
-        sections: RFP_SECTIONS.filter((s) => s.kinds.includes(kind)).map((s) => s.key),
+        sections: sectionsFor(kind).map((s) => s.key),
         introduction: null,
         requirements: null,
         contactId: null,
@@ -445,7 +527,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "set_rfp_concessions",
     description:
-      "Replace an RFP's concessions with this list, in order. label is an rfp_concession option label; value is what we ask for (\"1/40\", \"20%\"). Pass existing ids (from get_rfp) to keep hotels' answers; concessions left out are removed with their answers.",
+      "Replace an RFP's concessions (hotel RFPs) or terms (vendor RFPs) with this list, in order. label is an rfp_concession option label on a hotel RFP, an rfp_term label on a vendor RFP; value is what we ask for (\"1/40\", \"20%\", \"50% at signing\"). Pass existing ids (from get_rfp) to keep hotels' answers; concessions left out are removed with their answers.",
     inputSchema: {
       type: "object",
       properties: {
@@ -482,15 +564,26 @@ export const rfpTools: McpToolDefinition[] = [
   },
   {
     name: "add_rfp_recipients",
-    description: "Add hotels (venue ids; list_venues — usually ones flagged isLodging) to an RFP's recipients. Hotels already on it are skipped.",
+    description:
+      "Add recipients to an RFP: hotels (venueIds; list_venues — usually ones flagged isLodging) to a hotel RFP, vendors (vendorIds; list_vendors) to a vendor RFP. Ones already on it are skipped.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" }, eventId: { type: "string" }, venueIds: { type: "array", items: { type: "string" } } },
-      required: ["id", "eventId", "venueIds"],
+      properties: {
+        id: { type: "string" },
+        eventId: { type: "string" },
+        venueIds: { type: "array", items: { type: "string" } },
+        vendorIds: { type: "array", items: { type: "string" } },
+      },
+      required: ["id", "eventId"],
       additionalProperties: false,
     },
     handler: async (args, { userId }) => {
-      await addRfpRecipientsCore(requireString(args, "id"), requireString(args, "eventId"), stringList(args, "venueIds") ?? [], userId);
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      const venueIds = stringList(args, "venueIds") ?? [];
+      const vendorIds = stringList(args, "vendorIds") ?? [];
+      if (venueIds.length) await addRfpRecipientsCore(id, eventId, venueIds, userId);
+      if (vendorIds.length) await addRfpVendorRecipientsCore(id, eventId, vendorIds, userId);
       return { ok: true };
     },
   },
@@ -673,13 +766,62 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "get_rfp_comparison",
     description:
-      "Compare the hotel proposals answering an RFP: per requested block, each hotel's room nights and peak vs requested, nightly shortfall, weighted average rate vs target, room revenue, attrition, guaranteed revenue, charges, amenities and concession answers (met / partial / not met).",
+      "Compare the responses to an RFP. Hotel RFP: per requested block, each hotel's room nights and peak vs requested, nightly shortfall, weighted average rate vs target, room revenue, attrition, guaranteed revenue, validity, charges, amenities and concession answers (met / partial / not met). Vendor RFP: each quote's price per line item (missing: not quoted or fewer than asked), extras, subtotal, fees, total, deposit, validity, and the lowest total.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
       required: ["id", "eventId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => getRfpComparisonCore(requireString(args, "id"), requireString(args, "eventId"), userId),
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      const { kind } = await rfpFor(id, eventId, userId, "VIEW");
+      return kind === "HOTEL" ? getRfpComparisonCore(id, eventId, userId) : getQuoteComparisonCore(id, eventId, userId);
+    },
+  },
+  {
+    name: "set_rfp_line_items",
+    description:
+      "Replace a vendor RFP's line items with this list, in order. Pass existing ids (from get_rfp) to keep quote lines answering them; lines left out are removed (quote lines keep their price, unlinked). A line copied from an order keeps its source ids; use fill_rfp_line_items to copy from orders.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, eventId: { type: "string" }, lineItems: { type: "array", items: lineItemSchema } },
+      required: ["id", "eventId", "lineItems"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      await saveRfpLineItemsCore(id, eventId, readLineItems(args.lineItems), userId);
+      return prisma.rfpLineItem.findMany({ where: { rfpId: id }, orderBy: { sortOrder: "asc" } });
+    },
+  },
+  {
+    name: "fill_rfp_line_items",
+    description:
+      "Copy line items into a vendor RFP from the event's orders of its kind — AV orders' equipment, catering orders' meals and line items, print orders' items — appended after the existing lines. Items already copied are skipped. orderIds limits it to those orders (list_av_orders / list_catering_orders / list_print_orders). OTHER RFPs have no orders: use set_rfp_line_items.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, eventId: { type: "string" }, orderIds: { type: "array", items: { type: "string" } } },
+      required: ["id", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      const only = stringList(args, "orderIds");
+      const [candidates, current] = await Promise.all([
+        rfpLineItemCandidatesCore(id, eventId, userId),
+        prisma.rfpLineItem.findMany({ where: { rfpId: id }, orderBy: { sortOrder: "asc" } }),
+      ]);
+      const key = (r: Pick<LineItemRow, "equipmentItemId" | "printItemId" | "cateringLineItemId" | "cateringOrderId">) =>
+        r.equipmentItemId ?? r.printItemId ?? r.cateringLineItemId ?? (r.cateringOrderId ? `meal:${r.cateringOrderId}` : null);
+      const have = new Set(current.map(key).filter(Boolean));
+      const added = candidates.filter((c) => !have.has(key(c)) && (!only || only.includes(sourceOrderId(c) ?? "")));
+      const day = (d: Date | null) => (d ? dateKey(d) : null);
+      await saveRfpLineItemsCore(id, eventId, [...current.map((r) => ({ ...r, day: day(r.day), endDay: day(r.endDay) })), ...added], userId);
+      return { added: added.length, lineItems: await prisma.rfpLineItem.findMany({ where: { rfpId: id }, orderBy: { sortOrder: "asc" } }) };
+    },
   },
 ];
