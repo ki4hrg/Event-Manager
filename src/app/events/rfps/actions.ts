@@ -150,7 +150,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
       orderBy: { sortOrder: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_region", "hotel_area", "reservation_method", "rfp_concession"] } },
+      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_region", "hotel_area", "reservation_method", "rfp_concession", "rfp_service", "rfp_term"] } },
       select: { category: true, label: true, group: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -180,6 +180,9 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
     regions: of("hotel_region"),
     areas: options.filter((o) => o.category === "hotel_area").map((o) => ({ label: o.label, region: o.group })),
     concessions: options.filter((o) => o.category === "rfp_concession").map((o) => ({ label: o.label, group: o.group })),
+    // Vendor RFPs: what an Other services RFP is for, and the terms they ask.
+    services: of("rfp_service"),
+    terms: options.filter((o) => o.category === "rfp_term").map((o) => ({ label: o.label, group: null })),
     series,
     hotels: hotels.map((h) => ({ id: h.id, area: h.area, amenities: h.amenities, label: [h.name, [h.city, h.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ") })),
   };
@@ -351,6 +354,28 @@ export async function getRfpSpaceCandidates(id: string, eventId: string) {
       true,
     ),
   ]);
+}
+
+// Order type each vendor RFP kind buys for (Vendor.models).
+const KIND_MODEL: Partial<Record<RfpKind, string>> = { AV: "AV_ORDER", CATERING: "CATERING_ORDER", PRINT: "PRINT_ORDER" };
+
+// The tenant's vendors for a vendor RFP's recipients. Suggested: tagged for
+// the kind's order type (or untagged, i.e. general-purpose); for Other
+// services, the vendors already on the event.
+export async function getRfpVendorChoices(eventId: string, kind: RfpKind) {
+  const session = await requirePermission(resourceForKind(kind), "VIEW", eventId);
+  const model = KIND_MODEL[kind];
+  const vendors = await prisma.vendor.findMany({
+    // Not the house vendor or a venue's own vendor record.
+    where: { tenantId: session.tenantId, isSystemVendor: false, venueId: null },
+    select: { id: true, name: true, models: true, eventVendors: { where: { eventId }, select: { id: true } } },
+    orderBy: { name: "asc" },
+  });
+  return vendors.map((v) => ({
+    id: v.id,
+    name: v.name,
+    fits: model ? v.models.length === 0 || v.models.includes(model) : v.eventVendors.length > 0,
+  }));
 }
 
 // The event's orders of the RFP's kind as line items, for "Add from orders".

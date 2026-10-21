@@ -10,6 +10,8 @@ import type { HotelContractType, RfpKind, RfpSpaceKind, RfpStatus } from "@prism
 import { blockTypeLabel, dateKey, formatDateKey, formatMoney, formatNight, RUN_OF_HOUSE, roomTypeLabel } from "@/lib/hotels";
 import { CONCESSION_GROUPS, concessionGroupOf, FB_INCLUDES, type ConcessionGroup, type RfpSection } from "@/lib/rfp/sections";
 import { DAY_TBD, formatClockRange, sortSpaceRows, spaceRowDays } from "@/lib/rfp/space";
+import { groupLineItems } from "@/lib/rfp/lineItems";
+import { RFP_KIND_LABELS } from "@/lib/rfp/kinds";
 
 export type RfpBlockDoc = {
   label: string; // "Contract · Attendees block"
@@ -54,9 +56,14 @@ export type RfpFact = { label: string; value: string };
 
 export type RfpConcessionItem = { label: string; value: string | null; required: boolean };
 
+// A vendor RFP's line item as printed.
+export type RfpLineDocRow = { description: string; quantity: string | null; when: string | null; notes: string | null };
+export type RfpLineGroup = { group: string | null; rows: RfpLineDocRow[] };
+
 export type RfpDocument = {
   meta: {
     kind: RfpKind;
+    kindLabel: string; // "AV", "Transportation"
     title: string;
     status: RfpStatus;
     eventName: string;
@@ -83,6 +90,7 @@ export type RfpDocument = {
   dates: { preferred: string | null; alternates: string[]; flexible: boolean; notes: string | null };
   facility: RfpFact[];
   blocks: RfpBlockDoc[] | null;
+  lineItems: RfpLineGroup[] | null; // vendor RFPs
   roomTerms: RfpFact[];
   meetingSpace: RfpSpaceDay[] | null;
   fb: { days: RfpSpaceDay[]; terms: RfpFact[] } | null;
@@ -100,6 +108,8 @@ export type RfpDocument = {
     // APEX "Concessions Offered": every heading with the concessions we asked
     // for under it; the form adds blank rows for ones the hotel offers unasked.
     concessions: { group: string; items: string[] }[];
+    // Vendor RFPs: a price row per line item, under its group.
+    lineItems: { group: string | null; description: string; quantity: string | null }[];
   } | null;
 };
 
@@ -158,6 +168,19 @@ export type RfpDocumentInput = {
       room: string | null;
     }[];
     attachments: string[];
+    // Vendor RFPs.
+    service: string | null;
+    lineItems: {
+      group: string | null;
+      description: string;
+      quantity: number | null;
+      unit: string | null;
+      day: Date | null;
+      endDay: Date | null;
+      startTime: string | null;
+      endTime: string | null;
+      notes: string | null;
+    }[];
   };
   event: {
     name: string;
@@ -289,9 +312,29 @@ function historyRows(input: RfpDocumentInput): RfpHistoryRow[] {
   });
 }
 
+function lineGroups(rows: RfpDocumentInput["rfp"]["lineItems"]): RfpLineGroup[] {
+  return groupLineItems(rows).map((g) => ({
+    group: g.group,
+    rows: g.rows.map((r) => {
+      const day = r.day ? dateKey(r.day) : null;
+      const endDay = r.endDay ? dateKey(r.endDay) : null;
+      const when = [day ? (endDay ? `${formatNight(day)} – ${formatNight(endDay)}` : formatNight(day)) : null, r.startTime ? formatClockRange(r.startTime, r.endTime) : null]
+        .filter(Boolean)
+        .join(", ");
+      return {
+        description: r.description,
+        quantity: r.quantity != null ? `${r.quantity}${r.unit ? ` ${r.unit}` : ""}` : r.unit,
+        when: when || null,
+        notes: r.notes,
+      };
+    }),
+  }));
+}
+
 export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
   const { rfp, event, spec } = input;
   const on = new Set(rfp.sections);
+  const hotel = rfp.kind === "HOTEL";
   const blocks = rfp.hotelBlocks.map(blockDoc);
   const meeting = rfp.spaceRequests.filter((r) => r.kind === "MEETING");
   const fbRows = rfp.spaceRequests.filter((r) => r.kind === "FB");
@@ -305,8 +348,10 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
   const arrival = rfp.arrivalDate ? dateKey(rfp.arrivalDate) : null;
   const departure = rfp.departureDate ? dateKey(rfp.departureDate) : null;
   const grouped = new Map<ConcessionGroup, RfpConcessionItem[]>();
+  // A vendor RFP's terms print under one heading.
+  const concessionGroups = hotel ? CONCESSION_GROUPS : [{ value: "OTHER" as const, label: "Terms" }];
   for (const c of rfp.concessions) {
-    const g = concessionGroupOf(input.concessionGroups[c.label]);
+    const g = hotel ? concessionGroupOf(input.concessionGroups[c.label]) : "OTHER";
     grouped.set(g, [...(grouped.get(g) ?? []), c]);
   }
   const contactName = rfp.contact ? `${rfp.contact.firstName} ${rfp.contact.lastName}`.trim() : null;
@@ -314,6 +359,7 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
   return {
     meta: {
       kind: rfp.kind,
+      kindLabel: rfp.kind === "OTHER" && rfp.service ? rfp.service : RFP_KIND_LABELS[rfp.kind],
       title: rfp.title,
       status: rfp.status,
       eventName: event.name,
@@ -344,7 +390,7 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
     history: on.has("history") ? historyRows(input) : null,
     historyOf: rfp.historyOf,
     statementOfNeed: rfp.introduction,
-    locations: rfp.locations,
+    locations: hotel ? rfp.locations : [],
     dates: {
       preferred: arrival && departure ? dateSpan(arrival, departure) : arrival ? formatDateKey(arrival) : null,
       alternates: rfp.alternateDates.map((a) => dateSpan(dateKey(a.startDate), dateKey(a.endDate))),
@@ -361,6 +407,7 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
       ...fact("Meeting rooms at once", on.has("meetingSpace") && atOnce > 1 ? atOnce : null),
     ],
     blocks: on.has("blocks") ? blocks : null,
+    lineItems: on.has("lineItems") ? lineGroups(rfp.lineItems) : null,
     roomTerms: on.has("blocks") ? [...fact("Reservations", rfp.reservationMethod), ...fact("Rebates, assessments or commissions", rfp.commissionNotes)] : [],
     meetingSpace: on.has("meetingSpace") ? spaceDays(meeting) : null,
     fb: on.has("fb")
@@ -380,9 +427,9 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
           ],
         }
       : null,
-    amenities: rfp.amenities,
+    amenities: hotel ? rfp.amenities : [],
     concessions: on.has("concessions")
-      ? CONCESSION_GROUPS.flatMap((g) => (grouped.get(g.value)?.length ? [{ group: g.label, items: grouped.get(g.value)! }] : []))
+      ? concessionGroups.flatMap((g) => (grouped.get(g.value)?.length ? [{ group: g.label, items: grouped.get(g.value)! }] : []))
       : null,
     requirements: on.has("requirements") ? rfp.requirements : null,
     specs: [
@@ -400,7 +447,8 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
           meetingSpace: spaceDays(meeting).flatMap((d) => d.rows.map((r) => ({ day: d.label, time: r.time, name: r.name, setup: r.setup }))),
           // The F&B the RFP asks for, by type (or name when untyped).
           mealTypes: on.has("fb") ? Array.from(new Set(fbRows.map((r) => r.functionType ?? r.name))) : [],
-          concessions: CONCESSION_GROUPS.map((g) => ({ group: g.label, items: (grouped.get(g.value) ?? []).map((c) => c.label) })),
+          concessions: concessionGroups.map((g) => ({ group: g.label, items: (grouped.get(g.value) ?? []).map((c) => c.label) })),
+          lineItems: lineGroups(rfp.lineItems).flatMap((g) => g.rows.map((r) => ({ group: g.group, description: r.description, quantity: r.quantity }))),
         }
       : null,
   };

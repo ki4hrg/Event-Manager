@@ -201,6 +201,7 @@ const NAV: NavItem[] = [
   { type: "group", label: "Resources" },
   { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon />,  resource: "VENDORS" },
   { type: "link",  label: "Hotels",           segment: "hotels",                          icon: <BedIcon />,  resource: "HOTELS" },
+  { type: "link",  label: "RFPs",             segment: "rfps",                            icon: <DocumentIcon />, resource: "EVENTS" },
   { type: "link",  label: "Inbox",            segment: "inbox",                           icon: <InboxIcon />, resource: "HOTELS" },
   { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon />,    resource: "FILES" },
   { type: "group", label: "Documentation" },

@@ -71,6 +71,7 @@ const blankTable = (columns: string[], rows: string[][]) => gridTable({ columns,
 // Elements for the document body, in APEX Single Facility RFP order.
 export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = [];
+  const hotel = doc.meta.kind === "HOTEL";
 
   out.push(heading("I. Contact information"));
   out.push(
@@ -141,6 +142,22 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
     }
     out.push(...facts(doc.roomTerms));
   }
+  if (doc.lineItems) {
+    out.push(subheading("Line items"));
+    if (doc.lineItems.length === 0) out.push(note("No line items listed."));
+    else
+      out.push(
+        gridTable({
+          columns: ["Item", "Qty", "When", "Notes"],
+          numeric: [false, true, false, false],
+          rows: doc.lineItems.flatMap((g) => [
+            ...(g.group ? [[g.group, "", "", ""]] : []),
+            ...g.rows.map((r) => [g.group ? `   ${r.description}` : r.description, r.quantity, r.when, r.notes]),
+          ]),
+        }),
+        spacer(),
+      );
+  }
   if (doc.amenities.length) out.push(subheading("Requested amenities"), ...textParagraphs(doc.amenities.join(" · ")), spacer());
   if (doc.meetingSpace) {
     out.push(subheading("Function space"));
@@ -153,12 +170,12 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
     out.push(...facts(doc.fb.terms));
   }
   if (doc.concessions) {
-    out.push(subheading("Concessions desired"));
+    out.push(subheading(hotel ? "Concessions desired" : "Terms"));
     if (doc.concessions.length === 0) out.push(note("None listed."));
     for (const g of doc.concessions) {
       out.push(
-        label(g.group),
-        gridTable({ columns: ["Concession", "Requested", "Required"], rows: g.items.map((c) => [c.label, c.value, c.required ? "Required" : ""]) }),
+        ...(hotel ? [label(g.group)] : []),
+        gridTable({ columns: [hotel ? "Concession" : "Term", "Requested", "Required"], rows: g.items.map((c) => [c.label, c.value, c.required ? "Required" : ""]) }),
         spacer(),
       );
     }
@@ -188,7 +205,22 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
         blankTable(["F&B function", "Average per-person price"], [...r.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]),
         spacer(),
       );
-    out.push(subheading("Concessions offered"), blankTable(["Heading", "Concession", "Offered"], concessionOfferRows(r.concessions)), spacer());
+    if (r.lineItems.length)
+      out.push(
+        subheading("Pricing"),
+        blankTable(
+          ["Item", "Qty", "Unit price", "Amount"],
+          [...r.lineItems.map((l) => [l.group ? `${l.group}: ${l.description}` : l.description, l.quantity ?? ""]), ["Service charge"], ["Tax"], ["Other fees"], ["Total"]],
+        ),
+        spacer(),
+      );
+    if (hotel) out.push(subheading("Concessions offered"), blankTable(["Heading", "Concession", "Offered"], concessionOfferRows(r.concessions)), spacer());
+    else
+      out.push(
+        subheading("Terms"),
+        blankTable(["Term", "Offered"], [...r.concessions.flatMap((g) => g.items.map((t) => [t])), ["Deposit"], ["Quote valid until"], ["Cancellation"]]),
+        spacer(),
+      );
   }
 
   return out;
