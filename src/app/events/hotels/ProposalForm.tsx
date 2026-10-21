@@ -195,11 +195,14 @@ export function ProposalForm({
   defaultCheckOut,
   defaultVenueId,
   fromRfp,
+  draft,
   concessions = [],
   action,
   cancelHref,
 }: {
   proposal?: ProposalValues | null;
+  // A new proposal's starting values (one read from an emailed offer).
+  draft?: ProposalValues;
   fromRfp?: ProposalTemplate;
   concessions?: ConcessionAnswer[];
   choices: ProposalChoices;
@@ -210,15 +213,16 @@ export function ProposalForm({
   cancelHref: string;
 }) {
   const isEdit = !!proposal;
+  const initial = proposal ?? draft;
   const canWrite = useCanWrite("HOTELS");
   const [editing, setEditing] = useState(!isEdit);
-  const [status, setStatus] = useState(proposal?.status ?? fromRfp?.status ?? choices.statuses[0]?.label ?? "");
+  const [status, setStatus] = useState(initial?.status ?? fromRfp?.status ?? choices.statuses[0]?.label ?? "");
   const [revision, setRevision] = useState(proposal?.revision ?? 1);
-  const [checkIn, setCheckIn] = useState(proposal ? proposal.checkIn ?? "" : defaultCheckIn ?? "");
-  const [checkOut, setCheckOut] = useState(proposal ? proposal.checkOut ?? "" : defaultCheckOut ?? "");
-  const [grid, setGrid] = useState<GridState>(() => toGridState(proposal?.nights ?? fromRfp?.nights ?? []));
+  const [checkIn, setCheckIn] = useState(initial ? initial.checkIn ?? "" : defaultCheckIn ?? "");
+  const [checkOut, setCheckOut] = useState(initial ? initial.checkOut ?? "" : defaultCheckOut ?? "");
+  const [grid, setGrid] = useState<GridState>(() => toGridState(initial?.nights ?? fromRfp?.nights ?? []));
   const [charges, setCharges] = useState(
-    (proposal?.charges ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })),
+    (initial?.charges ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })),
   );
 
   const [answers, setAnswers] = useState(concessions);
@@ -275,7 +279,7 @@ export function ProposalForm({
       <Fieldset title="Proposal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Hotel *" htmlFor="p-venueId" wide>
-            <select id="p-venueId" name="venueId" required defaultValue={proposal?.venueId ?? defaultVenueId ?? ""} className={inputClass}>
+            <select id="p-venueId" name="venueId" required defaultValue={initial?.venueId ?? defaultVenueId ?? ""} className={inputClass}>
               <option value="">Select a hotel</option>
               {choices.venues.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -296,7 +300,7 @@ export function ProposalForm({
             </select>
           </Field>
           <Field label="Contract type" htmlFor="p-contractType">
-            <select id="p-contractType" name="contractType" defaultValue={proposal?.contractType ?? fromRfp?.contractType ?? ""} className={inputClass}>
+            <select id="p-contractType" name="contractType" defaultValue={initial?.contractType ?? fromRfp?.contractType ?? ""} className={inputClass}>
               <option value="">Not set</option>
               {CONTRACT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -306,18 +310,18 @@ export function ProposalForm({
             </select>
           </Field>
           <Field label="Guest type" htmlFor="p-guestType">
-            <OptionSelect id="p-guestType" name="guestType" value={proposal ? proposal.guestType : (fromRfp?.guestType ?? null)} options={choices.guestTypes} />
+            <OptionSelect id="p-guestType" name="guestType" value={initial ? initial.guestType : (fromRfp?.guestType ?? null)} options={choices.guestTypes} />
           </Field>
           {stage === "DECLINED" && (
             <Field label="Declined reason" htmlFor="p-declinedReason" wide>
-              <input id="p-declinedReason" name="declinedReason" defaultValue={proposal?.declinedReason ?? ""} className={inputClass} />
+              <input id="p-declinedReason" name="declinedReason" defaultValue={initial?.declinedReason ?? ""} className={inputClass} />
             </Field>
           )}
           <Field label="Lead source" htmlFor="p-leadSource">
-            <select id="p-leadSource" name="leadSource" defaultValue={proposal?.leadSource ?? ""} className={inputClass}>
+            <select id="p-leadSource" name="leadSource" defaultValue={initial?.leadSource ?? ""} className={inputClass}>
               <option value="">Not set</option>
-              {proposal?.leadSource && !choices.leadSources.includes(proposal.leadSource) && (
-                <option value={proposal.leadSource}>{proposal.leadSource}</option>
+              {initial?.leadSource && !choices.leadSources.includes(initial.leadSource) && (
+                <option value={initial.leadSource}>{initial.leadSource}</option>
               )}
               {choices.leadSources.map((s) => (
                 <option key={s} value={s}>
@@ -327,7 +331,7 @@ export function ProposalForm({
             </select>
           </Field>
           <Field label="Submitted" htmlFor="p-submittedOn">
-            <input id="p-submittedOn" type="date" name="submittedOn" defaultValue={proposal?.submittedOn ?? ""} className={inputClass} />
+            <input id="p-submittedOn" type="date" name="submittedOn" defaultValue={initial?.submittedOn ?? ""} className={inputClass} />
           </Field>
           <Field label="Revision" htmlFor="p-revision">
             <input
@@ -416,7 +420,7 @@ export function ProposalForm({
               min={0}
               max={100}
               step="0.01"
-              defaultValue={proposal?.allowedAttrition ?? ""}
+              defaultValue={initial?.allowedAttrition ?? ""}
               className={inputClass}
             />
           </Field>
@@ -427,7 +431,7 @@ export function ProposalForm({
               name="guaranteedRevenue"
               min={0}
               step="0.01"
-              defaultValue={proposal?.guaranteedRevenue ?? ""}
+              defaultValue={initial?.guaranteedRevenue ?? ""}
               className={inputClass}
             />
           </Field>
@@ -488,13 +492,13 @@ export function ProposalForm({
           <div>
             <p className={labelClass}>Amenities</p>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-              {Array.from(new Set([...choices.amenities, ...(proposal?.amenities ?? [])])).map((a) => (
+              {Array.from(new Set([...choices.amenities, ...(initial?.amenities ?? [])])).map((a) => (
                 <label key={a} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     name="amenities"
                     value={a}
-                    defaultChecked={proposal?.amenities.includes(a)}
+                    defaultChecked={initial?.amenities.includes(a)}
                     className="rounded border-gray-300 dark:border-gray-600"
                   />
                   {a}
@@ -504,7 +508,7 @@ export function ProposalForm({
           </div>
         )}
         <Field label="Notes" htmlFor="p-notes">
-          <textarea id="p-notes" name="notes" rows={3} defaultValue={proposal?.notes ?? ""} className={inputClass} />
+          <textarea id="p-notes" name="notes" rows={3} defaultValue={initial?.notes ?? ""} className={inputClass} />
         </Field>
       </Fieldset>
 

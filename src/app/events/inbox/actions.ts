@@ -14,7 +14,12 @@ import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumn
 import type { InboundProposal } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
+import { readProposal } from "@/app/events/hotels/proposalArgs";
+import { getProposalFormChoices } from "@/app/events/hotels/actions";
+import type { ProposalValues, ConcessionAnswer } from "@/app/events/hotels/ProposalForm";
 import {
+  applyInboundDeclineCore,
+  applyInboundOfferCore,
   applyInboundPickupCore,
   dismissInboundEmailCore,
   fileInboundAttachmentCore,
@@ -143,6 +148,106 @@ export async function applyInboundCounts(id: string, eventId: string, blockId: s
   await applyInboundPickupCore(id, eventId, blockId, { type: "counts", counts }, session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+}
+
+// A hotel's offer as reviewed in the proposal form: creates the proposal and
+// opens it.
+export async function applyInboundOffer(id: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  const proposalId = await applyInboundOfferCore(id, eventId, readProposal(formData), session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+  revalidatePath(`/events/${eventId}/hotels`);
+  redirect(`/events/${eventId}/hotels/proposals/${proposalId}?success=Proposal created`);
+}
+
+export async function applyInboundDecline(id: string, eventId: string, rfpId: string, venueId: string, reason: string | null) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  await applyInboundDeclineCore(id, eventId, rfpId, venueId, reason, session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+  revalidatePath(`/events/${eventId}/hotels/rfps/${rfpId}`);
+}
+
+// The proposal form, filled from a hotel's offer: the draft, the concessions
+// of the RFP it answers, and the RFP block it starts from.
+export async function getOfferReview(id: string, eventId: string) {
+  const { tenantId } = await requirePermission("HOTELS", "VIEW", eventId);
+  const item = await prisma.inboundEmail.findFirst({ where: { id, tenantId, eventId }, select: { proposal: true } });
+  const proposal = item?.proposal as InboundProposal | null;
+  const offer = proposal?.kind === "RFP_PROPOSAL" ? proposal.offer : null;
+  if (!offer) return null;
+  const [choices, rfpBlock, existing] = await Promise.all([
+    getProposalFormChoices(eventId),
+    offer.rfpBlockId
+      ? prisma.rfpHotelBlock.findFirst({
+          where: { id: offer.rfpBlockId, rfp: { eventId } },
+          select: { id: true, contractType: true, guestType: true, rfp: { select: { concessions: { orderBy: { sortOrder: "asc" } } } } },
+        })
+      : null,
+    offer.venueId
+      ? prisma.hotelProposal.findMany({
+          where: { eventId, venueId: offer.venueId },
+          select: { id: true, revision: true, status: true },
+        })
+      : [],
+  ]);
+  const pending = choices.statuses.find((s) => s.group === "PENDING")?.label ?? choices.statuses[0]?.label ?? "";
+  const draft: ProposalValues = {
+    venueId: offer.venueId ?? "",
+    status: pending,
+    leadSource: null,
+    contractType: rfpBlock?.contractType ?? null,
+    guestType: rfpBlock?.guestType ?? null,
+    submittedOn: offer.submittedOn,
+    checkIn: offer.checkIn,
+    checkOut: offer.checkOut,
+    declinedReason: null,
+    notes: offer.hotelNotes,
+    revision: 1,
+    allowedAttrition: offer.allowedAttrition != null ? String(offer.allowedAttrition) : null,
+    guaranteedRevenue: offer.guaranteedRevenue != null ? String(offer.guaranteedRevenue) : null,
+    amenities: offer.amenities,
+    nights: offer.nights.map((n) => ({ roomType: n.roomType, night: n.night, rooms: n.rooms, rate: n.rate != null ? String(n.rate) : null })),
+    charges: offer.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount != null ? String(c.amount) : null, scope: c.scope })),
+  };
+  const answers = new Map(offer.concessions.map((c) => [c.concessionId, c]));
+  const concessions: ConcessionAnswer[] = (rfpBlock?.rfp.concessions ?? []).map((c) => ({
+    id: c.id,
+    label: c.label,
+    value: c.value,
+    required: c.required,
+    offered: answers.get(c.id)?.offered ?? null,
+    met: answers.get(c.id)?.met ?? null,
+  }));
+  return { choices, draft, concessions, rfpBlock: rfpBlock ? { id: rfpBlock.id, contractType: rfpBlock.contractType, guestType: rfpBlock.guestType } : null, existing };
+}
+
+// RFPs a decline could be for, with the hotels each went to.
+export async function getDeclineReview(id: string, eventId: string) {
+  const { tenantId } = await requirePermission("HOTELS", "VIEW", eventId);
+  const item = await prisma.inboundEmail.findFirst({ where: { id, tenantId, eventId }, select: { proposal: true } });
+  const proposal = item?.proposal as InboundProposal | null;
+  if (proposal?.kind !== "RFP_DECLINE") return null;
+  const rfps = await prisma.rfp.findMany({
+    where: { eventId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      title: true,
+      recipients: {
+        where: { venueId: { not: null } },
+        select: { declinedToBid: true, venue: { select: { id: true, name: true } } },
+        orderBy: { venue: { name: "asc" } },
+      },
+    },
+  });
+  return {
+    decline: proposal.decline ?? { rfpId: null, venueId: null, reason: null },
+    rfps: rfps.map((r) => ({
+      id: r.id,
+      title: r.title,
+      hotels: r.recipients.flatMap((x) => (x.venue ? [{ id: x.venue.id, name: x.venue.name, declined: x.declinedToBid }] : [])),
+    })),
+  };
 }
 
 // What the review of a pickup proposal needs: the event's blocks to apply to,

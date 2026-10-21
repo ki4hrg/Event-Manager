@@ -9,6 +9,8 @@ import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { Toast } from "@/components/Toast";
 import { getOptions } from "@/app/settings/actions";
+import { getInboundEmailDomain } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
@@ -56,6 +58,13 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
     getOptions("file_type"),
   ]);
   if (!event || !rfp || rfp.kind !== "HOTEL") notFound();
+
+  // Hotels can reply to the event's inbox, where their offers are read.
+  const domain = getInboundEmailDomain();
+  const inbox = domain
+    ? await prisma.event.findUnique({ where: { id: eventId }, select: { inboxSlug: true, tenant: { select: { slug: true } } } })
+    : null;
+  const replyTo = domain && inbox?.inboxSlug ? `${inbox.tenant.slug}.${inbox.inboxSlug}@${domain}` : null;
 
   const base = `/events/${eventId}/hotels/rfps/${rfpId}`;
   const updateAction = async (formData: FormData) => {
@@ -251,6 +260,18 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           )}
         </div>
         <div className="space-y-6 min-w-0">
+          {domain && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Reply-to address</p>
+              {replyTo ? (
+                <p className="mt-1 font-mono text-gray-900 dark:text-white break-all select-all">{replyTo}</p>
+              ) : (
+                <Link href={`/events/${eventId}/settings#inbox`} className="mt-1 inline-block text-blue-600 dark:text-blue-400 hover:underline">
+                  Set up the event inbox
+                </Link>
+              )}
+            </div>
+          )}
           <RfpRecipients
             eventId={eventId}
             recipients={rfp.recipients.flatMap((r) =>

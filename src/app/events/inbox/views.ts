@@ -38,5 +38,7 @@ export const SENDER_MATCH_LABELS: Record<string, string> = {
 export const KIND_LABELS: Record<string, string> = {
   PICKUP_GUESTS: "Pickup guest list",
   PICKUP_COUNTS: "Pickup counts",
+  RFP_PROPOSAL: "Hotel proposal",
+  RFP_DECLINE: "Declined to bid",
   OTHER: "Other",
 };

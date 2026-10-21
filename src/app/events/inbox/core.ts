@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "@/lib/uploads";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
-import { dateKey } from "@/lib/hotels";
+import { blockTypeLabel, dateKey, formatNight, roomTypeLabel } from "@/lib/hotels";
 import { readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import type { PickupGuestRow } from "@/lib/pickupMapping";
 import {
@@ -17,8 +17,12 @@ import {
   type InboundProposal,
   type ParseAttachment,
   type ParseBlock,
+  type ParseRfp,
+  type ParseVenue,
 } from "@/lib/inboundParse";
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
+import { createHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
+import { updateRfpRecipientCore } from "@/app/events/rfps/core";
 import { EMAIL_SOURCE_FILE_TYPE, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
 
@@ -232,6 +236,82 @@ async function parseBlocks(eventId: string): Promise<ParseBlock[]> {
   }));
 }
 
+// RFPs the event has sent (or drafted), and the hotels an offer could come
+// from: its recipients, hotels with a proposal already, and the sender's own
+// hotel when the sender is one of its contacts.
+async function parseRfpContext(eventId: string, tenantId: string, senderAddresses: string[]) {
+  const [rfps, proposals, senderVenues, options] = await Promise.all([
+    prisma.rfp.findMany({
+      where: { eventId, kind: "HOTEL" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        title: true,
+        issuedOn: true,
+        responseDue: true,
+        recipients: { where: { venueId: { not: null } }, select: { venue: { select: { id: true, name: true } } } },
+        hotelBlocks: {
+          orderBy: { sortOrder: "asc" },
+          select: { id: true, contractType: true, guestType: true, nights: { select: { night: true, roomType: true, rooms: true } } },
+        },
+        concessions: { orderBy: { sortOrder: "asc" }, select: { id: true, label: true, value: true } },
+      },
+    }),
+    prisma.hotelProposal.findMany({ where: { eventId }, select: { venue: { select: { id: true, name: true } } } }),
+    senderAddresses.length
+      ? prisma.venue.findMany({
+          where: {
+            tenantId,
+            contacts: { some: { contact: { OR: senderAddresses.map((a) => ({ email: { equals: a, mode: "insensitive" as const } })) } } },
+          },
+          select: { id: true, name: true },
+        })
+      : [],
+    prisma.customOption.findMany({
+      where: { tenantId, category: { in: ["hotel_room_type", "hotel_amenity"] } },
+      select: { category: true, label: true },
+      orderBy: { sortOrder: "asc" },
+    }),
+  ]);
+  const hotels = new Map<string, ParseVenue>();
+  const add = (v: { id: string; name: string } | null, why: string) => {
+    if (v && !hotels.has(v.id)) hotels.set(v.id, { id: v.id, name: v.name, why });
+  };
+  senderVenues.forEach((v) => add(v, "the sender is one of its contacts"));
+  rfps.forEach((r) => r.recipients.forEach((x) => add(x.venue, `sent RFP "${r.title}"`)));
+  proposals.forEach((p) => add(p.venue, "already has a proposal for this event"));
+
+  const nightsText = (nights: { night: Date; roomType: string | null; rooms: number }[]) => {
+    const byNight = new Map<string, string[]>();
+    for (const n of [...nights].sort((a, b) => a.night.getTime() - b.night.getTime())) {
+      const k = dateKey(n.night);
+      byNight.set(k, [...(byNight.get(k) ?? []), `${n.rooms} ${roomTypeLabel(n.roomType)}`]);
+    }
+    return Array.from(byNight, ([k, v]) => `${formatNight(k)}: ${v.join(", ")}`).join("; ") || "no nights";
+  };
+  const parseRfps: ParseRfp[] = rfps.map((r) => ({
+    id: r.id,
+    title: r.title,
+    issuedOn: r.issuedOn ? dateKey(r.issuedOn) : null,
+    responseDue: r.responseDue ? dateKey(r.responseDue) : null,
+    recipients: r.recipients.flatMap((x) => (x.venue ? [x.venue.id] : [])),
+    blocks: r.hotelBlocks.map((b) => ({
+      id: b.id,
+      label: blockTypeLabel(b.contractType, b.guestType) ?? "Block",
+      nights: `requested ${nightsText(b.nights)}`,
+    })),
+    concessions: r.concessions,
+  }));
+  return {
+    hotels: Array.from(hotels.values()),
+    rfps: parseRfps,
+    roomTypes: options.filter((o) => o.category === "hotel_room_type").map((o) => o.label),
+    amenities: options.filter((o) => o.category === "hotel_amenity").map((o) => o.label),
+  };
+}
+
+const addressOf = (formatted: string | null) => formatted?.match(/<([^>]+)>/)?.[1] ?? formatted?.trim() ?? null;
+
 // Attachments in the order the item lists them (Prisma createdAt, then id),
 // which is the order proposal.sheet.attachment indexes.
 export async function inboundAttachments(id: string) {
@@ -276,7 +356,12 @@ async function parseInboundEmail(id: string) {
       data,
     });
   try {
-    const [blocks, attachments] = await Promise.all([parseBlocks(event.id), readAttachments(id)]);
+    const senders = [item.senderAddress, addressOf(item.forwardedFrom)].filter((x): x is string => !!x);
+    const [blocks, attachments, rfpContext] = await Promise.all([
+      parseBlocks(event.id),
+      readAttachments(id),
+      parseRfpContext(event.id, item.tenantId, senders),
+    ]);
     const { proposal, model } = await parseInboundMessage({
       subject: item.subject,
       sender: item.sender,
@@ -287,6 +372,7 @@ async function parseInboundEmail(id: string) {
       timezone: event.timezone,
       eventName: event.name,
       blocks,
+      ...rfpContext,
       attachments,
     });
     await settle({ status: "PARSED", kind: proposal.kind, proposal, model, error: null });
@@ -314,17 +400,9 @@ export type InboundApply =
   | { type: "guests"; method: Exclude<HotelPickupMethod, "COUNTS">; fileName: string | null; guests: PickupGuestRow[] }
   | { type: "counts"; counts: PickupCountArgs[] };
 
-// Applies a reviewed proposal to a block through the pickup cores, as the
-// reviewer. The item is claimed first so a second click can't import twice,
-// and goes back to where it was if the import fails.
-export async function applyInboundPickupCore(
-  id: string,
-  eventId: string,
-  blockId: string,
-  apply: InboundApply,
-  userId: string,
-) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+// Claims a Ready item (PARSED → APPLIED) so a second click can't apply it
+// twice, runs the apply, and puts the item back if that fails.
+async function claimAndApply(id: string, eventId: string, userId: string, apply: () => Promise<Partial<InboundProposal>>) {
   const tenantId = await requireEventTenantId(eventId);
   const item = await inboxItem(id, tenantId, eventId);
   if (item.status !== "PARSED") throw new Error("This message has nothing to apply");
@@ -333,12 +411,9 @@ export async function applyInboundPickupCore(
     data: { status: "APPLIED", handledById: userId, handledAt: new Date() },
   });
   if (claimed.count === 0) throw new Error("This message was already applied");
+  let result: Partial<InboundProposal>;
   try {
-    if (apply.type === "guests") {
-      await importPickupGuestsCore(blockId, eventId, { method: apply.method, fileName: apply.fileName, guests: apply.guests }, userId);
-    } else {
-      await savePickupCountsCore(blockId, eventId, apply.counts, userId);
-    }
+    result = await apply();
   } catch (err) {
     await prisma.inboundEmail.update({
       where: { id },
@@ -348,7 +423,88 @@ export async function applyInboundPickupCore(
   }
   // Remember where it went.
   const proposal = item.proposal as InboundProposal | null;
-  if (proposal) await prisma.inboundEmail.update({ where: { id }, data: { proposal: { ...proposal, blockId } } });
+  if (proposal) await prisma.inboundEmail.update({ where: { id }, data: { proposal: { ...proposal, ...result } } });
+}
+
+// A pickup proposal, applied to a block through the pickup cores as the reviewer.
+export async function applyInboundPickupCore(
+  id: string,
+  eventId: string,
+  blockId: string,
+  apply: InboundApply,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await claimAndApply(id, eventId, userId, async () => {
+    if (apply.type === "guests") {
+      await importPickupGuestsCore(blockId, eventId, { method: apply.method, fileName: apply.fileName, guests: apply.guests }, userId);
+    } else {
+      await savePickupCountsCore(blockId, eventId, apply.counts, userId);
+    }
+    return { blockId };
+  });
+}
+
+// A hotel's offer, as reviewed in the proposal form: creates the proposal and
+// files the message's attachments on it. Returns the new proposal's id.
+export async function applyInboundOfferCore(id: string, eventId: string, args: ProposalWriteArgs, userId: string): Promise<string> {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  let proposalId = "";
+  await claimAndApply(id, eventId, userId, async () => {
+    const proposal = await createHotelProposalCore(eventId, args, userId);
+    proposalId = proposal.id;
+    const files = await inboundAttachments(id);
+    if (files.length) {
+      mkdirSync(getUploadDir("hotelProposal", proposal.id), { recursive: true });
+      for (const f of files) {
+        copyFileSync(getUploadPath("inboundEmail", id, f.storedName), getUploadPath("hotelProposal", proposal.id, f.storedName));
+      }
+      await prisma.fileUpload.createMany({
+        data: files.map((f) => ({
+          fileName: f.fileName,
+          storedName: f.storedName,
+          mimeType: f.mimeType,
+          fileSize: f.fileSize,
+          hotelProposalId: proposal.id,
+        })),
+      });
+    }
+    return { appliedProposalId: proposal.id };
+  });
+  return proposalId;
+}
+
+// A hotel declining to bid: marks it on the RFP's recipient row, keeping when
+// the RFP went out and adding the reason to its notes.
+export async function applyInboundDeclineCore(
+  id: string,
+  eventId: string,
+  rfpId: string,
+  venueId: string,
+  reason: string | null,
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const recipient = await prisma.rfpRecipient.findFirst({
+    where: { rfpId, venueId, rfp: { eventId } },
+    select: { id: true, sentOn: true, notes: true },
+  });
+  if (!recipient) throw new Error("That hotel isn't on this RFP");
+  const note = reason?.trim() ? `Declined: ${reason.trim()}` : null;
+  await claimAndApply(id, eventId, userId, async () => {
+    await updateRfpRecipientCore(
+      recipient.id,
+      rfpId,
+      eventId,
+      {
+        sentOn: recipient.sentOn ? dateKey(recipient.sentOn) : null,
+        declinedToBid: true,
+        notes: [recipient.notes, note].filter(Boolean).join("\n") || null,
+      },
+      userId,
+    );
+    return { decline: { rfpId, venueId, reason } };
+  });
 }
 
 // ─── Purge ───────────────────────────────────────────────────────────────────

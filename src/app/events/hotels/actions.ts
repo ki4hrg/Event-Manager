@@ -5,16 +5,12 @@ import { redirect } from "next/navigation";
 import type { HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { parseContractTypes } from "@/lib/hotels";
 import {
   createHotelProposalCore,
   deleteHotelProposalCore,
   updateHotelProposalCore,
-  type ProposalChargeArgs,
-  type ProposalConcessionArgs,
-  type ProposalNightArgs,
-  type ProposalWriteArgs,
 } from "./core";
+import { readJson, readProposal } from "./proposalArgs";
 import {
   clearPickupCore,
   createHotelBlockCore,
@@ -95,40 +91,6 @@ export async function getProposalFormChoices(eventId: string) {
     amenities: of("hotel_amenity").map((o) => o.label),
     leadSources: of("hotel_lead_source").map((o) => o.label),
     areas: of("hotel_area").map((o) => ({ label: o.label, region: o.group })),
-  };
-}
-
-function readJson<T>(formData: FormData, key: string): T[] {
-  const raw = formData.get(key);
-  if (typeof raw !== "string" || !raw) return [];
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed)) throw new Error(`${key} must be a list`);
-  return parsed as T[];
-}
-
-function readProposal(formData: FormData): ProposalWriteArgs {
-  const str = (k: string) => (formData.get(k) as string) || null;
-  const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
-  return {
-    venueId: formData.get("venueId") as string,
-    status: formData.get("status") as string,
-    leadSource: str("leadSource"),
-    contractType: parseContractTypes(str("contractType") ?? undefined)[0] ?? null,
-    guestType: str("guestType"),
-    submittedOn: str("submittedOn"),
-    checkIn: str("checkIn"),
-    checkOut: str("checkOut"),
-    declinedReason: str("declinedReason"),
-    notes: str("notes"),
-    revision: formData.get("revision") ? parseInt(formData.get("revision") as string) : 1,
-    revisionSummary: str("revisionSummary"),
-    allowedAttrition: num("allowedAttrition"),
-    guaranteedRevenue: num("guaranteedRevenue"),
-    amenities: formData.getAll("amenities") as string[],
-    nights: readJson<ProposalNightArgs>(formData, "nights"),
-    charges: readJson<ProposalChargeArgs>(formData, "charges"),
-    rfpBlockId: str("rfpBlockId"),
-    concessions: formData.has("concessions") ? readJson<ProposalConcessionArgs>(formData, "concessions") : undefined,
   };
 }
 

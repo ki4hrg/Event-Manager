@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { InboundStatus } from "@prisma/client";
 import type { InboundProposal } from "@/lib/inboundParse";
 import { KIND_LABELS } from "./views";
@@ -15,6 +16,7 @@ export function InboxProposalPanel({
   parsing,
   diagnostics,
   appliedTo,
+  appliedProposal = null,
 }: {
   status: InboundStatus;
   proposal: InboundProposal | null;
@@ -23,6 +25,7 @@ export function InboxProposalPanel({
   parsing: boolean;
   diagnostics: boolean;
   appliedTo: string | null;
+  appliedProposal?: { name: string; href: string } | null;
 }) {
   if (status === "HELD" || (!parsing && !proposal && !error)) return null;
   return (
@@ -37,6 +40,17 @@ export function InboxProposalPanel({
         </>
       )}
       {status === "APPLIED" && appliedTo && <p className="text-sm text-green-700 dark:text-green-400">Applied to {appliedTo}</p>}
+      {status === "APPLIED" && appliedProposal && (
+        <p className="text-sm text-green-700 dark:text-green-400">
+          Created{" "}
+          <Link href={appliedProposal.href} className="underline">
+            {appliedProposal.name} proposal
+          </Link>
+        </p>
+      )}
+      {status === "APPLIED" && proposal?.kind === "RFP_DECLINE" && (
+        <p className="text-sm text-green-700 dark:text-green-400">Marked declined on the RFP</p>
+      )}
       {diagnostics && model && <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{model}</p>}
     </div>
   );
