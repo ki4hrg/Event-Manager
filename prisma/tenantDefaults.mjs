@@ -259,8 +259,9 @@ export const DEFAULT_OPTIONS = {
     { label: "Exhibitors", sortOrder: 3 },
     { label: "VIP", sortOrder: 4 },
   ],
-  // Features a property has. Anything complimentary or discounted (Wi-Fi,
-  // parking, breakfast) is a concession (rfp_concession), not an amenity.
+  // What a property has or provides (pool, airport shuttle, valet parking).
+  // What it gives free or discounted to the group (breakfast, Wi-Fi, parking
+  // rates, comp rooms) is a concession (rfp_concession), not an amenity.
   hotel_amenity: [
     { label: "On-site Restaurant", sortOrder: 0 },
     { label: "Fitness Center", sortOrder: 1 },
