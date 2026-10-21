@@ -13,7 +13,7 @@ import { FB_INCLUDES, RFP_STATUS_LABELS, sectionsFor } from "@/lib/rfp/sections"
 import { effectiveScope, isEmptyScope, scopeLabels, type AreaOption, type AreaScope } from "@/lib/areas";
 import { AreaChecklist } from "@/components/AreaChecklist";
 import { useAutosave } from "@/lib/useAutosave";
-import { AutosaveStatus } from "./AutosaveStatus";
+import { AutosaveStatus } from "@/components/AutosaveStatus";
 
 export type RfpValues = {
   title: string;

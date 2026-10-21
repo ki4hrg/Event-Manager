@@ -8,7 +8,7 @@ import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight } from "@/lib/hotels";
 import { DAY_TBD, formatClockRange, sortSpaceRows, type SpaceRow } from "@/lib/rfp/space";
 import { useAutosave } from "@/lib/useAutosave";
-import { AutosaveStatus } from "./AutosaveStatus";
+import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { RfpSpaceArgs } from "./core";
 
 // One kind of the RFP's function-space rows (APEX function grid), grouped by
