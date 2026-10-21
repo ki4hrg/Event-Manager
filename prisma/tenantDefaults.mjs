@@ -278,10 +278,6 @@ export const DEFAULT_OPTIONS = {
     { label: "Complimentary Breakfast", sortOrder: 9 },
     { label: "Complimentary Wi-Fi", sortOrder: 10 },
   ],
-  hotel_lead_source: [
-    { label: "Direct", sortOrder: 0 },
-    { label: "CVB", sortOrder: 1 },
-  ],
   hotel_brand: [
     { label: "Hilton", sortOrder: 0 },
     { label: "Marriott", sortOrder: 1 },

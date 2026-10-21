@@ -13,7 +13,7 @@ import type { Prisma } from "@prisma/client";
 import { mergeHotelLabel, offListHotelLabels, type HotelLabelCategory } from "@/lib/hotelLabels";
 import { duplicateLabelError } from "./optionLabels";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_guest_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession" | "rfp_service" | "rfp_term";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_guest_type" | "hotel_amenity" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession" | "rfp_service" | "rfp_term";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -302,9 +302,6 @@ async function propagateLabelRename(
       break;
     case "proposal_status":
       await tx.hotelProposal.updateMany({ where: { status: oldLabel, ...inTenant }, data: { status: newLabel } });
-      break;
-    case "hotel_lead_source":
-      await tx.hotelProposal.updateMany({ where: { leadSource: oldLabel, ...inTenant }, data: { leadSource: newLabel } });
       break;
     case "hotel_room_type": {
       const inTenantBlock = { proposal: inTenant };

@@ -182,12 +182,26 @@ async function main() {
           report.options++;
           return label.trim();
         };
+        // A lead source is "Direct" or an organization: a vendor tagged LEAD_SOURCE.
+        const leadSourceIds = new Map<string, string>();
+        const leadSource = async (label: string | null) => {
+          if (!label) return { leadSourceDirect: false, leadSourceVendorId: null };
+          if (norm(label) === "direct") return { leadSourceDirect: true, leadSourceVendorId: null };
+          let id = leadSourceIds.get(norm(label));
+          if (!id) {
+            const found = await tx.vendor.findFirst({ where: { tenantId, name: { equals: label.trim(), mode: "insensitive" } }, select: { id: true, models: true } });
+            if (found && !found.models.includes("LEAD_SOURCE")) await tx.vendor.update({ where: { id: found.id }, data: { models: [...found.models, "LEAD_SOURCE"] } });
+            id = found?.id ?? (await tx.vendor.create({ data: { tenantId, name: label.trim(), models: ["LEAD_SOURCE"] } })).id;
+            leadSourceIds.set(norm(label), id);
+          }
+          return { leadSourceDirect: false, leadSourceVendorId: id };
+        };
         for (const r of regions) await option("hotel_region", s(r.name));
         for (const a of areas) await option("hotel_area", s(a.name), { group: s(regionById.get(a.region_id as string)?.name) });
         for (const b of brands) await option("hotel_brand", s(b.name));
         for (const r of roomTypes) await option("hotel_room_type", s(r.name));
         for (const a of amenityTags) await option("hotel_amenity", s(a.name));
-        for (const l of leadSources) await option("hotel_lead_source", s(l.name));
+        for (const l of leadSources) await leadSource(s(l.name));
         for (const st of statuses) {
           const stage = String(st.status_type).toUpperCase();
           await option("proposal_status", s(st.name), { group: stage, color: STAGE_COLOR[stage] });
@@ -361,7 +375,7 @@ async function main() {
               eventId: event.id,
               venueId,
               status: status!,
-              leadSource: await option("hotel_lead_source", s(leadById.get(p.lead_source_id as string)?.name)),
+              ...(await leadSource(s(leadById.get(p.lead_source_id as string)?.name))),
               contractType: BLOCK_TYPE[String(p.block_type)]?.contractType ?? null,
               guestType: await option("hotel_guest_type", BLOCK_TYPE[String(p.block_type)]?.guestType ?? null),
               submittedOn: day(p.submission_date) ? dateFromKey(day(p.submission_date)!) : null,
@@ -392,7 +406,7 @@ async function main() {
                   .map((c, i) => ({ chargeType: String(c.charge_type), amount: n(c.amount), scope: SCOPE[String(c.scope)] ?? null, sortOrder: i })),
               },
             },
-            include: { venue: { select: { name: true, amenities: true } }, nights: true, charges: true, amenities: true },
+            include: { venue: { select: { name: true, amenities: true } }, leadSourceVendor: { select: { name: true } }, nights: true, charges: true, amenities: true },
           });
           const profile = Array.from(new Set([...created.venue.amenities, ...created.amenities.map((a) => a.label)]));
           if (profile.length > created.venue.amenities.length) await tx.venue.update({ where: { id: venueId }, data: { amenities: profile } });
@@ -403,7 +417,7 @@ async function main() {
           // snapshot is the proposal as imported (HM's child snapshots were
           // taken before the edit).
           const current = {
-            venueName: created.venue.name, status: created.status, leadSource: created.leadSource, blockType: blockTypeText(p.block_type),
+            venueName: created.venue.name, status: created.status, leadSource: created.leadSourceDirect ? "Direct" : (created.leadSourceVendor?.name ?? null), blockType: blockTypeText(p.block_type),
             submittedOn: day(created.submittedOn), checkIn, checkOut, declinedReason: created.declinedReason, notes: created.notes,
             allowedAttrition: created.allowedAttrition?.toString() ?? null,
             guaranteedRevenue: created.guaranteedRevenue?.toString() ?? null, amenities: created.amenities.map((a) => ({ label: a.label, status: a.status, note: a.note })).sort((a, b) => a.label.localeCompare(b.label)),

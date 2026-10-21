@@ -9,6 +9,9 @@ import type { ProposalChargeArgs, ProposalConcessionArgs, ProposalNightArgs, Pro
 // created on save from the newHotel.* fields.
 export const NEW_HOTEL = "__new__";
 
+// ProposalForm's lead-source value for a lead the hotel generated itself.
+export const LEAD_SOURCE_DIRECT = "__direct__";
+
 const NEW_HOTEL_KEYS = [
   "name",
   "address",
@@ -57,7 +60,10 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
   return {
     venueId: formData.get("venueId") as string,
     status: formData.get("status") as string,
-    leadSource: str("leadSource"),
+    // "" not set, LEAD_SOURCE_DIRECT, or a lead-source vendor's id.
+    leadSourceDirect: formData.get("leadSource") === LEAD_SOURCE_DIRECT,
+    leadSourceVendorId: formData.get("leadSource") === LEAD_SOURCE_DIRECT ? null : str("leadSource"),
+    leadSourceContactId: str("leadSourceContactId"),
     contractType: parseContractTypes(str("contractType") ?? undefined)[0] ?? null,
     guestType: str("guestType"),
     submittedOn: str("submittedOn"),

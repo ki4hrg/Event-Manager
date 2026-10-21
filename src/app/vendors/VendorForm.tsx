@@ -2,7 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import type { Vendor } from "@prisma/client";
-import { MODEL_TYPES } from "./model-types";
+import { MODEL_TYPES, VENDOR_ROLES } from "./model-types";
 import { useCanWrite } from "@/components/PermissionsProvider";
 
 type VendorFormProps = {
@@ -59,6 +59,26 @@ export function VendorForm({ vendor, action }: VendorFormProps) {
                   className="rounded border-gray-300 dark:border-gray-600"
                 />
                 <span className="text-gray-700 dark:text-gray-300">{type.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Also
+          </label>
+          <div className="space-y-2">
+            {VENDOR_ROLES.map((role) => (
+              <label key={role.value} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="models"
+                  value={role.value}
+                  defaultChecked={vendor?.models.includes(role.value)}
+                  className="rounded border-gray-300 dark:border-gray-600"
+                />
+                <span className="text-gray-700 dark:text-gray-300">{role.label} (CVB, third-party planner)</span>
               </label>
             ))}
           </div>

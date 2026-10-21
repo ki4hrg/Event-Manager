@@ -238,7 +238,9 @@ export async function getOfferReview(id: string, eventId: string) {
   const draft: ProposalValues = {
     venueId: venueId ?? "",
     status: pending,
-    leadSource: null,
+    leadSourceDirect: false,
+    leadSourceVendorId: offer.leadSourceVendorId ?? null,
+    leadSourceContactId: null,
     contractType: null,
     guestType: null,
     submittedOn: offer.submittedOn,

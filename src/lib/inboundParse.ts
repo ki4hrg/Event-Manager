@@ -49,6 +49,8 @@ export type ProposalOffer = {
   // when it answers no RFP). Older reads have none.
   offeredConcessions?: { label: string; offered: string | null }[];
   hotelNotes: string | null;
+  // A CVB or third party that brought the lead (a lead-source vendor); older reads have none.
+  leadSourceVendorId?: string | null;
   // Who sent the offer, as the offer gives it: for adding a hotel the org
   // doesn't have yet.
   hotel: OfferHotel;
@@ -188,6 +190,8 @@ export type ParseRfp = {
 // contract could cover.
 export type ParseVendorContext = {
   vendors: ParseVenue[];
+  // Organizations that bring hotels leads (CVBs, third-party planners).
+  leadSources: { id: string; name: string }[];
   vendorRfps: { id: string; title: string; kind: string; recipients: string[]; lineItems: { id: string; label: string }[] }[];
   cateringOrders: { id: string; label: string }[];
   contractTargets: { target: ContractTarget; id: string; label: string }[];
@@ -273,6 +277,7 @@ const offerSchema = object({
   },
   offeredConcessions: { type: "array", items: object({ label: str, offered: str }) },
   hotelNotes: str,
+  leadSourceVendorId: str,
   hotel: object({
     name: str,
     address: str,
@@ -486,6 +491,7 @@ For RFP_PROPOSAL, fill "offer":
 - concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
 - offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
 - hotelNotes: only terms the fields above can't hold that a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly; often "". Never restate what the fields already carry: dates, rooms and rates, taxes, the deadline, attrition, amenities, concessions, whether it answers an RFP. Don't note what the offer leaves out, except space or services the RFP it answers asked for ("No meeting space offered" only when the RFP requested meeting space). Don't mention who forwarded it.
+- leadSourceVendorId: the lead source, from the candidate lead sources, when a CVB or third party sent, forwarded or is copied on the offer, or the offer credits one; "" otherwise (staff forwarding it isn't a lead source).
 - hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
 
 For VENDOR_QUOTE, fill "quote":
@@ -544,6 +550,9 @@ function buildContent(input: ParseInput): Anthropic.Beta.BetaContentBlockParam[]
     "",
     "Candidate RFPs:",
     ...(input.rfps.length ? input.rfps.map((r) => rfpText(r, new Map(input.hotels.map((h) => [h.id, h.name])))) : ["(none)"]),
+    "",
+    "Candidate lead sources (CVBs, third-party planners):",
+    ...(input.leadSources.length ? input.leadSources.map((v) => `- id ${v.id}: ${v.name}`) : ["(none)"]),
     "",
     "Candidate vendors:",
     ...(input.vendors.length ? input.vendors.map((v) => `- id ${v.id}: ${v.name} (${v.why})`) : ["(none)"]),
@@ -764,6 +773,7 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
         (c, i, all) => !rfp?.concessions.some((r) => r.label.toLowerCase() === c.label.toLowerCase()) && all.findIndex((x) => x.label === c.label) === i,
       ),
     hotelNotes: o.hotelNotes,
+    leadSourceVendorId: o.leadSourceVendorId && input.leadSources.some((l) => l.id === o.leadSourceVendorId) ? o.leadSourceVendorId : null,
     hotel: o.hotel ?? {
       name: null,
       address: null,

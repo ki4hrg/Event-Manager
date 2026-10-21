@@ -26,7 +26,6 @@ const LISTS: { category: OptionCategory; title: string; description: string; sho
   { category: "hotel_room_type", title: "Room Types", description: "" },
   { category: "hotel_guest_type", title: "Guest Types", description: "" },
   { category: "hotel_amenity", title: "Amenities", description: "", mergeable: true },
-  { category: "hotel_lead_source", title: "Lead Sources", description: "" },
   { category: "hotel_brand", title: "Brands", description: "" },
   { category: "hotel_region", title: "Regions", description: "" },
   { category: "hotel_area", title: "Areas", description: "" },

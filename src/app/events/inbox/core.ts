@@ -334,7 +334,7 @@ const addressOf = (formatted: string | null) => formatted?.match(/<([^>]+)>/)?.[
 // their line items, catering orders a BEO could be for, and the records a
 // contract could cover.
 async function parseVendorContext(eventId: string, tenantId: string, senderAddresses: string[], timezone: string): Promise<ParseVendorContext> {
-  const [eventVendors, senderVendors, rfps, orders, proposals, quotes] = await Promise.all([
+  const [eventVendors, senderVendors, rfps, orders, proposals, quotes, leadSources] = await Promise.all([
     prisma.eventVendor.findMany({ where: { eventId }, select: { vendor: { select: { id: true, name: true } } } }),
     senderAddresses.length
       ? prisma.vendor.findMany({
@@ -367,6 +367,7 @@ async function parseVendorContext(eventId: string, tenantId: string, senderAddre
     }),
     prisma.hotelProposal.findMany({ where: { eventId }, select: { id: true, status: true, revision: true, venue: { select: { name: true } } } }),
     prisma.vendorQuote.findMany({ where: { eventId }, select: { id: true, status: true, vendor: { select: { name: true } }, rfp: { select: { title: true } } } }),
+    prisma.vendor.findMany({ where: { tenantId, models: { has: "LEAD_SOURCE" } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   const vendors = new Map<string, ParseVenue>();
   const add = (v: { id: string; name: string } | null, why: string) => {
@@ -387,6 +388,7 @@ async function parseVendorContext(eventId: string, tenantId: string, senderAddre
   ];
   return {
     vendors: Array.from(vendors.values()),
+    leadSources,
     vendorRfps: rfps.map((r) => ({
       id: r.id,
       title: r.title,
@@ -1046,7 +1048,9 @@ async function offerArgs(eventId: string, offer: NonNullable<InboundProposal["of
   return {
     venueId,
     status,
-    leadSource: null,
+    leadSourceDirect: false,
+    leadSourceVendorId: offer.leadSourceVendorId ?? null,
+    leadSourceContactId: null,
     contractType: block?.contractType ?? null,
     guestType: block?.guestType ?? null,
     submittedOn: offer.submittedOn,

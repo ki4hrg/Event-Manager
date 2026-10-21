@@ -25,7 +25,10 @@ export type ProposalAmenityArgs = { label: string; status: AmenityStatus; note: 
 export type ProposalWriteArgs = {
   venueId: string;
   status: string;
-  leadSource: string | null;
+  // Where the lead came from: direct, or a lead-source vendor (and contact).
+  leadSourceDirect: boolean;
+  leadSourceVendorId: string | null;
+  leadSourceContactId: string | null;
   contractType: HotelContractType | null;
   guestType: string | null; // hotel_guest_type option label
   submittedOn: string | null; // YYYY-MM-DD
@@ -82,12 +85,20 @@ export type ProposalChange = { field: string; from: string | null; to: string | 
 
 async function assertProposalRefs(eventId: string, args: ProposalWriteArgs) {
   const tenantId = await requireEventTenantId(eventId);
-  const [venue, status] = await Promise.all([
+  const [venue, status, leadVendor, leadContact] = await Promise.all([
     prisma.venue.findFirst({ where: { id: args.venueId, tenantId }, select: { id: true } }),
     prisma.customOption.findFirst({ where: { tenantId, category: "proposal_status", label: args.status }, select: { id: true } }),
+    args.leadSourceVendorId ? prisma.vendor.findFirst({ where: { id: args.leadSourceVendorId, tenantId }, select: { id: true } }) : null,
+    // The contact is one of the lead source's own.
+    args.leadSourceContactId
+      ? prisma.vendorContact.findFirst({ where: { contactId: args.leadSourceContactId, vendorId: args.leadSourceVendorId ?? "", vendor: { tenantId } }, select: { id: true } })
+      : null,
   ]);
   if (!venue) throw new PermissionError("NOT_FOUND", "Hotel not found");
   if (!status) throw new Error(`Unknown proposal status: ${args.status}`);
+  if (args.leadSourceVendorId && !leadVendor) throw new PermissionError("NOT_FOUND", "Lead source not found");
+  if (args.leadSourceContactId && !leadContact) throw new PermissionError("NOT_FOUND", "Lead source contact not found");
+  if (args.leadSourceDirect && args.leadSourceVendorId) throw new Error("A lead is direct or through a lead source, not both");
 }
 
 function validate(args: ProposalWriteArgs) {
@@ -127,7 +138,9 @@ function scalarData(args: ProposalWriteArgs) {
   return {
     venueId: args.venueId,
     status: args.status,
-    leadSource: args.leadSource,
+    leadSourceDirect: args.leadSourceDirect,
+    leadSourceVendorId: args.leadSourceVendorId,
+    leadSourceContactId: args.leadSourceVendorId ? args.leadSourceContactId : null,
     contractType: args.contractType,
     guestType: args.guestType,
     submittedOn: args.submittedOn ? dateFromKey(args.submittedOn) : null,
@@ -145,6 +158,7 @@ function scalarData(args: ProposalWriteArgs) {
 
 const snapshotInclude = {
   venue: { select: { name: true } },
+  leadSourceVendor: { select: { name: true } },
   nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
   charges: { orderBy: { sortOrder: "asc" } },
   amenities: { orderBy: { sortOrder: "asc" } },
@@ -160,7 +174,8 @@ export function snapshotOf(p: ProposalWithChildren): ProposalSnapshot {
   return {
     venueName: p.venue.name,
     status: p.status,
-    leadSource: p.leadSource,
+    // "Direct", or the lead source's name.
+    leadSource: p.leadSourceDirect ? "Direct" : (p.leadSourceVendor?.name ?? null),
     blockType: blockTypeLabel(p.contractType, p.guestType),
     submittedOn: day(p.submittedOn),
     checkIn: day(p.checkIn),
@@ -416,10 +431,22 @@ export async function deleteHotelProposalCore(id: string, eventId: string, userI
 }
 
 // Plain (client-serializable) form values for ProposalForm.
-export function toProposalValues(p: Omit<ProposalWithChildren, "concessions"> & { venueId: string; revision: number }) {
-  const { venueName: _venueName, blockType: _blockType, amenities: _amenities, concessions: _concessions, ...rest } = snapshotOf({ ...p, concessions: [] });
+export function toProposalValues(
+  p: Omit<ProposalWithChildren, "concessions" | "leadSourceVendor"> & { venueId: string; revision: number; leadSourceVendor?: { name: string } | null },
+) {
+  const {
+    venueName: _venueName,
+    blockType: _blockType,
+    amenities: _amenities,
+    concessions: _concessions,
+    leadSource: _leadSource,
+    ...rest
+  } = snapshotOf({ ...p, leadSourceVendor: p.leadSourceVendor ?? null, concessions: [] });
   return {
     ...rest,
+    leadSourceDirect: p.leadSourceDirect,
+    leadSourceVendorId: p.leadSourceVendorId,
+    leadSourceContactId: p.leadSourceContactId,
     amenities: p.amenities.map((a) => ({ label: a.label, status: a.status, note: a.note })),
     contractType: p.contractType,
     guestType: p.guestType,

@@ -22,7 +22,7 @@ import {
   nightKeys,
   stageOf,
 } from "@/lib/hotels";
-import { NEW_HOTEL, NEW_HOTEL_FIELDS } from "./proposalArgs";
+import { LEAD_SOURCE_DIRECT, NEW_HOTEL, NEW_HOTEL_FIELDS } from "./proposalArgs";
 import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
 import { RoomGrid, type GridNight } from "./RoomGrid";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
@@ -32,7 +32,9 @@ import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, typ
 export type ProposalValues = {
   venueId: string;
   status: string;
-  leadSource: string | null;
+  leadSourceDirect: boolean;
+  leadSourceVendorId: string | null;
+  leadSourceContactId: string | null;
   contractType: HotelContractType | null;
   guestType: string | null;
   submittedOn: string | null;
@@ -61,7 +63,8 @@ export type ProposalChoices = {
   roomTypes: string[];
   guestTypes: string[];
   amenities: string[];
-  leadSources: string[];
+  // Vendors tagged LEAD_SOURCE (CVBs, third-party planners), with their contacts.
+  leadSources: { id: string; name: string; contacts: { id: string; name: string }[] }[];
 };
 
 const inputClass =
@@ -193,7 +196,16 @@ function Details({
     ["Status", values.status],
     ["Revision", values.revision],
     ["Block type", blockTypeLabel(values.contractType, values.guestType) ?? "—"],
-    ["Lead source", values.leadSource ?? "—"],
+    [
+      "Lead source",
+      values.leadSourceDirect
+        ? "Direct"
+        : (() => {
+            const lead = choices.leadSources.find((l) => l.id === values.leadSourceVendorId);
+            const contact = lead?.contacts.find((c) => c.id === values.leadSourceContactId);
+            return lead ? [lead.name, contact?.name].filter(Boolean).join(" · ") : "—";
+          })(),
+    ],
     ["Submitted", formatDateKey(values.submittedOn)],
     ["Check-in", formatDateKey(values.checkIn)],
     ["Check-out", formatDateKey(values.checkOut)],
@@ -321,6 +333,8 @@ export function ProposalForm({
   );
 
   const [rfpBlockId, setRfpBlockId] = useState(fromRfp?.rfpBlockId ?? "");
+  const [leadSource, setLeadSource] = useState(initial?.leadSourceDirect ? LEAD_SOURCE_DIRECT : (initial?.leadSourceVendorId ?? ""));
+  const leadContacts = choices.leadSources.find((l) => l.id === leadSource)?.contacts ?? [];
   const [venueId, setVenueId] = useState(initial?.venueId || defaultVenueId || (newHotel && canAddHotel ? NEW_HOTEL : ""));
   const profileOf = (id: string) => choices.venues.find((v) => v.id === id)?.amenities ?? [];
   const [amenities, setAmenities] = useState<ProposalAmenity[]>(initial?.amenities ?? []);
@@ -499,18 +513,28 @@ export function ProposalForm({
             </Field>
           )}
           <Field label="Lead source" htmlFor="p-leadSource">
-            <select id="p-leadSource" name="leadSource" defaultValue={initial?.leadSource ?? ""} className={inputClass}>
+            <select id="p-leadSource" name="leadSource" value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className={inputClass}>
               <option value="">Not set</option>
-              {initial?.leadSource && !choices.leadSources.includes(initial.leadSource) && (
-                <option value={initial.leadSource}>{initial.leadSource}</option>
-              )}
+              <option value={LEAD_SOURCE_DIRECT}>Direct</option>
               {choices.leadSources.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </select>
           </Field>
+          {leadContacts.length > 0 && (
+            <Field label="Lead source contact" htmlFor="p-leadSourceContactId">
+              <select id="p-leadSourceContactId" name="leadSourceContactId" defaultValue={initial?.leadSourceContactId ?? ""} className={inputClass}>
+                <option value="">Not set</option>
+                {leadContacts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Submitted" htmlFor="p-submittedOn">
             <input id="p-submittedOn" type="date" name="submittedOn" defaultValue={initial?.submittedOn ?? ""} className={inputClass} />
           </Field>

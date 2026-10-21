@@ -730,7 +730,9 @@ export const rfpTools: McpToolDefinition[] = [
       const proposal: ProposalWriteArgs = {
         venueId,
         status: str("status") ?? pending?.label ?? "",
-        leadSource: null,
+        leadSourceDirect: false,
+        leadSourceVendorId: null,
+        leadSourceContactId: null,
         contractType: block.contractType,
         guestType: block.guestType,
         submittedOn: str("submittedOn") ?? null,

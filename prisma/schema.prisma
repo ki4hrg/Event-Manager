@@ -580,6 +580,7 @@ model Room {
 // Flexible contact model with roles
 model Contact {
   id                          String                    @id @default(cuid())
+  leadSourceFor               HotelProposal[]           @relation("HotelProposalLeadSourceContact")
   tenantId                    String
   tenant                      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   firstName                   String
@@ -1339,6 +1340,7 @@ model Vendor {
   specTransportationFor       EventSpecification[]       @relation("SpecTransportationVendor")
   rfpRecipients               RfpRecipient[]
   vendorQuotes                VendorQuote[]
+  leadSourceFor               HotelProposal[]            @relation("HotelProposalLeadSource")
   updatedById                 String?
   updatedBy                   User?                      @relation("VendorUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                   @default(now())
@@ -2454,55 +2456,63 @@ enum HotelChargeScope {
 }
 
 model HotelProposal {
-  id                String                    @id @default(cuid())
-  eventId           String
-  event             Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  venueId           String
-  venue             Venue                     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  id                  String                    @id @default(cuid())
+  eventId             String
+  event               Event                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  venueId             String
+  venue               Venue                     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   // proposal_status option label; the option's group (REQUESTED / PENDING /
   // ACCEPTED / DECLINED) is the workflow stage the app keys off.
-  status            String
-  leadSource        String? // hotel_lead_source option label
-  contractType      HotelContractType?
-  guestType         String? // hotel_guest_type option label
-  submittedOn       DateTime?                 @db.Date
-  checkIn           DateTime?                 @db.Date
-  checkOut          DateTime?                 @db.Date
-  declinedReason    String?
-  notes             String?
+  status              String
+  // Where the lead came from: the hotel directly, or a lead-source vendor (a
+  // CVB, a third-party planner) and its contact. Neither = not set.
+  leadSourceDirect    Boolean                   @default(false)
+  leadSourceVendorId  String?
+  leadSourceVendor    Vendor?                   @relation("HotelProposalLeadSource", fields: [leadSourceVendorId], references: [id], onDelete: SetNull)
+  leadSourceContactId String?
+  leadSourceContact   Contact?                  @relation("HotelProposalLeadSourceContact", fields: [leadSourceContactId], references: [id], onDelete: SetNull)
+  contractType        HotelContractType?
+  guestType           String? // hotel_guest_type option label
+  submittedOn         DateTime?                 @db.Date
+  checkIn             DateTime?                 @db.Date
+  checkOut            DateTime?                 @db.Date
+  declinedReason      String?
+  notes               String?
   // Bumped by staff when the hotel sends a revised offer; each bump records a
   // HotelProposalVersion.
-  revision          Int                       @default(1)
-  allowedAttrition  Decimal?                  @db.Decimal(5, 2)
-  guaranteedRevenue Decimal?                  @db.Decimal(10, 2)
+  revision            Int                       @default(1)
+  allowedAttrition    Decimal?                  @db.Decimal(5, 2)
+  guaranteedRevenue   Decimal?                  @db.Decimal(10, 2)
   // Rates good until / contract by, as the offer states it.
-  validUntil        DateTime?                 @db.Date
+  validUntil          DateTime?                 @db.Date
   // Whether the quoted rates include taxes and fees; null = not stated.
-  taxIncluded       Boolean?
+  taxIncluded         Boolean?
   // Amenities this offer confirms or says are unavailable; the rest are the
   // hotel's profile, unstated.
-  amenities         HotelProposalAmenity[]
-  nights            HotelProposalNight[]
-  charges           HotelCharge[]
-  versions          HotelProposalVersion[]
-  block             HotelBlock?
-  files             FileUpload[]
+  amenities           HotelProposalAmenity[]
+  nights              HotelProposalNight[]
+  charges             HotelCharge[]
+  versions            HotelProposalVersion[]
+  block               HotelBlock?
+  files               FileUpload[]
   // The RFP and requested block this offer answers, when it came from one.
-  rfpId             String?
-  rfp               Rfp?                      @relation(fields: [rfpId], references: [id], onDelete: SetNull)
-  rfpBlockId        String?
-  rfpBlock          RfpHotelBlock?            @relation(fields: [rfpBlockId], references: [id], onDelete: SetNull)
-  concessions       HotelProposalConcession[]
-  updatedById       String?
-  updatedBy         User?                     @relation("HotelProposalUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
+  rfpId               String?
+  rfp                 Rfp?                      @relation(fields: [rfpId], references: [id], onDelete: SetNull)
+  rfpBlockId          String?
+  rfpBlock            RfpHotelBlock?            @relation(fields: [rfpBlockId], references: [id], onDelete: SetNull)
+  concessions         HotelProposalConcession[]
+  updatedById         String?
+  updatedBy           User?                     @relation("HotelProposalUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   @@index([eventId])
   @@index([venueId])
   @@index([updatedById])
   @@index([rfpId])
   @@index([rfpBlockId])
+  @@index([leadSourceVendorId])
+  @@index([leadSourceContactId])
 }
 
 model HotelProposalNight {
