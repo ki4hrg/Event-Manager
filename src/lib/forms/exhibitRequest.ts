@@ -223,6 +223,7 @@ async function applyExhibitRequest(ctx: FormApplyContext<ExhibitRequestPayload, 
 export const exhibitRequestModule: FormModule<ExhibitRequestPayload, ExhibitRequestBaseline> = {
   sectionKeys: EXHIBIT_REQUEST_SECTION_KEYS,
   open: true,
+  externalUpload: false,
   async assertTarget({ eventId, boothGroupId }, userId) {
     await requirePermissionForUser(userId, "FUNCTIONS", "VIEW", eventId);
     if (!boothGroupId) return;

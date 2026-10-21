@@ -19,6 +19,7 @@ export async function FormLinkEntry({
   sections,
   targetSelect,
   requireRecipient,
+  externalUpload,
   defaultCloseDate,
 }: {
   eventId: string;
@@ -30,6 +31,7 @@ export async function FormLinkEntry({
   sections?: ButtonProps["sections"];
   targetSelect?: ButtonProps["targetSelect"];
   requireRecipient?: boolean;
+  externalUpload?: boolean;
   defaultCloseDate?: string;
 }) {
   if (!(await hasPermission("FORMS", "WRITE", eventId))) return null;
@@ -59,6 +61,7 @@ export async function FormLinkEntry({
       defaultMaxSubmissions={target ? 1 : null}
       targetSelect={targetSelect}
       requireRecipient={requireRecipient}
+      externalUpload={externalUpload}
       workflowTemplates={templates}
       links={links}
       emailEnabled={isEmailConfigured()}

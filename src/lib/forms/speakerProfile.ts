@@ -239,6 +239,7 @@ async function speakerSnapshot(presentationId: string, contactId: string, eventI
 export const speakerProfileModule: FormModule<SpeakerProfilePayload, SpeakerProfileBaseline> = {
   sectionKeys: SPEAKER_PROFILE_SECTION_KEYS,
   open: false,
+  externalUpload: false,
   async assertTarget({ eventId, presentationId, contactId }, userId) {
     if (!presentationId || !contactId) throw new Error("Pick the speaker");
     await requirePermissionForUser(userId, "PRESENTATIONS", "VIEW", eventId);

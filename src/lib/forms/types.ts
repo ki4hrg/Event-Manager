@@ -79,6 +79,8 @@ export type FormModule<P, B> = {
   // Open forms take submissions from anyone with the link; staff lists name
   // them by submitter rather than target.
   open: boolean;
+  // A link may name a staff-hosted upload folder instead of taking uploads.
+  externalUpload: boolean;
   // Validates a new link's target as the creating user. Throws on a foreign
   // or missing target.
   assertTarget(args: LinkTargetArgs, userId: string): Promise<void>;

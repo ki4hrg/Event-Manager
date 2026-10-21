@@ -11,6 +11,7 @@ import { ENTITY_FK_FIELD, getUploadDir, getUploadPath } from "@/lib/uploads";
 import { formConfig, formModule } from "@/lib/forms/index";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import type { FileTarget, FormLinkTarget } from "@/lib/forms/types";
+import { httpsUrl } from "@/lib/forms/meta";
 import { workflowCompletionCore } from "@/app/events/workflows/core";
 
 const MAX_LINK_DAYS = 366;
@@ -29,6 +30,7 @@ export type CreateFormLinkArgs = {
   recipientEmail: string | null;
   sections: string[];
   intro: string | null;
+  mediaUploadUrl: string | null;
   workflowTemplateId: string | null;
   dueAt: Date | null;
   expiresAt: Date;
@@ -51,6 +53,13 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
       select: { id: true },
     });
     if (!template) throw new PermissionError("NOT_FOUND", "Workflow not found");
+  }
+
+  let mediaUploadUrl: string | null = null;
+  if (args.mediaUploadUrl) {
+    if (!mod.externalUpload) throw new Error("This form doesn't take an upload link");
+    mediaUploadUrl = httpsUrl(args.mediaUploadUrl);
+    if (!mediaUploadUrl) throw new Error("The upload link must be an https:// address");
   }
 
   // A form with one section has nothing to pick.
@@ -76,7 +85,7 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
       label: args.label,
       recipientName: args.recipientName,
       recipientEmail: args.recipientEmail?.toLowerCase() ?? null,
-      config: { sections, intro: args.intro } satisfies Prisma.InputJsonValue,
+      config: { sections, intro: args.intro, mediaUploadUrl } satisfies Prisma.InputJsonValue,
       workflowTemplateId: args.workflowTemplateId,
       dueAt: args.dueAt,
       expiresAt: args.expiresAt,

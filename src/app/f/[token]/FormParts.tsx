@@ -191,10 +191,13 @@ export function FormFrame({
   saved,
   draft,
   orgLabel = "Organization",
+  allowUploads = true,
   children,
 }: CommonFormProps & {
   draft: Omit<DraftView<unknown>, "payload"> | null;
   orgLabel?: string;
+  // Off when staff host the uploads elsewhere (a link's mediaUploadUrl).
+  allowUploads?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -238,7 +241,7 @@ export function FormFrame({
 
       {children}
 
-      <Files token={token} files={draft?.files ?? []} />
+      {allowUploads && <Files token={token} files={draft?.files ?? []} />}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <FormButtons token={token} />

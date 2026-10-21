@@ -63,7 +63,8 @@ async function parseDeliverables(formData: FormData, sections: string[], baselin
     if (mediaType !== null && !baseline.mediaTypes.includes(mediaType)) throw new PublicFormError("invalid");
     const link = httpLink(text(formData, "mediaLink", 500));
     const notes = text(formData, "mediaNotes", NOTE_MAX);
-    payload.media = mediaType || link || notes ? { mediaType, link, notes } : null;
+    const uploaded = formData.get("mediaUploaded") === "true";
+    payload.media = mediaType || link || notes || uploaded ? { mediaType, link, notes, uploaded } : null;
   }
   if (on.has("handouts")) {
     const description = text(formData, "handoutDescription", 300);
@@ -117,7 +118,12 @@ function diffDeliverables(
       case "media": {
         const m = payload.media;
         const rows = m
-          ? [createRow("mediaType", "Type", m.mediaType), createRow("link", "Link", m.link), createRow("notes", "Notes", m.notes)].filter((r) => r.proposed)
+          ? [
+              createRow("mediaType", "Type", m.mediaType),
+              createRow("uploaded", "Uploaded to your folder", m.uploaded ? "Yes" : null),
+              createRow("link", "Link", m.link),
+              createRow("notes", "Notes", m.notes),
+            ].filter((r) => r.proposed)
           : [];
         // Files alone still make a deliverable worth creating.
         return { ...base, mode: "create" as const, rows, applicable: true };
@@ -203,7 +209,14 @@ async function applyDeliverables(ctx: FormApplyContext<DeliverablesPayload, Deli
         mediaType: m?.mediaType ?? null,
         description: null,
         delivery: null,
-        notes: [m?.link ? `Link: ${m.link}` : null, m?.notes].filter(Boolean).join("\n") || null,
+        notes:
+          [
+            m?.uploaded ? `Uploaded to ${readFormLinkConfig(link.config, DELIVERABLES_SECTION_KEYS).mediaUploadUrl ?? "the shared folder"}` : null,
+            m?.link ? `Link: ${m.link}` : null,
+            m?.notes,
+          ]
+            .filter(Boolean)
+            .join("\n") || null,
         providerVendorId: null,
         providerContactId: null,
         functionIds: [],
@@ -257,6 +270,7 @@ async function applyDeliverables(ctx: FormApplyContext<DeliverablesPayload, Deli
 export const presentationDeliverablesModule: FormModule<DeliverablesPayload, DeliverablesBaseline> = {
   sectionKeys: DELIVERABLES_SECTION_KEYS,
   open: false,
+  externalUpload: true,
   async assertTarget({ eventId, presentationId, contactId }, userId) {
     if (!presentationId) throw new Error("Pick a presentation");
     await requirePermissionForUser(userId, "PRESENTATIONS", "VIEW", eventId);

@@ -81,15 +81,28 @@ export type FunctionReviewBaseline = {
 };
 
 // The form config a link stores. `sections` is always a subset of the form
-// type's section keys; `intro` renders as plain text.
-export type FormLinkConfig = { sections: string[]; intro?: string | null };
+// type's section keys; `intro` renders as plain text. `mediaUploadUrl` is a
+// folder staff host (a Dropbox file request, say): when set, the form sends
+// presenters there and takes no uploads itself.
+export type FormLinkConfig = { sections: string[]; intro?: string | null; mediaUploadUrl?: string | null };
+
+// An https URL as typed, normalized, or null when it isn't one.
+export function httpsUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim() || value.length > 500) return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 export function readFormLinkConfig(raw: unknown, validKeys: Set<string>): FormLinkConfig {
-  const obj = (raw && typeof raw === "object" ? raw : {}) as { sections?: unknown; intro?: unknown };
+  const obj = (raw && typeof raw === "object" ? raw : {}) as { sections?: unknown; intro?: unknown; mediaUploadUrl?: unknown };
   const sections = Array.isArray(obj.sections)
     ? obj.sections.filter((s): s is string => typeof s === "string" && validKeys.has(s))
     : [];
-  return { sections, intro: typeof obj.intro === "string" ? obj.intro : null };
+  return { sections, intro: typeof obj.intro === "string" ? obj.intro : null, mediaUploadUrl: httpsUrl(obj.mediaUploadUrl) };
 }
 
 // The hidden field bots fill. Its name must never be a real form field's
@@ -246,7 +259,8 @@ export type DeliverablesPayload = {
   title?: string | null;
   description?: string | null;
   avNeeds?: string | null;
-  media?: { mediaType: string | null; link: string | null; notes: string | null } | null;
+  // `uploaded`: the presenter says they used the link staff gave them.
+  media?: { mediaType: string | null; link: string | null; notes: string | null; uploaded: boolean } | null;
   handouts?: { description: string; quantity: number | null } | null;
 };
 

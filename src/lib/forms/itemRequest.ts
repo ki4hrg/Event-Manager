@@ -321,6 +321,7 @@ async function applyItemRequest(ctx: FormApplyContext<ItemRequestPayload, ItemRe
 export const itemRequestModule: FormModule<ItemRequestPayload, ItemRequestBaseline> = {
   sectionKeys: ITEM_REQUEST_SECTION_KEYS,
   open: true,
+  externalUpload: false,
   async assertTarget() {},
   async snapshot(link) {
     return {

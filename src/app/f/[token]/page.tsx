@@ -137,6 +137,7 @@ export default async function PublicFormPage({
         <FormShell form={form}>
           <DeliverablesForm
             {...common}
+            uploadUrl={formConfig(link).mediaUploadUrl ?? null}
             baseline={snapshot.baseline as DeliverablesBaseline}
             sections={snapshot.sections as DeliverablesSection[]}
             draft={draftView && { ...draftView, payload: payload as DeliverablesPayload | null }}

@@ -32,6 +32,8 @@ type Props = {
   recipients?: { contactId: string; name: string; email: string | null }[];
   // An optional scope picked in the dialog (an exhibit request's booth group).
   targetSelect?: { name: string; label: string; emptyLabel: string; options: { value: string; label: string }[] };
+  // Offer a staff-hosted upload folder in place of uploads through the form.
+  externalUpload?: boolean;
   // The link must name one of `recipients` (a speaker form is about them).
   requireRecipient?: boolean;
   // Open links default to unlimited responses.
@@ -53,6 +55,7 @@ export function FormLinkButton({
   defaultMaxSubmissions = 1,
   targetSelect,
   requireRecipient = false,
+  externalUpload = false,
   workflowTemplates,
   links,
   emailEnabled,
@@ -179,6 +182,12 @@ export function FormLinkButton({
                       ))}
                     </div>
                   </fieldset>
+                  )}
+                  {externalUpload && (
+                    <div>
+                      <label className={labelCls}>Media upload link</label>
+                      <input name="mediaUploadUrl" type="url" pattern="https://.*" maxLength={500} placeholder="https://www.dropbox.com/request/…" className={inputCls} />
+                    </div>
                   )}
                   <div>
                     <label className={labelCls}>Message</label>

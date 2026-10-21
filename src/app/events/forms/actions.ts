@@ -55,6 +55,7 @@ export async function createFormLink(eventId: string, formData: FormData) {
       recipientEmail: (formData.get("recipientEmail") as string) || null,
       sections: formData.getAll("sections") as string[],
       intro: (formData.get("intro") as string) || null,
+      mediaUploadUrl: (formData.get("mediaUploadUrl") as string) || null,
       workflowTemplateId: (formData.get("workflowTemplateId") as string) || null,
       dueAt: await endOfDayInEvent(formData.get("dueAt") as string, eventId),
       expiresAt,

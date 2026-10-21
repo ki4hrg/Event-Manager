@@ -402,6 +402,7 @@ function rebaseFunctionReview(
 export const functionReviewModule: FormModule<FunctionReviewPayload, FunctionReviewBaseline> = {
   sectionKeys: FUNCTION_REVIEW_SECTION_KEYS,
   open: false,
+  externalUpload: false,
   async assertTarget({ eventId, functionId }, userId) {
     if (!functionId) throw new Error("Pick a function");
     await requirePermissionForUser(userId, "FUNCTIONS", "VIEW", eventId);

@@ -31,7 +31,7 @@ import {
   purgeStaleFormSubmissions,
   removeSubmissionFiles,
 } from "./links";
-import { formModule } from "./index";
+import { formConfig, formModule } from "./index";
 import type { FormSnapshot } from "./types";
 import { FORM_TYPE_LABEL } from "./meta";
 
@@ -202,6 +202,8 @@ export async function removeDraftFileCore(link: ActiveFormLink, draftKey: string
 // the upload comes first. Returns the draft key and the stored file.
 export async function attachPublicUploadCore(link: ActiveFormLink, draftKey: string | undefined, file: File) {
   if (formLinkIsFull(link)) throw new PublicFormError("closed");
+  // Staff host this link's uploads themselves.
+  if (formConfig(link).mediaUploadUrl) throw new PublicFormError("upload");
   if (file.size === 0 || file.size > PUBLIC_UPLOAD_MAX_BYTES) throw new PublicFormError("upload");
 
   let draft = await findDraft(link.id, draftKey);

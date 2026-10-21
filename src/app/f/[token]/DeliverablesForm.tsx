@@ -6,21 +6,24 @@ import {
   type DeliverablesPayload,
   type DeliverablesSection,
 } from "@/lib/forms/meta";
+import { btnSecondary } from "@/lib/buttonStyles";
 import { Card, FormFrame, inputCls, labelCls, type CommonFormProps, type DraftView } from "./FormParts";
 
 type Props = CommonFormProps & {
   baseline: DeliverablesBaseline;
   sections: DeliverablesSection[];
   draft: DraftView<DeliverablesPayload> | null;
+  // A folder the event team hosts; when set, files go there, not through the form.
+  uploadUrl: string | null;
 };
 
 const sectionLabel = (key: DeliverablesSection) => DELIVERABLES_SECTIONS.find((s) => s.key === key)!.label;
 
-export function DeliverablesForm({ baseline, sections, draft, ...common }: Props) {
+export function DeliverablesForm({ baseline, sections, draft, uploadUrl, ...common }: Props) {
   const p = draft?.payload ?? null;
   const on = new Set(sections);
   return (
-    <FormFrame {...common} recipientName={common.recipientName ?? baseline.speakerName} draft={draft}>
+    <FormFrame {...common} recipientName={common.recipientName ?? baseline.speakerName} draft={draft} allowUploads={!uploadUrl}>
       {on.has("details") && (
         <Card title={sectionLabel("details")}>
           <div>
@@ -60,10 +63,22 @@ export function DeliverablesForm({ baseline, sections, draft, ...common }: Props
                 </select>
               </div>
             )}
-            <div className="sm:col-span-2">
-              <label htmlFor="mediaLink" className={labelCls}>Link to your file (Dropbox, Google Drive, WeTransfer…)</label>
-              <input id="mediaLink" name="mediaLink" type="url" maxLength={500} placeholder="https://" defaultValue={p?.media?.link ?? ""} className={inputCls} />
-            </div>
+            {uploadUrl ? (
+              <div className="sm:col-span-2 space-y-3">
+                <a href={uploadUrl} target="_blank" rel="noopener noreferrer" className={`inline-block ${btnSecondary}`}>
+                  Upload your files ↗
+                </a>
+                <label className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
+                  <input type="checkbox" name="mediaUploaded" value="true" defaultChecked={p?.media?.uploaded ?? false} className="rounded border-gray-300 dark:border-gray-600" />
+                  I&apos;ve uploaded my files
+                </label>
+              </div>
+            ) : (
+              <div className="sm:col-span-2">
+                <label htmlFor="mediaLink" className={labelCls}>Link to your file (Dropbox, Google Drive, WeTransfer…)</label>
+                <input id="mediaLink" name="mediaLink" type="url" maxLength={500} placeholder="https://" defaultValue={p?.media?.link ?? ""} className={inputCls} />
+              </div>
+            )}
             <div className="sm:col-span-2">
               <label htmlFor="mediaNotes" className={labelCls}>Notes</label>
               <textarea id="mediaNotes" name="mediaNotes" rows={2} maxLength={2000} defaultValue={p?.media?.notes ?? ""} className={inputCls} />

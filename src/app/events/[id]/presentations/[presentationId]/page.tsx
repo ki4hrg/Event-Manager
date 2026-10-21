@@ -385,6 +385,7 @@ export default async function PresentationPage({
             eventId={eventId}
             formType="PRESENTATION_DELIVERABLES"
             title="Request deliverables"
+            externalUpload
             target={{ field: "presentationId", id: presentationId }}
             sections={DELIVERABLES_SECTIONS}
             recipients={presentation.speakers.map((s) => ({
