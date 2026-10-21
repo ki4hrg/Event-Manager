@@ -4,7 +4,7 @@ import { unlinkSync } from "fs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord, resolveFileEventId } from "@/lib/uploads";
+import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord, resolveFileEventId, inboundFileTenantId } from "@/lib/uploads";
 
 export async function deleteFile(fileId: string, revalidateTarget: string) {
   const record = await prisma.fileUpload.findUnique({
@@ -15,7 +15,9 @@ export async function deleteFile(fileId: string, revalidateTarget: string) {
 
   // Venue-attached files have no event; resolveFileEventId returns null
   // and requirePermission falls through to GLOBAL scope.
-  await requirePermission("FILES", "DELETE", await resolveFileEventId(record));
+  const { tenantId } = await requirePermission("FILES", "DELETE", await resolveFileEventId(record));
+  const inboundTenantId = await inboundFileTenantId(record);
+  if (inboundTenantId && inboundTenantId !== tenantId) return;
 
   const filePath = getUploadPath(
     getEntityTypeFromRecord(record),

@@ -23,6 +23,7 @@ model User {
   // permissions are always resolved through the membership for the tenant in
   // question — there is no global role anymore.
   memberships                TenantMembership[]
+  inboundEmailsHandled       InboundEmail[]           @relation("InboundEmailHandledBy")
   // Self-ref for "last updated by" attribution.
   updatedById                String?
   updatedBy                  User?                    @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -94,6 +95,7 @@ model Tenant {
   storageLocations  StorageLocation[]
   inventoryItems    InventoryItem[]
   workflowTemplates WorkflowTemplate[]
+  inboundEmails     InboundEmail[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -459,6 +461,10 @@ model Event {
   exhibitBooths           ExhibitBooth[]
   hotelProposals          HotelProposal[]
   rfps                    Rfp[]
+  // Local part of the event's inbox address, `<tenant.slug>.<inboxSlug>@<domain>`
+  // (see docs/proposals/email-ingest.md). Null: no inbox.
+  inboxSlug               String?
+  inboundEmails           InboundEmail[]
   exhibitBoothGroups      ExhibitBoothGroup[]
   postEvent               EventPostEvent?
   postEventFutureDates    EventPostEventFutureDate[]
@@ -468,6 +474,7 @@ model Event {
   createdAt               DateTime                     @default(now())
   updatedAt               DateTime                     @updatedAt
 
+  @@unique([tenantId, inboxSlug])
   @@index([tenantId])
   @@index([updatedById])
   @@index([seriesId])
@@ -1801,6 +1808,10 @@ model FileUpload {
   hotelProposal      HotelProposal?    @relation(fields: [hotelProposalId], references: [id], onDelete: Cascade)
   rfpId              String?
   rfp                Rfp?              @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  // Arrived on an inbound email. Filing it on the event copies it (same
+  // storedName) rather than moving it, so the item keeps its own copy.
+  inboundEmailId     String?
+  inboundEmail       InboundEmail?     @relation(fields: [inboundEmailId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -1813,6 +1824,7 @@ model FileUpload {
   @@index([mediaDeliverableId])
   @@index([venueId])
   @@index([hotelProposalId])
+  @@index([inboundEmailId])
   @@index([rfpId])
 }
 
@@ -2848,4 +2860,68 @@ model RfpHotelBlockNight {
   rooms    Int
 
   @@index([blockId])
+}
+
+// ---------------------------------------------------------------------------
+// Email ingest — mail sent to an event's inbox address. See
+// docs/proposals/email-ingest.md.
+
+enum InboundOrigin {
+  EMAIL
+  MCP
+}
+
+enum InboundStatus {
+  HELD // unknown sender, or no event matched: waits for a person
+  RECEIVED // known sender, waiting to be read
+  PARSED // a proposal is ready for review
+  APPLIED
+  DISMISSED // purged 90 days after handledAt
+  FAILED // reading it failed; can be re-run
+}
+
+// One message. Tenant-owned: tenantId comes from the address; eventId is null
+// while the address named no event of that tenant ("Unrouted"). The raw .eml
+// and the attachments are FileUploads (inboundEmailId); the .eml's fileType is
+// "EMAIL_SOURCE".
+model InboundEmail {
+  id            String        @id @default(cuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  eventId       String?
+  event         Event?        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  origin        InboundOrigin @default(EMAIL)
+  // msgid:<Message-ID> or hash:<sha256> — a resend of the same message is a no-op.
+  dedupKey      String        @unique
+  envelopeTo    String
+  envelopeFrom  String?
+  // From: as written ("Name <address>"), and its bare address for matching.
+  sender        String
+  senderAddress String?
+  // The original sender when this message forwards another one.
+  forwardedFrom String?
+  subject       String?
+  receivedAt    DateTime
+  textBody      String?       @db.Text
+  // Authentication-Results as received (SPF / DKIM / DMARC).
+  authResults   String?
+  // Who the sender is to this tenant / event: MEMBER, CONTACT, or null (unknown).
+  senderMatch   String?
+  status        InboundStatus
+  // What the message was read as, and the proposed record (phase 2+).
+  kind          String?
+  proposal      Json?
+  model         String?
+  error         String?
+  // The person who last released, dismissed or applied it.
+  handledById   String?
+  handledBy     User?         @relation("InboundEmailHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  handledAt     DateTime?
+  files         FileUpload[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([tenantId, eventId, status])
+  @@index([eventId, status])
+  @@index([handledById])
 }

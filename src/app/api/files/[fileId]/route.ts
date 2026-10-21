@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord, resolveFileEventId } from "@/lib/uploads";
+import { getUploadPath, getEntityTypeFromRecord, getEntityIdFromRecord, resolveFileEventId, inboundFileTenantId } from "@/lib/uploads";
 
 export async function GET(
   _request: NextRequest,
@@ -18,7 +18,11 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await requirePermission("FILES", "VIEW", await resolveFileEventId(record));
+  const { tenantId } = await requirePermission("FILES", "VIEW", await resolveFileEventId(record));
+  const inboundTenantId = await inboundFileTenantId(record);
+  if (inboundTenantId && inboundTenantId !== tenantId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const entityType = getEntityTypeFromRecord(record);
   const entityId = getEntityIdFromRecord(record);

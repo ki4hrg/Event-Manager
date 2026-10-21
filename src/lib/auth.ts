@@ -76,6 +76,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (nextUrl.pathname.startsWith("/reset-password/")) return true;
       // /mcp does its own bearer-token auth via @/lib/mcpAuth.
       if (nextUrl.pathname === "/mcp" || nextUrl.pathname.startsWith("/mcp/")) return true;
+      // Posted by the Cloudflare Email Worker; verifies its own HMAC signature.
+      if (nextUrl.pathname === "/api/inbound-email") return true;
       // OAuth 2.1 endpoints backing the remote MCP connector are public by
       // design: register (anonymous DCR), authorize (own credential form),
       // token/revoke (PKCE / token-based). Discovery docs are public metadata,

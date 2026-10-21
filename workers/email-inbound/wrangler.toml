@@ -1,0 +1,8 @@
+# Cloudflare Email Worker for event inboxes. Setup: README.md.
+name = "event-manager-email-inbound"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Set with `wrangler secret put`, not here:
+#   APP_URL               Event Manager's public base URL, no trailing slash
+#   INBOUND_EMAIL_SECRET  same value as the app's
