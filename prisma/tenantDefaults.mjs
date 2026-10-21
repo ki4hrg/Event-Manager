@@ -261,7 +261,8 @@ export const DEFAULT_OPTIONS = {
   ],
   // What a property has or provides (pool, airport shuttle, valet parking).
   // What it gives free or discounted to the group (breakfast, Wi-Fi, parking
-  // rates, comp rooms) is a concession (rfp_concession), not an amenity.
+  // rates, comp rooms) is a concession (rfp_concession). One service can be
+  // both: valet parking the amenity, a reduced valet rate the concession.
   hotel_amenity: [
     { label: "On-site Restaurant", sortOrder: 0 },
     { label: "Fitness Center", sortOrder: 1 },
