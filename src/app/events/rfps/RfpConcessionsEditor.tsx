@@ -5,7 +5,7 @@ import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { CONCESSION_GROUPS, concessionGroupOf } from "@/lib/rfp/sections";
 import { useAutosave } from "@/lib/useAutosave";
-import { AutosaveStatus } from "./AutosaveStatus";
+import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { RfpConcessionArgs } from "./core";
 
 const inputClass =

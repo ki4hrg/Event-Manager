@@ -72,6 +72,7 @@ export default async function EventProfilePage({
           items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
+            { label: "Reports", href: `/events/${eventId}/reports` },
             { label: "Event Profile" },
           ]}
         />

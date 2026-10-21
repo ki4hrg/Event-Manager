@@ -22,6 +22,8 @@ import { VendorForm } from "../VendorForm";
 import { MODEL_LABELS } from "../model-types";
 import { VendorContactList } from "../VendorContactList";
 import { LastUpdated } from "@/components/LastUpdated";
+import { getRfpHistory } from "@/app/events/rfps/actions";
+import { RfpHistoryPanel } from "@/app/events/rfps/RfpHistoryPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -40,9 +42,10 @@ export async function generateMetadata({
 
 export default async function VendorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [vendor, contactTypes] = await Promise.all([
+  const [vendor, contactTypes, rfpHistory] = await Promise.all([
     getVendor(id),
     getOptions("vendor_contact_type"),
+    getRfpHistory({ vendorId: id }),
   ]);
 
   if (!vendor) {
@@ -121,7 +124,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
             <VendorForm vendor={vendor} action={updateVendorAction} />
           </div>
 
-          <div className="lg:col-span-2 min-w-0">
+          <div className="lg:col-span-2 space-y-8 min-w-0">
             <VendorContactList
               contacts={vendor.contacts}
               contactTypes={contactTypes}
@@ -131,6 +134,7 @@ export default async function VendorPage({ params }: { params: Promise<{ id: str
               searchContacts={searchContactsAction}
               createContact={createContactAction}
             />
+            <RfpHistoryPanel history={rfpHistory} />
           </div>
         </div>
       )}

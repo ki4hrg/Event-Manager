@@ -1,112 +1,138 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
+import { AutosaveStatus } from "@/components/AutosaveStatus";
+import { useAutosave } from "@/lib/useAutosave";
 import { btnPrimary, btnSecondary, btnOutlinedSm } from "@/lib/buttonStyles";
 import { COVERAGE_KINDS, DISTRIBUTION_ACTIONS, type SpecGridColumn } from "@/lib/esg/fields";
-import { formatDateOnly, formatDayDateTime } from "@/lib/esg/format";
 import { SpecFieldInput, specInputClass, type SpecChoices, type SpecValue } from "./SpecFieldInput";
 
 export type SpecGridRow = { id: string; values: Record<string, SpecValue> };
 
-function SaveButton({ label }: { label: string }) {
+function AddButton() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending} className={`${btnPrimary} text-sm disabled:opacity-50`}>
-      {pending ? "Saving..." : label}
+      {pending ? "Adding…" : "Add"}
     </button>
   );
 }
 
-function cellText(column: SpecGridColumn, value: SpecValue, timezone: string, choices: SpecChoices): string | null {
-  if (value === null || value === "") return null;
-  if (column.key === "kind") return COVERAGE_KINDS.find((k) => k.value === value)?.label ?? String(value);
-  if (column.key === "action") return DISTRIBUTION_ACTIONS.find((k) => k.value === value)?.label ?? String(value);
-  switch (column.kind) {
-    case "bool":
-      return value ? "Yes" : "No";
-    case "date":
-      return formatDateOnly(`${value}T00:00:00Z`);
-    case "datetime":
-      return formatDayDateTime(new Date(value as string), timezone);
-    case "function":
-      return choices.functions.find((f) => f.id === value)?.label ?? null;
-    default:
-      return String(value);
-  }
-}
-
-function RowForm({
+function RowFields({
   columns,
-  row,
+  values,
   timezone,
   choices,
-  submitLabel,
-  onSubmit,
-  onCancel,
 }: {
   columns: SpecGridColumn[];
-  row?: SpecGridRow;
+  values?: Record<string, SpecValue>;
   timezone: string;
   choices: SpecChoices;
-  submitLabel: string;
-  onSubmit: (formData: FormData) => Promise<void>;
-  onCancel: () => void;
 }) {
   const formId = useId();
   return (
-    <form action={onSubmit} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {columns.map((c) => (
-          <div key={c.key}>
-            <label htmlFor={`${formId}-${c.key}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-              {c.label}
-              {c.required && <span className="text-red-500 dark:text-red-400"> *</span>}
-            </label>
-            {c.key === "kind" || c.key === "action" ? (
-              <select id={`${formId}-${c.key}`} name={c.key} required defaultValue={(row?.values[c.key] as string) ?? ""} className={specInputClass}>
-                <option value="">Choose…</option>
-                {(c.key === "kind" ? COVERAGE_KINDS : DISTRIBUTION_ACTIONS).map((k) => (
-                  <option key={k.value} value={k.value}>
-                    {k.label}
-                  </option>
-                ))}
-              </select>
-            ) : c.kind === "bool" ? (
-              <label className="mt-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <input
-                  id={`${formId}-${c.key}`}
-                  type="checkbox"
-                  name={c.key}
-                  value="true"
-                  defaultChecked={row?.values[c.key] === true}
-                  className="rounded border-gray-300 dark:border-gray-600"
-                />
-                Yes
-              </label>
-            ) : (
-              <SpecFieldInput
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 min-w-0">
+      {columns.map((c) => (
+        <div key={c.key} className="min-w-0">
+          <label htmlFor={`${formId}-${c.key}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+            {c.label}
+            {c.required && <span className="text-red-500 dark:text-red-400"> *</span>}
+          </label>
+          {c.key === "kind" || c.key === "action" ? (
+            <select
+              id={`${formId}-${c.key}`}
+              name={c.key}
+              required
+              defaultValue={(values?.[c.key] as string) ?? ""}
+              className={specInputClass}
+            >
+              <option value="">Choose…</option>
+              {(c.key === "kind" ? COVERAGE_KINDS : DISTRIBUTION_ACTIONS).map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          ) : c.kind === "bool" ? (
+            <label className="mt-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
                 id={`${formId}-${c.key}`}
+                type="checkbox"
                 name={c.key}
-                kind={c.kind}
-                value={row?.values[c.key] ?? null}
-                timezone={timezone}
-                choices={choices}
+                value="true"
+                defaultChecked={values?.[c.key] === true}
+                className="rounded border-gray-300 dark:border-gray-600"
               />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <SaveButton label={submitLabel} />
-        <button type="button" onClick={onCancel} className={`${btnSecondary} text-sm`}>
-          Cancel
-        </button>
-      </div>
-    </form>
+              Yes
+            </label>
+          ) : (
+            <SpecFieldInput
+              id={`${formId}-${c.key}`}
+              name={c.key}
+              kind={c.kind}
+              value={values?.[c.key] ?? null}
+              timezone={timezone}
+              choices={choices}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// An existing row: autosaves on change. Keyed by row id, so it keeps the
+// values it mounted with across the refresh each save triggers.
+function RowEditor({
+  row,
+  columns,
+  timezone,
+  choices,
+  canWrite,
+  updateRow,
+  deleteRow,
+}: {
+  row: SpecGridRow;
+  columns: SpecGridColumn[];
+  timezone: string;
+  choices: SpecChoices;
+  canWrite: boolean;
+  updateRow: (formData: FormData) => Promise<void>;
+  deleteRow: () => Promise<void>;
+}) {
+  const [values] = useState(row.values);
+  const formRef = useRef<HTMLFormElement>(null);
+  const payload = useRef<FormData | null>(null);
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    if (formRef.current) payload.current = new FormData(formRef.current);
+  });
+  const status = useAutosave(version, async () => {
+    if (payload.current) await updateRow(payload.current);
+  });
+
+  return (
+    <li className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2">
+      <form
+        ref={formRef}
+        onChange={canWrite ? () => setVersion((v) => v + 1) : undefined}
+        onSubmit={(e) => e.preventDefault()}
+      >
+        <fieldset disabled={!canWrite} className="min-w-0">
+          <RowFields columns={columns} values={values} timezone={timezone} choices={choices} />
+        </fieldset>
+      </form>
+      {canWrite && (
+        <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
+          <AutosaveStatus {...status} />
+          <InlineDeleteButton resource="EVENTS" requiredLevel="WRITE" hiddenInputs={{}} action={deleteRow} />
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -128,20 +154,13 @@ export function SpecGridTable({
   timezone: string;
   choices: SpecChoices;
   createRow: (formData: FormData) => Promise<void>;
+  // Must not redirect: rows autosave through it.
   updateRow: (rowId: string, formData: FormData) => Promise<void>;
   deleteRow: (rowId: string) => Promise<void>;
 }) {
   const canWrite = useCanWrite("EVENTS");
   const router = useRouter();
   const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
-  const after = (fn: () => Promise<void>) =>
-    startTransition(async () => {
-      await fn();
-      router.refresh();
-    });
 
   return (
     <div>
@@ -156,80 +175,45 @@ export function SpecGridTable({
           </button>
         )}
       </div>
-      {adding && (
-        <div className="mb-3">
-          <RowForm
-            columns={columns}
-            timezone={timezone}
-            choices={choices}
-            submitLabel="Add"
-            onSubmit={async (formData) => {
-              await createRow(formData);
-              setAdding(false);
-              router.refresh();
-            }}
-            onCancel={() => setAdding(false)}
-          />
-        </div>
-      )}
-      {rows.length === 0 ? (
-        !adding && <p className="text-sm text-gray-500 dark:text-gray-400">None added.</p>
+      {rows.length === 0 && !adding ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">None added.</p>
       ) : (
         <ul className="space-y-2">
-          {rows.map((row) =>
-            editingId === row.id ? (
-              <li key={row.id}>
-                <RowForm
-                  columns={columns}
-                  row={row}
-                  timezone={timezone}
-                  choices={choices}
-                  submitLabel="Save"
-                  onSubmit={async (formData) => {
-                    await updateRow(row.id, formData);
-                    setEditingId(null);
-                    router.refresh();
-                  }}
-                  onCancel={() => setEditingId(null)}
-                />
-              </li>
-            ) : (
-              <li key={row.id} className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <div className="flex items-start justify-between gap-3">
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1 min-w-0 flex-1 text-sm">
-                    {columns.map((c) => {
-                      const text = cellText(c, row.values[c.key] ?? null, timezone, choices);
-                      if (!text) return null;
-                      return (
-                        <div key={c.key} className="min-w-0 break-words">
-                          <dt className="inline text-gray-500 dark:text-gray-400">{c.label}: </dt>
-                          <dd className="inline text-gray-900 dark:text-white">{text}</dd>
-                        </div>
-                      );
-                    })}
-                  </dl>
-                  {canWrite && (
-                    <div className="flex items-center gap-3 shrink-0 text-sm">
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(row.id)}
-                        className="py-1 text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <InlineDeleteButton
-                        resource="EVENTS"
-                        requiredLevel="WRITE"
-                        hiddenInputs={{}}
-                        action={async () => after(() => deleteRow(row.id))}
-                      />
-                    </div>
-                  )}
-                </div>
-              </li>
-            ),
-          )}
+          {rows.map((row) => (
+            <RowEditor
+              key={row.id}
+              row={row}
+              columns={columns}
+              timezone={timezone}
+              choices={choices}
+              canWrite={canWrite}
+              updateRow={(formData) => updateRow(row.id, formData)}
+              deleteRow={async () => {
+                await deleteRow(row.id);
+                router.refresh();
+              }}
+            />
+          ))}
         </ul>
+      )}
+      {/* A new row needs its required columns, so it's added explicitly; it autosaves from then on. */}
+      {adding && (
+        <form
+          action={async (formData) => {
+            await createRow(formData);
+            setAdding(false);
+            router.refresh();
+          }}
+          className="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3 border border-dashed border-gray-300 dark:border-gray-600"
+        >
+          <RowFields columns={columns} timezone={timezone} choices={choices} />
+          <div className="flex gap-2">
+            <AddButton />
+            <button type="button" onClick={() => setAdding(false)} className={`${btnSecondary} text-sm`}>
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );

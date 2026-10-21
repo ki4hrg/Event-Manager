@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { REPORTS } from "@/lib/reportRegistry";
 
 export type ShareLinkFilters = {
   vendorIds?: string[];
@@ -30,20 +31,9 @@ export type ShareLinkFilters = {
   blockTypes?: string[];
 };
 
-export const SHARE_REPORT_LABELS: Record<string, string> = {
-  EQUIPMENT_RESPONSIBILITY: "Equipment Responsibility",
-  VENDOR_HANDOFF: "Vendor Handoff",
-  EVENT_PROFILE: "Event Profile",
-  EVENT_SCHEDULE: "Event Schedule",
-  ROOM_SCHEDULE: "Room Schedule",
-  FUNCTION_DETAIL: "Function Detail",
-  BREAKOUT_GRID: "Breakout Grid",
-  BREAKOUT_ASSIGNMENTS: "Breakout Assignments",
-  PACKING_LIST: "Packing List",
-  ESG: "Event Specifications Guide",
-  POST_EVENT: "Post-Event Report",
-  HOTEL_INFO: "Hotel Information",
-};
+export const SHARE_REPORT_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(REPORTS).map(([type, report]) => [type, report.label]),
+);
 
 export function generateShareToken(): string {
   return crypto.randomBytes(32).toString("base64url");

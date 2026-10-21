@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
+import { REPORTS } from "@/lib/reportRegistry";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "../../actions";
 import {
@@ -130,7 +131,7 @@ export default async function PackingListPage({
           items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
-            { label: "Packing List" },
+            { label: "Packing" },
           ]}
         />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
@@ -157,20 +158,21 @@ export default async function PackingListPage({
               </Link>
             )}
           </div>
-          {(payload.canWriteSupply || payload.canWritePrint) && (
-            <div className="flex flex-wrap gap-2">
-              {payload.canWriteSupply && (
-                <Link href={`/events/${eventId}/supply-orders/new`} className={btnOutlinedSm}>
-                  + Supply order
-                </Link>
-              )}
-              {payload.canWritePrint && (
-                <Link href={`/events/${eventId}/print-orders/new`} className={btnOutlinedSm}>
-                  + Print order
-                </Link>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/events/${eventId}/${REPORTS.PACKING_LIST.path}`} className={btnOutlinedSm}>
+              {REPORTS.PACKING_LIST.label} report
+            </Link>
+            {payload.canWriteSupply && (
+              <Link href={`/events/${eventId}/supply-orders/new`} className={btnOutlinedSm}>
+                + Supply order
+              </Link>
+            )}
+            {payload.canWritePrint && (
+              <Link href={`/events/${eventId}/print-orders/new`} className={btnOutlinedSm}>
+                + Print order
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

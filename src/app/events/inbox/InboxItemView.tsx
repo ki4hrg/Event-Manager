@@ -1,10 +1,11 @@
-import type { FileUpload, InboundStatus } from "@prisma/client";
+import type { FileUpload, InboundOrigin, InboundStatus } from "@prisma/client";
 import { formatFileSize } from "@/lib/uploads";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { senderBadgeClass } from "./InboxList";
-import { EMAIL_SOURCE_FILE_TYPE, SENDER_MATCH_LABELS, STATUS_LABELS } from "./views";
+import { arrivalLabel, EMAIL_SOURCE_FILE_TYPE, SENDER_MATCH_LABELS, STATUS_LABELS } from "./views";
 
 type Item = {
+  origin: InboundOrigin;
   sender: string;
   forwardedFrom: string | null;
   envelopeTo: string;
@@ -62,8 +63,10 @@ export function InboxItemView({
               <dd className="text-gray-900 dark:text-white break-words">{item.forwardedFrom}</dd>
             </>
           )}
-          <dt className="text-gray-500 dark:text-gray-400">To</dt>
-          <dd className="text-gray-900 dark:text-white font-mono break-all">{item.envelopeTo}</dd>
+          <dt className="text-gray-500 dark:text-gray-400">{item.origin === "EMAIL" ? "To" : "Via"}</dt>
+          <dd className={`text-gray-900 dark:text-white break-all ${item.origin === "EMAIL" ? "font-mono" : ""}`}>
+            {arrivalLabel(item.origin, item.envelopeTo)}
+          </dd>
           <dt className="text-gray-500 dark:text-gray-400">Received</dt>
           <dd className="text-gray-900 dark:text-white">{item.receivedAt.toLocaleString("en-US", { timeZone: timezone, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</dd>
         </dl>

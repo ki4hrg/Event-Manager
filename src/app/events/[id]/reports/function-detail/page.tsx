@@ -61,6 +61,7 @@ export default async function FunctionDetailPage({
           items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
+            { label: "Reports", href: `/events/${eventId}/reports` },
             { label: "Function Detail" },
           ]}
         />

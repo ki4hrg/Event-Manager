@@ -58,6 +58,7 @@ export default async function PackingListPage({
           items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
+            { label: "Reports", href: `/events/${eventId}/reports` },
             { label: "Packing List" },
           ]}
         />

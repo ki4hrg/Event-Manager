@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { loadEsgNarrativeData } from "@/lib/esg/narrativeData";
@@ -32,7 +31,9 @@ function assertGrid(grid: string): asserts grid is SpecGrid {
 
 function revalidateSpec(eventId: string) {
   revalidatePath(`/events/${eventId}/specifications`);
+  revalidatePath(`/events/${eventId}/reports/esg`);
   revalidatePath(`/events/${eventId}/post-event`);
+  revalidatePath(`/events/${eventId}/reports/post-event`);
 }
 
 export async function getEventSpecification(eventId: string) {
@@ -40,7 +41,8 @@ export async function getEventSpecification(eventId: string) {
   return loadEsgNarrativeData(eventId);
 }
 
-// One section's form (letter "header" for Date Originated / Revised).
+// One section's form (letter "header" for Date Originated / Revised). The
+// cards autosave through these, so they don't redirect.
 export async function updateSpecificationSection(eventId: string, letter: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
   const fields = letter === "header" ? ESG_HEADER_FIELDS : getEsgSection(letter)?.fields;
@@ -48,7 +50,6 @@ export async function updateSpecificationSection(eventId: string, letter: string
   const values = parseEsgForm(fields, formData, await eventTimezone(eventId));
   await upsertEventSpecificationCore(eventId, values, session.user.id);
   revalidateSpec(eventId);
-  redirect(`/events/${eventId}/specifications?success=Saved#spec-${letter.toLowerCase()}`);
 }
 
 export async function setSpecificationSectionNa(eventId: string, letter: string, na: boolean) {
@@ -109,7 +110,6 @@ export async function updatePostEventSection(eventId: string, letter: string, fo
   const values = parseEsgForm(fields, formData, await eventTimezone(eventId));
   await upsertPostEventCore(eventId, values, session.user.id);
   revalidateSpec(eventId);
-  redirect(`/events/${eventId}/post-event?success=Saved#spec-${letter.toLowerCase()}`);
 }
 
 export async function setPostEventSectionNa(eventId: string, letter: string, na: boolean) {

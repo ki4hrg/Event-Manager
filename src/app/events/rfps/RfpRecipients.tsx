@@ -95,7 +95,7 @@ export function RfpRecipients({
 
   return (
     <div className={`${cardClass} space-y-3`}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Sent to</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recipients</h2>
       {recipients.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No hotels yet.</p>}
       <ul className="divide-y divide-gray-100 dark:divide-gray-700">
         {recipients.map((r) => {
@@ -138,7 +138,7 @@ export function RfpRecipients({
                       onChange={(e) => patch(r, { declinedToBid: e.target.checked })}
                       className="rounded border-gray-300 dark:border-gray-600"
                     />
-                    Declined to bid
+                    Declined
                   </label>
                 )}
               </fieldset>
@@ -156,7 +156,7 @@ export function RfpRecipients({
                       href={`/events/${eventId}/hotels/proposals/new?rfpBlockId=${b.id}&venueId=${r.venueId}`}
                       className={link}
                     >
-                      {blocks.length === 1 ? "Record response" : `Record ${b.label.toLowerCase()} response`}
+                      {blocks.length === 1 ? "Record proposal" : `Record ${b.label.toLowerCase()} proposal`}
                     </Link>
                   ))}
                 {r.responses.length === 0 && (

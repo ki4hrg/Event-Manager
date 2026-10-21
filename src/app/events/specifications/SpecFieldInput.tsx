@@ -16,7 +16,7 @@ export type SpecChoices = {
 };
 
 export const specInputClass =
-  "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
+  "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:opacity-70";
 
 function Choices({
   name,
@@ -56,6 +56,8 @@ export function SpecFieldInput({
   optionCategory,
   id,
   placeholder,
+  onRichTextChange,
+  readOnly = false,
 }: {
   name: string;
   kind: EsgFieldKind;
@@ -65,6 +67,10 @@ export function SpecFieldInput({
   optionCategory?: string;
   id?: string;
   placeholder?: string;
+  // The editor posts through a hidden input, so the form's onChange misses it.
+  onRichTextChange?: () => void;
+  // A disabled fieldset doesn't reach the editor; render its HTML instead.
+  readOnly?: boolean;
 }) {
   switch (kind) {
     case "text":
@@ -89,9 +95,15 @@ export function SpecFieldInput({
         />
       );
     case "richtext":
-      return (
+      return readOnly ? (
+        // HTML from RichTextEditor (tiptap), stored by this input.
+        <div
+          className="mt-1 min-h-[2.5rem] px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm text-gray-900 dark:text-white [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1"
+          dangerouslySetInnerHTML={{ __html: (value as string) ?? "" }}
+        />
+      ) : (
         <div className="mt-1">
-          <RichTextEditor name={name} defaultValue={(value as string) ?? ""} />
+          <RichTextEditor name={name} defaultValue={(value as string) ?? ""} onChange={onRichTextChange} />
         </div>
       );
     case "int":

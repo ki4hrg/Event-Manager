@@ -68,6 +68,7 @@ export default async function RoomSchedulePage({
           items={[
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
+            { label: "Reports", href: `/events/${eventId}/reports` },
             { label: "Room Schedule" },
           ]}
         />

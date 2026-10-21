@@ -39,6 +39,7 @@ export const PER_SECTIONS: EsgSectionDef<PerDerivedSource>[] = [
   {
     letter: "I",
     title: "Event Information",
+    short: "Event",
     derived: [
       { source: "eventSummary", label: "Event", required: true },
       { source: "attendance", label: "Attendance", required: true },
@@ -61,12 +62,14 @@ export const PER_SECTIONS: EsgSectionDef<PerDerivedSource>[] = [
   {
     letter: "II",
     title: "Contact Information",
+    short: "Contacts",
     derived: [{ source: "keyContacts", label: "Event contacts", required: true }],
     fields: [],
   },
   {
     letter: "III",
     title: "Hotel Room Information",
+    short: "Hotel Rooms",
     derived: [{ source: "housingSummary", label: "From the Hotels module" }],
     fields: [
       col("usedSleepingRooms", "Event used sleeping rooms", "bool", { required: true }),
@@ -80,12 +83,14 @@ export const PER_SECTIONS: EsgSectionDef<PerDerivedSource>[] = [
   {
     letter: "IV",
     title: "Room Block Information",
+    short: "Room Blocks",
     derived: [{ source: "roomBlocks", label: "Room blocks by hotel" }],
     fields: [txt("roomBlockComments", "Room block comments (per hotel, HQ first: contracted vs final block, cut-off, pick-up)")],
   },
   {
     letter: "V",
     title: "Food & Beverage Information",
+    short: "Food & Beverage",
     derived: [
       { source: "fbSchedule", label: "F&B function schedule (# held / # guar / # fed)" },
       { source: "largestFb", label: "Largest F&B function" },
@@ -99,6 +104,7 @@ export const PER_SECTIONS: EsgSectionDef<PerDerivedSource>[] = [
   {
     letter: "VI",
     title: "Function Space Information",
+    short: "Function Space",
     derived: [
       { source: "largestFunction", label: "Largest function" },
       { source: "breakouts", label: "Concurrent breakout sessions" },
@@ -119,6 +125,7 @@ export const PER_SECTIONS: EsgSectionDef<PerDerivedSource>[] = [
   {
     letter: "VII",
     title: "Exhibit Space Information",
+    short: "Exhibit Space",
     derived: [{ source: "exhibitSummary", label: "Exhibits" }],
     fields: [
       col("gscUsed", "General service contractor (GSC) used", "bool"),
@@ -142,6 +149,7 @@ export const PER_SECTIONS: EsgSectionDef<PerDerivedSource>[] = [
   {
     letter: "IX",
     title: "Report Distribution Tracking",
+    short: "Distribution",
     fields: [],
     grids: [{ grid: "distributions", label: "Completed / revised and delivered to", required: true }],
   },

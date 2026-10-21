@@ -24,7 +24,7 @@ export default async function UnroutedInboxItemPage({ params }: { params: Promis
   const { itemId } = await params;
   const [item, canWrite, diagnostics] = await Promise.all([
     getInboxItem(itemId, null),
-    hasPermission("HOTELS", "WRITE"),
+    hasPermission("EVENTS", "WRITE"),
     canSeeDiagnostics(),
   ]);
   if (!item) notFound();

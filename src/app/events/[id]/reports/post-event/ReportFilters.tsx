@@ -9,7 +9,6 @@ type ReportFiltersProps = {
   basePath?: string;
   paramPrefix?: string;
   shareButton?: React.ReactNode;
-  downloadLinks?: React.ReactNode;
   hidePrint?: boolean;
 };
 
@@ -20,7 +19,6 @@ export function ReportFilters({
   basePath = `/events/${eventId}/reports/post-event`,
   paramPrefix = "",
   shareButton,
-  downloadLinks,
   hidePrint = false,
 }: ReportFiltersProps) {
   const router = useRouter();
@@ -46,7 +44,6 @@ export function ReportFilters({
       </label>
       <div className="ml-auto flex flex-wrap items-center gap-3">
         {shareButton}
-        {downloadLinks}
         {!hidePrint && (
           <a
             href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}

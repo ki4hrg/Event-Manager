@@ -67,6 +67,8 @@ export type EsgGridRef = { grid: SpecGrid; label: string; required?: boolean };
 export type EsgSectionDef<D extends string = EsgDerivedSource> = {
   letter: string;
   title: string;
+  // Entry-page jump nav label when the title is long.
+  short?: string;
   fields: EsgFieldDef[];
   derived?: EsgDerivedDef<D>[];
   grids?: EsgGridRef[];
@@ -124,6 +126,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
   {
     letter: "B",
     title: "Key Dates, Times & Locations",
+    short: "Key Dates",
     derived: [
       { source: "eventDates", label: "Published start / end", required: true },
       { source: "primaryFacility", label: "Primary event facility" },
@@ -206,9 +209,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
       txt("amenities", "Amenities", "textarea"),
       txt("inRoomDeliveries", "In-room deliveries", "textarea"),
       txt("roomDrops", "Room drops (outside doors)", "textarea"),
-      txt("housingNotes", "Room blocks & other housing comments", "richtext", {
-        hint: "Blocks come from Hotels; use this for anything they don't cover.",
-      }),
+      txt("housingNotes", "Room blocks & other housing comments", "richtext"),
     ],
   },
   {
@@ -267,6 +268,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
   {
     letter: "L",
     title: "Safety, Security & First Aid",
+    short: "Safety & Security",
     derived: [{ source: "emergencyContact", label: "Organizer contact in case of emergency / crisis", required: true }],
     fields: [
       txt("medicalInstructions", "Medical / emergency instructions", "richtext", { required: true }),
@@ -331,6 +333,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
   {
     letter: "Q",
     title: "In Conjunction With (ICW) Groups",
+    short: "ICW Groups",
     fields: [txt("icwGroups", "ICW groups, contacts and rules", "richtext")],
   },
   {
@@ -341,6 +344,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
   {
     letter: "S",
     title: "Shipping / Receiving",
+    short: "Shipping",
     fields: [
       txt("outboundShipping", "Expected outbound shipping requirements", "richtext", { required: true }),
       txt("dockUsage", "Dock usage", "textarea"),
@@ -368,12 +372,10 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
   {
     letter: "W",
     title: "Billing Instructions",
+    short: "Billing",
     derived: [{ source: "hotelConcessions", label: "Hotel concessions" }],
     fields: [
-      col("finalBillContactId", "Final bill to be provided to", "contact", {
-        required: true,
-        hint: "Choose from the event's key staff.",
-      }),
+      col("finalBillContactId", "Final bill to be provided to", "contact", { required: true }),
       txt("finalBillAddress", "Final bill to be sent to (mailing address)", "textarea", { required: true }),
       txt("concessions", "Special concessions & negotiated items / services", "richtext", { required: true }),
       txt("onSiteBillReview", "On-site bill review instructions", "richtext"),
@@ -388,6 +390,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
   {
     letter: "X",
     title: "Authorized Signatories",
+    short: "Signatories",
     derived: [{ source: "signatories", label: "Signatories (key staff with an approval authority)", required: true }],
     fields: [],
   },

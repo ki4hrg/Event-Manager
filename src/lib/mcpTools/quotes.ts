@@ -224,7 +224,7 @@ export const quoteTools: McpToolDefinition[] = [
         notes: q.notes,
         lines: q.lines.map((l) => ({ id: l.id, rfpLineItemId: l.rfpLineItemId, description: l.description, quantity: num(l.quantity), unitPrice: num(l.unitPrice), amount: num(l.amount), notes: l.notes })),
       };
-      return updateVendorQuoteCore(id, eventId, merge(current, args), userId);
+      return (await updateVendorQuoteCore(id, eventId, merge(current, args), userId)).quote;
     },
   },
   {

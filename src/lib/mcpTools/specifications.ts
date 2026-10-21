@@ -90,7 +90,7 @@ export const specificationTools: McpToolDefinition[] = [
   },
   {
     name: "update_event_specification",
-    description: `Partially update an event's ESG Part I fields. Pass \`values\` keyed by field; omitted keys are unchanged, null clears. Dates are YYYY-MM-DD, datetimes ISO 8601 with offset, option fields take the option label, vendor/contact/function fields take ids from the same tenant/event, providedBy is NOT_REQUIRED|GROUP|VENUE|OUTSIDE_VENDOR. Once the ESG is issued, saving stamps Date Revised. Fields (section:key (kind)): ${fieldGuide}`,
+    description: `Partially update an event's ESG Part I fields. Pass \`values\` keyed by field; omitted keys are unchanged, null clears. Dates are YYYY-MM-DD, datetimes ISO 8601 with offset, option fields take the option label, vendor/contact/function fields take ids from the same tenant/event, providedBy is NOT_REQUIRED|GROUP|VENUE|OUTSIDE_VENDOR. Date Revised changes only when set here or by issue_event_specification. Fields (section:key (kind)): ${fieldGuide}`,
     inputSchema: {
       type: "object",
       properties: {

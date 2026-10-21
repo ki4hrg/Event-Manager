@@ -2,17 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/DeleteButton";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { Toast } from "@/components/Toast";
 import { getOptions } from "@/app/settings/actions";
+import { btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from "@/lib/rfp/quotes";
 import { getEvent } from "../../../actions";
-import { awardVendorQuote, deleteVendorQuote, getQuoteFormChoices, getVendorQuote, updateVendorQuote } from "../../../quotes/actions";
+import { awardVendorQuote, deleteVendorQuote, getQuoteFormChoices, getVendorQuote, saveVendorQuote } from "../../../quotes/actions";
 import { quoteResource } from "../../../quotes/core";
 import { AwardQuoteButton } from "../../../quotes/AwardQuoteButton";
 import { VendorQuoteForm } from "../../../quotes/VendorQuoteForm";
@@ -29,9 +30,9 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
   const resource = quoteResource(quote.rfp);
   const base = `/events/${eventId}/quotes/${quoteId}`;
 
-  const updateAction = async (formData: FormData) => {
+  const saveAction = async (formData: FormData) => {
     "use server";
-    await updateVendorQuote(quoteId, eventId, formData);
+    return saveVendorQuote(quoteId, eventId, formData);
   };
   const deleteAction = async () => {
     "use server";
@@ -49,44 +50,37 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
-        <div className="min-w-0">
-          <Breadcrumbs
-            items={[
-              { label: "Events", href: "/events" },
-              { label: event.name, href: `/events/${eventId}` },
-              { label: "RFPs", href: `/events/${eventId}/rfps` },
-              ...(quote.rfp ? [{ label: quote.rfp.title, href: `/events/${eventId}/rfps/${quote.rfp.id}` }] : []),
-              { label: `${quote.vendor.name} quote` },
-            ]}
-          />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">
-            {quote.vendor.name}
-            <span className={`ml-2 align-middle px-2 py-0.5 rounded text-xs font-medium ${colorClasses[QUOTE_STATUS_COLORS[quote.status]]}`}>
-              {QUOTE_STATUS_LABELS[quote.status]}
-            </span>
-          </h1>
-          {quote.rfp && (
-            <Link href={`/events/${eventId}/rfps/${quote.rfp.id}`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              {quote.rfp.title}
-            </Link>
-          )}
-          <LastUpdated updatedAt={quote.updatedAt} updatedBy={quote.updatedBy} timezone={event.timezone} className="mt-2" />
-        </div>
-        <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
-          {quote.rfp && (
-            <Link href={`/events/${eventId}/rfps/${quote.rfp.id}/compare`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline self-center">
-              Compare quotes
-            </Link>
-          )}
-          {quote.status !== "ACCEPTED" && <AwardQuoteButton action={awardAction} resource={resource} onRfp={quote.rfp != null} />}
-          <DeleteButton action={deleteAction} resource={resource} label="Delete quote" />
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "RFPs", href: `/events/${eventId}/rfps` },
+          ...(quote.rfp ? [{ label: quote.rfp.title, href: `/events/${eventId}/rfps/${quote.rfp.id}` }] : []),
+          { label: `${quote.vendor.name} quote` },
+        ]}
+        title={quote.vendor.name}
+        meta={
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[QUOTE_STATUS_COLORS[quote.status]]}`}>{QUOTE_STATUS_LABELS[quote.status]}</span>
+            <LastUpdated updatedAt={quote.updatedAt} updatedBy={quote.updatedBy} timezone={event.timezone} />
+          </div>
+        }
+        actions={
+          <>
+            {quote.rfp && (
+              <Link href={`/events/${eventId}/rfps/${quote.rfp.id}/compare`} className={btnSecondary}>
+                Compare quotes
+              </Link>
+            )}
+            {quote.status !== "ACCEPTED" && <AwardQuoteButton action={awardAction} resource={resource} onRfp={quote.rfp != null} />}
+            <DeleteButton action={deleteAction} resource={resource} label="Delete quote" />
+          </>
+        }
+      />
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0">
+          {/* Autosaves; not keyed on updatedAt, or each save would remount it. */}
           <VendorQuoteForm
-            key={quote.updatedAt.toISOString()}
             resource={resource}
             values={{
               vendorId: quote.vendorId,
@@ -113,7 +107,7 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
             }}
             vendors={choices.vendors}
             lineItems={choices.lineItems}
-            action={updateAction}
+            save={saveAction}
           />
         </div>
         <div className="min-w-0">

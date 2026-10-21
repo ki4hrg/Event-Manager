@@ -84,6 +84,8 @@ async function validate(eventId: string, rfpId: string | null, args: QuoteWriteA
   const lines = args.lines
     .filter((l) => l.description.trim() || l.rfpLineItemId)
     .map((l, i) => {
+      // at: the line's place in args.lines, for the ids the update returns.
+      const at = args.lines.indexOf(l);
       if (l.rfpLineItemId && !asked.has(l.rfpLineItemId)) throw new PermissionError("NOT_FOUND", "RFP line item not found");
       const label = l.description.trim() || "Line";
       if (l.quantity != null && (!Number.isFinite(l.quantity) || l.quantity < 0)) throw new Error(`${label}: quantity cannot be negative`);
@@ -96,6 +98,7 @@ async function validate(eventId: string, rfpId: string | null, args: QuoteWriteA
         amount: money(l.amount, `${label}: amount`),
         notes: l.notes?.trim() || null,
         sortOrder: i,
+        at,
       };
     });
   const day = (v: string | null) => (v ? dateFromKey(v) : null);
@@ -125,7 +128,7 @@ export async function createVendorQuoteCore(eventId: string, rfpId: string | nul
   const { data, lines } = await validate(eventId, rfp?.id ?? null, args);
   return prisma.$transaction(async (tx) => {
     const quote = await tx.vendorQuote.create({
-      data: { ...data, eventId, rfpId: rfp?.id ?? null, updatedById: userId, lines: { create: lines.map(({ id: _id, ...l }) => l) } },
+      data: { ...data, eventId, rfpId: rfp?.id ?? null, updatedById: userId, lines: { create: lines.map(({ id: _id, at: _at, ...l }) => l) } },
     });
     if (rfp) {
       await tx.rfpRecipient.createMany({ data: [{ rfpId: rfp.id, vendorId: data.vendorId }], skipDuplicates: true });
@@ -134,6 +137,8 @@ export async function createVendorQuoteCore(eventId: string, rfpId: string | nul
   });
 }
 
+// Returns the quote and each of args.lines' saved id (null for a line dropped
+// as blank), so an autosaving form updates the lines it just created.
 export async function updateVendorQuoteCore(id: string, eventId: string, args: QuoteWriteArgs, userId: string) {
   const current = await authorizeQuote(id, eventId, "WRITE", userId);
   if (args.revision < current.revision) throw new Error("Revision cannot go down");
@@ -142,11 +147,15 @@ export async function updateVendorQuoteCore(id: string, eventId: string, args: Q
   const kept = lines.flatMap((l) => (l.id && existing.has(l.id) ? [l.id] : []));
   return prisma.$transaction(async (tx) => {
     await tx.vendorQuoteLine.deleteMany({ where: { quoteId: id, id: { notIn: kept } } });
-    for (const { id: lineId, ...line } of lines) {
-      if (lineId && existing.has(lineId)) await tx.vendorQuoteLine.update({ where: { id: lineId, quoteId: id }, data: line });
-      else await tx.vendorQuoteLine.create({ data: { ...line, quoteId: id } });
+    const lineIds: (string | null)[] = args.lines.map(() => null);
+    for (const { id: lineId, at, ...line } of lines) {
+      if (lineId && existing.has(lineId)) {
+        await tx.vendorQuoteLine.update({ where: { id: lineId, quoteId: id }, data: line });
+        lineIds[at] = lineId;
+      } else lineIds[at] = (await tx.vendorQuoteLine.create({ data: { ...line, quoteId: id }, select: { id: true } })).id;
     }
-    return tx.vendorQuote.update({ where: { id, eventId }, data: { ...data, updatedById: userId } });
+    const quote = await tx.vendorQuote.update({ where: { id, eventId }, data: { ...data, updatedById: userId } });
+    return { quote, lineIds };
   });
 }
 

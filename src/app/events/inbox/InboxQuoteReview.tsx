@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { RfpKind } from "@prisma/client";
+import { resourceForKind } from "@/lib/rfp/kinds";
 import { VendorQuoteForm, type QuoteValues, type RfpLineChoice } from "../quotes/VendorQuoteForm";
 import { NEW_VENDOR } from "./views";
 
@@ -11,7 +13,8 @@ const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 d
 
 export type QuoteReview = {
   vendors: { id: string; name: string }[];
-  rfps: { id: string; title: string; lineItems: RfpLineChoice[] }[];
+  rfps: { id: string; title: string; kind: RfpKind; lineItems: RfpLineChoice[] }[];
+  standalone: boolean;
   rfpId: string | null;
   vendorId: string | null;
   newVendorName: string | null;
@@ -52,7 +55,7 @@ export function InboxQuoteReview({ review, apply, cancelHref }: { review: QuoteR
             Answers
           </label>
           <select id="iq-rfp" value={rfpId} onChange={(e) => setRfpId(e.target.value)} className={inputClass}>
-            <option value="">Standalone quote</option>
+            {review.standalone && <option value="">Standalone quote</option>}
             {review.rfps.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.title}
@@ -63,7 +66,7 @@ export function InboxQuoteReview({ review, apply, cancelHref }: { review: QuoteR
       </div>
       <VendorQuoteForm
         key={rfpId}
-        resource="HOTELS"
+        resource={rfp ? resourceForKind(rfp.kind) : "EVENTS"}
         values={null}
         vendors={review.vendors}
         lineItems={rfp?.lineItems ?? []}

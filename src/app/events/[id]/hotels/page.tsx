@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
 import { Toast } from "@/components/Toast";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
@@ -13,22 +13,28 @@ import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
 import { scopeLabels } from "@/lib/areas";
 import { getRfps } from "../../rfps/actions";
-import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
-import { recipientState, recipientSummary } from "@/lib/rfp/recipients";
+import { newRfpHref } from "@/lib/rfp/kinds";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Hotels" };
 
+const sectionHeading = "text-lg font-medium text-gray-900 dark:text-white";
+const listCard = "bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700";
+const rowLink = "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:bg-gray-50 dark:hover:bg-gray-700";
+
+// Lifecycle order: RFPs (listed on the event's RFPs page, the one home for
+// them) → the proposals hotels send back → the blocks booked from them.
 export default async function HotelsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
-  const [event, proposals, choices, blocks, rfps, canWrite] = await Promise.all([
+  const [event, proposals, choices, blocks, rfps, canWrite, canEditEvent] = await Promise.all([
     getEvent(eventId),
     getHotelProposals(eventId),
     getProposalFormChoices(eventId),
     getHotelBlocks(eventId),
     getRfps(eventId, "HOTEL"),
     hasPermission("HOTELS", "WRITE", eventId),
+    hasPermission("EVENTS", "WRITE", eventId),
   ]);
   if (!event) notFound();
 
@@ -38,49 +44,101 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
     for (const n of nights) byNight.set(dateKey(n.night), (byNight.get(dateKey(n.night)) ?? 0) + (n.rooms ?? 0));
     return Math.max(0, ...Array.from(byNight.values()));
   };
+  const issued = rfps.filter((r) => r.issuedOn).length;
 
   return (
     <>
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6">
-        <div className="min-w-0">
-          <Breadcrumbs
-            items={[
-              { label: "Events", href: "/events" },
-              { label: event.name, href: `/events/${eventId}` },
-              { label: "Hotels" },
-            ]}
-          />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Hotels</h1>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "Hotels" },
+        ]}
+        title="Hotels"
+        actions={
+          <>
+            <Link href={`/events/${eventId}/reports/hotel-info`} className={btnSecondary}>
+              Hotel Information
+            </Link>
+            <Link href={`/events/${eventId}/inbox`} className={btnSecondary}>
+              Inbox
+            </Link>
+            {canWrite && (
+              <>
+                <Link href={newRfpHref(eventId, "HOTEL")} className={btnSecondary}>
+                  New RFP
+                </Link>
+                <Link href={`/events/${eventId}/hotels/proposals/new`} className={btnPrimary}>
+                  Add Proposal
+                </Link>
+              </>
+            )}
+          </>
+        }
+      />
+
+      <section id="rfps" className="mb-8 scroll-mt-24">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 className={sectionHeading}>RFPs</h2>
+          <Link href={`/events/${eventId}/rfps?kind=HOTEL`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            View RFPs
+          </Link>
         </div>
-        {canWrite && (
-          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
-            <Link href={`/events/${eventId}/hotels/rfps/new`} className={`${btnSecondary} text-sm`}>
-              New RFP
-            </Link>
-            <Link href={`/events/${eventId}/hotels/proposals/new`} className={`${btnPrimary} text-sm`}>
-              Add Proposal
-            </Link>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          {rfps.length === 0 ? "No hotel RFPs yet." : `${rfps.length} hotel RFP${rfps.length === 1 ? "" : "s"} · ${issued} issued`}
+        </p>
+      </section>
+
+      <section id="proposals" className="mb-8 scroll-mt-24">
+        <h2 className={`${sectionHeading} mb-2`}>Proposals</h2>
+        {proposals.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">No proposals yet.</p>
+        ) : (
+          <div className={listCard}>
+            {proposals.map((p) => (
+              <Link key={p.id} href={`/events/${eventId}/hotels/proposals/${p.id}`} className={rowLink}>
+                <div className="min-w-0">
+                  <p className="font-medium text-blue-600 dark:text-blue-400">
+                    {p.venue.name}
+                    {p.revision > 1 && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">rev {p.revision}</span>}
+                    {p.rfp && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{p.rfp.title}</span>}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {[
+                      blockTypeLabel(p.contractType, p.guestType),
+                      p.checkIn && p.checkOut ? `${formatDateKey(dateKey(p.checkIn))} – ${formatDateKey(dateKey(p.checkOut))}` : null,
+                      p.nights.length > 0 ? `peak ${peakRooms(p.nights)} rooms` : null,
+                      p.leadSourceDirect ? "Direct" : p.leadSourceVendor?.name,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </p>
+                </div>
+                <span className="flex items-center gap-2">
+                  {p.block && <span className="text-xs text-gray-500 dark:text-gray-400">Block</span>}
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor(p.status)}`}>{p.status}</span>
+                </span>
+              </Link>
+            ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {blocks.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Blocks</h2>
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
+      <section id="blocks" className="mb-8 scroll-mt-24">
+        <h2 className={`${sectionHeading} mb-2`}>Blocks</h2>
+        {blocks.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">No blocks yet.</p>
+        ) : (
+          <div className={listCard}>
             {blocks.map((b) => {
               const t = pickupTotals(blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }));
               const floor = b.allowedAttrition != null ? 100 - Number(b.allowedAttrition) : null;
               const low = floor != null && t.percent != null && t.percent < floor;
               return (
-                <Link
-                  key={b.id}
-                  href={`/events/${eventId}/hotels/blocks/${b.id}`}
-                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
+                <Link key={b.id} href={`/events/${eventId}/hotels/blocks/${b.id}`} className={rowLink}>
                   <div className="min-w-0">
                     <p className="font-medium text-blue-600 dark:text-blue-400">
                       {b.proposal.venue.name}
@@ -103,95 +161,18 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
               );
             })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {choices.areas.length > 0 && (
-        <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           Areas: <span className="text-gray-900 dark:text-white">{scopeLabels(event).join(" · ") || "Any"}</span>
-          {canWrite && (
+          {canEditEvent && (
             <Link href={`/events/${eventId}/settings`} className="ml-2 text-blue-600 dark:text-blue-400 hover:underline">
               Event settings
             </Link>
           )}
         </p>
-      )}
-
-      {rfps.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">RFPs</h2>
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
-            {rfps.map((r) => (
-              <Link
-                key={r.id}
-                href={`/events/${eventId}/hotels/rfps/${r.id}`}
-                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-blue-600 dark:text-blue-400">{r.title}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {[
-                      r.hotelBlocks.map((b) => blockTypeLabel(b.contractType, b.guestType)).join(", ") || null,
-                      r.responseDue ? `due ${formatDateKey(dateKey(r.responseDue))}` : null,
-                      r.issuedOn ? `issued ${formatDateKey(dateKey(r.issuedOn))}` : null,
-                      recipientSummary(
-                        r.recipients.map(
-                          (x) =>
-                            recipientState(
-                              { ...x, responses: r.hotelProposals.filter((p) => p.venueId === x.venueId).length },
-                              r.responseDue,
-                            ).state,
-                        ),
-                      ),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "—"}
-                  </p>
-                </div>
-                <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[RFP_STATUS_COLORS[r.status]]}`}>
-                  {RFP_STATUS_LABELS[r.status]}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Proposals</h2>
-      {proposals.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">No proposals yet.</p>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
-          {proposals.map((p) => (
-            <Link
-              key={p.id}
-              href={`/events/${eventId}/hotels/proposals/${p.id}`}
-              className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <div className="min-w-0">
-                <p className="font-medium text-blue-600 dark:text-blue-400">
-                  {p.venue.name}
-                  {p.revision > 1 && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">rev {p.revision}</span>}
-                  {p.rfp && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{p.rfp.title}</span>}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {[
-                    blockTypeLabel(p.contractType, p.guestType),
-                    p.checkIn && p.checkOut ? `${formatDateKey(dateKey(p.checkIn))} – ${formatDateKey(dateKey(p.checkOut))}` : null,
-                    p.nights.length > 0 ? `peak ${peakRooms(p.nights)} rooms` : null,
-                    p.leadSourceDirect ? "Direct" : p.leadSourceVendor?.name,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </p>
-              </div>
-              <span className="flex items-center gap-2">
-                {p.block && <span className="text-xs text-gray-500 dark:text-gray-400">Block</span>}
-                <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor(p.status)}`}>{p.status}</span>
-              </span>
-            </Link>
-          ))}
-        </div>
       )}
     </>
   );

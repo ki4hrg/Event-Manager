@@ -1,21 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { DeleteButton } from "@/components/DeleteButton";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { LastUpdated } from "@/components/LastUpdated";
 import { Toast } from "@/components/Toast";
 import { getOptions } from "@/app/settings/actions";
 import { getInboundEmailDomain } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
-import { btnSecondary } from "@/lib/buttonStyles";
-import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
-import { RFP_KIND_LABELS, resourceForKind } from "@/lib/rfp/kinds";
+import { resourceForKind, rfpHref } from "@/lib/rfp/kinds";
 import { ORDER_SOURCE } from "@/lib/rfp/lineItems";
-import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { getEvent } from "../../../actions";
 import type { RfpConcessionArgs, RfpLineItemArgs, RfpRecipientArgs } from "../../../rfps/core";
 import {
@@ -33,10 +27,10 @@ import {
   updateRfp,
   updateRfpRecipient,
 } from "../../../rfps/actions";
-import { IssueRfpButton } from "../../../rfps/IssueRfpButton";
 import { RfpConcessionsEditor } from "../../../rfps/RfpConcessionsEditor";
 import { RfpDocumentView } from "../../../rfps/RfpDocumentView";
 import { RfpForm } from "../../../rfps/RfpForm";
+import { RfpHeader } from "../../../rfps/RfpHeader";
 import { RfpLineItemsEditor } from "../../../rfps/RfpLineItemsEditor";
 import { RfpTabs } from "../../../rfps/RfpTabs";
 import { VendorRfpRecipients } from "../../../rfps/VendorRfpRecipients";
@@ -45,8 +39,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "RFP" };
 
-// A vendor RFP (AV, catering, print, other services). Hotel RFPs live under
-// Hotels. The cards autosave and aren't keyed on their data: a remount after
+// A vendor RFP (AV, catering, print, other services); a hotel RFP's id
+// redirects to its page under Hotels. The cards autosave and aren't keyed on their data: a remount after
 // each save would drop the field being typed in.
 export default async function VendorRfpPage({
   params,
@@ -63,7 +57,8 @@ export default async function VendorRfpPage({
     getOptions("file_type"),
     preview ? getRfpDocument(rfpId, eventId) : null,
   ]);
-  if (!event || !rfp || rfp.kind === "HOTEL") notFound();
+  if (!event || !rfp) notFound();
+  if (rfp.kind === "HOTEL") redirect(rfpHref(eventId, rfp.kind, rfpId));
   const kind = rfp.kind;
   const resource = resourceForKind(kind);
   const [choices, vendors] = await Promise.all([getRfpFormChoices(eventId, kind), getRfpVendorChoices(eventId, kind)]);
@@ -120,41 +115,7 @@ export default async function VendorRfpPage({
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
-        <div className="min-w-0">
-          <Breadcrumbs
-            items={[
-              { label: "Events", href: "/events" },
-              { label: event.name, href: `/events/${eventId}` },
-              { label: "RFPs", href: `/events/${eventId}/rfps` },
-              { label: rfp.title },
-            ]}
-          />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">
-            {rfp.title}
-            <span className={`ml-2 align-middle px-2 py-0.5 rounded text-xs font-medium ${colorClasses[RFP_STATUS_COLORS[rfp.status]]}`}>
-              {RFP_STATUS_LABELS[rfp.status]}
-            </span>
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{kind === "OTHER" ? (rfp.service ?? RFP_KIND_LABELS[kind]) : RFP_KIND_LABELS[kind]}</p>
-          <LastUpdated updatedAt={rfp.updatedAt} updatedBy={rfp.updatedBy} timezone={event.timezone} className="mt-2" />
-        </div>
-        <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
-          {rfp.quotes.length > 0 && (
-            <Link href={`${base}/compare`} className={btnSecondary}>
-              Compare quotes
-            </Link>
-          )}
-          <Link href={`${base}/print`} className={btnSecondary}>
-            Print / Save PDF
-          </Link>
-          <a href={`/api/events/${eventId}/rfps/${rfpId}?format=docx`} className={btnSecondary} download>
-            Word
-          </a>
-          <IssueRfpButton action={issueAction} resource={resource} reissue={rfp.issuedOn != null} />
-          <DeleteButton action={deleteAction} resource={resource} label="Delete RFP" />
-        </div>
-      </div>
+      <RfpHeader event={event} rfp={rfp} responses={rfp.quotes.length} issue={issueAction} remove={deleteAction} />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0 space-y-6">

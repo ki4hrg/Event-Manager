@@ -115,13 +115,14 @@ export async function createVendorQuote(eventId: string, rfpId: string | null, f
   redirect(`${quotePath(eventId, quote.id)}?success=Quote recorded`);
 }
 
-export async function updateVendorQuote(id: string, eventId: string, formData: FormData) {
+// The quote page autosaves: no redirect. Returns each posted line's saved id.
+export async function saveVendorQuote(id: string, eventId: string, formData: FormData) {
   const quote = await quoteRfp(id, eventId);
   const session = await requirePermission(quoteResource(quote.rfp), "WRITE", eventId);
-  await updateVendorQuoteCore(id, eventId, readQuote(formData), session.user.id);
+  const { lineIds } = await updateVendorQuoteCore(id, eventId, readQuote(formData), session.user.id);
   revalidatePath(quotePath(eventId, id));
   if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
-  redirect(`${quotePath(eventId, id)}?success=Quote updated`);
+  return lineIds;
 }
 
 export async function deleteVendorQuote(id: string, eventId: string) {

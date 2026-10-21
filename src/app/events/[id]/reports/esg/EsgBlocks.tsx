@@ -99,14 +99,17 @@ export function EsgBlockView({ block }: { block: EsgBlock }) {
   }
 }
 
-export function EsgSectionView({ section, id }: { section: EsgSection; id?: string }) {
+// `heading={false}` when a SectionDivider already titles the section (PER).
+export function EsgSectionView({ section, id, heading = true }: { section: EsgSection; id?: string; heading?: boolean }) {
   return (
-    <div id={id} className="scroll-mt-24 print:break-inside-avoid-page">
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-white print:text-black mb-2">
-        <span className="text-gray-400 dark:text-gray-500 print:text-gray-600 mr-1.5">{section.letter}.</span>
-        {section.title}
-        {section.na && <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Not applicable</span>}
-      </h3>
+    <div id={id} className="scroll-mt-24 print:break-inside-avoid">
+      {heading && (
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white print:text-black mb-2">
+          <span className="text-gray-400 dark:text-gray-500 print:text-gray-600 mr-1.5">{section.letter}.</span>
+          {section.title}
+          {section.na && <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Not applicable</span>}
+        </h3>
+      )}
       <div className="space-y-3">
         {section.blocks.map((b, i) => (
           <EsgBlockView key={i} block={b} />

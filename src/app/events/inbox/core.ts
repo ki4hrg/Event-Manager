@@ -2,7 +2,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "fs";
 import Anthropic from "@anthropic-ai/sdk";
-import { Prisma, type HotelPickupMethod, type InboundStatus } from "@prisma/client";
+import { Prisma, type HotelPickupMethod, type InboundOrigin, type InboundStatus, type PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { ENTITY_FK_FIELD, getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "@/lib/uploads";
@@ -26,18 +26,27 @@ import {
 } from "@/lib/inboundParse";
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { createHotelProposalCore, createNewHotelCore, toProposalValues, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
-import { createVendorQuoteCore, updateVendorQuoteCore, type QuoteWriteArgs } from "@/app/events/quotes/core";
+import { createVendorQuoteCore, quoteResource, updateVendorQuoteCore, type QuoteWriteArgs } from "@/app/events/quotes/core";
 import { updateCateringOrderCore, type UpdateCateringOrderArgs } from "@/app/events/catering-orders/core";
 import { createVendorCore } from "@/app/vendors/core";
 import type { HotelChargeScope } from "@prisma/client";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
 import { eventScopeWhere } from "@/app/events/core";
-import { EMAIL_SOURCE_FILE_TYPE, OPEN_STATUSES } from "./views";
+import { EMAIL_SOURCE_FILE_TYPE, MIME_BY_EXT, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
 
 // Event inboxes (docs/proposals/email-ingest.md). No "use server": the ingest
 // is called by the signed /api/inbound-email route, and the person-facing
 // cores take a userId the caller has already authenticated.
+
+// Permissions. The inbox is the event's mail, whatever it turns out to be, so
+// reading it is EVENTS VIEW and triage — release, re-read, dismiss, restore,
+// move, submit — is EVENTS WRITE (on the destination too, for a move).
+// Applying an item writes the record its kind names, so it needs WRITE on that
+// record's resource, checked by each apply core before it claims the item:
+// HOTELS for pickup, hotel proposals and declines; the RFP kind's resource
+// (EVENTS when standalone) for a vendor quote; CATERING_ORDERS for a BEO; the
+// covered record's for a contract. Filing an attachment is FILES WRITE.
 
 // The org-wide inbox: Unrouted mail plus mail on every event the user can see.
 export async function orgInboxWhere(userId: string, tenantId: string): Promise<Prisma.InboundEmailWhereInput> {
@@ -475,7 +484,7 @@ async function parseInboundEmail(id: string) {
 
 // Re-read: a failed read, a wrong guess, or one that never finished.
 export async function reparseInboundEmailCore(id: string, eventId: string, userId: string) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
   const item = await inboxItem(id, await requireEventTenantId(eventId), eventId);
   if (!["RECEIVED", "PARSED", "FAILED"].includes(item.status)) return;
   if (!isParsingConfigured()) throw new Error("Parsing isn't configured");
@@ -608,6 +617,10 @@ export async function applyInboundQuoteCore(
   newVendorName: string | null,
   userId: string,
 ): Promise<string> {
+  const rfp = rfpId ? await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } }) : null;
+  if (rfpId && !rfp) throw new PermissionError("NOT_FOUND", "RFP not found");
+  await requirePermissionForUser(userId, quoteResource(rfp), "WRITE", eventId);
+  if (newVendorName?.trim()) await requirePermissionForUser(userId, "VENDORS", "WRITE", { tenantId: await requireEventTenantId(eventId) });
   let quoteId = "";
   await claimAndApply(id, eventId, userId, async () => {
     let vendorId = args.vendorId;
@@ -616,8 +629,7 @@ export async function applyInboundQuoteCore(
       const name = newVendorName.trim();
       const same = await prisma.vendor.findFirst({ where: { tenantId, name: { equals: name, mode: "insensitive" } }, select: { id: true } });
       if (same) throw new Error(`${name} is already a vendor; choose it`);
-      const kind = rfpId ? (await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } }))?.kind : null;
-      const model = kind ? KIND_MODEL[kind] : undefined;
+      const model = rfp ? KIND_MODEL[rfp.kind] : undefined;
       vendorId = (await createVendorCore({ name, models: model ? [model] : [], notes: null }, userId, tenantId)).id;
     }
     const quote = await createVendorQuoteCore(eventId, rfpId, { ...args, vendorId }, userId);
@@ -660,6 +672,25 @@ export type ContractApplyArgs = {
 const appendNote = (current: string | null, note: string | null | undefined) =>
   note?.trim() ? [current, note.trim()].filter(Boolean).join("\n\n") : current;
 
+// The resource guarding what a contract covers; a foreign id is a not-found.
+export async function contractTargetResource(target: ContractTarget, targetId: string, eventId: string): Promise<PermissionResource> {
+  switch (target) {
+    case "HOTEL_PROPOSAL":
+      return "HOTELS";
+    case "CATERING_ORDER":
+      return "CATERING_ORDERS";
+    case "VENDOR_QUOTE": {
+      const q = await prisma.vendorQuote.findFirst({ where: { id: targetId, eventId }, select: { rfp: { select: { kind: true } } } });
+      if (!q) throw new PermissionError("NOT_FOUND", "Quote not found");
+      return quoteResource(q.rfp);
+    }
+    default: {
+      const _exhaustive: never = target;
+      throw new Error(`Unhandled contract target: ${_exhaustive}`);
+    }
+  }
+}
+
 export async function applyInboundContractCore(
   id: string,
   eventId: string,
@@ -669,6 +700,7 @@ export async function applyInboundContractCore(
   userId: string,
 ) {
   const day = (v: string | null | undefined) => (v === undefined ? undefined : v ? dateFromKey(v) : null);
+  await requirePermissionForUser(userId, await contractTargetResource(target, targetId, eventId), "WRITE", eventId);
   await claimAndApply(id, eventId, userId, async () => {
     switch (target) {
       case "HOTEL_PROPOSAL": {
@@ -809,7 +841,7 @@ async function inboxItem(id: string, tenantId: string, eventId: string | null) {
 
 // HELD → RECEIVED. Only routed mail: Unrouted mail is routed first.
 export async function releaseInboundEmailCore(id: string, eventId: string, userId: string) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
   const tenantId = await requireEventTenantId(eventId);
   const item = await inboxItem(id, tenantId, eventId);
   if (item.status !== "HELD") return;
@@ -822,7 +854,7 @@ export async function releaseInboundEmailCore(id: string, eventId: string, userI
 
 // eventId null: an Unrouted item, checked against the tenant.
 export async function dismissInboundEmailCore(id: string, eventId: string | null, tenantId: string, userId: string) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId ?? { tenantId });
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId ?? { tenantId });
   const item = await inboxItem(id, tenantId, eventId);
   if (item.status === "APPLIED" || item.status === "DISMISSED") return;
   await prisma.inboundEmail.update({
@@ -833,7 +865,7 @@ export async function dismissInboundEmailCore(id: string, eventId: string | null
 
 // Back from Dismissed (until it's purged). Lands in Held: a person looks again.
 export async function restoreInboundEmailCore(id: string, eventId: string | null, tenantId: string, userId: string) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId ?? { tenantId });
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId ?? { tenantId });
   const item = await inboxItem(id, tenantId, eventId);
   if (item.status !== "DISMISSED") return;
   await prisma.inboundEmail.update({
@@ -852,8 +884,8 @@ export async function routeInboundEmailCore(
   tenantId: string,
   userId: string,
 ) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", fromEventId ?? { tenantId });
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", toEventId);
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", fromEventId ?? { tenantId });
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", toEventId);
   if ((await requireEventTenantId(toEventId)) !== tenantId) throw new Error("Event not found");
   const item = await inboxItem(id, tenantId, fromEventId);
   if (item.status === "APPLIED") throw new Error("An applied item can't be moved");
@@ -935,30 +967,20 @@ export async function suggestInboxSlug(eventId: string, tenantId: string): Promi
   for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
 }
 
-// ─── MCP ─────────────────────────────────────────────────────────────────────
-
-const MIME_BY_EXT: Record<string, string> = {
-  ".pdf": "application/pdf",
-  ".csv": "text/csv",
-  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ".xls": "application/vnd.ms-excel",
-  ".txt": "text/plain",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-};
+// ─── Handed in (MCP, upload) ─────────────────────────────────────────────────
 
 export type SubmitAttachment = { fileName: string; mimeType: string | null; content: Buffer };
 
-// A message handed in by a person through MCP (origin MCP): stored on the
-// event's inbox from the caller, a member, and read like delivered mail.
+// A message handed in by a person — through MCP, or files dropped on the
+// event inbox (UPLOAD): stored on the event's inbox from the caller, a
+// member, and read like delivered mail.
 export async function submitInboundItemCore(
   eventId: string,
   args: { subject: string | null; text: string | null; attachments: SubmitAttachment[] },
   userId: string,
+  origin: Exclude<InboundOrigin, "EMAIL"> = "MCP",
 ) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
   const tenantId = await requireEventTenantId(eventId);
   if (!args.text?.trim() && args.attachments.length === 0) throw new Error("Give a text body or at least one attachment");
   for (const a of args.attachments) {
@@ -971,9 +993,9 @@ export async function submitInboundItemCore(
     data: {
       tenantId,
       eventId,
-      origin: "MCP",
-      dedupKey: `mcp:${randomUUID()}`,
-      envelopeTo: "mcp",
+      origin,
+      dedupKey: `${origin.toLowerCase()}:${randomUUID()}`,
+      envelopeTo: origin.toLowerCase(),
       sender: user.name ? `${user.name} <${user.email}>` : user.email,
       senderAddress: user.email.toLowerCase(),
       subject: args.subject?.trim() || null,
@@ -1150,8 +1172,9 @@ export function contractArgsFromRead(c: NonNullable<InboundProposal["contract"]>
 // Applies a Ready item as Claude read it, without the review form (MCP).
 // Pickup goes to the block, a decline marks the hotel on its RFP, an offer
 // becomes a proposal. Returns what was done.
+// Each branch's apply core checks WRITE on its kind's resource.
 export async function applyInboundAsProposedCore(id: string, eventId: string, args: ApplyAsProposedArgs, userId: string) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await requirePermissionForUser(userId, "EVENTS", "VIEW", eventId);
   const tenantId = await requireEventTenantId(eventId);
   const item = await inboxItem(id, tenantId, eventId);
   const proposal = item.proposal as InboundProposal | null;

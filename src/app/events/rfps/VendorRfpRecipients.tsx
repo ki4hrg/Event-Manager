@@ -75,7 +75,7 @@ export function VendorRfpRecipients({
 
   return (
     <div className={`${cardClass} space-y-3`}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Sent to</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recipients</h2>
       {recipients.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No vendors yet.</p>}
       <ul className="divide-y divide-gray-100 dark:divide-gray-700">
         {recipients.map((r) => {
@@ -117,7 +117,7 @@ export function VendorRfpRecipients({
                       onChange={(e) => patch(r, { declinedToBid: e.target.checked })}
                       className="rounded border-gray-300 dark:border-gray-600"
                     />
-                    Declined to bid
+                    Declined
                   </label>
                 )}
               </fieldset>

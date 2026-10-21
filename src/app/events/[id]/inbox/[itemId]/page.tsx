@@ -49,25 +49,29 @@ export const metadata: Metadata = { title: "Inbox item" };
 
 export default async function EventInboxItemPage({ params }: { params: Promise<{ id: string; itemId: string }> }) {
   const { id: eventId, itemId } = await params;
-  const [event, item, canWrite, canAddVenue, diagnostics] = await Promise.all([
+  // Triage is EVENTS WRITE; each review shows only to who may apply its kind
+  // (quote and contract reviews filter their own choices).
+  const [event, item, canTriage, canHotels, canCatering, canAddVenue, diagnostics] = await Promise.all([
     getEvent(eventId),
     getInboxItem(itemId, eventId),
+    hasPermission("EVENTS", "WRITE", eventId),
     hasPermission("HOTELS", "WRITE", eventId),
+    hasPermission("CATERING_ORDERS", "WRITE", eventId),
     hasPermission("VENUES", "WRITE"),
     canSeeDiagnostics(),
   ]);
   if (!event || !item) notFound();
   const proposal = item.proposal as InboundProposal | null;
   const parsing = isParsingConfigured();
-  const ready = canWrite && item.status === "PARSED";
+  const kind = item.status === "PARSED" ? proposal?.kind : null;
   const [destinations, review, offer, decline, quote, beo, contract] = await Promise.all([
-    canWrite ? getInboxDestinationEvents(eventId) : [],
-    ready ? getInboxReview(itemId, eventId) : null,
-    ready ? getOfferReview(itemId, eventId) : null,
-    ready ? getDeclineReview(itemId, eventId) : null,
-    ready ? getQuoteReview(itemId, eventId) : null,
-    ready ? getBeoReview(itemId, eventId) : null,
-    ready ? getContractReview(itemId, eventId) : null,
+    canTriage ? getInboxDestinationEvents(eventId) : [],
+    canHotels && (kind === "PICKUP_GUESTS" || kind === "PICKUP_COUNTS") ? getInboxReview(itemId, eventId) : null,
+    canHotels && kind === "RFP_PROPOSAL" ? getOfferReview(itemId, eventId) : null,
+    canHotels && kind === "RFP_DECLINE" ? getDeclineReview(itemId, eventId) : null,
+    kind === "VENDOR_QUOTE" ? getQuoteReview(itemId, eventId) : null,
+    canCatering && kind === "BEO" ? getBeoReview(itemId, eventId) : null,
+    kind === "CONTRACT" ? getContractReview(itemId, eventId) : null,
   ]);
   // Where an applied quote, BEO or contract went.
   const appliedLink =

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { revokeShareLink } from "@/app/events/share-links/actions";
 import { useRouter } from "next/navigation";
-import { SHARE_REPORT_LABELS } from "@/lib/shareLinks";
+import { reportLabel } from "@/lib/reportRegistry";
 import { useCanWrite } from "@/components/PermissionsProvider";
 
 type Link = {
@@ -78,7 +78,7 @@ export function ShareLinksTable({ links }: { links: Link[] }) {
       {Array.from(byType.entries()).map(([reportType, typeLinks]) => (
         <div key={reportType}>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-            {SHARE_REPORT_LABELS[reportType] ?? reportType}
+            {reportLabel(reportType)}
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

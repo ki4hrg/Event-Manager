@@ -9,7 +9,7 @@ import { formatNight } from "@/lib/hotels";
 import { formatClockRange } from "@/lib/rfp/space";
 import type { LineItemRow } from "@/lib/rfp/lineItems";
 import { useAutosave } from "@/lib/useAutosave";
-import { AutosaveStatus } from "./AutosaveStatus";
+import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { RfpLineItemArgs } from "./core";
 
 // A vendor RFP's line items: copied from the event's orders of the RFP's

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
 import { requirePermission } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
 import { RFP_KIND_LABELS, resourceForKind, VENDOR_RFP_KINDS, type VendorRfpKind } from "@/lib/rfp/kinds";
@@ -30,17 +30,15 @@ export default async function NewVendorRfpPage({ params, searchParams }: { param
 
   return (
     <>
-      <div className="mb-6">
-        <Breadcrumbs
-          items={[
-            { label: "Events", href: "/events" },
-            { label: event.name, href: `/events/${eventId}` },
-            { label: "RFPs", href: `/events/${eventId}/rfps` },
-            { label: title },
-          ]}
-        />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{title}</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "RFPs", href: `/events/${eventId}/rfps` },
+          { label: title },
+        ]}
+        title={title}
+      />
       <div className="max-w-4xl">
         <RfpForm
           kind={kind}

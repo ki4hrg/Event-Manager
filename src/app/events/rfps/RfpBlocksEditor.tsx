@@ -8,7 +8,7 @@ import { addDays, CONTRACT_TYPES } from "@/lib/hotels";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import { useAutosave } from "@/lib/useAutosave";
 import { emptyGridState, gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "../hotels/RoomGridEditor";
-import { AutosaveStatus } from "./AutosaveStatus";
+import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { RfpBlockArgs, RfpFillArgs } from "./core";
 
 export type RfpBlockValues = {

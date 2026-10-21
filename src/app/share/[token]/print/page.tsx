@@ -26,29 +26,15 @@ import { BreakoutAssignmentsReport } from "@/app/events/[id]/reports/breakout-as
 import { PackingListReport } from "@/app/events/[id]/reports/packing-list/PackingListReport";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
+import { REPORTS, isShareReportType } from "@/lib/reportRegistry";
 
 export const dynamic = "force-dynamic";
-
-const REPORT_TITLES: Record<string, string> = {
-  EQUIPMENT_RESPONSIBILITY: "Equipment responsibility",
-  VENDOR_HANDOFF: "Vendor handoff",
-  EVENT_PROFILE: "Event profile",
-  EVENT_SCHEDULE: "Event schedule",
-  ROOM_SCHEDULE: "Room schedule",
-  FUNCTION_DETAIL: "Function detail",
-  BREAKOUT_GRID: "Breakout grid",
-  BREAKOUT_ASSIGNMENTS: "Breakout assignments",
-  PACKING_LIST: "Packing list",
-  ESG: "Event Specifications Guide",
-  POST_EVENT: "Post-Event Report",
-  HOTEL_INFO: "Hotel Information",
-};
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params;
   const link = await getActiveShareLink(token);
   if (!link) return { title: "Shared report" };
-  const reportName = REPORT_TITLES[link.reportType] ?? "Shared report";
+  const reportName = isShareReportType(link.reportType) ? REPORTS[link.reportType].label : "Shared report";
   return { title: { absolute: `${reportName} · ${link.event.name} (print)` } };
 }
 

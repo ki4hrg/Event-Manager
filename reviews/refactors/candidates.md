@@ -58,3 +58,11 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 - [styles] Done: report toolbar buttons (Print / Save PDF, Office downloads, Share, Copy) use `btnOutlinedXs` from `src/lib/buttonStyles.ts` (ux-sweep).
 - [docx] The shared docx primitives live in `src/lib/esg/renderDocx.ts` and are imported by `src/lib/rfp/renderDocx.ts`; move them to a neutral `src/lib/docx.ts` if a third document type appears (RFP PR)
 - [hotels] `getPickupPattern` (src/app/hotels/actions.ts) reads the active tenant via `hotelSession`; the RFP document/fill call it from event pages where the active tenant matches the event. A tenant-explicit plain loader would remove that coupling (RFP PR)
+- [styles] Add `btnDangerSm` to src/lib/buttonStyles.ts; inline confirms hand-roll small red buttons (`DeleteButton.tsx`, `IssueEsgPanel.tsx`)
+- [autosave] Form-ref + payload + version wiring around `useAutosave` is copied in `RfpForm`, `SpecSectionCard`, `SpecGridTable` (RowEditor), `FunctionEsgCard`; candidate `useFormAutosave(action)` hook in src/lib/
+- [venues] Fold src/app/hotels/HotelHistory.tsx into `RfpHistoryPanel` (proposals without an RFP as their own rows) to end the duplicate listing on the venue page
+- [ui] Underline tab-link style is copied in src/app/events/rfps/RfpTabs.tsx, the RFP list `?kind=` strip, src/app/events/[id]/agenda/DateTabs.tsx and SpecDocHeader; extract a shared `TabLink`
+- [rfps] Hotel and vendor RFP detail pages (`[id]/hotels/rfps/[rfpId]/page.tsx`, `[id]/rfps/[rfpId]/page.tsx`) still duplicate the reply-to card, files panel and action closures
+- [components] Add an `editable` prop to src/components/RichTextEditor.tsx so read-only views stop swapping in a stored-HTML render (RfpForm, SpecFieldInput)
+- [hotels] `RoomGrid` (src/app/events/hotels/RoomGrid.tsx) is no longer rendered; fold `GridNight` into `RoomGridEditor` and delete the file
+- [reports] The mobile "Show filters / N active" toggle + actions block is copied across ~10 `ReportFilters`; extract one shared shell

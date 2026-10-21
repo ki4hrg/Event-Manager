@@ -1,6 +1,6 @@
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
-import { reportFooterText, reportSectionCard, reportTd, reportTh } from "@/lib/reportStyles";
+import { reportFooterText, reportSectionCardCompact as cardClass, reportTd, reportTh } from "@/lib/reportStyles";
 import type { EsgDocument, EsgScheduleRow } from "@/lib/esg/types";
 import { EsgSectionView } from "./EsgBlocks";
 
@@ -8,8 +8,6 @@ import { EsgSectionView } from "./EsgBlocks";
 // Schedule), Part IIIa (Function Set-up Orders). Renders the normalized
 // EsgDocument only, so the authenticated page, print route and share views
 // all show the same thing.
-
-const cardClass = reportSectionCard.replace("p-6", "px-3 py-4 sm:p-6");
 
 function groupByDay(rows: EsgScheduleRow[]) {
   const days: { dateKey: string; label: string; rows: EsgScheduleRow[] }[] = [];
@@ -29,7 +27,7 @@ function FunctionSchedule({ rows }: { rows: EsgScheduleRow[] }) {
   return (
     <div className="space-y-6">
       {days.map((day) => (
-        <div key={day.dateKey} className="print:break-inside-avoid-page">
+        <div key={day.dateKey} className="print:break-inside-avoid">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white print:text-black mb-2">{day.label}</h3>
           <ul className="sm:hidden print:hidden space-y-2">
             {day.rows.map((r, i) => (

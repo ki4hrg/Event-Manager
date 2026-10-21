@@ -1,11 +1,18 @@
 "use client";
 
-import { startTransition, useState, useEffect, useMemo, useRef } from "react";
+import {
+  startTransition,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { PermissionResource } from "@prisma/client";
 import {
   getSidebarItems,
+  setSidebarCollapsed,
   type SidebarSection,
   type SidebarItem,
 } from "@/app/events/sidebar-actions";
@@ -72,12 +79,6 @@ const PackageIcon = () => (
     <path fillRule="evenodd" d="M10 1.293l-7 3.5v10.414l7 3.5 7-3.5V4.793l-7-3.5zM4.118 5.5L10 8.441 15.882 5.5 10 2.559 4.118 5.5zM5 7.118v6.764l4 2v-6.764l-4-2zm6 8.764l4-2V7.118l-4 2v6.764z" clipRule="evenodd" />
   </svg>
 );
-const ClipboardIcon = () => (
-  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
-    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-  </svg>
-);
 const ChecklistIcon = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
@@ -87,11 +88,6 @@ const ChecklistIcon = () => (
 const ClockIcon = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-  </svg>
-);
-const HandoffIcon = () => (
-  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
-    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
   </svg>
 );
 const LinkIcon = () => (
@@ -154,6 +150,23 @@ const InboxIcon = () => (
     <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm0 2h12v6h-3.38a1 1 0 00-.9.55L11.38 13H8.62l-.34-1.45a1 1 0 00-.9-.55H4V5z" clipRule="evenodd" />
   </svg>
 );
+const PlayIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+  </svg>
+);
+const DocumentSearchIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2h-1.528A6 6 0 004 9.528V4z" />
+    <path fillRule="evenodd" d="M8 10a4 4 0 00-3.446 6.032l-1.261 1.26a1 1 0 101.414 1.415l1.261-1.261A4 4 0 108 10zm-2 4a2 2 0 114 0 2 2 0 01-4 0z" clipRule="evenodd" />
+  </svg>
+);
+const PieChartIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+  </svg>
+);
 export const HamburgerIcon = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-5 h-5 shrink-0">
     <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -169,62 +182,56 @@ type NavLink = {
   icon: React.ReactNode;
   sidebarSection?: SidebarSection;
   // The resource whose VIEW this link requires. Links without one are always
-  // shown: reports and the agenda read across many entities and gate on their
-  // own pages, and Overview must stay reachable for anyone who can open the event.
+  // shown: reports, the agenda and the inbox read across many entities and gate
+  // on their own pages, and Overview must stay reachable for anyone who can open
+  // the event.
   resource?: PermissionResource;
   // The resource whose WRITE this link requires, for pages that exist only to
   // edit. Import and Settings are edit-only end to end, so a read-only user
   // gets no link rather than a link that redirects them home.
   writeResource?: PermissionResource;
+  // Extra segments that also light this link (a page's tabbed sibling route).
+  alsoActive?: string[];
+  // Segments under this link's own that light a different link instead.
+  notActive?: string[];
 };
 type NavGroup = { type: "group"; label: string };
 type NavItem = NavLink | NavGroup;
 
 const NAV: NavItem[] = [
-  { type: "link",  label: "Overview",        segment: null,                              icon: <HomeIcon /> },
+  { type: "link",  label: "Overview",           segment: null,                 icon: <HomeIcon /> },
+  { type: "link",  label: "Inbox",              segment: "inbox",              icon: <InboxIcon /> },
   { type: "group", label: "Schedule" },
-  { type: "link",  label: "Agenda",           segment: "agenda",                          icon: <CalendarIcon /> },
-  { type: "link",  label: "Schedule Items",   segment: "schedule-items",                  icon: <ClockIcon /> },
-  { type: "link",  label: "Functions",        segment: "functions",                       icon: <ListIcon />,      sidebarSection: "functions", resource: "FUNCTIONS" },
-  { type: "link",  label: "Breakouts",        segment: "breakout-schedule",               icon: <GridIcon /> },
+  { type: "link",  label: "Agenda",             segment: "agenda",             icon: <CalendarIcon /> },
+  { type: "link",  label: "Schedule Items",     segment: "schedule-items",     icon: <ClockIcon /> },
+  { type: "link",  label: "Functions",          segment: "functions",          icon: <ListIcon />,           sidebarSection: "functions", resource: "FUNCTIONS" },
+  { type: "link",  label: "Breakouts",          segment: "breakout-schedule",  icon: <GridIcon /> },
   { type: "group", label: "Content" },
-  { type: "link",  label: "Presentations",    segment: "presentations",                   icon: <ChartIcon />,     sidebarSection: "presentations", resource: "PRESENTATIONS" },
-  { type: "link",  label: "Media Deliverables", segment: "media-deliverables",            icon: <VideoIcon />,     sidebarSection: "media-deliverables", resource: "MEDIA_DELIVERABLES" },
-  { type: "link",  label: "Exhibits",         segment: "exhibits",                        icon: <BoothIcon />,  resource: "FUNCTIONS" },
+  { type: "link",  label: "Presentations",      segment: "presentations",      icon: <ChartIcon />,          sidebarSection: "presentations", resource: "PRESENTATIONS" },
+  { type: "link",  label: "Media Deliverables", segment: "media-deliverables", icon: <PlayIcon />,           sidebarSection: "media-deliverables", resource: "MEDIA_DELIVERABLES" },
+  { type: "link",  label: "Exhibits",           segment: "exhibits",           icon: <BoothIcon />,          resource: "FUNCTIONS" },
   { type: "group", label: "Orders" },
-  { type: "link",  label: "Packing List",     segment: "packing",                         icon: <ChecklistIcon />, resource: "SUPPLY_ORDERS" },
-  { type: "link",  label: "AV Orders",        segment: "av-orders",                       icon: <VideoIcon />,     sidebarSection: "av-orders", resource: "AV_ORDERS" },
-  { type: "link",  label: "Catering Orders",  segment: "catering-orders",                 icon: <UtensilsIcon />,  sidebarSection: "catering-orders", resource: "CATERING_ORDERS" },
-  { type: "link",  label: "Print Orders",     segment: "print-orders",                    icon: <PrinterIcon />,   sidebarSection: "print-orders", resource: "PRINT_ORDERS" },
-  { type: "link",  label: "Setup Orders",     segment: "setup-orders",                    icon: <WrenchIcon />,    sidebarSection: "setup-orders", resource: "SETUP_ORDERS" },
-  { type: "link",  label: "Supply Orders",    segment: "supply-orders",                   icon: <PackageIcon />,   sidebarSection: "supply-orders", resource: "SUPPLY_ORDERS" },
-  { type: "group", label: "Resources" },
-  { type: "link",  label: "Vendors",          segment: "vendors",                         icon: <BuildingIcon />,  resource: "VENDORS" },
-  { type: "link",  label: "Hotels",           segment: "hotels",                          icon: <BedIcon />,  resource: "HOTELS" },
-  { type: "link",  label: "RFPs",             segment: "rfps",                            icon: <DocumentIcon />, resource: "EVENTS" },
-  { type: "link",  label: "Inbox",            segment: "inbox",                           icon: <InboxIcon />, resource: "HOTELS" },
-  { type: "link",  label: "Files",            segment: "files",                           icon: <FolderIcon />,    resource: "FILES" },
+  { type: "link",  label: "Packing",            segment: "packing",            icon: <ChecklistIcon />,      resource: "SUPPLY_ORDERS" },
+  { type: "link",  label: "AV Orders",          segment: "av-orders",          icon: <VideoIcon />,          sidebarSection: "av-orders", resource: "AV_ORDERS" },
+  { type: "link",  label: "Catering Orders",    segment: "catering-orders",    icon: <UtensilsIcon />,       sidebarSection: "catering-orders", resource: "CATERING_ORDERS" },
+  { type: "link",  label: "Print Orders",       segment: "print-orders",       icon: <PrinterIcon />,        sidebarSection: "print-orders", resource: "PRINT_ORDERS" },
+  { type: "link",  label: "Setup Orders",       segment: "setup-orders",       icon: <WrenchIcon />,         sidebarSection: "setup-orders", resource: "SETUP_ORDERS" },
+  { type: "link",  label: "Supply Orders",      segment: "supply-orders",      icon: <PackageIcon />,        sidebarSection: "supply-orders", resource: "SUPPLY_ORDERS" },
+  { type: "group", label: "Sourcing" },
+  { type: "link",  label: "Vendors",            segment: "vendors",            icon: <BuildingIcon />,       resource: "VENDORS" },
+  { type: "link",  label: "RFPs",               segment: "rfps",               icon: <DocumentSearchIcon />, resource: "EVENTS" },
+  { type: "link",  label: "Hotels",             segment: "hotels",             icon: <BedIcon />,            resource: "HOTELS" },
   { type: "group", label: "Documentation" },
-  { type: "link",  label: "Specifications",   segment: "specifications",                  icon: <DocumentIcon />,  resource: "EVENTS" },
-  { type: "link",  label: "Post-Event",       segment: "post-event",                      icon: <FlagIcon />,      resource: "EVENTS" },
+  { type: "link",  label: "Specifications",     segment: "specifications",     icon: <DocumentIcon />,       resource: "EVENTS", alsoActive: ["reports/esg"] },
+  { type: "link",  label: "Post-Event",         segment: "post-event",         icon: <FlagIcon />,           resource: "EVENTS", alsoActive: ["reports/post-event"] },
   { type: "group", label: "Reports" },
-  { type: "link",  label: "Event Profile",   segment: "reports/event-profile",           icon: <ChartIcon /> },
-  { type: "link",  label: "Event Schedule",   segment: "reports/event-schedule",          icon: <ClockIcon /> },
-  { type: "link",  label: "Function Detail",  segment: "reports/function-detail",         icon: <ClipboardIcon /> },
-  { type: "link",  label: "Specifications Guide", segment: "reports/esg",                 icon: <DocumentIcon /> },
-  { type: "link",  label: "Post-Event Report", segment: "reports/post-event",             icon: <FlagIcon /> },
-  { type: "link",  label: "Hotel Information", segment: "reports/hotel-info",             icon: <BedIcon />,  resource: "HOTELS" },
-  { type: "link",  label: "Room Schedule",    segment: "reports/room-schedule",           icon: <GridIcon /> },
-  { type: "link",  label: "Breakout Grid",    segment: "reports/breakout-grid",           icon: <GridIcon /> },
-  { type: "link",  label: "Breakout Assignments", segment: "reports/breakout-assignments", icon: <ClipboardIcon /> },
-  { type: "link",  label: "Equipment",        segment: "reports/equipment-responsibility", icon: <ClipboardIcon /> },
-  { type: "link",  label: "Packing List",     segment: "reports/packing-list",            icon: <PackageIcon /> },
-  { type: "link",  label: "Vendor Handoff",   segment: "reports/vendor-handoff",          icon: <HandoffIcon /> },
-  { type: "link",  label: "Share Links",      segment: "share-links",                     icon: <LinkIcon />,      resource: "SHARE_LINKS" },
+  { type: "link",  label: "Reports",            segment: "reports",            icon: <PieChartIcon />,       notActive: ["reports/esg", "reports/post-event"] },
+  { type: "link",  label: "Share Links",        segment: "share-links",        icon: <LinkIcon />,           resource: "SHARE_LINKS" },
   { type: "group", label: "Configuration" },
-  { type: "link",  label: "Import",           segment: "import",                          icon: <DownloadIcon />,  writeResource: "EVENTS" },
-  { type: "link",  label: "Staff",            segment: "staff",                           icon: <UsersIcon /> },
-  { type: "link",  label: "Settings",         segment: "settings",                        icon: <SlidersIcon />,   writeResource: "EVENTS" },
+  { type: "link",  label: "Files",              segment: "files",              icon: <FolderIcon />,         resource: "FILES" },
+  { type: "link",  label: "Import",             segment: "import",             icon: <DownloadIcon />,       writeResource: "EVENTS" },
+  { type: "link",  label: "Staff",              segment: "staff",              icon: <UsersIcon /> },
+  { type: "link",  label: "Settings",           segment: "settings",           icon: <SlidersIcon />,        writeResource: "EVENTS" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -243,10 +250,18 @@ function visibleNav(denied: Set<string>, deniedWrite: Set<string>): NavItem[] {
   return kept.filter((item, idx) => item.type !== "group" || kept[idx + 1]?.type === "link");
 }
 
-function isLinkActive(segment: string | null, pathname: string, basePath: string): boolean {
-  if (segment === null) return pathname === basePath;
+function isUnder(segment: string, pathname: string, basePath: string): boolean {
   const href = `${basePath}/${segment}`;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function isLinkActive(link: NavLink, pathname: string, basePath: string): boolean {
+  if (link.segment === null) return pathname === basePath;
+  if (link.notActive?.some((s) => isUnder(s, pathname, basePath))) return false;
+  return (
+    isUnder(link.segment, pathname, basePath) ||
+    !!link.alsoActive?.some((s) => isUnder(s, pathname, basePath))
+  );
 }
 
 function getActiveSection(pathname: string, basePath: string): SidebarSection | null {
@@ -355,7 +370,7 @@ function SidebarInner({
             );
           }
 
-          const active = isLinkActive(item.segment, pathname, basePath);
+          const active = isLinkActive(item, pathname, basePath);
           const href = item.segment ? `${basePath}/${item.segment}` : basePath;
           const showItems =
             !collapsed &&
@@ -437,6 +452,9 @@ type EventSidebarProps = {
   deniedResources: string[];
   // Same, for WRITE — drives the edit-only links (Import, Settings).
   deniedWriteResources: string[];
+  // The saved collapse preference, read server-side by the event layout so the
+  // first paint already has the right width.
+  initialCollapsed: boolean;
 };
 
 export function EventSidebar({
@@ -446,25 +464,15 @@ export function EventSidebar({
   onMobileClose,
   deniedResources,
   deniedWriteResources,
+  initialCollapsed,
 }: EventSidebarProps) {
   const pathname = usePathname();
   const basePath = `/events/${eventId}`;
 
-  const [collapsed, setCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [items, setItems] = useState<SidebarItem[]>([]);
 
   const currentSection = getActiveSection(pathname, basePath);
-
-  // Hydrate collapse state from localStorage on mount
-  useEffect(() => {
-    startTransition(() => {
-      setMounted(true);
-      if (localStorage.getItem("event-sidebar-collapsed") === "true") {
-        setCollapsed(true);
-      }
-    });
-  }, []);
 
   // Fetch item list when active section changes
   useEffect(() => {
@@ -507,13 +515,11 @@ export function EventSidebar({
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
 
-  const effectiveCollapsed = mounted && collapsed;
-
   const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("event-sidebar-collapsed", String(next));
-      return next;
+    const next = !collapsed;
+    setCollapsed(next);
+    startTransition(async () => {
+      await setSidebarCollapsed(next).catch(() => {});
     });
   };
 
@@ -534,12 +540,12 @@ export function EventSidebar({
       {/* Desktop sidebar */}
       <aside
         className={`print:hidden hidden md:flex flex-col shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden transition-[width] duration-200 ease-in-out ${
-          effectiveCollapsed ? "w-12" : "w-56"
+          collapsed ? "w-12" : "w-56"
         }`}
       >
         <SidebarInner
           {...innerProps}
-          collapsed={effectiveCollapsed}
+          collapsed={collapsed}
           onToggleCollapse={toggleCollapsed}
         />
       </aside>

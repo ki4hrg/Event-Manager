@@ -1,24 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import type { RfpSpaceKind } from "@prisma/client";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { DeleteButton } from "@/components/DeleteButton";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { LastUpdated } from "@/components/LastUpdated";
 import { Toast } from "@/components/Toast";
 import { getOptions } from "@/app/settings/actions";
 import { getInboundEmailDomain } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import type { OfferHotel } from "@/lib/inboundParse";
-import { btnSecondary } from "@/lib/buttonStyles";
-import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
+import { rfpHref } from "@/lib/rfp/kinds";
 import { effectiveScope } from "@/lib/areas";
-import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { getEvent } from "../../../../actions";
 import type { RfpBlockArgs, RfpConcessionArgs, RfpFillArgs, RfpRecipientArgs, RfpSpaceArgs } from "../../../../rfps/core";
 import {
@@ -38,11 +33,11 @@ import {
   updateRfp,
   updateRfpRecipient,
 } from "../../../../rfps/actions";
-import { IssueRfpButton } from "../../../../rfps/IssueRfpButton";
 import { RfpBlocksEditor } from "../../../../rfps/RfpBlocksEditor";
 import { RfpConcessionsEditor } from "../../../../rfps/RfpConcessionsEditor";
 import { RfpDocumentView } from "../../../../rfps/RfpDocumentView";
 import { RfpForm } from "../../../../rfps/RfpForm";
+import { RfpHeader } from "../../../../rfps/RfpHeader";
 import { RfpRecipients } from "../../../../rfps/RfpRecipients";
 import { RfpSpaceEditor } from "../../../../rfps/RfpSpaceEditor";
 import { RfpTabs } from "../../../../rfps/RfpTabs";
@@ -70,9 +65,10 @@ export default async function RfpPage({
     hasPermission("VENUES", "WRITE"),
     preview ? getRfpDocument(rfpId, eventId) : null,
   ]);
-  if (!event || !rfp || rfp.kind !== "HOTEL") notFound();
+  if (!event || !rfp) notFound();
+  if (rfp.kind !== "HOTEL") redirect(rfpHref(eventId, rfp.kind, rfpId));
 
-  // Hotels can reply to the event's inbox, where their offers are read.
+  // Hotels can reply to the event's inbox, where their proposals are read.
   const domain = getInboundEmailDomain();
   const inbox = domain
     ? await prisma.event.findUnique({ where: { id: eventId }, select: { inboxSlug: true, tenant: { select: { slug: true } } } })
@@ -143,40 +139,7 @@ export default async function RfpPage({
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
-        <div className="min-w-0">
-          <Breadcrumbs
-            items={[
-              { label: "Events", href: "/events" },
-              { label: event.name, href: `/events/${eventId}` },
-              { label: "Hotels", href: `/events/${eventId}/hotels` },
-              { label: rfp.title },
-            ]}
-          />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">
-            {rfp.title}
-            <span className={`ml-2 align-middle px-2 py-0.5 rounded text-xs font-medium ${colorClasses[RFP_STATUS_COLORS[rfp.status]]}`}>
-              {RFP_STATUS_LABELS[rfp.status]}
-            </span>
-          </h1>
-          <LastUpdated updatedAt={rfp.updatedAt} updatedBy={rfp.updatedBy} timezone={event.timezone} className="mt-2" />
-        </div>
-        <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
-          {rfp.hotelProposals.length > 0 && (
-            <Link href={`${base}/compare`} className={btnSecondary}>
-              Compare bids
-            </Link>
-          )}
-          <Link href={`${base}/print`} className={btnSecondary}>
-            Print / Save PDF
-          </Link>
-          <a href={`/api/events/${eventId}/rfps/${rfpId}?format=docx`} className={btnSecondary} download>
-            Word
-          </a>
-          <IssueRfpButton action={issueAction} resource="HOTELS" reissue={rfp.issuedOn != null} />
-          <DeleteButton action={deleteAction} resource="HOTELS" label="Delete RFP" />
-        </div>
-      </div>
+      <RfpHeader event={event} rfp={rfp} responses={rfp.hotelProposals.length} issue={issueAction} remove={deleteAction} />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0 space-y-6">

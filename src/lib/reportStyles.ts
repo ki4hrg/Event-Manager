@@ -23,6 +23,9 @@ export const reportGroupRow =
 export const reportSectionCard =
   "bg-white dark:bg-gray-800 shadow rounded-lg p-6 print:shadow-none print:rounded-none print:border-t print:border-gray-300 print:px-0 print:py-4";
 
+// reportSectionCard with tighter padding on phones (the APEX documents).
+export const reportSectionCardCompact = reportSectionCard.replace("p-6", "px-3 py-4 sm:p-6");
+
 // Card wrapping an individual order within a section.
 export const reportOrderCard =
   "print:break-inside-avoid border border-gray-200 dark:border-gray-700 print:border-0 print:border-b print:border-gray-200 rounded-lg p-4 print:px-0 print:rounded-none mb-4";

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { HotelPickupMethod } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { formatDateKey, formatNight } from "@/lib/hotels";
+import { btnOutlinedSm } from "@/lib/buttonStyles";
 
 const METHOD_LABELS: Record<HotelPickupMethod, string> = {
   APPEND: "Added",
@@ -31,6 +32,7 @@ export function PickupPanel({
   pickupHref,
   guests,
   guestTotal,
+  showAllHref,
   counts,
   imports,
   timezone,
@@ -39,6 +41,8 @@ export function PickupPanel({
   pickupHref: string;
   guests: Guest[];
   guestTotal: number;
+  // The page with the guest list's cap lifted.
+  showAllHref: string;
   counts: { night: string; roomType: string | null; rooms: number }[];
   imports: { id: string; method: HotelPickupMethod; fileName: string | null; inserted: number; updated: number; createdAt: Date; by: string | null }[];
   timezone: string;
@@ -57,7 +61,7 @@ export function PickupPanel({
         <h2 className="text-lg font-medium text-gray-900 dark:text-white">Pickup</h2>
         <div className="flex items-center gap-3 text-sm">
           {canWrite && (
-            <Link href={pickupHref} className="text-blue-600 dark:text-blue-400 hover:underline">
+            <Link href={pickupHref} className={btnOutlinedSm}>
               Import / enter
             </Link>
           )}
@@ -100,6 +104,11 @@ export function PickupPanel({
             {guestTotal} guest{guestTotal === 1 ? "" : "s"} · {active} active
             {guests.length < guestTotal && ` (first ${guests.length} shown)`}
           </summary>
+          {guests.length < guestTotal && (
+            <Link href={showAllHref} className="mt-2 inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              Show all {guestTotal}
+            </Link>
+          )}
           <ul className="mt-2 divide-y divide-gray-100 dark:divide-gray-700 text-sm">
             {guests.map((g) => (
               <li key={g.id} className={`py-1.5 flex flex-wrap justify-between gap-x-3 ${g.cancelled ? "line-through text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white"}`}>

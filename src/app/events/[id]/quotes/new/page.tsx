@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
 import { requirePermission } from "@/lib/permissions";
 import { getEvent } from "../../../actions";
 import { createVendorQuote, getQuoteFormChoices } from "../../../quotes/actions";
@@ -22,17 +22,15 @@ export default async function NewStandaloneQuotePage({ params }: { params: Promi
   };
   return (
     <>
-      <div className="mb-6">
-        <Breadcrumbs
-          items={[
-            { label: "Events", href: "/events" },
-            { label: event.name, href: `/events/${eventId}` },
-            { label: "RFPs", href: `/events/${eventId}/rfps` },
-            { label: "New quote" },
-          ]}
-        />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">New quote</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "RFPs", href: `/events/${eventId}/rfps` },
+          { label: "New quote" },
+        ]}
+        title="New quote"
+      />
       <div className="max-w-4xl">
         <VendorQuoteForm resource="EVENTS" values={null} vendors={choices.vendors} lineItems={[]} action={createAction} cancelHref={`/events/${eventId}/rfps`} />
       </div>

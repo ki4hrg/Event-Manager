@@ -84,9 +84,8 @@ export async function checkValue(
 }
 
 // Partial update of the event's specification. Keys must be ESG fields
-// (src/lib/esg/fields.ts); narrative keys merge into the existing JSON. Once
-// the ESG has been issued, any save stamps Date Revised (unless the caller
-// sets it explicitly).
+// (src/lib/esg/fields.ts); narrative keys merge into the existing JSON. Date
+// Revised is set only when the caller passes it or by issueEsgCore.
 export async function upsertEventSpecificationCore(
   eventId: string,
   values: Record<string, unknown>,
@@ -107,7 +106,7 @@ export async function upsertEventSpecificationCore(
 
   const existing = await prisma.eventSpecification.findUnique({
     where: { eventId },
-    select: { narrative: true, dateOriginated: true },
+    select: { narrative: true },
   });
   const narrative = {
     ...((existing?.narrative as Record<string, unknown> | null) ?? {}),
@@ -115,10 +114,6 @@ export async function upsertEventSpecificationCore(
   };
   // Drop cleared keys so the JSON only holds real values.
   for (const k of Object.keys(narrative)) if (narrative[k] === null) delete narrative[k];
-
-  if (existing?.dateOriginated && !("dateRevised" in values)) {
-    columns.dateRevised = await todayForEvent(eventId);
-  }
 
   const data = { ...columns, narrative: narrative as Prisma.InputJsonValue, updatedById: userId };
   return prisma.eventSpecification.upsert({

@@ -237,7 +237,6 @@ export async function updateFunctionEsg(id: string, eventId: string, formData: F
   );
   revalidatePath(`/events/${eventId}/functions`);
   revalidatePath(`/events/${eventId}/functions/${id}`);
-  redirect(`/events/${eventId}/functions/${id}?success=ESG details saved`);
 }
 
 export async function renumberFunctions(eventId: string, clearPins: boolean) {

@@ -1,4 +1,21 @@
-import type { InboundStatus } from "@prisma/client";
+import type { InboundOrigin, InboundStatus } from "@prisma/client";
+
+// How an item arrived, for the item's "To" row: an email's envelope address,
+// otherwise how a person handed it in.
+export function arrivalLabel(origin: InboundOrigin, envelopeTo: string): string {
+  switch (origin) {
+    case "EMAIL":
+      return envelopeTo;
+    case "MCP":
+      return "Claude (MCP)";
+    case "UPLOAD":
+      return "Uploaded";
+    default: {
+      const _exhaustive: never = origin;
+      throw new Error(`Unhandled origin: ${_exhaustive}`);
+    }
+  }
+}
 
 // The raw .eml's FileUpload.fileType on an inbox item.
 export const EMAIL_SOURCE_FILE_TYPE = "EMAIL_SOURCE";
@@ -39,11 +56,30 @@ export const KIND_LABELS: Record<string, string> = {
   PICKUP_GUESTS: "Pickup guest list",
   PICKUP_COUNTS: "Pickup counts",
   RFP_PROPOSAL: "Hotel proposal",
-  RFP_DECLINE: "Declined to bid",
+  RFP_DECLINE: "Hotel declined",
   VENDOR_QUOTE: "Vendor quote",
   BEO: "BEO",
   CONTRACT: "Contract",
   OTHER: "Other",
+};
+
+// Attachments a person can hand in (MCP, the drop zone): the kinds the reader
+// handles, with the type assumed when none is given.
+export const MIME_BY_EXT: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".csv": "text/csv",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xls": "application/vnd.ms-excel",
+  ".txt": "text/plain",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+export const INBOX_UPLOAD_ACCEPT = Object.keys(MIME_BY_EXT).join(",");
+export const isInboxUploadable = (fileName: string) => {
+  const dot = fileName.lastIndexOf(".");
+  return dot >= 0 && fileName.slice(dot).toLowerCase() in MIME_BY_EXT;
 };
 
 // The quote review's vendor value for a vendor not on file yet.

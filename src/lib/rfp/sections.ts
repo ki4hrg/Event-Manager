@@ -33,6 +33,9 @@ export function parseSections(kind: RfpKind, raw: string[]): RfpSection[] {
     .map((s) => s.key);
 }
 
+// The "none" value of the RFP form's selects; the action reads it as null.
+export const BLANK = "__blank__";
+
 export const RFP_STATUS_LABELS = { DRAFT: "Draft", ISSUED: "Issued", CLOSED: "Closed" } as const;
 export const RFP_STATUS_COLORS = { DRAFT: "gray", ISSUED: "blue", CLOSED: "green" } as const;
 

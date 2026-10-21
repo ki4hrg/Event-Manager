@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { dateKey, parseContractTypes } from "@/lib/hotels";
@@ -12,7 +12,7 @@ import { RfpForm } from "../../../../rfps/RfpForm";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "New RFP" };
+export const metadata: Metadata = { title: "New hotel RFP" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -73,17 +73,15 @@ export default async function NewRfpPage({
 
   return (
     <>
-      <div className="mb-6">
-        <Breadcrumbs
-          items={[
-            { label: "Events", href: "/events" },
-            { label: event.name, href: `/events/${eventId}` },
-            { label: "Hotels", href: `/events/${eventId}/hotels` },
-            { label: "New RFP" },
-          ]}
-        />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">New RFP</h1>
-      </div>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "RFPs", href: `/events/${eventId}/rfps` },
+          { label: "New hotel RFP" },
+        ]}
+        title="New hotel RFP"
+      />
       <div className="max-w-4xl">
         <RfpForm
           kind="HOTEL"
@@ -124,7 +122,7 @@ export default async function NewRfpPage({
           }}
           choices={choices}
           action={createAction}
-          cancelHref={`/events/${eventId}/hotels`}
+          cancelHref={`/events/${eventId}/rfps`}
           hiddenFields={blocks.length ? { blocks: JSON.stringify(blocks) } : undefined}
         />
       </div>

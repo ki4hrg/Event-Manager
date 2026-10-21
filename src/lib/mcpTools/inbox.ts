@@ -28,7 +28,9 @@ async function itemFor(id: string, tenantId: string, userId: string, action: "VI
     },
   });
   if (!item) throw new Error("Inbox item not found");
-  await requirePermissionForUser(userId, "HOTELS", action, item.eventId ?? { tenantId });
+  // Reading and triage are EVENTS; apply_inbox_item's cores also check WRITE
+  // on the item kind's resource (see src/app/events/inbox/core.ts).
+  await requirePermissionForUser(userId, "EVENTS", action, item.eventId ?? { tenantId });
   return item;
 }
 
@@ -46,7 +48,7 @@ export const inboxTools: McpToolDefinition[] = [
       const eventId = partialString(args, "eventId") ?? null;
       const raw = partialString(args, "view") ?? "inbox";
       if (!INBOX_VIEWS.includes(raw as InboxView)) throw new Error("view must be inbox, held or done");
-      await requirePermissionForUser(userId, "HOTELS", "VIEW", eventId ?? { tenantId });
+      await requirePermissionForUser(userId, "EVENTS", "VIEW", eventId ?? { tenantId });
       const where = eventId ? { tenantId, eventId } : await orgInboxWhere(userId, tenantId);
       return prisma.inboundEmail.findMany({
         where: { ...where, status: { in: INBOX_VIEW_STATUSES[raw as InboxView] } },
@@ -83,7 +85,7 @@ export const inboxTools: McpToolDefinition[] = [
   {
     name: "apply_inbox_item",
     description:
-      "Apply a Ready item (status PARSED) as Claude read it, without the review form: pickup counts or guests go to the hotel block (blockId, else the block it was read as; guests merge by default), a decline marks the hotel declined on its RFP, a hotel offer becomes a proposal (venueId, else the hotel it was read as; newHotel: true adds a hotel not yet in Venues from the offer), a vendor quote is recorded (vendorId, else as read; newVendor: true adds a vendor by the quote's name), a BEO updates its catering order with the fields it states (cateringOrderId, else as read), a contract writes its terms onto what it covers (target + targetId, else as read). The message's attachments are filed on the record. Check the proposal with get_inbox_item first — this applies it unchanged; for corrections, apply in the app.",
+      "Apply a Ready item (status PARSED) as Claude read it, without the review form: pickup counts or guests go to the hotel block (blockId, else the block it was read as; guests merge by default), a decline marks the hotel declined on its RFP, a hotel offer becomes a proposal (venueId, else the hotel it was read as; newHotel: true adds a hotel not yet in Venues from the offer), a vendor quote is recorded (vendorId, else as read; newVendor: true adds a vendor by the quote's name), a BEO updates its catering order with the fields it states (cateringOrderId, else as read), a contract writes its terms onto what it covers (target + targetId, else as read). The message's attachments are filed on the record. Check the proposal with get_inbox_item first — this applies it unchanged; for corrections, apply in the app. Needs write on what it changes: hotels for pickup, offers and declines; the RFP's order type (events when standalone) for a quote; catering orders for a BEO; the covered record's for a contract.",
     inputSchema: {
       type: "object",
       properties: {
@@ -102,7 +104,7 @@ export const inboxTools: McpToolDefinition[] = [
       additionalProperties: false,
     },
     handler: async (args, { userId, tenantId }) => {
-      const item = await itemFor(requireString(args, "id"), tenantId, userId, "WRITE");
+      const item = await itemFor(requireString(args, "id"), tenantId, userId, "VIEW");
       if (!item.eventId) throw new Error("Unrouted mail: route it to an event first (route_inbox_item)");
       const method = partialString(args, "method");
       return applyInboundAsProposedCore(

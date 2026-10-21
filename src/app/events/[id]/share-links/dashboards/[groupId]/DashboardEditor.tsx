@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { SHARE_REPORT_LABELS } from "@/lib/shareLinks";
+import { REPORTS, SHARE_REPORT_TYPES, isShareReportType, reportLabel } from "@/lib/reportRegistry";
 import { btnOutlinedXs } from "@/lib/buttonStyles";
 import {
   updateShareLinkGroup,
@@ -35,20 +35,6 @@ type Props = {
   items: EditorItem[];
 };
 
-const REPORT_PATHS: Record<string, string> = {
-  EQUIPMENT_RESPONSIBILITY: "equipment-responsibility",
-  VENDOR_HANDOFF: "vendor-handoff",
-  EVENT_PROFILE: "event-profile",
-  EVENT_SCHEDULE: "event-schedule",
-  ROOM_SCHEDULE: "room-schedule",
-  FUNCTION_DETAIL: "function-detail",
-  BREAKOUT_GRID: "breakout-grid",
-  BREAKOUT_ASSIGNMENTS: "breakout-assignments",
-  PACKING_LIST: "packing-list",
-  ESG: "esg",
-  POST_EVENT: "post-event",
-  HOTEL_INFO: "hotel-info",
-};
 
 function toDateInput(iso: string | null): string {
   if (!iso) return "";
@@ -141,9 +127,8 @@ export function DashboardEditor({ eventId, group, items }: Props) {
   }
 
   function startAddReport(reportType: string) {
-    const path = REPORT_PATHS[reportType];
-    if (!path) return;
-    router.push(`/events/${eventId}/reports/${path}?addToDashboard=${group.id}`);
+    if (!isShareReportType(reportType)) return;
+    router.push(`/events/${eventId}/${REPORTS[reportType].path}?addToDashboard=${group.id}`);
   }
 
   const status = isRevoked ? "Revoked" : isExpired ? "Expired" : "Active";
@@ -338,13 +323,13 @@ export function DashboardEditor({ eventId, group, items }: Props) {
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                 You&apos;ll be taken to the report to configure filters, then add it back here.
               </p>
-              {Object.keys(REPORT_PATHS).map((rt) => (
+              {SHARE_REPORT_TYPES.map((rt) => (
                 <button
                   key={rt}
                   onClick={() => startAddReport(rt)}
                   className="w-full text-left px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-900 dark:text-white"
                 >
-                  {SHARE_REPORT_LABELS[rt]}
+                  {REPORTS[rt].label}
                 </button>
               ))}
             </div>
@@ -384,8 +369,8 @@ function ItemRow({
 }: ItemRowProps) {
   const [label, setLabel] = useState(item.label ?? "");
   const [confirmingRemove, setConfirmingRemove] = useState(false);
-  const baseLabel = SHARE_REPORT_LABELS[item.reportType] ?? item.reportType;
-  const reportPath = REPORT_PATHS[item.reportType];
+  const baseLabel = reportLabel(item.reportType);
+  const reportPath = isShareReportType(item.reportType) ? REPORTS[item.reportType].path : null;
 
   return (
     <div className="p-3 flex flex-wrap items-center gap-3">
@@ -435,7 +420,7 @@ function ItemRow({
 
       {reportPath && (
         <Link
-          href={`/events/${eventId}/reports/${reportPath}`}
+          href={`/events/${eventId}/${reportPath}`}
           className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
         >
           Open report
