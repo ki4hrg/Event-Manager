@@ -121,7 +121,7 @@ const proposalProps = {
   offeredConcessions: {
     type: "array",
     description:
-      "Concessions the hotel offers that no RFP request covers (breakfast, Wi-Fi, parking…): label is usually an rfp_concession option label, offered the terms. Replaces the list. On create, omitting it starts from the hotel's standing concessions (get_venue).",
+      "Concessions the hotel offers that no RFP request covers (breakfast, Wi-Fi, parking…): label is an rfp_concession option label, offered the terms. Replaces the list; omit to leave it unchanged.",
     items: {
       type: "object",
       properties: { label: { type: "string" }, offered: { type: ["string", "null"] } },

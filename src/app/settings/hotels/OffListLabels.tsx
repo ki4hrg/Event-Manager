@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { labelKey } from "@/lib/hotels";
 
 const selectClass =
   "px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm";
@@ -22,7 +23,10 @@ function Row({
 }) {
   const router = useRouter();
   const canWrite = useCanWrite("SETTINGS");
-  const [intoId, setIntoId] = useState("");
+  // A spelling of an option ("breakfast included") maps to it; it can't be
+  // added as a second one.
+  const same = options.find((o) => labelKey(o.label) === labelKey(label));
+  const [intoId, setIntoId] = useState(same?.id ?? "");
   const [pending, start] = useTransition();
   const run = (fn: () => Promise<void>) =>
     start(async () => {
@@ -53,9 +57,11 @@ function Row({
           >
             Map
           </button>
-          <button type="button" disabled={pending} onClick={() => run(add)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50">
-            Add to list
-          </button>
+          {!same && (
+            <button type="button" disabled={pending} onClick={() => run(add)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50">
+              Add to list
+            </button>
+          )}
         </div>
       )}
     </div>

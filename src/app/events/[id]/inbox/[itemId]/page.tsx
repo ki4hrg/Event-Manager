@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
@@ -11,6 +10,7 @@ import {
   applyInboundDecline,
   applyInboundGuests,
   applyInboundOffer,
+  applyInboundRevision,
   getDeclineReview,
   getOfferReview,
   dismissInboundEmail,
@@ -28,7 +28,7 @@ import { FileAttachmentButton, InboxItemActions } from "../../../inbox/InboxItem
 import { InboxProposalPanel } from "../../../inbox/InboxProposalPanel";
 import { InboxReview } from "../../../inbox/InboxReview";
 import { InboxDeclineReview } from "../../../inbox/InboxDeclineReview";
-import { ProposalForm } from "../../../hotels/ProposalForm";
+import { InboxOfferForm } from "../../../inbox/InboxOfferForm";
 import { hasPermission } from "@/lib/permissions";
 import { canSeeDiagnostics } from "@/lib/tenant";
 import { isParsingConfigured, type InboundProposal } from "@/lib/inboundParse";
@@ -104,6 +104,10 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
     "use server";
     await applyInboundOffer(itemId, eventId, formData);
   };
+  const applyRevision = async (proposalId: string, formData: FormData) => {
+    "use server";
+    await applyInboundRevision(itemId, eventId, proposalId, formData);
+  };
   const applyDecline = async (rfpId: string, venueId: string, reason: string | null) => {
     "use server";
     await applyInboundDecline(itemId, eventId, rfpId, venueId, reason);
@@ -156,37 +160,18 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
           }
         />
         {offer && (
-          <>
-            {offer.existing.length > 0 && (
-              <p className="text-sm text-amber-700 dark:text-amber-300">
-                This hotel already has{" "}
-                {offer.existing.map((p, i) => (
-                  <span key={p.id}>
-                    {i > 0 && ", "}
-                    <Link href={`/events/${eventId}/hotels/proposals/${p.id}`} className="underline">
-                      a proposal (rev. {p.revision}, {p.status})
-                    </Link>
-                  </span>
-                ))}
-                . For a revised offer, update it there instead.
-              </p>
-            )}
-            <ProposalForm
-              choices={offer.choices}
-              draft={offer.draft}
-              rfpChoices={offer.rfpChoices}
-              fromRfp={
-                offer.rfpChoice
-                  ? { rfpBlockId: offer.rfpChoice.id, contractType: offer.rfpChoice.contractType, guestType: offer.rfpChoice.guestType, status: offer.draft.status, nights: [] }
-                  : undefined
-              }
-              concessions={offer.rfpChoice?.concessions ?? []}
-              offeredConcessions={offer.offeredConcessions}
-              newHotel={canAddVenue ? offer.newHotel : null}
-              action={applyOffer}
-              cancelHref={itemHref}
-            />
-          </>
+          <InboxOfferForm
+            choices={offer.choices}
+            draft={offer.draft}
+            rfpChoices={offer.rfpChoices}
+            rfpChoice={offer.rfpChoice}
+            offeredConcessions={offer.offeredConcessions}
+            revisions={offer.revisions}
+            newHotel={canAddVenue ? offer.newHotel : null}
+            create={applyOffer}
+            revise={applyRevision}
+            cancelHref={itemHref}
+          />
         )}
         {decline && <InboxDeclineReview review={decline} itemHref={itemHref} apply={applyDecline} />}
         {review && (

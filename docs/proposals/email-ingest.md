@@ -207,8 +207,12 @@ says it isn't configured.
    from the offer (hotel, RFP block, dates, night grid with rates,
    charges, attrition, amenities, concession answers, notes); saving creates
    the proposal through `createHotelProposalCore` and files the message's
-   attachments on it. A hotel that already has a proposal is flagged with a
-   link, since a revised offer belongs on the existing one. `RFP_DECLINE`
+   attachments on it. When the hotel already has a proposal for the event,
+   the review defaults to *Revision of* it: the form opens on the next
+   revision, what the offer states (dates, grid, charges, terms, amenity
+   statuses, concession answers) replacing the proposal's values and the rest
+   carried over, and saving goes through `updateHotelProposalCore`, so the
+   version history shows what changed. *New proposal* stays available. `RFP_DECLINE`
    marks the hotel declined on the RFP (`updateRfpRecipientCore`), keeping
    its sent date and adding the reason to its notes. The RFP page shows the
    event's address as the Reply-To. Context given to Claude: the event's

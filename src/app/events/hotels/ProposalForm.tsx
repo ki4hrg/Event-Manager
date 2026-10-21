@@ -13,6 +13,7 @@ import {
   CHARGE_SCOPE_LABELS,
   CHARGE_SCOPES,
   CONTRACT_TYPES,
+  coveredByProfile,
   formatDateKey,
   formatMoney,
   labelKey,
@@ -128,13 +129,13 @@ type OfferedRow = OfferedConcession & { key: number; custom: boolean };
 // Row keys only (never rendered), so a module counter is safe.
 let offeredKey = 0;
 
-// A requested concession the hotel's profile already covers (an amenity of
-// the same label, e.g. Complimentary Breakfast) starts Met on a new
-// proposal. auto: the answers filled that way, undone when the hotel changes.
+// Requested concessions the hotel's profile covers start Met
+// (coveredByProfile). auto: the answers filled that way, undone when the
+// hotel changes.
 function metByProfile(answers: ConcessionAnswer[], profile: string[], auto: string[]) {
-  const onProfile = new Set(profile.map(labelKey));
+  const covered = coveredByProfile(profile);
   const cleared = answers.map((a) => (auto.includes(a.id) ? { ...a, met: null } : a));
-  const filled = cleared.filter((a) => !a.met && !a.offered && onProfile.has(labelKey(a.label))).map((a) => a.id);
+  const filled = cleared.filter((a) => !a.met && !a.offered && covered(a.label)).map((a) => a.id);
   return { answers: cleared.map((a) => (filled.includes(a.id) ? { ...a, met: "MET" as const } : a)), auto: filled };
 }
 
@@ -281,7 +282,8 @@ export function ProposalForm({
   cancelHref,
 }: {
   proposal?: ProposalValues | null;
-  // A new proposal's starting values (one read from an emailed offer).
+  // A new proposal's starting values (one read from an emailed offer); with
+  // proposal, a revision of it, opened for editing.
   draft?: ProposalValues;
   fromRfp?: ProposalTemplate;
   // An emailed offer: pick the RFP block it answers, or none (standalone).
@@ -301,11 +303,12 @@ export function ProposalForm({
   cancelHref: string;
 }) {
   const isEdit = !!proposal;
-  const initial = proposal ?? draft;
+  const revising = isEdit && !!draft;
+  const initial = draft ?? proposal;
   const canWrite = useCanWrite("HOTELS");
-  const [editing, setEditing] = useState(!isEdit);
+  const [editing, setEditing] = useState(!isEdit || revising);
   const [status, setStatus] = useState(initial?.status ?? fromRfp?.status ?? choices.statuses[0]?.label ?? "");
-  const [revision, setRevision] = useState(proposal?.revision ?? 1);
+  const [revision, setRevision] = useState(initial?.revision ?? 1);
   const [checkIn, setCheckIn] = useState(initial ? initial.checkIn ?? "" : defaultCheckIn ?? "");
   const [checkOut, setCheckOut] = useState(initial ? initial.checkOut ?? "" : defaultCheckOut ?? "");
   const [grid, setGrid] = useState<GridState>(() => toGridState(initial?.nights ?? fromRfp?.nights ?? []));
@@ -318,14 +321,16 @@ export function ProposalForm({
   const profileOf = (id: string) => choices.venues.find((v) => v.id === id)?.amenities ?? [];
   const [amenities, setAmenities] = useState<ProposalAmenity[]>(initial?.amenities ?? []);
   const [addedAmenities, setAddedAmenities] = useState<string[]>([]);
-  const [seeded] = useState(() => (isEdit ? { answers: concessions, auto: [] } : metByProfile(concessions, profileOf(venueId), [])));
+  // What the profile covers for this offer: not an amenity it says is unavailable.
+  const coverOf = (id: string) => profileOf(id).filter((l) => !amenities.some((a) => a.label === l && a.status === "UNAVAILABLE"));
+  const [seeded] = useState(() => (isEdit ? { answers: concessions, auto: [] } : metByProfile(concessions, coverOf(venueId), [])));
   const [answers, setAnswers] = useState(seeded.answers);
   const [autoMet, setAutoMet] = useState(seeded.auto);
   const toRows = (list: OfferedConcession[]): OfferedRow[] =>
     list.map((c) => ({ ...c, key: offeredKey++, custom: !choices.concessionOptions.some((o) => o.label === c.label) }));
   const [offered, setOffered] = useState<OfferedRow[]>(() => toRows(offeredConcessions));
   const reseed = (venue: string, nextAnswers: ConcessionAnswer[], auto: string[]) => {
-    const next = metByProfile(nextAnswers, profileOf(venue), auto);
+    const next = metByProfile(nextAnswers, coverOf(venue), auto);
     setAnswers(next.answers);
     setAutoMet(next.auto);
   };
@@ -722,8 +727,8 @@ export function ProposalForm({
       </Fieldset>
 
       <div className="flex flex-wrap gap-3">
-        <SaveButton label={isEdit ? "Save" : "Create Proposal"} disabled={gridOver} />
-        {isEdit ? (
+        <SaveButton label={revising ? "Save Revision" : isEdit ? "Save" : "Create Proposal"} disabled={gridOver} />
+        {isEdit && !revising ? (
           <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>
             Cancel
           </button>

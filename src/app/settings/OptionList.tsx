@@ -7,6 +7,9 @@ import type { OptionCategory } from "./actions";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { duplicateLabelError } from "./optionLabels";
+
+const errorClass = "text-sm text-red-600 dark:text-red-400";
 
 function ModelTypesCheckboxGroup({ defaultValues }: { defaultValues?: string[] }) {
   return (
@@ -256,6 +259,7 @@ function SortableOptionRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: option.id, disabled: !reordering });
   const canWrite = useCanWrite("SETTINGS");
+  const [error, setError] = useState<string | null>(null);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -272,6 +276,9 @@ function SortableOptionRow({
       {editingId === option.id ? (
         <form
           action={async (formData) => {
+            const duplicate = duplicateLabelError(formData.get("label") as string, others, !!mergeOption);
+            setError(duplicate);
+            if (duplicate) return;
             await updateOption(option.id, formData);
             setEditingId(null);
           }}
@@ -300,11 +307,15 @@ function SortableOptionRow({
           {groupOptions && (
             <GroupSelect label={groupLabel} groupOptions={groupOptions} defaultValue={option.group} />
           )}
+          {error && <p className={errorClass}>{error}</p>}
           <div className="flex gap-2">
             <SubmitButton label="Save" />
             <button
               type="button"
-              onClick={() => setEditingId(null)}
+              onClick={() => {
+                setEditingId(null);
+                setError(null);
+              }}
               className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
             >
               Cancel
@@ -409,6 +420,7 @@ export function OptionList({
   const [showAddForm, setShowAddForm] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [localOptions, setLocalOptions] = useState(options);
+  const [addError, setAddError] = useState<string | null>(null);
 
   useEffect(() => {
     startTransition(() => setLocalOptions(options));
@@ -481,6 +493,9 @@ export function OptionList({
       {showAddForm && canWrite && (
         <form
           action={async (formData) => {
+            const duplicate = duplicateLabelError(formData.get("label") as string, localOptions, !!mergeOption);
+            setAddError(duplicate);
+            if (duplicate) return;
             await createOption(formData);
             setShowAddForm(false);
           }}
@@ -508,11 +523,15 @@ export function OptionList({
             {showModels && <ModelTypesCheckboxGroup />}
             {groupOptions && <GroupSelect label={groupLabel} groupOptions={groupOptions} />}
           </div>
+          {addError && <p className={`${errorClass} mt-3`}>{addError}</p>}
           <div className="mt-4 flex gap-2">
             <SubmitButton label="Add" />
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
+              onClick={() => {
+                setShowAddForm(false);
+                setAddError(null);
+              }}
               className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
             >
               Cancel
