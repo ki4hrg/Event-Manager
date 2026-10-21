@@ -11,7 +11,8 @@ import { ENTITY_FK_FIELD, getUploadDir, getUploadPath } from "@/lib/uploads";
 import { formConfig, formModule } from "@/lib/forms/index";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import type { FileTarget, FormLinkTarget } from "@/lib/forms/types";
-import { httpsUrl } from "@/lib/forms/meta";
+import { FORM_TYPE_LABEL, formsHeading, httpsUrl } from "@/lib/forms/meta";
+import { BUNDLE_ORDER, removeSubmissionFiles } from "@/lib/forms/links";
 import { workflowCompletionCore } from "@/app/events/workflows/core";
 
 const MAX_LINK_DAYS = 366;
@@ -31,17 +32,33 @@ export type CreateFormLinkArgs = {
   sections: string[];
   intro: string | null;
   mediaUploadUrl: string | null;
+  // Several functions for one Function Review link (a bundle); overrides functionId.
+  functionIds?: string[];
+  // More forms for the same target, sent as one bundle (a speaker's profile and deliverables).
+  alsoFormTypes?: FormType[];
+  // The form type's own settings; see FormModule.linkOptions.
+  options: unknown;
   workflowTemplateId: string | null;
   dueAt: Date | null;
   expiresAt: Date;
   maxSubmissions: number | null;
 };
 
+const MAX_BUNDLE_LINKS = 50;
+
+// One link, or a bundle when the args name several functions or several form
+// types for the same target: the parent carries the recipient and the email,
+// and each (form type, function) pair is its own child link.
 export async function createFormLinkCore(args: CreateFormLinkArgs, userId: string) {
   await requirePermissionForUser(userId, "FORMS", "WRITE", args.eventId);
   const tenantId = await requireEventTenantId(args.eventId);
-  const mod = formModule(args.formType);
-  await mod.assertTarget(args, userId);
+
+  const formTypes = Array.from(new Set([args.formType, ...(args.alsoFormTypes ?? [])]));
+  const functionIds = args.functionIds?.length ? Array.from(new Set(args.functionIds)) : [args.functionId];
+  if (functionIds.length > 1 && formTypes.some((t) => t !== "FUNCTION_REVIEW")) {
+    throw new Error("Only a Function Review can cover several functions");
+  }
+  if (formTypes.length * functionIds.length > MAX_BUNDLE_LINKS) throw new Error(`One link can cover at most ${MAX_BUNDLE_LINKS} forms`);
 
   if (args.contactId) {
     const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
@@ -57,14 +74,11 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
 
   let mediaUploadUrl: string | null = null;
   if (args.mediaUploadUrl) {
-    if (!mod.externalUpload) throw new Error("This form doesn't take an upload link");
+    if (!formTypes.some((t) => formModule(t).externalUpload)) throw new Error("This form doesn't take an upload link");
     mediaUploadUrl = httpsUrl(args.mediaUploadUrl);
     if (!mediaUploadUrl) throw new Error("The upload link must be an https:// address");
   }
 
-  // A form with one section has nothing to pick.
-  const sections = mod.sectionKeys.size === 1 ? Array.from(mod.sectionKeys) : args.sections.filter((s) => mod.sectionKeys.has(s));
-  if (sections.length === 0) throw new Error("Pick at least one section");
   const now = Date.now();
   if (args.expiresAt.getTime() <= now) throw new Error("The close date must be in the future");
   if (args.expiresAt.getTime() > now + MAX_LINK_DAYS * 86_400_000) throw new Error("Links can stay open for at most a year");
@@ -72,32 +86,111 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
     throw new Error("Responses allowed must be between 1 and 1000");
   }
 
-  return prisma.formLink.create({
-    data: {
-      token: generateShareToken(),
-      tenantId,
-      eventId: args.eventId,
-      formType: args.formType,
-      functionId: args.functionId,
-      contactId: args.contactId,
-      presentationId: args.presentationId,
-      boothGroupId: args.boothGroupId,
-      label: args.label,
-      recipientName: args.recipientName,
-      recipientEmail: args.recipientEmail?.toLowerCase() ?? null,
-      config: { sections, intro: args.intro, mediaUploadUrl } satisfies Prisma.InputJsonValue,
-      workflowTemplateId: args.workflowTemplateId,
-      dueAt: args.dueAt,
-      expiresAt: args.expiresAt,
-      maxSubmissions: args.maxSubmissions,
-      createdById: userId,
-    },
+  const shared = {
+    tenantId,
+    eventId: args.eventId,
+    contactId: args.contactId,
+    label: args.label,
+    recipientName: args.recipientName,
+    recipientEmail: args.recipientEmail?.toLowerCase() ?? null,
+    dueAt: args.dueAt,
+    expiresAt: args.expiresAt,
+    createdById: userId,
+  };
+
+  const links: Prisma.FormLinkCreateManyInput[] = [];
+  for (const formType of formTypes) {
+    const mod = formModule(formType);
+    // A form with one section has nothing to pick.
+    const sections = mod.sectionKeys.size === 1 ? Array.from(mod.sectionKeys) : args.sections.filter((s) => mod.sectionKeys.has(s));
+    if (sections.length === 0) throw new Error(`Pick at least one ${FORM_TYPE_LABEL[formType]} section`);
+    for (const functionId of functionIds) {
+      const target = { ...args, functionId };
+      await mod.assertTarget(target, userId);
+      const options = mod.linkOptions ? await mod.linkOptions(args.options, target) : null;
+      links.push({
+        ...shared,
+        token: generateShareToken(),
+        formType,
+        functionId,
+        presentationId: args.presentationId,
+        boothGroupId: args.boothGroupId,
+        config: {
+          sections,
+          intro: args.intro,
+          mediaUploadUrl: mod.externalUpload ? mediaUploadUrl : null,
+          options,
+        } satisfies Prisma.InputJsonValue,
+        workflowTemplateId: args.workflowTemplateId,
+        maxSubmissions: args.maxSubmissions,
+      });
+    }
+  }
+
+  if (links.length === 1) return prisma.formLink.create({ data: links[0] });
+  return prisma.$transaction(async (tx) => {
+    const parent = await tx.formLink.create({
+      data: {
+        ...shared,
+        token: generateShareToken(),
+        formType: args.formType,
+        bundle: true,
+        config: { sections: [], intro: args.intro } satisfies Prisma.InputJsonValue,
+      },
+    });
+    await tx.formLink.createMany({ data: links.map((l) => ({ ...l, parentId: parent.id })) });
+    return parent;
   });
 }
 
+// What an email or a staff list calls a link: the form title and its target.
+// A bundle names each of its forms, or the one target they share.
+export async function formLinkDisplay(link: FormLinkTarget & { id: string; bundle: boolean }) {
+  const parts = link.bundle
+    ? await prisma.formLink.findMany({ where: { parentId: link.id }, orderBy: BUNDLE_ORDER, select: linkTargetSelect })
+    : [link];
+  const snapshots = await Promise.all(parts.map((p) => formModule(p.formType).snapshot(p)));
+  const heading = formsHeading(
+    parts.map((p, i) => ({ formTitle: FORM_TYPE_LABEL[p.formType], targetName: snapshots[i]?.targetName ?? null })),
+    link.event.name,
+  );
+  return { formTitle: heading.formTitle, targetName: heading.targetName ?? link.event.name };
+}
+
+// Revoking a bundle revokes every link in it.
 export async function revokeFormLinkCore(id: string, eventId: string, userId: string) {
   await requirePermissionForUser(userId, "FORMS", "WRITE", eventId);
-  await prisma.formLink.updateMany({ where: { id, eventId, revokedAt: null }, data: { revokedAt: new Date() } });
+  await prisma.formLink.updateMany({
+    where: { eventId, revokedAt: null, OR: [{ id }, { parentId: id }] },
+    data: { revokedAt: new Date() },
+  });
+}
+
+// Only a revoked link can be deleted, and only once nothing it (or, for a
+// bundle, any of its links) received is waiting for review. Drafts and
+// handled submissions go with it; files already applied were copied onto
+// their records and stay.
+export async function deleteFormLinkCore(id: string, eventId: string, userId: string) {
+  await requirePermissionForUser(userId, "FORMS", "WRITE", eventId);
+  const link = await prisma.formLink.findFirst({ where: { id, eventId }, select: { revokedAt: true } });
+  if (!link) throw new PermissionError("NOT_FOUND", "Form link not found");
+  if (!link.revokedAt) throw new Error("Revoke the link before deleting it");
+  const submissions = await prisma.formSubmission.findMany({
+    where: { eventId, OR: [{ formLinkId: id }, { formLink: { parentId: id } }] },
+    select: { id: true, state: true },
+  });
+  const waiting = submissions.filter((s) => s.state === "SUBMITTED").length;
+  if (waiting > 0) {
+    throw new Error(`This link has ${waiting} submission${waiting === 1 ? "" : "s"} to review. Apply or reject ${waiting === 1 ? "it" : "them"} first.`);
+  }
+  // Re-checked in the delete. A revoked link takes no new submissions, but a
+  // bundle's child may still be open.
+  const pending = { some: { state: "SUBMITTED" as const } };
+  const r = await prisma.formLink.deleteMany({
+    where: { id, eventId, revokedAt: { not: null }, NOT: [{ submissions: pending }, { children: { some: { submissions: pending } } }] },
+  });
+  if (r.count === 0) throw new Error("This link changed. Reload and try again.");
+  for (const s of submissions) removeSubmissionFiles(s.id);
 }
 
 export async function rejectFormSubmissionCore(id: string, eventId: string, notes: string | null, userId: string) {
@@ -244,8 +337,11 @@ export async function listFormLinksCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "FORMS", "VIEW", eventId);
+  // A target's page lists the links for it, bundled or not; elsewhere a
+  // bundle lists once, as its parent.
+  const targeted = !!(filter.functionId || filter.presentationId);
   return prisma.formLink.findMany({
-    where: { eventId, ...filter },
+    where: { eventId, ...filter, ...(targeted ? { bundle: false } : { parentId: null }) },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -262,7 +358,21 @@ export async function listFormLinksCore(
       accessCount: true,
       lastAccessedAt: true,
       createdAt: true,
+      bundle: true,
+      parentId: true,
       function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
+      presentation: { select: { id: true, title: true } },
+      children: {
+        orderBy: BUNDLE_ORDER,
+        select: {
+          id: true,
+          formType: true,
+          submittedCount: true,
+          revokedAt: true,
+          function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
+          presentation: { select: { id: true, title: true } },
+        },
+      },
       workflowTemplate: { select: { name: true } },
       createdBy: { select: { name: true, email: true } },
     },

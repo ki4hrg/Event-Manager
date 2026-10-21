@@ -5,6 +5,10 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 ## Model
 
 - `FormLink` holds the token (256-bit, `generateShareToken`), tenant, event, `formType`, and an optional target (`functionId`). It also holds the recipient, `config` (`{ sections, intro }`), `workflowTemplateId` (the approval workflow), `dueAt`, a required `expiresAt`, `maxSubmissions` and `submittedCount`.
+- A **bundle** is one link over several child links (`FormLink.bundle`, children by `parentId`): a Function Review of several functions, or a speaker's profile and deliverables together (`alsoFormTypes`). The parent holds the recipient, the message and the email, has no target and takes no submissions (`getActiveFormLink` never returns it). `/f/<parent>` lists its open children (`getActiveFormBundle`); each child is an ordinary link reviewed on its own, and links back to the bundle. Revoking or deleting the parent covers every child.
+- A link either names a recipient (a contact on the target, or a name and email typed in) or goes to **anyone with the link** (`audience=anyone`: no recipient, no email, no receipt).
+- Only a revoked link can be **deleted**, and only when nothing it received is waiting for review. Its drafts and handled submissions go with it (files on disk too); applied files were copied to their records and stay.
+- `config.options` holds a form type's own link settings (`FormModule.linkOptionsFromForm` / `linkOptions`). Exhibit Request uses it for the booth types offered (one fixes it), whether to ask for a location, the electrical and AV choices (none hides the question, one fixes it), and whether to ask for equipment to provide, equipment they're bringing, or both. Links without settings ask everything.
 - `FormSubmission` moves through the states DRAFT → SUBMITTED → APPLIED / REJECTED (or DRAFT → WITHDRAWN). It holds:
   - `payload`: the typed answers.
   - `baseline`: the public projection the submitter saw.
@@ -31,7 +35,7 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 | Public page, actions, upload route | `src/app/f/[token]/` |
 | Staff cores and actions | `src/app/events/forms/{core,actions}.ts` |
 | Queue and review pages | `src/app/events/[id]/forms/` |
-| Link dialog | `src/app/events/forms/FormLinkButton.tsx`; `FormLinkEntry.tsx` (server wrapper every entry page mounts) |
+| Link dialog | `src/app/events/forms/FormLinkButton.tsx`; `FormLinkEntry.tsx` (server wrapper every entry page mounts); `ExhibitLinkFields.tsx` |
 | Shared public form frame | `src/app/f/[token]/FormParts.tsx` |
 
 ## Form types
@@ -40,7 +44,7 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 |---|---|---|
 | Function Review | a function (+ recipient contact) | ESG fields, description, catering count/dietary, on-site contact; change requests onto the function's notes |
 | Item Request | none (open link; from Forms, Print Orders, Supply Orders) | one item per line on a new or chosen print/supply order; procure → TO_PROCURE, shipping → DROP_SHIP + IN_TRANSIT, bringing → ON_HAND |
-| Exhibit Request | none, or one booth group (open link; from Forms, Exhibits) | a booth (company, type, location, shipping/customs, electrical/AV), its contact per the reviewer's choice, its equipment lines |
+| Exhibit Request | none, or one booth group (open link; from Forms, Exhibits) | a booth (company, type, location, shipping/customs, electrical/AV), its contact per the reviewer's choice, its equipment lines (items the exhibitor brings are noted on the line) |
 | Presentation Deliverables | a presentation (+ one of its speakers) | title/description (whole-row update rebuilt from the current row), AV needs appended to internalNotes, a MediaDeliverable linked to the presentation and speaker (files filed on it; large media come as a link, stored as text), a handout item on the presentation's single print order |
 | Speaker Profile | a presentation + one of its speakers (required) | the speaker columns on that Contact (bio, job title, pronouns, website, headshot) and this event's `SpeakerProfile` (travel, needs) |
 
@@ -76,7 +80,7 @@ To add a form type, see [checklists/adding-form-type.md](./checklists/adding-for
 
 `src/lib/mcpTools/forms.ts`:
 
-- `list_form_links`, `create_form_link`, `revoke_form_link` manage links.
+- `list_form_links`, `create_form_link`, `revoke_form_link`, `delete_form_link` manage links. `create_form_link` takes `functionIds` and `alsoFormTypes` for a bundle and `options` for Exhibit Request settings.
 - `list_form_submissions` and `get_form_submission` read the queue.
 - `apply_form_submission` and `reject_form_submission` act on a submission.
 
@@ -87,3 +91,5 @@ All of them go through the same cores as the UI. Three things differ from the UI
 - There is no apply-all default.
 
 The event sidebar's Forms link shows the open-submission count.
+
+The public page's `generateMetadata` sets the title and Open Graph tags to the form name and target (the bundle's heading for a bundle, via `formsHeading`), so a link pasted into iMessage or Slack previews as the form, not the app.

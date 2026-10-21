@@ -6,12 +6,13 @@ import type { FormType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { isEmailConfigured, sendFormLinkEmail } from "@/lib/email";
-import { formConfig, formModule } from "@/lib/forms/index";
-import { FORM_TYPE_LABEL } from "@/lib/forms/meta";
+import { formModule } from "@/lib/forms/index";
 import {
   applyFormSubmissionCore,
   createFormLinkCore,
+  deleteFormLinkCore,
   endOfDayInEvent,
+  formLinkDisplay,
   listFormLinksCore,
   listFormSubmissionsCore,
   loadFormSubmissionReviewCore,
@@ -21,6 +22,31 @@ import {
 } from "./core";
 
 export type { SubmissionView };
+
+// Function Review links pick from every function with its contacts (names and
+// emails for the Send to list).
+export async function getFunctionReviewPicker(eventId: string) {
+  await requirePermission("FUNCTIONS", "VIEW", eventId);
+  const functions = await prisma.function.findMany({
+    where: { eventId },
+    orderBy: [{ functionNumber: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      functionNumber: true,
+      breakoutGroup: { select: { name: true } },
+      contacts: { select: { contact: { select: { id: true, firstName: true, lastName: true, email: true } } } },
+    },
+  });
+  return functions.map(({ contacts, ...f }) => ({
+    ...f,
+    contacts: contacts.map(({ contact: c }) => ({
+      contactId: c.id,
+      name: [c.firstName, c.lastName].filter(Boolean).join(" "),
+      email: c.email,
+    })),
+  }));
+}
 
 async function eventTimezone(eventId: string) {
   const event = await prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true, name: true } });
@@ -42,20 +68,26 @@ export async function createFormLink(eventId: string, formData: FormData) {
   const expiresAt = await endOfDayInEvent(formData.get("expiresAt") as string, eventId);
   if (!expiresAt) throw new Error("Pick a close date");
   const maxRaw = formData.get("maxSubmissions") as string;
+  const formType = formData.get("formType") as FormType;
+  // "anyone" links carry no recipient, whatever the hidden fields held.
+  const specific = formData.get("audience") !== "anyone";
   const link = await createFormLinkCore(
     {
       eventId,
-      formType: formData.get("formType") as FormType,
+      formType,
       functionId: (formData.get("functionId") as string) || null,
-      contactId: (formData.get("contactId") as string) || null,
+      contactId: specific ? (formData.get("contactId") as string) || null : null,
       presentationId: (formData.get("presentationId") as string) || null,
       boothGroupId: (formData.get("boothGroupId") as string) || null,
       label: (formData.get("label") as string) || null,
-      recipientName: (formData.get("recipientName") as string) || null,
-      recipientEmail: (formData.get("recipientEmail") as string) || null,
+      recipientName: specific ? (formData.get("recipientName") as string) || null : null,
+      recipientEmail: specific ? (formData.get("recipientEmail") as string) || null : null,
       sections: formData.getAll("sections") as string[],
       intro: (formData.get("intro") as string) || null,
       mediaUploadUrl: (formData.get("mediaUploadUrl") as string) || null,
+      functionIds: formData.getAll("functionIds") as string[],
+      alsoFormTypes: formData.getAll("alsoFormTypes") as FormType[],
+      options: formModule(formType).linkOptionsFromForm?.(formData) ?? null,
       workflowTemplateId: (formData.get("workflowTemplateId") as string) || null,
       dueAt: await endOfDayInEvent(formData.get("dueAt") as string, eventId),
       expiresAt,
@@ -66,26 +98,34 @@ export async function createFormLink(eventId: string, formData: FormData) {
 
   let emailed = false;
   if (formData.get("sendEmail") === "true" && link.recipientEmail && isEmailConfigured()) {
-    const snapshot = await formModule(link.formType).snapshot({ ...link, event: { name: eventName, timezone } });
+    const { formTitle, targetName } = await formLinkDisplay({ ...link, event: { name: eventName, timezone } });
     await sendFormLinkEmail({
       to: link.recipientEmail,
       recipientName: link.recipientName,
       eventName,
-      formTitle: FORM_TYPE_LABEL[link.formType],
-      targetName: snapshot?.targetName ?? eventName,
+      formTitle,
+      targetName,
       token: link.token,
       dueAt: link.dueAt?.toLocaleDateString("en-US", { timeZone: timezone, month: "long", day: "numeric", year: "numeric" }) ?? null,
     });
     emailed = true;
   }
   revalidatePath(`/events/${eventId}/forms`);
-  if (link.functionId) revalidatePath(`/events/${eventId}/functions/${link.functionId}`);
+  for (const functionId of [link.functionId, ...(formData.getAll("functionIds") as string[])]) {
+    if (functionId) revalidatePath(`/events/${eventId}/functions/${functionId}`);
+  }
   return { id: link.id, token: link.token, emailed };
 }
 
 export async function revokeFormLink(eventId: string, linkId: string) {
   const session = await requirePermission("FORMS", "WRITE", eventId);
   await revokeFormLinkCore(linkId, eventId, session.user.id);
+  revalidatePath(`/events/${eventId}/forms`);
+}
+
+export async function deleteFormLink(eventId: string, linkId: string) {
+  const session = await requirePermission("FORMS", "WRITE", eventId);
+  await deleteFormLinkCore(linkId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/forms`);
 }
 

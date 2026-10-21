@@ -374,6 +374,7 @@ export default async function PresentationPage({
             title="Request speaker info"
             target={{ field: "presentationId", id: presentationId }}
             sections={SPEAKER_PROFILE_SECTIONS}
+            companion={{ formType: "PRESENTATION_DELIVERABLES", sections: DELIVERABLES_SECTIONS, externalUpload: true }}
             recipients={presentation.speakers.map((s) => ({
               contactId: s.contact.id,
               name: [s.contact.firstName, s.contact.lastName].filter(Boolean).join(" "),
@@ -388,6 +389,7 @@ export default async function PresentationPage({
             externalUpload
             target={{ field: "presentationId", id: presentationId }}
             sections={DELIVERABLES_SECTIONS}
+            companion={{ formType: "SPEAKER_PROFILE", sections: SPEAKER_PROFILE_SECTIONS, requireRecipient: true }}
             recipients={presentation.speakers.map((s) => ({
               contactId: s.contact.id,
               name: [s.contact.firstName, s.contact.lastName].filter(Boolean).join(" "),

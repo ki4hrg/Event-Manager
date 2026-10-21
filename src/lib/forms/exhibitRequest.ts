@@ -13,9 +13,14 @@ import { PublicFormError } from "./links";
 import { contactReviewChoice, resolveContactChoice } from "./contacts";
 import {
   EXHIBIT_MAX_EQUIPMENT,
+  EXHIBIT_EQUIPMENT_SOURCES,
   EXHIBIT_PROVIDERS,
   EXHIBIT_REQUEST_SECTION_KEYS,
   optionLabel,
+  readExhibitLinkOptions,
+  readFormLinkConfig,
+  type ExhibitLinkOptions,
+  type ExhibitEquipmentSource,
   type ExhibitProvider,
   type ExhibitRequestBaseline,
   type ExhibitRequestPayload,
@@ -37,12 +42,20 @@ function text(formData: FormData, key: string, max: number): string | null {
   return value || null;
 }
 
-function provider(formData: FormData, key: string): ExhibitProvider | null {
+// A provider answer limited to the link's choices: a single choice is fixed,
+// none means the question wasn't asked.
+function provider(formData: FormData, key: string, allowed: ExhibitProvider[]): ExhibitProvider | null {
+  if (allowed.length === 0) return null;
+  if (allowed.length === 1) return allowed[0];
   const value = text(formData, key, 20);
   if (value == null) return null;
-  const hit = EXHIBIT_PROVIDERS.find((p) => p.value === value);
+  const hit = allowed.find((p) => p === value);
   if (!hit) throw new PublicFormError("invalid");
-  return hit.value;
+  return hit;
+}
+
+function allProviders(): ExhibitProvider[] {
+  return EXHIBIT_PROVIDERS.map((p) => p.value);
 }
 
 async function parseExhibitRequest(formData: FormData, baseline: ExhibitRequestBaseline): Promise<ExhibitRequestPayload> {
@@ -53,8 +66,11 @@ async function parseExhibitRequest(formData: FormData, baseline: ExhibitRequestB
   });
   if (tooMany) throw new PublicFormError("invalid");
 
-  const boothType = text(formData, "boothType", NAME_MAX);
-  if (boothType !== null && !baseline.boothTypes.includes(boothType)) throw new PublicFormError("invalid");
+  let boothType = text(formData, "boothType", NAME_MAX);
+  if (baseline.boothTypes.length === 1) boothType = baseline.boothTypes[0];
+  else if (boothType !== null && !baseline.boothTypes.includes(boothType)) throw new PublicFormError("invalid");
+  const electrical = baseline.electrical ?? allProviders();
+  const av = baseline.av ?? allProviders();
 
   const firstName = text(formData, "contactFirstName", NAME_MAX);
   const lastName = text(formData, "contactLastName", NAME_MAX);
@@ -63,26 +79,36 @@ async function parseExhibitRequest(formData: FormData, baseline: ExhibitRequestB
   if (email && !EMAIL_RE.test(email)) throw new PublicFormError("invalid");
   if (!firstName && (lastName || email || phone)) throw new PublicFormError("invalid");
 
+  // Older baselines asked for equipment without a source.
+  const sources = baseline.equipment ?? EXHIBIT_EQUIPMENT_SOURCES.map((s) => s.value);
   const equipment: ExhibitRequestPayload["equipment"] = [];
-  for (let i = 0; i < EXHIBIT_MAX_EQUIPMENT; i++) {
+  for (let i = 0; sources.length > 0 && i < EXHIBIT_MAX_EQUIPMENT; i++) {
     const item = text(formData, `equip_${i}_item`, 200);
     if (!item) continue;
     const qty = text(formData, `equip_${i}_quantity`, 6);
     if (qty !== null && !/^\d+$/.test(qty)) throw new PublicFormError("invalid");
-    equipment.push({ item, quantity: qty === null ? null : parseInt(qty, 10) });
+    let source: ExhibitEquipmentSource;
+    if (sources.length === 1) source = sources[0];
+    else {
+      const raw = text(formData, `equip_${i}_source`, 20);
+      const hit = sources.find((s) => s === raw);
+      if (!hit) throw new PublicFormError("invalid");
+      source = hit;
+    }
+    equipment.push({ item, quantity: qty === null ? null : parseInt(qty, 10), source });
   }
 
   return {
     company: text(formData, "company", NAME_MAX),
     boothType,
-    location: text(formData, "location", 200),
+    location: baseline.askLocation === false ? null : text(formData, "location", 200),
     contact: firstName ? { firstName, lastName, email, phone } : null,
     shippingRequired: formData.get("shippingRequired") === "true",
     customsRequired: formData.get("customsRequired") === "true",
-    electricalProvider: provider(formData, "electricalProvider"),
-    electricalNotes: text(formData, "electricalNotes", NOTE_MAX),
-    avProvider: provider(formData, "avProvider"),
-    avNotes: text(formData, "avNotes", NOTE_MAX),
+    electricalProvider: provider(formData, "electricalProvider", electrical),
+    electricalNotes: electrical.length ? text(formData, "electricalNotes", NOTE_MAX) : null,
+    avProvider: provider(formData, "avProvider", av),
+    avNotes: av.length ? text(formData, "avNotes", NOTE_MAX) : null,
     specialRequirements: text(formData, "specialRequirements", NOTE_MAX),
     equipment,
   };
@@ -136,7 +162,13 @@ function diffExhibitRequest(baseline: ExhibitRequestBaseline, payload: ExhibitRe
       mode: "create",
       verdict: null,
       note: null,
-      rows: payload.equipment.map((e, i) => row(`equip-${i}`, "Item", e.quantity != null ? `${e.quantity} × ${e.item}` : e.item)),
+      rows: payload.equipment.map((e, i) =>
+        row(
+          `equip-${i}`,
+          EXHIBIT_EQUIPMENT_SOURCES.find((s) => s.value === e.source)?.staffLabel ?? "Item",
+          e.quantity != null ? `${e.quantity} × ${e.item}` : e.item,
+        ),
+      ),
       applicable: true,
     });
   }
@@ -211,7 +243,7 @@ async function applyExhibitRequest(ctx: FormApplyContext<ExhibitRequestPayload, 
           providerContactId: null,
           operatorVendorId: null,
           operatorContactId: null,
-          notes: null,
+          notes: e.source === "bring" ? "Exhibitor is bringing this" : null,
         },
         userId,
       );
@@ -230,7 +262,28 @@ export const exhibitRequestModule: FormModule<ExhibitRequestPayload, ExhibitRequ
     const group = await prisma.exhibitBoothGroup.findFirst({ where: { id: boothGroupId, eventId }, select: { id: true } });
     if (!group) throw new PermissionError("NOT_FOUND", "Booth group not found");
   },
+  linkOptionsFromForm(formData): ExhibitLinkOptions {
+    const providers = (key: string) => formData.getAll(key).filter((v): v is ExhibitProvider => allProviders().includes(v as ExhibitProvider));
+    return {
+      boothTypes: formData.getAll("opt_boothTypes").filter((v): v is string => typeof v === "string"),
+      askLocation: formData.get("opt_askLocation") === "true",
+      electrical: providers("opt_electrical"),
+      av: providers("opt_av"),
+      equipment: EXHIBIT_EQUIPMENT_SOURCES.map((s) => s.value).filter((v) => formData.getAll("opt_equipment").includes(v)),
+    };
+  },
+  async linkOptions(raw, { eventId }) {
+    const opts = readExhibitLinkOptions(raw);
+    if (opts.boothTypes) {
+      const onFile = new Set((await getOptionsForEvent(eventId, "booth_type")).map((o) => o.label));
+      if (opts.boothTypes.some((t) => !onFile.has(t))) throw new Error("Unknown booth type");
+      // With none on file the dialog had nothing to tick: offer whatever is added later.
+      opts.boothTypes = onFile.size === 0 ? null : Array.from(new Set(opts.boothTypes));
+    }
+    return opts;
+  },
   async snapshot(link) {
+    const opts = readExhibitLinkOptions(readFormLinkConfig(link.config, EXHIBIT_REQUEST_SECTION_KEYS).options);
     const [group, boothTypes] = await Promise.all([
       link.boothGroupId
         ? prisma.exhibitBoothGroup.findFirst({ where: { id: link.boothGroupId, eventId: link.eventId }, select: { name: true } })
@@ -238,7 +291,15 @@ export const exhibitRequestModule: FormModule<ExhibitRequestPayload, ExhibitRequ
       getOptionsForEvent(link.eventId, "booth_type"),
     ]);
     return {
-      baseline: { groupName: group?.name ?? null, boothTypes: boothTypes.map((o) => o.label) },
+      baseline: {
+        groupName: group?.name ?? null,
+        // A type renamed or removed since the link was made drops out.
+        boothTypes: boothTypes.map((o) => o.label).filter((t) => !opts.boothTypes || opts.boothTypes.includes(t)),
+        askLocation: opts.askLocation,
+        electrical: opts.electrical,
+        av: opts.av,
+        equipment: opts.equipment,
+      },
       sections: ["booth"],
       version: "1",
       targetName: group?.name ?? link.event.name,

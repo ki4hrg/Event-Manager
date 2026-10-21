@@ -95,10 +95,10 @@ export default async function ExhibitsPage({ params }: { params: Promise<{ id: s
           />
           {canWrite && (
             <>
-              <Link href={`/events/${eventId}/exhibits/groups/new`} className={`${btnSecondary} text-sm`}>
+              <Link href={`/events/${eventId}/exhibits/groups/new`} className={btnSecondary}>
                 Add Group
               </Link>
-              <Link href={`/events/${eventId}/exhibits/new`} className={`${btnPrimary} text-sm`}>
+              <Link href={`/events/${eventId}/exhibits/new`} className={btnPrimary}>
                 Add Booth
               </Link>
             </>

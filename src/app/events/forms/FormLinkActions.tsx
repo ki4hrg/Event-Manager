@@ -56,3 +56,46 @@ export function RevokeFormLink({ revoke }: { revoke: () => Promise<void> }) {
     </span>
   );
 }
+
+export function DeleteFormLink({ deleteLink }: { deleteLink: () => Promise<void> }) {
+  const canWrite = useCanWrite("FORMS");
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  if (!canWrite) return null;
+  if (!confirming) {
+    return (
+      <button type="button" onClick={() => setConfirming(true)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
+        Delete
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2 text-xs">
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() =>
+          startTransition(async () => {
+            setError(null);
+            try {
+              await deleteLink();
+              setConfirming(false);
+              router.refresh();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Couldn't delete the link");
+            }
+          })
+        }
+        className="text-red-600 dark:text-red-400 font-medium hover:underline disabled:opacity-50"
+      >
+        Confirm delete
+      </button>
+      <button type="button" onClick={() => setConfirming(false)} className="text-gray-500 dark:text-gray-400 hover:underline">
+        Cancel
+      </button>
+      {error && <span className="basis-full text-red-600 dark:text-red-400 whitespace-normal">{error}</span>}
+    </span>
+  );
+}
