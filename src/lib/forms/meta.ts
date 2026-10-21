@@ -8,6 +8,7 @@ export const FORM_TYPE_LABEL: Record<FormType, string> = {
   FUNCTION_REVIEW: "Function Review",
   ITEM_REQUEST: "Item Request",
   EXHIBIT_REQUEST: "Exhibit Request",
+  PRESENTATION_DELIVERABLES: "Presentation Deliverables",
 };
 
 export const FORM_STATE_LABEL: Record<FormSubmissionState, string> = {
@@ -221,3 +222,32 @@ export type ExhibitRequestPayload = {
 };
 
 export type ExhibitRequestBaseline = { groupName: string | null; boothTypes: string[] };
+
+// ─── Presentation Deliverables ───────────────────────────────────────────────
+// A presenter confirms the session's public details and sends what the team
+// needs: AV needs, media (files under the upload cap, or a link), handouts.
+
+export const DELIVERABLES_SECTIONS = [
+  { key: "details", label: "Session details" },
+  { key: "av", label: "Audio visual needs" },
+  { key: "media", label: "Media" },
+  { key: "handouts", label: "Handouts" },
+] as const;
+
+export type DeliverablesSection = (typeof DELIVERABLES_SECTIONS)[number]["key"];
+export const DELIVERABLES_SECTION_KEYS = new Set<string>(DELIVERABLES_SECTIONS.map((s) => s.key));
+
+export type DeliverablesPayload = {
+  title?: string | null;
+  description?: string | null;
+  avNeeds?: string | null;
+  media?: { mediaType: string | null; link: string | null; notes: string | null } | null;
+  handouts?: { description: string; quantity: number | null } | null;
+};
+
+export type DeliverablesBaseline = {
+  title: string;
+  description: string | null;
+  speakerName: string | null;
+  mediaTypes: string[];
+};

@@ -9,7 +9,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { hasPermission } from "@/lib/permissions";
 import { getEvent } from "../../actions";
 import { getBoothGroups, getExhibitBooths } from "../../exhibits/actions";
-import { OpenFormLinkButton } from "../../forms/OpenFormLinkButton";
+import { FormLinkEntry } from "../../forms/FormLinkEntry";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +82,7 @@ export default async function ExhibitsPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Exhibits ({booths.length})</h1>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
-          <OpenFormLinkButton
+          <FormLinkEntry
             eventId={eventId}
             formType="EXHIBIT_REQUEST"
             title="Exhibit request link"

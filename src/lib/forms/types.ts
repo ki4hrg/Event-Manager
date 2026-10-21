@@ -12,13 +12,20 @@ export type FormLinkTarget = {
   eventId: string;
   functionId: string | null;
   contactId: string | null;
+  presentationId: string | null;
   boothGroupId: string | null;
   config: Prisma.JsonValue;
   event: { name: string; timezone: string | null };
 };
 
 // The target ids a new link carries; a module validates the ones it uses.
-export type LinkTargetArgs = { eventId: string; functionId: string | null; contactId: string | null; boothGroupId: string | null };
+export type LinkTargetArgs = {
+  eventId: string;
+  functionId: string | null;
+  contactId: string | null;
+  presentationId: string | null;
+  boothGroupId: string | null;
+};
 
 export type FormSnapshot<B> = {
   baseline: B;
@@ -47,6 +54,7 @@ export type FormApplyContext<P, B> = {
     submitterName: string | null;
     submitterOrg: string | null;
     submittedAt: Date;
+    fileCount: number;
   };
   link: FormLinkTarget;
   sections: Set<string>;

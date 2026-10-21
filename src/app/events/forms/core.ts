@@ -21,6 +21,7 @@ export type CreateFormLinkArgs = {
   formType: FormType;
   functionId: string | null;
   contactId: string | null;
+  presentationId: string | null;
   boothGroupId: string | null;
   label: string | null;
   recipientName: string | null;
@@ -69,6 +70,7 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
       formType: args.formType,
       functionId: args.functionId,
       contactId: args.contactId,
+      presentationId: args.presentationId,
       boothGroupId: args.boothGroupId,
       label: args.label,
       recipientName: args.recipientName,
@@ -122,6 +124,7 @@ const linkTargetSelect = {
   eventId: true,
   functionId: true,
   contactId: true,
+  presentationId: true,
   boothGroupId: true,
   config: true,
   event: { select: { name: true, timezone: true } },
@@ -164,6 +167,7 @@ export async function applyFormSubmissionCore(id: string, eventId: string, args:
         submitterName: sub.submitterName,
         submitterOrg: sub.submitterOrg,
         submittedAt: sub.submittedAt ?? sub.createdAt,
+        fileCount: sub.files.length,
       },
       link,
       sections: new Set(args.sections),

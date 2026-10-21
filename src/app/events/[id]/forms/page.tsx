@@ -12,7 +12,7 @@ import { reportTd, reportTh } from "@/lib/reportStyles";
 import { getEvent } from "../../actions";
 import { getFormLinks, getFormSubmissions, revokeFormLink, type SubmissionView } from "../../forms/actions";
 import { CopyFormLink, RevokeFormLink } from "../../forms/FormLinkActions";
-import { OpenFormLinkButton } from "../../forms/OpenFormLinkButton";
+import { FormLinkEntry } from "../../forms/FormLinkEntry";
 
 export const dynamic = "force-dynamic";
 
@@ -58,8 +58,8 @@ export default async function FormsPage({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-1">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Forms</h1>
           <div className="flex flex-wrap gap-2">
-            <OpenFormLinkButton eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
-            <OpenFormLinkButton eventId={eventId} formType="EXHIBIT_REQUEST" title="Exhibit request link" />
+            <FormLinkEntry eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
+            <FormLinkEntry eventId={eventId} formType="EXHIBIT_REQUEST" title="Exhibit request link" />
           </div>
         </div>
       </div>

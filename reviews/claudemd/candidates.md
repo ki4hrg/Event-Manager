@@ -96,3 +96,4 @@
 - [forms] `createFormLink` returns `{ token, emailed }` for the copy-once dialog, the same exception `createShareLink` already makes to the void-return rule
 - [uploads] Public uploads sniff magic bytes and store under the verified extension (`sniffPublicUpload` in src/lib/uploads.ts); the staff route still trusts the client MIME type
 - [forms] New public form types implement `FormModule` (src/lib/forms/types.ts) and register in `formModule()`; the page, public cores and review queue never switch on form type except to pick the client component
+- [media-deliverables] `createMediaDeliverableCore` (src/app/events/media-deliverables/core.ts) now asserts linked functions/presentations are in the event and contacts in the tenant — the old action linked any ids it was given

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { OpenFormLinkButton } from "../../forms/OpenFormLinkButton";
+import { FormLinkEntry } from "../../forms/FormLinkEntry";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -57,7 +57,7 @@ export default async function SupplyOrdersPage({
             {event.name}
           </h1>
         </div>
-        <OpenFormLinkButton eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
+        <FormLinkEntry eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
       </div>
 
       <SupplyOrderList

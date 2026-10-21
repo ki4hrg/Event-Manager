@@ -10,6 +10,9 @@ import {
   type FunctionReviewBaseline,
   type FunctionReviewPayload,
   type FunctionReviewSection,
+  type DeliverablesBaseline,
+  type DeliverablesPayload,
+  type DeliverablesSection,
   type ExhibitRequestBaseline,
   type ExhibitRequestPayload,
   type ItemRequestBaseline,
@@ -19,6 +22,7 @@ import { FormMessage, FormShell, type PublicFormDto } from "./FormShell";
 import { FunctionReviewForm } from "./FunctionReviewForm";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { ExhibitRequestForm } from "./ExhibitRequestForm";
+import { DeliverablesForm } from "./DeliverablesForm";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +125,17 @@ export default async function PublicFormPage({
             {...common}
             baseline={snapshot.baseline as ExhibitRequestBaseline}
             draft={draftView && { ...draftView, payload: payload as ExhibitRequestPayload | null }}
+          />
+        </FormShell>
+      );
+    case "PRESENTATION_DELIVERABLES":
+      return (
+        <FormShell form={form}>
+          <DeliverablesForm
+            {...common}
+            baseline={snapshot.baseline as DeliverablesBaseline}
+            sections={snapshot.sections as DeliverablesSection[]}
+            draft={draftView && { ...draftView, payload: payload as DeliverablesPayload | null }}
           />
         </FormShell>
       );

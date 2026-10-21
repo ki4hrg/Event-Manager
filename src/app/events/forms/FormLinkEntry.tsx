@@ -5,21 +5,36 @@ import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { createFormLink, getFormLinks, revokeFormLink } from "./actions";
 import { FormLinkButton } from "./FormLinkButton";
 
-// Link button for an open form (no target record): the forms page and the
-// order and exhibit lists all mount it. Renders nothing without FORMS WRITE.
-export async function OpenFormLinkButton({
+type ButtonProps = React.ComponentProps<typeof FormLinkButton>;
+
+// The link button every form type mounts on its entry page: the function and
+// presentation pages for targeted forms, the forms page and order/exhibit
+// lists for open ones. Renders nothing without FORMS WRITE.
+export async function FormLinkEntry({
   eventId,
   formType,
   title,
+  target,
+  recipients,
+  sections,
   targetSelect,
+  defaultCloseDate,
 }: {
   eventId: string;
   formType: FormType;
   title: string;
-  targetSelect?: React.ComponentProps<typeof FormLinkButton>["targetSelect"];
+  // A targeted form's record; open forms omit it.
+  target?: { field: "functionId" | "presentationId"; id: string };
+  recipients?: ButtonProps["recipients"];
+  sections?: ButtonProps["sections"];
+  targetSelect?: ButtonProps["targetSelect"];
+  defaultCloseDate?: string;
 }) {
   if (!(await hasPermission("FORMS", "WRITE", eventId))) return null;
-  const [links, templates] = await Promise.all([getFormLinks(eventId, { formType }), getWorkflowTemplateOptions()]);
+  const [links, templates] = await Promise.all([
+    getFormLinks(eventId, target ? { formType, [target.field]: target.id } : { formType }),
+    getWorkflowTemplateOptions(),
+  ]);
 
   const create = async (formData: FormData) => {
     "use server";
@@ -35,12 +50,16 @@ export async function OpenFormLinkButton({
     <FormLinkButton
       title={title}
       formType={formType}
-      defaultMaxSubmissions={null}
+      targetField={target ? { name: target.field, value: target.id } : undefined}
+      sections={sections}
+      recipients={recipients}
+      // Targeted links go to one person; open links take any number.
+      defaultMaxSubmissions={target ? 1 : null}
       targetSelect={targetSelect}
       workflowTemplates={templates}
       links={links}
       emailEnabled={isEmailConfigured()}
-      defaultCloseDate={inThirtyDays()}
+      defaultCloseDate={defaultCloseDate ?? inThirtyDays()}
       create={create}
       revoke={revoke}
     />

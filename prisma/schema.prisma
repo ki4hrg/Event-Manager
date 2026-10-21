@@ -1185,6 +1185,7 @@ model Presentation {
   advancerContact       Contact?                       @relation("PresentationAdvancerContact", fields: [advancerContactId], references: [id], onDelete: SetNull)
   updatedById           String?
   updatedBy             User?                          @relation("PresentationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  formLinks             FormLink[]
   createdAt             DateTime                       @default(now())
   updatedAt             DateTime                       @updatedAt
 
@@ -3120,6 +3121,7 @@ enum FormType {
   FUNCTION_REVIEW
   ITEM_REQUEST
   EXHIBIT_REQUEST
+  PRESENTATION_DELIVERABLES
 }
 
 enum FormSubmissionState {
@@ -3143,6 +3145,8 @@ model FormLink {
   function           Function?          @relation(fields: [functionId], references: [id], onDelete: Cascade)
   contactId          String?
   contact            Contact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  presentationId     String?
+  presentation       Presentation?      @relation(fields: [presentationId], references: [id], onDelete: Cascade)
   // Exhibit requests may be scoped to one booth group.
   boothGroupId       String?
   boothGroup         ExhibitBoothGroup? @relation(fields: [boothGroupId], references: [id], onDelete: Cascade)
@@ -3171,6 +3175,7 @@ model FormLink {
   @@index([eventId])
   @@index([functionId])
   @@index([contactId])
+  @@index([presentationId])
   @@index([boothGroupId])
   @@index([workflowTemplateId])
   @@index([createdById])

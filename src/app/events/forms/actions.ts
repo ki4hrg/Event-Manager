@@ -22,7 +22,10 @@ function endOfDay(value: string | null, timezone: string): Date | null {
   return parseDateTimeInTimezone(`${value}T23:59`, timezone);
 }
 
-export async function getFormLinks(eventId: string, filter: { functionId?: string; formType?: FormType } = {}) {
+export async function getFormLinks(
+  eventId: string,
+  filter: { functionId?: string; presentationId?: string; formType?: FormType } = {},
+) {
   await requirePermission("FORMS", "VIEW", eventId);
   return prisma.formLink.findMany({
     where: { eventId, ...filter },
@@ -61,6 +64,7 @@ export async function createFormLink(eventId: string, formData: FormData) {
       formType: formData.get("formType") as FormType,
       functionId: (formData.get("functionId") as string) || null,
       contactId: (formData.get("contactId") as string) || null,
+      presentationId: (formData.get("presentationId") as string) || null,
       boothGroupId: (formData.get("boothGroupId") as string) || null,
       label: (formData.get("label") as string) || null,
       recipientName: (formData.get("recipientName") as string) || null,
@@ -136,6 +140,7 @@ export async function getFormSubmissionReview(eventId: string, id: string) {
           eventId: true,
           functionId: true,
           contactId: true,
+          presentationId: true,
           boothGroupId: true,
           config: true,
           recipientName: true,

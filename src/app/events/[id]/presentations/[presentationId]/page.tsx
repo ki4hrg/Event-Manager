@@ -33,6 +33,8 @@ import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepComplet
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
+import { DELIVERABLES_SECTIONS } from "@/lib/forms/meta";
+import { FormLinkEntry } from "../../../forms/FormLinkEntry";
 import {
   getAvailableAVOrdersForPresentation,
   linkAVOrderToPresentationFromPresentation,
@@ -349,6 +351,18 @@ export default async function PresentationPage({
           />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
+          <FormLinkEntry
+            eventId={eventId}
+            formType="PRESENTATION_DELIVERABLES"
+            title="Request deliverables"
+            target={{ field: "presentationId", id: presentationId }}
+            sections={DELIVERABLES_SECTIONS}
+            recipients={presentation.speakers.map((s) => ({
+              contactId: s.contact.id,
+              name: [s.contact.firstName, s.contact.lastName].filter(Boolean).join(" "),
+              email: s.contact.email,
+            }))}
+          />
           <form action={duplicatePresentationAction}>
             <button
               type="submit"
