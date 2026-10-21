@@ -37,6 +37,8 @@ export type ProposalWriteArgs = {
   revisionSummary: string | null;
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
+  validUntil: string | null; // YYYY-MM-DD: rates good until / contract by
+  taxIncluded: boolean | null; // rates include taxes and fees; null = not stated
   // The amenities the offer states; the hotel's profile covers the rest.
   amenities: ProposalAmenityArgs[];
   nights: ProposalNightArgs[];
@@ -64,6 +66,9 @@ export type ProposalSnapshot = {
   notes: string | null;
   allowedAttrition: string | null;
   guaranteedRevenue: string | null;
+  // Absent from snapshots taken before these were recorded.
+  validUntil?: string | null;
+  taxIncluded?: boolean | null;
   // Older snapshots hold the labels ticked on the proposal (read as Confirmed).
   amenities: { label: string; status: AmenityStatus; note: string | null }[] | string[];
   // Requested and unasked concessions alike, by label. Absent from
@@ -93,6 +98,7 @@ function validate(args: ProposalWriteArgs) {
     throw new Error("Allowed attrition must be between 0 and 100");
   }
   if (args.guaranteedRevenue != null && args.guaranteedRevenue < 0) throw new Error("Guaranteed revenue cannot be negative");
+  if (args.validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(args.validUntil)) throw new Error(`Invalid date: ${args.validUntil}`);
   const keys = new Set(nightKeys(args.checkIn, args.checkOut));
   for (const n of args.nights) {
     if (!keys.has(n.night)) throw new Error(`Night ${n.night} is outside the stay`);
@@ -132,6 +138,8 @@ function scalarData(args: ProposalWriteArgs) {
     revision: args.revision,
     allowedAttrition: args.allowedAttrition,
     guaranteedRevenue: args.guaranteedRevenue,
+    validUntil: args.validUntil ? dateFromKey(args.validUntil) : null,
+    taxIncluded: args.taxIncluded,
   };
 }
 
@@ -161,6 +169,8 @@ export function snapshotOf(p: ProposalWithChildren): ProposalSnapshot {
     notes: p.notes,
     allowedAttrition: dec(p.allowedAttrition),
     guaranteedRevenue: dec(p.guaranteedRevenue),
+    validUntil: day(p.validUntil),
+    taxIncluded: p.taxIncluded,
     amenities: [...p.amenities].sort((a, b) => a.label.localeCompare(b.label)).map((a) => ({ label: a.label, status: a.status, note: a.note })),
     concessions: p.concessions
       .map((c) => ({ label: c.concession?.label ?? c.label ?? "", offered: c.offered, met: c.met }))
@@ -182,6 +192,8 @@ const FIELD_LABELS: [keyof ProposalSnapshot, string][] = [
   ["notes", "Notes"],
   ["allowedAttrition", "Allowed attrition %"],
   ["guaranteedRevenue", "Guaranteed revenue"],
+  ["validUntil", "Valid until"],
+  ["taxIncluded", "Rates include taxes"],
 ];
 
 const show = (v: unknown): string | null => (v == null || v === "" ? null : typeof v === "boolean" ? (v ? "Yes" : "No") : String(v));
@@ -413,6 +425,8 @@ export function toProposalValues(p: Omit<ProposalWithChildren, "concessions"> & 
     guestType: p.guestType,
     venueId: p.venueId,
     revision: p.revision,
+    validUntil: day(p.validUntil),
+    taxIncluded: p.taxIncluded,
   };
 }
 

@@ -38,6 +38,9 @@ export type ProposalOffer = {
   charges: { chargeType: string; amount: number | null; scope: ChargeScope | null }[];
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
+  // Older reads have neither.
+  validUntil?: string | null; // rates good until / contract by
+  taxIncluded?: boolean | null; // rates include taxes and fees; null = not stated
   // Amenities the offer confirms or says are unavailable. Older reads hold
   // bare labels (read as confirmed): see offerAmenities.
   amenities: OfferAmenity[] | string[];
@@ -189,6 +192,8 @@ const offerSchema = object({
   },
   allowedAttrition: num,
   guaranteedRevenue: num,
+  validUntil: str,
+  taxIncluded: { type: "string", enum: ["", "INCLUDED", "EXCLUDED"] },
   amenities: { type: "array", items: object({ label: str, status: { type: "string", enum: ["CONFIRMED", "UNAVAILABLE"] }, note: str }) },
   concessions: {
     type: "array",
@@ -276,6 +281,8 @@ function fromWire(raw: unknown): InboundProposal {
             charges: o.charges.map((c) => ({ ...c, amount: numOrNull(c.amount) })),
             allowedAttrition: numOrNull(o.allowedAttrition),
             guaranteedRevenue: numOrNull(o.guaranteedRevenue),
+            validUntil: /^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil ?? "")) ? (o.validUntil as string) : null,
+            taxIncluded: (o.taxIncluded as unknown) === "INCLUDED" ? true : (o.taxIncluded as unknown) === "EXCLUDED" ? false : null,
           }
         : null,
     decline: p.kind === "RFP_DECLINE" ? p.decline : null,
@@ -312,18 +319,20 @@ For RFP_PROPOSAL, fill "offer":
 - submittedOn: the date of the offer. checkIn / checkOut: the first night and the departure day (the day after the last night).
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types when one fits, else "" for run of house / all types.
 - charges: other fees the hotel lists (resort fee, parking, deposits), with amount and scope when given.
+- validUntil: the offer's deadline, YYYY-MM-DD: the date the rates are good until or the contract must be signed by (the earlier when both are given), or "".
+- taxIncluded: INCLUDED when the offer says its rates include taxes and fees, EXCLUDED when it says they don't ("plus tax", "taxes not included"), "" when it doesn't say.
 - allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee in dollars, if stated.
 - amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"). note is "" unless it tells the reader something the label doesn't: dates, hours, limits, a fee, a condition ("closed Apr 3–10", "6–9:30 am, 2 per room", "$35/night"). Never restate the label ("Business Center" → ""). Leave out amenities the offer doesn't mention; never guess.
 - An inclusion such as breakfast, Wi-Fi or parking is an amenity only when the property gives it to every guest. When the offer ties it to this group's rate or package ("rate includes breakfast for two", "group rate includes parking"), it's a concession (offeredConcessions, or the RFP's matching concession), not an amenity. When you can't tell which, list it as an amenity with note "Rate includes it; unclear whether standard for all guests".
 - Concessions are what's given or negotiated for this group (comp rooms, a reduced valet rate, meal vouchers, waived fees, upgrades). One service can be both: valet parking is an amenity, a reduced valet rate a concession.
 - concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
 - offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
-- hotelNotes: anything else in the offer a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly.
+- hotelNotes: only terms the fields above can't hold that a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly; often "". Never restate what the fields already carry: dates, rooms and rates, taxes, the deadline, attrition, amenities, concessions, whether it answers an RFP. Don't note what the offer leaves out, except space or services the RFP it answers asked for ("No meeting space offered" only when the RFP requested meeting space). Don't mention who forwarded it.
 - hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
 
 For RFP_DECLINE, fill "decline": rfpId and venueId from the candidates (venueId should be one of that RFP's recipients), and the reason in a few words.
 
-summary: one short line saying what the message is ("Hilton pickup report, 42 reservations as of Oct 20"). notes: anything a reviewer should check (ambiguous dates, totals that don't add up, an unclear block), else "".`;
+summary: one short line saying what the message is ("Hilton pickup report, 42 reservations as of Oct 20"). notes: only what a reviewer must check that the proposed record doesn't already show (totals that don't add up, a block you couldn't tell apart, a date the message contradicts itself on), else "". Not ambiguity the record resolves (quoted dates the night-by-night grid makes plain), not what's merely absent, not that it answers no RFP, and not forwarding by staff.`;
 
 function blockText(b: ParseBlock): string {
   const types = b.roomTypes.map((t) => t ?? "Run of house").join(", ") || "none set";
@@ -499,6 +508,8 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
     charges: o.charges.filter((c) => c.chargeType?.trim()),
     allowedAttrition: o.allowedAttrition != null && o.allowedAttrition <= 100 ? o.allowedAttrition : null,
     guaranteedRevenue: o.guaranteedRevenue,
+    validUntil: o.validUntil ?? null,
+    taxIncluded: o.taxIncluded ?? null,
     amenities: offerAmenities(o)
       .filter((a, i, all) => amenities.has(a.label) && ["CONFIRMED", "UNAVAILABLE"].includes(a.status) && all.findIndex((x) => x.label === a.label) === i)
       // A note that only restates the label adds nothing.

@@ -568,6 +568,8 @@ export const rfpTools: McpToolDefinition[] = [
         },
         allowedAttrition: { type: ["number", "null"] },
         guaranteedRevenue: { type: ["number", "null"] },
+        validUntil: { type: ["string", "null"], description: "The offer's deadline (rates good until / contract by), YYYY-MM-DD." },
+        taxIncluded: { type: ["boolean", "null"], description: "Whether the quoted rates include taxes and fees; null when not stated." },
         amenities: {
           type: "array",
           description: "Amenities the offer states: { label (hotel_amenity), status CONFIRMED | UNAVAILABLE, note }.",
@@ -647,6 +649,8 @@ export const rfpTools: McpToolDefinition[] = [
         revisionSummary: null,
         allowedAttrition: typeof args.allowedAttrition === "number" ? args.allowedAttrition : null,
         guaranteedRevenue: typeof args.guaranteedRevenue === "number" ? args.guaranteedRevenue : null,
+        validUntil: str("validUntil") ?? null,
+        taxIncluded: typeof args.taxIncluded === "boolean" ? args.taxIncluded : null,
         amenities,
         nights: Array.isArray(args.nights)
           ? (args.nights as Record<string, unknown>[]).map((n) => ({

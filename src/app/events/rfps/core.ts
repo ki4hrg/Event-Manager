@@ -406,6 +406,8 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
         rfpBlockId: true,
         allowedAttrition: true,
         guaranteedRevenue: true,
+        validUntil: true,
+        taxIncluded: true,
         amenities: { select: { label: true, status: true } },
         venue: { select: { name: true, amenities: true } },
         block: { select: { id: true } },

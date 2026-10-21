@@ -38,6 +38,11 @@ function rfpBase(eventId: string, kind: RfpKind) {
   switch (kind) {
     case "HOTEL":
       return `/events/${eventId}/hotels`;
+    case "AV":
+    case "CATERING":
+    case "PRINT":
+    case "OTHER":
+      return `/events/${eventId}`;
     default: {
       const _exhaustive: never = kind;
       throw new Error(`Unhandled RFP kind: ${_exhaustive}`);

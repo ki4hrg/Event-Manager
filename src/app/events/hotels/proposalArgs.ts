@@ -54,6 +54,9 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     revisionSummary: str("revisionSummary"),
     allowedAttrition: num("allowedAttrition"),
     guaranteedRevenue: num("guaranteedRevenue"),
+    validUntil: str("validUntil"),
+    // "true" / "false"; blank = not stated.
+    taxIncluded: formData.get("taxIncluded") === "true" ? true : formData.get("taxIncluded") === "false" ? false : null,
     amenities: readJson<ProposalAmenityArgs>(formData, "amenities"),
     nights: readJson<ProposalNightArgs>(formData, "nights"),
     charges: readJson<ProposalChargeArgs>(formData, "charges"),

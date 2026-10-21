@@ -89,6 +89,8 @@ const proposalProps = {
   revisionSummary: { type: ["string", "null"], description: "What changed in this revision." },
   allowedAttrition: { type: ["number", "null"], description: "Percent, 0–100." },
   guaranteedRevenue: { type: ["number", "null"] },
+  validUntil: { type: ["string", "null"], description: "The offer's deadline (rates good until / contract by), YYYY-MM-DD." },
+  taxIncluded: { type: ["boolean", "null"], description: "Whether the quoted rates include taxes and fees; null when the offer doesn't say." },
   amenities: {
     type: "array",
     description:
@@ -132,7 +134,7 @@ const proposalProps = {
 
 const PROPOSAL_KEYS = [
   "venueId", "status", "leadSource", "contractType", "guestType", "submittedOn", "checkIn", "checkOut", "declinedReason", "notes",
-  "revision", "revisionSummary", "allowedAttrition", "guaranteedRevenue", "amenities", "nights", "charges", "concessions",
+  "revision", "revisionSummary", "allowedAttrition", "guaranteedRevenue", "validUntil", "taxIncluded", "amenities", "nights", "charges", "concessions",
   "offeredConcessions",
 ] as const satisfies readonly (keyof ProposalWriteArgs)[];
 
@@ -310,7 +312,7 @@ export const hotelTools: McpToolDefinition[] = [
       const blank: ProposalWriteArgs = {
         venueId: "", status: "", leadSource: null, contractType: null, guestType: null, submittedOn: null, checkIn: null,
         checkOut: null, declinedReason: null, notes: null, revision: 1, revisionSummary: null, allowedAttrition: null,
-        guaranteedRevenue: null, amenities: [], nights: [], charges: [],
+        guaranteedRevenue: null, validUntil: null, taxIncluded: null, amenities: [], nights: [], charges: [],
       };
       return createHotelProposalCore(requireString(args, "eventId"), merged(blank, args, PROPOSAL_KEYS), userId);
     },

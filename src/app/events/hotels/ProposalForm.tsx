@@ -42,6 +42,8 @@ export type ProposalValues = {
   revision: number;
   allowedAttrition: string | null;
   guaranteedRevenue: string | null;
+  validUntil: string | null;
+  taxIncluded: boolean | null;
   // The amenities the offer states (Confirmed / Unavailable); the hotel's
   // profile covers the rest.
   amenities: ProposalAmenity[];
@@ -208,6 +210,8 @@ function Details({
     ["Check-out", formatDateKey(values.checkOut)],
     ["Allowed attrition", values.allowedAttrition != null ? `${Number(values.allowedAttrition)}%` : "—"],
     ["Guaranteed revenue", formatMoney(values.guaranteedRevenue)],
+    ["Valid until", formatDateKey(values.validUntil)],
+    ["Rates include taxes", values.taxIncluded == null ? "—" : values.taxIncluded ? "Yes" : "No"],
     ["Amenities", <AmenityList key="amenities" profile={profile} stated={values.amenities} addToHotel={addToHotel} />],
   ];
   if (values.declinedReason) rows.push(["Declined reason", values.declinedReason]);
@@ -671,6 +675,21 @@ export function ProposalForm({
               defaultValue={initial?.guaranteedRevenue ?? ""}
               className={inputClass}
             />
+          </Field>
+          <Field label="Valid until" htmlFor="p-validUntil">
+            <input id="p-validUntil" type="date" name="validUntil" defaultValue={initial?.validUntil ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Rates include taxes" htmlFor="p-taxIncluded">
+            <select
+              id="p-taxIncluded"
+              name="taxIncluded"
+              defaultValue={initial?.taxIncluded == null ? "" : String(initial.taxIncluded)}
+              className={inputClass}
+            >
+              <option value="">Not stated</option>
+              <option value="false">No, plus taxes</option>
+              <option value="true">Yes</option>
+            </select>
           </Field>
         </div>
         <div>

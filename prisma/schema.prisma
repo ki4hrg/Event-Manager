@@ -44,6 +44,7 @@ model User {
   updatedExhibitBooths       ExhibitBooth[]           @relation("ExhibitBoothUpdatedBy")
   updatedHotelProposals      HotelProposal[]          @relation("HotelProposalUpdatedBy")
   updatedRfps                Rfp[]                    @relation("RfpUpdatedBy")
+  updatedVendorQuotes        VendorQuote[]            @relation("VendorQuoteUpdatedBy")
   updatedHotelBlocks         HotelBlock[]             @relation("HotelBlockUpdatedBy")
   hotelPickupImports         HotelPickupImport[]
   hotelProposalVersions      HotelProposalVersion[]
@@ -464,6 +465,7 @@ model Event {
   exhibitBooths           ExhibitBooth[]
   hotelProposals          HotelProposal[]
   rfps                    Rfp[]
+  vendorQuotes            VendorQuote[]
   // Local part of the event's inbox address, `<tenant.slug>.<inboxSlug>@<domain>`
   // (see docs/proposals/email-ingest.md). Null: no inbox.
   inboxSlug               String?
@@ -778,6 +780,7 @@ model AVOrder {
   equipmentItems    EquipmentItem[]
   vendors           AVOrderVendor[]
   files             FileUpload[]
+  rfpLineItems      RfpLineItem[]
   updatedById       String?
   updatedBy         User?                 @relation("AVOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt         DateTime              @default(now())
@@ -844,6 +847,7 @@ model CateringOrder {
   vendors                    CateringOrderVendor[]
   files                      FileUpload[]
   rfpSpaceRequests           RfpSpaceRequest[]
+  rfpLineItems               RfpLineItem[]
   updatedById                String?
   updatedBy                  User?                          @relation("CateringOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                  DateTime                       @default(now())
@@ -901,6 +905,7 @@ model EquipmentItem {
   operatorContact     Contact?           @relation("EquipmentItemOperatorContact", fields: [operatorContactId], references: [id], onDelete: SetNull)
   notes               String?
   sortOrder           Int                @default(0)
+  rfpLineItems        RfpLineItem[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -1012,6 +1017,7 @@ model CateringOrderLineItem {
   quantity        Int?
   notes           String?
   sortOrder       Int           @default(0)
+  rfpLineItems    RfpLineItem[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -1332,6 +1338,7 @@ model Vendor {
   specFirstAidFor             EventSpecification[]       @relation("SpecFirstAidVendor")
   specTransportationFor       EventSpecification[]       @relation("SpecTransportationVendor")
   rfpRecipients               RfpRecipient[]
+  vendorQuotes                VendorQuote[]
   updatedById                 String?
   updatedBy                   User?                      @relation("VendorUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                   @default(now())
@@ -1615,6 +1622,7 @@ model PrintOrder {
   items            PrintItem[]
   vendors          PrintOrderVendor[]
   files            FileUpload[]
+  rfpLineItems     RfpLineItem[]
   updatedById      String?
   updatedBy        User?                @relation("PrintOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt        DateTime             @default(now())
@@ -1656,6 +1664,7 @@ model PrintItem {
   printerContact     Contact?         @relation("PrintItemPrinterContact", fields: [printerContactId], references: [id], onDelete: SetNull)
   notes              String?
   sortOrder          Int              @default(0)
+  rfpLineItems       RfpLineItem[]
 
   // Where this item comes from. Print items can be sourced from a container but
   // can't *be* one — container lines are supply-side only.
@@ -1819,6 +1828,8 @@ model FileUpload {
   // storedName) rather than moving it, so the item keeps its own copy.
   inboundEmailId     String?
   inboundEmail       InboundEmail?     @relation(fields: [inboundEmailId], references: [id], onDelete: Cascade)
+  vendorQuoteId      String?
+  vendorQuote        VendorQuote?      @relation(fields: [vendorQuoteId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -1833,6 +1844,7 @@ model FileUpload {
   @@index([hotelProposalId])
   @@index([inboundEmailId])
   @@index([rfpId])
+  @@index([vendorQuoteId])
 }
 
 model ShareLink {
@@ -2463,6 +2475,10 @@ model HotelProposal {
   revision          Int                       @default(1)
   allowedAttrition  Decimal?                  @db.Decimal(5, 2)
   guaranteedRevenue Decimal?                  @db.Decimal(10, 2)
+  // Rates good until / contract by, as the offer states it.
+  validUntil        DateTime?                 @db.Date
+  // Whether the quoted rates include taxes and fees; null = not stated.
+  taxIncluded       Boolean?
   // Amenities this offer confirms or says are unavailable; the rest are the
   // hotel's profile, unstated.
   amenities         HotelProposalAmenity[]
@@ -2671,6 +2687,10 @@ model HotelPickupSnapshot {
 
 enum RfpKind {
   HOTEL
+  AV
+  CATERING
+  PRINT
+  OTHER
 }
 
 enum RfpStatus {
@@ -2684,6 +2704,8 @@ model Rfp {
   eventId              String
   event                Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   kind                 RfpKind
+  // OTHER: what is being bought (an rfp_service option label).
+  service              String?
   title                String
   status               RfpStatus          @default(DRAFT)
   responseDue          DateTime?          @db.Date
@@ -2726,6 +2748,8 @@ model Rfp {
   concessions          RfpConcession[]
   hotelBlocks          RfpHotelBlock[]
   hotelProposals       HotelProposal[]
+  lineItems            RfpLineItem[]
+  quotes               VendorQuote[]
   files                FileUpload[]
   updatedById          String?
   updatedBy            User?              @relation("RfpUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -2891,6 +2915,106 @@ model RfpHotelBlockNight {
   rooms    Int
 
   @@index([blockId])
+}
+
+// One thing a vendor RFP asks for. Copied from an order (the source ids
+// remember which; SetNull) or typed in. group is the heading it prints under
+// (the order's name by default); day / times are event-local.
+model RfpLineItem {
+  id                 String                 @id @default(cuid())
+  rfpId              String
+  rfp                Rfp                    @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  group              String?
+  description        String
+  quantity           Int?
+  unit               String?
+  day                DateTime?              @db.Date
+  endDay             DateTime?              @db.Date
+  startTime          String?
+  endTime            String?
+  notes              String?
+  avOrderId          String?
+  avOrder            AVOrder?               @relation(fields: [avOrderId], references: [id], onDelete: SetNull)
+  cateringOrderId    String?
+  cateringOrder      CateringOrder?         @relation(fields: [cateringOrderId], references: [id], onDelete: SetNull)
+  printOrderId       String?
+  printOrder         PrintOrder?            @relation(fields: [printOrderId], references: [id], onDelete: SetNull)
+  equipmentItemId    String?
+  equipmentItem      EquipmentItem?         @relation(fields: [equipmentItemId], references: [id], onDelete: SetNull)
+  printItemId        String?
+  printItem          PrintItem?             @relation(fields: [printItemId], references: [id], onDelete: SetNull)
+  cateringLineItemId String?
+  cateringLineItem   CateringOrderLineItem? @relation(fields: [cateringLineItemId], references: [id], onDelete: SetNull)
+  sortOrder          Int                    @default(0)
+  quoteLines         VendorQuoteLine[]
+
+  @@index([rfpId])
+  @@index([avOrderId])
+  @@index([cateringOrderId])
+  @@index([printOrderId])
+  @@index([equipmentItemId])
+  @@index([printItemId])
+  @@index([cateringLineItemId])
+}
+
+enum QuoteStatus {
+  RECEIVED
+  ACCEPTED
+  DECLINED
+}
+
+// A vendor's price for event work: an answer to a vendor RFP, or standalone.
+// Event-scoped (tenant via the event). Total = the lines + the fees.
+model VendorQuote {
+  id                String            @id @default(cuid())
+  eventId           String
+  event             Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  vendorId          String
+  vendor            Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  rfpId             String?
+  rfp               Rfp?              @relation(fields: [rfpId], references: [id], onDelete: SetNull)
+  status            QuoteStatus       @default(RECEIVED)
+  reference         String? // the vendor's quote number
+  submittedOn       DateTime?         @db.Date
+  validUntil        DateTime?         @db.Date
+  revision          Int               @default(1)
+  serviceCharge     Decimal?          @db.Decimal(10, 2)
+  tax               Decimal?          @db.Decimal(10, 2)
+  otherFees         Decimal?          @db.Decimal(10, 2)
+  depositAmount     Decimal?          @db.Decimal(10, 2)
+  depositDue        DateTime?         @db.Date
+  cancellationTerms String?
+  notes             String?
+  lines             VendorQuoteLine[]
+  files             FileUpload[]
+  updatedById       String?
+  updatedBy         User?             @relation("VendorQuoteUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([eventId])
+  @@index([vendorId])
+  @@index([rfpId])
+  @@index([updatedById])
+}
+
+// One priced line of a quote: an answer to an RFP line (rfpLineItemId) or
+// an extra the vendor added. amount is as quoted; else quantity × unitPrice.
+model VendorQuoteLine {
+  id            String       @id @default(cuid())
+  quoteId       String
+  quote         VendorQuote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  rfpLineItemId String?
+  rfpLineItem   RfpLineItem? @relation(fields: [rfpLineItemId], references: [id], onDelete: SetNull)
+  description   String
+  quantity      Decimal?     @db.Decimal(10, 2)
+  unitPrice     Decimal?     @db.Decimal(10, 2)
+  amount        Decimal?     @db.Decimal(10, 2)
+  notes         String?
+  sortOrder     Int          @default(0)
+
+  @@index([quoteId])
+  @@index([rfpLineItemId])
 }
 
 // ---------------------------------------------------------------------------
