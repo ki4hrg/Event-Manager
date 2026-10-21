@@ -275,6 +275,7 @@ export function ProposalForm({
   draft,
   rfpChoices,
   newHotel,
+  canAddHotel = false,
   concessions = [],
   offeredConcessions = [],
   addAmenityToHotel,
@@ -288,8 +289,10 @@ export function ProposalForm({
   fromRfp?: ProposalTemplate;
   // An emailed offer: pick the RFP block it answers, or none (standalone).
   rfpChoices?: RfpChoice[];
-  // An emailed offer from a hotel not in Venues: offered as a new hotel.
+  // An emailed offer from a hotel not in Venues: "New hotel", prefilled and picked.
   newHotel?: OfferHotel | null;
+  // VENUES WRITE: "New hotel" is offered, creating a lodging venue on save.
+  canAddHotel?: boolean;
   concessions?: ConcessionAnswer[];
   // Concessions offered unasked.
   offeredConcessions?: OfferedConcession[];
@@ -317,7 +320,7 @@ export function ProposalForm({
   );
 
   const [rfpBlockId, setRfpBlockId] = useState(fromRfp?.rfpBlockId ?? "");
-  const [venueId, setVenueId] = useState(initial?.venueId || defaultVenueId || (newHotel ? NEW_HOTEL : ""));
+  const [venueId, setVenueId] = useState(initial?.venueId || defaultVenueId || (newHotel && canAddHotel ? NEW_HOTEL : ""));
   const profileOf = (id: string) => choices.venues.find((v) => v.id === id)?.amenities ?? [];
   const [amenities, setAmenities] = useState<ProposalAmenity[]>(initial?.amenities ?? []);
   const [addedAmenities, setAddedAmenities] = useState<string[]>([]);
@@ -441,7 +444,7 @@ export function ProposalForm({
           <Field label="Hotel *" htmlFor="p-venueId" wide>
             <select id="p-venueId" name="venueId" required value={venueId} onChange={(e) => pickVenue(e.target.value)} className={inputClass}>
               <option value="">Select a hotel</option>
-              {newHotel && <option value={NEW_HOTEL}>New hotel{newHotel.name ? `: ${newHotel.name}` : ""}</option>}
+              {canAddHotel && !isEdit && <option value={NEW_HOTEL}>New hotel</option>}
               {choices.venues.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.label}
@@ -450,7 +453,7 @@ export function ProposalForm({
               ))}
             </select>
           </Field>
-          {newHotel && venueId === NEW_HOTEL && (
+          {venueId === NEW_HOTEL && (
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
               {NEW_HOTEL_FIELDS.map((f) => (
                 <Field key={f.key} label={f.label} htmlFor={`p-newHotel-${f.key}`} wide={f.wide}>
@@ -459,7 +462,7 @@ export function ProposalForm({
                     name={`newHotel.${f.key}`}
                     type={f.type ?? "text"}
                     required={f.key === "name"}
-                    defaultValue={newHotel[f.key] ?? ""}
+                    defaultValue={newHotel?.[f.key] ?? ""}
                     className={inputClass}
                   />
                 </Field>

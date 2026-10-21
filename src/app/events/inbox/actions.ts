@@ -14,7 +14,7 @@ import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumn
 import { offerAmenities, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
-import { NEW_HOTEL, readProposal } from "@/app/events/hotels/proposalArgs";
+import { readNewHotel, readProposal } from "@/app/events/hotels/proposalArgs";
 import { getProposalFormChoices } from "@/app/events/hotels/actions";
 import type { ConcessionAnswer, OfferedConcession, ProposalValues, RfpChoice } from "@/app/events/hotels/ProposalForm";
 import { toProposalValues } from "@/app/events/hotels/core";
@@ -153,28 +153,13 @@ export async function applyInboundCounts(id: string, eventId: string, blockId: s
   revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
 }
 
-const OFFER_HOTEL_KEYS = [
-  "name",
-  "address",
-  "city",
-  "state",
-  "zip",
-  "contactFirstName",
-  "contactLastName",
-  "contactTitle",
-  "contactEmail",
-  "contactPhone",
-] as const satisfies readonly (keyof OfferHotel)[];
 
 // A hotel's offer as reviewed in the proposal form: creates the proposal (and
 // the hotel, when it's a new one) and opens it.
 export async function applyInboundOffer(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   const args = readProposal(formData);
-  const newHotel =
-    args.venueId === NEW_HOTEL
-      ? (Object.fromEntries(OFFER_HOTEL_KEYS.map((k) => [k, (formData.get(`newHotel.${k}`) as string) || null])) as OfferHotel)
-      : null;
+  const newHotel = readNewHotel(formData);
   const proposalId = await applyInboundOfferCore(id, eventId, args, newHotel, session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);

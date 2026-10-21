@@ -7,10 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import {
   createHotelProposalCore,
+  createProposalHotelCore,
   deleteHotelProposalCore,
   updateHotelProposalCore,
 } from "./core";
-import { readJson, readProposal } from "./proposalArgs";
+import { readJson, readNewHotel, readProposal } from "./proposalArgs";
 import {
   clearPickupCore,
   createHotelBlockCore,
@@ -106,7 +107,15 @@ export async function getProposalFormChoices(eventId: string) {
 
 export async function createHotelProposal(eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const proposal = await createHotelProposalCore(eventId, readProposal(formData), session.user.id);
+  const args = readProposal(formData);
+  const newHotel = readNewHotel(formData);
+  if (newHotel) {
+    // A new hotel's profile starts with the amenities the proposal confirms.
+    const confirmed = args.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label);
+    args.venueId = (await createProposalHotelCore(eventId, newHotel, confirmed, session.user.id)).id;
+    revalidatePath("/venues");
+  }
+  const proposal = await createHotelProposalCore(eventId, args, session.user.id);
   revalidatePath(`/events/${eventId}/hotels`);
   redirect(`/events/${eventId}/hotels/proposals/${proposal.id}?success=Proposal created`);
 }

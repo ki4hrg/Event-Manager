@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
+import type { OfferHotel } from "@/lib/inboundParse";
+import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
 
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
 export type ProposalChargeArgs = { chargeType: string; amount: number | null; scope: HotelChargeScope | null };
@@ -412,4 +414,37 @@ export function toProposalValues(p: Omit<ProposalWithChildren, "concessions"> & 
     venueId: p.venueId,
     revision: p.revision,
   };
+}
+
+// A hotel added from the proposal form ("New hotel"; prefilled from an emailed
+// offer): a lodging venue with its sales contact. A venue with the same name
+// is refused, so it gets picked instead. VENUES WRITE is checked by
+// createVenueCore.
+export async function createProposalHotelCore(eventId: string, hotel: OfferHotel, amenities: string[], userId: string) {
+  const tenantId = await requireEventTenantId(eventId);
+  const name = hotel.name?.trim();
+  if (!name) throw new Error("The hotel needs a name");
+  const same = await prisma.venue.findFirst({
+    where: { tenantId, name: { equals: name, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (same) throw new Error(`${name} is already in Venues; choose it as the hotel`);
+  const clean = (v: string | null) => v?.trim() || null;
+  const venue = await createVenueCore(
+    { name, address: clean(hotel.address), city: clean(hotel.city), state: clean(hotel.state), zip: clean(hotel.zip), country: null, notes: null, isLodging: true, amenities },
+    userId,
+    tenantId,
+  );
+  const first = clean(hotel.contactFirstName);
+  const last = clean(hotel.contactLastName);
+  if (first || last) {
+    const link = await createAndAddVenueContactCore(
+      { venueId: venue.id, firstName: first ?? "", lastName: last ?? "", email: clean(hotel.contactEmail), organization: name, role: clean(hotel.contactTitle) },
+      userId,
+      tenantId,
+    );
+    const phone = clean(hotel.contactPhone);
+    if (phone) await prisma.contact.update({ where: { id: link.contactId, tenantId }, data: { phone } });
+  }
+  return venue;
 }
