@@ -10,6 +10,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
+import { mergeHotelLabel, offListHotelLabels, type HotelLabelCategory } from "@/lib/hotelLabels";
+import { labelKey } from "@/lib/hotels";
 
 export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_guest_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession";
 
@@ -62,9 +64,22 @@ export async function getAllOptions() {
   };
 }
 
+// Lists whose options can be merged into one another (every use moves over).
+const MERGEABLE: readonly OptionCategory[] = ["hotel_amenity", "rfp_concession"] satisfies HotelLabelCategory[];
+const isMergeable = (category: OptionCategory): category is HotelLabelCategory => MERGEABLE.includes(category);
+
+// One spelling per list: a label matching another option but for case or
+// spacing is refused (labelKey).
+async function assertUniqueLabel(tenantId: string, category: OptionCategory, label: string, exceptId?: string) {
+  const options = await prisma.customOption.findMany({ where: { tenantId, category }, select: { id: true, label: true } });
+  const same = options.find((o) => o.id !== exceptId && labelKey(o.label) === labelKey(label));
+  if (same) throw new Error(`"${same.label}" is already in this list${isMergeable(category) ? "; merge into it instead" : ""}`);
+}
+
 export async function createOption(category: OptionCategory, formData: FormData) {
   const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "WRITE");
-  const label = formData.get("label") as string;
+  const label = (formData.get("label") as string).trim();
+  await assertUniqueLabel(tenantId, category, label);
   const color = formData.get("color") as string;
   const group = formData.get("group") as string | null;
   const models = formData.getAll("models") as string[];
@@ -92,7 +107,7 @@ export async function createOption(category: OptionCategory, formData: FormData)
 
 export async function updateOption(id: string, formData: FormData) {
   const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "WRITE");
-  const label = formData.get("label") as string;
+  const label = (formData.get("label") as string).trim();
   const color = formData.get("color") as string;
   const group = formData.get("group") as string | null;
   const models = formData.getAll("models") as string[];
@@ -102,6 +117,7 @@ export async function updateOption(id: string, formData: FormData) {
     select: { label: true, category: true },
   });
   if (!existing) throw new Error("Option not found");
+  await assertUniqueLabel(tenantId, existing.category as OptionCategory, label, id);
 
   const labelChanged = existing.label !== label;
 
@@ -304,14 +320,7 @@ async function propagateLabelRename(
       await tx.rfpHotelBlock.updateMany({ where: { guestType: oldLabel, rfp: inTenant }, data: { guestType: newLabel } });
       break;
     case "hotel_amenity":
-      await tx.$executeRaw`
-        UPDATE "HotelProposal" p SET "amenities" = array_replace(p."amenities", ${oldLabel}, ${newLabel})
-        FROM "Event" e
-        WHERE e."id" = p."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(p."amenities")`;
-      await tx.$executeRaw`
-        UPDATE "Rfp" r SET "amenities" = array_replace(r."amenities", ${oldLabel}, ${newLabel})
-        FROM "Event" e
-        WHERE e."id" = r."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(r."amenities")`;
+      await mergeHotelLabel(tx, tenantId, category, oldLabel, newLabel);
       break;
     case "hotel_brand":
       await tx.venue.updateMany({ where: { brand: oldLabel, tenantId }, data: { brand: newLabel } });
@@ -325,7 +334,7 @@ async function propagateLabelRename(
         WHERE e."id" = r."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(r."areas")`;
       break;
     case "rfp_concession":
-      await tx.rfpConcession.updateMany({ where: { label: oldLabel, rfp: inTenant }, data: { label: newLabel } });
+      await mergeHotelLabel(tx, tenantId, category, oldLabel, newLabel);
       break;
     case "hotel_region":
       // An area's group is its region label.
@@ -374,6 +383,42 @@ export async function deleteOption(id: string) {
     await tx.customOption.delete({ where: { id, tenantId } });
   });
 
+  revalidatePath("/settings");
+}
+
+// Folds one option into another: every use of its label moves to the other's,
+// then it's deleted.
+export async function mergeOption(id: string, intoId: string) {
+  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "DELETE");
+  const [from, into] = await Promise.all([
+    prisma.customOption.findFirst({ where: { id, tenantId }, select: { category: true, label: true, isSystem: true } }),
+    prisma.customOption.findFirst({ where: { id: intoId, tenantId }, select: { category: true, label: true } }),
+  ]);
+  if (!from || !into || id === intoId) throw new Error("Option not found");
+  const category = from.category as OptionCategory;
+  if (into.category !== category || !isMergeable(category)) throw new Error("These options can't be merged");
+  if (from.isSystem) throw new Error("Cannot merge away a system option.");
+  await prisma.$transaction(async (tx) => {
+    await mergeHotelLabel(tx, tenantId, category, from.label, into.label);
+    await tx.customOption.delete({ where: { id, tenantId } });
+  });
+  revalidatePath("/settings");
+}
+
+// Labels in use that aren't on a mergeable list, for mapping onto it.
+export async function getOffListLabels(category: OptionCategory) {
+  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "VIEW");
+  if (!isMergeable(category)) return [];
+  return offListHotelLabels(tenantId, category);
+}
+
+// Moves every use of an off-list label onto a listed option.
+export async function mapOffListLabel(category: OptionCategory, label: string, intoId: string) {
+  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "WRITE");
+  if (!isMergeable(category)) throw new Error("This list has no off-list labels");
+  const into = await prisma.customOption.findFirst({ where: { id: intoId, tenantId, category }, select: { label: true } });
+  if (!into) throw new Error("Option not found");
+  await prisma.$transaction((tx) => mergeHotelLabel(tx, tenantId, category, label, into.label));
   revalidatePath("/settings");
 }
 

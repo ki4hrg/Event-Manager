@@ -8,6 +8,7 @@ import { eventVenuesInclude } from "@/lib/eventVenues";
 import { functionStartKey } from "@/lib/esg/scheduleKey";
 import { buildFbAttendanceGrid, fbGridHasData } from "@/lib/esg/fbGrid";
 import { loadHousingInput } from "@/lib/esg/housing";
+import { loadHotelConcessions } from "@/lib/esg/hotelConcessions";
 import { computeEsgCompleteness } from "@/lib/esg/completeness";
 import { isBlankText } from "@/lib/esg/format";
 import { deriveFunctionSpace } from "@/lib/esg/functionSpace";
@@ -192,7 +193,10 @@ export async function loadEsgNarrativeData(eventId: string) {
     ...storedNarrative,
     ...Object.fromEntries(Object.entries(inheritedNarrative).map(([k, v]) => [k, v.value])),
   };
-  const housing = await loadHousingInput(eventId, spec ? { ...spec, narrative } : null);
+  const [housing, hotelConcessions] = await Promise.all([
+    loadHousingInput(eventId, spec ? { ...spec, narrative } : null),
+    loadHotelConcessions(eventId),
+  ]);
 
   const signatories = keyStaff.filter((k) => !!k.approvalAuthority);
   const supplierContacts = [
@@ -226,6 +230,7 @@ export async function loadEsgNarrativeData(eventId: string) {
     fbAttendance: fbGridHasData(fbGrid),
     signatories: signatories.length > 0,
     housingBlocks: housing.roomBlocks.length > 0,
+    hotelConcessions: hotelConcessions.length > 0,
     exhibitBooths: boothCount > 0,
   };
   const gridCounts: Record<SpecGrid, number> = {
@@ -264,6 +269,7 @@ export async function loadEsgNarrativeData(eventId: string) {
     },
     fbGrid,
     housing,
+    hotelConcessions,
     boothCount,
     derived,
     gridCounts,

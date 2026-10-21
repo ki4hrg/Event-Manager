@@ -53,3 +53,7 @@
 - [forms] A <fieldset> wrapping an overflow-x-auto table needs min-w-0 (fieldsets default to min-content width), or the table widens the page at phone width (ProposalForm Fieldset)
 - [hotels] Amenities = what the property has or provides, incl. shuttle/valet (hotel_amenity); concessions = what it gives the group free or discounted (rfp_concession list, now titled Concessions). HotelProposalConcession holds both requested answers (concessionId) and unasked offers (label), CHECK-constrained to one; VenueConcession seeds new proposals
 - [react] Sibling components keyed on the same value (both `key={venue.updatedAt...}`) render one twice; prefix the key when two siblings remount on the same save (src/app/venues/[id]/page.tsx)
+- [hotels] Amenities live on the hotel (Venue.amenities, filterable); proposals store only Confirmed/Unavailable statuses against that profile (HotelProposalAmenity). Superseded the per-hotel "standing concessions" idea before it shipped
+- [data] Controlled vocabularies: hotel_amenity / rfp_concession writers resolve input via requireListLabels (src/lib/hotelLabels.ts) and refuse off-list labels (keeping ones the record already holds); Settings merges options and maps off-list labels via mergeHotelLabel. Candidate rule for other label lists
+- [settings] createOption/updateOption refuse labels equal but for case/spacing (labelKey) in every list
+- [tooling] Prisma CLI refuses `migrate reset` from an agent without user consent; use a fresh database for a clean migration base instead

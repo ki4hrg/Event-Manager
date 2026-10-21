@@ -461,7 +461,9 @@ export async function applyInboundOfferCore(
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   let proposalId = "";
   await claimAndApply(id, eventId, userId, async () => {
-    const venueId = newHotel ? (await createOfferHotel(eventId, newHotel, userId)).id : args.venueId;
+    // A new hotel's profile starts with the amenities its offer confirms.
+    const confirmed = args.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label);
+    const venueId = newHotel ? (await createOfferHotel(eventId, newHotel, confirmed, userId)).id : args.venueId;
     const proposal = await createHotelProposalCore(eventId, { ...args, venueId }, userId);
     proposalId = proposal.id;
     const files = await inboundAttachments(id);
@@ -488,7 +490,7 @@ export async function applyInboundOfferCore(
 // A hotel an offer came from that the org doesn't have yet: a lodging venue
 // with the offer's contact. A venue with the same name is refused, so it gets
 // picked instead.
-async function createOfferHotel(eventId: string, hotel: OfferHotel, userId: string) {
+async function createOfferHotel(eventId: string, hotel: OfferHotel, amenities: string[], userId: string) {
   const tenantId = await requireEventTenantId(eventId);
   const name = hotel.name?.trim();
   if (!name) throw new Error("The hotel needs a name");
@@ -499,7 +501,7 @@ async function createOfferHotel(eventId: string, hotel: OfferHotel, userId: stri
   if (same) throw new Error(`${name} is already in Venues; choose it as the hotel`);
   const clean = (v: string | null) => v?.trim() || null;
   const venue = await createVenueCore(
-    { name, address: clean(hotel.address), city: clean(hotel.city), state: clean(hotel.state), zip: clean(hotel.zip), country: null, notes: null, isLodging: true },
+    { name, address: clean(hotel.address), city: clean(hotel.city), state: clean(hotel.state), zip: clean(hotel.zip), country: null, notes: null, isLodging: true, amenities },
     userId,
     tenantId,
   );

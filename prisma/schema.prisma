@@ -499,9 +499,10 @@ model Venue {
   isLodging      Boolean         @default(false)
   brand          String?
   area           String?
-  // What the hotel offers every group without negotiating (complimentary
-  // breakfast, Wi-Fi); a new proposal from it starts with them.
-  concessions    VenueConcession[]
+  // hotel_amenity option labels: what the property has or provides as a
+  // matter of course (shuttle, restaurant, complimentary breakfast). The
+  // hotel's profile, filtered on when choosing RFP recipients.
+  amenities      String[]        @default([])
   hotelProposals HotelProposal[]
   rfpRecipients  RfpRecipient[]
   rooms          Room[]
@@ -2462,7 +2463,9 @@ model HotelProposal {
   revision          Int                       @default(1)
   allowedAttrition  Decimal?                  @db.Decimal(5, 2)
   guaranteedRevenue Decimal?                  @db.Decimal(10, 2)
-  amenities         String[]                  @default([]) // hotel_amenity option labels
+  // Amenities this offer confirms or says are unavailable; the rest are the
+  // hotel's profile, unstated.
+  amenities         HotelProposalAmenity[]
   nights            HotelProposalNight[]
   charges           HotelCharge[]
   versions          HotelProposalVersion[]
@@ -2828,28 +2831,33 @@ enum ConcessionMet {
 }
 
 // A proposal's answer to one requested concession of its RFP.
-// A concession in a proposal: an answer to one the RFP requested
-// (concessionId, met), or one the hotel offered unasked (label, no met).
-// A hotel's standing concession: label from the rfp_concession list (or
-// typed), value what it is ("Included", "$10/night").
-model VenueConcession {
-  id        String  @id @default(cuid())
-  venueId   String
-  venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  label     String
-  value     String?
-  sortOrder Int     @default(0)
-
-  @@index([venueId])
+enum AmenityStatus {
+  CONFIRMED // the offer commits to it
+  UNAVAILABLE // the offer says it won't be available for this event
 }
 
+// One amenity as a proposal states it, against the hotel's profile.
+model HotelProposalAmenity {
+  id         String        @id @default(cuid())
+  proposalId String
+  proposal   HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  label      String // hotel_amenity option label
+  status     AmenityStatus
+  note       String? // the offer's wording, dates
+  sortOrder  Int           @default(0)
+
+  @@unique([proposalId, label])
+}
+
+// A concession in a proposal: an answer to one the RFP requested
+// (concessionId, met), or one the hotel offered unasked (label, no met).
 model HotelProposalConcession {
   id           String         @id @default(cuid())
   proposalId   String
   proposal     HotelProposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   concessionId String?
   concession   RfpConcession? @relation(fields: [concessionId], references: [id], onDelete: Cascade)
-  label        String? // rfp_concession option label or typed; unrequested rows only
+  label        String? // rfp_concession option label; unrequested rows only
   offered      String?
   met          ConcessionMet?
   sortOrder    Int            @default(0)

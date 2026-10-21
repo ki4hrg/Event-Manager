@@ -5,6 +5,7 @@ import {
   deleteHotelProposalCore,
   toProposalValues,
   updateHotelProposalCore,
+  type ProposalAmenityArgs,
   type ProposalWriteArgs,
 } from "@/app/events/hotels/core";
 import {
@@ -40,7 +41,7 @@ function merged<T extends object>(current: T, args: Record<string, unknown>, key
       throw new Error(`${String(k)} must be YYYY-MM-DD`);
     }
     if (k === "contractType" && v != null && !CONTRACT_TYPES.has(String(v))) throw new Error("contractType must be CONTRACT or COURTESY");
-    (out as Record<string, unknown>)[k as string] = v === "" ? null : v;
+    (out as Record<string, unknown>)[k as string] = k === "amenities" ? readProposalAmenities(v) : v === "" ? null : v;
   }
   return out;
 }
@@ -88,7 +89,20 @@ const proposalProps = {
   revisionSummary: { type: ["string", "null"], description: "What changed in this revision." },
   allowedAttrition: { type: ["number", "null"], description: "Percent, 0–100." },
   guaranteedRevenue: { type: ["number", "null"] },
-  amenities: { type: "array", items: { type: "string" }, description: "hotel_amenity option labels." },
+  amenities: {
+    type: "array",
+    description:
+      "Amenities this offer states, against the hotel's profile (get_venue): CONFIRMED when the offer commits to one, UNAVAILABLE when it says it won't be available for the event, with the offer's wording or dates as note. label is a hotel_amenity option label. Leave out amenities the offer doesn't mention. Replaces the list.",
+    items: {
+      type: "object",
+      properties: {
+        label: { type: "string" },
+        status: { type: "string", enum: ["CONFIRMED", "UNAVAILABLE"] },
+        note: { type: ["string", "null"] },
+      },
+      required: ["label", "status"],
+    },
+  },
   nights: { type: "array", items: nightSchema, description: "The full room grid (replaces it). Each night must fall in the stay." },
   charges: { type: "array", items: chargeSchema, description: "The full charge list (replaces it)." },
   concessions: {
@@ -129,6 +143,19 @@ function checkOfferedConcessions(v: unknown) {
   }
 }
 
+// amenities as the proposal cores take them; a bare label reads as CONFIRMED.
+export function readProposalAmenities(v: unknown): ProposalAmenityArgs[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v)) throw new Error("amenities must be a list");
+  return v.map((a): ProposalAmenityArgs => {
+    if (typeof a === "string") return { label: a, status: "CONFIRMED", note: null };
+    const { label, status, note } = (a ?? {}) as Record<string, unknown>;
+    if (typeof label !== "string") throw new Error("Each amenity needs a label");
+    if (status !== "CONFIRMED" && status !== "UNAVAILABLE") throw new Error("Amenity status must be CONFIRMED or UNAVAILABLE");
+    return { label, status, note: typeof note === "string" ? note : null };
+  });
+}
+
 function checkConcessions(v: unknown) {
   if (v === undefined) return;
   if (!Array.isArray(v)) throw new Error("concessions must be a list");
@@ -141,6 +168,7 @@ const proposalInclude = {
   venue: { select: { name: true } },
   nights: { orderBy: [{ night: "asc" as const }, { roomType: "asc" as const }] },
   charges: { orderBy: { sortOrder: "asc" as const } },
+  amenities: { orderBy: { sortOrder: "asc" as const } },
 };
 
 async function currentProposal(id: string, eventId: string): Promise<ProposalWriteArgs> {

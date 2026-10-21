@@ -49,6 +49,7 @@ export type EsgDerivedSource =
   | "fbAttendance"
   | "signatories"
   | "housingBlocks"
+  | "hotelConcessions"
   | "exhibitBooths";
 
 export type EsgDerivedDef<D extends string = EsgDerivedSource> = {
@@ -367,6 +368,7 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
   {
     letter: "W",
     title: "Billing Instructions",
+    derived: [{ source: "hotelConcessions", label: "Hotel concessions" }],
     fields: [
       col("finalBillContactId", "Final bill to be provided to", "contact", {
         required: true,

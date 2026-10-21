@@ -18,8 +18,8 @@ import {
   createAndAddVenueContactCore,
   type VenueWriteArgs,
   type RoomWriteArgs,
-  saveVenueConcessionsCore,
 } from "@/app/venues/core";
+import { requireListLabels } from "@/lib/hotelLabels";
 import type { McpToolDefinition } from "./types";
 import { requireString, optionalString, partialString } from "./types";
 
@@ -35,6 +35,7 @@ function readVenueArgs(args: Record<string, unknown>): VenueWriteArgs {
     isLodging: typeof args.isLodging === "boolean" ? args.isLodging : undefined,
     brand: partialString(args, "brand"),
     area: partialString(args, "area"),
+    amenities: Array.isArray(args.amenities) ? args.amenities.map(String) : undefined,
   };
 }
 
@@ -49,6 +50,12 @@ const venueWriteProps = {
   isLodging: { type: "boolean", description: "Sells sleeping rooms (a hotel for the Hotels module). Omit to leave unchanged." },
   brand: { type: ["string", "null"], description: "hotel_brand option label. Omit to leave unchanged." },
   area: { type: ["string", "null"], description: "hotel_area option label. Omit to leave unchanged." },
+  amenities: {
+    type: "array",
+    items: { type: "string" },
+    description:
+      "A hotel's amenities — what it has or provides to every guest (airport shuttle, on-site restaurant, complimentary breakfast) — as hotel_amenity option labels only; others are refused. Replaces the list. Omit to leave unchanged.",
+  },
 } as const;
 
 function readRoomArgs(args: Record<string, unknown>): RoomWriteArgs {
@@ -72,12 +79,17 @@ export const venueTools: McpToolDefinition[] = [
   {
     name: "list_venues",
     description:
-      "List all venues with a count of rooms per venue. Returns summary shape — use `get_venue` for full detail (rooms, room groups, contacts, linked vendor).",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    handler: async (_args, { userId, tenantId }) => {
+      "List venues with a count of rooms per venue, lodging fields and amenities. amenities filters to hotels that have every one (hotel_amenity labels). Returns summary shape — use `get_venue` for full detail (rooms, room groups, contacts, linked vendor).",
+    inputSchema: {
+      type: "object",
+      properties: { amenities: { type: "array", items: { type: "string" }, description: "Only hotels with all of these hotel_amenity labels." } },
+      additionalProperties: false,
+    },
+    handler: async (args, { userId, tenantId }) => {
       await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW", { tenantId });
+      const amenities = Array.isArray(args.amenities) ? await requireListLabels(tenantId, "hotel_amenity", args.amenities.map(String)) : [];
       return prisma.venue.findMany({
-        where: { tenantId },
+        where: { tenantId, ...(amenities.length ? { amenities: { hasEvery: amenities } } : {}) },
         include: { _count: { select: { rooms: true } } },
         orderBy: { name: "asc" },
       });
@@ -85,7 +97,7 @@ export const venueTools: McpToolDefinition[] = [
   },
   {
     name: "get_venue",
-    description: "Fetch a single venue with rooms, room groups, contacts, linked vendor, and (for a hotel) its standing concessions.",
+    description: "Fetch a single venue with rooms, room groups, contacts, linked vendor, and (for a hotel) its amenities.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" } },
@@ -100,35 +112,10 @@ export const venueTools: McpToolDefinition[] = [
         include: {
           rooms: { orderBy: { name: "asc" } },
           roomGroups: { orderBy: { sortOrder: "asc" } },
-          concessions: { orderBy: { sortOrder: "asc" } },
           contacts: { include: { contact: true }, orderBy: { id: "asc" } },
           vendor: true,
         },
       });
-    },
-  },
-  {
-    name: "set_venue_concessions",
-    description:
-      "Replace a hotel's standing concessions — what it offers every group without negotiating (complimentary breakfast, Wi-Fi) — with this list, in order. label is usually an rfp_concession option label; value is the terms (\"Included\", \"$10/night\"). New proposals from the hotel start with them; existing proposals keep their own.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        venueId: { type: "string" },
-        concessions: {
-          type: "array",
-          items: { type: "object", properties: { label: { type: "string" }, value: { type: ["string", "null"] } }, required: ["label"] },
-        },
-      },
-      required: ["venueId", "concessions"],
-      additionalProperties: false,
-    },
-    handler: async (args, { userId, tenantId }) => {
-      const venueId = requireString(args, "venueId");
-      if (!Array.isArray(args.concessions)) throw new Error("concessions must be a list");
-      const rows = (args.concessions as Record<string, unknown>[]).map((c) => ({ label: String(c.label ?? ""), value: typeof c.value === "string" ? c.value : null }));
-      await saveVenueConcessionsCore(venueId, rows, userId, tenantId);
-      return prisma.venueConcession.findMany({ where: { venueId }, orderBy: { sortOrder: "asc" } });
     },
   },
   {

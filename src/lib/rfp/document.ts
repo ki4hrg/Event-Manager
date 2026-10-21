@@ -97,7 +97,9 @@ export type RfpDocument = {
     roomTypes: string[];
     meetingSpace: { day: string; time: string; name: string; setup: string | null }[];
     mealTypes: string[];
-    concessions: string[];
+    // APEX "Concessions Offered": every heading with the concessions we asked
+    // for under it; the form adds blank rows for ones the hotel offers unasked.
+    concessions: { group: string; items: string[] }[];
   } | null;
 };
 
@@ -398,10 +400,17 @@ export function buildRfpDocument(input: RfpDocumentInput): RfpDocument {
           meetingSpace: spaceDays(meeting).flatMap((d) => d.rows.map((r) => ({ day: d.label, time: r.time, name: r.name, setup: r.setup }))),
           // The F&B the RFP asks for, by type (or name when untyped).
           mealTypes: on.has("fb") ? Array.from(new Set(fbRows.map((r) => r.functionType ?? r.name))) : [],
-          concessions: rfp.concessions.map((c) => c.label),
+          concessions: CONCESSION_GROUPS.map((g) => ({ group: g.label, items: (grouped.get(g.value) ?? []).map((c) => c.label) })),
         }
       : null,
   };
+}
+
+// The response form's "Concessions offered" rows: under each heading, the
+// concessions asked for, then blank rows for others the hotel offers.
+const OTHER_CONCESSION_ROWS = 2;
+export function concessionOfferRows(groups: { group: string; items: string[] }[]): string[][] {
+  return groups.flatMap((g) => [...g.items.map((item) => [g.group, item]), ...Array.from({ length: OTHER_CONCESSION_ROWS }, () => [g.group])]);
 }
 
 // "peak 120 · 360 room nights" one-liner used in lists.

@@ -222,6 +222,11 @@ says it isn't configured.
    The form's **Source** picks the RFP block the offer answers, or
    **Standalone proposal** (no RFP, no concessions). It defaults to the block
    Claude read it as, which it sets only when the offer responds to that RFP.
+   Amenities are read as statuses against the hotel's profile: Confirmed when
+   the offer commits to one, Unavailable when it says it's out for the event;
+   unmentioned ones are left out. Concessions offered unasked must be on the
+   concession list (others go in the notes); a new hotel's profile starts
+   with the confirmed amenities.
    Reading is two calls: classify (kind, summary, notes), then only that
    kind's fields — one schema for every kind compiled to a grammar the API
    rejected as too large.

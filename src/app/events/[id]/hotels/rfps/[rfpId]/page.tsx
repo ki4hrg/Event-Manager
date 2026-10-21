@@ -295,6 +295,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
             blocks={rfp.hotelBlocks.map((b) => ({ id: b.id, label: blockLabel(b.contractType, b.guestType) }))}
             hotels={choices.hotels}
             scope={effectiveScope(rfp, event)}
+            requiredAmenities={rfp.amenities}
             areaOptions={choices.areas}
             add={addRecipientsAction}
             update={updateRecipientAction}

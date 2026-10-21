@@ -2,7 +2,7 @@
 // asked for. One group per requested block, plus one for RFP proposals not
 // tied to a block. Read by the compare page and its .docx. Pure.
 
-import type { ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
 import { CHARGE_SCOPE_LABELS, dateKey, formatMoney, formatNight, MET_LABELS } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
 
@@ -25,7 +25,8 @@ export type CompareInput = {
     allowedAttrition: Dec;
     guaranteedRevenue: Dec;
     charges: { chargeType: string; amount: Dec; scope: HotelChargeScope | null }[];
-    amenities: string[];
+    profile: string[]; // the hotel's amenities
+    amenities: { label: string; status: AmenityStatus }[]; // as the offer states them
     // Answers to requested concessions (concessionId), and ones offered unasked (label).
     concessions: { concessionId: string | null; label: string | null; offered: string | null; met: ConcessionMet | null }[];
   }[];
@@ -47,7 +48,9 @@ export type CompareOffer = {
   attrition: string | null;
   guaranteedRevenue: string | null;
   charges: string[];
+  // The hotel's profile plus what the offer confirms, less what it says is unavailable.
   amenities: string[];
+  unavailable: string[];
   concessions: Record<string, { met: ConcessionMet | null; offered: string | null }>;
   alsoOffered: string[];
   met: { met: number; partial: number; notMet: number; requiredNotMet: number };
@@ -106,7 +109,10 @@ function offer(p: CompareInput["proposals"][number], requested: Record<string, n
     charges: p.charges.map((c) =>
       [c.chargeType, c.amount != null ? formatMoney(c.amount.toString()) : null, c.scope ? CHARGE_SCOPE_LABELS[c.scope].toLowerCase() : null].filter(Boolean).join(" "),
     ),
-    amenities: p.amenities,
+    amenities: Array.from(new Set([...p.profile, ...p.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label)])).filter(
+      (a) => !p.amenities.some((x) => x.label === a && x.status === "UNAVAILABLE"),
+    ),
+    unavailable: p.amenities.filter((a) => a.status === "UNAVAILABLE").map((a) => a.label),
     concessions: answers,
     alsoOffered: p.concessions.flatMap((c) => (c.label ? [[c.label, c.offered].filter(Boolean).join(": ")] : [])),
     met: {
@@ -176,8 +182,18 @@ export function comparisonRows(g: CompareGroup, concessions: CompareInput["conce
     row("Guaranteed revenue", "", (o) => ({ text: o.guaranteedRevenue ?? "—" })),
     row("Charges", "", (o) => ({ text: o.charges.join("\n") || "—" })),
     row("Amenities", amenities.join(", "), (o) => {
-      const missing = amenities.filter((a) => !o.amenities.includes(a));
-      return { text: [o.amenities.join(", ") || "—", missing.length ? `missing ${missing.join(", ")}` : null].filter(Boolean).join("\n"), short: missing.length > 0 };
+      const missing = amenities.filter((a) => !o.amenities.includes(a) && !o.unavailable.includes(a));
+      const lost = amenities.filter((a) => o.unavailable.includes(a));
+      return {
+        text: [
+          o.amenities.join(", ") || "—",
+          o.unavailable.length ? `unavailable ${o.unavailable.join(", ")}` : null,
+          missing.length ? `missing ${missing.join(", ")}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        short: missing.length > 0 || lost.length > 0,
+      };
     }),
     ...(concessions.length ? [row("Concessions", `${concessions.length} asked`, (o) => ({ text: metSummary(o, concessions.length), short: o.met.requiredNotMet > 0 }))] : []),
     ...concessions.map((c) =>

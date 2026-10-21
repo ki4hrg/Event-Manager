@@ -284,6 +284,19 @@ function derivedBlocks(ctx: Ctx, def: EsgDerivedDef): EsgBlock[] {
         },
       ];
     }
+    case "hotelConcessions":
+      return data.hotelConcessions.length === 0
+        ? []
+        : [
+            {
+              kind: "table",
+              table: {
+                title: "Hotel concessions",
+                columns: ["Hotel", "Concession", "Terms"],
+                rows: data.hotelConcessions.flatMap((h) => h.items.map((c) => [h.hotel, c.label, c.terms])),
+              },
+            },
+          ];
     case "exhibitBooths":
       return data.boothCount > 0 ? [{ kind: "fields", items: [{ label: "Number of exhibits", value: String(data.boothCount) }] }] : [];
     default: {

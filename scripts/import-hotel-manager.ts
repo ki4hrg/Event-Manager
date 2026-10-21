@@ -372,10 +372,18 @@ async function main() {
               revision: n(p.revision_number) ?? 1,
               allowedAttrition: n(p.allowed_attrition),
               guaranteedRevenue: n(p.guaranteed_revenue),
-              amenities: proposalAmenities
-                .filter((a) => a.proposal_id === p.id)
-                .map((a) => s(amenityById.get(a.amenity_tag_id as string)?.name))
-                .filter((x): x is string => !!x),
+              // HM ticked amenities per proposal: each is Confirmed by the offer
+              // and joins the hotel's profile (below).
+              amenities: {
+                create: Array.from(
+                  new Set(
+                    proposalAmenities
+                      .filter((a) => a.proposal_id === p.id)
+                      .map((a) => s(amenityById.get(a.amenity_tag_id as string)?.name))
+                      .filter((x): x is string => !!x),
+                  ),
+                ).map((label, i) => ({ label, status: "CONFIRMED" as const, sortOrder: i })),
+              },
               createdAt: p.created_at as Date,
               nights: { create: await gridFor(proposalRooms.filter((r) => r.proposal_id === p.id), ROH, stay) },
               charges: {
@@ -384,8 +392,10 @@ async function main() {
                   .map((c, i) => ({ chargeType: String(c.charge_type), amount: n(c.amount), scope: SCOPE[String(c.scope)] ?? null, sortOrder: i })),
               },
             },
-            include: { venue: { select: { name: true } }, nights: true, charges: true },
+            include: { venue: { select: { name: true, amenities: true } }, nights: true, charges: true, amenities: true },
           });
+          const profile = Array.from(new Set([...created.venue.amenities, ...created.amenities.map((a) => a.label)]));
+          if (profile.length > created.venue.amenities.length) await tx.venue.update({ where: { id: venueId }, data: { amenities: profile } });
           proposalMap.set(p.id as string, created.id);
           report.proposals++;
 
@@ -396,7 +406,7 @@ async function main() {
             venueName: created.venue.name, status: created.status, leadSource: created.leadSource, blockType: blockTypeText(p.block_type),
             submittedOn: day(created.submittedOn), checkIn, checkOut, declinedReason: created.declinedReason, notes: created.notes,
             allowedAttrition: created.allowedAttrition?.toString() ?? null,
-            guaranteedRevenue: created.guaranteedRevenue?.toString() ?? null, amenities: [...created.amenities].sort(),
+            guaranteedRevenue: created.guaranteedRevenue?.toString() ?? null, amenities: created.amenities.map((a) => ({ label: a.label, status: a.status, note: a.note })).sort((a, b) => a.label.localeCompare(b.label)),
             nights: created.nights.map((x) => ({ roomType: x.roomType, night: dateKey(x.night), rate: x.rate?.toString() ?? null, rooms: x.rooms })),
             charges: created.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount?.toString() ?? null, scope: c.scope })),
           };

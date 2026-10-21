@@ -11,7 +11,7 @@ import { getUploadPath } from "@/lib/uploads";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
-import type { InboundProposal, OfferHotel } from "@/lib/inboundParse";
+import { offerAmenities, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { NEW_HOTEL, readProposal } from "@/app/events/hotels/proposalArgs";
@@ -235,7 +235,7 @@ export async function getOfferReview(id: string, eventId: string) {
     revision: 1,
     allowedAttrition: offer.allowedAttrition != null ? String(offer.allowedAttrition) : null,
     guaranteedRevenue: offer.guaranteedRevenue != null ? String(offer.guaranteedRevenue) : null,
-    amenities: offer.amenities,
+    amenities: offerAmenities(offer),
     nights: offer.nights.map((n) => ({ roomType: n.roomType, night: n.night, rooms: n.rooms, rate: n.rate != null ? String(n.rate) : null })),
     charges: offer.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount != null ? String(c.amount) : null, scope: c.scope })),
   };

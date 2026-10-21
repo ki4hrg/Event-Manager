@@ -22,6 +22,7 @@ import {
   type RfpWriteArgs,
 } from "@/app/events/rfps/core";
 import { createHotelProposalCore, type ProposalConcessionArgs, type ProposalWriteArgs } from "@/app/events/hotels/core";
+import { readProposalAmenities } from "./hotels";
 import type { McpToolDefinition } from "./types";
 import { partialBoolean, partialInt, partialString, requireString } from "./types";
 
@@ -567,7 +568,15 @@ export const rfpTools: McpToolDefinition[] = [
         },
         allowedAttrition: { type: ["number", "null"] },
         guaranteedRevenue: { type: ["number", "null"] },
-        amenities: { type: "array", items: { type: "string" } },
+        amenities: {
+          type: "array",
+          description: "Amenities the offer states: { label (hotel_amenity), status CONFIRMED | UNAVAILABLE, note }.",
+          items: {
+            type: "object",
+            properties: { label: { type: "string" }, status: { type: "string", enum: ["CONFIRMED", "UNAVAILABLE"] }, note: { type: ["string", "null"] } },
+            required: ["label", "status"],
+          },
+        },
         notes: { type: ["string", "null"] },
         concessions: {
           type: "array",
@@ -624,7 +633,7 @@ export const rfpTools: McpToolDefinition[] = [
         revisionSummary: null,
         allowedAttrition: typeof args.allowedAttrition === "number" ? args.allowedAttrition : null,
         guaranteedRevenue: typeof args.guaranteedRevenue === "number" ? args.guaranteedRevenue : null,
-        amenities: stringList(args, "amenities") ?? [],
+        amenities: readProposalAmenities(args.amenities) ?? [],
         nights: Array.isArray(args.nights)
           ? (args.nights as Record<string, unknown>[]).map((n) => ({
               roomType: typeof n.roomType === "string" ? n.roomType : null,

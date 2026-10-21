@@ -5,6 +5,7 @@
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
+import { requireListLabels } from "@/lib/hotelLabels";
 
 // Every venue-scoped core asserts the venue is the tenant's own before touching
 // its rooms, groups, or contacts; a foreign id reads as not-found.
@@ -28,13 +29,21 @@ export type VenueWriteArgs = {
   isLodging?: boolean;
   brand?: string | null;
   area?: string | null;
+  amenities?: string[]; // hotel_amenity labels
 };
+
+// A hotel's amenities as the list spells them; labels it already holds may stay.
+async function amenityLabels(args: VenueWriteArgs, tenantId: string, current: string[] = []) {
+  if (args.amenities === undefined) return undefined;
+  return Array.from(new Set(await requireListLabels(tenantId, "hotel_amenity", args.amenities, current)));
+}
 
 export async function createVenueCore(args: VenueWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
   // Creating a venue also creates a backing Vendor row linked via venueId, so
   // the venue can appear as a "vendor" in order pickers. Keeping these in a
   // single core preserves the existing invariant: every Venue has one Vendor.
+  const amenities = await amenityLabels(args, tenantId);
   const venue = await prisma.venue.create({
     data: {
       tenantId,
@@ -48,6 +57,7 @@ export async function createVenueCore(args: VenueWriteArgs, userId: string, tena
       isLodging: args.isLodging,
       brand: args.brand,
       area: args.area,
+      amenities,
       updatedById: userId,
     },
   });
@@ -59,6 +69,9 @@ export async function createVenueCore(args: VenueWriteArgs, userId: string, tena
 
 export async function updateVenueCore(id: string, args: VenueWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
+  const current = await prisma.venue.findFirst({ where: { id, tenantId }, select: { amenities: true } });
+  if (!current) throw new PermissionError("NOT_FOUND");
+  const amenities = await amenityLabels(args, tenantId, current.amenities);
   // Keeps the backing Vendor.name in sync with the Venue.name rename.
   const [venue] = await Promise.all([
     prisma.venue.update({
@@ -74,6 +87,7 @@ export async function updateVenueCore(id: string, args: VenueWriteArgs, userId: 
         isLodging: args.isLodging,
         brand: args.brand,
         area: args.area,
+        amenities,
         updatedById: userId,
       },
     }),
@@ -276,22 +290,12 @@ export async function createAndAddVenueContactCore(
   return link;
 }
 
-// ---------------------------------------------------------------------------
-// Concessions (a lodging venue's standing offer to every group)
-
-export type VenueConcessionArgs = { label: string; value: string | null };
-
-// Replaces the hotel's concessions with this list, in order. Proposals keep
-// their own copies, so nothing else changes.
-export async function saveVenueConcessionsCore(venueId: string, concessions: VenueConcessionArgs[], userId: string, tenantId: string) {
+// Puts one amenity on a hotel's profile (a proposal confirmed one it lacked).
+export async function addVenueAmenityCore(venueId: string, label: string, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
-  await assertVenueInTenant(venueId, tenantId);
-  const rows = concessions
-    .map((c) => ({ label: c.label.trim(), value: c.value?.trim() || null }))
-    .filter((c) => c.label);
-  await prisma.$transaction([
-    prisma.venueConcession.deleteMany({ where: { venueId } }),
-    prisma.venueConcession.createMany({ data: rows.map((c, i) => ({ ...c, venueId, sortOrder: i })) }),
-    prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } }),
-  ]);
+  const venue = await prisma.venue.findFirst({ where: { id: venueId, tenantId }, select: { amenities: true } });
+  if (!venue) throw new PermissionError("NOT_FOUND");
+  const [listed] = await requireListLabels(tenantId, "hotel_amenity", [label]);
+  if (venue.amenities.includes(listed)) return;
+  await prisma.venue.update({ where: { id: venueId, tenantId }, data: { amenities: [...venue.amenities, listed], updatedById: userId } });
 }

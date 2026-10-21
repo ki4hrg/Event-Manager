@@ -12,13 +12,13 @@ export const metadata: Metadata = { title: "New venue" };
 export default async function NewVenuePage() {
   // A VIEW-only user has no business on a create form.
   await requirePermission("VENUES", "WRITE");
-  const [brands, areas] = await Promise.all([getOptions("hotel_brand"), getOptions("hotel_area")]);
+  const [brands, areas, amenities] = await Promise.all([getOptions("hotel_brand"), getOptions("hotel_area"), getOptions("hotel_amenity")]);
   return (
     <PageWrapper>
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
         New Venue
       </h1>
-      <VenueForm brands={brands.map((b) => b.label)} areas={areas} action={createVenue} />
+      <VenueForm brands={brands.map((b) => b.label)} areas={areas} amenities={amenities.map((a) => a.label)} action={createVenue} />
     </PageWrapper>
   );
 }

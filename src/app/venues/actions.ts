@@ -22,8 +22,7 @@ import {
   createAndAddVenueContactCore,
   type VenueWriteArgs,
   type RoomWriteArgs,
-  saveVenueConcessionsCore,
-  type VenueConcessionArgs,
+  addVenueAmenityCore,
 } from "./core";
 
 export async function getVenues() {
@@ -42,7 +41,6 @@ export async function getVenue(id: string) {
     include: {
       rooms: { orderBy: { name: "asc" } },
       roomGroups: { orderBy: { sortOrder: "asc" } },
-      concessions: { orderBy: { sortOrder: "asc" } },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       vendor: true,
       updatedBy: { select: { name: true, email: true } },
@@ -62,6 +60,7 @@ function readVenueArgs(formData: FormData): VenueWriteArgs {
     isLodging: formData.get("isLodging") === "true",
     brand: (formData.get("brand") as string) || null,
     area: (formData.get("area") as string) || null,
+    amenities: formData.has("amenitiesField") ? (formData.getAll("amenities") as string[]) : undefined,
   };
 }
 
@@ -122,9 +121,9 @@ export async function deleteRoom(roomId: string, venueId: string) {
   revalidatePath(`/venues/${venueId}`);
 }
 
-export async function saveVenueConcessions(venueId: string, concessions: VenueConcessionArgs[]) {
+export async function addVenueAmenity(venueId: string, label: string) {
   const session = await requirePermission(PermissionResource.VENUES, "WRITE");
-  await saveVenueConcessionsCore(venueId, concessions, session.user.id, session.tenantId);
+  await addVenueAmenityCore(venueId, label, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 

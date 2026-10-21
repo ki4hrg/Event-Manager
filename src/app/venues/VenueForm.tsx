@@ -12,6 +12,8 @@ type VenueFormProps = {
   venue?: Venue;
   brands: string[];
   areas: { label: string; group: string | null }[];
+  // The hotel_amenity list.
+  amenities: string[];
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -34,7 +36,7 @@ function SaveButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function VenueForm({ venue, brands, areas, action }: VenueFormProps) {
+export function VenueForm({ venue, brands, areas, amenities, action }: VenueFormProps) {
   const isEdit = !!venue;
   const canWrite = useCanWrite("VENUES");
   const [editing, setEditing] = useState(false);
@@ -69,6 +71,7 @@ export function VenueForm({ venue, brands, areas, action }: VenueFormProps) {
                 .join(" · ") || "Yes"}
             />
           )}
+          {venue.isLodging && <ReadOnlyField label="Amenities" value={venue.amenities.join(", ") || null} />}
           <ReadOnlyField label="Notes" value={venue.notes} />
         </dl>
       </div>
@@ -227,6 +230,25 @@ export function VenueForm({ venue, brands, areas, action }: VenueFormProps) {
                   ))}
                 </select>
               </div>
+              <fieldset className="sm:col-span-2">
+                <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300">Amenities</legend>
+                <input type="hidden" name="amenitiesField" value="true" />
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+                  {[...amenities, ...(venue?.amenities ?? []).filter((a) => !amenities.includes(a))].map((a) => (
+                    <label key={a} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                      <input
+                        type="checkbox"
+                        name="amenities"
+                        value={a}
+                        defaultChecked={venue?.amenities.includes(a)}
+                        className="rounded border-gray-300 dark:border-gray-600"
+                      />
+                      {a}
+                      {!amenities.includes(a) && <span className="text-xs text-amber-700 dark:text-amber-300">(not in list)</span>}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
             </div>
           )}
         </div>

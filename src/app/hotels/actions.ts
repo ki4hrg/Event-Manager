@@ -20,11 +20,12 @@ async function hotelSession() {
   return { tenantId: session.tenantId, eventWhere };
 }
 
-// The active tenant's lodging venues with their proposal history.
-export async function getHotels() {
+// The active tenant's lodging venues with their proposal history; with
+// amenities, only hotels that have every one.
+export async function getHotels(amenities: string[] = []) {
   const { tenantId, eventWhere } = await hotelSession();
   return prisma.venue.findMany({
-    where: { tenantId, isLodging: true },
+    where: { tenantId, isLodging: true, ...(amenities.length ? { amenities: { hasEvery: amenities } } : {}) },
     select: {
       id: true,
       name: true,
@@ -32,6 +33,7 @@ export async function getHotels() {
       state: true,
       brand: true,
       area: true,
+      amenities: true,
       hotelProposals: {
         where: { event: eventWhere },
         select: { id: true, status: true, event: { select: { id: true, name: true, startDate: true } } },

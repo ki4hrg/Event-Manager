@@ -23,7 +23,6 @@ import {
   updateVenueContact,
   removeVenueContact,
   createAndAddVenueContact,
-  saveVenueConcessions,
 } from "../actions";
 import { VenueForm } from "../VenueForm";
 import { RoomList } from "../RoomList";
@@ -34,7 +33,6 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { hasPermission } from "@/lib/permissions";
 import { getVenueHotelHistory } from "@/app/hotels/actions";
 import { HotelHistory } from "@/app/hotels/HotelHistory";
-import { RfpConcessionsEditor } from "@/app/events/rfps/RfpConcessionsEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -53,13 +51,13 @@ export async function generateMetadata({
 
 export default async function VenuePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [venue, fileTypeOptions, venueFiles, brands, areas, concessionOptions, canViewHotels] = await Promise.all([
+  const [venue, fileTypeOptions, venueFiles, brands, areas, amenityOptions, canViewHotels] = await Promise.all([
     getVenue(id),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { venueId: id }, orderBy: { createdAt: "asc" } }),
     getOptions("hotel_brand"),
     getOptions("hotel_area"),
-    getOptions("rfp_concession"),
+    getOptions("hotel_amenity"),
     hasPermission("HOTELS", "VIEW"),
   ]);
 
@@ -133,11 +131,6 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
     await createAndAddVenueContact(id, formData);
   };
 
-  const saveConcessionsAction = async (rows: { label: string; value: string | null }[]) => {
-    "use server";
-    await saveVenueConcessions(id, rows.map((r) => ({ label: r.label, value: r.value })));
-  };
-
   const updateVendorDetailsAction = async (formData: FormData) => {
     "use server";
     await updateVenueVendorDetails(id, formData);
@@ -158,19 +151,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-8 min-w-0">
           {/* Keyed on updatedAt so a save remounts the form back into view mode. */}
-          <VenueForm key={venue.updatedAt.toISOString()} venue={venue} brands={brands.map((b) => b.label)} areas={areas} action={updateVenueWithId} />
-          {venue.isLodging && (
-            <RfpConcessionsEditor
-              key={`concessions-${venue.updatedAt.toISOString()}`}
-              resource="VENUES"
-              concessions={venue.concessions.map((c) => ({ id: c.id, label: c.label, value: c.value, required: false }))}
-              options={concessionOptions.map((o) => ({ label: o.label, group: o.group }))}
-              save={saveConcessionsAction}
-              withRequired={false}
-              valueLabel="Terms"
-              valuePlaceholder="Included, $10/night…"
-            />
-          )}
+          <VenueForm key={venue.updatedAt.toISOString()} venue={venue} brands={brands.map((b) => b.label)} areas={areas} amenities={amenityOptions.map((a) => a.label)} action={updateVenueWithId} />
           {hotelHistory.length > 0 && <HotelHistory proposals={hotelHistory} />}
           {venue.vendor && (
             <form action={updateVendorDetailsAction} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-4">

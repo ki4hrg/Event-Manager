@@ -5,7 +5,7 @@
 import { Document, HeadingLevel, Packer, PageOrientation, Paragraph, TextRun, type Table } from "docx";
 import { FONT, chrome, fieldsTable, gridTable, numbering, richParagraphs, spacer, styles, textParagraphs } from "@/lib/esg/renderDocx";
 import { formatNight } from "@/lib/hotels";
-import type { RfpBlockDoc, RfpDocument, RfpFact, RfpSpaceDay } from "@/lib/rfp/document";
+import { concessionOfferRows, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpSpaceDay } from "@/lib/rfp/document";
 import { comparisonRows, type RfpComparison } from "@/lib/rfp/compare";
 
 const heading = (text: string) =>
@@ -188,7 +188,7 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
         blankTable(["F&B function", "Average per-person price"], [...r.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]),
         spacer(),
       );
-    if (r.concessions.length) out.push(subheading("Concessions offered"), blankTable(["Concession", "Offered"], r.concessions.map((c) => [c])), spacer());
+    out.push(subheading("Concessions offered"), blankTable(["Heading", "Concession", "Offered"], concessionOfferRows(r.concessions)), spacer());
   }
 
   return out;

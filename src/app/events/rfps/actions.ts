@@ -112,7 +112,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
     prisma.eventSeries.findMany({ where: { tenantId: session.tenantId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.venue.findMany({
       where: { tenantId: session.tenantId, isLodging: true },
-      select: { id: true, name: true, city: true, state: true, area: true },
+      select: { id: true, name: true, city: true, state: true, area: true, amenities: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -136,7 +136,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
     areas: options.filter((o) => o.category === "hotel_area").map((o) => ({ label: o.label, region: o.group })),
     concessions: options.filter((o) => o.category === "rfp_concession").map((o) => ({ label: o.label, group: o.group })),
     series,
-    hotels: hotels.map((h) => ({ id: h.id, area: h.area, label: [h.name, [h.city, h.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ") })),
+    hotels: hotels.map((h) => ({ id: h.id, area: h.area, amenities: h.amenities, label: [h.name, [h.city, h.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ") })),
   };
 }
 
