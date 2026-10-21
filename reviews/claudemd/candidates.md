@@ -44,3 +44,6 @@
 - [auth] `canSeeDiagnostics()` (`src/lib/tenant.ts`): super admin or `User.showDiagnostics`, set by super admins on the user page — the gate for raw/debug UI (inbox .eml, SPF/DKIM/DMARC, model id)
 - [inbox] `ORG_CONTACT` sender match: a contact of the org not tied to the event; labelled, but the mail stays Held (src/app/events/inbox/core.ts matchSender)
 - [hotels] The pickup wizard's `GuestImport` / `CountEntry` are exported and take a prefilled `source` / `initial`; the pure mapping (`PICKUP_FIELDS`, `guessColumns`, `rowsToGuests`, `parseCsvDate`) moved to `src/lib/pickupMapping.ts`
+- [ai] Structured outputs allow at most 16 union-typed (anyOf / nullable) parameters across a request; the inbox wire format uses "" / -1 / empty lists instead of null and converts back (`fromWire` in src/lib/inboundParse.ts). A violation is a 400, so record the API's error message, not just the status
+- [hotels] `ProposalForm` takes a `draft` (new proposal's starting values) besides `proposal` (edit); `readProposal` / `readJson` moved to a plain module (src/app/events/hotels/proposalArgs.ts) so other features can submit the form
+- [hotels] A guest's roomType may be a type the block doesn't list (a Run of House block recording what each guest booked); `pickupBuckets` counts such guests against Run of House (src/lib/hotelPickup.ts)
