@@ -1,8 +1,7 @@
 # Proposal — Email ingest (per-event inbox)
 
-Status: Phase 1 (inbox without AI) and Phase 2 (pickup parsing) implemented.
-Phase 3 (RFP responses) next. Where this design and the code differ, the code
-wins.
+Status: Phases 1–3 implemented (inbox, pickup parsing, RFP responses).
+Where this design and the code differ, the code wins.
 
 ## Problem
 
@@ -204,8 +203,17 @@ says it isn't configured.
 1. **Inbox without AI** — done.
 2. **Pickup** — done. Parsing for `PICKUP_GUESTS` / `PICKUP_COUNTS`, review
    in the import wizard, apply through the pickup cores.
-3. **RFP responses.** `RFP_PROPOSAL` / `RFP_DECLINE`; the RFP page shows the
-   event address for use as the Reply-To.
+3. **RFP responses** — done. `RFP_PROPOSAL` opens the proposal form filled
+   from the offer (hotel, RFP block, dates, night grid with rates,
+   charges, attrition, amenities, concession answers, notes); saving creates
+   the proposal through `createHotelProposalCore` and files the message's
+   attachments on it. A hotel that already has a proposal is flagged with a
+   link, since a revised offer belongs on the existing one. `RFP_DECLINE`
+   marks the hotel declined on the RFP (`updateRfpRecipientCore`), keeping
+   its sent date and adding the reason to its notes. The RFP page shows the
+   event's address as the Reply-To. Context given to Claude: the event's
+   RFPs (blocks, recipients, concessions) and candidate hotels (recipients,
+   hotels with a proposal, the sender's own hotel).
 4. **Later.** Other kinds (vendor quotes, BEOs (banquet event orders),
    contracts), MCP `list_inbox_items` / `get_inbox_item` / `apply_inbox_item`,
    and an `origin: MCP` submit tool.

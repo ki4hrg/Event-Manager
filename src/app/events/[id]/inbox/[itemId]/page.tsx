@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
@@ -7,7 +8,11 @@ import { prisma } from "@/lib/prisma";
 import { getEvent } from "../../../actions";
 import {
   applyInboundCounts,
+  applyInboundDecline,
   applyInboundGuests,
+  applyInboundOffer,
+  getDeclineReview,
+  getOfferReview,
   dismissInboundEmail,
   fileInboundAttachment,
   getInboxDestinationEvents,
@@ -22,6 +27,8 @@ import { InboxItemView } from "../../../inbox/InboxItemView";
 import { FileAttachmentButton, InboxItemActions } from "../../../inbox/InboxItemActions";
 import { InboxProposalPanel } from "../../../inbox/InboxProposalPanel";
 import { InboxReview } from "../../../inbox/InboxReview";
+import { InboxDeclineReview } from "../../../inbox/InboxDeclineReview";
+import { ProposalForm } from "../../../hotels/ProposalForm";
 import { hasPermission } from "@/lib/permissions";
 import { canSeeDiagnostics } from "@/lib/tenant";
 import { isParsingConfigured, type InboundProposal } from "@/lib/inboundParse";
@@ -41,10 +48,20 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
   if (!event || !item) notFound();
   const proposal = item.proposal as InboundProposal | null;
   const parsing = isParsingConfigured();
-  const [destinations, review] = await Promise.all([
+  const ready = canWrite && item.status === "PARSED";
+  const [destinations, review, offer, decline] = await Promise.all([
     canWrite ? getInboxDestinationEvents(eventId) : [],
-    canWrite && item.status === "PARSED" ? getInboxReview(itemId, eventId) : null,
+    ready ? getInboxReview(itemId, eventId) : null,
+    ready ? getOfferReview(itemId, eventId) : null,
+    ready ? getDeclineReview(itemId, eventId) : null,
   ]);
+  const appliedProposal =
+    item.status === "APPLIED" && proposal?.appliedProposalId
+      ? await prisma.hotelProposal.findFirst({
+          where: { id: proposal.appliedProposalId, eventId },
+          select: { id: true, venue: { select: { name: true } } },
+        })
+      : null;
   const appliedTo =
     item.status === "APPLIED" && proposal?.blockId
       ? ((await prisma.hotelBlock.findFirst({
@@ -82,7 +99,16 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
     "use server";
     await applyInboundGuests(itemId, eventId, blockId, method, fileName, guests);
   };
-  const applyCounts = async (blockId: string, counts: Parameters<typeof applyInboundCounts>[3]) => {
+  const applyOffer = async (formData: FormData) => {
+    "use server";
+    await applyInboundOffer(itemId, eventId, formData);
+  };
+  const applyDecline = async (rfpId: string, venueId: string, reason: string | null) => {
+    "use server";
+    await applyInboundDecline(itemId, eventId, rfpId, venueId, reason);
+  };
+  const itemHref = `/events/${eventId}/inbox/${itemId}`;
+    const applyCounts = async (blockId: string, counts: Parameters<typeof applyInboundCounts>[3]) => {
     "use server";
     await applyInboundCounts(itemId, eventId, blockId, counts);
   };
@@ -122,11 +148,47 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
           parsing={parsing}
           diagnostics={diagnostics}
           appliedTo={appliedTo}
+          appliedProposal={
+            appliedProposal
+              ? { name: appliedProposal.venue.name, href: `/events/${eventId}/hotels/proposals/${appliedProposal.id}` }
+              : null
+          }
         />
+        {offer && (
+          <>
+            {offer.existing.length > 0 && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                This hotel already has{" "}
+                {offer.existing.map((p, i) => (
+                  <span key={p.id}>
+                    {i > 0 && ", "}
+                    <Link href={`/events/${eventId}/hotels/proposals/${p.id}`} className="underline">
+                      a proposal (rev. {p.revision}, {p.status})
+                    </Link>
+                  </span>
+                ))}
+                . For a revised offer, update it there instead.
+              </p>
+            )}
+            <ProposalForm
+              choices={offer.choices}
+              draft={offer.draft}
+              fromRfp={
+                offer.rfpBlock
+                  ? { rfpBlockId: offer.rfpBlock.id, contractType: offer.rfpBlock.contractType, guestType: offer.rfpBlock.guestType, status: offer.draft.status, nights: [] }
+                  : undefined
+              }
+              concessions={offer.concessions}
+              action={applyOffer}
+              cancelHref={itemHref}
+            />
+          </>
+        )}
+        {decline && <InboxDeclineReview review={decline} itemHref={itemHref} apply={applyDecline} />}
         {review && (
           <InboxReview
             review={review}
-            itemHref={`/events/${eventId}/inbox/${itemId}`}
+            itemHref={itemHref}
             applyGuests={applyGuests}
             applyCounts={applyCounts}
           />
