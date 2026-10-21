@@ -8,8 +8,8 @@ import { requireEventTenantId, requirePermissionForUser } from "@/lib/permission
 import { getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "@/lib/uploads";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { blockTypeLabel, dateKey, formatNight, roomTypeLabel } from "@/lib/hotels";
-import { readGrid, sheetKind } from "@/lib/spreadsheetRows";
-import type { PickupGuestRow } from "@/lib/pickupMapping";
+import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
+import { DEFAULT_CANCELLED, rowsToGuests, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import {
   isParsingConfigured,
   parseInboundMessage,
@@ -20,9 +20,11 @@ import {
   type ParseBlock,
   type ParseRfp,
   type ParseVenue,
+  offerAmenities,
 } from "@/lib/inboundParse";
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { createHotelProposalCore, createNewHotelCore, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
+import type { HotelChargeScope } from "@prisma/client";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
 import { eventScopeWhere } from "@/app/events/core";
 import { EMAIL_SOURCE_FILE_TYPE, OPEN_STATUSES } from "./views";
@@ -695,4 +697,199 @@ export async function suggestInboxSlug(eventId: string, tenantId: string): Promi
   );
   if (!taken.has(base)) return base;
   for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
+}
+
+// ─── MCP ─────────────────────────────────────────────────────────────────────
+
+const MIME_BY_EXT: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".csv": "text/csv",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xls": "application/vnd.ms-excel",
+  ".txt": "text/plain",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
+export type SubmitAttachment = { fileName: string; mimeType: string | null; content: Buffer };
+
+// A message handed in by a person through MCP (origin MCP): stored on the
+// event's inbox from the caller, a member, and read like delivered mail.
+export async function submitInboundItemCore(
+  eventId: string,
+  args: { subject: string | null; text: string | null; attachments: SubmitAttachment[] },
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const tenantId = await requireEventTenantId(eventId);
+  if (!args.text?.trim() && args.attachments.length === 0) throw new Error("Give a text body or at least one attachment");
+  for (const a of args.attachments) {
+    if (!a.fileName.trim()) throw new Error("Each attachment needs a file name");
+    if (a.content.length === 0) throw new Error(`${a.fileName} is empty`);
+    if (a.content.length > MAX_UPLOAD_BYTES) throw new Error(`${a.fileName} is larger than the upload limit`);
+  }
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, email: true } });
+  const row = await prisma.inboundEmail.create({
+    data: {
+      tenantId,
+      eventId,
+      origin: "MCP",
+      dedupKey: `mcp:${randomUUID()}`,
+      envelopeTo: "mcp",
+      sender: user.name ? `${user.name} <${user.email}>` : user.email,
+      senderAddress: user.email.toLowerCase(),
+      subject: args.subject?.trim() || null,
+      receivedAt: new Date(),
+      textBody: args.text?.trim() || null,
+      senderMatch: "MEMBER",
+      status: "RECEIVED",
+    },
+    select: { id: true, status: true },
+  });
+  const dir = getUploadDir("inboundEmail", row.id);
+  try {
+    mkdirSync(dir, { recursive: true });
+    const files: Prisma.FileUploadCreateManyInput[] = args.attachments.map((a) => {
+      const storedName = storedNameFor(a.fileName);
+      writeFileSync(path.join(dir, storedName), a.content);
+      return {
+        fileName: a.fileName.trim(),
+        storedName,
+        mimeType: a.mimeType || MIME_BY_EXT[path.extname(a.fileName).toLowerCase()] || "application/octet-stream",
+        fileSize: a.content.length,
+        inboundEmailId: row.id,
+      };
+    });
+    if (files.length) await prisma.fileUpload.createMany({ data: files });
+  } catch (err) {
+    await prisma.inboundEmail.delete({ where: { id: row.id } }).catch(() => {});
+    rmSync(dir, { recursive: true, force: true });
+    throw err;
+  }
+  startInboundParse(row.id);
+  return row;
+}
+
+// The guests a pickup proposal reads, mapped as the review wizard starts
+// them: the sheet through its column mapping, or the rows read from a PDF;
+// room types through the proposed map (unmapped codes go to Run of House).
+async function proposedGuests(id: string, proposal: InboundProposal): Promise<{ fileName: string | null; guests: PickupGuestRow[] }> {
+  const map = new Map((proposal.roomTypes ?? proposal.sheet?.roomTypes ?? []).map((r) => [r.raw, r.roomType]));
+  const roomFor = (raw: string) => map.get(raw) ?? null;
+  if (proposal.sheet) {
+    const file = (await inboundAttachments(id))[proposal.sheet.attachment];
+    const kind = file && sheetKind(file.fileName, file.mimeType);
+    if (!file || !kind) throw new Error("The spreadsheet this read maps is missing");
+    const grid = await readGrid(readFileSync(getUploadPath("inboundEmail", id, file.storedName)), kind);
+    const { headers, rows } = gridToRows(grid, proposal.sheet.headerRow - 1);
+    const columns = Object.fromEntries(
+      Object.entries(proposal.sheet.columns).map(([k, h]) => [k, h && headers.includes(h) ? h : ""]),
+    ) as PickupColumns;
+    const cancelled = new Set(proposal.sheet.cancelledStatuses);
+    return { fileName: file.fileName, guests: rowsToGuests(rows, columns, roomFor, (raw) => cancelled.has(raw) || DEFAULT_CANCELLED.test(raw)) };
+  }
+  if (proposal.guests) return { fileName: null, guests: proposal.guests.map((g) => ({ ...g, roomType: g.roomType ? roomFor(g.roomType) : null })) };
+  throw new Error("This read has no guests to import");
+}
+
+// The proposal an emailed offer reads as, for applying it unreviewed.
+async function offerArgs(eventId: string, offer: NonNullable<InboundProposal["offer"]>, venueId: string): Promise<ProposalWriteArgs> {
+  const tenantId = await requireEventTenantId(eventId);
+  const [pending, block] = await Promise.all([
+    prisma.customOption.findFirst({
+      where: { tenantId, category: "proposal_status" },
+      orderBy: [{ group: "asc" }, { sortOrder: "asc" }],
+      select: { label: true, group: true },
+    }),
+    offer.rfpBlockId ? prisma.rfpHotelBlock.findFirst({ where: { id: offer.rfpBlockId, rfp: { eventId } }, select: { id: true, contractType: true, guestType: true } }) : null,
+  ]);
+  const status =
+    (await prisma.customOption.findFirst({ where: { tenantId, category: "proposal_status", group: "PENDING" }, orderBy: { sortOrder: "asc" }, select: { label: true } }))
+      ?.label ?? pending?.label;
+  if (!status) throw new Error("No proposal statuses are set up");
+  return {
+    venueId,
+    status,
+    leadSource: null,
+    contractType: block?.contractType ?? null,
+    guestType: block?.guestType ?? null,
+    submittedOn: offer.submittedOn,
+    checkIn: offer.checkIn,
+    checkOut: offer.checkOut,
+    declinedReason: null,
+    notes: offer.hotelNotes,
+    revision: 1,
+    revisionSummary: null,
+    allowedAttrition: offer.allowedAttrition,
+    guaranteedRevenue: offer.guaranteedRevenue,
+    validUntil: offer.validUntil ?? null,
+    taxIncluded: offer.taxIncluded ?? null,
+    amenities: offerAmenities(offer),
+    nights: offer.nights.map((n) => ({ roomType: n.roomType, night: n.night, rooms: n.rooms, rate: n.rate })),
+    charges: offer.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount, scope: (c.scope as HotelChargeScope | null) ?? null })),
+    rfpBlockId: block?.id ?? null,
+    concessions: block ? offer.concessions.map((c) => ({ concessionId: c.concessionId, offered: c.offered, met: c.met })) : undefined,
+    offeredConcessions: offer.offeredConcessions ?? [],
+  };
+}
+
+export type ApplyAsProposedArgs = {
+  blockId?: string | null; // pickup kinds: the block, else the one it was read as
+  venueId?: string | null; // offers / declines: the hotel, else the one it was read as
+  newHotel?: boolean; // an offer from a hotel not in Venues: create it from the offer
+  method?: Exclude<HotelPickupMethod, "COUNTS">; // pickup guests: MERGE by default
+};
+
+// Applies a Ready item as Claude read it, without the review form (MCP).
+// Pickup goes to the block, a decline marks the hotel on its RFP, an offer
+// becomes a proposal. Returns what was done.
+export async function applyInboundAsProposedCore(id: string, eventId: string, args: ApplyAsProposedArgs, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const tenantId = await requireEventTenantId(eventId);
+  const item = await inboxItem(id, tenantId, eventId);
+  const proposal = item.proposal as InboundProposal | null;
+  if (item.status !== "PARSED" || !proposal) throw new Error("This message has nothing to apply");
+  switch (proposal.kind) {
+    case "PICKUP_COUNTS":
+    case "PICKUP_GUESTS": {
+      const blockId = args.blockId ?? proposal.blockId;
+      if (!blockId) throw new Error("Which block? Pass blockId (list_hotel_blocks)");
+      if (proposal.kind === "PICKUP_COUNTS") {
+        const block = await prisma.hotelBlock.findFirst({ where: { id: blockId, proposal: { eventId } }, select: { nights: { select: { roomType: true } } } });
+        if (!block) throw new Error("Hotel block not found");
+        // As in the review: counts for a room type the block doesn't have are left out.
+        const types = new Set(block.nights.map((n) => n.roomType));
+        const counts = (proposal.counts ?? []).filter((c) => types.has(c.roomType));
+        await applyInboundPickupCore(id, eventId, blockId, { type: "counts", counts }, userId);
+        return { applied: "counts", blockId, counts: counts.length, skipped: (proposal.counts?.length ?? 0) - counts.length };
+      }
+      const { fileName, guests } = await proposedGuests(id, proposal);
+      await applyInboundPickupCore(id, eventId, blockId, { type: "guests", method: args.method ?? "MERGE", fileName, guests }, userId);
+      return { applied: "guests", blockId, guests: guests.length };
+    }
+    case "RFP_DECLINE": {
+      const rfpId = proposal.decline?.rfpId;
+      const venueId = args.venueId ?? proposal.decline?.venueId;
+      if (!rfpId || !venueId) throw new Error("This decline names no RFP or hotel; mark it on the RFP with update_rfp_recipient, then dismiss this item");
+      await applyInboundDeclineCore(id, eventId, rfpId, venueId, proposal.decline?.reason ?? null, userId);
+      return { applied: "decline", rfpId, venueId };
+    }
+    case "RFP_PROPOSAL": {
+      const offer = proposal.offer;
+      if (!offer) throw new Error("This read has no offer");
+      const venueId = args.venueId ?? offer.venueId;
+      if (!venueId && !args.newHotel) throw new Error("The offer's hotel isn't in Venues: pass venueId, or newHotel: true to add it from the offer");
+      const proposalArgs = await offerArgs(eventId, offer, venueId ?? "");
+      const proposalId = await applyInboundOfferCore(id, eventId, proposalArgs, venueId ? null : offer.hotel, userId);
+      return { applied: "proposal", proposalId };
+    }
+    case "OTHER":
+      throw new Error("Nothing to apply: file its attachments or dismiss it");
+    default: {
+      const _exhaustive: never = proposal.kind;
+      throw new Error(`Unhandled kind: ${_exhaustive}`);
+    }
+  }
 }

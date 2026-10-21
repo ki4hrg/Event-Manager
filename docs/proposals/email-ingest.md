@@ -1,6 +1,6 @@
 # Proposal — Email ingest (per-event inbox)
 
-Status: Phases 1–3 implemented (inbox, pickup parsing, RFP responses).
+Status: Phases 1–3 implemented (inbox, pickup parsing, RFP responses); phase 4 MCP tools implemented, new kinds in progress.
 Where this design and the code differ, the code wins.
 
 ## Problem
@@ -237,6 +237,13 @@ says it isn't configured.
    Reading is two calls: classify (kind, summary, notes), then only that
    kind's fields — one schema for every kind compiled to a grammar the API
    rejected as too large.
-4. **Later.** Other kinds (vendor quotes, BEOs (banquet event orders),
-   contracts), MCP `list_inbox_items` / `get_inbox_item` / `apply_inbox_item`,
-   and an `origin: MCP` submit tool.
+4. **MCP and more kinds.** MCP (`src/lib/mcpTools/inbox.ts`) — done:
+   `list_inbox_items` (one event, or org-wide with Unrouted), `get_inbox_item`,
+   `apply_inbox_item` (applies a Ready item as read, without the review form:
+   pickup counts / guests to a block, a decline, an offer as a proposal —
+   `applyInboundAsProposedCore`), `release_inbox_item`, `route_inbox_item`,
+   `dismiss_inbox_item`, and `submit_inbox_item`, which stores a message
+   from the caller (`origin: MCP`, a MEMBER sender, text and base64
+   attachments) and reads it like delivered mail
+   (`submitInboundItemCore`). Next: vendor quotes, BEOs (banquet event
+   orders) and contracts — see docs/proposals/vendor-rfps.md § Email ingest.
