@@ -44,6 +44,7 @@ import { hotelInfoGuestTypes } from "@/lib/hotels";
 import { ReportFilters as HiReportFilters } from "@/app/events/[id]/reports/hotel-info/ReportFilters";
 import { ShareShell } from "./ShareShell";
 import type { ShareLinkFilters } from "@/lib/shareLinks";
+import { REPORTS, isShareReportType } from "@/lib/reportRegistry";
 
 function intersect(input: string[] | undefined, valid: Set<string>): string[] | undefined {
   if (!input) return undefined;
@@ -56,26 +57,11 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const REPORT_TITLES: Record<string, string> = {
-  EQUIPMENT_RESPONSIBILITY: "Equipment responsibility",
-  VENDOR_HANDOFF: "Vendor handoff",
-  EVENT_PROFILE: "Event profile",
-  EVENT_SCHEDULE: "Event schedule",
-  ROOM_SCHEDULE: "Room schedule",
-  FUNCTION_DETAIL: "Function detail",
-  BREAKOUT_GRID: "Breakout grid",
-  BREAKOUT_ASSIGNMENTS: "Breakout assignments",
-  PACKING_LIST: "Packing list",
-  ESG: "Event Specifications Guide",
-  POST_EVENT: "Post-Event Report",
-  HOTEL_INFO: "Hotel Information",
-};
-
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params;
   const link = await getActiveShareLink(token);
   if (!link) return { title: "Shared report" };
-  const reportName = REPORT_TITLES[link.reportType] ?? "Shared report";
+  const reportName = isShareReportType(link.reportType) ? REPORTS[link.reportType].label : "Shared report";
   return { title: { absolute: `${reportName} · ${link.event.name}` } };
 }
 

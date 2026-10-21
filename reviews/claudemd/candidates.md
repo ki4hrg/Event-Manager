@@ -70,3 +70,7 @@
 - [server-actions] Autosaving list saves return each row's saved id aligned to the input (`alignIds` in `src/app/events/rfps/core.ts`) so the editor's next save updates rows it created — an exception to the void return shape
 - [forms] Fields of a toggled-off part stay mounted with `hidden` rather than swapped for hidden inputs of the initial value, which would revert an edit made earlier in the session (`RfpForm`)
 - [components] `RichTextEditor` takes `onChange` (typing only; the defaultValue reset passes `emitUpdate: false`)
+- [reports] `src/lib/reportRegistry.ts` is the single source for report label, path, category and gating resource, keyed by the `ShareReportType` union (`reportType` is a String column, not a Prisma enum). It feeds the `/events/[id]/reports` hub, `SHARE_REPORT_LABELS`, the share-page titles and the dashboard picker; the share if-chains stay hand-written (docs/checklists/share-report-integration.md step 1)
+- [sidebar] The event sidebar has one "Reports" link to the `/events/[id]/reports` hub rather than a link per report; entry pages paired with a report route as tabs light up via `NavLink.alsoActive` / `notActive` (Specifications ↔ reports/esg, Post-Event ↔ reports/post-event)
+- [prefs] Event sidebar collapse is UserSetting `event_sidebar_collapsed`, read in the event layout and passed down as `initialCollapsed` (no localStorage, no flash on load)
+- [pages] Report page breadcrumbs go Events › event › Reports › report name now that the hub exists

@@ -51,6 +51,7 @@ export default async function EquipmentResponsibilityPage({
         <Breadcrumbs items={[
           { label: "Events", href: "/events" },
           { label: event.name, href: `/events/${eventId}` },
+          { label: "Reports", href: `/events/${eventId}/reports` },
           { label: "Equipment Responsibility" },
         ]} />
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{event.name}</h1>

@@ -24,6 +24,8 @@ import {
 } from "../../breakout-schedule/actions";
 import { BreakoutGrid } from "../../breakout-schedule/BreakoutGrid";
 import { getEventRooms } from "@/lib/eventVenues";
+import { btnSecondary } from "@/lib/buttonStyles";
+import { REPORTS } from "@/lib/reportRegistry";
 
 export const dynamic = "force-dynamic";
 
@@ -63,14 +65,26 @@ export default async function BreakoutSchedulePage({
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
           <Link
+            href={`/events/${eventId}/${REPORTS.BREAKOUT_GRID.path}`}
+            className={`${btnSecondary} text-sm`}
+          >
+            {REPORTS.BREAKOUT_GRID.label}
+          </Link>
+          <Link
+            href={`/events/${eventId}/${REPORTS.BREAKOUT_ASSIGNMENTS.path}`}
+            className={`${btnSecondary} text-sm`}
+          >
+            {REPORTS.BREAKOUT_ASSIGNMENTS.label}
+          </Link>
+          <Link
             href={`/events/${eventId}/reports/function-detail`}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            className={`${btnSecondary} text-sm`}
           >
             Detail Report
           </Link>
           <Link
             href={`/events/${eventId}/breakout-schedule/print`}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+            className={`${btnSecondary} text-sm`}
           >
             Print view
           </Link>

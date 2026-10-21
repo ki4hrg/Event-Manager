@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { compareFunctionNumbers, formatFunctionLabel } from "@/lib/functionNumbers";
 import { requirePermission } from "@/lib/permissions";
+import { requireAuth } from "@/lib/auth";
+import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { getSetupOrderDisplayName } from "./setup-orders/utils";
 import { SECTION_RESOURCE, type SidebarSection } from "./sidebar-sections";
@@ -12,6 +14,11 @@ export type { SidebarSection };
 export type SidebarItem =
   | { kind: "header"; id: string; label: string }
   | { kind: "link"; id: string; label: string; href: string };
+
+export async function setSidebarCollapsed(collapsed: boolean): Promise<void> {
+  const session = await requireAuth();
+  await setUserSetting(session.user.id, SETTING_KEYS.EVENT_SIDEBAR_COLLAPSED, String(collapsed));
+}
 
 export async function getSidebarItems(
   eventId: string,
