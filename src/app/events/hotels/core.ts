@@ -430,11 +430,12 @@ export function toProposalValues(p: Omit<ProposalWithChildren, "concessions"> & 
   };
 }
 
-// A hotel added from the proposal form ("New hotel"; prefilled from an emailed
-// offer): a lodging venue with its sales contact. A venue with the same name
+// A hotel added in passing ("New hotel" on a proposal, prefilled from an
+// emailed offer, or on an RFP's recipients): a lodging venue with its sales
+// contact. A venue with the same name
 // is refused, so it gets picked instead. VENUES WRITE is checked by
 // createVenueCore.
-export async function createProposalHotelCore(eventId: string, hotel: OfferHotel, amenities: string[], userId: string) {
+export async function createNewHotelCore(eventId: string, hotel: OfferHotel, amenities: string[], userId: string) {
   const tenantId = await requireEventTenantId(eventId);
   const name = hotel.name?.trim();
   if (!name) throw new Error("The hotel needs a name");

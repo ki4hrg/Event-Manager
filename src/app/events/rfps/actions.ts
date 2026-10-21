@@ -13,7 +13,9 @@ import { parseSections } from "@/lib/rfp/sections";
 import { effectiveScope, scopeLabels } from "@/lib/areas";
 import { cateringSpaceRows, functionSpaceRows, sortSpaceRows } from "@/lib/rfp/space";
 import { getPickupPattern } from "@/app/hotels/actions";
+import type { OfferHotel } from "@/lib/inboundParse";
 import {
+  addNewRfpRecipientCore,
   addRfpRecipientsCore,
   createRfpCore,
   deleteRfpCore,
@@ -451,6 +453,14 @@ export async function addRfpRecipients(id: string, eventId: string, venueIds: st
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   await addRfpRecipientsCore(id, eventId, venueIds, session.user.id);
   revalidatePath(rfpBase(eventId, kind));
+}
+
+export async function addNewRfpRecipient(id: string, eventId: string, hotel: OfferHotel) {
+  const kind = await rfpKind(id, eventId);
+  const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
+  await addNewRfpRecipientCore(id, eventId, hotel, session.user.id);
+  revalidatePath(rfpBase(eventId, kind));
+  revalidatePath("/venues");
 }
 
 export async function updateRfpRecipient(recipientId: string, id: string, eventId: string, args: RfpRecipientArgs) {

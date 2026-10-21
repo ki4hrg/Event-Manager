@@ -18,6 +18,8 @@ import type { PatternBasis } from "@/lib/hotelPattern";
 import { buildComparison } from "@/lib/rfp/compare";
 import { FB_INCLUDES, parseSections } from "@/lib/rfp/sections";
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
+import type { OfferHotel } from "@/lib/inboundParse";
+import { createNewHotelCore } from "@/app/events/hotels/core";
 
 export type RfpWriteArgs = {
   title: string;
@@ -366,6 +368,13 @@ export async function addRfpRecipientsCore(id: string, eventId: string, venueIds
   const venues = await prisma.venue.count({ where: { id: { in: ids }, tenantId } });
   if (venues !== ids.length) throw new PermissionError("NOT_FOUND", "Hotel not found");
   await prisma.rfpRecipient.createMany({ data: ids.map((venueId) => ({ rfpId: id, venueId })), skipDuplicates: true });
+}
+
+// A hotel not in Venues yet, created (VENUES WRITE) and added to the RFP.
+export async function addNewRfpRecipientCore(id: string, eventId: string, hotel: OfferHotel, userId: string) {
+  await authorizeRfp(id, eventId, "WRITE", userId);
+  const venue = await createNewHotelCore(eventId, hotel, [], userId);
+  await prisma.rfpRecipient.create({ data: { rfpId: id, venueId: venue.id } });
 }
 
 export async function updateRfpRecipientCore(recipientId: string, id: string, eventId: string, args: RfpRecipientArgs, userId: string) {

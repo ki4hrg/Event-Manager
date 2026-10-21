@@ -10,6 +10,9 @@ import { dateFromKey } from "@/lib/hotels";
 import { inScope, isEmptyScope, scopeLabels, type AreaOption, type AreaScope } from "@/lib/areas";
 import { RECIPIENT_STATE_COLORS, recipientState } from "@/lib/rfp/recipients";
 import type { RfpRecipientArgs } from "./core";
+import type { OfferHotel } from "@/lib/inboundParse";
+import { btnPrimary } from "@/lib/buttonStyles";
+import { NEW_HOTEL, NEW_HOTEL_FIELDS, readNewHotel } from "@/app/events/hotels/proposalArgs";
 
 export type RecipientRow = {
   id: string;
@@ -38,6 +41,7 @@ export function RfpRecipients({
   requiredAmenities,
   areaOptions,
   add,
+  addNew,
   update,
   remove,
 }: {
@@ -53,6 +57,8 @@ export function RfpRecipients({
   requiredAmenities: string[];
   areaOptions: AreaOption[];
   add: (venueIds: string[]) => Promise<void>;
+  // VENUES WRITE: "New hotel" creates one and adds it.
+  addNew?: (hotel: OfferHotel) => Promise<void>;
   update: (recipientId: string, args: RfpRecipientArgs) => Promise<void>;
   remove: (recipientId: string) => Promise<void>;
 }) {
@@ -62,6 +68,7 @@ export function RfpRecipients({
   const [error, setError] = useState<string | null>(null);
   const listed = new Set(recipients.map((r) => r.venueId));
   const [showAll, setShowAll] = useState(false);
+  const [adding, setAdding] = useState(false);
   const inArea = (h: { area: string | null }) => inScope(h.area, scope, areaOptions);
   const lacking = (h: { amenities: string[] }) => requiredAmenities.filter((a) => !h.amenities.includes(a));
   const fits = (h: (typeof hotels)[number]) => inArea(h) && lacking(h).length === 0;
@@ -166,18 +173,20 @@ export function RfpRecipients({
           );
         })}
       </ul>
-      {canWrite && unlisted.length > 0 && (
+      {canWrite && (unlisted.length > 0 || addNew) && !adding && (
         <select
           aria-label="Add hotel"
           value=""
           disabled={pending}
           onChange={(e) => {
             const id = e.target.value;
-            if (id) run(() => add([id]));
+            if (id === NEW_HOTEL) setAdding(true);
+            else if (id) run(() => add([id]));
           }}
           className={`${smallInput} w-full`}
         >
           <option value="">+ Hotel</option>
+          {addNew && <option value={NEW_HOTEL}>New hotel</option>}
           {unlisted.map((h) => (
             <option key={h.id} value={h.id}>
               {h.label}
@@ -185,6 +194,34 @@ export function RfpRecipients({
             </option>
           ))}
         </select>
+      )}
+      {adding && addNew && (
+        <form
+          action={(formData) =>
+            run(async () => {
+              const hotel = readNewHotel(formData);
+              if (hotel) await addNew(hotel);
+              setAdding(false);
+            })
+          }
+          className="space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3"
+        >
+          <input type="hidden" name="venueId" value={NEW_HOTEL} />
+          {NEW_HOTEL_FIELDS.map((f) => (
+            <label key={f.key} className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+              {f.label}
+              <input name={`newHotel.${f.key}`} type={f.type ?? "text"} required={f.key === "name"} className={`${smallInput} mt-1 block w-full`} />
+            </label>
+          ))}
+          <div className="flex gap-3">
+            <button type="submit" disabled={pending} className={`${btnPrimary} disabled:opacity-50`}>
+              {pending ? "Adding..." : "Add hotel"}
+            </button>
+            <button type="button" onClick={() => setAdding(false)} className={link}>
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
       {canWrite && (!isEmptyScope(scope) || requiredAmenities.length > 0) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">

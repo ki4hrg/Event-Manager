@@ -22,7 +22,7 @@ import {
   nightKeys,
   stageOf,
 } from "@/lib/hotels";
-import { NEW_HOTEL } from "./proposalArgs";
+import { NEW_HOTEL, NEW_HOTEL_FIELDS } from "./proposalArgs";
 import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
 import { RoomGrid, type GridNight } from "./RoomGrid";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
@@ -173,18 +173,6 @@ const MET_OPTIONS: StatusCycleOption<ConcessionMet | "">[] = [
   { value: "NOT_MET", label: MET_LABELS.NOT_MET, color: "red" },
 ];
 
-const NEW_HOTEL_FIELDS: { key: keyof OfferHotel; label: string; wide?: boolean; type?: string }[] = [
-  { key: "name", label: "Hotel name *", wide: true },
-  { key: "address", label: "Address", wide: true },
-  { key: "city", label: "City" },
-  { key: "state", label: "State" },
-  { key: "zip", label: "ZIP" },
-  { key: "contactTitle", label: "Contact title" },
-  { key: "contactFirstName", label: "Contact first name" },
-  { key: "contactLastName", label: "Contact last name" },
-  { key: "contactEmail", label: "Contact email", type: "email" },
-  { key: "contactPhone", label: "Contact phone", type: "tel" },
-];
 
 function Details({
   values,

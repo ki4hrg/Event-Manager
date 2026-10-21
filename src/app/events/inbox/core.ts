@@ -22,7 +22,7 @@ import {
   type ParseVenue,
 } from "@/lib/inboundParse";
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
-import { createHotelProposalCore, createProposalHotelCore, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
+import { createHotelProposalCore, createNewHotelCore, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
 import { eventScopeWhere } from "@/app/events/core";
 import { EMAIL_SOURCE_FILE_TYPE, OPEN_STATUSES } from "./views";
@@ -468,7 +468,7 @@ export async function applyInboundOfferCore(
   await claimAndApply(id, eventId, userId, async () => {
     // A new hotel's profile starts with the amenities its offer confirms.
     const confirmed = args.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label);
-    const venueId = newHotel ? (await createProposalHotelCore(eventId, newHotel, confirmed, userId)).id : args.venueId;
+    const venueId = newHotel ? (await createNewHotelCore(eventId, newHotel, confirmed, userId)).id : args.venueId;
     const proposal = await createHotelProposalCore(eventId, { ...args, venueId }, userId);
     proposalId = proposal.id;
     await copyAttachmentsToProposal(id, proposal.id);

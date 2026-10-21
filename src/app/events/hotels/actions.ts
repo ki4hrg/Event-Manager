@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import {
   createHotelProposalCore,
-  createProposalHotelCore,
+  createNewHotelCore,
   deleteHotelProposalCore,
   updateHotelProposalCore,
 } from "./core";
@@ -112,7 +112,7 @@ export async function createHotelProposal(eventId: string, formData: FormData) {
   if (newHotel) {
     // A new hotel's profile starts with the amenities the proposal confirms.
     const confirmed = args.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label);
-    args.venueId = (await createProposalHotelCore(eventId, newHotel, confirmed, session.user.id)).id;
+    args.venueId = (await createNewHotelCore(eventId, newHotel, confirmed, session.user.id)).id;
     revalidatePath("/venues");
   }
   const proposal = await createHotelProposalCore(eventId, args, session.user.id);
