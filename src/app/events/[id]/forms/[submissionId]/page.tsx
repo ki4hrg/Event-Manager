@@ -77,8 +77,8 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
     await rejectFormSubmission(eventId, submissionId, formData);
   };
 
-  // Open forms target the event itself; name them by who sent them.
-  const subject = review.targetName === event.name ? submission.submitterName ?? "Unnamed" : review.targetName;
+  // Open forms take anyone's submission; name them by who sent them.
+  const subject = review.open ? submission.submitterName ?? "Unnamed" : review.targetName;
   const title = `${FORM_TYPE_LABEL[submission.formType]} · ${subject}`;
   const date = (d: Date | null) =>
     d ? d.toLocaleString("en-US", { timeZone: timezone, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";

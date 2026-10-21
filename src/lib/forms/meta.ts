@@ -7,6 +7,7 @@ import type { FormSubmissionState, FormType } from "@prisma/client";
 export const FORM_TYPE_LABEL: Record<FormType, string> = {
   FUNCTION_REVIEW: "Function Review",
   ITEM_REQUEST: "Item Request",
+  EXHIBIT_REQUEST: "Exhibit Request",
 };
 
 export const FORM_STATE_LABEL: Record<FormSubmissionState, string> = {
@@ -186,3 +187,37 @@ export function optionLabel(list: readonly { value: string; label: string }[], v
   if (value == null) return null;
   return list.find((o) => o.value === value)?.label ?? value;
 }
+
+// ─── Exhibit Request ─────────────────────────────────────────────────────────
+// An open link (optionally scoped to one booth group) for exhibitors to ask
+// for a booth. Apply creates the booth, its contact and its equipment.
+
+export const EXHIBIT_REQUEST_SECTION_KEYS = new Set<string>(["booth"]);
+export const EXHIBIT_MAX_EQUIPMENT = 20;
+
+// ProvidedBy values an exhibitor may pick. GROUP ("we provide it") is the
+// organizer's call, not the exhibitor's.
+export const EXHIBIT_PROVIDERS = [
+  { value: "NOT_REQUIRED", label: "Not needed" },
+  { value: "VENUE", label: "From the venue" },
+  { value: "OUTSIDE_VENDOR", label: "My own vendor" },
+] as const;
+
+export type ExhibitProvider = (typeof EXHIBIT_PROVIDERS)[number]["value"];
+
+export type ExhibitRequestPayload = {
+  company: string | null;
+  boothType: string | null;
+  location: string | null;
+  contact: { firstName: string; lastName: string | null; email: string | null; phone: string | null } | null;
+  shippingRequired: boolean;
+  customsRequired: boolean;
+  electricalProvider: ExhibitProvider | null;
+  electricalNotes: string | null;
+  avProvider: ExhibitProvider | null;
+  avNotes: string | null;
+  specialRequirements: string | null;
+  equipment: { item: string; quantity: number | null }[];
+};
+
+export type ExhibitRequestBaseline = { groupName: string | null; boothTypes: string[] };

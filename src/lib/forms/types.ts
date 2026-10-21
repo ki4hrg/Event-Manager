@@ -12,9 +12,13 @@ export type FormLinkTarget = {
   eventId: string;
   functionId: string | null;
   contactId: string | null;
+  boothGroupId: string | null;
   config: Prisma.JsonValue;
   event: { name: string; timezone: string | null };
 };
+
+// The target ids a new link carries; a module validates the ones it uses.
+export type LinkTargetArgs = { eventId: string; functionId: string | null; contactId: string | null; boothGroupId: string | null };
 
 export type FormSnapshot<B> = {
   baseline: B;
@@ -60,9 +64,12 @@ export type FormApplyResult = { applied: string[]; filesTo?: FileTarget } & Reco
 // its own payload fits the registry's FormModule<unknown, unknown>.
 export type FormModule<P, B> = {
   sectionKeys: Set<string>;
+  // Open forms take submissions from anyone with the link; staff lists name
+  // them by submitter rather than target.
+  open: boolean;
   // Validates a new link's target as the creating user. Throws on a foreign
   // or missing target.
-  assertTarget(args: { eventId: string; functionId: string | null; contactId: string | null }, userId: string): Promise<void>;
+  assertTarget(args: LinkTargetArgs, userId: string): Promise<void>;
   snapshot(link: FormLinkTarget): Promise<FormSnapshot<B> | null>;
   parse(formData: FormData, snapshot: FormSnapshot<B>, link: FormLinkTarget): Promise<P>;
   rebase(payload: P, oldBaseline: B | null, newBaseline: B): P;

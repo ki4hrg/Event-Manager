@@ -61,6 +61,7 @@ export async function createFormLink(eventId: string, formData: FormData) {
       formType: formData.get("formType") as FormType,
       functionId: (formData.get("functionId") as string) || null,
       contactId: (formData.get("contactId") as string) || null,
+      boothGroupId: (formData.get("boothGroupId") as string) || null,
       label: (formData.get("label") as string) || null,
       recipientName: (formData.get("recipientName") as string) || null,
       recipientEmail: (formData.get("recipientEmail") as string) || null,
@@ -135,6 +136,7 @@ export async function getFormSubmissionReview(eventId: string, id: string) {
           eventId: true,
           functionId: true,
           contactId: true,
+          boothGroupId: true,
           config: true,
           recipientName: true,
           event: { select: { name: true, timezone: true } },
@@ -153,6 +155,7 @@ export async function getFormSubmissionReview(eventId: string, id: string) {
     functionId: sub.formLink.functionId,
     diff: mod.diff(sub.baseline, sub.payload, snapshot?.baseline ?? sub.baseline, sections),
     targetName: snapshot?.targetName ?? sub.formLink.event.name,
+    open: mod.open,
     // Null when the target is gone; apply is then refused.
     version: snapshot?.version ?? null,
     choices: sub.state === "SUBMITTED" ? await mod.reviewChoices(sub.payload, sub.formLink) : [],

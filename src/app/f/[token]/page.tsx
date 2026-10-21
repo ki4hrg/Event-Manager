@@ -10,12 +10,15 @@ import {
   type FunctionReviewBaseline,
   type FunctionReviewPayload,
   type FunctionReviewSection,
+  type ExhibitRequestBaseline,
+  type ExhibitRequestPayload,
   type ItemRequestBaseline,
   type ItemRequestPayload,
 } from "@/lib/forms/meta";
 import { FormMessage, FormShell, type PublicFormDto } from "./FormShell";
 import { FunctionReviewForm } from "./FunctionReviewForm";
 import { ItemRequestForm } from "./ItemRequestForm";
+import { ExhibitRequestForm } from "./ExhibitRequestForm";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +111,16 @@ export default async function PublicFormPage({
             {...common}
             baseline={snapshot.baseline as ItemRequestBaseline}
             draft={draftView && { ...draftView, payload: payload as ItemRequestPayload | null }}
+          />
+        </FormShell>
+      );
+    case "EXHIBIT_REQUEST":
+      return (
+        <FormShell form={form}>
+          <ExhibitRequestForm
+            {...common}
+            baseline={snapshot.baseline as ExhibitRequestBaseline}
+            draft={draftView && { ...draftView, payload: payload as ExhibitRequestPayload | null }}
           />
         </FormShell>
       );

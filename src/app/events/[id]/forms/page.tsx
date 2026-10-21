@@ -59,6 +59,7 @@ export default async function FormsPage({
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Forms</h1>
           <div className="flex flex-wrap gap-2">
             <OpenFormLinkButton eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
+            <OpenFormLinkButton eventId={eventId} formType="EXHIBIT_REQUEST" title="Exhibit request link" />
           </div>
         </div>
       </div>

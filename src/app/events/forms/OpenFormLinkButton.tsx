@@ -7,7 +7,17 @@ import { FormLinkButton } from "./FormLinkButton";
 
 // Link button for an open form (no target record): the forms page and the
 // order and exhibit lists all mount it. Renders nothing without FORMS WRITE.
-export async function OpenFormLinkButton({ eventId, formType, title }: { eventId: string; formType: FormType; title: string }) {
+export async function OpenFormLinkButton({
+  eventId,
+  formType,
+  title,
+  targetSelect,
+}: {
+  eventId: string;
+  formType: FormType;
+  title: string;
+  targetSelect?: React.ComponentProps<typeof FormLinkButton>["targetSelect"];
+}) {
   if (!(await hasPermission("FORMS", "WRITE", eventId))) return null;
   const [links, templates] = await Promise.all([getFormLinks(eventId, { formType }), getWorkflowTemplateOptions()]);
 
@@ -26,6 +36,7 @@ export async function OpenFormLinkButton({ eventId, formType, title }: { eventId
       title={title}
       formType={formType}
       defaultMaxSubmissions={null}
+      targetSelect={targetSelect}
       workflowTemplates={templates}
       links={links}
       emailEnabled={isEmailConfigured()}

@@ -22,6 +22,7 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 | Registry (`formModule(type)`) | `src/lib/forms/index.ts` |
 | Function Review | `src/lib/forms/functionReview.ts` |
 | Item Request (open link) | `src/lib/forms/itemRequest.ts` |
+| Exhibit Request (open link) | `src/lib/forms/exhibitRequest.ts` |
 | Reviewer contact choice (new / existing / skip) | `src/lib/forms/contacts.ts` |
 | Token lookup, throttle, draft lookup, purge | `src/lib/forms/links.ts` |
 | Public cores (draft, submit, upload, discard) | `src/lib/forms/publicCore.ts` |
@@ -37,6 +38,7 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 |---|---|---|
 | Function Review | a function (+ recipient contact) | ESG fields, description, catering count/dietary, on-site contact; change requests onto the function's notes |
 | Item Request | none (open link; from Forms, Print Orders, Supply Orders) | one item per line on a new or chosen print/supply order; procure → TO_PROCURE, shipping → DROP_SHIP + IN_TRANSIT, bringing → ON_HAND |
+| Exhibit Request | none, or one booth group (open link; from Forms, Exhibits) | a booth (company, type, location, shipping/customs, electrical/AV), its contact per the reviewer's choice, its equipment lines |
 
 Every module's `snapshot().version` changes when a column it can write changes. The public form posts it back (stale → `?error=stale`), and so does the review page, where `applyFormSubmissionCore` refuses on a mismatch. Create-only forms use a constant. Reviewer decisions per section arrive as `choice_<key>` (`ReviewChoice` in `types.ts`).
 

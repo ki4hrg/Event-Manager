@@ -30,6 +30,8 @@ type Props = {
   // Omitted for a form with one section.
   sections?: readonly { key: string; label: string }[];
   recipients?: { contactId: string; name: string; email: string | null }[];
+  // An optional scope picked in the dialog (an exhibit request's booth group).
+  targetSelect?: { name: string; label: string; emptyLabel: string; options: { value: string; label: string }[] };
   // Open links default to unlimited responses.
   defaultMaxSubmissions?: number | null;
   workflowTemplates: { id: string; name: string }[];
@@ -47,6 +49,7 @@ export function FormLinkButton({
   sections = [],
   recipients = [],
   defaultMaxSubmissions = 1,
+  targetSelect,
   workflowTemplates,
   links,
   emailEnabled,
@@ -119,6 +122,17 @@ export function FormLinkButton({
                   <input type="hidden" name="formType" value={formType} />
                   {targetField && <input type="hidden" name={targetField.name} value={targetField.value} />}
                   <input type="hidden" name="contactId" value={recipient.contactId} />
+                  {targetSelect && targetSelect.options.length > 0 && (
+                    <div>
+                      <label className={labelCls}>{targetSelect.label}</label>
+                      <select name={targetSelect.name} defaultValue="" className={inputCls}>
+                        <option value="">{targetSelect.emptyLabel}</option>
+                        {targetSelect.options.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {recipients.length > 0 && (
                     <div>
                       <label className={labelCls}>Send to</label>

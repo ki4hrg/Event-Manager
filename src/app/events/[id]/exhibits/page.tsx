@@ -9,6 +9,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { hasPermission } from "@/lib/permissions";
 import { getEvent } from "../../actions";
 import { getBoothGroups, getExhibitBooths } from "../../exhibits/actions";
+import { OpenFormLinkButton } from "../../forms/OpenFormLinkButton";
 
 export const dynamic = "force-dynamic";
 
@@ -80,16 +81,29 @@ export default async function ExhibitsPage({ params }: { params: Promise<{ id: s
           />
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Exhibits ({booths.length})</h1>
         </div>
-        {canWrite && (
-          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
-            <Link href={`/events/${eventId}/exhibits/groups/new`} className={`${btnSecondary} text-sm`}>
-              Add Group
-            </Link>
-            <Link href={`/events/${eventId}/exhibits/new`} className={`${btnPrimary} text-sm`}>
-              Add Booth
-            </Link>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <OpenFormLinkButton
+            eventId={eventId}
+            formType="EXHIBIT_REQUEST"
+            title="Exhibit request link"
+            targetSelect={{
+              name: "boothGroupId",
+              label: "Exhibit area",
+              emptyLabel: "Any",
+              options: groups.map((g) => ({ value: g.id, label: g.name })),
+            }}
+          />
+          {canWrite && (
+            <>
+              <Link href={`/events/${eventId}/exhibits/groups/new`} className={`${btnSecondary} text-sm`}>
+                Add Group
+              </Link>
+              <Link href={`/events/${eventId}/exhibits/new`} className={`${btnPrimary} text-sm`}>
+                Add Booth
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       {booths.length === 0 && groups.length === 0 ? (
