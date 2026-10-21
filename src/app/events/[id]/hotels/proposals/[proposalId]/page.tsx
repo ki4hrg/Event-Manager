@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageHeader } from "@/components/PageHeader";
+import { rfpHref } from "@/lib/rfp/kinds";
 import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
 import { LastUpdated } from "@/components/LastUpdated";
@@ -63,43 +64,46 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
-        <div className="min-w-0">
-          <Breadcrumbs
-            items={[
-              { label: "Events", href: "/events" },
-              { label: event.name, href: `/events/${eventId}` },
-              { label: "Hotels", href: `/events/${eventId}/hotels` },
-              { label: proposal.venue.name },
-            ]}
-          />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1 break-words">
-            {proposal.venue.name}
-            {proposal.revision > 1 && <span className="ml-2 text-base text-gray-500 dark:text-gray-400">rev {proposal.revision}</span>}
-          </h1>
-          <LastUpdated updatedAt={proposal.updatedAt} updatedBy={proposal.updatedBy} timezone={event.timezone} className="mt-2" />
-        </div>
-        <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
-          {proposal.rfp && (
-            <Link href={`/events/${eventId}/hotels/rfps/${proposal.rfp.id}`} className={btnSecondary}>
-              RFP
-            </Link>
-          )}
-          {proposal.block ? (
-            <Link href={`/events/${eventId}/hotels/blocks/${proposal.block.id}`} className={btnSecondary}>
-              Block
-            </Link>
-          ) : (
-            accepted && <CreateBlockButton action={createBlockAction} />
-          )}
-          <DeleteButton action={deleteAction} resource="HOTELS" label="Delete Proposal" />
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Events", href: "/events" },
+          { label: event.name, href: `/events/${eventId}` },
+          { label: "Hotels", href: `/events/${eventId}/hotels` },
+          { label: "Proposals", href: `/events/${eventId}/hotels#proposals` },
+          { label: proposal.venue.name },
+        ]}
+        title={`Proposal · ${proposal.venue.name}`}
+        meta={
+          <div className="space-y-1">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {[proposal.status, `rev ${proposal.revision}`, proposal.rfp?.title].filter(Boolean).join(" · ")}
+            </p>
+            <LastUpdated updatedAt={proposal.updatedAt} updatedBy={proposal.updatedBy} timezone={event.timezone} />
+          </div>
+        }
+        actions={
+          <>
+            {proposal.rfp && (
+              <Link href={rfpHref(eventId, "HOTEL", proposal.rfp.id)} className={btnSecondary}>
+                View RFP
+              </Link>
+            )}
+            {proposal.block ? (
+              <Link href={`/events/${eventId}/hotels/blocks/${proposal.block.id}`} className={btnSecondary}>
+                View block
+              </Link>
+            ) : (
+              accepted && <CreateBlockButton action={createBlockAction} />
+            )}
+            <DeleteButton action={deleteAction} resource="HOTELS" label="Delete Proposal" />
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0">
+          {/* Autosaves: not keyed on updatedAt, or each save would remount it. */}
           <ProposalForm
-            key={proposal.updatedAt.toISOString()}
             proposal={toProposalValues(proposal)}
             concessions={(proposal.rfp?.concessions ?? []).map((c) => {
               const answer = proposal.concessions.find((a) => a.concessionId === c.id);

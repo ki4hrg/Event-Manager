@@ -51,7 +51,7 @@ export function InboxDeclineReview({
 
   return (
     <div className={cardClass}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Declined to bid</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Hotel declined</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="text-sm text-gray-700 dark:text-gray-300">
           RFP

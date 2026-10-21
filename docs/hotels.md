@@ -50,6 +50,12 @@ What we ask hotels for, before any proposal comes back. `Rfp` (generic, `kind = 
 - **Hotel Information** (`/events/[id]/reports/hotel-info`, shareable) — guest-facing booking details; never pickup or contract money. Filtered by guest type (`?guestTypes=`); share links saved before the block-type split keep their filter through `hotelInfoGuestTypes`.
 - **/hotels/reports** — pickup history across events (vs attendance and membership, per hotel) and monitoring of upcoming blocks.
 
+## Pages
+
+- **Hotels** (`/events/[id]/hotels`) — lifecycle order: RFPs (a count and a link; the event's RFPs page, `?kind=HOTEL`, is their one list), Proposals (`#proposals`), Blocks (`#blocks`). Header links to Hotel Information and the Inbox.
+- **Proposal** / **Block** detail — titled "Proposal · hotel" / "Block · hotel", breadcrumbs through *Proposals* / *Blocks* to those anchors, cross-linked (View RFP, View block, View proposal). Both cards autosave (`useAutosave`; `updateHotelProposal` / `updateHotelBlock` don't redirect, and the block save returns its nights' ids so rows it just added update in place). Read-only users get the same card disabled. Creating a proposal still submits; a revision applied from the Inbox submits too (*Apply Revision*).
+- **Pickup** — the block page lists the first 500 guests; `?guests=all` lifts the cap (the pickup math always counts every guest).
+
 ## Email inbox
 
 Each event can have an inbox address (event Settings › Inbox). Hotels' pickup
@@ -59,6 +65,21 @@ and press Import (or Save counts). It goes through the same cores as the
 pickup page (`importPickupGuestsCore` MERGE / APPEND / REPLACE,
 `savePickupCountsCore`), so history and snapshots are the same. Design and
 setup: `docs/proposals/email-ingest.md`, `workers/email-inbound/README.md`.
+
+Files saved from an online tool (a proposal as PDF, a pickup sheet) can be
+dropped on the event's Inbox page instead of emailed: they post to
+`/api/events/[id]/inbox/upload` (multipart) and become one item with origin
+`UPLOAD`, read like delivered mail (`submitInboundItemCore`, shared with MCP
+`submit_inbox_item`).
+
+Permissions: the inbox holds every kind of mail, not just hotels'. Reading it
+is EVENTS VIEW (the org-wide `/inbox` and the header count cover events the
+user can see, `orgInboxWhere` → `eventScopeWhere`); triage — release, re-read,
+dismiss, restore, move, upload/submit — is EVENTS WRITE. Applying needs WRITE
+on what it changes: HOTELS for pickup, hotel proposals and declines; the RFP
+kind's resource (`quoteResource`; EVENTS when standalone) for a vendor quote;
+CATERING_ORDERS for a BEO; the covered record's (`contractTargetResource`) for
+a contract. Each review only offers what the reviewer may write.
 
 ## Importing Hotel-Manager
 

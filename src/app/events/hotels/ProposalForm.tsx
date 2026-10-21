@@ -1,7 +1,9 @@
 "use client";
 
 import { DateInput } from "@/components/ui/DateInput";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useAutosave } from "@/lib/useAutosave";
+import { AutosaveStatus } from "@/components/AutosaveStatus";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
@@ -10,13 +12,9 @@ import type { OfferHotel } from "@/lib/inboundParse";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import {
   addDays,
-  blockTypeLabel,
-  CHARGE_SCOPE_LABELS,
   CHARGE_SCOPES,
   CONTRACT_TYPES,
   coveredByProfile,
-  formatDateKey,
-  formatMoney,
   labelKey,
   MET_LABELS,
   nightKeys,
@@ -24,9 +22,9 @@ import {
 } from "@/lib/hotels";
 import { LEAD_SOURCE_DIRECT, NEW_HOTEL, NEW_HOTEL_FIELDS } from "./proposalArgs";
 import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
-import { RoomGrid, type GridNight } from "./RoomGrid";
+import type { GridNight } from "./RoomGrid";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
-import { AmenityEditor, AmenityList, type ProposalAmenity } from "./ProposalAmenities";
+import { AmenityEditor, type ProposalAmenity } from "./ProposalAmenities";
 import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "./RoomGridEditor";
 
 export type ProposalValues = {
@@ -146,10 +144,6 @@ function metByProfile(answers: ConcessionAnswer[], profile: string[], auto: stri
   return { answers: cleared.map((a) => (filled.includes(a.id) ? { ...a, met: "MET" as const } : a)), auto: filled };
 }
 
-function concessionLine(c: ConcessionAnswer) {
-  return [c.met ? MET_LABELS[c.met] : null, c.offered].filter(Boolean).join(" · ") || "—";
-}
-
 // A new proposal answering a requested RFP block starts as a copy of it.
 export type ProposalTemplate = {
   rfpBlockId: string;
@@ -177,107 +171,9 @@ const MET_OPTIONS: StatusCycleOption<ConcessionMet | "">[] = [
 ];
 
 
-function Details({
-  values,
-  choices,
-  concessions,
-  offered,
-  addToHotel,
-}: {
-  values: ProposalValues;
-  choices: ProposalChoices;
-  concessions: ConcessionAnswer[];
-  offered: OfferedConcession[];
-  addToHotel?: (label: string) => Promise<void>;
-}) {
-  const profile = choices.venues.find((v) => v.id === values.venueId)?.amenities ?? [];
-  const rows: [string, ReactNode][] = [
-    ["Hotel", choices.venues.find((v) => v.id === values.venueId)?.label ?? "—"],
-    ["Status", values.status],
-    ["Revision", values.revision],
-    ["Block type", blockTypeLabel(values.contractType, values.guestType) ?? "—"],
-    [
-      "Lead source",
-      values.leadSourceDirect
-        ? "Direct"
-        : (() => {
-            const lead = choices.leadSources.find((l) => l.id === values.leadSourceVendorId);
-            const contact = lead?.contacts.find((c) => c.id === values.leadSourceContactId);
-            return lead ? [lead.name, contact?.name].filter(Boolean).join(" · ") : "—";
-          })(),
-    ],
-    ["Submitted", formatDateKey(values.submittedOn)],
-    ["Check-in", formatDateKey(values.checkIn)],
-    ["Check-out", formatDateKey(values.checkOut)],
-    ["Allowed attrition", values.allowedAttrition != null ? `${Number(values.allowedAttrition)}%` : "—"],
-    ["Guaranteed revenue", formatMoney(values.guaranteedRevenue)],
-    ["Valid until", formatDateKey(values.validUntil)],
-    ["Rates include taxes", values.taxIncluded == null ? "—" : values.taxIncluded ? "Yes" : "No"],
-    ["Amenities", <AmenityList key="amenities" profile={profile} stated={values.amenities} addToHotel={addToHotel} />],
-  ];
-  if (values.declinedReason) rows.push(["Declined reason", values.declinedReason]);
-  return (
-    <div className="space-y-6">
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
-            <dd className="text-gray-900 dark:text-white">{value}</dd>
-          </div>
-        ))}
-        {values.notes && (
-          <div className="sm:col-span-2">
-            <dt className="text-gray-500 dark:text-gray-400">Notes</dt>
-            <dd className="text-gray-900 dark:text-white whitespace-pre-wrap">{values.notes}</dd>
-          </div>
-        )}
-      </dl>
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Rooms</h3>
-        <RoomGrid nights={values.nights} />
-      </div>
-      {(concessions.length > 0 || offered.length > 0) && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Concessions</h3>
-          <ul className="text-sm divide-y divide-gray-100 dark:divide-gray-700">
-            {offered.map((c) => (
-              <li key={`offered-${c.label}`} className="flex flex-wrap justify-between gap-x-3 py-1.5 text-gray-900 dark:text-white">
-                <span>{c.label}</span>
-                <span className="text-gray-500 dark:text-gray-400">{c.offered ?? "Offered"}</span>
-              </li>
-            ))}
-            {concessions.map((c) => (
-              <li key={c.id} className="flex flex-wrap justify-between gap-x-3 py-1.5 text-gray-900 dark:text-white">
-                <span>
-                  {c.label}
-                  {c.value && <span className="text-gray-500 dark:text-gray-400"> (asked {c.value})</span>}
-                </span>
-                <span className={c.met === "NOT_MET" ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"}>{concessionLine(c)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {values.charges.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Charges</h3>
-          <ul className="text-sm divide-y divide-gray-100 dark:divide-gray-700">
-            {values.charges.map((c, i) => (
-              <li key={i} className="flex justify-between gap-3 py-1.5 text-gray-900 dark:text-white">
-                <span>{c.chargeType}</span>
-                <span className="text-gray-500 dark:text-gray-400">
-                  {formatMoney(c.amount)}
-                  {c.scope ? ` ${CHARGE_SCOPE_LABELS[c.scope].toLowerCase()}` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
+// Three modes: create (no proposal: submits, then the detail page autosaves),
+// edit (a proposal: autosaves through a non-redirecting action), and revise
+// (a proposal plus a draft, from the Inbox: submits as the next revision).
 export function ProposalForm({
   proposal,
   choices,
@@ -320,9 +216,14 @@ export function ProposalForm({
 }) {
   const isEdit = !!proposal;
   const revising = isEdit && !!draft;
-  const initial = draft ?? proposal;
+  const autosaving = isEdit && !revising;
+  // Uncontrolled and autosaving, so it keeps the values it mounted with; the
+  // refreshed ones after each save would only reset it.
+  const [initial] = useState(draft ?? proposal);
+  const [mountRevision] = useState(proposal?.revision ?? 1);
+  // The lowest revision the server takes: raised by each saved bump.
+  const [floor, setFloor] = useState(mountRevision);
   const canWrite = useCanWrite("HOTELS");
-  const [editing, setEditing] = useState(!isEdit || revising);
   const [status, setStatus] = useState(initial?.status ?? fromRfp?.status ?? choices.statuses[0]?.label ?? "");
   const [revision, setRevision] = useState(initial?.revision ?? 1);
   const [checkIn, setCheckIn] = useState(initial ? initial.checkIn ?? "" : defaultCheckIn ?? "");
@@ -375,24 +276,6 @@ export function ProposalForm({
   const defaultContractType = rfpChoices ? (rfpChoice?.contractType ?? null) : (initial?.contractType ?? fromRfp?.contractType ?? null);
   const defaultGuestType = rfpChoices ? (rfpChoice?.guestType ?? null) : initial ? initial.guestType : (fromRfp?.guestType ?? null);
 
-  if (!editing || !canWrite) {
-    return (
-      <div className={cardClass}>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Proposal</h2>
-          {canWrite && (
-            <button onClick={() => setEditing(true)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              Edit
-            </button>
-          )}
-        </div>
-        {proposal && (
-          <Details values={proposal} choices={choices} concessions={concessions} offered={offeredConcessions} addToHotel={addAmenityToHotel} />
-        )}
-      </div>
-    );
-  }
-
   const keys = nightKeys(checkIn || null, checkOut || null);
   const stage = stageOf(status, choices.statuses);
   // The grid's edge-day links move check-in / check-out.
@@ -407,373 +290,400 @@ export function ProposalForm({
       .map((c) => ({ chargeType: c.chargeType, amount: c.amount !== "" ? Number(c.amount) : null, scope: c.scope || null })),
   );
 
+  // Autosave: the form's payload is read after each render (so state-driven
+  // hidden inputs are current) and kept for a save after unmount. The saved
+  // value is every edit: native input events bump formVersion, and the state
+  // the buttons and status cycles change is in sig.
+  const formRef = useRef<HTMLFormElement>(null);
+  const payload = useRef<FormData | null>(null);
+  const [formVersion, setFormVersion] = useState(0);
+  useEffect(() => {
+    if (formRef.current) payload.current = new FormData(formRef.current);
+  });
+  const sig = JSON.stringify([status, revision, checkIn, checkOut, grid, charges, leadSource, amenities, answers, offered]);
+  const autosave = useAutosave(
+    autosaving && canWrite ? `${formVersion}|${sig}` : "",
+    async () => {
+      const data = payload.current;
+      if (!data) return;
+      await action(data);
+      setFloor(parseInt(data.get("revision") as string) || 1);
+    },
+    { invalid: gridOver ? "Typed rooms exceed a night's total" : null },
+  );
+
   return (
     <form
-      action={async (formData) => {
-        await action(formData);
-        if (isEdit) setEditing(false);
-      }}
+      ref={formRef}
+      action={autosaving ? undefined : action}
+      onChange={autosaving ? () => setFormVersion((v) => v + 1) : undefined}
+      onSubmit={autosaving ? (e) => e.preventDefault() : undefined}
       className={`${cardClass} space-y-6`}
     >
-      <input type="hidden" name="nights" value={nightsJson} />
-      <input type="hidden" name="charges" value={chargesJson} />
-      {!isEdit && rfpBlockId && <input type="hidden" name="rfpBlockId" value={rfpBlockId} />}
-      {answers.length > 0 && (
-        <input
-          type="hidden"
-          name="concessions"
-          value={JSON.stringify(answers.map((a) => ({ concessionId: a.id, offered: a.offered, met: a.met })))}
-        />
-      )}
-      <input type="hidden" name="offeredConcessions" value={JSON.stringify(offered.map((r) => ({ label: r.label, offered: r.offered })))} />
-      <input type="hidden" name="amenities" value={JSON.stringify(amenities)} />
-
-      {!isEdit && rfpChoices && rfpChoices.length > 0 && (
-        <Fieldset title="Source">
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input type="radio" checked={!!rfpBlockId} onChange={() => pickRfp(rfpChoices[0].id)} />
-              Answers an RFP
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input type="radio" checked={!rfpBlockId} onChange={() => pickRfp("")} />
-              Standalone proposal
-            </label>
-          </div>
-          {rfpBlockId && (
-            <Field label="RFP block" htmlFor="p-rfpBlockId">
-              <select id="p-rfpBlockId" value={rfpBlockId} onChange={(e) => pickRfp(e.target.value)} className={inputClass}>
-                {rfpChoices.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-        </Fieldset>
-      )}
-
-      <Fieldset title="Proposal">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Hotel *" htmlFor="p-venueId" wide>
-            <select id="p-venueId" name="venueId" required value={venueId} onChange={(e) => pickVenue(e.target.value)} className={inputClass}>
-              <option value="">Select a hotel</option>
-              {canAddHotel && !isEdit && <option value={NEW_HOTEL}>New hotel</option>}
-              {choices.venues.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                  {v.isLodging ? "" : " (not lodging)"}
-                </option>
-              ))}
-            </select>
-          </Field>
-          {venueId === NEW_HOTEL && (
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
-              {NEW_HOTEL_FIELDS.map((f) => (
-                <Field key={f.key} label={f.label} htmlFor={`p-newHotel-${f.key}`} wide={f.wide}>
-                  <input
-                    id={`p-newHotel-${f.key}`}
-                    name={`newHotel.${f.key}`}
-                    type={f.type ?? "text"}
-                    required={f.key === "name"}
-                    defaultValue={newHotel?.[f.key] ?? ""}
-                    className={inputClass}
-                  />
-                </Field>
-              ))}
-            </div>
-          )}
-          <Field label="Status *" htmlFor="p-status">
-            <select id="p-status" name="status" required value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
-              {status && !choices.statuses.some((s) => s.label === status) && <option value={status}>{status}</option>}
-              {choices.statuses.map((s) => (
-                <option key={s.label} value={s.label}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Contract type" htmlFor="p-contractType">
-            <select key={rfpBlockId} id="p-contractType" name="contractType" defaultValue={defaultContractType ?? ""} className={inputClass}>
-              <option value="">Not set</option>
-              {CONTRACT_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Guest type" htmlFor="p-guestType">
-            <OptionSelect key={rfpBlockId} id="p-guestType" name="guestType" value={defaultGuestType} options={choices.guestTypes} />
-          </Field>
-          {stage === "DECLINED" && (
-            <Field label="Declined reason" htmlFor="p-declinedReason" wide>
-              <input id="p-declinedReason" name="declinedReason" defaultValue={initial?.declinedReason ?? ""} className={inputClass} />
-            </Field>
-          )}
-          <Field label="Lead source" htmlFor="p-leadSource">
-            <select id="p-leadSource" name="leadSource" value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className={inputClass}>
-              <option value="">Not set</option>
-              <option value={LEAD_SOURCE_DIRECT}>Direct</option>
-              {choices.leadSources.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          {leadContacts.length > 0 && (
-            <Field label="Lead source contact" htmlFor="p-leadSourceContactId">
-              <select id="p-leadSourceContactId" name="leadSourceContactId" defaultValue={initial?.leadSourceContactId ?? ""} className={inputClass}>
-                <option value="">Not set</option>
-                {leadContacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-          <Field label="Submitted" htmlFor="p-submittedOn">
-            <input id="p-submittedOn" type="date" name="submittedOn" defaultValue={initial?.submittedOn ?? ""} className={inputClass} />
-          </Field>
-          <Field label="Revision" htmlFor="p-revision">
-            <input
-              id="p-revision"
-              type="number"
-              name="revision"
-              min={proposal?.revision ?? 1}
-              value={revision}
-              onChange={(e) => setRevision(parseInt(e.target.value) || 1)}
-              className={inputClass}
-            />
-          </Field>
-          {isEdit && revision > (proposal?.revision ?? 1) && (
-            <Field label="What changed" htmlFor="p-revisionSummary">
-              <input id="p-revisionSummary" name="revisionSummary" className={inputClass} />
-            </Field>
-          )}
+      {autosaving && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Proposal</h2>
+          <AutosaveStatus {...autosave} />
         </div>
-      </Fieldset>
-
-      <Fieldset title="Stay">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Earliest check-in" htmlFor="p-checkIn">
-            <DateInput id="p-checkIn" name="checkIn" value={checkIn} onChange={setCheckIn} className={inputClass} />
-          </Field>
-          <Field label="Latest check-out" htmlFor="p-checkOut">
-            <DateInput id="p-checkOut" name="checkOut" value={checkOut} onChange={setCheckOut} className={inputClass} />
-          </Field>
-        </div>
-      </Fieldset>
-
-      <Fieldset title="Rooms">
-        {keys.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Set check-in and check-out to enter rooms.</p>
-        ) : (
-          <RoomGridEditor keys={keys} state={grid} roomTypes={choices.roomTypes} withRate onChange={setGrid} onAddDay={addDay} onRemoveDay={removeDay} />
-        )}
-      </Fieldset>
-
-      <Fieldset title="Amenities">
-        <AmenityEditor
-          profile={venueId === NEW_HOTEL ? [] : profileOf(venueId)}
-          list={choices.amenities}
-          value={amenities}
-          added={addedAmenities}
-          onChange={setAmenities}
-          onAdd={(label) => setAddedAmenities((prev) => [...prev, label])}
-        />
-      </Fieldset>
-
-      <Fieldset title="Concessions">
+      )}
+      <fieldset disabled={!canWrite} className="space-y-6 min-w-0">
+        <input type="hidden" name="nights" value={nightsJson} />
+        <input type="hidden" name="charges" value={chargesJson} />
+        {!isEdit && rfpBlockId && <input type="hidden" name="rfpBlockId" value={rfpBlockId} />}
         {answers.length > 0 && (
-          <div className="space-y-2">
-            {answers.map((a, i) => {
-              const set = (patch: Partial<ConcessionAnswer>) => {
-                setAnswers((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)));
-                setAutoMet((prev) => prev.filter((id) => id !== a.id));
-              };
-              return (
-                <div key={a.id} className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-gray-900 dark:text-white min-w-[10rem] flex-1">
-                    {a.label}
-                    {a.value && <span className="text-gray-500 dark:text-gray-400"> (asked {a.value})</span>}
-                    {a.required && <span className="text-gray-500 dark:text-gray-400"> · required</span>}
-                  </span>
-                  <StatusCycle
-                    label={`${a.label} met`}
-                    value={a.met ?? ""}
-                    options={MET_OPTIONS}
-                    onChange={(met) => set({ met: met || null })}
-                  />
-                  <input
-                    aria-label={`${a.label} offered`}
-                    placeholder="Offered"
-                    value={a.offered ?? ""}
-                    onChange={(e) => set({ offered: e.target.value || null })}
-                    className={`${inlineInputClass} flex-1 min-w-[8rem]`}
-                  />
-                </div>
-              );
-            })}
-          </div>
+          <input
+            type="hidden"
+            name="concessions"
+            value={JSON.stringify(answers.map((a) => ({ concessionId: a.id, offered: a.offered, met: a.met })))}
+          />
         )}
-        <div className="space-y-2">
-          {answers.length > 0 && offered.length > 0 && <p className={labelClass}>Also offered</p>}
-          {offered.map((r) => (
-            <div key={r.key} className="flex flex-wrap items-center gap-2">
-              <select
-                aria-label="Concession"
-                value={r.label}
-                onChange={(e) => setOfferedRow(r.key, { label: e.target.value, custom: false })}
-                className={`${inlineInputClass} flex-1 min-w-[10rem]`}
-              >
-                {r.custom && <option value={r.label}>{r.label} (not in list)</option>}
-                <ConcessionOptions options={choices.concessionOptions} available={(l) => l === r.label || !offered.some((o) => o.label === l)} />
-              </select>
-              <input
-                aria-label={`${r.label || "Concession"} terms`}
-                placeholder="Included, $10/night…"
-                value={r.offered ?? ""}
-                onChange={(e) => setOfferedRow(r.key, { offered: e.target.value || null })}
-                className={`${inlineInputClass} flex-1 min-w-[8rem]`}
-              />
-              <button
-                type="button"
-                onClick={() => setOffered((prev) => prev.filter((x) => x.key !== r.key))}
-                className="text-sm text-red-600 dark:text-red-400 hover:underline"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <select
-            aria-label="Add concession"
-            value=""
-            onChange={(e) => e.target.value && addOffered(e.target.value)}
-            className={inlineInputClass}
-          >
-            <option value="">+ Concession</option>
-            <ConcessionOptions
-              options={choices.concessionOptions}
-              available={(l) => !offered.some((o) => o.label === l) && !answers.some((a) => labelKey(a.label) === labelKey(l))}
-            />
-          </select>
-        </div>
-      </Fieldset>
+        <input type="hidden" name="offeredConcessions" value={JSON.stringify(offered.map((r) => ({ label: r.label, offered: r.offered })))} />
+        <input type="hidden" name="amenities" value={JSON.stringify(amenities)} />
 
-      <Fieldset title="Terms">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Allowed attrition %" htmlFor="p-allowedAttrition">
-            <input
-              id="p-allowedAttrition"
-              type="number"
-              name="allowedAttrition"
-              min={0}
-              max={100}
-              step="0.01"
-              defaultValue={initial?.allowedAttrition ?? ""}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Guaranteed revenue" htmlFor="p-guaranteedRevenue">
-            <input
-              id="p-guaranteedRevenue"
-              type="number"
-              name="guaranteedRevenue"
-              min={0}
-              step="0.01"
-              defaultValue={initial?.guaranteedRevenue ?? ""}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Valid until" htmlFor="p-validUntil">
-            <input id="p-validUntil" type="date" name="validUntil" defaultValue={initial?.validUntil ?? ""} className={inputClass} />
-          </Field>
-          <Field label="Rates include taxes" htmlFor="p-taxIncluded">
-            <select
-              id="p-taxIncluded"
-              name="taxIncluded"
-              defaultValue={initial?.taxIncluded == null ? "" : String(initial.taxIncluded)}
-              className={inputClass}
-            >
-              <option value="">Not stated</option>
-              <option value="false">No, plus taxes</option>
-              <option value="true">Yes</option>
-            </select>
-          </Field>
-        </div>
-        <div>
-          <p className={labelClass}>Charges</p>
-          <div className="mt-1 space-y-2">
-            {charges.map((c, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2">
-                <input
-                  aria-label="Charge"
-                  placeholder="Resort fee, parking…"
-                  value={c.chargeType}
-                  onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, chargeType: e.target.value } : x)))}
-                  className={`${inlineInputClass} flex-1 min-w-[10rem]`}
-                />
-                <input
-                  aria-label="Amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="$"
-                  value={c.amount}
-                  onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
-                  className={`${inlineInputClass} w-24`}
-                />
-                <select
-                  aria-label="Scope"
-                  value={c.scope}
-                  onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, scope: e.target.value as HotelChargeScope } : x)))}
-                  className={inlineInputClass}
-                >
-                  <option value="">—</option>
-                  {CHARGE_SCOPES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
+        {!isEdit && rfpChoices && rfpChoices.length > 0 && (
+          <Fieldset title="Source">
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="radio" checked={!!rfpBlockId} onChange={() => pickRfp(rfpChoices[0].id)} />
+                Answers an RFP
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="radio" checked={!rfpBlockId} onChange={() => pickRfp("")} />
+                Standalone proposal
+              </label>
+            </div>
+            {rfpBlockId && (
+              <Field label="RFP block" htmlFor="p-rfpBlockId">
+                <select id="p-rfpBlockId" value={rfpBlockId} onChange={(e) => pickRfp(e.target.value)} className={inputClass}>
+                  {rfpChoices.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
                     </option>
                   ))}
                 </select>
+              </Field>
+            )}
+          </Fieldset>
+        )}
+
+        <Fieldset title="Proposal">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Hotel *" htmlFor="p-venueId" wide>
+              <select id="p-venueId" name="venueId" required value={venueId} onChange={(e) => pickVenue(e.target.value)} className={inputClass}>
+                <option value="">Select a hotel</option>
+                {canAddHotel && !isEdit && <option value={NEW_HOTEL}>New hotel</option>}
+                {choices.venues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                    {v.isLodging ? "" : " (not lodging)"}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {venueId === NEW_HOTEL && (
+              <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+                {NEW_HOTEL_FIELDS.map((f) => (
+                  <Field key={f.key} label={f.label} htmlFor={`p-newHotel-${f.key}`} wide={f.wide}>
+                    <input
+                      id={`p-newHotel-${f.key}`}
+                      name={`newHotel.${f.key}`}
+                      type={f.type ?? "text"}
+                      required={f.key === "name"}
+                      defaultValue={newHotel?.[f.key] ?? ""}
+                      className={inputClass}
+                    />
+                  </Field>
+                ))}
+              </div>
+            )}
+            <Field label="Status *" htmlFor="p-status">
+              <select id="p-status" name="status" required value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
+                {status && !choices.statuses.some((s) => s.label === status) && <option value={status}>{status}</option>}
+                {choices.statuses.map((s) => (
+                  <option key={s.label} value={s.label}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Contract type" htmlFor="p-contractType">
+              <select key={rfpBlockId} id="p-contractType" name="contractType" defaultValue={defaultContractType ?? ""} className={inputClass}>
+                <option value="">Not set</option>
+                {CONTRACT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Guest type" htmlFor="p-guestType">
+              <OptionSelect key={rfpBlockId} id="p-guestType" name="guestType" value={defaultGuestType} options={choices.guestTypes} />
+            </Field>
+            {stage === "DECLINED" && (
+              <Field label="Declined reason" htmlFor="p-declinedReason" wide>
+                <input id="p-declinedReason" name="declinedReason" defaultValue={initial?.declinedReason ?? ""} className={inputClass} />
+              </Field>
+            )}
+            <Field label="Lead source" htmlFor="p-leadSource">
+              <select id="p-leadSource" name="leadSource" value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className={inputClass}>
+                <option value="">Not set</option>
+                <option value={LEAD_SOURCE_DIRECT}>Direct</option>
+                {choices.leadSources.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {leadContacts.length > 0 && (
+              <Field label="Lead source contact" htmlFor="p-leadSourceContactId">
+                <select id="p-leadSourceContactId" name="leadSourceContactId" defaultValue={initial?.leadSourceContactId ?? ""} className={inputClass}>
+                  <option value="">Not set</option>
+                  {leadContacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            <Field label="Submitted" htmlFor="p-submittedOn">
+              <input id="p-submittedOn" type="date" name="submittedOn" defaultValue={initial?.submittedOn ?? ""} className={inputClass} />
+            </Field>
+            <Field label="Revision" htmlFor="p-revision">
+              <input
+                id="p-revision"
+                type="number"
+                name="revision"
+                min={floor}
+                value={revision}
+                onChange={(e) => setRevision(parseInt(e.target.value) || 1)}
+                className={inputClass}
+              />
+            </Field>
+            {isEdit && revision > mountRevision && (
+              <Field label="What changed" htmlFor="p-revisionSummary">
+                <input id="p-revisionSummary" name="revisionSummary" className={inputClass} />
+              </Field>
+            )}
+          </div>
+        </Fieldset>
+
+        <Fieldset title="Stay">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Earliest check-in" htmlFor="p-checkIn">
+              <DateInput id="p-checkIn" name="checkIn" value={checkIn} onChange={setCheckIn} className={inputClass} />
+            </Field>
+            <Field label="Latest check-out" htmlFor="p-checkOut">
+              <DateInput id="p-checkOut" name="checkOut" value={checkOut} onChange={setCheckOut} className={inputClass} />
+            </Field>
+          </div>
+        </Fieldset>
+
+        <Fieldset title="Rooms">
+          {keys.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Set check-in and check-out to enter rooms.</p>
+          ) : (
+            <RoomGridEditor keys={keys} state={grid} roomTypes={choices.roomTypes} withRate onChange={setGrid} onAddDay={addDay} onRemoveDay={removeDay} />
+          )}
+        </Fieldset>
+
+        <Fieldset title="Amenities">
+          <AmenityEditor
+            profile={venueId === NEW_HOTEL ? [] : profileOf(venueId)}
+            list={choices.amenities}
+            value={amenities}
+            added={addedAmenities}
+            onChange={setAmenities}
+            onAdd={(label) => setAddedAmenities((prev) => [...prev, label])}
+            addToHotel={venueId === proposal?.venueId ? addAmenityToHotel : undefined}
+          />
+        </Fieldset>
+
+        <Fieldset title="Concessions">
+          {answers.length > 0 && (
+            <div className="space-y-2">
+              {answers.map((a, i) => {
+                const set = (patch: Partial<ConcessionAnswer>) => {
+                  setAnswers((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+                  setAutoMet((prev) => prev.filter((id) => id !== a.id));
+                };
+                return (
+                  <div key={a.id} className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-gray-900 dark:text-white min-w-[10rem] flex-1">
+                      {a.label}
+                      {a.value && <span className="text-gray-500 dark:text-gray-400"> (asked {a.value})</span>}
+                      {a.required && <span className="text-gray-500 dark:text-gray-400"> · required</span>}
+                    </span>
+                    <StatusCycle
+                      label={`${a.label} met`}
+                      value={a.met ?? ""}
+                      options={MET_OPTIONS}
+                      onChange={(met) => set({ met: met || null })}
+                    />
+                    <input
+                      aria-label={`${a.label} offered`}
+                      placeholder="Offered"
+                      value={a.offered ?? ""}
+                      onChange={(e) => set({ offered: e.target.value || null })}
+                      className={`${inlineInputClass} flex-1 min-w-[8rem]`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="space-y-2">
+            {answers.length > 0 && offered.length > 0 && <p className={labelClass}>Also offered</p>}
+            {offered.map((r) => (
+              <div key={r.key} className="flex flex-wrap items-center gap-2">
+                <select
+                  aria-label="Concession"
+                  value={r.label}
+                  onChange={(e) => setOfferedRow(r.key, { label: e.target.value, custom: false })}
+                  className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+                >
+                  {r.custom && <option value={r.label}>{r.label} (not in list)</option>}
+                  <ConcessionOptions options={choices.concessionOptions} available={(l) => l === r.label || !offered.some((o) => o.label === l)} />
+                </select>
+                <input
+                  aria-label={`${r.label || "Concession"} terms`}
+                  placeholder="Included, $10/night…"
+                  value={r.offered ?? ""}
+                  onChange={(e) => setOfferedRow(r.key, { offered: e.target.value || null })}
+                  className={`${inlineInputClass} flex-1 min-w-[8rem]`}
+                />
                 <button
                   type="button"
-                  onClick={() => setCharges((prev) => prev.filter((_, j) => j !== i))}
+                  onClick={() => setOffered((prev) => prev.filter((x) => x.key !== r.key))}
                   className="text-sm text-red-600 dark:text-red-400 hover:underline"
                 >
                   Remove
                 </button>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={() => setCharges((prev) => [...prev, { chargeType: "", amount: "", scope: "" }])}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            <select
+              aria-label="Add concession"
+              value=""
+              onChange={(e) => e.target.value && addOffered(e.target.value)}
+              className={inlineInputClass}
             >
-              + Charge
-            </button>
+              <option value="">+ Concession</option>
+              <ConcessionOptions
+                options={choices.concessionOptions}
+                available={(l) => !offered.some((o) => o.label === l) && !answers.some((a) => labelKey(a.label) === labelKey(l))}
+              />
+            </select>
           </div>
-        </div>
-        <Field label="Notes" htmlFor="p-notes">
-          <textarea id="p-notes" name="notes" rows={3} defaultValue={initial?.notes ?? ""} className={inputClass} />
-        </Field>
-      </Fieldset>
+        </Fieldset>
 
-      <div className="flex flex-wrap gap-3">
-        <SaveButton label={revising ? "Save Revision" : isEdit ? "Save" : "Create Proposal"} disabled={gridOver} />
-        {isEdit && !revising ? (
-          <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>
-            Cancel
-          </button>
-        ) : (
-          <Link href={cancelHref} className={btnSecondary}>
-            Cancel
-          </Link>
+        <Fieldset title="Terms">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Allowed attrition %" htmlFor="p-allowedAttrition">
+              <input
+                id="p-allowedAttrition"
+                type="number"
+                name="allowedAttrition"
+                min={0}
+                max={100}
+                step="0.01"
+                defaultValue={initial?.allowedAttrition ?? ""}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Guaranteed revenue" htmlFor="p-guaranteedRevenue">
+              <input
+                id="p-guaranteedRevenue"
+                type="number"
+                name="guaranteedRevenue"
+                min={0}
+                step="0.01"
+                defaultValue={initial?.guaranteedRevenue ?? ""}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Valid until" htmlFor="p-validUntil">
+              <input id="p-validUntil" type="date" name="validUntil" defaultValue={initial?.validUntil ?? ""} className={inputClass} />
+            </Field>
+            <Field label="Rates include taxes" htmlFor="p-taxIncluded">
+              <select
+                id="p-taxIncluded"
+                name="taxIncluded"
+                defaultValue={initial?.taxIncluded == null ? "" : String(initial.taxIncluded)}
+                className={inputClass}
+              >
+                <option value="">Not stated</option>
+                <option value="false">No, plus taxes</option>
+                <option value="true">Yes</option>
+              </select>
+            </Field>
+          </div>
+          <div>
+            <p className={labelClass}>Charges</p>
+            <div className="mt-1 space-y-2">
+              {charges.map((c, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-2">
+                  <input
+                    aria-label="Charge"
+                    placeholder="Resort fee, parking…"
+                    value={c.chargeType}
+                    onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, chargeType: e.target.value } : x)))}
+                    className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+                  />
+                  <input
+                    aria-label="Amount"
+                    type="number"
+                    step="0.01"
+                    placeholder="$"
+                    value={c.amount}
+                    onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
+                    className={`${inlineInputClass} w-24`}
+                  />
+                  <select
+                    aria-label="Scope"
+                    value={c.scope}
+                    onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, scope: e.target.value as HotelChargeScope } : x)))}
+                    className={inlineInputClass}
+                  >
+                    <option value="">—</option>
+                    {CHARGE_SCOPES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setCharges((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-sm text-red-600 dark:text-red-400 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setCharges((prev) => [...prev, { chargeType: "", amount: "", scope: "" }])}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                + Charge
+              </button>
+            </div>
+          </div>
+          <Field label="Notes" htmlFor="p-notes">
+            <textarea id="p-notes" name="notes" rows={3} defaultValue={initial?.notes ?? ""} className={inputClass} />
+          </Field>
+        </Fieldset>
+
+        {!autosaving && (
+          <div className="flex flex-wrap gap-3">
+            <SaveButton label={revising ? "Apply Revision" : "Create Proposal"} disabled={gridOver} />
+            <Link href={cancelHref} className={btnSecondary}>
+              Cancel
+            </Link>
+          </div>
         )}
-      </div>
+      </fieldset>
     </form>
   );
 }

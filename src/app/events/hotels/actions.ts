@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { dateKey } from "@/lib/hotels";
 import {
   createHotelProposalCore,
   createNewHotelCore,
@@ -132,12 +133,12 @@ export async function createHotelProposal(eventId: string, formData: FormData) {
   redirect(`/events/${eventId}/hotels/proposals/${proposal.id}?success=Proposal created`);
 }
 
+// The proposal card autosaves through this: no redirect.
 export async function updateHotelProposal(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   await updateHotelProposalCore(id, eventId, readProposal(formData), session.user.id);
   revalidatePath(`/events/${eventId}/hotels`);
   revalidatePath(`/events/${eventId}/hotels/proposals/${id}`);
-  redirect(`/events/${eventId}/hotels/proposals/${id}?success=Proposal updated`);
 }
 
 export async function deleteHotelProposal(id: string, eventId: string) {
@@ -223,6 +224,7 @@ export async function createHotelBlock(proposalId: string, eventId: string) {
   redirect(`/events/${eventId}/hotels/blocks/${block.id}?success=Block created`);
 }
 
+// The block card autosaves through this: no redirect.
 export async function updateHotelBlock(blockId: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   const str = (k: string) => (formData.get(k) as string) || null;
@@ -256,7 +258,9 @@ export async function updateHotelBlock(blockId: string, eventId: string, formDat
   );
   revalidatePath(`/events/${eventId}/hotels`);
   revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
-  redirect(`/events/${eventId}/hotels/blocks/${blockId}?success=Block updated`);
+  // The saved nights' ids, so the card's next save updates rows it just added.
+  const nights = await prisma.hotelBlockNight.findMany({ where: { blockId }, select: { id: true, night: true, roomType: true } });
+  return nights.map((n) => ({ id: n.id, night: dateKey(n.night), roomType: n.roomType }));
 }
 
 export async function deleteHotelBlock(blockId: string, eventId: string) {

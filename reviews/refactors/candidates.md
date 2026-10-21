@@ -64,3 +64,5 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 - [ui] Underline tab-link style is copied in src/app/events/rfps/RfpTabs.tsx, the RFP list `?kind=` strip, src/app/events/[id]/agenda/DateTabs.tsx and SpecDocHeader; extract a shared `TabLink`
 - [rfps] Hotel and vendor RFP detail pages (`[id]/hotels/rfps/[rfpId]/page.tsx`, `[id]/rfps/[rfpId]/page.tsx`) still duplicate the reply-to card, files panel and action closures
 - [components] Add an `editable` prop to src/components/RichTextEditor.tsx so read-only views stop swapping in a stored-HTML render (RfpForm, SpecFieldInput)
+- [hotels] `RoomGrid` (src/app/events/hotels/RoomGrid.tsx) is no longer rendered; fold `GridNight` into `RoomGridEditor` and delete the file
+- [reports] The mobile "Show filters / N active" toggle + actions block is copied across ~10 `ReportFilters`; extract one shared shell

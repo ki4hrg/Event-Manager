@@ -33,6 +33,7 @@ export function AmenityEditor({
   added,
   onChange,
   onAdd,
+  addToHotel,
 }: {
   profile: string[];
   list: string[]; // the hotel_amenity list
@@ -40,7 +41,11 @@ export function AmenityEditor({
   added: string[];
   onChange: (next: ProposalAmenity[]) => void;
   onAdd: (label: string) => void;
+  // VENUES WRITE: puts a confirmed off-profile amenity on the hotel's profile.
+  addToHotel?: (label: string) => Promise<void>;
 }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
   const shown = amenityLabels(profile, value, added);
   const set = (label: string, patch: { status?: AmenityStatus | ""; note?: string | null }) => {
     const current = value.find((a) => a.label === label);
@@ -62,9 +67,24 @@ export function AmenityEditor({
               {label}
               {!profile.includes(label) && <span className={offProfileClass}> · not on hotel profile</span>}
               {!list.includes(label) && <span className={offProfileClass}> · not in list</span>}
+              {!profile.includes(label) && a?.status === "CONFIRMED" && addToHotel && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    start(async () => {
+                      await addToHotel(label);
+                      router.refresh();
+                    })
+                  }
+                  className="ml-2 text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                >
+                  Add to hotel
+                </button>
+              )}
             </span>
             <StatusCycle
-              label={`${label} in this offer`}
+              label={`${label} in this proposal`}
               value={a?.status ?? ""}
               options={AMENITY_STATUS_OPTIONS}
               onChange={(status) => set(label, { status })}
@@ -92,54 +112,5 @@ export function AmenityEditor({
         </select>
       )}
     </div>
-  );
-}
-
-// Read-only: every amenity on the profile or in the offer, with its status.
-// addToHotel (VENUES WRITE) puts a confirmed off-profile amenity on the profile.
-export function AmenityList({
-  profile,
-  stated,
-  addToHotel,
-}: {
-  profile: string[];
-  stated: ProposalAmenity[];
-  addToHotel?: (label: string) => Promise<void>;
-}) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const shown = amenityLabels(profile, stated);
-  if (shown.length === 0) return <span>—</span>;
-  return (
-    <ul className="space-y-1">
-      {shown.map((label) => {
-        const a = stated.find((x) => x.label === label);
-        const onProfile = profile.includes(label);
-        return (
-          <li key={label} className="flex flex-wrap items-baseline gap-x-2">
-            <span className={a?.status === "UNAVAILABLE" ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}>{label}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {[a ? AMENITY_STATUS_LABELS[a.status] : "On profile", a?.note].filter(Boolean).join(": ")}
-            </span>
-            {!onProfile && <span className={offProfileClass}>not on hotel profile</span>}
-            {!onProfile && a?.status === "CONFIRMED" && addToHotel && (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    await addToHotel(label);
-                    router.refresh();
-                  })
-                }
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
-              >
-                Add to hotel
-              </button>
-            )}
-          </li>
-        );
-      })}
-    </ul>
   );
 }

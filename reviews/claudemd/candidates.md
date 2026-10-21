@@ -83,3 +83,8 @@
 - [rfps] Every RFP lists on `/events/[id]/rfps` (`?kind=` filter); hotel RFP pages keep their `/hotels/rfps/*` URLs (linked from email and the inbox) but breadcrumb to RFPs. `rfpHref` / `newRfpHref` in src/lib/rfp/kinds.ts are the only URL builders, and each detail route redirects to its kind's tree
 - [ui] Short link menus (New X by kind; Download → Print / Word) are a `details/summary` `MenuButton` (src/app/events/rfps/MenuButton.tsx), not a modal or a row of secondary buttons; move to src/components/ once a second feature uses it
 - [copy] RFP responses: a hotel's is a "Proposal", a vendor's a "Quote"; no "bid" / "offer" in UI copy (`responseNoun` in src/lib/rfp/kinds.ts)
+- [route handlers] Archetype G's multipart-upload list is missing `api/events/[id]/inbox/upload` (files dropped on the event inbox; a Server Action body is too small for a PDF)
+- [inbox] Inbox reading and triage (release, dismiss, move, upload) gate on EVENTS; applying an item needs WRITE on its kind's resource (HOTELS for pickup/proposals/declines, `quoteResource` for vendor quotes, CATERING_ORDERS for BEOs, `contractTargetResource` for contracts), and each review only offers records the reviewer may write (src/app/events/inbox/core.ts header comment)
+- [autosave] Cards with buttons or status cycles autosave on `${formVersion}|${JSON.stringify(state)}`: a string compares by value, so saves fire only on real edits and server-filled ids stay out of the signature (`ProposalForm`, `BlockForm`)
+- [autosave] An autosaving `<form>` with no action needs `onSubmit={(e) => e.preventDefault()}`, or Enter does a native GET
+- [prisma] Never point `prisma migrate diff --shadow-database-url` at a real database: it resets it

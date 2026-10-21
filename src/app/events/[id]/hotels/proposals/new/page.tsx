@@ -65,6 +65,7 @@ export default async function NewProposalPage({
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
             { label: "Hotels", href: `/events/${eventId}/hotels` },
+            { label: "Proposals", href: `/events/${eventId}/hotels#proposals` },
             { label: "New Proposal" },
           ]}
         />

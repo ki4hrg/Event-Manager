@@ -109,11 +109,12 @@ downloads of Unrouted items also check the org (`inboundFileTenantId`).
 
 ## UI (implemented)
 
-- Event › **Inbox** (sidebar, `HOTELS` VIEW): tabs Inbox (Received / Ready /
+- Event › **Inbox** (sidebar, `EVENTS` VIEW; applying an item needs WRITE on
+  its kind's resource — see `docs/hotels.md`): tabs Inbox (Received / Ready /
   Failed), Held, Done. Item page: text body (HTML is never rendered),
   attachments with *File on event*, the original .eml, sender and SPF / DKIM /
   DMARC badges; actions Release, Dismiss, Restore, Move to another event
-  (`HOTELS` WRITE).
+  (`EVENTS` WRITE). Files dropped on the inbox page arrive as origin `UPLOAD`.
 - **Org inbox** (`/inbox`, header link "Inbox (n)" counting open items): the
   same tabs across every event the user can see, plus Unrouted mail (always
   Held; Route to an event re-matches the sender against that event). Event

@@ -40,6 +40,7 @@ export default async function PickupPage({ params }: { params: Promise<{ id: str
             { label: "Events", href: "/events" },
             { label: event.name, href: `/events/${eventId}` },
             { label: "Hotels", href: `/events/${eventId}/hotels` },
+            { label: "Blocks", href: `/events/${eventId}/hotels#blocks` },
             { label: venue.name, href: blockHref },
             { label: "Pickup" },
           ]}

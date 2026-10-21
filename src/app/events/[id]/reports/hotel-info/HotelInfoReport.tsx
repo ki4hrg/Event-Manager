@@ -18,7 +18,7 @@ export function HotelInfoReport({ data }: { data: HotelInfoData }) {
         <section key={h.id} id={`hotel-${h.id}`} className={`${reportSectionCard} print:break-inside-avoid scroll-mt-24`}>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white print:text-black">
             {h.name}
-            {h.isHq && <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">Headquarters hotel</span>}
+            {h.isHq && <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400 print:text-gray-700">Headquarters hotel</span>}
           </h2>
           {h.address && <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-700">{h.address}</p>}
           {(h.distanceMiles != null || h.driveMinutes != null) && (

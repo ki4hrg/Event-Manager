@@ -8,8 +8,8 @@ import { btnOutlinedSm, btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 
 type Destination = { id: string; name: string };
 
-// Release / Dismiss / Restore / Move for one inbox item. The actions arrive
-// bound to the item; each re-checks permission itself.
+// Release / Dismiss / Restore / Move for one inbox item: triage, so EVENTS
+// WRITE. The actions arrive bound to the item; each re-checks permission itself.
 export function InboxItemActions({
   status,
   routed,
@@ -30,7 +30,7 @@ export function InboxItemActions({
   move: (toEventId: string) => Promise<void>;
 }) {
   const router = useRouter();
-  const canWrite = useCanWrite("HOTELS");
+  const canWrite = useCanWrite("EVENTS");
   const [pending, startTransition] = useTransition();
   const [moving, setMoving] = useState(false);
   const [target, setTarget] = useState("");

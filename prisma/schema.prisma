@@ -3036,6 +3036,7 @@ model VendorQuoteLine {
 enum InboundOrigin {
   EMAIL
   MCP
+  UPLOAD // dropped onto the event inbox in the app
 }
 
 enum InboundStatus {

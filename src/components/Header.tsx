@@ -44,14 +44,15 @@ export async function Header() {
   );
   // Open mail across the org's event inboxes and Unrouted: waiting to be read,
   // reviewed or released. The link shows while inbound mail is set up, or
-  // while anything is still open.
+  // while anything is still open. Gated like /inbox (EVENTS VIEW); the count
+  // only covers events the user can see (orgInboxWhere → eventScopeWhere).
   const inboxOpen =
-    canViewHotels && ctx?.active
+    canViewEvents && ctx?.active
       ? await prisma.inboundEmail.count({
           where: { ...(await orgInboxWhere(ctx.userId, ctx.active.id)), status: { in: OPEN_STATUSES } },
         })
       : 0;
-  const showInbox = canViewHotels && (inboxOpen > 0 || getInboundEmailDomain() != null);
+  const showInbox = canViewEvents && (inboxOpen > 0 || getInboundEmailDomain() != null);
 
   const mainLinks: HeaderLink[] = [
     canViewEvents && { href: "/events", label: "Events" },
