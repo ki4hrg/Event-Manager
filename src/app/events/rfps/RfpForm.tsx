@@ -65,6 +65,7 @@ const checkClass = "rounded border-gray-300 dark:border-gray-600";
 const checkLabel = "flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 const legendClass = "text-sm font-semibold text-gray-900 dark:text-white";
+const richClass = "text-gray-900 dark:text-white [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1";
 
 function SaveButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -152,10 +153,20 @@ export function RfpForm({
     const own = { regions: values.regions, areas: values.areas };
     const scope = effectiveScope(own, values.eventScope);
     if (hotel && !isEmptyScope(scope)) rows.push(["Hotel areas", `${scopeLabels(scope).join(", ")}${isEmptyScope(own) ? " (event)" : ""}`]);
+    if (values.dateNotes) rows.push(["Date notes", values.dateNotes]);
     if (values.reservationMethod) rows.push(["Reservations", values.reservationMethod]);
-    if (sections.has("fb") && values.fbMinimum) rows.push(["F&B minimum", formatMoney(values.fbMinimum)]);
+    if (sections.has("blocks") && values.commissionNotes) rows.push(["Rebates / commissions", values.commissionNotes]);
+    if (sections.has("fb") && values.fbMinimum) {
+      const includes = FB_INCLUDES.filter((f) => values.fbIncludes.includes(f.value)).map((f) => f.label);
+      rows.push(["F&B minimum", `${formatMoney(values.fbMinimum)}${includes.length ? ` (includes ${includes.join(", ").toLowerCase()})` : ""}`]);
+    }
+    if (sections.has("fb") && values.fbHistoricalSpend) rows.push(["F&B historical spend", formatMoney(values.fbHistoricalSpend)]);
     if (values.amenities.length) rows.push(["Amenities", values.amenities.join(", ")]);
     rows.push(["Parts", parts.filter((p) => sections.has(p.key)).map((p) => p.label).join(", ") || "—"]);
+    const texts: [string, string | null][] = [
+      ["Statement of need", values.introduction],
+      ["Other requirements", sections.has("requirements") ? values.requirements : null],
+    ];
     return (
       <div className={cardClass}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -170,10 +181,19 @@ export function RfpForm({
           {rows.map(([label, value]) => (
             <div key={label}>
               <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
-              <dd className="text-gray-900 dark:text-white">{value}</dd>
+              <dd className="text-gray-900 dark:text-white whitespace-pre-line">{value}</dd>
             </div>
           ))}
         </dl>
+        {texts.map(([label, html]) =>
+          html ? (
+            <div key={label} className="mt-4 text-sm">
+              <p className="text-gray-500 dark:text-gray-400">{label}</p>
+              {/* HTML from RichTextEditor (Rfp.introduction / Rfp.requirements). */}
+              <div className={richClass} dangerouslySetInnerHTML={{ __html: html }} />
+            </div>
+          ) : null,
+        )}
       </div>
     );
   }
