@@ -186,7 +186,7 @@ export function FormLinkButton({
                   {externalUpload && (
                     <div>
                       <label className={labelCls}>Media upload link</label>
-                      <input name="mediaUploadUrl" type="url" pattern="https://.*" maxLength={500} placeholder="https://www.dropbox.com/request/…" className={inputCls} />
+                      <input name="mediaUploadUrl" type="url" pattern="https://.*" maxLength={500} placeholder="https://" className={inputCls} />
                     </div>
                   )}
                   <div>

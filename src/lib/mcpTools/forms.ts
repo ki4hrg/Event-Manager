@@ -61,7 +61,7 @@ export const formTools: McpToolDefinition[] = [
         boothGroupId: { type: "string" },
         sections: { type: "array", items: { type: "string" } },
         intro: { type: "string" },
-        mediaUploadUrl: { type: "string", description: "PRESENTATION_DELIVERABLES only: an https folder you host (e.g. a Dropbox file request). Presenters are sent there and the form takes no uploads." },
+        mediaUploadUrl: { type: "string", description: "PRESENTATION_DELIVERABLES only: an https upload location the team hosts (a shared drive folder, a file request, an internal upload tool). Presenters are sent there and the form takes no uploads." },
         label: { type: "string" },
         recipientName: { type: "string" },
         recipientEmail: { type: "string" },

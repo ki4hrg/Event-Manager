@@ -82,7 +82,7 @@ export type FunctionReviewBaseline = {
 
 // The form config a link stores. `sections` is always a subset of the form
 // type's section keys; `intro` renders as plain text. `mediaUploadUrl` is a
-// folder staff host (a Dropbox file request, say): when set, the form sends
+// location staff host (a shared drive folder, an internal upload tool): when set, the form sends
 // presenters there and takes no uploads itself.
 export type FormLinkConfig = { sections: string[]; intro?: string | null; mediaUploadUrl?: string | null };
 
