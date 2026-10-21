@@ -48,13 +48,16 @@ export default {
         "X-Signature": await sign(env.INBOUND_EMAIL_SECRET, timestamp, body),
       },
       body,
+      // A redirect (e.g. to /login when the route isn't deployed) must fail
+      // the delivery, not be followed to a 200 that drops the mail.
+      redirect: "manual",
     });
     if (res.status === 404) {
       message.setReject("No such event inbox");
       return;
     }
-    // Anything else unexpected (app down, bad secret, not configured): fail the
-    // delivery rather than drop the mail.
+    // Anything else unexpected (app down, bad secret, not configured, a
+    // redirect): fail the delivery rather than drop the mail.
     if (!res.ok) throw new Error(`Event Manager answered ${res.status}`);
   },
 };
