@@ -37,6 +37,7 @@ export const STATUS_MODEL_LABEL: Record<StatusModelType, string> = {
   PRINT_ORDER: "Print Order",
   MEDIA_DELIVERABLE: "Media Deliverable",
   SUPPLY_ORDER: "Supply Order",
+  FORM_SUBMISSION: "Form Submission",
 };
 
 export const PACKING_STATUS_LABEL: Record<PackingStatus, string> = {

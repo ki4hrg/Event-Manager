@@ -45,12 +45,16 @@ const ENTITY_DIRS = {
   rfp: "rfps",
   vendorQuote: "vendor-quotes",
   inboundEmail: "inbound-emails",
+  formSubmission: "form-submissions",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_DIRS;
 
-// What /api/upload accepts. Inbound-email files arrive only by mail.
-export const VALID_ENTITY_TYPES: EntityType[] = (Object.keys(ENTITY_DIRS) as EntityType[]).filter((t) => t !== "inboundEmail");
+// What /api/upload accepts. Inbound-email files arrive only by mail, and
+// form-submission files only through the public form's own upload route.
+export const VALID_ENTITY_TYPES: EntityType[] = (Object.keys(ENTITY_DIRS) as EntityType[]).filter(
+  (t) => t !== "inboundEmail" && t !== "formSubmission",
+);
 
 export const ENTITY_FK_FIELD: Record<EntityType, string> = {
   event: "eventId",
@@ -65,9 +69,10 @@ export const ENTITY_FK_FIELD: Record<EntityType, string> = {
   rfp: "rfpId",
   vendorQuote: "vendorQuoteId",
   inboundEmail: "inboundEmailId",
+  formSubmission: "formSubmissionId",
 };
 
-type FileOwner = Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId" | "vendorQuoteId" | "inboundEmailId">;
+type FileOwner = Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId" | "vendorQuoteId" | "inboundEmailId" | "formSubmissionId">;
 
 export function getEntityTypeFromRecord(record: FileOwner): EntityType {
   if (record.eventId) return "event";
@@ -81,11 +86,12 @@ export function getEntityTypeFromRecord(record: FileOwner): EntityType {
   if (record.rfpId) return "rfp";
   if (record.vendorQuoteId) return "vendorQuote";
   if (record.venueId) return "venue";
+  if (record.formSubmissionId) return "formSubmission";
   return "inboundEmail";
 }
 
 export function getEntityIdFromRecord(record: FileOwner): string {
-  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.supplyOrderId ?? record.mediaDeliverableId ?? record.hotelProposalId ?? record.rfpId ?? record.vendorQuoteId ?? record.venueId ?? record.inboundEmailId)!;
+  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.supplyOrderId ?? record.mediaDeliverableId ?? record.hotelProposalId ?? record.rfpId ?? record.vendorQuoteId ?? record.venueId ?? record.formSubmissionId ?? record.inboundEmailId)!;
 }
 
 export function getUploadDir(entityType: EntityType, entityId: string): string {
@@ -148,6 +154,10 @@ export async function resolveEntityEventId(entityType: EntityType, entityId: str
       const o = await prisma.inboundEmail.findUnique({ where: { id: entityId }, select: { eventId: true } });
       return o?.eventId ?? null;
     }
+    case "formSubmission": {
+      const o = await prisma.formSubmission.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
     case "venue":
       return null;
   }
@@ -160,6 +170,48 @@ export async function inboundFileTenantId(record: FileOwner): Promise<string | n
   if (getEntityTypeFromRecord(record) !== "inboundEmail" || !record.inboundEmailId) return null;
   const o = await prisma.inboundEmail.findUnique({ where: { id: record.inboundEmailId }, select: { tenantId: true } });
   return o?.tenantId ?? null;
+}
+
+// ─── Public form uploads ─────────────────────────────────────────────────────
+// Anyone holding a form link can upload, so the limits are tighter than the
+// staff route's and the type comes from the file's bytes, never the client.
+export const PUBLIC_UPLOAD_MAX_BYTES = Math.min(20 * 1024 * 1024, MAX_UPLOAD_BYTES);
+export const PUBLIC_UPLOAD_MAX_FILES = 10;
+export const PUBLIC_UPLOAD_MAX_SUBMISSION_BYTES = 60 * 1024 * 1024;
+export const PUBLIC_UPLOAD_MAX_LINK_BYTES_PER_HOUR = 200 * 1024 * 1024;
+
+const OOXML: Record<string, string> = {
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+
+function startsWith(buf: Buffer, bytes: number[], offset = 0): boolean {
+  return bytes.every((b, i) => buf[offset + i] === b);
+}
+
+// The verified type and the extension to store it under, or null when the
+// bytes aren't one of the accepted kinds. OOXML files are zip containers, so
+// the zip signature plus an OOXML extension is as far as a check can go
+// without unpacking.
+export function sniffPublicUpload(buf: Buffer, fileName: string): { mimeType: string; ext: string } | null {
+  if (startsWith(buf, [0x25, 0x50, 0x44, 0x46, 0x2d])) return { mimeType: "application/pdf", ext: ".pdf" };
+  if (startsWith(buf, [0xff, 0xd8, 0xff])) return { mimeType: "image/jpeg", ext: ".jpg" };
+  if (startsWith(buf, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return { mimeType: "image/png", ext: ".png" };
+  if (startsWith(buf, [0x52, 0x49, 0x46, 0x46]) && startsWith(buf, [0x57, 0x45, 0x42, 0x50], 8)) {
+    return { mimeType: "image/webp", ext: ".webp" };
+  }
+  if (startsWith(buf, [0x50, 0x4b, 0x03, 0x04])) {
+    const ext = path.extname(fileName).toLowerCase();
+    if (OOXML[ext]) return { mimeType: OOXML[ext], ext };
+  }
+  return null;
+}
+
+// A display name safe to store: no path, no control characters, bounded.
+export function cleanUploadFileName(name: string): string {
+  const base = path.basename(name.replace(/\\/g, "/")).replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  return (base || "upload").slice(0, 200);
 }
 
 export function formatFileSize(bytes: number): string {

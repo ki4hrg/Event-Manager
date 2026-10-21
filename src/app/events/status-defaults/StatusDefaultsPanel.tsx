@@ -15,6 +15,7 @@ const ALL_MODEL_TYPES: StatusModelType[] = [
   "PRINT_ORDER",
   "SUPPLY_ORDER",
   "MEDIA_DELIVERABLE",
+  "FORM_SUBMISSION",
 ];
 
 const DEFAULT_ROW = { status: "PENDING" as EntityStatus, substatus: "" };

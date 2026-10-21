@@ -89,3 +89,9 @@
 - [autosave] An autosaving `<form>` with no action needs `onSubmit={(e) => e.preventDefault()}`, or Enter does a native GET
 - [prisma] Never point `prisma migrate diff --shadow-database-url` at a real database: it resets it
 - [inbox] Several writers updating one InboundEmail.proposal JSON (per-offer outcomes) use a compare-and-set on updatedAt via updateMany, retried, not a read-then-update (setOfferOutcome in src/app/events/inbox/core.ts)
+- [security] `/f/*` (public forms) is a second public surface that reads event data — only through each form module's explicit `select` projection (`functionReviewBaseline` in src/lib/forms/functionReview.ts), never a report component; add it to the § Architecture invariants public list
+- [security] Public form actions (src/app/f/[token]/actions.ts) take `(token, formData)` and re-resolve the token in every export; tenant/event/target come from the link, the draft from an HttpOnly path-scoped cookie (`draftCookieOptions`) — a credential, not the preference store the cookie ban covers
+- [security] Public-input apply may write only plain-text/int columns (APPLY_FIELDS in functionReview.ts); rich-text columns hit dangerouslySetInnerHTML in staff and share views
+- [forms] Applying public input never replaces a whole record: write only fields the submitter changed, behind a CAS on the target's `updatedAt` captured when the review rendered (`applyFunctionReview`)
+- [forms] `createFormLink` returns `{ token, emailed }` for the copy-once dialog, the same exception `createShareLink` already makes to the void-return rule
+- [uploads] Public uploads sniff magic bytes and store under the verified extension (`sniffPublicUpload` in src/lib/uploads.ts); the staff route still trusts the client MIME type

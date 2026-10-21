@@ -5,6 +5,8 @@ import { prisma } from "./prisma";
 import { redirect } from "next/navigation";
 
 const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith("https://");
+// Same rule for the app's own cookies (the public form draft cookie).
+export const SECURE_COOKIES = Boolean(useSecureCookies);
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -72,6 +74,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (isAuthRoute) return true;
       if (isOnLoginPage) return true;
       if (nextUrl.pathname.startsWith("/share/")) return true;
+      // Public forms (src/app/f/): every action and the upload route check the
+      // link token themselves. The trailing slash matters — "/f" alone would
+      // also open /files, /functions and /forgot-password.
+      if (nextUrl.pathname.startsWith("/f/")) return true;
       if (nextUrl.pathname === "/forgot-password") return true;
       if (nextUrl.pathname.startsWith("/reset-password/")) return true;
       // /mcp does its own bearer-token auth via @/lib/mcpAuth.

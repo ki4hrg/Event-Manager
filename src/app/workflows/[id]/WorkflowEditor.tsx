@@ -43,6 +43,7 @@ const ENTITY_TYPE_OPTIONS = [
   { value: "print_order", label: "Print Order" },
   { value: "supply_order", label: "Supply Order" },
   { value: "media_deliverable", label: "Media Deliverable" },
+  { value: "form_submission", label: "Form Submission" },
   { value: "presentation", label: "Presentation" },
 ];
 

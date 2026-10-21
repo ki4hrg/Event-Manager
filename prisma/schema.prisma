@@ -36,6 +36,8 @@ model User {
   settings                   UserSetting[]
   shareLinks                 ShareLink[]
   shareLinkGroups            ShareLinkGroup[]
+  formLinksCreated           FormLink[]               @relation("FormLinkCreatedBy")
+  formSubmissionsHandled     FormSubmission[]         @relation("FormSubmissionHandledBy")
   passwordResetTokens        PasswordResetToken[]
   staffAssignments           EventStaff[]
   // Inverse relations for "last updated by" attribution across all editable entities.
@@ -100,6 +102,8 @@ model Tenant {
   inventoryItems    InventoryItem[]
   workflowTemplates WorkflowTemplate[]
   inboundEmails     InboundEmail[]
+  formLinks         FormLink[]
+  formSubmissions   FormSubmission[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -251,6 +255,7 @@ enum StatusModelType {
   PRINT_ORDER
   MEDIA_DELIVERABLE
   SUPPLY_ORDER
+  FORM_SUBMISSION
 }
 
 enum AcquisitionState {
@@ -438,6 +443,8 @@ model Event {
   vendors                 EventVendor[]
   shareLinks              ShareLink[]
   shareLinkGroups         ShareLinkGroup[]
+  formLinks               FormLink[]
+  formSubmissions         FormSubmission[]
   files                   FileUpload[]
   keyStaff                EventKeyStaff[]
   statusDefaults          EventStatusDefault[]
@@ -619,6 +626,7 @@ model Contact {
   exhibitBooths               ExhibitBooth[]
   rfpContactFor               Rfp[]                     @relation("RfpContact")
   rfpDecisionMakerFor         Rfp[]                     @relation("RfpDecisionMaker")
+  formLinks                   FormLink[]
   updatedById                 String?
   updatedBy                   User?                     @relation("ContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                  @default(now())
@@ -712,6 +720,7 @@ model Function {
   cateringServiceLocations  CateringOrderServiceLocation[] @relation("ServiceLocationFunction")
   timelineItems             TimelineItem[]
   rfpSpaceRequests          RfpSpaceRequest[]
+  formLinks                 FormLink[]
   updatedById               String?
   updatedBy                 User?                          @relation("FunctionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                 DateTime                       @default(now())
@@ -1215,6 +1224,7 @@ model WorkflowTemplate {
   completionSubstatusValue String?
   steps                    WorkflowStep[]
   instances                WorkflowInstance[]
+  formLinks                FormLink[]
   updatedById              String?
   updatedBy                User?              @relation("WorkflowTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                DateTime           @default(now())
@@ -1832,6 +1842,10 @@ model FileUpload {
   inboundEmail       InboundEmail?     @relation(fields: [inboundEmailId], references: [id], onDelete: Cascade)
   vendorQuoteId      String?
   vendorQuote        VendorQuote?      @relation(fields: [vendorQuoteId], references: [id], onDelete: Cascade)
+  // Uploaded through a public form. Applying copies it onto the record, as
+  // inbound-email attachments are filed.
+  formSubmissionId   String?
+  formSubmission     FormSubmission?   @relation(fields: [formSubmissionId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -1847,6 +1861,7 @@ model FileUpload {
   @@index([inboundEmailId])
   @@index([rfpId])
   @@index([vendorQuoteId])
+  @@index([formSubmissionId])
 }
 
 model ShareLink {
@@ -1943,6 +1958,7 @@ enum PermissionResource {
   SHARE_LINKS
   API_KEYS
   HOTELS
+  FORMS
 }
 
 enum PermissionLevel {
@@ -3091,5 +3107,105 @@ model InboundEmail {
 
   @@index([tenantId, eventId, status])
   @@index([eventId, status])
+  @@index([handledById])
+}
+
+// ─── Public forms ────────────────────────────────────────────────────────────
+// Tokenized links (/f/<token>) people without an account fill in. A submission
+// never writes to live records: staff review it, optionally through an
+// approval workflow, and apply it section by section. See docs/forms.md.
+
+enum FormType {
+  FUNCTION_REVIEW
+}
+
+enum FormSubmissionState {
+  DRAFT
+  SUBMITTED
+  APPLIED
+  REJECTED
+  WITHDRAWN
+}
+
+model FormLink {
+  id                 String            @id @default(cuid())
+  token              String            @unique
+  tenantId           String
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  eventId            String
+  event              Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  formType           FormType
+  // Target of a single-recipient form; open forms leave these null.
+  functionId         String?
+  function           Function?         @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  contactId          String?
+  contact            Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  // { sections: string[], intro?: string }
+  config             Json              @default("{}")
+  label              String?
+  recipientName      String?
+  recipientEmail     String?
+  // Approval workflow assigned to every submission; apply waits for it.
+  workflowTemplateId String?
+  workflowTemplate   WorkflowTemplate? @relation(fields: [workflowTemplateId], references: [id], onDelete: SetNull)
+  dueAt              DateTime?
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  maxSubmissions     Int?
+  submittedCount     Int               @default(0)
+  createdById        String?
+  createdBy          User?             @relation("FormLinkCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lastAccessedAt     DateTime?
+  accessCount        Int               @default(0)
+  submissions        FormSubmission[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([eventId])
+  @@index([functionId])
+  @@index([contactId])
+  @@index([workflowTemplateId])
+  @@index([createdById])
+}
+
+model FormSubmission {
+  id                 String              @id @default(cuid())
+  tenantId           String
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  eventId            String
+  event              Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  formLinkId         String
+  formLink           FormLink            @relation(fields: [formLinkId], references: [id], onDelete: Cascade)
+  formType           FormType
+  state              FormSubmissionState @default(DRAFT)
+  // Ties a draft and its uploads to one browser (an HttpOnly cookie); there
+  // is no session on the public side.
+  draftKey           String              @unique
+  // Driven by the approval workflow, as on orders.
+  status             EntityStatus?
+  substatus          String?
+  // The approval template the link required at submit; apply refuses unless an
+  // instance of it is present and complete.
+  requiredTemplateId String?
+  submitterName      String?
+  submitterEmail     String?
+  submitterOrg       String?
+  payload            Json                @default("{}")
+  // The public projection of the target as the submitter saw it.
+  baseline           Json?
+  applyResult        Json?
+  reviewNotes        String?
+  handledById        String?
+  handledBy          User?               @relation("FormSubmissionHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  handledAt          DateTime?
+  submittedAt        DateTime?
+  files              FileUpload[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([tenantId])
+  @@index([eventId, state])
+  @@index([formLinkId, createdAt])
   @@index([handledById])
 }

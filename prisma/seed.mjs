@@ -34,6 +34,7 @@ const EVENT_RESOURCES = [
   "FILES",
   "SHARE_LINKS",
   "HOTELS",
+  "FORMS",
 ];
 
 // Resources only granted to the Admin role by default. The seeded User role omits these (implicit NONE).

@@ -29,6 +29,7 @@ async function assertEntityInEvent(
       case "setup_order": return prisma.setupOrder.findUnique({ where: { id: entityId }, select });
       case "supply_order": return prisma.supplyOrder.findUnique({ where: { id: entityId }, select });
       case "media_deliverable": return prisma.mediaDeliverable.findUnique({ where: { id: entityId }, select });
+      case "form_submission": return prisma.formSubmission.findUnique({ where: { id: entityId }, select });
     }
   })();
   if (!found || found.eventId !== eventId) notFound();
@@ -66,6 +67,7 @@ async function filterEntityIdsInEvent(
       case "setup_order": return prisma.setupOrder.findMany({ where, select });
       case "supply_order": return prisma.supplyOrder.findMany({ where, select });
       case "media_deliverable": return prisma.mediaDeliverable.findMany({ where, select });
+      case "form_submission": return prisma.formSubmission.findMany({ where, select });
     }
   })();
   return rows.map((r) => r.id);
@@ -105,6 +107,9 @@ function revalidateEntity(entityType: WorkflowEntityType, entityId: string, even
     case "media_deliverable":
       revalidatePath(`/events/${eventId}/media-deliverables/${entityId}`);
       break;
+    case "form_submission":
+      revalidatePath(`/events/${eventId}/forms/${entityId}`);
+      break;
   }
 }
 
@@ -139,6 +144,9 @@ async function updateEntityStatus(
       break;
     case "media_deliverable":
       await prisma.mediaDeliverable.update({ where: { id: entityId }, data });
+      break;
+    case "form_submission":
+      await prisma.formSubmission.update({ where: { id: entityId }, data });
       break;
   }
 }

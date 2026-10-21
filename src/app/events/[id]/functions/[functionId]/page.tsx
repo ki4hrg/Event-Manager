@@ -72,6 +72,10 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { getEventRooms } from "@/lib/eventVenues";
 import { hasPermission } from "@/lib/permissions";
 import { btnSecondary } from "@/lib/buttonStyles";
+import { isEmailConfigured } from "@/lib/email";
+import { FUNCTION_REVIEW_SECTIONS } from "@/lib/forms/meta";
+import { FormLinkButton } from "../../../forms/FormLinkButton";
+import { createFormLink, getFormLinks, revokeFormLink } from "../../../forms/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -119,10 +123,12 @@ export default async function FunctionPage({
   );
 
   // Rooms across every event venue, venue-first then group then name
-  const [rooms, canWrite] = await Promise.all([
+  const [rooms, canWrite, canWriteForms] = await Promise.all([
     getEventRooms(eventId),
     hasPermission("FUNCTIONS", "WRITE", eventId),
+    hasPermission("FORMS", "WRITE", eventId),
   ]);
+  const formLinks = canWriteForms ? await getFormLinks(eventId, functionId) : [];
 
   const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, availableSupplyOrders, availableMediaDeliverables, workflowInstances, allTemplates, substatuses] = await Promise.all([
     getAvailableAVOrdersForFunction(eventId, functionId),
@@ -137,6 +143,16 @@ export default async function FunctionPage({
   ]);
 
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
+
+  const createFormLinkAction = async (formData: FormData) => {
+    "use server";
+    const { token, emailed } = await createFormLink(eventId, formData);
+    return { token, emailed };
+  };
+  const revokeFormLinkAction = async (linkId: string) => {
+    "use server";
+    await revokeFormLink(eventId, linkId);
+  };
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
 
   const updateFunctionAction = async (formData: FormData) => {
@@ -336,6 +352,25 @@ export default async function FunctionPage({
           >
             Print
           </a>
+          {canWriteForms && (
+            <FormLinkButton
+              title="Request review"
+              formType="FUNCTION_REVIEW"
+              targetField={{ name: "functionId", value: functionId }}
+              sections={FUNCTION_REVIEW_SECTIONS}
+              recipients={fn.contacts.map((c) => ({
+                contactId: c.contact.id,
+                name: [c.contact.firstName, c.contact.lastName].filter(Boolean).join(" "),
+                email: c.contact.email,
+              }))}
+              workflowTemplates={allTemplates}
+              links={formLinks}
+              emailEnabled={isEmailConfigured()}
+              defaultCloseDate={defaultFormCloseDate(event.startDate)}
+              create={createFormLinkAction}
+              revoke={revokeFormLinkAction}
+            />
+          )}
           {canWrite && (
             <form action={duplicateFunctionAction}>
               <button type="submit" className={btnSecondary}>
@@ -538,4 +573,12 @@ export default async function FunctionPage({
     </>
   );
 
+}
+
+// A form link stays open until the event starts, or 30 days when that's
+// sooner or already past. YYYY-MM-DD for the date input.
+function defaultFormCloseDate(eventStart: Date | null): string {
+  const inMonth = new Date(Date.now() + 30 * 86_400_000);
+  const start = eventStart && eventStart.getTime() > Date.now() + 86_400_000 ? eventStart : null;
+  return (start && start < inMonth ? start : inMonth).toISOString().slice(0, 10);
 }

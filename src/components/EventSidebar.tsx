@@ -85,6 +85,11 @@ const ChecklistIcon = () => (
     <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm8.707 4.293a1 1 0 010 1.414l-3.5 3.5a1 1 0 01-1.414 0l-1.5-1.5a1 1 0 111.414-1.414L8.5 12.086l2.793-2.793a1 1 0 011.414 0z" clipRule="evenodd" />
   </svg>
 );
+const FormIcon = () => (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
+    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+  </svg>
+);
 const ClockIcon = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="w-4 h-4 shrink-0">
     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
@@ -201,6 +206,7 @@ type NavItem = NavLink | NavGroup;
 const NAV: NavItem[] = [
   { type: "link",  label: "Overview",           segment: null,                 icon: <HomeIcon /> },
   { type: "link",  label: "Inbox",              segment: "inbox",              icon: <InboxIcon /> },
+  { type: "link",  label: "Forms",              segment: "forms",              icon: <FormIcon />,           resource: "FORMS" },
   { type: "group", label: "Schedule" },
   { type: "link",  label: "Agenda",             segment: "agenda",             icon: <CalendarIcon /> },
   { type: "link",  label: "Schedule Items",     segment: "schedule-items",     icon: <ClockIcon /> },

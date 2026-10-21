@@ -32,3 +32,26 @@ export async function autoAssignDefaultWorkflowsCore(
     skipDuplicates: true,
   });
 }
+
+// Whether every workflow on an entity is fully done (every step, and every
+// checklist item under it), and which templates are assigned. Gates the
+// apply of a form submission behind its approval workflow.
+export async function workflowCompletionCore(entityType: WorkflowEntityType, entityId: string) {
+  const instances = await prisma.workflowInstance.findMany({
+    where: { entityType, entityId },
+    select: {
+      templateId: true,
+      template: { select: { steps: { select: { id: true, items: { select: { id: true } } } } } },
+      stepCompletions: { select: { stepId: true } },
+      itemCompletions: { select: { itemId: true } },
+    },
+  });
+  const complete = instances.every((inst) => {
+    const steps = new Set(inst.stepCompletions.map((c) => c.stepId));
+    const items = new Set(inst.itemCompletions.map((c) => c.itemId));
+    return inst.template.steps.every((s) =>
+      s.items.length === 0 ? steps.has(s.id) : s.items.every((i) => items.has(i.id)),
+    );
+  });
+  return { complete, templateIds: new Set(instances.map((i) => i.templateId)), count: instances.length };
+}

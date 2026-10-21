@@ -42,6 +42,7 @@ export async function GET(
       "Content-Type": record.mimeType,
       "Content-Disposition": `attachment; filename*=UTF-8''${encodedName}`,
       "Content-Length": String(buffer.length),
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

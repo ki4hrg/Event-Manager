@@ -231,6 +231,74 @@ export async function sendPasswordResetEmail(user: InviteRecipient): Promise<voi
   });
 }
 
+// ─── Public forms ────────────────────────────────────────────────────────────
+// None of these carry text a form submitter typed: an open link would make
+// the app a relay for whatever they wrote, sent from a trusted address. The
+// names here (event, function, recipient) are staff-entered.
+
+function oneLine(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+export function formLinkUrl(token: string): string {
+  return appUrl(`/f/${token}`);
+}
+
+export async function sendFormLinkEmail(input: {
+  to: string;
+  recipientName: string | null;
+  eventName: string;
+  formTitle: string;
+  targetName: string;
+  token: string;
+  dueAt: string | null;
+}): Promise<void> {
+  const url = formLinkUrl(input.token);
+  const greeting = input.recipientName ? `Hi ${input.recipientName},` : "Hi,";
+  const due = input.dueAt ? `Please respond by ${input.dueAt}.` : null;
+  const text = [
+    greeting,
+    "",
+    `Please review the details for ${input.targetName} at ${input.eventName}.`,
+    ...(due ? [due] : []),
+    "",
+    url,
+  ].join("\n");
+  const html = `<!doctype html><html><body style="font-family:system-ui,sans-serif;color:#111;line-height:1.5">
+    <p>${escapeHtml(greeting)}</p>
+    <p>Please review the details for <strong>${escapeHtml(input.targetName)}</strong> at ${escapeHtml(input.eventName)}.</p>
+    ${due ? `<p>${escapeHtml(due)}</p>` : ""}
+    <p><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none">Open ${escapeHtml(input.formTitle)}</a></p>
+    <p>Or paste this link into your browser:<br><span style="word-break:break-all;color:#555">${escapeHtml(url)}</span></p>
+  </body></html>`;
+  await sendEmail({ to: input.to, subject: oneLine(`${input.formTitle}: ${input.targetName} — ${input.eventName}`), text, html });
+}
+
+// Sent only to the address staff put on the link, never to one a submitter typed.
+export async function sendFormReceiptEmail(input: { to: string; eventName: string; formTitle: string; targetName: string }): Promise<void> {
+  const text = `Thanks — your ${input.formTitle.toLowerCase()} for ${input.targetName} (${input.eventName}) was received.`;
+  const html = `<!doctype html><html><body style="font-family:system-ui,sans-serif;color:#111;line-height:1.5">
+    <p>Thanks — your ${escapeHtml(input.formTitle.toLowerCase())} for <strong>${escapeHtml(input.targetName)}</strong> (${escapeHtml(input.eventName)}) was received.</p>
+  </body></html>`;
+  await sendEmail({ to: input.to, subject: oneLine(`Received: ${input.formTitle} — ${input.targetName}`), text, html });
+}
+
+export async function sendFormSubmittedNotice(input: {
+  to: string;
+  eventName: string;
+  formTitle: string;
+  targetName: string;
+  reviewPath: string;
+}): Promise<void> {
+  const url = appUrl(input.reviewPath);
+  const text = [`A ${input.formTitle.toLowerCase()} for ${input.targetName} (${input.eventName}) is ready for review.`, "", url].join("\n");
+  const html = `<!doctype html><html><body style="font-family:system-ui,sans-serif;color:#111;line-height:1.5">
+    <p>A ${escapeHtml(input.formTitle.toLowerCase())} for <strong>${escapeHtml(input.targetName)}</strong> (${escapeHtml(input.eventName)}) is ready for review.</p>
+    <p><a href="${escapeHtml(url)}">Review it</a></p>
+  </body></html>`;
+  await sendEmail({ to: input.to, subject: oneLine(`New ${input.formTitle}: ${input.targetName}`), text, html });
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
