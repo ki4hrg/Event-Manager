@@ -205,7 +205,8 @@ export function startInboundParse(id: string) {
 
 function parseFailure(err: unknown): string {
   if (err instanceof ParseError) return err.message;
-  if (err instanceof Anthropic.APIError) return `Couldn't reach Claude (${err.status ?? "no response"})`;
+  // The API's own message says what it objected to.
+  if (err instanceof Anthropic.APIError) return `Couldn't reach Claude (${err.status ?? "no response"}): ${err.message}`.slice(0, 500);
   return `Couldn't read the message: ${err instanceof Error ? err.message : String(err)}`;
 }
 
