@@ -4,6 +4,7 @@ import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PermissionResource, RfpSpaceKind } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { DateInput } from "@/components/ui/DateInput";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight } from "@/lib/hotels";
 import { DAY_TBD, formatClockRange, sortSpaceRows, type SpaceRow } from "@/lib/rfp/space";
@@ -243,16 +244,15 @@ export function RfpSpaceEditor({
                 </label>
                 <label className={smallLabel}>
                   Day
-                  <input type="date" value={r.day ?? ""} onChange={(e) => set(r.key, { day: e.target.value || null, ...(e.target.value ? {} : { endDay: null }) })} className={inputClass} />
+                  <DateInput value={r.day ?? ""} onChange={(v) => set(r.key, { day: v || null, ...(v ? {} : { endDay: null }) })} className={inputClass} />
                 </label>
                 <label className={smallLabel}>
                   Through
-                  <input
-                    type="date"
+                  <DateInput
                     disabled={!r.day}
                     min={r.day ?? undefined}
                     value={r.endDay ?? ""}
-                    onChange={(e) => set(r.key, { endDay: e.target.value || null })}
+                    onChange={(v) => set(r.key, { endDay: v || null })}
                     className={inputClass}
                   />
                 </label>

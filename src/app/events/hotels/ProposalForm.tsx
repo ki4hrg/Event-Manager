@@ -1,5 +1,6 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
@@ -547,10 +548,10 @@ export function ProposalForm({
       <Fieldset title="Stay">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Earliest check-in" htmlFor="p-checkIn">
-            <input id="p-checkIn" type="date" name="checkIn" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className={inputClass} />
+            <DateInput id="p-checkIn" name="checkIn" value={checkIn} onChange={setCheckIn} className={inputClass} />
           </Field>
           <Field label="Latest check-out" htmlFor="p-checkOut">
-            <input id="p-checkOut" type="date" name="checkOut" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className={inputClass} />
+            <DateInput id="p-checkOut" name="checkOut" value={checkOut} onChange={setCheckOut} className={inputClass} />
           </Field>
         </div>
       </Fieldset>

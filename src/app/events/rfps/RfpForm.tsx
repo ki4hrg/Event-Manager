@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { PermissionResource, RfpKind, RfpStatus } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { DateInput } from "@/components/ui/DateInput";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatDateKey, formatMoney } from "@/lib/hotels";
@@ -245,11 +246,11 @@ export function RfpForm({
           <div key={i} className="flex flex-wrap items-end gap-2">
             <label className={labelClass}>
               Alternate arrival
-              <input type="date" value={a.startDate} onChange={(e) => setAlternate(i, { startDate: e.target.value })} className={inputClass} />
+              <DateInput value={a.startDate} onChange={(v) => setAlternate(i, { startDate: v })} className={inputClass} />
             </label>
             <label className={labelClass}>
               Departure
-              <input type="date" value={a.endDate} onChange={(e) => setAlternate(i, { endDate: e.target.value })} className={inputClass} />
+              <DateInput value={a.endDate} onChange={(v) => setAlternate(i, { endDate: v })} className={inputClass} />
             </label>
             <button type="button" onClick={() => setAlternates((prev) => prev.filter((_, j) => j !== i))} className="pb-2 text-sm text-red-600 dark:text-red-400 hover:underline">
               Remove
