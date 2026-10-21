@@ -12,7 +12,7 @@ import { getUploadPath } from "@/lib/uploads";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
-import { offerAmenities, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
+import { offerAmenities, offerOutcomes, proposalOffers, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { readNewHotel, readProposal } from "@/app/events/hotels/proposalArgs";
@@ -31,6 +31,7 @@ import {
   applyInboundOfferCore,
   applyInboundRevisionCore,
   applyInboundPickupCore,
+  skipInboundOfferCore,
   dismissInboundEmailCore,
   fileInboundAttachmentCore,
   inboundAttachments,
@@ -167,26 +168,40 @@ export async function applyInboundCounts(id: string, eventId: string, blockId: s
 }
 
 
+// After saving one of a message's offers: on to the next one still open,
+// else the proposal just saved.
+function offerRedirect(id: string, eventId: string, proposalId: string | null, next: number | null, done: string): never {
+  if (next != null) redirect(`/events/${eventId}/inbox/${id}?offer=${next + 1}&success=${encodeURIComponent(done)}`);
+  redirect(proposalId ? `/events/${eventId}/hotels/proposals/${proposalId}?success=${encodeURIComponent(done)}` : `/events/${eventId}/inbox?success=${encodeURIComponent(done)}`);
+}
+
 // A hotel's offer as reviewed in the proposal form: creates the proposal (and
-// the hotel, when it's a new one) and opens it.
-export async function applyInboundOffer(id: string, eventId: string, formData: FormData) {
+// the hotel, when it's a new one).
+export async function applyInboundOffer(id: string, eventId: string, index: number, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   const args = readProposal(formData);
   const newHotel = readNewHotel(formData);
-  const proposalId = await applyInboundOfferCore(id, eventId, args, newHotel, session.user.id);
+  const { proposalId, next } = await applyInboundOfferCore(id, eventId, index, args, newHotel, session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);
   if (newHotel) revalidatePath("/venues");
-  redirect(`/events/${eventId}/hotels/proposals/${proposalId}?success=Proposal created`);
+  offerRedirect(id, eventId, proposalId, next, "Proposal created");
 }
 
 // A revised offer applied to the hotel's proposal it revises.
-export async function applyInboundRevision(id: string, eventId: string, proposalId: string, formData: FormData) {
+export async function applyInboundRevision(id: string, eventId: string, index: number, proposalId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  await applyInboundRevisionCore(id, eventId, proposalId, readProposal(formData), session.user.id);
+  const { next } = await applyInboundRevisionCore(id, eventId, index, proposalId, readProposal(formData), session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);
-  redirect(`/events/${eventId}/hotels/proposals/${proposalId}?success=Revision saved`);
+  offerRedirect(id, eventId, proposalId, next, "Revision saved");
+}
+
+export async function skipInboundOffer(id: string, eventId: string, index: number) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  const next = await skipInboundOfferCore(id, eventId, index, session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+  offerRedirect(id, eventId, null, next, "Offer skipped");
 }
 
 export async function applyInboundDecline(id: string, eventId: string, rfpId: string, venueId: string, reason: string | null) {
@@ -196,15 +211,41 @@ export async function applyInboundDecline(id: string, eventId: string, rfpId: st
   revalidatePath(`/events/${eventId}/hotels/rfps/${rfpId}`);
 }
 
-// The proposal form, filled from a hotel's offer: the draft, and the event's
-// RFP blocks it could answer, defaulting to the one it was read as (none: a
-// standalone proposal).
-export async function getOfferReview(id: string, eventId: string) {
+// The offers a message holds, each with what became of it: a proposal saved
+// from it (and the hotel's name), skipped, or still to review.
+export async function getInboundOffers(id: string, eventId: string) {
+  const { tenantId } = await requirePermission("EVENTS", "VIEW", eventId);
+  const item = await prisma.inboundEmail.findFirst({ where: { id, tenantId, eventId }, select: { proposal: true } });
+  const proposal = item?.proposal as InboundProposal | null;
+  const offers = proposalOffers(proposal);
+  if (!proposal || !offers.length) return [];
+  const outcomes = offerOutcomes(proposal);
+  const ids = outcomes.flatMap((o) => (o && "proposalId" in o ? [o.proposalId] : []));
+  const venueIds = offers.flatMap((o) => (o.venueId ? [o.venueId] : []));
+  const [proposals, venues] = await Promise.all([
+    ids.length ? prisma.hotelProposal.findMany({ where: { id: { in: ids }, eventId }, select: { id: true, venue: { select: { name: true } } } }) : [],
+    venueIds.length ? prisma.venue.findMany({ where: { id: { in: venueIds }, tenantId }, select: { id: true, name: true } }) : [],
+  ]);
+  return offers.map((o, i) => {
+    const outcome = outcomes[i];
+    const saved = outcome && "proposalId" in outcome ? proposals.find((p) => p.id === outcome.proposalId) : undefined;
+    return {
+      name: saved?.venue.name ?? venues.find((v) => v.id === o.venueId)?.name ?? o.hotel?.name ?? `Hotel ${i + 1}`,
+      state: !outcome ? ("OPEN" as const) : "skipped" in outcome ? ("SKIPPED" as const) : "pending" in outcome ? ("SAVING" as const) : ("SAVED" as const),
+      proposalId: saved?.id ?? null,
+    };
+  });
+}
+
+// The proposal form, filled from one of a message's hotel offers: the draft,
+// and the event's RFP blocks it could answer, defaulting to the one it was
+// read as (none: a standalone proposal).
+export async function getOfferReview(id: string, eventId: string, index: number) {
   const { tenantId } = await requirePermission("HOTELS", "VIEW", eventId);
   const item = await prisma.inboundEmail.findFirst({ where: { id, tenantId, eventId }, select: { proposal: true } });
   const proposal = item?.proposal as InboundProposal | null;
-  const offer = proposal?.kind === "RFP_PROPOSAL" ? proposal.offer : null;
-  if (!offer) return null;
+  const offer = proposalOffers(proposal)[index];
+  if (!proposal || !offer || offerOutcomes(proposal)[index]) return null;
   // Not matched to a candidate: an existing venue with the offer's hotel name
   // is the one; otherwise the reviewer can add the hotel.
   const byName =

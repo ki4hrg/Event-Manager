@@ -88,3 +88,4 @@
 - [autosave] Cards with buttons or status cycles autosave on `${formVersion}|${JSON.stringify(state)}`: a string compares by value, so saves fire only on real edits and server-filled ids stay out of the signature (`ProposalForm`, `BlockForm`)
 - [autosave] An autosaving `<form>` with no action needs `onSubmit={(e) => e.preventDefault()}`, or Enter does a native GET
 - [prisma] Never point `prisma migrate diff --shadow-database-url` at a real database: it resets it
+- [inbox] Several writers updating one InboundEmail.proposal JSON (per-offer outcomes) use a compare-and-set on updatedAt via updateMany, retried, not a read-then-update (setOfferOutcome in src/app/events/inbox/core.ts)

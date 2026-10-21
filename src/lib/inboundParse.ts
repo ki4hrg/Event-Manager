@@ -150,19 +150,37 @@ export type InboundProposal = {
   sheet: ProposalSheet | null;
   guests: PickupGuestRow[] | null;
   counts: { night: string; roomType: string | null; rooms: number }[] | null;
-  offer: ProposalOffer | null;
+  // One per property: a sales rep covering several hotels may send them in one email.
+  offers?: ProposalOffer[] | null;
+  // Older reads hold a single offer here; read both through proposalOffers.
+  offer?: ProposalOffer | null;
   decline: ProposalDecline | null;
   // Older reads have none of these.
   quote?: QuoteRead | null;
   beo?: BeoRead | null;
   contract?: ContractRead | null;
-  // Set when applied: the proposal created from the offer.
+  // Each offer's outcome, by index into proposalOffers. The item is Applied
+  // once every offer has one.
+  offerOutcomes?: OfferOutcome[];
+  // Older reads: the proposal created from their one offer.
   appliedProposalId?: string;
   // Set when applied: the quote recorded, or the record a BEO / contract went to.
   appliedQuoteId?: string;
   appliedTo?: { target: ContractTarget; id: string; label: string };
   roomTypes?: RoomTypeMap;
 };
+
+// An offer saved as a proposal, passed over, or being saved right now.
+export type OfferOutcome = { proposalId: string } | { skipped: true } | { pending: true } | null;
+
+export function proposalOffers(p: Pick<InboundProposal, "kind" | "offers" | "offer"> | null): ProposalOffer[] {
+  if (p?.kind !== "RFP_PROPOSAL") return [];
+  return p.offers ?? (p.offer ? [p.offer] : []);
+}
+
+export function offerOutcomes(p: InboundProposal): OfferOutcome[] {
+  return proposalOffers(p).map((_, i) => p.offerOutcomes?.[i] ?? (i === 0 && p.appliedProposalId ? { proposalId: p.appliedProposalId } : null));
+}
 
 export type ParseBlock = {
   id: string;
@@ -366,7 +384,7 @@ const DETAIL_SCHEMAS: Record<Exclude<InboundKind, "OTHER">, Record<string, unkno
     blockId: str,
     counts: { type: "array", items: object({ night: str, roomType: str, rooms: { type: "integer" } }) },
   }),
-  RFP_PROPOSAL: object({ offer: offerSchema }),
+  RFP_PROPOSAL: object({ offers: { type: "array", items: offerSchema } }),
   RFP_DECLINE: object({ decline: object({ rfpId: str, venueId: str, reason: str }) }),
   VENDOR_QUOTE: object({ quote: quoteSchema }),
   BEO: object({ beo: beoSchema }),
@@ -380,7 +398,7 @@ const EMPTY_WIRE = {
   roomTypes: [],
   guests: [],
   counts: [],
-  offer: null,
+  offers: [],
   decline: null,
   quote: null,
   beo: null,
@@ -397,24 +415,24 @@ function emptyToNull(v: unknown): unknown {
 
 const numOrNull = (n: number | null) => (n == null || n < 0 ? null : n);
 
+function offerFromWire(o: ProposalOffer): ProposalOffer {
+  return {
+    ...o,
+    nights: o.nights.map((n) => ({ ...n, rooms: numOrNull(n.rooms), rate: numOrNull(n.rate) })),
+    charges: o.charges.map((c) => ({ ...c, amount: numOrNull(c.amount) })),
+    allowedAttrition: numOrNull(o.allowedAttrition),
+    guaranteedRevenue: numOrNull(o.guaranteedRevenue),
+    validUntil: /^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil ?? "")) ? (o.validUntil as string) : null,
+    taxIncluded: (o.taxIncluded as unknown) === "INCLUDED" ? true : (o.taxIncluded as unknown) === "EXCLUDED" ? false : null,
+  };
+}
+
 function fromWire(raw: unknown): InboundProposal {
   const p = emptyToNull(raw) as InboundProposal;
-  const o = p.offer;
   return {
     ...p,
     sheet: p.sheet && p.sheet.attachment >= 0 ? p.sheet : null,
-    offer:
-      o && p.kind === "RFP_PROPOSAL"
-        ? {
-            ...o,
-            nights: o.nights.map((n) => ({ ...n, rooms: numOrNull(n.rooms), rate: numOrNull(n.rate) })),
-            charges: o.charges.map((c) => ({ ...c, amount: numOrNull(c.amount) })),
-            allowedAttrition: numOrNull(o.allowedAttrition),
-            guaranteedRevenue: numOrNull(o.guaranteedRevenue),
-            validUntil: /^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil ?? "")) ? (o.validUntil as string) : null,
-            taxIncluded: (o.taxIncluded as unknown) === "INCLUDED" ? true : (o.taxIncluded as unknown) === "EXCLUDED" ? false : null,
-          }
-        : null,
+    offers: p.kind === "RFP_PROPOSAL" ? (p.offers ?? []).map(offerFromWire) : null,
     decline: p.kind === "RFP_DECLINE" ? p.decline : null,
     quote:
       p.quote && p.kind === "VENDOR_QUOTE"
@@ -476,8 +494,8 @@ For PICKUP_GUESTS:
 
 For PICKUP_COUNTS, fill "counts": one entry per night and room type with rooms picked up. night is YYYY-MM-DD (the night of the stay, i.e. the arrival date of that night). roomType is one of the block's room types, or "" for a total across types.
 
-For RFP_PROPOSAL, fill "offer":
-- venueId: the hotel, from the candidate hotels; "" when it isn't one of them (say who it is in notes).
+For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer is one entry. A sales rep covering several properties (a dual-branded pair, a management group) may offer them in one email or one PDF: give each property its own entry, with its own rates, nights, amenities and hotel details, and only the terms that apply to it. Terms stated once for all of them (a deadline, attrition, cancellation) go on each entry. Meeting space or services offered once for the group go on the entry of the property that hosts them; when the message doesn't say which, on the first, and say so in notes. For each entry:
+- venueId: the property, from the candidate hotels; "" when it isn't one of them (say who it is in notes).
 - rfpBlockId: the requested block this offer answers, from the candidate RFPs' blocks, only when the offer is a response to that RFP: it names or quotes the RFP, answers its requested concessions, or comes from a hotel the RFP was sent to for the same dates. A hotel's own or unsolicited offer, or one that merely overlaps the event's dates, answers no RFP: "". "" too when it's unclear which block.
 - submittedOn: the date of the offer. checkIn / checkOut: the first night and the departure day (the day after the last night).
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types when one fits, else "" for run of house / all types.
@@ -514,7 +532,7 @@ For CONTRACT, fill "contract":
 
 For RFP_DECLINE, fill "decline": rfpId and venueId from the candidates (venueId should be one of that RFP's recipients), and the reason in a few words.
 
-summary: one short line saying what the message is ("Hilton pickup report, 42 reservations as of Oct 20"). notes: only what a reviewer must check that the proposed record doesn't already show (totals that don't add up, a block you couldn't tell apart, a date the message contradicts itself on), else "". Not ambiguity the record resolves (quoted dates the night-by-night grid makes plain), not what's merely absent, not that it answers no RFP, and not forwarding by staff.`;
+summary: one short line saying what the message is ("Hilton pickup report, 42 reservations as of Oct 20"). notes: only what a reviewer must check that the proposed record doesn't already show (totals that don't add up, a block you couldn't tell apart, a date the message contradicts itself on), else "". Not ambiguity the record resolves (quoted dates the night-by-night grid makes plain), not what's merely absent, not that it answers no RFP, not that one message covers several properties (each is its own offer), and not forwarding by staff.`;
 
 function blockText(b: ParseBlock): string {
   const types = b.roomTypes.map((t) => t ?? "Run of house").join(", ") || "none set";
@@ -677,7 +695,7 @@ function checkProposal(p: InboundProposal, input: ParseInput): InboundProposal {
     guests: p.kind === "PICKUP_GUESTS" && !sheet ? (p.guests ?? []) : null,
     counts: p.kind === "PICKUP_COUNTS" ? (p.counts ?? []).filter((c) => Number.isInteger(c.rooms) && c.rooms >= 0) : null,
     roomTypes: p.kind === "PICKUP_GUESTS" ? (p.roomTypes ?? []).filter((r) => r.raw) : [],
-    offer: p.offer ? checkOffer(p.offer, input) : null,
+    offers: p.kind === "RFP_PROPOSAL" ? (p.offers ?? []).map((o) => checkOffer(o, input)) : null,
     decline: p.decline ? checkDecline(p.decline, input) : null,
     quote: p.kind === "VENDOR_QUOTE" && p.quote ? checkQuote(p.quote, input) : null,
     beo: p.kind === "BEO" && p.beo ? checkBeo(p.beo, input) : null,

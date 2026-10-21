@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { useState, useTransition, type ComponentProps } from "react";
+import { btnOutlinedSm } from "@/lib/buttonStyles";
 import {
   ProposalForm,
   type ConcessionAnswer,
@@ -38,6 +39,7 @@ export function InboxOfferForm({
   canAddHotel,
   create,
   revise,
+  skip,
   cancelHref,
 }: {
   choices: ProposalChoices;
@@ -50,15 +52,29 @@ export function InboxOfferForm({
   canAddHotel: boolean;
   create: (formData: FormData) => Promise<void>;
   revise: (proposalId: string, formData: FormData) => Promise<void>;
+  // One of several offers in a message: pass this hotel over.
+  skip?: () => Promise<void>;
   cancelHref: string;
 }) {
   const [target, setTarget] = useState(revisions[0]?.id ?? NEW);
+  const [skipping, startSkip] = useTransition();
   const revision = revisions.find((r) => r.id === target);
   const fromRfp: ProposalTemplate | undefined = rfpChoice
     ? { rfpBlockId: rfpChoice.id, contractType: rfpChoice.contractType, guestType: rfpChoice.guestType, status: draft.status, nights: [] }
     : undefined;
   return (
     <div className="space-y-4">
+      {skip && (
+        <div className="flex justify-end">
+          <button type="button" disabled={skipping} onClick={() =>
+              startSkip(async () => {
+                await skip();
+              })
+            } className={btnOutlinedSm}>
+            {skipping ? "Skipping…" : "Skip this hotel"}
+          </button>
+        </div>
+      )}
       {revisions.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
           <label htmlFor="offer-target" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
