@@ -38,6 +38,7 @@ model User {
   shareLinkGroups            ShareLinkGroup[]
   formLinksCreated           FormLink[]               @relation("FormLinkCreatedBy")
   formSubmissionsHandled     FormSubmission[]         @relation("FormSubmissionHandledBy")
+  speakerProfilesUpdated     SpeakerProfile[]         @relation("SpeakerProfileUpdatedBy")
   passwordResetTokens        PasswordResetToken[]
   staffAssignments           EventStaff[]
   // Inverse relations for "last updated by" attribution across all editable entities.
@@ -445,6 +446,7 @@ model Event {
   shareLinkGroups         ShareLinkGroup[]
   formLinks               FormLink[]
   formSubmissions         FormSubmission[]
+  speakerProfiles         SpeakerProfile[]
   files                   FileUpload[]
   keyStaff                EventKeyStaff[]
   statusDefaults          EventStatusDefault[]
@@ -627,6 +629,16 @@ model Contact {
   rfpContactFor               Rfp[]                     @relation("RfpContact")
   rfpDecisionMakerFor         Rfp[]                     @relation("RfpDecisionMaker")
   formLinks                   FormLink[]
+  // Speaker facts that don't change between events (proposal #55). Bio is
+  // plain text: it can arrive from a public form, so it is never HTML.
+  bio                         String?
+  pronouns                    String?
+  jobTitle                    String?
+  website                     String?
+  headshotFileId              String?                   @unique
+  headshotFile                FileUpload?               @relation("ContactHeadshot", fields: [headshotFileId], references: [id], onDelete: SetNull)
+  files                       FileUpload[]              @relation("ContactFiles")
+  speakerProfiles             SpeakerProfile[]
   updatedById                 String?
   updatedBy                   User?                     @relation("ContactUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt                   DateTime                  @default(now())
@@ -1847,6 +1859,10 @@ model FileUpload {
   // inbound-email attachments are filed.
   formSubmissionId   String?
   formSubmission     FormSubmission?   @relation(fields: [formSubmissionId], references: [id], onDelete: Cascade)
+  // A contact's own files (a speaker headshot). Contacts are tenant-wide.
+  contactId          String?
+  contact            Contact?          @relation("ContactFiles", fields: [contactId], references: [id], onDelete: Cascade)
+  headshotOf         Contact?          @relation("ContactHeadshot")
 
   createdAt DateTime @default(now())
 
@@ -1863,6 +1879,7 @@ model FileUpload {
   @@index([rfpId])
   @@index([vendorQuoteId])
   @@index([formSubmissionId])
+  @@index([contactId])
 }
 
 model ShareLink {
@@ -3122,6 +3139,7 @@ enum FormType {
   ITEM_REQUEST
   EXHIBIT_REQUEST
   PRESENTATION_DELIVERABLES
+  SPEAKER_PROFILE
 }
 
 enum FormSubmissionState {
@@ -3220,4 +3238,31 @@ model FormSubmission {
   @@index([eventId, state])
   @@index([formLinkId, createdAt])
   @@index([handledById])
+}
+
+// A speaker's facts for one event (proposal #55, minimal slice): travel,
+// needs, notes. Durable facts (bio, headshot) live on Contact.
+model SpeakerProfile {
+  id            String    @id @default(cuid())
+  eventId       String
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  contactId     String
+  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  arrivalAt     DateTime?
+  departureAt   DateTime?
+  travelNotes   String?
+  hotel         String?
+  dietary       String?
+  avNeeds       String?
+  shirtSize     String?
+  notes         String?
+  internalNotes String?
+  updatedById   String?
+  updatedBy     User?     @relation("SpeakerProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([eventId, contactId])
+  @@index([contactId])
+  @@index([updatedById])
 }

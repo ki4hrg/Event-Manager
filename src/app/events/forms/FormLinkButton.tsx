@@ -32,6 +32,8 @@ type Props = {
   recipients?: { contactId: string; name: string; email: string | null }[];
   // An optional scope picked in the dialog (an exhibit request's booth group).
   targetSelect?: { name: string; label: string; emptyLabel: string; options: { value: string; label: string }[] };
+  // The link must name one of `recipients` (a speaker form is about them).
+  requireRecipient?: boolean;
   // Open links default to unlimited responses.
   defaultMaxSubmissions?: number | null;
   workflowTemplates: { id: string; name: string }[];
@@ -50,6 +52,7 @@ export function FormLinkButton({
   recipients = [],
   defaultMaxSubmissions = 1,
   targetSelect,
+  requireRecipient = false,
   workflowTemplates,
   links,
   emailEnabled,
@@ -62,10 +65,13 @@ export function FormLinkButton({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ token: string; emailed: boolean } | null>(null);
-  const [recipient, setRecipient] = useState<{ contactId: string; name: string; email: string }>({ contactId: "", name: "", email: "" });
+  const first = requireRecipient ? recipients[0] : undefined;
+  const [recipient, setRecipient] = useState<{ contactId: string; name: string; email: string }>(
+    first ? { contactId: first.contactId, name: first.name, email: first.email ?? "" } : { contactId: "", name: "", email: "" },
+  );
   const [isPending, startTransition] = useTransition();
 
-  if (!canWrite) return null;
+  if (!canWrite || (requireRecipient && recipients.length === 0)) return null;
 
   const close = () => {
     setOpen(false);
@@ -144,7 +150,7 @@ export function FormLinkButton({
                         }}
                         className={inputCls}
                       >
-                        <option value="">Someone else</option>
+                        {!requireRecipient && <option value="">Someone else</option>}
                         {recipients.map((r) => (
                           <option key={r.contactId} value={r.contactId}>{r.name}</option>
                         ))}

@@ -24,6 +24,7 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 | Item Request (open link) | `src/lib/forms/itemRequest.ts` |
 | Exhibit Request (open link) | `src/lib/forms/exhibitRequest.ts` |
 | Presentation Deliverables | `src/lib/forms/presentationDeliverables.ts` |
+| Speaker Profile | `src/lib/forms/speakerProfile.ts`; staff side `src/app/events/speakers/` |
 | Reviewer contact choice (new / existing / skip) | `src/lib/forms/contacts.ts` |
 | Token lookup, throttle, draft lookup, purge | `src/lib/forms/links.ts` |
 | Public cores (draft, submit, upload, discard) | `src/lib/forms/publicCore.ts` |
@@ -41,6 +42,7 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 | Item Request | none (open link; from Forms, Print Orders, Supply Orders) | one item per line on a new or chosen print/supply order; procure → TO_PROCURE, shipping → DROP_SHIP + IN_TRANSIT, bringing → ON_HAND |
 | Exhibit Request | none, or one booth group (open link; from Forms, Exhibits) | a booth (company, type, location, shipping/customs, electrical/AV), its contact per the reviewer's choice, its equipment lines |
 | Presentation Deliverables | a presentation (+ one of its speakers) | title/description (whole-row update rebuilt from the current row), AV needs appended to internalNotes, a MediaDeliverable linked to the presentation and speaker (files filed on it; large media come as a link, stored as text), a handout item on the presentation's single print order |
+| Speaker Profile | a presentation + one of its speakers (required) | the speaker columns on that Contact (bio, job title, pronouns, website, headshot) and this event's `SpeakerProfile` (travel, needs) |
 
 Every module's `snapshot().version` changes when a column it can write changes. The public form posts it back (stale → `?error=stale`), and so does the review page, where `applyFormSubmissionCore` refuses on a mismatch. Create-only forms use a constant. Reviewer decisions per section arrive as `choice_<key>` (`ReviewChoice` in `types.ts`).
 
@@ -53,7 +55,9 @@ These are binding for every new form type.
 - **The projection is an explicit `select` allow-list.** No billing, cost center, internal notes, vendors, pricing, or contact details.
 - **Apply writes only plain-text and integer columns**, and only fields the submitter changed. It runs behind a compare-and-set on the target's `updatedAt` as of when the review rendered. Rich-text columns are forbidden for public input.
 - **No silent contact match.** The reviewer creates a new contact (the default) or links an existing one, and an existing contact is never updated from public input.
+  - *The one exception* is Speaker Profile: it updates the contact staff bound to the link, and only its speaker columns (`updateContactSpeakerFieldsCore` never touches name, email, phone or organization), only fields the submitter changed, under the version check. Bio is plain text. Travel and needs are never prefilled on the public page (a forwarded link must not reveal where a speaker is staying), so a blank answer means "no change".
 - **Approval gate.** Apply refuses while any workflow on the submission is incomplete, or when the required one was removed. It checks before and after claiming the row.
+- **Honeypot name.** `HONEYPOT_FIELD` must never match a real field name: `FormData.get` returns the first match.
 - **Abuse limits:**
   - per link: 20 rows an hour and 50 open drafts (`assertLinkHasCapacity`)
   - `maxSubmissions`, enforced in SQL by `claimSubmissionSlot`

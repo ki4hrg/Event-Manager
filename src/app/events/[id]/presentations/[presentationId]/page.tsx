@@ -33,7 +33,10 @@ import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepComplet
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
-import { DELIVERABLES_SECTIONS } from "@/lib/forms/meta";
+import { DELIVERABLES_SECTIONS, SPEAKER_PROFILE_SECTIONS } from "@/lib/forms/meta";
+import { toDateTimeLocal } from "@/lib/esg/format";
+import { getSpeakerProfiles, removeSpeakerHeadshot, updateSpeakerContactFields, updateSpeakerProfile } from "../../../speakers/actions";
+import { SpeakerProfilesPanel } from "../../../speakers/SpeakerProfilesPanel";
 import { FormLinkEntry } from "../../../forms/FormLinkEntry";
 import {
   getAvailableAVOrdersForPresentation,
@@ -288,6 +291,20 @@ export default async function PresentationPage({
   const assignedTemplateIds = new Set(workflowInstances.map((i) => i.templateId));
   const availableWorkflowTemplates = allTemplates.filter((t) => !assignedTemplateIds.has(t.id));
 
+  const speakerProfiles = await getSpeakerProfiles(eventId, presentation.speakers.map((sp) => sp.contactId));
+  const saveSpeakerContactAction = async (contactId: string, formData: FormData) => {
+    "use server";
+    await updateSpeakerContactFields(eventId, presentationId, contactId, formData);
+  };
+  const saveSpeakerProfileAction = async (contactId: string, formData: FormData) => {
+    "use server";
+    await updateSpeakerProfile(eventId, presentationId, contactId, formData);
+  };
+  const removeSpeakerHeadshotAction = async (contactId: string) => {
+    "use server";
+    await removeSpeakerHeadshot(eventId, presentationId, contactId);
+  };
+
   const assignWorkflowAction = async (templateId: string) => {
     "use server";
     await assignWorkflow(templateId, "presentation", presentationId, eventId);
@@ -351,6 +368,19 @@ export default async function PresentationPage({
           />
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
+          <FormLinkEntry
+            eventId={eventId}
+            formType="SPEAKER_PROFILE"
+            title="Request speaker info"
+            target={{ field: "presentationId", id: presentationId }}
+            sections={SPEAKER_PROFILE_SECTIONS}
+            recipients={presentation.speakers.map((s) => ({
+              contactId: s.contact.id,
+              name: [s.contact.firstName, s.contact.lastName].filter(Boolean).join(" "),
+              email: s.contact.email,
+            }))}
+            requireRecipient
+          />
           <FormLinkEntry
             eventId={eventId}
             formType="PRESENTATION_DELIVERABLES"
@@ -432,6 +462,40 @@ export default async function PresentationPage({
             removeSpeaker={removeSpeakerAction}
             searchContacts={searchContactsAction}
             createContact={createContactAction}
+          />
+
+          <SpeakerProfilesPanel
+            speakers={presentation.speakers.map((sp) => {
+              const prof = speakerProfiles[sp.contactId];
+              return {
+                contactId: sp.contactId,
+                name: [sp.contact.firstName, sp.contact.lastName].filter(Boolean).join(" "),
+                updatedAt: `${sp.contact.updatedAt.toISOString()}|${prof?.updatedAt.toISOString() ?? ""}`,
+                contact: {
+                  bio: sp.contact.bio,
+                  pronouns: sp.contact.pronouns,
+                  jobTitle: sp.contact.jobTitle,
+                  website: sp.contact.website,
+                  headshotFileId: sp.contact.headshotFileId,
+                },
+                profile: prof
+                  ? {
+                      arrivalAt: toDateTimeLocal(prof.arrivalAt, event.timezone),
+                      departureAt: toDateTimeLocal(prof.departureAt, event.timezone),
+                      travelNotes: prof.travelNotes,
+                      hotel: prof.hotel,
+                      dietary: prof.dietary,
+                      avNeeds: prof.avNeeds,
+                      shirtSize: prof.shirtSize,
+                      notes: prof.notes,
+                      internalNotes: prof.internalNotes,
+                    }
+                  : null,
+              };
+            })}
+            saveContact={saveSpeakerContactAction}
+            saveProfile={saveSpeakerProfileAction}
+            removeHeadshot={removeSpeakerHeadshotAction}
           />
 
           <BreakoutSlotPanel

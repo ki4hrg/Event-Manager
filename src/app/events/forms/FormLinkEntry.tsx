@@ -18,6 +18,7 @@ export async function FormLinkEntry({
   recipients,
   sections,
   targetSelect,
+  requireRecipient,
   defaultCloseDate,
 }: {
   eventId: string;
@@ -28,6 +29,7 @@ export async function FormLinkEntry({
   recipients?: ButtonProps["recipients"];
   sections?: ButtonProps["sections"];
   targetSelect?: ButtonProps["targetSelect"];
+  requireRecipient?: boolean;
   defaultCloseDate?: string;
 }) {
   if (!(await hasPermission("FORMS", "WRITE", eventId))) return null;
@@ -56,6 +58,7 @@ export async function FormLinkEntry({
       // Targeted links go to one person; open links take any number.
       defaultMaxSubmissions={target ? 1 : null}
       targetSelect={targetSelect}
+      requireRecipient={requireRecipient}
       workflowTemplates={templates}
       links={links}
       emailEnabled={isEmailConfigured()}

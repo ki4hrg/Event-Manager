@@ -97,3 +97,5 @@
 - [uploads] Public uploads sniff magic bytes and store under the verified extension (`sniffPublicUpload` in src/lib/uploads.ts); the staff route still trusts the client MIME type
 - [forms] New public form types implement `FormModule` (src/lib/forms/types.ts) and register in `formModule()`; the page, public cores and review queue never switch on form type except to pick the client component
 - [media-deliverables] `createMediaDeliverableCore` (src/app/events/media-deliverables/core.ts) now asserts linked functions/presentations are in the event and contacts in the tenant — the old action linked any ids it was given
+- [speakers] Proposal #55 minimal slice shipped: Contact.bio is plain text (not rich text as #55 suggested) because public forms write it; SpeakerProfile panel lives on the presentation page; contact files (headshots) are excluded from /api/upload because that route can't tie a contact to the uploader's tenant
+- [forms] A honeypot field named like a real field ("website") shadows it in FormData.get — public forms use HONEYPOT_FIELD (src/lib/forms/meta.ts)

@@ -66,7 +66,11 @@ export type FormApplyContext<P, B> = {
 // unset. `applied` lists the section keys written.
 export type FileTarget = { entityType: "event" | "printOrder" | "supplyOrder" | "mediaDeliverable"; entityId: string };
 
-export type FormApplyResult = { applied: string[]; filesTo?: FileTarget } & Record<string, unknown>;
+// `filedByApply` lists submission file ids apply already placed itself (a
+// headshot), so they aren't filed a second time.
+export type FormApplyResult = { applied: string[]; filesTo?: FileTarget; filedByApply?: string[] } & Record<string, unknown>;
+
+export type SubmissionFile = { id: string; fileName: string; mimeType: string };
 
 // Method syntax on purpose: parameters stay bivariant, so a module typed for
 // its own payload fits the registry's FormModule<unknown, unknown>.
@@ -82,6 +86,6 @@ export type FormModule<P, B> = {
   parse(formData: FormData, snapshot: FormSnapshot<B>, link: FormLinkTarget): Promise<P>;
   rebase(payload: P, oldBaseline: B | null, newBaseline: B): P;
   diff(baseline: B, payload: P, current: B, sections: string[]): FormDiffSection[];
-  reviewChoices(payload: P, link: FormLinkTarget): Promise<ReviewChoice[]>;
+  reviewChoices(payload: P, link: FormLinkTarget, files: SubmissionFile[]): Promise<ReviewChoice[]>;
   apply(ctx: FormApplyContext<P, B>): Promise<FormApplyResult>;
 };

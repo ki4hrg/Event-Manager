@@ -9,6 +9,7 @@ export const FORM_TYPE_LABEL: Record<FormType, string> = {
   ITEM_REQUEST: "Item Request",
   EXHIBIT_REQUEST: "Exhibit Request",
   PRESENTATION_DELIVERABLES: "Presentation Deliverables",
+  SPEAKER_PROFILE: "Speaker Profile",
 };
 
 export const FORM_STATE_LABEL: Record<FormSubmissionState, string> = {
@@ -90,6 +91,10 @@ export function readFormLinkConfig(raw: unknown, validKeys: Set<string>): FormLi
     : [];
   return { sections, intro: typeof obj.intro === "string" ? obj.intro : null };
 }
+
+// The hidden field bots fill. Its name must never be a real form field's
+// (a speaker form posts "website"), or FormData.get returns the trap.
+export const HONEYPOT_FIELD = "contact_fax_hp";
 
 // Public error codes → fixed copy. The public actions redirect with ?error=<code>
 // rather than surfacing raw messages.
@@ -250,4 +255,47 @@ export type DeliverablesBaseline = {
   description: string | null;
   speakerName: string | null;
   mediaTypes: string[];
+};
+
+// ─── Speaker Profile ─────────────────────────────────────────────────────────
+// A speaker sends their bio and photo (durable, on Contact) and this event's
+// travel and needs (SpeakerProfile). The one form that updates an existing
+// contact, and only the speaker columns of the contact the link names.
+
+export const SPEAKER_PROFILE_SECTIONS = [
+  { key: "bio", label: "Bio & photo" },
+  { key: "travel", label: "Travel" },
+  { key: "needs", label: "Needs" },
+] as const;
+
+export type SpeakerProfileSection = (typeof SPEAKER_PROFILE_SECTIONS)[number]["key"];
+export const SPEAKER_PROFILE_SECTION_KEYS = new Set<string>(SPEAKER_PROFILE_SECTIONS.map((s) => s.key));
+
+export type SpeakerProfilePayload = {
+  bio?: string | null;
+  jobTitle?: string | null;
+  pronouns?: string | null;
+  website?: string | null;
+  // datetime-local strings in the event's time zone. Travel and needs start
+  // blank on the form (a forwarded link must not reveal where a speaker is
+  // staying); blank means "no change".
+  arrivalAt?: string | null;
+  departureAt?: string | null;
+  hotel?: string | null;
+  travelNotes?: string | null;
+  dietary?: string | null;
+  avNeeds?: string | null;
+  shirtSize?: string | null;
+};
+
+// Bio fields only: the public form prefills these. Travel and needs are
+// read for the review diff, never shown on the public page.
+export type SpeakerProfileBaseline = {
+  speakerName: string;
+  presentationTitle: string;
+  bio: string | null;
+  jobTitle: string | null;
+  pronouns: string | null;
+  website: string | null;
+  hasHeadshot: boolean;
 };

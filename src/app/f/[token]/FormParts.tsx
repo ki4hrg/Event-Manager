@@ -8,7 +8,7 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatFileSize } from "@/lib/uploads";
-import { FORM_ERROR_COPY } from "@/lib/forms/meta";
+import { FORM_ERROR_COPY, HONEYPOT_FIELD } from "@/lib/forms/meta";
 import { discardFormDraft, removeFormDraftFile, saveFormDraft, submitForm } from "./actions";
 
 export const inputCls =
@@ -203,8 +203,8 @@ export function FormFrame({
       {/* Honeypot: hidden from people, filled by bots. */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
         <label>
-          Website
-          <input type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
+          Fax
+          <input type="text" name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" defaultValue="" />
         </label>
       </div>
 

@@ -163,7 +163,7 @@ export async function getFormSubmissionReview(eventId: string, id: string) {
     open: mod.open,
     // Null when the target is gone; apply is then refused.
     version: snapshot?.version ?? null,
-    choices: sub.state === "SUBMITTED" ? await mod.reviewChoices(sub.payload, sub.formLink) : [],
+    choices: sub.state === "SUBMITTED" ? await mod.reviewChoices(sub.payload, sub.formLink, sub.files) : [],
   };
 }
 

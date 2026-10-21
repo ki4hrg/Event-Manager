@@ -8,6 +8,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { HONEYPOT_FIELD } from "@/lib/forms/meta";
 import { DRAFT_COOKIE, PublicFormError, draftCookieOptions, getActiveFormLink } from "@/lib/forms/links";
 import {
   discardFormDraftCore,
@@ -30,7 +31,7 @@ async function readDraftKey() {
 
 // A filled honeypot is a bot: answer as if it worked and store nothing.
 function isBot(formData: FormData) {
-  const trap = formData.get("website");
+  const trap = formData.get(HONEYPOT_FIELD);
   return typeof trap === "string" && trap.length > 0;
 }
 

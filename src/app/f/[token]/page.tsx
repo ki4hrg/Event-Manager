@@ -13,6 +13,9 @@ import {
   type DeliverablesBaseline,
   type DeliverablesPayload,
   type DeliverablesSection,
+  type SpeakerProfileBaseline,
+  type SpeakerProfilePayload,
+  type SpeakerProfileSection,
   type ExhibitRequestBaseline,
   type ExhibitRequestPayload,
   type ItemRequestBaseline,
@@ -23,6 +26,7 @@ import { FunctionReviewForm } from "./FunctionReviewForm";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { ExhibitRequestForm } from "./ExhibitRequestForm";
 import { DeliverablesForm } from "./DeliverablesForm";
+import { SpeakerProfileForm } from "./SpeakerProfileForm";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +140,17 @@ export default async function PublicFormPage({
             baseline={snapshot.baseline as DeliverablesBaseline}
             sections={snapshot.sections as DeliverablesSection[]}
             draft={draftView && { ...draftView, payload: payload as DeliverablesPayload | null }}
+          />
+        </FormShell>
+      );
+    case "SPEAKER_PROFILE":
+      return (
+        <FormShell form={form}>
+          <SpeakerProfileForm
+            {...common}
+            baseline={snapshot.baseline as SpeakerProfileBaseline}
+            sections={snapshot.sections as SpeakerProfileSection[]}
+            draft={draftView && { ...draftView, payload: payload as SpeakerProfilePayload | null }}
           />
         </FormShell>
       );

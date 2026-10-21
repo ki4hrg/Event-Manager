@@ -182,7 +182,12 @@ export async function applyFormSubmissionCore(id: string, eventId: string, args:
     throw err;
   }
 
-  const filed = await fileSubmissionAttachments(id, result.filesTo ?? { entityType: "event", entityId: eventId }, sub.files);
+  const placed = new Set(result.filedByApply ?? []);
+  const filed = await fileSubmissionAttachments(
+    id,
+    result.filesTo ?? { entityType: "event", entityId: eventId },
+    sub.files.filter((f) => !placed.has(f.id)),
+  );
   await prisma.formSubmission.update({
     where: { id },
     data: { applyResult: { ...result, filedFiles: filed } as Prisma.InputJsonValue },

@@ -7,6 +7,7 @@ import { functionReviewModule } from "./functionReview";
 import { itemRequestModule } from "./itemRequest";
 import { exhibitRequestModule } from "./exhibitRequest";
 import { presentationDeliverablesModule } from "./presentationDeliverables";
+import { speakerProfileModule } from "./speakerProfile";
 import { readFormLinkConfig, type FormLinkConfig } from "./meta";
 import type { FormLinkTarget, FormModule } from "./types";
 
@@ -20,6 +21,8 @@ export function formModule(formType: FormType): FormModule<unknown, unknown> {
       return exhibitRequestModule as FormModule<unknown, unknown>;
     case "PRESENTATION_DELIVERABLES":
       return presentationDeliverablesModule as FormModule<unknown, unknown>;
+    case "SPEAKER_PROFILE":
+      return speakerProfileModule as FormModule<unknown, unknown>;
     default: {
       const _exhaustive: never = formType;
       throw new Error(`Unhandled form type: ${_exhaustive}`);
