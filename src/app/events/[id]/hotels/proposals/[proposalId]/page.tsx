@@ -11,6 +11,8 @@ import { getEvent } from "../../../../actions";
 import Link from "next/link";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { stageOf } from "@/lib/hotels";
+import { hasPermission } from "@/lib/permissions";
+import { addVenueAmenity } from "@/app/venues/actions";
 import { CreateBlockButton } from "../../../../hotels/CreateBlockButton";
 import {
   createHotelBlock,
@@ -29,11 +31,12 @@ export const metadata: Metadata = { title: "Proposal" };
 
 export default async function ProposalPage({ params }: { params: Promise<{ id: string; proposalId: string }> }) {
   const { id: eventId, proposalId } = await params;
-  const [event, proposal, choices, fileTypeOptions] = await Promise.all([
+  const [event, proposal, choices, fileTypeOptions, canEditHotel] = await Promise.all([
     getEvent(eventId),
     getHotelProposal(proposalId, eventId),
     getProposalFormChoices(eventId),
     getOptions("file_type"),
+    hasPermission("VENUES", "WRITE"),
   ]);
   if (!event || !proposal) notFound();
 
@@ -48,6 +51,10 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   const createBlockAction = async () => {
     "use server";
     await createHotelBlock(proposalId, eventId);
+  };
+  const addAmenityAction = async (label: string) => {
+    "use server";
+    await addVenueAmenity(proposal.venueId, label);
   };
   const accepted = stageOf(proposal.status, choices.statuses) === "ACCEPTED";
 
@@ -98,7 +105,9 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
               const answer = proposal.concessions.find((a) => a.concessionId === c.id);
               return { id: c.id, label: c.label, value: c.value, required: c.required, offered: answer?.offered ?? null, met: answer?.met ?? null };
             })}
+            offeredConcessions={proposal.concessions.flatMap((c) => (c.concessionId ? [] : [{ label: c.label ?? "", offered: c.offered }]))}
             choices={choices}
+            addAmenityToHotel={canEditHotel ? addAmenityAction : undefined}
             action={updateAction}
             cancelHref={`/events/${eventId}/hotels`}
           />

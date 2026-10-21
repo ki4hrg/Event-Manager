@@ -2089,8 +2089,8 @@ export async function getHotelInfoReportData(eventId: string, filters: HotelInfo
         select: {
           contractType: true,
           guestType: true,
-          amenities: true,
-          venue: { select: { name: true, address: true, city: true, state: true, zip: true, brand: true } },
+          amenities: { select: { label: true, status: true } },
+          venue: { select: { name: true, address: true, city: true, state: true, zip: true, brand: true, amenities: true } },
         },
       },
     },
@@ -2131,7 +2131,11 @@ export async function getHotelInfoReportData(eventId: string, filters: HotelInfo
           max: Math.max(...values),
         })),
         charges: b.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount == null ? null : Number(c.amount), scope: c.scope })),
-        amenities: b.proposal.amenities,
+        // For this event: the hotel's profile plus what the offer confirmed,
+        // less what it said is unavailable.
+        amenities: Array.from(
+          new Set([...b.proposal.venue.amenities, ...b.proposal.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label)]),
+        ).filter((a) => !b.proposal.amenities.some((x) => x.label === a && x.status === "UNAVAILABLE")),
       };
     }),
   };

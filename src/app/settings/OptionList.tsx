@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState, useEffect } from "react";
+import { startTransition, useState, useEffect, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
 import type { OptionCategory } from "./actions";
@@ -91,7 +91,64 @@ type OptionListProps = {
   updateOption: (id: string, formData: FormData) => Promise<void>;
   deleteOption: (id: string) => Promise<void>;
   reorderOptions: (orderedIds: string[]) => Promise<void>;
+  // Lists with one spelling per thing (amenities, concessions): fold an option
+  // into another, moving every use.
+  mergeOption?: (id: string, intoId: string) => Promise<void>;
 };
+
+const smallSelectClass =
+  "px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm";
+
+function MergeControl({ option, others, merge }: { option: CustomOption; others: CustomOption[]; merge: (intoId: string) => Promise<void> }) {
+  const [intoId, setIntoId] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [pending, start] = useTransition();
+  const into = others.find((o) => o.id === intoId);
+  if (others.length === 0 || option.isSystem) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 dark:border-gray-700 pt-3">
+      <select
+        aria-label="Merge into"
+        value={intoId}
+        onChange={(e) => {
+          setIntoId(e.target.value);
+          setConfirming(false);
+        }}
+        className={smallSelectClass}
+      >
+        <option value="">Merge into…</option>
+        {others.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {into && !confirming && (
+        <button type="button" onClick={() => setConfirming(true)} className="text-sm text-red-600 dark:text-red-400 hover:underline">
+          Merge
+        </button>
+      )}
+      {into && confirming && (
+        <>
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            Every use of {option.label} becomes {into.label}.
+          </span>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => start(() => merge(into.id))}
+            className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
+          >
+            {pending ? "Merging..." : "Confirm merge"}
+          </button>
+          <button type="button" onClick={() => setConfirming(false)} className="text-sm text-gray-500 dark:text-gray-400">
+            Cancel
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 const colorOptions = [
   { value: "gray", bg: "bg-gray-500" },
@@ -180,6 +237,8 @@ function SortableOptionRow({
   setEditingId,
   updateOption,
   deleteOption,
+  mergeOption,
+  others,
 }: {
   option: CustomOption;
   reordering: boolean;
@@ -191,6 +250,8 @@ function SortableOptionRow({
   setEditingId: (id: string | null) => void;
   updateOption: (id: string, formData: FormData) => Promise<void>;
   deleteOption: (id: string) => Promise<void>;
+  mergeOption?: (id: string, intoId: string) => Promise<void>;
+  others: CustomOption[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: option.id, disabled: !reordering });
@@ -249,6 +310,16 @@ function SortableOptionRow({
               Cancel
             </button>
           </div>
+          {mergeOption && (
+            <MergeControl
+              option={option}
+              others={others}
+              merge={async (intoId) => {
+                await mergeOption(option.id, intoId);
+                setEditingId(null);
+              }}
+            />
+          )}
         </form>
       ) : (
         <div className="flex items-center justify-between gap-2">
@@ -331,6 +402,7 @@ export function OptionList({
   updateOption,
   deleteOption,
   reorderOptions,
+  mergeOption,
 }: OptionListProps) {
   const canWrite = useCanWrite("SETTINGS");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -477,6 +549,8 @@ export function OptionList({
                   setEditingId={setEditingId}
                   updateOption={updateOption}
                   deleteOption={deleteOption}
+                  mergeOption={mergeOption}
+                  others={localOptions.filter((o) => o.id !== option.id)}
                 />
               ))}
             </div>

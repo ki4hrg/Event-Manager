@@ -5,6 +5,7 @@ import {
   deleteHotelProposalCore,
   toProposalValues,
   updateHotelProposalCore,
+  type ProposalAmenityArgs,
   type ProposalWriteArgs,
 } from "@/app/events/hotels/core";
 import {
@@ -40,7 +41,7 @@ function merged<T extends object>(current: T, args: Record<string, unknown>, key
       throw new Error(`${String(k)} must be YYYY-MM-DD`);
     }
     if (k === "contractType" && v != null && !CONTRACT_TYPES.has(String(v))) throw new Error("contractType must be CONTRACT or COURTESY");
-    (out as Record<string, unknown>)[k as string] = v === "" ? null : v;
+    (out as Record<string, unknown>)[k as string] = k === "amenities" ? readProposalAmenities(v) : v === "" ? null : v;
   }
   return out;
 }
@@ -88,7 +89,20 @@ const proposalProps = {
   revisionSummary: { type: ["string", "null"], description: "What changed in this revision." },
   allowedAttrition: { type: ["number", "null"], description: "Percent, 0–100." },
   guaranteedRevenue: { type: ["number", "null"] },
-  amenities: { type: "array", items: { type: "string" }, description: "hotel_amenity option labels." },
+  amenities: {
+    type: "array",
+    description:
+      "Amenities this offer states, against the hotel's profile (get_venue): CONFIRMED when the offer commits to one, UNAVAILABLE when it says it won't be available for the event, with the offer's wording or dates as note. label is a hotel_amenity option label. Leave out amenities the offer doesn't mention. Replaces the list.",
+    items: {
+      type: "object",
+      properties: {
+        label: { type: "string" },
+        status: { type: "string", enum: ["CONFIRMED", "UNAVAILABLE"] },
+        note: { type: ["string", "null"] },
+      },
+      required: ["label", "status"],
+    },
+  },
   nights: { type: "array", items: nightSchema, description: "The full room grid (replaces it). Each night must fall in the stay." },
   charges: { type: "array", items: chargeSchema, description: "The full charge list (replaces it)." },
   concessions: {
@@ -104,12 +118,43 @@ const proposalProps = {
       required: ["concessionId"],
     },
   },
+  offeredConcessions: {
+    type: "array",
+    description:
+      "Concessions the hotel offers that no RFP request covers (breakfast, Wi-Fi, parking…): label is usually an rfp_concession option label, offered the terms. Replaces the list. On create, omitting it starts from the hotel's standing concessions (get_venue).",
+    items: {
+      type: "object",
+      properties: { label: { type: "string" }, offered: { type: ["string", "null"] } },
+      required: ["label"],
+    },
+  },
 } as const;
 
 const PROPOSAL_KEYS = [
   "venueId", "status", "leadSource", "contractType", "guestType", "submittedOn", "checkIn", "checkOut", "declinedReason", "notes",
   "revision", "revisionSummary", "allowedAttrition", "guaranteedRevenue", "amenities", "nights", "charges", "concessions",
+  "offeredConcessions",
 ] as const satisfies readonly (keyof ProposalWriteArgs)[];
+
+function checkOfferedConcessions(v: unknown) {
+  if (v === undefined) return;
+  if (!Array.isArray(v) || v.some((c) => typeof (c as { label?: unknown })?.label !== "string")) {
+    throw new Error("offeredConcessions must be a list of { label, offered }");
+  }
+}
+
+// amenities as the proposal cores take them; a bare label reads as CONFIRMED.
+export function readProposalAmenities(v: unknown): ProposalAmenityArgs[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v)) throw new Error("amenities must be a list");
+  return v.map((a): ProposalAmenityArgs => {
+    if (typeof a === "string") return { label: a, status: "CONFIRMED", note: null };
+    const { label, status, note } = (a ?? {}) as Record<string, unknown>;
+    if (typeof label !== "string") throw new Error("Each amenity needs a label");
+    if (status !== "CONFIRMED" && status !== "UNAVAILABLE") throw new Error("Amenity status must be CONFIRMED or UNAVAILABLE");
+    return { label, status, note: typeof note === "string" ? note : null };
+  });
+}
 
 function checkConcessions(v: unknown) {
   if (v === undefined) return;
@@ -123,6 +168,7 @@ const proposalInclude = {
   venue: { select: { name: true } },
   nights: { orderBy: [{ night: "asc" as const }, { roomType: "asc" as const }] },
   charges: { orderBy: { sortOrder: "asc" as const } },
+  amenities: { orderBy: { sortOrder: "asc" as const } },
 };
 
 async function currentProposal(id: string, eventId: string): Promise<ProposalWriteArgs> {
@@ -225,7 +271,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "get_hotel_proposal",
     description:
-      "Get one hotel proposal with its nightly room grid (room type × night: rooms, rate), charges, amenities, terms, every revision (snapshot + field changes), and — when it answers an RFP — the RFP, its block and concession answers.",
+      "Get one hotel proposal with its nightly room grid (room type × night: rooms, rate), charges, amenities, terms, every revision (snapshot + field changes), and — when it answers an RFP — the RFP, its block and concession answers. concessions holds both answers to requested ones (concessionId, met) and ones offered unasked (label).",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -242,7 +288,7 @@ export const hotelTools: McpToolDefinition[] = [
           versions: { orderBy: { revision: "desc" } },
           block: { select: { id: true } },
           rfp: { select: { id: true, title: true } },
-          concessions: { include: { concession: { select: { label: true, value: true, required: true } } } },
+          concessions: { include: { concession: { select: { label: true, value: true, required: true } } }, orderBy: { sortOrder: "asc" } },
         },
       });
     },
@@ -259,7 +305,8 @@ export const hotelTools: McpToolDefinition[] = [
     },
     handler: (args, { userId }) => {
       checkCharges(args.charges);
-      if (args.concessions !== undefined) throw new Error("Only a proposal answering an RFP has concessions — use record_rfp_response");
+      if (args.concessions !== undefined) throw new Error("Only a proposal answering an RFP answers requested concessions — use record_rfp_response, or offeredConcessions");
+      checkOfferedConcessions(args.offeredConcessions);
       const blank: ProposalWriteArgs = {
         venueId: "", status: "", leadSource: null, contractType: null, guestType: null, submittedOn: null, checkIn: null,
         checkOut: null, declinedReason: null, notes: null, revision: 1, revisionSummary: null, allowedAttrition: null,
@@ -284,6 +331,7 @@ export const hotelTools: McpToolDefinition[] = [
       await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
       checkCharges(args.charges);
       checkConcessions(args.concessions);
+      checkOfferedConcessions(args.offeredConcessions);
       return updateHotelProposalCore(id, eventId, merged(await currentProposal(id, eventId), args, PROPOSAL_KEYS), userId);
     },
   },

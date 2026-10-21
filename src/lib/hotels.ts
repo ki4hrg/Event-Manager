@@ -6,7 +6,7 @@
 // checks in for that night — so nights run from check-in up to, but not
 // including, check-out.
 
-import type { ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
 
 // proposal_status options carry one of these as their group.
 export type ProposalStage = "REQUESTED" | "PENDING" | "ACCEPTED" | "DECLINED";
@@ -55,6 +55,13 @@ export const CHARGE_SCOPE_LABELS: Record<HotelChargeScope, string> = {
 
 // How a proposal answers one of its RFP's concessions.
 export const MET_LABELS: Record<ConcessionMet, string> = { MET: "Met", PARTIAL: "Partial", NOT_MET: "Not met" };
+
+// Same amenity / concession label for matching (src/lib/hotelLabels.ts): case,
+// spacing and punctuation runs don't count.
+export const labelKey = (label: string) => label.trim().toLowerCase().replace(/[\s\-_/]+/g, " ");
+
+// How a proposal states one of the hotel's amenities (unset: not mentioned).
+export const AMENITY_STATUS_LABELS: Record<AmenityStatus, string> = { CONFIRMED: "Confirmed", UNAVAILABLE: "Unavailable" };
 
 // The stage of a proposal_status label, from the tenant's options.
 export function stageOf(

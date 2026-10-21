@@ -22,6 +22,7 @@ import {
   createAndAddVenueContactCore,
   type VenueWriteArgs,
   type RoomWriteArgs,
+  addVenueAmenityCore,
 } from "./core";
 
 export async function getVenues() {
@@ -59,6 +60,7 @@ function readVenueArgs(formData: FormData): VenueWriteArgs {
     isLodging: formData.get("isLodging") === "true",
     brand: (formData.get("brand") as string) || null,
     area: (formData.get("area") as string) || null,
+    amenities: formData.has("amenitiesField") ? (formData.getAll("amenities") as string[]) : undefined,
   };
 }
 
@@ -116,6 +118,12 @@ export async function updateRoom(roomId: string, venueId: string, formData: Form
 export async function deleteRoom(roomId: string, venueId: string) {
   const session = await requirePermission(PermissionResource.VENUES, "DELETE");
   await deleteRoomCore(roomId, venueId, session.user.id, session.tenantId);
+  revalidatePath(`/venues/${venueId}`);
+}
+
+export async function addVenueAmenity(venueId: string, label: string) {
+  const session = await requirePermission(PermissionResource.VENUES, "WRITE");
+  await addVenueAmenityCore(venueId, label, session.user.id, session.tenantId);
   revalidatePath(`/venues/${venueId}`);
 }
 

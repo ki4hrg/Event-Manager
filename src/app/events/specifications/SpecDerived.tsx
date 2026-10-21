@@ -235,6 +235,30 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
           )}
         </Block>
       );
+    case "hotelConcessions":
+      return (
+        <Block def={def} edit={<EditLink href={`/events/${eventId}/hotels`} label="Hotels →" />}>
+          {data.hotelConcessions.length === 0 ? (
+            <Empty>No concessions on accepted proposals.</Empty>
+          ) : (
+            <ul className="space-y-2">
+              {data.hotelConcessions.map((h) => (
+                <li key={h.hotel}>
+                  <p className="font-medium">{h.hotel}</p>
+                  <ul className="text-gray-600 dark:text-gray-400">
+                    {h.items.map((c) => (
+                      <li key={c.label}>
+                        {c.label}
+                        {c.terms ? `: ${c.terms}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Block>
+      );
     case "exhibitBooths":
       return (
         <Block def={def} edit={<EditLink href={`/events/${eventId}/exhibits`} label="Exhibits →" />}>

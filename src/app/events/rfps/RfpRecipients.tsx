@@ -35,6 +35,7 @@ export function RfpRecipients({
   blocks,
   hotels,
   scope,
+  requiredAmenities,
   areaOptions,
   add,
   update,
@@ -45,9 +46,11 @@ export function RfpRecipients({
   responseDue: string | null;
   today: string;
   blocks: { id: string; label: string }[];
-  hotels: { id: string; label: string; area: string | null }[];
+  hotels: { id: string; label: string; area: string | null; amenities: string[] }[];
   // Where this RFP looks for hotels (its own scope, else the event's); empty = all.
   scope: AreaScope;
+  // The RFP's requested amenities: hotels need every one to be offered.
+  requiredAmenities: string[];
   areaOptions: AreaOption[];
   add: (venueIds: string[]) => Promise<void>;
   update: (recipientId: string, args: RfpRecipientArgs) => Promise<void>;
@@ -60,8 +63,14 @@ export function RfpRecipients({
   const listed = new Set(recipients.map((r) => r.venueId));
   const [showAll, setShowAll] = useState(false);
   const inArea = (h: { area: string | null }) => inScope(h.area, scope, areaOptions);
-  const unlisted = hotels.filter((h) => !listed.has(h.id) && (showAll || inArea(h)));
-  const outside = hotels.filter((h) => !listed.has(h.id) && !inArea(h)).length;
+  const lacking = (h: { amenities: string[] }) => requiredAmenities.filter((a) => !h.amenities.includes(a));
+  const fits = (h: (typeof hotels)[number]) => inArea(h) && lacking(h).length === 0;
+  const unlisted = hotels.filter((h) => !listed.has(h.id) && (showAll || fits(h)));
+  const outside = hotels.filter((h) => !listed.has(h.id) && !fits(h)).length;
+  // Why a shown hotel doesn't fit: its area, the amenities it lacks.
+  const misfit = (h: (typeof hotels)[number]) =>
+    [!inArea(h) ? h.area : null, lacking(h).length ? `no ${lacking(h).join(", ")}` : null].filter(Boolean).join("; ");
+  const filters = [...scopeLabels(scope), ...(requiredAmenities.length ? [`with ${requiredAmenities.join(", ")}`] : [])];
   const due = responseDue ? dateFromKey(responseDue) : null;
 
   const run = (fn: () => Promise<void>) =>
@@ -172,14 +181,14 @@ export function RfpRecipients({
           {unlisted.map((h) => (
             <option key={h.id} value={h.id}>
               {h.label}
-              {showAll && h.area && !inArea(h) ? ` (${h.area})` : ""}
+              {showAll && !fits(h) && misfit(h) ? ` (${misfit(h)})` : ""}
             </option>
           ))}
         </select>
       )}
-      {canWrite && !isEmptyScope(scope) && (
+      {canWrite && (!isEmptyScope(scope) || requiredAmenities.length > 0) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="text-gray-500 dark:text-gray-400">{scopeLabels(scope).join(" · ")}</span>
+          <span className="text-gray-500 dark:text-gray-400">{filters.join(" · ")}</span>
           <div className="flex flex-wrap gap-3">
             {!showAll && unlisted.length > 1 && (
               <button type="button" disabled={pending} onClick={() => run(() => add(unlisted.map((h) => h.id)))} className={link}>
@@ -188,7 +197,7 @@ export function RfpRecipients({
             )}
             {outside > 0 && (
               <button type="button" onClick={() => setShowAll((v) => !v)} className={link}>
-                {showAll ? "Only these areas" : `Show all hotels (+${outside})`}
+                {showAll ? "Only matching hotels" : `Show all hotels (+${outside})`}
               </button>
             )}
           </div>

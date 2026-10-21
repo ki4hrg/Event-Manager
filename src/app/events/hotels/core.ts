@@ -6,14 +6,19 @@
 // HotelProposalVersion row for the current revision, so earlier revisions stay
 // frozen and the current one always matches the proposal.
 
-import type { ConcessionMet, HotelChargeScope, HotelContractType, Prisma } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelChargeScope, HotelContractType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
-import { blockTypeLabel, dateFromKey, dateKey, nightKeys, roomTypeLabel } from "@/lib/hotels";
+import { AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, nightKeys, roomTypeLabel } from "@/lib/hotels";
+import { requireListLabels } from "@/lib/hotelLabels";
 
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
 export type ProposalChargeArgs = { chargeType: string; amount: number | null; scope: HotelChargeScope | null };
 export type ProposalConcessionArgs = { concessionId: string; offered: string | null; met: ConcessionMet | null };
+// A concession the hotel offered without the RFP asking (or with no RFP).
+export type ProposalOfferedConcessionArgs = { label: string; offered: string | null };
+// An amenity the offer confirms or says is unavailable (hotel_amenity label).
+export type ProposalAmenityArgs = { label: string; status: AmenityStatus; note: string | null };
 
 export type ProposalWriteArgs = {
   venueId: string;
@@ -30,13 +35,16 @@ export type ProposalWriteArgs = {
   revisionSummary: string | null;
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
-  amenities: string[];
+  // The amenities the offer states; the hotel's profile covers the rest.
+  amenities: ProposalAmenityArgs[];
   nights: ProposalNightArgs[];
   charges: ProposalChargeArgs[];
   // Create only: the requested RFP block this offer answers.
   rfpBlockId?: string | null;
   // Answers to the RFP's concessions; undefined leaves them as they are.
   concessions?: ProposalConcessionArgs[];
+  // Concessions offered unasked; undefined leaves them as they are.
+  offeredConcessions?: ProposalOfferedConcessionArgs[];
 };
 
 // What a version snapshot holds (and what the diff compares).
@@ -54,7 +62,8 @@ export type ProposalSnapshot = {
   notes: string | null;
   allowedAttrition: string | null;
   guaranteedRevenue: string | null;
-  amenities: string[];
+  // Older snapshots hold the labels ticked on the proposal (read as Confirmed).
+  amenities: { label: string; status: AmenityStatus; note: string | null }[] | string[];
   nights: { roomType: string | null; night: string; rate: string | null; rooms: number | null }[];
   charges: { chargeType: string; amount: string | null; scope: HotelChargeScope | null }[];
 };
@@ -118,7 +127,6 @@ function scalarData(args: ProposalWriteArgs) {
     revision: args.revision,
     allowedAttrition: args.allowedAttrition,
     guaranteedRevenue: args.guaranteedRevenue,
-    amenities: args.amenities,
   };
 }
 
@@ -126,6 +134,7 @@ const snapshotInclude = {
   venue: { select: { name: true } },
   nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
   charges: { orderBy: { sortOrder: "asc" } },
+  amenities: { orderBy: { sortOrder: "asc" } },
 } as const satisfies Prisma.HotelProposalInclude;
 
 type ProposalWithChildren = Prisma.HotelProposalGetPayload<{ include: typeof snapshotInclude }>;
@@ -146,7 +155,7 @@ export function snapshotOf(p: ProposalWithChildren): ProposalSnapshot {
     notes: p.notes,
     allowedAttrition: dec(p.allowedAttrition),
     guaranteedRevenue: dec(p.guaranteedRevenue),
-    amenities: [...p.amenities].sort(),
+    amenities: [...p.amenities].sort((a, b) => a.label.localeCompare(b.label)).map((a) => ({ label: a.label, status: a.status, note: a.note })),
     nights: p.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rate: dec(n.rate), rooms: n.rooms })),
     charges: p.charges.map((c) => ({ chargeType: c.chargeType, amount: dec(c.amount), scope: c.scope })),
   };
@@ -175,9 +184,22 @@ export function diffSnapshots(prev: ProposalSnapshot, next: ProposalSnapshot): P
     const to = show(next[key]);
     if (from !== to) changes.push({ field: label, from, to });
   }
-  const amenFrom = prev.amenities.join(", ") || null;
-  const amenTo = next.amenities.join(", ") || null;
-  if (amenFrom !== amenTo) changes.push({ field: "Amenities", from: amenFrom, to: amenTo });
+  // Per amenity: Confirmed → Unavailable is the change worth seeing.
+  const amenityMap = (s: ProposalSnapshot) =>
+    new Map(
+      s.amenities.map((a) =>
+        typeof a === "string"
+          ? [a, AMENITY_STATUS_LABELS.CONFIRMED]
+          : [a.label, [AMENITY_STATUS_LABELS[a.status], a.note].filter(Boolean).join(": ")],
+      ),
+    );
+  const aBefore = amenityMap(prev);
+  const aAfter = amenityMap(next);
+  for (const key of Array.from(new Set([...Array.from(aBefore.keys()), ...Array.from(aAfter.keys())])).sort()) {
+    const from = aBefore.get(key) ?? null;
+    const to = aAfter.get(key) ?? null;
+    if (from !== to) changes.push({ field: `Amenity: ${key}`, from, to });
+  }
 
   const cell = (n: ProposalSnapshot["nights"][number]) =>
     [n.rooms != null ? `${n.rooms} rooms` : null, n.rate != null ? `$${n.rate}` : null].filter(Boolean).join(" @ ") || null;
@@ -225,15 +247,68 @@ async function recordVersion(tx: Prisma.TransactionClient, proposalId: string, s
 async function writeConcessions(tx: Prisma.TransactionClient, proposalId: string, rfpId: string | null, rows: ProposalConcessionArgs[] | undefined) {
   if (rows === undefined) return;
   const filled = rows.filter((c) => c.met || c.offered?.trim());
-  if (filled.length && !rfpId) throw new Error("Only a proposal answering an RFP has concessions");
+  if (filled.length && !rfpId) throw new Error("Only a proposal answering an RFP answers requested concessions");
   const ids = Array.from(new Set(filled.map((c) => c.concessionId)));
   if (ids.length && (await tx.rfpConcession.count({ where: { id: { in: ids }, rfpId: rfpId! } })) !== ids.length) {
     throw new PermissionError("NOT_FOUND", "Concession not found");
   }
-  await tx.hotelProposalConcession.deleteMany({ where: { proposalId } });
+  await tx.hotelProposalConcession.deleteMany({ where: { proposalId, concessionId: { not: null } } });
   await tx.hotelProposalConcession.createMany({
     data: filled.map((c) => ({ proposalId, concessionId: c.concessionId, offered: c.offered?.trim() || null, met: c.met })),
   });
+}
+
+// Rewrites the concessions a proposal offers unasked, in order (one per label).
+async function writeOfferedConcessions(tx: Prisma.TransactionClient, proposalId: string, rows: ProposalOfferedConcessionArgs[] | undefined) {
+  if (rows === undefined) return;
+  const seen = new Set<string>();
+  const kept = rows
+    .map((c) => ({ label: c.label.trim(), offered: c.offered?.trim() || null }))
+    .filter((c) => c.label && !seen.has(c.label.toLowerCase()) && seen.add(c.label.toLowerCase()));
+  await tx.hotelProposalConcession.deleteMany({ where: { proposalId, concessionId: null } });
+  await tx.hotelProposalConcession.createMany({ data: kept.map((c, i) => ({ proposalId, ...c, sortOrder: i })) });
+}
+
+// Rewrites the amenities a proposal states, in order (one per label).
+async function writeAmenities(tx: Prisma.TransactionClient, proposalId: string, rows: ProposalAmenityArgs[]) {
+  await tx.hotelProposalAmenity.deleteMany({ where: { proposalId } });
+  await tx.hotelProposalAmenity.createMany({
+    data: rows.map((a, i) => ({ proposalId, label: a.label, status: a.status, note: a.note?.trim() || null, sortOrder: i })),
+  });
+}
+
+const AMENITY_STATUSES = new Set<AmenityStatus>(["CONFIRMED", "UNAVAILABLE"]);
+
+// Amenity and unasked-concession labels as their lists spell them, once each.
+// Labels the proposal already holds may stay (typed before the lists were strict).
+async function listLabels(eventId: string, args: ProposalWriteArgs, proposalId?: string) {
+  const tenantId = await requireEventTenantId(eventId);
+  const current = proposalId
+    ? await prisma.hotelProposal.findFirst({
+        where: { id: proposalId, eventId },
+        select: { amenities: { select: { label: true } }, concessions: { where: { concessionId: null }, select: { label: true } } },
+      })
+    : null;
+  for (const a of args.amenities) if (!AMENITY_STATUSES.has(a.status)) throw new Error(`Unknown amenity status: ${a.status}`);
+  const amenityLabels = await requireListLabels(
+    tenantId,
+    "hotel_amenity",
+    args.amenities.map((a) => a.label),
+    current?.amenities.map((a) => a.label) ?? [],
+  );
+  const amenities = args.amenities
+    .map((a, i) => ({ ...a, label: amenityLabels[i] }))
+    .filter((a, i, all) => all.findIndex((x) => x.label === a.label) === i);
+  const offered = args.offeredConcessions?.filter((c) => c.label.trim());
+  const offeredLabels = offered
+    ? await requireListLabels(
+        tenantId,
+        "rfp_concession",
+        offered.map((c) => c.label),
+        current?.concessions.flatMap((c) => (c.label ? [c.label] : [])) ?? [],
+      )
+    : undefined;
+  return { amenities, offeredConcessions: offered?.map((c, i) => ({ ...c, label: offeredLabels![i] })) };
 }
 
 export async function createHotelProposalCore(eventId: string, args: ProposalWriteArgs, userId: string) {
@@ -244,6 +319,7 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
     ? await prisma.rfpHotelBlock.findFirst({ where: { id: args.rfpBlockId, rfp: { eventId } }, select: { id: true, rfpId: true } })
     : null;
   if (args.rfpBlockId && !rfpBlock) throw new PermissionError("NOT_FOUND", "RFP block not found");
+  const { amenities, offeredConcessions } = await listLabels(eventId, args);
   return prisma.$transaction(async (tx) => {
     // A hotel answering an RFP is one of its recipients, listed or not.
     if (rfpBlock) {
@@ -265,6 +341,8 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
       },
     });
     await writeConcessions(tx, proposal.id, rfpBlock?.rfpId ?? null, args.concessions);
+    await writeOfferedConcessions(tx, proposal.id, offeredConcessions);
+    await writeAmenities(tx, proposal.id, amenities);
     await recordVersion(tx, proposal.id, args.revisionSummary, userId);
     return proposal;
   });
@@ -277,6 +355,7 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
   const existing = await prisma.hotelProposal.findFirst({ where: { id, eventId }, select: { revision: true, rfpId: true } });
   if (!existing) throw new PermissionError("NOT_FOUND");
   if (args.revision < existing.revision) throw new Error(`Revision cannot go back below ${existing.revision}`);
+  const { amenities, offeredConcessions } = await listLabels(eventId, args, id);
   return prisma.$transaction(async (tx) => {
     await tx.hotelProposalNight.deleteMany({ where: { proposalId: id } });
     await tx.hotelCharge.deleteMany({ where: { proposalId: id } });
@@ -290,6 +369,8 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
       },
     });
     await writeConcessions(tx, id, existing.rfpId, args.concessions);
+    await writeOfferedConcessions(tx, id, offeredConcessions);
+    await writeAmenities(tx, id, amenities);
     await recordVersion(tx, id, args.revisionSummary, userId);
     return proposal;
   });
@@ -302,6 +383,13 @@ export async function deleteHotelProposalCore(id: string, eventId: string, userI
 
 // Plain (client-serializable) form values for ProposalForm.
 export function toProposalValues(p: ProposalWithChildren & { venueId: string; revision: number }) {
-  const { venueName: _venueName, blockType: _blockType, ...rest } = snapshotOf(p);
-  return { ...rest, contractType: p.contractType, guestType: p.guestType, venueId: p.venueId, revision: p.revision };
+  const { venueName: _venueName, blockType: _blockType, amenities: _amenities, ...rest } = snapshotOf(p);
+  return {
+    ...rest,
+    amenities: p.amenities.map((a) => ({ label: a.label, status: a.status, note: a.note })),
+    contractType: p.contractType,
+    guestType: p.guestType,
+    venueId: p.venueId,
+    revision: p.revision,
+  };
 }

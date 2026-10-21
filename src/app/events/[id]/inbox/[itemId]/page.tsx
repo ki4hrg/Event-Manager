@@ -11,7 +11,6 @@ import {
   applyInboundDecline,
   applyInboundGuests,
   applyInboundOffer,
-  createInboundHotel,
   getDeclineReview,
   getOfferReview,
   dismissInboundEmail,
@@ -29,11 +28,10 @@ import { FileAttachmentButton, InboxItemActions } from "../../../inbox/InboxItem
 import { InboxProposalPanel } from "../../../inbox/InboxProposalPanel";
 import { InboxReview } from "../../../inbox/InboxReview";
 import { InboxDeclineReview } from "../../../inbox/InboxDeclineReview";
-import { InboxNewHotel } from "../../../inbox/InboxNewHotel";
 import { ProposalForm } from "../../../hotels/ProposalForm";
 import { hasPermission } from "@/lib/permissions";
 import { canSeeDiagnostics } from "@/lib/tenant";
-import { isParsingConfigured, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
+import { isParsingConfigured, type InboundProposal } from "@/lib/inboundParse";
 
 export const dynamic = "force-dynamic";
 
@@ -110,12 +108,8 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
     "use server";
     await applyInboundDecline(itemId, eventId, rfpId, venueId, reason);
   };
-  const createHotel = async (hotel: OfferHotel) => {
-    "use server";
-    await createInboundHotel(itemId, eventId, hotel);
-  };
   const itemHref = `/events/${eventId}/inbox/${itemId}`;
-    const applyCounts = async (blockId: string, counts: Parameters<typeof applyInboundCounts>[3]) => {
+  const applyCounts = async (blockId: string, counts: Parameters<typeof applyInboundCounts>[3]) => {
     "use server";
     await applyInboundCounts(itemId, eventId, blockId, counts);
   };
@@ -177,17 +171,18 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
                 . For a revised offer, update it there instead.
               </p>
             )}
-            {offer.newHotel && canAddVenue && <InboxNewHotel hotel={offer.newHotel} create={createHotel} />}
             <ProposalForm
-              key={offer.draft.venueId}
               choices={offer.choices}
               draft={offer.draft}
+              rfpChoices={offer.rfpChoices}
               fromRfp={
-                offer.rfpBlock
-                  ? { rfpBlockId: offer.rfpBlock.id, contractType: offer.rfpBlock.contractType, guestType: offer.rfpBlock.guestType, status: offer.draft.status, nights: [] }
+                offer.rfpChoice
+                  ? { rfpBlockId: offer.rfpChoice.id, contractType: offer.rfpChoice.contractType, guestType: offer.rfpChoice.guestType, status: offer.draft.status, nights: [] }
                   : undefined
               }
-              concessions={offer.concessions}
+              concessions={offer.rfpChoice?.concessions ?? []}
+              offeredConcessions={offer.offeredConcessions}
+              newHotel={canAddVenue ? offer.newHotel : null}
               action={applyOffer}
               cancelHref={itemHref}
             />

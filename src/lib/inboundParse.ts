@@ -38,13 +38,24 @@ export type ProposalOffer = {
   charges: { chargeType: string; amount: number | null; scope: ChargeScope | null }[];
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
-  amenities: string[];
+  // Amenities the offer confirms or says are unavailable. Older reads hold
+  // bare labels (read as confirmed): see offerAmenities.
+  amenities: OfferAmenity[] | string[];
   concessions: { concessionId: string; offered: string | null; met: ConcessionMetValue | null }[];
+  // Concessions the hotel offers that the RFP didn't ask for (all of them
+  // when it answers no RFP). Older reads have none.
+  offeredConcessions?: { label: string; offered: string | null }[];
   hotelNotes: string | null;
   // Who sent the offer, as the offer gives it: for adding a hotel the org
   // doesn't have yet.
   hotel: OfferHotel;
 };
+
+export type OfferAmenity = { label: string; status: "CONFIRMED" | "UNAVAILABLE"; note: string | null };
+
+export function offerAmenities(o: Pick<ProposalOffer, "amenities">): OfferAmenity[] {
+  return o.amenities.map((a) => (typeof a === "string" ? { label: a, status: "CONFIRMED", note: null } : a));
+}
 
 export type OfferHotel = {
   name: string | null;
@@ -120,6 +131,7 @@ export type ParseInput = {
   rfps: ParseRfp[];
   roomTypes: string[]; // the org's room type labels
   amenities: string[]; // the org's amenity labels
+  concessionLabels: string[]; // the org's concession labels
   attachments: ParseAttachment[];
 };
 
@@ -171,11 +183,12 @@ const offerSchema = object({
   },
   allowedAttrition: num,
   guaranteedRevenue: num,
-  amenities: { type: "array", items: str },
+  amenities: { type: "array", items: object({ label: str, status: { type: "string", enum: ["CONFIRMED", "UNAVAILABLE"] }, note: str }) },
   concessions: {
     type: "array",
     items: object({ concessionId: str, offered: str, met: { type: "string", enum: ["", "MET", "PARTIAL", "NOT_MET"] } }),
   },
+  offeredConcessions: { type: "array", items: object({ label: str, offered: str }) },
   hotelNotes: str,
   hotel: object({
     name: str,
@@ -289,13 +302,15 @@ For PICKUP_COUNTS, fill "counts": one entry per night and room type with rooms p
 
 For RFP_PROPOSAL, fill "offer":
 - venueId: the hotel, from the candidate hotels; "" when it isn't one of them (say who it is in notes).
-- rfpBlockId: the requested block this offer answers, from the candidate RFPs' blocks; "" when there's no RFP or it's unclear.
+- rfpBlockId: the requested block this offer answers, from the candidate RFPs' blocks, only when the offer is a response to that RFP: it names or quotes the RFP, answers its requested concessions, or comes from a hotel the RFP was sent to for the same dates. A hotel's own or unsolicited offer, or one that merely overlaps the event's dates, answers no RFP: "". "" too when it's unclear which block.
 - submittedOn: the date of the offer. checkIn / checkOut: the first night and the departure day (the day after the last night).
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types when one fits, else "" for run of house / all types.
 - charges: other fees the hotel lists (resort fee, parking, deposits), with amount and scope when given.
 - allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee in dollars, if stated.
-- amenities: those the hotel offers that match the org's amenity list exactly.
-- concessions: for each concession the RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
+- amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"); note is the offer's wording or dates, or "". Leave out amenities the offer doesn't mention; never guess.
+- Concessions are what's given or negotiated for this group (comp rooms, a reduced valet rate, meal vouchers, waived fees, upgrades). One service can be both: valet parking is an amenity, a reduced valet rate a concession.
+- concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
+- offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
 - hotelNotes: anything else in the offer a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly.
 - hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
 
@@ -340,6 +355,7 @@ function buildContent(input: ParseInput): Anthropic.Beta.BetaContentBlockParam[]
     "",
     `Org room types: ${input.roomTypes.join(", ") || "(none)"}`,
     `Org amenities: ${input.amenities.join(", ") || "(none)"}`,
+    `Org concessions: ${input.concessionLabels.join(", ") || "(none)"}`,
     "",
   ];
   input.attachments.forEach((a, i) => {
@@ -455,6 +471,7 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
   const concessionIds = new Set(rfp?.concessions.map((c) => c.id) ?? []);
   const roomTypes = new Set(input.roomTypes);
   const amenities = new Set(input.amenities);
+  const concessionLabels = new Map(input.concessionLabels.map((l) => [l.toLowerCase(), l]));
   const checkIn = dateOrNull(o.checkIn);
   const checkOut = dateOrNull(o.checkOut);
   return {
@@ -475,8 +492,19 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
     charges: o.charges.filter((c) => c.chargeType?.trim()),
     allowedAttrition: o.allowedAttrition != null && o.allowedAttrition <= 100 ? o.allowedAttrition : null,
     guaranteedRevenue: o.guaranteedRevenue,
-    amenities: o.amenities.filter((a) => amenities.has(a)),
+    amenities: offerAmenities(o)
+      .filter((a, i, all) => amenities.has(a.label) && ["CONFIRMED", "UNAVAILABLE"].includes(a.status) && all.findIndex((x) => x.label === a.label) === i)
+      .map((a) => ({ label: a.label, status: a.status, note: a.note || null })),
     concessions: o.concessions.filter((c) => concessionIds.has(c.concessionId)),
+    // On the concession list, not ones the RFP asked for (those are answers), one per label.
+    offeredConcessions: (o.offeredConcessions ?? [])
+      .flatMap((c) => {
+        const label = concessionLabels.get(c.label?.trim().toLowerCase() ?? "");
+        return label ? [{ label, offered: c.offered || null }] : [];
+      })
+      .filter(
+        (c, i, all) => !rfp?.concessions.some((r) => r.label.toLowerCase() === c.label.toLowerCase()) && all.findIndex((x) => x.label === c.label) === i,
+      ),
     hotelNotes: o.hotelNotes,
     hotel: o.hotel ?? {
       name: null,

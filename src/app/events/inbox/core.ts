@@ -270,7 +270,7 @@ async function parseRfpContext(eventId: string, tenantId: string, senderAddresse
         })
       : [],
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["hotel_room_type", "hotel_amenity"] } },
+      where: { tenantId, category: { in: ["hotel_room_type", "hotel_amenity", "rfp_concession"] } },
       select: { category: true, label: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -309,6 +309,7 @@ async function parseRfpContext(eventId: string, tenantId: string, senderAddresse
     rfps: parseRfps,
     roomTypes: options.filter((o) => o.category === "hotel_room_type").map((o) => o.label),
     amenities: options.filter((o) => o.category === "hotel_amenity").map((o) => o.label),
+    concessionLabels: options.filter((o) => o.category === "rfp_concession").map((o) => o.label),
   };
 }
 
@@ -447,13 +448,23 @@ export async function applyInboundPickupCore(
   });
 }
 
-// A hotel's offer, as reviewed in the proposal form: creates the proposal and
-// files the message's attachments on it. Returns the new proposal's id.
-export async function applyInboundOfferCore(id: string, eventId: string, args: ProposalWriteArgs, userId: string): Promise<string> {
+// A hotel's offer, as reviewed in the proposal form: creates the proposal
+// (and first the hotel, when it's one not in Venues yet) and files the
+// message's attachments on it. Returns the new proposal's id.
+export async function applyInboundOfferCore(
+  id: string,
+  eventId: string,
+  args: ProposalWriteArgs,
+  newHotel: OfferHotel | null,
+  userId: string,
+): Promise<string> {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   let proposalId = "";
   await claimAndApply(id, eventId, userId, async () => {
-    const proposal = await createHotelProposalCore(eventId, args, userId);
+    // A new hotel's profile starts with the amenities its offer confirms.
+    const confirmed = args.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label);
+    const venueId = newHotel ? (await createOfferHotel(eventId, newHotel, confirmed, userId)).id : args.venueId;
+    const proposal = await createHotelProposalCore(eventId, { ...args, venueId }, userId);
     proposalId = proposal.id;
     const files = await inboundAttachments(id);
     if (files.length) {
@@ -476,25 +487,21 @@ export async function applyInboundOfferCore(id: string, eventId: string, args: P
   return proposalId;
 }
 
-// A hotel an offer came from that the org doesn't have yet: creates it as a
-// lodging venue with the offer's contact, and points the offer at it. A
-// venue with the same name is refused, so it gets picked instead.
-export async function createInboundHotelCore(id: string, eventId: string, hotel: OfferHotel, userId: string) {
-  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+// A hotel an offer came from that the org doesn't have yet: a lodging venue
+// with the offer's contact. A venue with the same name is refused, so it gets
+// picked instead.
+async function createOfferHotel(eventId: string, hotel: OfferHotel, amenities: string[], userId: string) {
   const tenantId = await requireEventTenantId(eventId);
-  const item = await inboxItem(id, tenantId, eventId);
-  const proposal = item.proposal as InboundProposal | null;
-  if (item.status !== "PARSED" || proposal?.kind !== "RFP_PROPOSAL" || !proposal.offer) throw new Error("This message has no offer to add a hotel for");
   const name = hotel.name?.trim();
   if (!name) throw new Error("The hotel needs a name");
   const same = await prisma.venue.findFirst({
     where: { tenantId, name: { equals: name, mode: "insensitive" } },
     select: { id: true },
   });
-  if (same) throw new Error(`${name} is already in Venues; choose it in the proposal`);
+  if (same) throw new Error(`${name} is already in Venues; choose it as the hotel`);
   const clean = (v: string | null) => v?.trim() || null;
   const venue = await createVenueCore(
-    { name, address: clean(hotel.address), city: clean(hotel.city), state: clean(hotel.state), zip: clean(hotel.zip), country: null, notes: null, isLodging: true },
+    { name, address: clean(hotel.address), city: clean(hotel.city), state: clean(hotel.state), zip: clean(hotel.zip), country: null, notes: null, isLodging: true, amenities },
     userId,
     tenantId,
   );
@@ -509,10 +516,6 @@ export async function createInboundHotelCore(id: string, eventId: string, hotel:
     const phone = clean(hotel.contactPhone);
     if (phone) await prisma.contact.update({ where: { id: link.contactId, tenantId }, data: { phone } });
   }
-  await prisma.inboundEmail.update({
-    where: { id, tenantId },
-    data: { proposal: { ...proposal, offer: { ...proposal.offer, venueId: venue.id } } },
-  });
   return venue;
 }
 

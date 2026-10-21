@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
 import { addDays, CONTRACT_TYPE_LABELS, dateFromKey, dateKey } from "@/lib/hotels";
 import { resourceForKind } from "@/lib/rfp/kinds";
+import { requireListLabels } from "@/lib/hotelLabels";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import { buildComparison } from "@/lib/rfp/compare";
 import { FB_INCLUDES, parseSections } from "@/lib/rfp/sections";
@@ -108,7 +109,7 @@ function money(v: number | null, label: string) {
   return v;
 }
 
-async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs) {
+async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs, keepAmenities: string[] = []) {
   if (!args.title.trim()) throw new Error("Title is required");
   const alternates = args.alternateDates.filter((a) => a.startDate || a.endDate);
   const dates = [args.responseDue, args.decisionBy, args.arrivalDate, args.departureDate, args.siteVisitBy, ...alternates.flatMap((a) => [a.startDate, a.endDate])];
@@ -145,7 +146,10 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs) {
     fbMinimum: money(args.fbMinimum, "F&B minimum"),
     fbIncludes: args.fbIncludes.filter((f) => FB_INCLUDE_KEYS.has(f)),
     fbHistoricalSpend: money(args.fbHistoricalSpend, "F&B historical spend"),
-    amenities: Array.from(new Set(args.amenities.filter(Boolean))),
+    // From the amenity list only; labels the RFP already holds may stay.
+    amenities: Array.from(
+      new Set(await requireListLabels(await requireEventTenantId(eventId), "hotel_amenity", args.amenities.filter(Boolean), keepAmenities)),
+    ),
     decisionMakerId: args.decisionMakerId,
     decisionMaker: args.decisionMakerId ? null : args.decisionMaker?.trim() || null,
     regions: Array.from(new Set(args.regions.filter(Boolean))),
@@ -180,7 +184,8 @@ export async function createRfpCore(
 
 export async function updateRfpCore(id: string, eventId: string, args: RfpWriteArgs, userId: string) {
   const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
-  const data = await validate(eventId, kind, args);
+  const current = await prisma.rfp.findFirst({ where: { id, eventId }, select: { amenities: true } });
+  const data = await validate(eventId, kind, args, current?.amenities ?? []);
   return prisma.$transaction(async (tx) => {
     await tx.rfpAlternateDate.deleteMany({ where: { rfpId: id } });
     return tx.rfp.update({ where: { id, eventId }, data: { ...data, updatedById: userId } });
@@ -240,10 +245,19 @@ export async function saveRfpBlocksCore(id: string, eventId: string, blocks: Rfp
 
 export async function saveRfpConcessionsCore(id: string, eventId: string, concessions: RfpConcessionArgs[], userId: string) {
   await authorizeRfp(id, eventId, "WRITE", userId);
-  const rows = concessions
-    .filter((c) => c.label.trim())
-    .map((c, i) => ({ id: c.id ?? null, label: c.label.trim(), value: c.value?.trim() || null, required: c.required, sortOrder: i }));
-  const existing = new Set((await prisma.rfpConcession.findMany({ where: { rfpId: id }, select: { id: true } })).map((c) => c.id));
+  const current = await prisma.rfpConcession.findMany({ where: { rfpId: id }, select: { id: true, label: true } });
+  const given = concessions.filter((c) => c.label.trim());
+  // From the concession list only (legacy labels the RFP holds may stay), once each.
+  const labels = await requireListLabels(
+    await requireEventTenantId(eventId),
+    "rfp_concession",
+    given.map((c) => c.label),
+    current.map((c) => c.label),
+  );
+  const dupe = labels.find((l, i) => labels.indexOf(l) !== i);
+  if (dupe) throw new Error(`${dupe} is listed twice`);
+  const rows = given.map((c, i) => ({ id: c.id ?? null, label: labels[i], value: c.value?.trim() || null, required: c.required, sortOrder: i }));
+  const existing = new Set(current.map((c) => c.id));
   const kept = rows.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
   await prisma.$transaction(async (tx) => {
     // A removed concession takes the hotels' answers to it along (cascade).
@@ -392,12 +406,12 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
         rfpBlockId: true,
         allowedAttrition: true,
         guaranteedRevenue: true,
-        amenities: true,
-        venue: { select: { name: true } },
+        amenities: { select: { label: true, status: true } },
+        venue: { select: { name: true, amenities: true } },
         block: { select: { id: true } },
         nights: { select: { night: true, rooms: true, rate: true } },
         charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
-        concessions: { select: { concessionId: true, offered: true, met: true } },
+        concessions: { select: { concessionId: true, label: true, offered: true, met: true }, orderBy: { sortOrder: "asc" } },
       },
     }),
   ]);
@@ -407,6 +421,6 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
     amenities: rfp.amenities,
     blocks: rfp.hotelBlocks,
     concessions: rfp.concessions,
-    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, hasBlock: p.block != null })),
+    proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, profile: p.venue.amenities, hasBlock: p.block != null })),
   });
 }

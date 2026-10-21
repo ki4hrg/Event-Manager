@@ -1,5 +1,16 @@
 import type { Metadata } from "next";
-import { getOptions, createOption, updateOption, deleteOption, reorderOptions, type OptionCategory } from "../actions";
+import {
+  getOptions,
+  createOption,
+  updateOption,
+  deleteOption,
+  reorderOptions,
+  mergeOption,
+  getOffListLabels,
+  mapOffListLabel,
+  type OptionCategory,
+} from "../actions";
+import { OffListLabels } from "./OffListLabels";
 import { OptionList } from "../OptionList";
 import { PROPOSAL_STAGES } from "@/lib/hotels";
 import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
@@ -8,20 +19,25 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Hotel options" };
 
-const LISTS: { category: OptionCategory; title: string; description: string; showColor?: boolean }[] = [
+// mergeable: one spelling per thing — options can be merged, and labels in
+// use that aren't on the list are shown for mapping.
+const LISTS: { category: OptionCategory; title: string; description: string; showColor?: boolean; mergeable?: boolean }[] = [
   { category: "proposal_status", title: "Proposal Statuses", description: "Stage drives the workflow.", showColor: true },
   { category: "hotel_room_type", title: "Room Types", description: "" },
   { category: "hotel_guest_type", title: "Guest Types", description: "" },
-  { category: "hotel_amenity", title: "Amenities", description: "" },
+  { category: "hotel_amenity", title: "Amenities", description: "", mergeable: true },
   { category: "hotel_lead_source", title: "Lead Sources", description: "" },
   { category: "hotel_brand", title: "Brands", description: "" },
   { category: "hotel_region", title: "Regions", description: "" },
   { category: "hotel_area", title: "Areas", description: "" },
-  { category: "rfp_concession", title: "RFP Concessions", description: "" },
+  { category: "rfp_concession", title: "Concessions", description: "", mergeable: true },
 ];
 
 export default async function SettingsHotelsPage() {
-  const options = await Promise.all(LISTS.map((l) => getOptions(l.category)));
+  const [options, offList] = await Promise.all([
+    Promise.all(LISTS.map((l) => getOptions(l.category))),
+    Promise.all(LISTS.map((l) => (l.mergeable ? getOffListLabels(l.category) : []))),
+  ]);
   const regions = options[LISTS.findIndex((l) => l.category === "hotel_region")];
 
   const groupsFor = (category: OptionCategory) => {
@@ -48,20 +64,39 @@ export default async function SettingsHotelsPage() {
           "use server";
           await reorderOptions(list.category, ids);
         };
+        const map = async (label: string, intoId: string) => {
+          "use server";
+          await mapOffListLabel(list.category, label, intoId);
+        };
+        const add = async (label: string) => {
+          "use server";
+          const formData = new FormData();
+          formData.set("label", label);
+          await createOption(list.category, formData);
+        };
         return (
-          <OptionList
-            key={list.category}
-            title={list.title}
-            description={list.description}
-            category={list.category}
-            options={options[i]}
-            showColor={list.showColor ?? false}
-            {...groupsFor(list.category)}
-            createOption={create}
-            updateOption={updateOption}
-            deleteOption={deleteOption}
-            reorderOptions={reorder}
-          />
+          <div key={list.category} className="space-y-4 min-w-0">
+            <OptionList
+              title={list.title}
+              description={list.description}
+              category={list.category}
+              options={options[i]}
+              showColor={list.showColor ?? false}
+              {...groupsFor(list.category)}
+              createOption={create}
+              updateOption={updateOption}
+              deleteOption={deleteOption}
+              reorderOptions={reorder}
+              mergeOption={list.mergeable ? mergeOption : undefined}
+            />
+            <OffListLabels
+              title={`${list.title} not in the list`}
+              labels={offList[i]}
+              options={options[i].map((o) => ({ id: o.id, label: o.label }))}
+              map={map}
+              add={add}
+            />
+          </div>
         );
       })}
     </div>

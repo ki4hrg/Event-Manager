@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { formatNight } from "@/lib/hotels";
 import { labelMicroCaps, reportSectionCard, reportTd, reportTh } from "@/lib/reportStyles";
-import type { RfpBlockDoc, RfpDocument, RfpFact, RfpSpaceDay } from "@/lib/rfp/document";
+import { concessionOfferRows, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpSpaceDay } from "@/lib/rfp/document";
 
 // The RFP document on screen and on the /print route, in APEX Single
 // Facility RFP order. Same RfpDocument the .docx renders; data tables have a
@@ -438,11 +438,9 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
               <BlankTable columns={["F&B function", "Average per-person price"]} rows={[...doc.responseForm.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]} />
             </Sub>
           )}
-          {doc.responseForm.concessions.length > 0 && (
-            <Sub title="Concessions offered">
-              <BlankTable columns={["Concession", "Offered"]} rows={doc.responseForm.concessions.map((c) => [c])} />
-            </Sub>
-          )}
+          <Sub title="Concessions offered">
+            <BlankTable columns={["Heading", "Concession", "Offered"]} rows={concessionOfferRows(doc.responseForm.concessions)} />
+          </Sub>
         </Section>
       )}
     </div>

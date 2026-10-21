@@ -259,8 +259,10 @@ export const DEFAULT_OPTIONS = {
     { label: "Exhibitors", sortOrder: 3 },
     { label: "VIP", sortOrder: 4 },
   ],
-  // Features a property has. Anything complimentary or discounted (Wi-Fi,
-  // parking, breakfast) is a concession (rfp_concession), not an amenity.
+  // A hotel's fixed offering, filtered on when picking RFP recipients: what it
+  // has or provides to every guest (pool, airport shuttle, valet parking,
+  // complimentary breakfast). What's negotiated for the group (comp rooms, a
+  // reduced valet rate, meal vouchers) is a concession (rfp_concession).
   hotel_amenity: [
     { label: "On-site Restaurant", sortOrder: 0 },
     { label: "Fitness Center", sortOrder: 1 },
@@ -271,6 +273,10 @@ export const DEFAULT_OPTIONS = {
     { label: "Valet Parking", sortOrder: 6 },
     { label: "Spa", sortOrder: 7 },
     { label: "Golf", sortOrder: 8 },
+    // Included for every guest; spelled as the concession they stand in for,
+    // so a request for one reads as met by the hotel's profile.
+    { label: "Complimentary Breakfast", sortOrder: 9 },
+    { label: "Complimentary Wi-Fi", sortOrder: 10 },
   ],
   hotel_lead_source: [
     { label: "Direct", sortOrder: 0 },
