@@ -1,6 +1,6 @@
 # Proposal — Email ingest (per-event inbox)
 
-Status: Phases 1–3 implemented (inbox, pickup parsing, RFP responses).
+Status: Phases 1–4 implemented (inbox, pickup parsing, RFP responses, MCP, vendor quotes / BEOs / contracts).
 Where this design and the code differ, the code wins.
 
 ## Problem
@@ -114,8 +114,11 @@ downloads of Unrouted items also check the org (`inboundFileTenantId`).
   attachments with *File on event*, the original .eml, sender and SPF / DKIM /
   DMARC badges; actions Release, Dismiss, Restore, Move to another event
   (`HOTELS` WRITE).
-- **Unrouted mail** (`/inbox`, header link while any is waiting): Held / Done
-  tabs; Route to an event re-matches the sender against that event.
+- **Org inbox** (`/inbox`, header link "Inbox (n)" counting open items): the
+  same tabs across every event the user can see, plus Unrouted mail (always
+  Held; Route to an event re-matches the sender against that event). Event
+  items open on their event's inbox.
+- A page showing an item being read refreshes itself until the read lands.
 - Event Settings › **Inbox**: the address, copy, change, turn off.
 - **Diagnostics** (the raw .eml, SPF / DKIM / DMARC badges, the model that
   read an item) show only to super admins and to accounts a super admin marks
@@ -234,6 +237,24 @@ says it isn't configured.
    Reading is two calls: classify (kind, summary, notes), then only that
    kind's fields — one schema for every kind compiled to a grammar the API
    rejected as too large.
-4. **Later.** Other kinds (vendor quotes, BEOs (banquet event orders),
-   contracts), MCP `list_inbox_items` / `get_inbox_item` / `apply_inbox_item`,
-   and an `origin: MCP` submit tool.
+4. **MCP and more kinds.** MCP (`src/lib/mcpTools/inbox.ts`) — done:
+   `list_inbox_items` (one event, or org-wide with Unrouted), `get_inbox_item`,
+   `apply_inbox_item` (applies a Ready item as read, without the review form:
+   pickup counts / guests to a block, a decline, an offer as a proposal —
+   `applyInboundAsProposedCore`), `release_inbox_item`, `route_inbox_item`,
+   `dismiss_inbox_item`, and `submit_inbox_item`, which stores a message
+   from the caller (`origin: MCP`, a MEMBER sender, text and base64
+   attachments) and reads it like delivered mail
+   (`submitInboundItemCore`). New kinds — done (see
+   docs/proposals/vendor-rfps.md § Email ingest): **VENDOR_QUOTE** opens the
+   quote form prefilled (vendor or *New vendor*, the vendor RFP it answers or
+   standalone, lines priced against that RFP's line items) and records it
+   with the attachments filed on the quote (`applyInboundQuoteCore`);
+   **BEO** shows each field it states beside the catering order's value,
+   ticked where they differ, and writes the ticked ones and files the BEO
+   (`applyInboundBeoCore`); **CONTRACT** picks the hotel proposal, vendor
+   quote or catering order it covers, writes the terms that record holds
+   (attrition / valid until; deposit / cancellation; deposit deadline /
+   cancellation) and puts the rest in its notes (`applyInboundContractCore`).
+   Context given to Claude adds the event's vendors, vendor RFPs with line
+   items, catering orders, and contract targets.

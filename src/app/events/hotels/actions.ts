@@ -7,10 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import {
   createHotelProposalCore,
+  createNewHotelCore,
   deleteHotelProposalCore,
   updateHotelProposalCore,
 } from "./core";
-import { readJson, readProposal } from "./proposalArgs";
+import { readJson, readNewHotel, readProposal } from "./proposalArgs";
 import {
   clearPickupCore,
   createHotelBlockCore,
@@ -28,6 +29,7 @@ const listInclude = {
   nights: { select: { night: true, roomType: true, rooms: true, rate: true } },
   block: { select: { id: true } },
   rfp: { select: { id: true, title: true } },
+  leadSourceVendor: { select: { name: true } },
   _count: { select: { files: true } },
 } as const;
 
@@ -57,6 +59,7 @@ export async function getHotelProposal(id: string, eventId: string) {
       block: { select: { id: true } },
       rfp: { select: { id: true, title: true, concessions: { orderBy: { sortOrder: "asc" } } } },
       concessions: { orderBy: { sortOrder: "asc" } },
+      leadSourceVendor: { select: { name: true } },
       updatedBy: { select: { name: true, email: true } },
     },
   });
@@ -67,7 +70,7 @@ export async function getHotelProposal(id: string, eventId: string) {
 export async function getProposalFormChoices(eventId: string) {
   const session = await requirePermission("HOTELS", "VIEW", eventId);
   const tenantId = session.tenantId;
-  const [venues, options] = await Promise.all([
+  const [venues, options, leadSources] = await Promise.all([
     prisma.venue.findMany({
       where: { tenantId },
       select: {
@@ -81,9 +84,15 @@ export async function getProposalFormChoices(eventId: string) {
       orderBy: { name: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_lead_source", "hotel_area", "rfp_concession"] } },
+      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "rfp_concession"] } },
       select: { category: true, label: true, group: true, color: true },
       orderBy: { sortOrder: "asc" },
+    }),
+    // Lead sources are organizations: vendors tagged LEAD_SOURCE, with their contacts.
+    prisma.vendor.findMany({
+      where: { tenantId, models: { has: "LEAD_SOURCE" } },
+      select: { id: true, name: true, contacts: { select: { contact: { select: { id: true, firstName: true, lastName: true } } }, orderBy: { isPrimary: "desc" } } },
+      orderBy: { name: "asc" },
     }),
   ]);
   const of = (category: string) => options.filter((o) => o.category === category);
@@ -99,14 +108,26 @@ export async function getProposalFormChoices(eventId: string) {
     roomTypes: of("hotel_room_type").map((o) => o.label),
     guestTypes: of("hotel_guest_type").map((o) => o.label),
     amenities: of("hotel_amenity").map((o) => o.label),
-    leadSources: of("hotel_lead_source").map((o) => o.label),
+    leadSources: leadSources.map((v) => ({
+      id: v.id,
+      name: v.name,
+      contacts: v.contacts.map((c) => ({ id: c.contact.id, name: `${c.contact.firstName} ${c.contact.lastName}`.trim() })),
+    })),
     areas: of("hotel_area").map((o) => ({ label: o.label, region: o.group })),
   };
 }
 
 export async function createHotelProposal(eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const proposal = await createHotelProposalCore(eventId, readProposal(formData), session.user.id);
+  const args = readProposal(formData);
+  const newHotel = readNewHotel(formData);
+  if (newHotel) {
+    // A new hotel's profile starts with the amenities the proposal confirms.
+    const confirmed = args.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label);
+    args.venueId = (await createNewHotelCore(eventId, newHotel, confirmed, session.user.id)).id;
+    revalidatePath("/venues");
+  }
+  const proposal = await createHotelProposalCore(eventId, args, session.user.id);
   revalidatePath(`/events/${eventId}/hotels`);
   redirect(`/events/${eventId}/hotels/proposals/${proposal.id}?success=Proposal created`);
 }

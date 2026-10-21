@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { PermissionResource, RfpKind, RfpStatus } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { DateInput } from "@/components/ui/DateInput";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatDateKey, formatMoney } from "@/lib/hotels";
@@ -42,6 +43,7 @@ export type RfpValues = {
   fbIncludes: string[];
   fbHistoricalSpend: string | null;
   amenities: string[];
+  service?: string | null; // OTHER: an rfp_service label
 };
 
 export type RfpFormChoices = {
@@ -50,6 +52,7 @@ export type RfpFormChoices = {
   areas: AreaOption[];
   reservationMethods: string[];
   amenities: string[];
+  services?: string[]; // rfp_service labels, for OTHER
 };
 
 const MAX_ALTERNATES = 3;
@@ -126,13 +129,15 @@ export function RfpForm({
   // The decision maker is a contact id, or OTHER for a typed name.
   const [decider, setDecider] = useState(values.decisionMakerId ?? (values.decisionMaker ? OTHER : ""));
   const parts = sectionsFor(kind);
+  const hotel = kind === "HOTEL";
 
   if (!editing || !canWrite) {
     const rows: [string, ReactNode][] = [
       ["Status", RFP_STATUS_LABELS[values.status]],
+      ...(kind === "OTHER" ? [["Service", values.service ?? "—"] as [string, ReactNode]] : []),
       ["Contact", values.contactName ?? "—"],
-      ["Arrival – departure", span(values.arrivalDate, values.departureDate)],
-      ["Peak rooms", values.peakRooms ?? "—"],
+      [hotel ? "Arrival – departure" : "Dates", span(values.arrivalDate, values.departureDate)],
+      ...(hotel ? [["Peak rooms", values.peakRooms ?? "—"] as [string, ReactNode]] : []),
       ["Responses due", formatDateKey(values.responseDue)],
       ["Decision by", formatDateKey(values.decisionBy)],
     ];
@@ -146,7 +151,7 @@ export function RfpForm({
     if (deciderName) rows.push(["Decision maker", deciderName]);
     const own = { regions: values.regions, areas: values.areas };
     const scope = effectiveScope(own, values.eventScope);
-    if (!isEmptyScope(scope)) rows.push(["Hotel areas", `${scopeLabels(scope).join(", ")}${isEmptyScope(own) ? " (event)" : ""}`]);
+    if (hotel && !isEmptyScope(scope)) rows.push(["Hotel areas", `${scopeLabels(scope).join(", ")}${isEmptyScope(own) ? " (event)" : ""}`]);
     if (values.reservationMethod) rows.push(["Reservations", values.reservationMethod]);
     if (sections.has("fb") && values.fbMinimum) rows.push(["F&B minimum", formatMoney(values.fbMinimum)]);
     if (values.amenities.length) rows.push(["Amenities", values.amenities.join(", ")]);
@@ -200,6 +205,11 @@ export function RfpForm({
         <Field label="Title *" htmlFor="rfp-title" wide>
           <input id="rfp-title" name="title" required defaultValue={values.title} className={inputClass} />
         </Field>
+        {kind === "OTHER" && (
+          <Field label="Service" htmlFor="rfp-service">
+            <OptionSelect id="rfp-service" name="service" value={values.service ?? null} options={choices.services ?? []} />
+          </Field>
+        )}
         {isEdit && (
           <Field label="Status" htmlFor="rfp-status">
             <select id="rfp-status" name="status" defaultValue={values.status} className={inputClass}>
@@ -225,17 +235,19 @@ export function RfpForm({
       </div>
 
       <fieldset className="space-y-3">
-        <legend className={legendClass}>Dates & rooms</legend>
+        <legend className={legendClass}>{hotel ? "Dates & rooms" : "Dates"}</legend>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label="Arrival" htmlFor="rfp-arrivalDate">
+          <Field label={hotel ? "Arrival" : "Start"} htmlFor="rfp-arrivalDate">
             <input id="rfp-arrivalDate" type="date" name="arrivalDate" defaultValue={values.arrivalDate ?? ""} className={inputClass} />
           </Field>
-          <Field label="Departure" htmlFor="rfp-departureDate">
+          <Field label={hotel ? "Departure" : "End"} htmlFor="rfp-departureDate">
             <input id="rfp-departureDate" type="date" name="departureDate" defaultValue={values.departureDate ?? ""} className={inputClass} />
           </Field>
-          <Field label="Peak rooms" htmlFor="rfp-peakRooms">
-            <input id="rfp-peakRooms" type="number" min={0} name="peakRooms" defaultValue={values.peakRooms ?? ""} className={inputClass} />
-          </Field>
+          {hotel && (
+            <Field label="Peak rooms" htmlFor="rfp-peakRooms">
+              <input id="rfp-peakRooms" type="number" min={0} name="peakRooms" defaultValue={values.peakRooms ?? ""} className={inputClass} />
+            </Field>
+          )}
         </div>
         <label className={checkLabel}>
           <input type="checkbox" name="datesFlexible" value="true" defaultChecked={values.datesFlexible} className={checkClass} />
@@ -244,12 +256,12 @@ export function RfpForm({
         {alternates.map((a, i) => (
           <div key={i} className="flex flex-wrap items-end gap-2">
             <label className={labelClass}>
-              Alternate arrival
-              <input type="date" value={a.startDate} onChange={(e) => setAlternate(i, { startDate: e.target.value })} className={inputClass} />
+              {hotel ? "Alternate arrival" : "Alternate start"}
+              <DateInput value={a.startDate} onChange={(v) => setAlternate(i, { startDate: v })} className={inputClass} />
             </label>
             <label className={labelClass}>
-              Departure
-              <input type="date" value={a.endDate} onChange={(e) => setAlternate(i, { endDate: e.target.value })} className={inputClass} />
+              {hotel ? "Departure" : "End"}
+              <DateInput value={a.endDate} onChange={(v) => setAlternate(i, { endDate: v })} className={inputClass} />
             </label>
             <button type="button" onClick={() => setAlternates((prev) => prev.filter((_, j) => j !== i))} className="pb-2 text-sm text-red-600 dark:text-red-400 hover:underline">
               Remove
@@ -315,7 +327,7 @@ export function RfpForm({
         </div>
       </div>
 
-      {(choices.regions.length > 0 || choices.areas.length > 0) && (
+      {hotel && (choices.regions.length > 0 || choices.areas.length > 0) && (
         <div>
           <p className={labelClass}>Hotel areas</p>
           <div className="mt-1">
@@ -353,7 +365,7 @@ export function RfpForm({
         </>
       )}
 
-      {choices.amenities.length > 0 && (
+      {hotel && choices.amenities.length > 0 && (
         <div>
           <p className={labelClass}>Requested amenities</p>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">

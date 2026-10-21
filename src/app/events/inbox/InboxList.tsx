@@ -14,6 +14,8 @@ type Item = {
   senderMatch: string | null;
   envelopeTo: string;
   _count: { files: number };
+  // Set on the org-wide list: the item opens on its event's inbox.
+  event?: { id: string; name: string } | null;
 };
 
 const TABS: { view: InboxView; label: string }[] = [
@@ -65,12 +67,13 @@ export function InboxTabs({
 export function InboxList({
   items,
   basePath,
-  showRecipient = false,
+  showEvent = false,
   empty,
 }: {
   items: Item[];
   basePath: string;
-  showRecipient?: boolean;
+  // Org-wide list: name each item's event, or its address while Unrouted.
+  showEvent?: boolean;
   empty: string;
 }) {
   if (items.length === 0) {
@@ -81,7 +84,7 @@ export function InboxList({
       {items.map((item) => (
         <Link
           key={item.id}
-          href={`${basePath}/${item.id}`}
+          href={item.event ? `/events/${item.event.id}/inbox/${item.id}` : `${basePath}/${item.id}`}
           className="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
         >
           <div className="flex items-baseline justify-between gap-3">
@@ -107,7 +110,14 @@ export function InboxList({
                 {item._count.files} attachment{item._count.files === 1 ? "" : "s"}
               </span>
             )}
-            {showRecipient && <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{item.envelopeTo}</span>}
+            {showEvent &&
+              (item.event ? (
+                <span className="text-xs text-gray-700 dark:text-gray-300">{item.event.name}</span>
+              ) : (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Unrouted · <span className="font-mono">{item.envelopeTo}</span>
+                </span>
+              ))}
           </div>
         </Link>
       ))}

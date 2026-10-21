@@ -18,7 +18,7 @@ import { InboxItemActions } from "@/app/events/inbox/InboxItemActions";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Unrouted mail" };
+export const metadata: Metadata = { title: "Inbox" };
 
 export default async function UnroutedInboxItemPage({ params }: { params: Promise<{ itemId: string }> }) {
   const { itemId } = await params;
@@ -49,7 +49,7 @@ export default async function UnroutedInboxItemPage({ params }: { params: Promis
         <Toast />
       </Suspense>
       <PageHeader
-        breadcrumbs={[{ label: "Unrouted mail", href: "/inbox" }, { label: item.subject || "(no subject)" }]}
+        breadcrumbs={[{ label: "Inbox", href: "/inbox?view=held" }, { label: item.subject || "(no subject)" }]}
         title={item.subject || "(no subject)"}
         actions={
           canWrite ? (

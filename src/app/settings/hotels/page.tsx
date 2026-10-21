@@ -26,7 +26,6 @@ const LISTS: { category: OptionCategory; title: string; description: string; sho
   { category: "hotel_room_type", title: "Room Types", description: "" },
   { category: "hotel_guest_type", title: "Guest Types", description: "" },
   { category: "hotel_amenity", title: "Amenities", description: "", mergeable: true },
-  { category: "hotel_lead_source", title: "Lead Sources", description: "" },
   { category: "hotel_brand", title: "Brands", description: "" },
   { category: "hotel_region", title: "Regions", description: "" },
   { category: "hotel_area", title: "Areas", description: "" },
@@ -88,11 +87,14 @@ export default async function SettingsHotelsPage() {
               deleteOption={deleteOption}
               reorderOptions={reorder}
               mergeOption={list.mergeable ? mergeOption : undefined}
+              fallbackGroup={list.category === "rfp_concession" ? "OTHER" : undefined}
             />
             <OffListLabels
               title={`${list.title} not in the list`}
               labels={offList[i]}
-              options={options[i].map((o) => ({ id: o.id, label: o.label }))}
+              options={options[i].map((o) => ({ id: o.id, label: o.label, group: o.group }))}
+              groups={groupsFor(list.category).groupOptions}
+              fallbackGroup={list.category === "rfp_concession" ? "OTHER" : undefined}
               map={map}
               add={add}
             />

@@ -1,5 +1,6 @@
 "use client";
 
+import { GroupedOptionItems } from "./GroupedOptionItems";
 import { startTransition, useState, useEffect, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
@@ -97,12 +98,26 @@ type OptionListProps = {
   // Lists with one spelling per thing (amenities, concessions): fold an option
   // into another, moving every use.
   mergeOption?: (id: string, intoId: string) => Promise<void>;
+  // Where options with no group sit in grouped pickers (concessions: Other).
+  fallbackGroup?: string;
 };
 
 const smallSelectClass =
   "px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm";
 
-function MergeControl({ option, others, merge }: { option: CustomOption; others: CustomOption[]; merge: (intoId: string) => Promise<void> }) {
+function MergeControl({
+  option,
+  others,
+  groups,
+  fallbackGroup,
+  merge,
+}: {
+  option: CustomOption;
+  others: CustomOption[];
+  groups?: GroupOption[];
+  fallbackGroup?: string;
+  merge: (intoId: string) => Promise<void>;
+}) {
   const [intoId, setIntoId] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [pending, start] = useTransition();
@@ -120,11 +135,7 @@ function MergeControl({ option, others, merge }: { option: CustomOption; others:
         className={smallSelectClass}
       >
         <option value="">Merge into…</option>
-        {others.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.label}
-          </option>
-        ))}
+        <GroupedOptionItems entries={others} groups={groups} fallback={fallbackGroup} />
       </select>
       {into && !confirming && (
         <button type="button" onClick={() => setConfirming(true)} className="text-sm text-red-600 dark:text-red-400 hover:underline">
@@ -242,6 +253,7 @@ function SortableOptionRow({
   deleteOption,
   mergeOption,
   others,
+  fallbackGroup,
 }: {
   option: CustomOption;
   reordering: boolean;
@@ -255,6 +267,7 @@ function SortableOptionRow({
   deleteOption: (id: string) => Promise<void>;
   mergeOption?: (id: string, intoId: string) => Promise<void>;
   others: CustomOption[];
+  fallbackGroup?: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: option.id, disabled: !reordering });
@@ -325,6 +338,8 @@ function SortableOptionRow({
             <MergeControl
               option={option}
               others={others}
+              groups={groupOptions}
+              fallbackGroup={fallbackGroup}
               merge={async (intoId) => {
                 await mergeOption(option.id, intoId);
                 setEditingId(null);
@@ -414,6 +429,7 @@ export function OptionList({
   deleteOption,
   reorderOptions,
   mergeOption,
+  fallbackGroup,
 }: OptionListProps) {
   const canWrite = useCanWrite("SETTINGS");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -565,6 +581,7 @@ export function OptionList({
                   showModels={showModels}
                   groupOptions={groupOptions}
                   groupLabel={groupLabel}
+                  fallbackGroup={fallbackGroup}
                   setEditingId={setEditingId}
                   updateOption={updateOption}
                   deleteOption={deleteOption}

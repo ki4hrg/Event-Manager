@@ -35,6 +35,7 @@ export function InboxOfferForm({
   offeredConcessions,
   revisions,
   newHotel,
+  canAddHotel,
   create,
   revise,
   cancelHref,
@@ -46,6 +47,7 @@ export function InboxOfferForm({
   offeredConcessions: OfferedConcession[];
   revisions: OfferRevision[];
   newHotel: ComponentProps<typeof ProposalForm>["newHotel"];
+  canAddHotel: boolean;
   create: (formData: FormData) => Promise<void>;
   revise: (proposalId: string, formData: FormData) => Promise<void>;
   cancelHref: string;
@@ -93,6 +95,7 @@ export function InboxOfferForm({
           concessions={rfpChoice?.concessions ?? []}
           offeredConcessions={offeredConcessions}
           newHotel={newHotel}
+          canAddHotel={canAddHotel}
           action={create}
           cancelHref={cancelHref}
         />

@@ -3,7 +3,7 @@
 // tied to a block. Read by the compare page and its .docx. Pure.
 
 import type { AmenityStatus, ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
-import { CHARGE_SCOPE_LABELS, dateKey, formatMoney, formatNight, MET_LABELS } from "@/lib/hotels";
+import { CHARGE_SCOPE_LABELS, dateKey, formatDateKey, formatMoney, formatNight, MET_LABELS } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
 
 type Dec = { toString(): string } | null;
@@ -24,6 +24,8 @@ export type CompareInput = {
     nights: { night: Date; rooms: number | null; rate: Dec }[];
     allowedAttrition: Dec;
     guaranteedRevenue: Dec;
+    validUntil: Date | null;
+    taxIncluded: boolean | null;
     charges: { chargeType: string; amount: Dec; scope: HotelChargeScope | null }[];
     profile: string[]; // the hotel's amenities
     amenities: { label: string; status: AmenityStatus }[]; // as the offer states them
@@ -47,6 +49,8 @@ export type CompareOffer = {
   roomRevenue: number | null;
   attrition: string | null;
   guaranteedRevenue: string | null;
+  validUntil: string | null; // YYYY-MM-DD
+  taxIncluded: boolean | null;
   charges: string[];
   // The hotel's profile plus what the offer confirms, less what it says is unavailable.
   amenities: string[];
@@ -106,6 +110,8 @@ function offer(p: CompareInput["proposals"][number], requested: Record<string, n
     roomRevenue: priced.length ? revenue : null,
     attrition: p.allowedAttrition != null ? `${num(p.allowedAttrition)}%` : null,
     guaranteedRevenue: p.guaranteedRevenue != null ? formatMoney(p.guaranteedRevenue.toString()) : null,
+    validUntil: p.validUntil ? dateKey(p.validUntil) : null,
+    taxIncluded: p.taxIncluded,
     charges: p.charges.map((c) =>
       [c.chargeType, c.amount != null ? formatMoney(c.amount.toString()) : null, c.scope ? CHARGE_SCOPE_LABELS[c.scope].toLowerCase() : null].filter(Boolean).join(" "),
     ),
@@ -174,12 +180,13 @@ export function comparisonRows(g: CompareGroup, concessions: CompareInput["conce
     row("Room nights", req ? String(req.roomNights) : "—", (o) => ({ text: String(o.roomNights), short: !!req && o.roomNights < req.roomNights })),
     row("Peak night", req ? String(req.peak) : "—", (o) => ({ text: String(o.peak), short: !!req && o.peak < req.peak })),
     row("Average rate", req?.targetRate != null ? `target ${money(req.targetRate)}` : "—", (o) => ({
-      text: money(o.avgRate),
+      text: `${money(o.avgRate)}${o.avgRate != null && o.taxIncluded === true ? " incl. tax" : ""}`,
       short: req?.targetRate != null && o.avgRate != null && o.avgRate > req.targetRate,
     })),
     row("Room revenue", "", (o) => ({ text: money(o.roomRevenue) })),
     row("Attrition", "", (o) => ({ text: o.attrition ?? "—" })),
     row("Guaranteed revenue", "", (o) => ({ text: o.guaranteedRevenue ?? "—" })),
+    row("Valid until", "", (o) => ({ text: o.validUntil ? formatDateKey(o.validUntil) : "—" })),
     row("Charges", "", (o) => ({ text: o.charges.join("\n") || "—" })),
     row("Amenities", amenities.join(", "), (o) => {
       const missing = amenities.filter((a) => !o.amenities.includes(a) && !o.unavailable.includes(a));

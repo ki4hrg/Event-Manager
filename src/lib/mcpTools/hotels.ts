@@ -77,7 +77,9 @@ const chargeSchema = {
 const proposalProps = {
   venueId: { type: "string", description: "The hotel (a venue id; list_venues). Usually one flagged isLodging." },
   status: { type: "string", description: "proposal_status option label. Its group (REQUESTED / PENDING / ACCEPTED / DECLINED) is the stage." },
-  leadSource: { type: ["string", "null"], description: "hotel_lead_source option label." },
+  leadSourceDirect: { type: "boolean", description: "The hotel generated the lead itself. Excludes leadSourceVendorId." },
+  leadSourceVendorId: { type: ["string", "null"], description: "The organization that brought the lead: a vendor tagged LEAD_SOURCE (a CVB, a third-party planner; list_vendors)." },
+  leadSourceContactId: { type: ["string", "null"], description: "That lead source's contact (get_vendor contacts)." },
   contractType: { type: ["string", "null"], enum: ["CONTRACT", "COURTESY", null], description: "CONTRACT carries attrition; COURTESY is held without it." },
   guestType: { type: ["string", "null"], description: "Who the rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
   submittedOn: { type: ["string", "null"], description: "YYYY-MM-DD." },
@@ -89,6 +91,8 @@ const proposalProps = {
   revisionSummary: { type: ["string", "null"], description: "What changed in this revision." },
   allowedAttrition: { type: ["number", "null"], description: "Percent, 0–100." },
   guaranteedRevenue: { type: ["number", "null"] },
+  validUntil: { type: ["string", "null"], description: "The offer's deadline (rates good until / contract by), YYYY-MM-DD." },
+  taxIncluded: { type: ["boolean", "null"], description: "Whether the quoted rates include taxes and fees; null when the offer doesn't say." },
   amenities: {
     type: "array",
     description:
@@ -131,8 +135,8 @@ const proposalProps = {
 } as const;
 
 const PROPOSAL_KEYS = [
-  "venueId", "status", "leadSource", "contractType", "guestType", "submittedOn", "checkIn", "checkOut", "declinedReason", "notes",
-  "revision", "revisionSummary", "allowedAttrition", "guaranteedRevenue", "amenities", "nights", "charges", "concessions",
+  "venueId", "status", "leadSourceDirect", "leadSourceVendorId", "leadSourceContactId", "contractType", "guestType", "submittedOn", "checkIn", "checkOut", "declinedReason", "notes",
+  "revision", "revisionSummary", "allowedAttrition", "guaranteedRevenue", "validUntil", "taxIncluded", "amenities", "nights", "charges", "concessions",
   "offeredConcessions",
 ] as const satisfies readonly (keyof ProposalWriteArgs)[];
 
@@ -258,7 +262,8 @@ export const hotelTools: McpToolDefinition[] = [
           checkIn: true,
           checkOut: true,
           revision: true,
-          leadSource: true,
+          leadSourceDirect: true,
+          leadSourceVendor: { select: { id: true, name: true } },
           venue: { select: { id: true, name: true } },
           block: { select: { id: true } },
           rfp: { select: { id: true, title: true } },
@@ -308,9 +313,9 @@ export const hotelTools: McpToolDefinition[] = [
       if (args.concessions !== undefined) throw new Error("Only a proposal answering an RFP answers requested concessions — use record_rfp_response, or offeredConcessions");
       checkOfferedConcessions(args.offeredConcessions);
       const blank: ProposalWriteArgs = {
-        venueId: "", status: "", leadSource: null, contractType: null, guestType: null, submittedOn: null, checkIn: null,
+        venueId: "", status: "", leadSourceDirect: false, leadSourceVendorId: null, leadSourceContactId: null, contractType: null, guestType: null, submittedOn: null, checkIn: null,
         checkOut: null, declinedReason: null, notes: null, revision: 1, revisionSummary: null, allowedAttrition: null,
-        guaranteedRevenue: null, amenities: [], nights: [], charges: [],
+        guaranteedRevenue: null, validUntil: null, taxIncluded: null, amenities: [], nights: [], charges: [],
       };
       return createHotelProposalCore(requireString(args, "eventId"), merged(blank, args, PROPOSAL_KEYS), userId);
     },

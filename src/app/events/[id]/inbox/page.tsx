@@ -9,6 +9,7 @@ import { getEvent } from "../../actions";
 import { getEventInbox } from "../../inbox/actions";
 import { InboxList, InboxTabs } from "../../inbox/InboxList";
 import { parseInboxView } from "../../inbox/views";
+import { ReadingRefresh } from "../../inbox/ReadingRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,7 @@ export default async function EventInboxPage({
         </p>
       )}
       <InboxTabs basePath={basePath} view={view} counts={inbox.counts} />
+      {inbox.items.some((i) => i.status === "RECEIVED") && <ReadingRefresh label={null} />}
       <InboxList items={inbox.items} basePath={basePath} empty={EMPTY[view]} />
     </>
   );

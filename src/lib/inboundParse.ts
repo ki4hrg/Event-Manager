@@ -12,7 +12,7 @@ const PARSE_MODEL = "claude-opus-5-5";
 // mapping; every row then comes from the same parser the CSV wizard uses.
 const SHEET_PREVIEW_ROWS = 25;
 
-export const INBOUND_KINDS = ["PICKUP_GUESTS", "PICKUP_COUNTS", "RFP_PROPOSAL", "RFP_DECLINE", "OTHER"] as const;
+export const INBOUND_KINDS = ["PICKUP_GUESTS", "PICKUP_COUNTS", "RFP_PROPOSAL", "RFP_DECLINE", "VENDOR_QUOTE", "BEO", "CONTRACT", "OTHER"] as const;
 export type InboundKind = (typeof INBOUND_KINDS)[number];
 
 export type ProposalSheet = {
@@ -38,6 +38,9 @@ export type ProposalOffer = {
   charges: { chargeType: string; amount: number | null; scope: ChargeScope | null }[];
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
+  // Older reads have neither.
+  validUntil?: string | null; // rates good until / contract by
+  taxIncluded?: boolean | null; // rates include taxes and fees; null = not stated
   // Amenities the offer confirms or says are unavailable. Older reads hold
   // bare labels (read as confirmed): see offerAmenities.
   amenities: OfferAmenity[] | string[];
@@ -46,12 +49,20 @@ export type ProposalOffer = {
   // when it answers no RFP). Older reads have none.
   offeredConcessions?: { label: string; offered: string | null }[];
   hotelNotes: string | null;
+  // A CVB or third party that brought the lead (a lead-source vendor); older reads have none.
+  leadSourceVendorId?: string | null;
   // Who sent the offer, as the offer gives it: for adding a hotel the org
   // doesn't have yet.
   hotel: OfferHotel;
 };
 
 export type OfferAmenity = { label: string; status: "CONFIRMED" | "UNAVAILABLE"; note: string | null };
+
+// Case, punctuation and spacing aside, the same text.
+const sameWords = (a: string, b: string) => {
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return norm(a) === norm(b);
+};
 
 export function offerAmenities(o: Pick<ProposalOffer, "amenities">): OfferAmenity[] {
   return o.amenities.map((a) => (typeof a === "string" ? { label: a, status: "CONFIRMED", note: null } : a));
@@ -76,6 +87,61 @@ export type ProposalDecline = { rfpId: string | null; venueId: string | null; re
 // room type it stands for, or null when none fits.
 export type RoomTypeMap = { raw: string; roomType: string | null }[];
 
+// A vendor's quote (AV, catering, print, transportation…), in the shape the
+// quote form starts from.
+export type QuoteRead = {
+  vendorId: string | null;
+  vendorName: string | null; // as the quote gives it, for a vendor not on file
+  rfpId: string | null;
+  reference: string | null;
+  submittedOn: string | null;
+  validUntil: string | null;
+  lines: { rfpLineItemId: string | null; description: string; quantity: number | null; unitPrice: number | null; amount: number | null; notes: string | null }[];
+  serviceCharge: number | null;
+  tax: number | null;
+  otherFees: number | null;
+  depositAmount: number | null;
+  depositDue: string | null;
+  cancellationTerms: string | null;
+  notes: string | null;
+};
+
+// What a banquet event order states, against one catering order's fields.
+export type BeoRead = {
+  cateringOrderId: string | null;
+  mealType: string | null;
+  serviceStyle: string | null;
+  expectedCount: number | null;
+  confirmedCount: number | null;
+  guaranteeCount: number | null;
+  fbMinimum: number | null;
+  depositDeadline: string | null;
+  guaranteeDeadline: string | null;
+  paymentDeadline: string | null;
+  cancellationTerms: string | null;
+  dietaryNotes: string | null;
+  menu: string | null; // a short summary, for reference
+  notes: string | null;
+};
+
+export type ContractTarget = "HOTEL_PROPOSAL" | "VENDOR_QUOTE" | "CATERING_ORDER";
+export const CONTRACT_TARGETS: ContractTarget[] = ["HOTEL_PROPOSAL", "VENDOR_QUOTE", "CATERING_ORDER"];
+
+// A contract (draft or signed) and its key terms, against the record it
+// contracts: a hotel proposal, a vendor quote or a catering order.
+export type ContractRead = {
+  target: ContractTarget | null;
+  targetId: string | null;
+  signed: boolean | null;
+  signBy: string | null; // offer / signature deadline
+  depositAmount: number | null;
+  depositDue: string | null;
+  attrition: number | null; // percent, hotel
+  cutoffDate: string | null; // reservation cut-off, hotel
+  cancellationTerms: string | null;
+  notes: string | null;
+};
+
 export type InboundProposal = {
   kind: InboundKind;
   blockId: string | null;
@@ -86,8 +152,15 @@ export type InboundProposal = {
   counts: { night: string; roomType: string | null; rooms: number }[] | null;
   offer: ProposalOffer | null;
   decline: ProposalDecline | null;
+  // Older reads have none of these.
+  quote?: QuoteRead | null;
+  beo?: BeoRead | null;
+  contract?: ContractRead | null;
   // Set when applied: the proposal created from the offer.
   appliedProposalId?: string;
+  // Set when applied: the quote recorded, or the record a BEO / contract went to.
+  appliedQuoteId?: string;
+  appliedTo?: { target: ContractTarget; id: string; label: string };
   roomTypes?: RoomTypeMap;
 };
 
@@ -112,6 +185,18 @@ export type ParseRfp = {
   concessions: { id: string; label: string; value: string | null }[];
 };
 
+// Vendor-side candidates: vendors a quote could come from, vendor RFPs with
+// their line items, catering orders a BEO could be for, and the records a
+// contract could cover.
+export type ParseVendorContext = {
+  vendors: ParseVenue[];
+  // Organizations that bring hotels leads (CVBs, third-party planners).
+  leadSources: { id: string; name: string }[];
+  vendorRfps: { id: string; title: string; kind: string; recipients: string[]; lineItems: { id: string; label: string }[] }[];
+  cateringOrders: { id: string; label: string }[];
+  contractTargets: { target: ContractTarget; id: string; label: string }[];
+};
+
 export type ParseAttachment =
   | { fileName: string; type: "pdf"; content: Buffer }
   | { fileName: string; type: "sheet"; grid: string[][] }
@@ -133,7 +218,7 @@ export type ParseInput = {
   amenities: string[]; // the org's amenity labels
   concessionLabels: string[]; // the org's concession labels
   attachments: ParseAttachment[];
-};
+} & ParseVendorContext;
 
 export class ParseError extends Error {}
 
@@ -183,6 +268,8 @@ const offerSchema = object({
   },
   allowedAttrition: num,
   guaranteedRevenue: num,
+  validUntil: str,
+  taxIncluded: { type: "string", enum: ["", "INCLUDED", "EXCLUDED"] },
   amenities: { type: "array", items: object({ label: str, status: { type: "string", enum: ["CONFIRMED", "UNAVAILABLE"] }, note: str }) },
   concessions: {
     type: "array",
@@ -190,6 +277,7 @@ const offerSchema = object({
   },
   offeredConcessions: { type: "array", items: object({ label: str, offered: str }) },
   hotelNotes: str,
+  leadSourceVendorId: str,
   hotel: object({
     name: str,
     address: str,
@@ -202,6 +290,53 @@ const offerSchema = object({
     contactEmail: str,
     contactPhone: str,
   }),
+});
+
+const quoteSchema = object({
+  vendorId: str,
+  vendorName: str,
+  rfpId: str,
+  reference: str,
+  submittedOn: str,
+  validUntil: str,
+  lines: { type: "array", items: object({ rfpLineItemId: str, description: str, quantity: num, unitPrice: num, amount: num, notes: str }) },
+  serviceCharge: num,
+  tax: num,
+  otherFees: num,
+  depositAmount: num,
+  depositDue: str,
+  cancellationTerms: str,
+  notes: str,
+});
+
+const beoSchema = object({
+  cateringOrderId: str,
+  mealType: str,
+  serviceStyle: str,
+  expectedCount: int,
+  confirmedCount: int,
+  guaranteeCount: int,
+  fbMinimum: num,
+  depositDeadline: str,
+  guaranteeDeadline: str,
+  paymentDeadline: str,
+  cancellationTerms: str,
+  dietaryNotes: str,
+  menu: str,
+  notes: str,
+});
+
+const contractSchema = object({
+  target: { type: "string", enum: ["", ...CONTRACT_TARGETS] },
+  targetId: str,
+  signed: { type: "string", enum: ["", "SIGNED", "UNSIGNED"] },
+  signBy: str,
+  depositAmount: num,
+  depositDue: str,
+  attrition: num,
+  cutoffDate: str,
+  cancellationTerms: str,
+  notes: str,
 });
 
 // One schema covering every kind compiles to a grammar the API refuses as too
@@ -233,6 +368,9 @@ const DETAIL_SCHEMAS: Record<Exclude<InboundKind, "OTHER">, Record<string, unkno
   }),
   RFP_PROPOSAL: object({ offer: offerSchema }),
   RFP_DECLINE: object({ decline: object({ rfpId: str, venueId: str, reason: str }) }),
+  VENDOR_QUOTE: object({ quote: quoteSchema }),
+  BEO: object({ beo: beoSchema }),
+  CONTRACT: object({ contract: contractSchema }),
 };
 
 // Every field of the wire format, empty: what a kind's detail call fills in.
@@ -244,6 +382,9 @@ const EMPTY_WIRE = {
   counts: [],
   offer: null,
   decline: null,
+  quote: null,
+  beo: null,
+  contract: null,
 };
 
 // "" → null, recursively.
@@ -270,9 +411,41 @@ function fromWire(raw: unknown): InboundProposal {
             charges: o.charges.map((c) => ({ ...c, amount: numOrNull(c.amount) })),
             allowedAttrition: numOrNull(o.allowedAttrition),
             guaranteedRevenue: numOrNull(o.guaranteedRevenue),
+            validUntil: /^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil ?? "")) ? (o.validUntil as string) : null,
+            taxIncluded: (o.taxIncluded as unknown) === "INCLUDED" ? true : (o.taxIncluded as unknown) === "EXCLUDED" ? false : null,
           }
         : null,
     decline: p.kind === "RFP_DECLINE" ? p.decline : null,
+    quote:
+      p.quote && p.kind === "VENDOR_QUOTE"
+        ? {
+            ...p.quote,
+            lines: (p.quote.lines ?? []).map((l) => ({ ...l, quantity: numOrNull(l.quantity), unitPrice: numOrNull(l.unitPrice), amount: numOrNull(l.amount) })),
+            serviceCharge: numOrNull(p.quote.serviceCharge),
+            tax: numOrNull(p.quote.tax),
+            otherFees: numOrNull(p.quote.otherFees),
+            depositAmount: numOrNull(p.quote.depositAmount),
+          }
+        : null,
+    beo:
+      p.beo && p.kind === "BEO"
+        ? {
+            ...p.beo,
+            expectedCount: numOrNull(p.beo.expectedCount),
+            confirmedCount: numOrNull(p.beo.confirmedCount),
+            guaranteeCount: numOrNull(p.beo.guaranteeCount),
+            fbMinimum: numOrNull(p.beo.fbMinimum),
+          }
+        : null,
+    contract:
+      p.contract && p.kind === "CONTRACT"
+        ? {
+            ...p.contract,
+            signed: (p.contract.signed as unknown) === "SIGNED" ? true : (p.contract.signed as unknown) === "UNSIGNED" ? false : null,
+            depositAmount: numOrNull(p.contract.depositAmount),
+            attrition: numOrNull(p.contract.attrition),
+          }
+        : null,
   };
 }
 
@@ -287,6 +460,9 @@ Classify the message as one of:
 - PICKUP_COUNTS: a hotel pickup report giving only rooms picked up per night (optionally per room type), with no guest list.
 - RFP_PROPOSAL: a hotel's offer of rooms (often a PDF proposal answering an RFP): rates, nights, concessions.
 - RFP_DECLINE: a hotel saying it won't bid on, or can't host, an RFP.
+- VENDOR_QUOTE: a vendor's price quote or proposal for services (AV, catering, printing, transportation, staffing…), not a hotel's room offer.
+- BEO: a banquet event order (BEO) or catering event order from a venue or caterer for one meal or function: menu, counts, set-up, times.
+- CONTRACT: a contract or agreement to sign (or signed) with a hotel, a vendor or a caterer, as opposed to an offer still being priced.
 - OTHER: anything else.
 
 You'll be asked first for the kind, a summary and notes, then for the fields of that kind. Text fields with nothing to say are "" (never null), and numbers that aren't given are -1. Lists that don't apply are empty. When there is no spreadsheet to map, set sheet.attachment to -1 and leave its other fields empty.
@@ -306,17 +482,39 @@ For RFP_PROPOSAL, fill "offer":
 - submittedOn: the date of the offer. checkIn / checkOut: the first night and the departure day (the day after the last night).
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types when one fits, else "" for run of house / all types.
 - charges: other fees the hotel lists (resort fee, parking, deposits), with amount and scope when given.
+- validUntil: the offer's deadline, YYYY-MM-DD: the date the rates are good until or the contract must be signed by (the earlier when both are given), or "".
+- taxIncluded: INCLUDED when the offer says its rates include taxes and fees, EXCLUDED when it says they don't ("plus tax", "taxes not included"), "" when it doesn't say.
 - allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee in dollars, if stated.
-- amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"); note is the offer's wording or dates, or "". Leave out amenities the offer doesn't mention; never guess.
+- amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"). note is "" unless it tells the reader something the label doesn't: dates, hours, limits, a fee, a condition ("closed Apr 3–10", "6–9:30 am, 2 per room", "$35/night"). Never restate the label ("Business Center" → ""). Leave out amenities the offer doesn't mention; never guess.
+- An inclusion such as breakfast, Wi-Fi or parking is an amenity only when the property gives it to every guest. When the offer ties it to this group's rate or package ("rate includes breakfast for two", "group rate includes parking"), it's a concession (offeredConcessions, or the RFP's matching concession), not an amenity. When you can't tell which, list it as an amenity with note "Rate includes it; unclear whether standard for all guests".
 - Concessions are what's given or negotiated for this group (comp rooms, a reduced valet rate, meal vouchers, waived fees, upgrades). One service can be both: valet parking is an amenity, a reduced valet rate a concession.
 - concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
 - offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
-- hotelNotes: anything else in the offer a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly.
+- hotelNotes: only terms the fields above can't hold that a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly; often "". Never restate what the fields already carry: dates, rooms and rates, taxes, the deadline, attrition, amenities, concessions, whether it answers an RFP. Don't note what the offer leaves out, except space or services the RFP it answers asked for ("No meeting space offered" only when the RFP requested meeting space). Don't mention who forwarded it.
+- leadSourceVendorId: the lead source, from the candidate lead sources, when a CVB or third party sent, forwarded or is copied on the offer, or the offer credits one; "" otherwise (staff forwarding it isn't a lead source).
 - hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
+
+For VENDOR_QUOTE, fill "quote":
+- vendorId: the vendor, from the candidate vendors; "" when it isn't one of them, and then vendorName is the vendor's name as the quote gives it.
+- rfpId: the vendor RFP it answers, from the candidate vendor RFPs, only when the quote responds to that RFP (names it, prices its line items, or comes from a vendor it was sent to); else "".
+- lines: one per priced line, in the quote's order. rfpLineItemId is the RFP line item it prices, when rfpId is set and one fits; "" for extras. description in the quote's words; quantity, unitPrice and amount (the line total) as numbers, -1 when not given.
+- serviceCharge, tax, otherFees: totals in dollars, -1 when not given. depositAmount and depositDue (YYYY-MM-DD), validUntil (YYYY-MM-DD), reference (the quote number), submittedOn, cancellationTerms briefly.
+- notes: only terms the fields can't hold, briefly; often "".
+
+For BEO, fill "beo":
+- cateringOrderId: the catering order it's for, from the candidate catering orders, by name, meal and date; "" when none fits or it's ambiguous (say why in notes).
+- Each field only as the BEO states it, else "" (or -1): mealType, serviceStyle (buffet, plated…), expectedCount, confirmedCount, guaranteeCount (the guaranteed number), fbMinimum, depositDeadline / guaranteeDeadline / paymentDeadline (YYYY-MM-DD), cancellationTerms, dietaryNotes (dietary and allergy counts).
+- menu: the menu in one short line, for reference. notes: anything else a planner must check (times, room, set-up changes), briefly.
+
+For CONTRACT, fill "contract":
+- target: what it contracts — HOTEL_PROPOSAL (a hotel's group contract), VENDOR_QUOTE (a vendor's agreement for quoted services) or CATERING_ORDER (a catering agreement for one order); targetId from the candidate contract targets of that kind; "" when none fits.
+- signed: SIGNED when it's countersigned or executed, UNSIGNED when it's sent for signature, "" when unclear. signBy: the date it must be signed by (YYYY-MM-DD).
+- depositAmount, depositDue, attrition (percent), cutoffDate (reservation cut-off), cancellationTerms briefly — only as stated.
+- notes: only other key terms a planner needs (minimums, rate guarantees, force majeure exceptions), briefly.
 
 For RFP_DECLINE, fill "decline": rfpId and venueId from the candidates (venueId should be one of that RFP's recipients), and the reason in a few words.
 
-summary: one short line saying what the message is ("Hilton pickup report, 42 reservations as of Oct 20"). notes: anything a reviewer should check (ambiguous dates, totals that don't add up, an unclear block), else "".`;
+summary: one short line saying what the message is ("Hilton pickup report, 42 reservations as of Oct 20"). notes: only what a reviewer must check that the proposed record doesn't already show (totals that don't add up, a block you couldn't tell apart, a date the message contradicts itself on), else "". Not ambiguity the record resolves (quoted dates the night-by-night grid makes plain), not what's merely absent, not that it answers no RFP, and not forwarding by staff.`;
 
 function blockText(b: ParseBlock): string {
   const types = b.roomTypes.map((t) => t ?? "Run of house").join(", ") || "none set";
@@ -352,6 +550,28 @@ function buildContent(input: ParseInput): Anthropic.Beta.BetaContentBlockParam[]
     "",
     "Candidate RFPs:",
     ...(input.rfps.length ? input.rfps.map((r) => rfpText(r, new Map(input.hotels.map((h) => [h.id, h.name])))) : ["(none)"]),
+    "",
+    "Candidate lead sources (CVBs, third-party planners):",
+    ...(input.leadSources.length ? input.leadSources.map((v) => `- id ${v.id}: ${v.name}`) : ["(none)"]),
+    "",
+    "Candidate vendors:",
+    ...(input.vendors.length ? input.vendors.map((v) => `- id ${v.id}: ${v.name} (${v.why})`) : ["(none)"]),
+    "",
+    "Candidate vendor RFPs:",
+    ...(input.vendorRfps.length
+      ? input.vendorRfps.map((r) =>
+          [
+            `- RFP ${r.id}: "${r.title}" (${r.kind}); sent to: ${r.recipients.join(", ") || "nobody yet"}`,
+            ...r.lineItems.map((l) => `  line ${l.id}: ${l.label}`),
+          ].join("\n"),
+        )
+      : ["(none)"]),
+    "",
+    "Candidate catering orders:",
+    ...(input.cateringOrders.length ? input.cateringOrders.map((o) => `- id ${o.id}: ${o.label}`) : ["(none)"]),
+    "",
+    "Candidate contract targets:",
+    ...(input.contractTargets.length ? input.contractTargets.map((t) => `- ${t.target} ${t.id}: ${t.label}`) : ["(none)"]),
     "",
     `Org room types: ${input.roomTypes.join(", ") || "(none)"}`,
     `Org amenities: ${input.amenities.join(", ") || "(none)"}`,
@@ -459,6 +679,50 @@ function checkProposal(p: InboundProposal, input: ParseInput): InboundProposal {
     roomTypes: p.kind === "PICKUP_GUESTS" ? (p.roomTypes ?? []).filter((r) => r.raw) : [],
     offer: p.offer ? checkOffer(p.offer, input) : null,
     decline: p.decline ? checkDecline(p.decline, input) : null,
+    quote: p.kind === "VENDOR_QUOTE" && p.quote ? checkQuote(p.quote, input) : null,
+    beo: p.kind === "BEO" && p.beo ? checkBeo(p.beo, input) : null,
+    contract: p.kind === "CONTRACT" && p.contract ? checkContract(p.contract, input) : null,
+  };
+}
+
+function checkQuote(q: QuoteRead, input: ParseInput): QuoteRead {
+  const vendor = input.vendors.find((v) => v.id === q.vendorId);
+  const rfp = input.vendorRfps.find((r) => r.id === q.rfpId);
+  const lines = new Set(rfp?.lineItems.map((l) => l.id) ?? []);
+  return {
+    ...q,
+    vendorId: vendor?.id ?? null,
+    vendorName: vendor ? vendor.name : q.vendorName,
+    rfpId: rfp?.id ?? null,
+    submittedOn: dateOrNull(q.submittedOn),
+    validUntil: dateOrNull(q.validUntil),
+    depositDue: dateOrNull(q.depositDue),
+    lines: q.lines
+      .filter((l) => l.description?.trim())
+      .map((l) => ({ ...l, rfpLineItemId: l.rfpLineItemId && lines.has(l.rfpLineItemId) ? l.rfpLineItemId : null })),
+  };
+}
+
+function checkBeo(b: BeoRead, input: ParseInput): BeoRead {
+  return {
+    ...b,
+    cateringOrderId: input.cateringOrders.some((o) => o.id === b.cateringOrderId) ? b.cateringOrderId : null,
+    depositDeadline: dateOrNull(b.depositDeadline),
+    guaranteeDeadline: dateOrNull(b.guaranteeDeadline),
+    paymentDeadline: dateOrNull(b.paymentDeadline),
+  };
+}
+
+function checkContract(c: ContractRead, input: ParseInput): ContractRead {
+  const target = input.contractTargets.find((t) => t.target === c.target && t.id === c.targetId);
+  return {
+    ...c,
+    target: c.target && CONTRACT_TARGETS.includes(c.target) ? c.target : null,
+    targetId: target?.id ?? null,
+    signBy: dateOrNull(c.signBy),
+    depositDue: dateOrNull(c.depositDue),
+    cutoffDate: dateOrNull(c.cutoffDate),
+    attrition: c.attrition != null && c.attrition <= 100 ? c.attrition : null,
   };
 }
 
@@ -492,9 +756,12 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
     charges: o.charges.filter((c) => c.chargeType?.trim()),
     allowedAttrition: o.allowedAttrition != null && o.allowedAttrition <= 100 ? o.allowedAttrition : null,
     guaranteedRevenue: o.guaranteedRevenue,
+    validUntil: o.validUntil ?? null,
+    taxIncluded: o.taxIncluded ?? null,
     amenities: offerAmenities(o)
       .filter((a, i, all) => amenities.has(a.label) && ["CONFIRMED", "UNAVAILABLE"].includes(a.status) && all.findIndex((x) => x.label === a.label) === i)
-      .map((a) => ({ label: a.label, status: a.status, note: a.note || null })),
+      // A note that only restates the label adds nothing.
+      .map((a) => ({ label: a.label, status: a.status, note: a.note && !sameWords(a.note, a.label) ? a.note : null })),
     concessions: o.concessions.filter((c) => concessionIds.has(c.concessionId)),
     // On the concession list, not ones the RFP asked for (those are answers), one per label.
     offeredConcessions: (o.offeredConcessions ?? [])
@@ -506,6 +773,7 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
         (c, i, all) => !rfp?.concessions.some((r) => r.label.toLowerCase() === c.label.toLowerCase()) && all.findIndex((x) => x.label === c.label) === i,
       ),
     hotelNotes: o.hotelNotes,
+    leadSourceVendorId: o.leadSourceVendorId && input.leadSources.some((l) => l.id === o.leadSourceVendorId) ? o.leadSourceVendorId : null,
     hotel: o.hotel ?? {
       name: null,
       address: null,

@@ -14,18 +14,25 @@ import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumn
 import { offerAmenities, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
-import { NEW_HOTEL, readProposal } from "@/app/events/hotels/proposalArgs";
+import { readNewHotel, readProposal } from "@/app/events/hotels/proposalArgs";
 import { getProposalFormChoices } from "@/app/events/hotels/actions";
 import type { ConcessionAnswer, OfferedConcession, ProposalValues, RfpChoice } from "@/app/events/hotels/ProposalForm";
 import { toProposalValues } from "@/app/events/hotels/core";
 import {
   applyInboundDeclineCore,
+  applyInboundBeoCore,
+  applyInboundContractCore,
+  applyInboundQuoteCore,
+  beoArgsFromRead,
+  contractArgsFromRead,
+  quoteArgsFromRead,
   applyInboundOfferCore,
   applyInboundRevisionCore,
   applyInboundPickupCore,
   dismissInboundEmailCore,
   fileInboundAttachmentCore,
   inboundAttachments,
+  orgInboxWhere,
   purgeDismissedInboundEmails,
   releaseInboundEmailCore,
   reparseInboundEmailCore,
@@ -34,7 +41,10 @@ import {
   setEventInboxSlugCore,
   suggestInboxSlug,
 } from "./core";
-import { INBOX_VIEW_STATUSES, type InboxView } from "./views";
+import { INBOX_VIEW_STATUSES, NEW_VENDOR, type InboxView } from "./views";
+import { CONTRACT_TARGETS, type ContractTarget } from "@/lib/inboundParse";
+import type { QuoteLineArgs } from "@/app/events/quotes/core";
+import { formatDateKey, formatMoney } from "@/lib/hotels";
 
 const listSelect = {
   id: true,
@@ -152,28 +162,13 @@ export async function applyInboundCounts(id: string, eventId: string, blockId: s
   revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
 }
 
-const OFFER_HOTEL_KEYS = [
-  "name",
-  "address",
-  "city",
-  "state",
-  "zip",
-  "contactFirstName",
-  "contactLastName",
-  "contactTitle",
-  "contactEmail",
-  "contactPhone",
-] as const satisfies readonly (keyof OfferHotel)[];
 
 // A hotel's offer as reviewed in the proposal form: creates the proposal (and
 // the hotel, when it's a new one) and opens it.
 export async function applyInboundOffer(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   const args = readProposal(formData);
-  const newHotel =
-    args.venueId === NEW_HOTEL
-      ? (Object.fromEntries(OFFER_HOTEL_KEYS.map((k) => [k, (formData.get(`newHotel.${k}`) as string) || null])) as OfferHotel)
-      : null;
+  const newHotel = readNewHotel(formData);
   const proposalId = await applyInboundOfferCore(id, eventId, args, newHotel, session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);
@@ -243,7 +238,9 @@ export async function getOfferReview(id: string, eventId: string) {
   const draft: ProposalValues = {
     venueId: venueId ?? "",
     status: pending,
-    leadSource: null,
+    leadSourceDirect: false,
+    leadSourceVendorId: offer.leadSourceVendorId ?? null,
+    leadSourceContactId: null,
     contractType: null,
     guestType: null,
     submittedOn: offer.submittedOn,
@@ -254,6 +251,8 @@ export async function getOfferReview(id: string, eventId: string) {
     revision: 1,
     allowedAttrition: offer.allowedAttrition != null ? String(offer.allowedAttrition) : null,
     guaranteedRevenue: offer.guaranteedRevenue != null ? String(offer.guaranteedRevenue) : null,
+    validUntil: offer.validUntil ?? null,
+    taxIncluded: offer.taxIncluded ?? null,
     amenities: offerAmenities(offer),
     nights: offer.nights.map((n) => ({ roomType: n.roomType, night: n.night, rooms: n.rooms, rate: n.rate != null ? String(n.rate) : null })),
     charges: offer.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount != null ? String(c.amount) : null, scope: c.scope })),
@@ -304,6 +303,8 @@ export async function getOfferReview(id: string, eventId: string) {
       revision: current.revision + 1,
       allowedAttrition: draft.allowedAttrition ?? current.allowedAttrition,
       guaranteedRevenue: draft.guaranteedRevenue ?? current.guaranteedRevenue,
+      validUntil: draft.validUntil ?? current.validUntil,
+      taxIncluded: draft.taxIncluded ?? current.taxIncluded,
       amenities: Array.from(amenities.values()),
       nights: draft.nights.length ? draft.nights : current.nights,
       charges: draft.charges.length ? draft.charges : current.charges,
@@ -483,21 +484,26 @@ export async function getInboxDestinationEvents(excludeEventId: string | null) {
   });
 }
 
-// ─── Unrouted (org-level) ────────────────────────────────────────────────────
+// ─── Org-wide (every visible event, plus Unrouted) ───────────────────────────
 
-export async function getUnroutedInbox(view: InboxView) {
-  const { tenantId } = await requirePermission("HOTELS", "VIEW");
-  await purgeDismissedInboundEmails(tenantId).catch(() => {});
-  return prisma.inboundEmail.findMany({
-    where: { tenantId, eventId: null, status: { in: INBOX_VIEW_STATUSES[view] } },
-    select: listSelect,
-    orderBy: { receivedAt: "desc" },
-  });
-}
-
-export async function countUnroutedInbox() {
-  const { tenantId } = await requirePermission("HOTELS", "VIEW");
-  return prisma.inboundEmail.count({ where: { tenantId, eventId: null, status: "HELD" } });
+export async function getOrgInbox(view: InboxView) {
+  const session = await requirePermission("HOTELS", "VIEW");
+  await purgeDismissedInboundEmails(session.tenantId).catch(() => {});
+  const where = await orgInboxWhere(session.user.id, session.tenantId);
+  const [items, counts] = await Promise.all([
+    prisma.inboundEmail.findMany({
+      where: { ...where, status: { in: INBOX_VIEW_STATUSES[view] } },
+      select: { ...listSelect, event: { select: { id: true, name: true } } },
+      orderBy: { receivedAt: "desc" },
+    }),
+    prisma.inboundEmail.groupBy({ by: ["status"], where, _count: true }),
+  ]);
+  const count = (statuses: InboundStatus[]) =>
+    counts.filter((c) => statuses.includes(c.status)).reduce((n, c) => n + c._count, 0);
+  return {
+    items,
+    counts: { inbox: count(INBOX_VIEW_STATUSES.inbox), held: count(INBOX_VIEW_STATUSES.held) },
+  };
 }
 
 // ─── Inbox address ───────────────────────────────────────────────────────────
@@ -521,4 +527,234 @@ export async function setEventInboxSlug(eventId: string, slug: string | null) {
   await setEventInboxSlugCore(eventId, slug, session.user.id);
   revalidatePath(`/events/${eventId}/settings`);
   revalidatePath(`/events/${eventId}/inbox`);
+}
+
+// ─── Vendor quotes, BEOs, contracts ──────────────────────────────────────────
+
+async function readOf(id: string, eventId: string, tenantId: string) {
+  const item = await prisma.inboundEmail.findFirst({ where: { id, tenantId, eventId }, select: { proposal: true } });
+  return item?.proposal as InboundProposal | null;
+}
+
+// The quote form, filled from a vendor's quote: the vendor (or a new one by
+// the quote's name), the vendor RFP it answers (or standalone), and its lines
+// priced against that RFP's line items.
+export async function getQuoteReview(id: string, eventId: string) {
+  const { tenantId } = await requirePermission("HOTELS", "VIEW", eventId);
+  const read = await readOf(id, eventId, tenantId);
+  const quote = read?.kind === "VENDOR_QUOTE" ? read.quote : null;
+  if (!quote) return null;
+  const [vendors, rfps] = await Promise.all([
+    prisma.vendor.findMany({ where: { tenantId, isSystemVendor: false, venueId: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.rfp.findMany({
+      where: { eventId, kind: { not: "HOTEL" } },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        title: true,
+        lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true, group: true, description: true, quantity: true, unit: true } },
+      },
+    }),
+  ]);
+  const args = quoteArgsFromRead(quote, quote.vendorId ?? "");
+  const str = (n: number | null) => (n == null ? "" : String(n));
+  return {
+    vendors,
+    rfps,
+    rfpId: quote.rfpId,
+    vendorId: quote.vendorId,
+    newVendorName: quote.vendorId ? null : quote.vendorName,
+    values: {
+      vendorId: quote.vendorId ?? "",
+      reference: args.reference,
+      submittedOn: args.submittedOn,
+      validUntil: args.validUntil,
+      revision: 1,
+      serviceCharge: args.serviceCharge != null ? String(args.serviceCharge) : null,
+      tax: args.tax != null ? String(args.tax) : null,
+      otherFees: args.otherFees != null ? String(args.otherFees) : null,
+      depositAmount: args.depositAmount != null ? String(args.depositAmount) : null,
+      depositDue: args.depositDue,
+      cancellationTerms: args.cancellationTerms,
+      notes: args.notes,
+      lines: args.lines.map((l: QuoteLineArgs) => ({
+        id: null,
+        rfpLineItemId: l.rfpLineItemId,
+        description: l.description,
+        quantity: str(l.quantity),
+        unitPrice: str(l.unitPrice),
+        amount: str(l.amount),
+        notes: l.notes ?? "",
+      })),
+    },
+  };
+}
+
+export async function applyInboundQuote(id: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  const rfpId = (formData.get("rfpId") as string) || null;
+  const vendorId = formData.get("vendorId") as string;
+  const newVendorName = vendorId === NEW_VENDOR ? (formData.get("newVendorName") as string) || null : null;
+  if (vendorId === NEW_VENDOR && !newVendorName) throw new Error("The new vendor needs a name");
+  const raw = formData.get("lines");
+  const lines = typeof raw === "string" && raw ? (JSON.parse(raw) as QuoteLineArgs[]) : [];
+  const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
+  const str = (k: string) => (formData.get(k) as string) || null;
+  const quoteId = await applyInboundQuoteCore(
+    id,
+    eventId,
+    rfpId,
+    {
+      vendorId: newVendorName ? "" : vendorId,
+      reference: str("reference"),
+      submittedOn: str("submittedOn"),
+      validUntil: str("validUntil"),
+      revision: 1,
+      serviceCharge: num("serviceCharge"),
+      tax: num("tax"),
+      otherFees: num("otherFees"),
+      depositAmount: num("depositAmount"),
+      depositDue: str("depositDue"),
+      cancellationTerms: str("cancellationTerms"),
+      notes: str("notes"),
+      lines,
+    },
+    newVendorName,
+    session.user.id,
+  );
+  revalidatePath(`/events/${eventId}/inbox`);
+  revalidatePath(`/events/${eventId}/rfps`);
+  redirect(`/events/${eventId}/quotes/${quoteId}?success=Quote recorded`);
+}
+
+const BEO_FIELDS = [
+  ["mealType", "Meal type"],
+  ["serviceStyle", "Service style"],
+  ["expectedCount", "Expected count"],
+  ["confirmedCount", "Confirmed count"],
+  ["guaranteeCount", "Guarantee"],
+  ["fbMinimum", "F&B minimum"],
+  ["depositDeadline", "Deposit due"],
+  ["guaranteeDeadline", "Guarantee due"],
+  ["paymentDeadline", "Payment due"],
+  ["cancellationTerms", "Cancellation"],
+  ["dietaryNotes", "Dietary"],
+] as const;
+type BeoField = (typeof BEO_FIELDS)[number][0];
+
+const showValue = (key: BeoField, v: unknown): string => {
+  if (v == null || v === "") return "—";
+  if (v instanceof Date) return formatDateKey(dateKey(v));
+  if (key === "fbMinimum") return formatMoney(String(v));
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return formatDateKey(v);
+  return String(v);
+};
+
+// A BEO against each catering order it could be for: per field it states,
+// the order's value and the BEO's.
+export async function getBeoReview(id: string, eventId: string) {
+  const { tenantId } = await requirePermission("HOTELS", "VIEW", eventId);
+  const read = await readOf(id, eventId, tenantId);
+  const beo = read?.kind === "BEO" ? read.beo : null;
+  if (!beo) return null;
+  const orders = await prisma.cateringOrder.findMany({
+    where: { eventId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, ...Object.fromEntries(BEO_FIELDS.map(([k]) => [k, true])) } as { id: true; name: true } & Record<BeoField, true>,
+  });
+  const stated = BEO_FIELDS.filter(([k]) => beo[k] != null);
+  return {
+    orderId: beo.cateringOrderId,
+    menu: beo.menu,
+    notes: beo.notes,
+    orders: orders.map((o) => ({
+      id: o.id,
+      name: o.name,
+      rows: stated.map(([k, label]) => {
+        const current = showValue(k, (o as Record<string, unknown>)[k]);
+        const proposed = showValue(k, beo[k]);
+        return { key: k, label, current, proposed, changed: current !== proposed };
+      }),
+    })),
+  };
+}
+
+export async function applyInboundBeo(id: string, eventId: string, orderId: string, keys: string[]) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  const { tenantId } = session;
+  const read = await readOf(id, eventId, tenantId);
+  if (read?.kind !== "BEO" || !read.beo) throw new Error("This message has no BEO");
+  const all = beoArgsFromRead(read.beo);
+  const keep = new Set(keys);
+  const args = Object.fromEntries(Object.entries(all).filter(([k]) => keep.has(k)));
+  await applyInboundBeoCore(id, eventId, orderId, args, session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+  revalidatePath(`/events/${eventId}/catering-orders/${orderId}`);
+  redirect(`/events/${eventId}/catering-orders/${orderId}?success=BEO applied`);
+}
+
+const CONTRACT_TARGET_LABELS: Record<ContractTarget, string> = {
+  HOTEL_PROPOSAL: "Hotel proposals",
+  VENDOR_QUOTE: "Vendor quotes",
+  CATERING_ORDER: "Catering orders",
+};
+
+const CONTRACT_FIELD_LABELS: Record<string, string> = {
+  depositAmount: "Deposit",
+  depositDue: "Deposit due",
+  attrition: "Allowed attrition %",
+  signBy: "Valid until",
+  cancellationTerms: "Cancellation",
+};
+
+// A contract against what it could cover: the event's hotel proposals, vendor
+// quotes and catering orders, with what applying writes to each kind.
+export async function getContractReview(id: string, eventId: string) {
+  const { tenantId } = await requirePermission("HOTELS", "VIEW", eventId);
+  const read = await readOf(id, eventId, tenantId);
+  const contract = read?.kind === "CONTRACT" ? read.contract : null;
+  if (!contract) return null;
+  const [proposals, quotes, orders] = await Promise.all([
+    prisma.hotelProposal.findMany({ where: { eventId }, select: { id: true, status: true, venue: { select: { name: true } } }, orderBy: { createdAt: "asc" } }),
+    prisma.vendorQuote.findMany({ where: { eventId }, select: { id: true, status: true, vendor: { select: { name: true } }, rfp: { select: { title: true } } }, orderBy: { createdAt: "asc" } }),
+    prisma.cateringOrder.findMany({ where: { eventId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
+  const targets = [
+    ...proposals.map((p) => ({ target: "HOTEL_PROPOSAL" as const, id: p.id, label: `${p.venue.name} · ${p.status}` })),
+    ...quotes.map((q) => ({ target: "VENDOR_QUOTE" as const, id: q.id, label: `${q.vendor.name}${q.rfp ? ` · ${q.rfp.title}` : ""}` })),
+    ...orders.map((o) => ({ target: "CATERING_ORDER" as const, id: o.id, label: o.name })),
+  ];
+  // What applying writes, per kind of target.
+  const writes = Object.fromEntries(
+    CONTRACT_TARGETS.map((t) => {
+      const args = contractArgsFromRead(contract, t);
+      const fields = Object.entries(args)
+        .filter(([k]) => k !== "note")
+        .map(([k, v]) => ({ label: CONTRACT_FIELD_LABELS[k] ?? k, value: k === "depositAmount" ? formatMoney(String(v)) : /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? formatDateKey(String(v)) : String(v) }));
+      return [t, { fields, note: args.note ?? null }];
+    }),
+  ) as Record<ContractTarget, { fields: { label: string; value: string }[]; note: string | null }>;
+  return {
+    target: contract.target,
+    targetId: contract.targetId,
+    groups: CONTRACT_TARGETS.map((t) => ({ target: t, label: CONTRACT_TARGET_LABELS[t], options: targets.filter((x) => x.target === t) })),
+    writes,
+  };
+}
+
+export async function applyInboundContract(id: string, eventId: string, target: ContractTarget, targetId: string, note: string | null) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  if (!CONTRACT_TARGETS.includes(target)) throw new Error("Unknown contract target");
+  const read = await readOf(id, eventId, session.tenantId);
+  if (read?.kind !== "CONTRACT" || !read.contract) throw new Error("This message has no contract");
+  await applyInboundContractCore(id, eventId, target, targetId, { ...contractArgsFromRead(read.contract, target), note }, session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+  const href =
+    target === "HOTEL_PROPOSAL"
+      ? `/events/${eventId}/hotels/proposals/${targetId}`
+      : target === "VENDOR_QUOTE"
+        ? `/events/${eventId}/quotes/${targetId}`
+        : `/events/${eventId}/catering-orders/${targetId}`;
+  revalidatePath(href);
+  redirect(`${href}?success=Contract applied`);
 }

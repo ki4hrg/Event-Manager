@@ -13,7 +13,7 @@ import type { Prisma } from "@prisma/client";
 import { mergeHotelLabel, offListHotelLabels, type HotelLabelCategory } from "@/lib/hotelLabels";
 import { duplicateLabelError } from "./optionLabels";
 
-export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_guest_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession";
+export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_guest_type" | "hotel_amenity" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession" | "rfp_service" | "rfp_term";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -65,7 +65,7 @@ export async function getAllOptions() {
 }
 
 // Lists whose options can be merged into one another (every use moves over).
-const MERGEABLE: readonly OptionCategory[] = ["hotel_amenity", "rfp_concession"] satisfies HotelLabelCategory[];
+const MERGEABLE: readonly OptionCategory[] = ["hotel_amenity", "rfp_concession", "rfp_term"] satisfies HotelLabelCategory[];
 const isMergeable = (category: OptionCategory): category is HotelLabelCategory => MERGEABLE.includes(category);
 
 // One spelling per list: a label matching another option but for case or
@@ -303,9 +303,6 @@ async function propagateLabelRename(
     case "proposal_status":
       await tx.hotelProposal.updateMany({ where: { status: oldLabel, ...inTenant }, data: { status: newLabel } });
       break;
-    case "hotel_lead_source":
-      await tx.hotelProposal.updateMany({ where: { leadSource: oldLabel, ...inTenant }, data: { leadSource: newLabel } });
-      break;
     case "hotel_room_type": {
       const inTenantBlock = { proposal: inTenant };
       await tx.hotelProposalNight.updateMany({ where: { roomType: oldLabel, proposal: inTenant }, data: { roomType: newLabel } });
@@ -334,7 +331,11 @@ async function propagateLabelRename(
         WHERE e."id" = r."eventId" AND e."tenantId" = ${tenantId} AND ${oldLabel} = ANY(r."areas")`;
       break;
     case "rfp_concession":
+    case "rfp_term":
       await mergeHotelLabel(tx, tenantId, category, oldLabel, newLabel);
+      break;
+    case "rfp_service":
+      await tx.rfp.updateMany({ where: { service: oldLabel, ...inTenant }, data: { service: newLabel } });
       break;
     case "hotel_region":
       // An area's group is its region label.

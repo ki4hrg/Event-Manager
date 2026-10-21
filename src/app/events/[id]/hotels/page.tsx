@@ -179,7 +179,7 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
                     blockTypeLabel(p.contractType, p.guestType),
                     p.checkIn && p.checkOut ? `${formatDateKey(dateKey(p.checkIn))} – ${formatDateKey(dateKey(p.checkOut))}` : null,
                     p.nights.length > 0 ? `peak ${peakRooms(p.nights)} rooms` : null,
-                    p.leadSource,
+                    p.leadSourceDirect ? "Direct" : p.leadSourceVendor?.name,
                   ]
                     .filter(Boolean)
                     .join(" · ") || "—"}

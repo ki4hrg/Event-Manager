@@ -1,5 +1,6 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
@@ -21,7 +22,8 @@ import {
   nightKeys,
   stageOf,
 } from "@/lib/hotels";
-import { NEW_HOTEL } from "./proposalArgs";
+import { LEAD_SOURCE_DIRECT, NEW_HOTEL, NEW_HOTEL_FIELDS } from "./proposalArgs";
+import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
 import { RoomGrid, type GridNight } from "./RoomGrid";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
 import { AmenityEditor, AmenityList, type ProposalAmenity } from "./ProposalAmenities";
@@ -30,7 +32,9 @@ import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, typ
 export type ProposalValues = {
   venueId: string;
   status: string;
-  leadSource: string | null;
+  leadSourceDirect: boolean;
+  leadSourceVendorId: string | null;
+  leadSourceContactId: string | null;
   contractType: HotelContractType | null;
   guestType: string | null;
   submittedOn: string | null;
@@ -41,6 +45,8 @@ export type ProposalValues = {
   revision: number;
   allowedAttrition: string | null;
   guaranteedRevenue: string | null;
+  validUntil: string | null;
+  taxIncluded: boolean | null;
   // The amenities the offer states (Confirmed / Unavailable); the hotel's
   // profile covers the rest.
   amenities: ProposalAmenity[];
@@ -57,7 +63,8 @@ export type ProposalChoices = {
   roomTypes: string[];
   guestTypes: string[];
   amenities: string[];
-  leadSources: string[];
+  // Vendors tagged LEAD_SOURCE (CVBs, third-party planners), with their contacts.
+  leadSources: { id: string; name: string; contacts: { id: string; name: string }[] }[];
 };
 
 const inputClass =
@@ -162,18 +169,13 @@ export type RfpChoice = {
   concessions: ConcessionAnswer[];
 };
 
-const NEW_HOTEL_FIELDS: { key: keyof OfferHotel; label: string; wide?: boolean; type?: string }[] = [
-  { key: "name", label: "Hotel name *", wide: true },
-  { key: "address", label: "Address", wide: true },
-  { key: "city", label: "City" },
-  { key: "state", label: "State" },
-  { key: "zip", label: "ZIP" },
-  { key: "contactTitle", label: "Contact title" },
-  { key: "contactFirstName", label: "Contact first name" },
-  { key: "contactLastName", label: "Contact last name" },
-  { key: "contactEmail", label: "Contact email", type: "email" },
-  { key: "contactPhone", label: "Contact phone", type: "tel" },
+const MET_OPTIONS: StatusCycleOption<ConcessionMet | "">[] = [
+  { value: "", label: "—", color: "gray" },
+  { value: "MET", label: MET_LABELS.MET, color: "green" },
+  { value: "PARTIAL", label: MET_LABELS.PARTIAL, color: "yellow" },
+  { value: "NOT_MET", label: MET_LABELS.NOT_MET, color: "red" },
 ];
+
 
 function Details({
   values,
@@ -194,12 +196,23 @@ function Details({
     ["Status", values.status],
     ["Revision", values.revision],
     ["Block type", blockTypeLabel(values.contractType, values.guestType) ?? "—"],
-    ["Lead source", values.leadSource ?? "—"],
+    [
+      "Lead source",
+      values.leadSourceDirect
+        ? "Direct"
+        : (() => {
+            const lead = choices.leadSources.find((l) => l.id === values.leadSourceVendorId);
+            const contact = lead?.contacts.find((c) => c.id === values.leadSourceContactId);
+            return lead ? [lead.name, contact?.name].filter(Boolean).join(" · ") : "—";
+          })(),
+    ],
     ["Submitted", formatDateKey(values.submittedOn)],
     ["Check-in", formatDateKey(values.checkIn)],
     ["Check-out", formatDateKey(values.checkOut)],
     ["Allowed attrition", values.allowedAttrition != null ? `${Number(values.allowedAttrition)}%` : "—"],
     ["Guaranteed revenue", formatMoney(values.guaranteedRevenue)],
+    ["Valid until", formatDateKey(values.validUntil)],
+    ["Rates include taxes", values.taxIncluded == null ? "—" : values.taxIncluded ? "Yes" : "No"],
     ["Amenities", <AmenityList key="amenities" profile={profile} stated={values.amenities} addToHotel={addToHotel} />],
   ];
   if (values.declinedReason) rows.push(["Declined reason", values.declinedReason]);
@@ -275,6 +288,7 @@ export function ProposalForm({
   draft,
   rfpChoices,
   newHotel,
+  canAddHotel = false,
   concessions = [],
   offeredConcessions = [],
   addAmenityToHotel,
@@ -288,8 +302,10 @@ export function ProposalForm({
   fromRfp?: ProposalTemplate;
   // An emailed offer: pick the RFP block it answers, or none (standalone).
   rfpChoices?: RfpChoice[];
-  // An emailed offer from a hotel not in Venues: offered as a new hotel.
+  // An emailed offer from a hotel not in Venues: "New hotel", prefilled and picked.
   newHotel?: OfferHotel | null;
+  // VENUES WRITE: "New hotel" is offered, creating a lodging venue on save.
+  canAddHotel?: boolean;
   concessions?: ConcessionAnswer[];
   // Concessions offered unasked.
   offeredConcessions?: OfferedConcession[];
@@ -317,7 +333,9 @@ export function ProposalForm({
   );
 
   const [rfpBlockId, setRfpBlockId] = useState(fromRfp?.rfpBlockId ?? "");
-  const [venueId, setVenueId] = useState(initial?.venueId || defaultVenueId || (newHotel ? NEW_HOTEL : ""));
+  const [leadSource, setLeadSource] = useState(initial?.leadSourceDirect ? LEAD_SOURCE_DIRECT : (initial?.leadSourceVendorId ?? ""));
+  const leadContacts = choices.leadSources.find((l) => l.id === leadSource)?.contacts ?? [];
+  const [venueId, setVenueId] = useState(initial?.venueId || defaultVenueId || (newHotel && canAddHotel ? NEW_HOTEL : ""));
   const profileOf = (id: string) => choices.venues.find((v) => v.id === id)?.amenities ?? [];
   const [amenities, setAmenities] = useState<ProposalAmenity[]>(initial?.amenities ?? []);
   const [addedAmenities, setAddedAmenities] = useState<string[]>([]);
@@ -441,7 +459,7 @@ export function ProposalForm({
           <Field label="Hotel *" htmlFor="p-venueId" wide>
             <select id="p-venueId" name="venueId" required value={venueId} onChange={(e) => pickVenue(e.target.value)} className={inputClass}>
               <option value="">Select a hotel</option>
-              {newHotel && <option value={NEW_HOTEL}>New hotel{newHotel.name ? `: ${newHotel.name}` : ""}</option>}
+              {canAddHotel && !isEdit && <option value={NEW_HOTEL}>New hotel</option>}
               {choices.venues.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.label}
@@ -450,7 +468,7 @@ export function ProposalForm({
               ))}
             </select>
           </Field>
-          {newHotel && venueId === NEW_HOTEL && (
+          {venueId === NEW_HOTEL && (
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
               {NEW_HOTEL_FIELDS.map((f) => (
                 <Field key={f.key} label={f.label} htmlFor={`p-newHotel-${f.key}`} wide={f.wide}>
@@ -459,7 +477,7 @@ export function ProposalForm({
                     name={`newHotel.${f.key}`}
                     type={f.type ?? "text"}
                     required={f.key === "name"}
-                    defaultValue={newHotel[f.key] ?? ""}
+                    defaultValue={newHotel?.[f.key] ?? ""}
                     className={inputClass}
                   />
                 </Field>
@@ -495,18 +513,28 @@ export function ProposalForm({
             </Field>
           )}
           <Field label="Lead source" htmlFor="p-leadSource">
-            <select id="p-leadSource" name="leadSource" defaultValue={initial?.leadSource ?? ""} className={inputClass}>
+            <select id="p-leadSource" name="leadSource" value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className={inputClass}>
               <option value="">Not set</option>
-              {initial?.leadSource && !choices.leadSources.includes(initial.leadSource) && (
-                <option value={initial.leadSource}>{initial.leadSource}</option>
-              )}
+              <option value={LEAD_SOURCE_DIRECT}>Direct</option>
               {choices.leadSources.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </select>
           </Field>
+          {leadContacts.length > 0 && (
+            <Field label="Lead source contact" htmlFor="p-leadSourceContactId">
+              <select id="p-leadSourceContactId" name="leadSourceContactId" defaultValue={initial?.leadSourceContactId ?? ""} className={inputClass}>
+                <option value="">Not set</option>
+                {leadContacts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Submitted" htmlFor="p-submittedOn">
             <input id="p-submittedOn" type="date" name="submittedOn" defaultValue={initial?.submittedOn ?? ""} className={inputClass} />
           </Field>
@@ -532,10 +560,10 @@ export function ProposalForm({
       <Fieldset title="Stay">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Earliest check-in" htmlFor="p-checkIn">
-            <input id="p-checkIn" type="date" name="checkIn" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className={inputClass} />
+            <DateInput id="p-checkIn" name="checkIn" value={checkIn} onChange={setCheckIn} className={inputClass} />
           </Field>
           <Field label="Latest check-out" htmlFor="p-checkOut">
-            <input id="p-checkOut" type="date" name="checkOut" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className={inputClass} />
+            <DateInput id="p-checkOut" name="checkOut" value={checkOut} onChange={setCheckOut} className={inputClass} />
           </Field>
         </div>
       </Fieldset>
@@ -574,19 +602,12 @@ export function ProposalForm({
                     {a.value && <span className="text-gray-500 dark:text-gray-400"> (asked {a.value})</span>}
                     {a.required && <span className="text-gray-500 dark:text-gray-400"> · required</span>}
                   </span>
-                  <select
-                    aria-label={`${a.label} met`}
+                  <StatusCycle
+                    label={`${a.label} met`}
                     value={a.met ?? ""}
-                    onChange={(e) => set({ met: (e.target.value || null) as ConcessionMet | null })}
-                    className={inlineInputClass}
-                  >
-                    <option value="">—</option>
-                    {(Object.keys(MET_LABELS) as ConcessionMet[]).map((m) => (
-                      <option key={m} value={m}>
-                        {MET_LABELS[m]}
-                      </option>
-                    ))}
-                  </select>
+                    options={MET_OPTIONS}
+                    onChange={(met) => set({ met: met || null })}
+                  />
                   <input
                     aria-label={`${a.label} offered`}
                     placeholder="Offered"
@@ -667,6 +688,21 @@ export function ProposalForm({
               defaultValue={initial?.guaranteedRevenue ?? ""}
               className={inputClass}
             />
+          </Field>
+          <Field label="Valid until" htmlFor="p-validUntil">
+            <input id="p-validUntil" type="date" name="validUntil" defaultValue={initial?.validUntil ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Rates include taxes" htmlFor="p-taxIncluded">
+            <select
+              id="p-taxIncluded"
+              name="taxIncluded"
+              defaultValue={initial?.taxIncluded == null ? "" : String(initial.taxIncluded)}
+              className={inputClass}
+            >
+              <option value="">Not stated</option>
+              <option value="false">No, plus taxes</option>
+              <option value="true">Yes</option>
+            </select>
           </Field>
         </div>
         <div>

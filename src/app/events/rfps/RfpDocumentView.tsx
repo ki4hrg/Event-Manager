@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { formatNight } from "@/lib/hotels";
 import { labelMicroCaps, reportSectionCard, reportTd, reportTh } from "@/lib/reportStyles";
-import { concessionOfferRows, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpSpaceDay } from "@/lib/rfp/document";
+import { concessionOfferRows, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpLineGroup, type RfpSpaceDay } from "@/lib/rfp/document";
 
 // The RFP document on screen and on the /print route, in APEX Single
 // Facility RFP order. Same RfpDocument the .docx renders; data tables have a
@@ -173,6 +173,61 @@ function SpaceTable({ days, fb }: { days: RfpSpaceDay[]; fb: boolean }) {
   );
 }
 
+function LineItemsTable({ groups }: { groups: RfpLineGroup[] }) {
+  return (
+    <>
+      <div className={mobile}>
+        {groups.map((g, gi) => (
+          <div key={gi} className="space-y-2">
+            {g.group && <p className={labelMicroCaps}>{g.group}</p>}
+            {g.rows.map((r, i) => (
+              <div key={i} className={card}>
+                <div className="flex justify-between gap-3">
+                  <p className="font-semibold text-sm text-gray-900 dark:text-white">{r.description}</p>
+                  {r.quantity && <p className="text-sm text-gray-900 dark:text-white tabular-nums">{r.quantity}</p>}
+                </div>
+                {r.when && <p className="text-xs text-gray-500 dark:text-gray-400">{r.when}</p>}
+                {r.notes && <p className="text-xs italic text-gray-500 dark:text-gray-400">{r.notes}</p>}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className={desktop}>
+        <table className="min-w-full">
+          <thead>
+            <tr>
+              <th className={reportTh}>Item</th>
+              <th className={`${reportTh} text-right`}>Qty</th>
+              <th className={reportTh}>When</th>
+              <th className={reportTh}>Notes</th>
+            </tr>
+          </thead>
+          {groups.map((g, gi) => (
+            <tbody key={gi}>
+              {g.group && (
+                <tr>
+                  <td colSpan={4} className="pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 print:text-gray-700">
+                    {g.group}
+                  </td>
+                </tr>
+              )}
+              {g.rows.map((r, i) => (
+                <tr key={i}>
+                  <td className={reportTd}>{r.description}</td>
+                  <td className={`${num} whitespace-nowrap`}>{r.quantity ?? ""}</td>
+                  <td className={reportTd}>{r.when}</td>
+                  <td className={reportTd}>{r.notes}</td>
+                </tr>
+              ))}
+            </tbody>
+          ))}
+        </table>
+      </div>
+    </>
+  );
+}
+
 // A fill-in table for the hotel's response: labelled rows, empty cells.
 function BlankTable({ columns, rows }: { columns: string[]; rows: string[][] }) {
   return (
@@ -205,6 +260,7 @@ function BlankTable({ columns, rows }: { columns: string[]; rows: string[][] }) 
 
 export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
   const { meta } = doc;
+  const hotel = meta.kind === "HOTEL";
   const contactLines = doc.contact ? [doc.contact.name, doc.contact.title, doc.contact.organization, doc.contact.email, doc.contact.phone].filter(Boolean).join("\n") : null;
   const hostLines = doc.host ? [doc.host.name, doc.host.address, doc.host.phone, doc.host.website].filter(Boolean).join("\n") : null;
   const profileText: [string, string | null][] = [
@@ -349,6 +405,11 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
             )}
           </Sub>
         )}
+        {doc.lineItems && (
+          <Sub title="Line items">
+            {doc.lineItems.length === 0 ? <p className={muted}>No line items listed.</p> : <LineItemsTable groups={doc.lineItems} />}
+          </Sub>
+        )}
         {doc.amenities.length > 0 && (
           <Sub title="Requested amenities">
             <p className="text-sm text-gray-900 dark:text-white print:text-black">{doc.amenities.join(" · ")}</p>
@@ -371,14 +432,14 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
           </Sub>
         )}
         {doc.concessions && (
-          <Sub title="Concessions desired">
+          <Sub title={hotel ? "Concessions desired" : "Terms"}>
             {doc.concessions.length === 0 ? (
               <p className={muted}>None listed.</p>
             ) : (
               <div className="space-y-3">
                 {doc.concessions.map((g) => (
                   <div key={g.group}>
-                    <p className={`${labelMicroCaps} mb-1`}>{g.group}</p>
+                    {hotel && <p className={`${labelMicroCaps} mb-1`}>{g.group}</p>}
                     <ul className="text-sm divide-y divide-gray-100 dark:divide-gray-700">
                       {g.items.map((c, i) => (
                         <li key={i} className="flex flex-wrap justify-between gap-x-3 py-1.5 text-gray-900 dark:text-white print:text-black">
@@ -438,9 +499,26 @@ export function RfpDocumentView({ doc }: { doc: RfpDocument }) {
               <BlankTable columns={["F&B function", "Average per-person price"]} rows={[...doc.responseForm.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]} />
             </Sub>
           )}
-          <Sub title="Concessions offered">
-            <BlankTable columns={["Heading", "Concession", "Offered"]} rows={concessionOfferRows(doc.responseForm.concessions)} />
-          </Sub>
+          {doc.responseForm.lineItems.length > 0 && (
+            <Sub title="Pricing">
+              <BlankTable
+                columns={["Item", "Qty", "Unit price", "Amount"]}
+                rows={[...doc.responseForm.lineItems.map((l) => [l.group ? `${l.group}: ${l.description}` : l.description, l.quantity ?? ""]), ["Service charge"], ["Tax"], ["Other fees"], ["Total"]]}
+              />
+            </Sub>
+          )}
+          {hotel ? (
+            <Sub title="Concessions offered">
+              <BlankTable columns={["Heading", "Concession", "Offered"]} rows={concessionOfferRows(doc.responseForm.concessions)} />
+            </Sub>
+          ) : (
+            <Sub title="Terms">
+              <BlankTable
+                columns={["Term", "Offered"]}
+                rows={[...doc.responseForm.concessions.flatMap((g) => g.items.map((t) => [t])), ["Deposit"], ["Quote valid until"], ["Cancellation"]]}
+              />
+            </Sub>
+          )}
         </Section>
       )}
     </div>

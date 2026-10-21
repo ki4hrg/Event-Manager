@@ -11,6 +11,8 @@ import { Toast } from "@/components/Toast";
 import { getOptions } from "@/app/settings/actions";
 import { getInboundEmailDomain } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/permissions";
+import type { OfferHotel } from "@/lib/inboundParse";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
@@ -20,6 +22,7 @@ import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { getEvent } from "../../../../actions";
 import type { RfpBlockArgs, RfpConcessionArgs, RfpFillArgs, RfpRecipientArgs, RfpSpaceArgs } from "../../../../rfps/core";
 import {
+  addNewRfpRecipient,
   addRfpRecipients,
   deleteRfp,
   getRfp,
@@ -48,14 +51,17 @@ export const metadata: Metadata = { title: "RFP" };
 // Each card is keyed on its own saved data, so saving one card remounts only
 // that card and leaves unsaved edits in the others alone.
 const contentKey = (data: unknown) => JSON.stringify(data);
+// Sibling cards can hold equal data (two empty lists): prefix with the card.
+const cardKey = (card: string, data: unknown) => `${card}:${contentKey(data)}`;
 
 export default async function RfpPage({ params }: { params: Promise<{ id: string; rfpId: string }> }) {
   const { id: eventId, rfpId } = await params;
-  const [event, rfp, choices, fileTypeOptions] = await Promise.all([
+  const [event, rfp, choices, fileTypeOptions, canAddHotel] = await Promise.all([
     getEvent(eventId),
     getRfp(rfpId, eventId),
     getRfpFormChoices(eventId, "HOTEL"),
     getOptions("file_type"),
+    hasPermission("VENUES", "WRITE"),
   ]);
   if (!event || !rfp || rfp.kind !== "HOTEL") notFound();
 
@@ -106,6 +112,10 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
   const addRecipientsAction = async (venueIds: string[]) => {
     "use server";
     await addRfpRecipients(rfpId, eventId, venueIds);
+  };
+  const addNewRecipientAction = async (hotel: OfferHotel) => {
+    "use server";
+    await addNewRfpRecipient(rfpId, eventId, hotel);
   };
   const updateRecipientAction = async (recipientId: string, args: RfpRecipientArgs) => {
     "use server";
@@ -203,7 +213,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           />
           {rfp.sections.includes("blocks") && (
             <RfpBlocksEditor
-              key={contentKey(rfp.hotelBlocks)}
+              key={cardKey("hotelBlocks", rfp.hotelBlocks)}
               blocks={rfp.hotelBlocks.map((b) => ({
                 id: b.id,
                 contractType: b.contractType,
@@ -225,7 +235,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           )}
           {rfp.sections.includes("meetingSpace") && (
             <RfpSpaceEditor
-              key={contentKey(spaceRows("MEETING"))}
+              key={cardKey("spaceRows-MEETING", spaceRows("MEETING"))}
               kind="MEETING"
               resource="HOTELS"
               rows={spaceRows("MEETING")}
@@ -238,7 +248,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           )}
           {rfp.sections.includes("fb") && (
             <RfpSpaceEditor
-              key={contentKey(spaceRows("FB"))}
+              key={cardKey("spaceRows-FB", spaceRows("FB"))}
               kind="FB"
               resource="HOTELS"
               rows={spaceRows("FB")}
@@ -251,7 +261,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
           )}
           {rfp.sections.includes("concessions") && (
             <RfpConcessionsEditor
-              key={contentKey(rfp.concessions)}
+              key={cardKey("concessions", rfp.concessions)}
               resource="HOTELS"
               concessions={rfp.concessions.map((c) => ({ id: c.id, label: c.label, value: c.value, required: c.required }))}
               options={choices.concessions}
@@ -298,6 +308,7 @@ export default async function RfpPage({ params }: { params: Promise<{ id: string
             requiredAmenities={rfp.amenities}
             areaOptions={choices.areas}
             add={addRecipientsAction}
+            addNew={canAddHotel ? addNewRecipientAction : undefined}
             update={updateRecipientAction}
             remove={removeRecipientAction}
           />

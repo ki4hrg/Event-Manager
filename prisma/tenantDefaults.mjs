@@ -278,10 +278,6 @@ export const DEFAULT_OPTIONS = {
     { label: "Complimentary Breakfast", sortOrder: 9 },
     { label: "Complimentary Wi-Fi", sortOrder: 10 },
   ],
-  hotel_lead_source: [
-    { label: "Direct", sortOrder: 0 },
-    { label: "CVB", sortOrder: 1 },
-  ],
   hotel_brand: [
     { label: "Hilton", sortOrder: 0 },
     { label: "Marriott", sortOrder: 1 },
@@ -315,6 +311,25 @@ export const DEFAULT_OPTIONS = {
     { label: "Parking", group: "OTHER", sortOrder: 9 },
     { label: "Deposit schedule", group: "OTHER", sortOrder: 10 },
     { label: "Waived meeting room rental", group: "OTHER", sortOrder: 11 },
+  ],
+  // What an "Other services" vendor RFP is for (Rfp.service).
+  rfp_service: [
+    { label: "Transportation", sortOrder: 0 },
+    { label: "DMC", sortOrder: 1 },
+    { label: "Security", sortOrder: 2 },
+    { label: "Staffing", sortOrder: 3 },
+    { label: "Photography", sortOrder: 4 },
+  ],
+  // Terms a vendor RFP asks for (AV, catering, print, other services); each
+  // RFP row adds its own value ("50% at signing", "72 hours").
+  rfp_term: [
+    { label: "Deposit schedule", sortOrder: 0 },
+    { label: "Payment terms", sortOrder: 1 },
+    { label: "Cancellation", sortOrder: 2 },
+    { label: "Overtime rate", sortOrder: 3 },
+    { label: "Delivery window", sortOrder: 4 },
+    { label: "Certificate of insurance", sortOrder: 5 },
+    { label: "Price hold", sortOrder: 6 },
   ],
 };
 

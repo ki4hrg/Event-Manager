@@ -43,6 +43,7 @@ const ENTITY_DIRS = {
   venue: "venues",
   hotelProposal: "hotel-proposals",
   rfp: "rfps",
+  vendorQuote: "vendor-quotes",
   inboundEmail: "inbound-emails",
 } as const;
 
@@ -62,10 +63,11 @@ export const ENTITY_FK_FIELD: Record<EntityType, string> = {
   venue: "venueId",
   hotelProposal: "hotelProposalId",
   rfp: "rfpId",
+  vendorQuote: "vendorQuoteId",
   inboundEmail: "inboundEmailId",
 };
 
-type FileOwner = Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId" | "inboundEmailId">;
+type FileOwner = Pick<FileUpload, "eventId" | "cateringOrderId" | "avOrderId" | "printOrderId" | "setupOrderId" | "supplyOrderId" | "mediaDeliverableId" | "venueId" | "hotelProposalId" | "rfpId" | "vendorQuoteId" | "inboundEmailId">;
 
 export function getEntityTypeFromRecord(record: FileOwner): EntityType {
   if (record.eventId) return "event";
@@ -77,12 +79,13 @@ export function getEntityTypeFromRecord(record: FileOwner): EntityType {
   if (record.mediaDeliverableId) return "mediaDeliverable";
   if (record.hotelProposalId) return "hotelProposal";
   if (record.rfpId) return "rfp";
+  if (record.vendorQuoteId) return "vendorQuote";
   if (record.venueId) return "venue";
   return "inboundEmail";
 }
 
 export function getEntityIdFromRecord(record: FileOwner): string {
-  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.supplyOrderId ?? record.mediaDeliverableId ?? record.hotelProposalId ?? record.rfpId ?? record.venueId ?? record.inboundEmailId)!;
+  return (record.eventId ?? record.cateringOrderId ?? record.avOrderId ?? record.printOrderId ?? record.setupOrderId ?? record.supplyOrderId ?? record.mediaDeliverableId ?? record.hotelProposalId ?? record.rfpId ?? record.vendorQuoteId ?? record.venueId ?? record.inboundEmailId)!;
 }
 
 export function getUploadDir(entityType: EntityType, entityId: string): string {
@@ -135,6 +138,10 @@ export async function resolveEntityEventId(entityType: EntityType, entityId: str
     }
     case "rfp": {
       const o = await prisma.rfp.findUnique({ where: { id: entityId }, select: { eventId: true } });
+      return o?.eventId ?? null;
+    }
+    case "vendorQuote": {
+      const o = await prisma.vendorQuote.findUnique({ where: { id: entityId }, select: { eventId: true } });
       return o?.eventId ?? null;
     }
     case "inboundEmail": {

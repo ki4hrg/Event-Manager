@@ -8,9 +8,10 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { labelKey } from "@/lib/hotels";
 
-export type HotelLabelCategory = "hotel_amenity" | "rfp_concession";
+export type HotelLabelCategory = "hotel_amenity" | "rfp_concession" | "rfp_term";
 
-const LIST_NAMES: Record<HotelLabelCategory, string> = { hotel_amenity: "amenity", rfp_concession: "concession" };
+const LIST_NAMES: Record<HotelLabelCategory, string> = { hotel_amenity: "amenity", rfp_concession: "concession", rfp_term: "RFP term" };
+const LIST_HOMES: Record<HotelLabelCategory, string> = { hotel_amenity: "Settings › Hotels", rfp_concession: "Settings › Hotels", rfp_term: "Settings › Vendors" };
 
 
 // Each input label as the list spells it (matched by labelKey). An unknown
@@ -31,7 +32,7 @@ export async function requireListLabels(
     const listed = byKey.get(labelKey(label));
     if (listed) return listed;
     if (kept.has(label)) return label;
-    throw new Error(`"${label}" isn't in the ${LIST_NAMES[category]} list (Settings › Hotels)`);
+    throw new Error(`"${label}" isn't in the ${LIST_NAMES[category]} list (${LIST_HOMES[category]})`);
   });
 }
 
@@ -72,7 +73,7 @@ export async function mergeHotelLabel(tx: Prisma.TransactionClient, tenantId: st
       await tx.hotelProposalConcession.updateMany({ where: { label: from, proposal: inTenant }, data: { label: to } });
       // Requested rows: an RFP asking for both keeps `to`, taking over the
       // hotels' answers to `from` where they hadn't answered `to`.
-      const rows = await tx.rfpConcession.findMany({ where: { label: from, rfp: inTenant }, select: { id: true, rfpId: true } });
+      const rows = await tx.rfpConcession.findMany({ where: { label: from, rfp: { ...inTenant, kind: "HOTEL" } }, select: { id: true, rfpId: true } });
       for (const row of rows) {
         const sibling = await tx.rfpConcession.findFirst({ where: { rfpId: row.rfpId, label: to }, select: { id: true } });
         if (!sibling) {
@@ -85,6 +86,14 @@ export async function mergeHotelLabel(tx: Prisma.TransactionClient, tenantId: st
         await tx.hotelProposalConcession.updateMany({ where: { concessionId: row.id }, data: { concessionId: sibling.id } });
         await tx.rfpConcession.delete({ where: { id: row.id } });
       }
+      break;
+    }
+    case "rfp_term": {
+      // A vendor RFP's terms; one asking for both keeps `to`.
+      await tx.rfpConcession.deleteMany({
+        where: { label: from, rfp: { ...inTenant, kind: { not: "HOTEL" }, concessions: { some: { label: to } } } },
+      });
+      await tx.rfpConcession.updateMany({ where: { label: from, rfp: { ...inTenant, kind: { not: "HOTEL" } } }, data: { label: to } });
       break;
     }
     default: {
@@ -113,9 +122,12 @@ export async function offListHotelLabels(tenantId: string, category: HotelLabelC
     venues.forEach((v) => v.amenities.forEach(add));
     rfps.forEach((r) => r.amenities.forEach(add));
     rows.forEach((r) => add(r.label));
+  } else if (category === "rfp_term") {
+    const rows = await prisma.rfpConcession.findMany({ where: { rfp: { ...inTenant, kind: { not: "HOTEL" } } }, select: { label: true } });
+    rows.forEach((r) => add(r.label));
   } else {
     const [requested, offered] = await Promise.all([
-      prisma.rfpConcession.findMany({ where: { rfp: inTenant }, select: { label: true } }),
+      prisma.rfpConcession.findMany({ where: { rfp: { ...inTenant, kind: "HOTEL" } }, select: { label: true } }),
       prisma.hotelProposalConcession.findMany({ where: { label: { not: null }, proposal: inTenant }, select: { label: true } }),
     ]);
     requested.forEach((r) => add(r.label));

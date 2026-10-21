@@ -4,20 +4,25 @@
 
 import type { RfpKind } from "@prisma/client";
 
-export type RfpSection = "blocks" | "meetingSpace" | "fb" | "concessions" | "history" | "requirements" | "responseForm";
+export type RfpSection = "blocks" | "lineItems" | "meetingSpace" | "fb" | "concessions" | "history" | "requirements" | "responseForm";
 
-export const RFP_SECTIONS: { key: RfpSection; label: string; kinds: RfpKind[] }[] = [
+const ALL: RfpKind[] = ["HOTEL", "AV", "CATERING", "PRINT", "OTHER"];
+const VENDOR: RfpKind[] = ["AV", "CATERING", "PRINT", "OTHER"];
+
+// label: as the hotel RFP names the part; vendorLabel where a vendor RFP differs.
+export const RFP_SECTIONS: { key: RfpSection; label: string; vendorLabel?: string; kinds: RfpKind[] }[] = [
   { key: "blocks", label: "Room blocks", kinds: ["HOTEL"] },
+  { key: "lineItems", label: "Line items", kinds: VENDOR },
   { key: "meetingSpace", label: "Function space", kinds: ["HOTEL"] },
   { key: "fb", label: "Food & beverage", kinds: ["HOTEL"] },
-  { key: "concessions", label: "Concessions", kinds: ["HOTEL"] },
+  { key: "concessions", label: "Concessions", vendorLabel: "Terms", kinds: ALL },
   { key: "history", label: "Event history", kinds: ["HOTEL"] },
-  { key: "requirements", label: "Other requirements", kinds: ["HOTEL"] },
-  { key: "responseForm", label: "Response form", kinds: ["HOTEL"] },
+  { key: "requirements", label: "Other requirements", kinds: ALL },
+  { key: "responseForm", label: "Response form", kinds: ALL },
 ];
 
 export function sectionsFor(kind: RfpKind) {
-  return RFP_SECTIONS.filter((s) => s.kinds.includes(kind));
+  return RFP_SECTIONS.filter((s) => s.kinds.includes(kind)).map((s) => ({ ...s, label: kind !== "HOTEL" && s.vendorLabel ? s.vendorLabel : s.label }));
 }
 
 // Keeps only keys the kind allows, in RFP_SECTIONS order.

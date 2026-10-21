@@ -45,9 +45,9 @@ const vendorWriteProps = {
   name: { type: "string" },
   models: {
     type: "array",
-    items: { type: "string", enum: MODEL_TYPES },
+    items: { type: "string", enum: [...MODEL_TYPES, "LEAD_SOURCE"] },
     description:
-      "Order types this vendor services (used to filter vendor pickers). Empty array = general-purpose (appears in every picker).",
+      "Order types this vendor services (used to filter vendor pickers). Empty array = general-purpose (appears in every picker). LEAD_SOURCE tags an organization that brings hotel leads (a CVB, a third-party planner): it's offered as a hotel proposal's lead source.",
   },
   notes: { type: "string", description: "Optional free-form notes." },
 } as const;

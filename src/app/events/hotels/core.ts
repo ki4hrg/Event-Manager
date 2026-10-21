@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
+import type { OfferHotel } from "@/lib/inboundParse";
+import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
 
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
 export type ProposalChargeArgs = { chargeType: string; amount: number | null; scope: HotelChargeScope | null };
@@ -23,7 +25,10 @@ export type ProposalAmenityArgs = { label: string; status: AmenityStatus; note: 
 export type ProposalWriteArgs = {
   venueId: string;
   status: string;
-  leadSource: string | null;
+  // Where the lead came from: direct, or a lead-source vendor (and contact).
+  leadSourceDirect: boolean;
+  leadSourceVendorId: string | null;
+  leadSourceContactId: string | null;
   contractType: HotelContractType | null;
   guestType: string | null; // hotel_guest_type option label
   submittedOn: string | null; // YYYY-MM-DD
@@ -35,6 +40,8 @@ export type ProposalWriteArgs = {
   revisionSummary: string | null;
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
+  validUntil: string | null; // YYYY-MM-DD: rates good until / contract by
+  taxIncluded: boolean | null; // rates include taxes and fees; null = not stated
   // The amenities the offer states; the hotel's profile covers the rest.
   amenities: ProposalAmenityArgs[];
   nights: ProposalNightArgs[];
@@ -62,6 +69,9 @@ export type ProposalSnapshot = {
   notes: string | null;
   allowedAttrition: string | null;
   guaranteedRevenue: string | null;
+  // Absent from snapshots taken before these were recorded.
+  validUntil?: string | null;
+  taxIncluded?: boolean | null;
   // Older snapshots hold the labels ticked on the proposal (read as Confirmed).
   amenities: { label: string; status: AmenityStatus; note: string | null }[] | string[];
   // Requested and unasked concessions alike, by label. Absent from
@@ -75,12 +85,20 @@ export type ProposalChange = { field: string; from: string | null; to: string | 
 
 async function assertProposalRefs(eventId: string, args: ProposalWriteArgs) {
   const tenantId = await requireEventTenantId(eventId);
-  const [venue, status] = await Promise.all([
+  const [venue, status, leadVendor, leadContact] = await Promise.all([
     prisma.venue.findFirst({ where: { id: args.venueId, tenantId }, select: { id: true } }),
     prisma.customOption.findFirst({ where: { tenantId, category: "proposal_status", label: args.status }, select: { id: true } }),
+    args.leadSourceVendorId ? prisma.vendor.findFirst({ where: { id: args.leadSourceVendorId, tenantId }, select: { id: true } }) : null,
+    // The contact is one of the lead source's own.
+    args.leadSourceContactId
+      ? prisma.vendorContact.findFirst({ where: { contactId: args.leadSourceContactId, vendorId: args.leadSourceVendorId ?? "", vendor: { tenantId } }, select: { id: true } })
+      : null,
   ]);
   if (!venue) throw new PermissionError("NOT_FOUND", "Hotel not found");
   if (!status) throw new Error(`Unknown proposal status: ${args.status}`);
+  if (args.leadSourceVendorId && !leadVendor) throw new PermissionError("NOT_FOUND", "Lead source not found");
+  if (args.leadSourceContactId && !leadContact) throw new PermissionError("NOT_FOUND", "Lead source contact not found");
+  if (args.leadSourceDirect && args.leadSourceVendorId) throw new Error("A lead is direct or through a lead source, not both");
 }
 
 function validate(args: ProposalWriteArgs) {
@@ -91,6 +109,7 @@ function validate(args: ProposalWriteArgs) {
     throw new Error("Allowed attrition must be between 0 and 100");
   }
   if (args.guaranteedRevenue != null && args.guaranteedRevenue < 0) throw new Error("Guaranteed revenue cannot be negative");
+  if (args.validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(args.validUntil)) throw new Error(`Invalid date: ${args.validUntil}`);
   const keys = new Set(nightKeys(args.checkIn, args.checkOut));
   for (const n of args.nights) {
     if (!keys.has(n.night)) throw new Error(`Night ${n.night} is outside the stay`);
@@ -119,7 +138,9 @@ function scalarData(args: ProposalWriteArgs) {
   return {
     venueId: args.venueId,
     status: args.status,
-    leadSource: args.leadSource,
+    leadSourceDirect: args.leadSourceDirect,
+    leadSourceVendorId: args.leadSourceVendorId,
+    leadSourceContactId: args.leadSourceVendorId ? args.leadSourceContactId : null,
     contractType: args.contractType,
     guestType: args.guestType,
     submittedOn: args.submittedOn ? dateFromKey(args.submittedOn) : null,
@@ -130,11 +151,14 @@ function scalarData(args: ProposalWriteArgs) {
     revision: args.revision,
     allowedAttrition: args.allowedAttrition,
     guaranteedRevenue: args.guaranteedRevenue,
+    validUntil: args.validUntil ? dateFromKey(args.validUntil) : null,
+    taxIncluded: args.taxIncluded,
   };
 }
 
 const snapshotInclude = {
   venue: { select: { name: true } },
+  leadSourceVendor: { select: { name: true } },
   nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
   charges: { orderBy: { sortOrder: "asc" } },
   amenities: { orderBy: { sortOrder: "asc" } },
@@ -150,7 +174,8 @@ export function snapshotOf(p: ProposalWithChildren): ProposalSnapshot {
   return {
     venueName: p.venue.name,
     status: p.status,
-    leadSource: p.leadSource,
+    // "Direct", or the lead source's name.
+    leadSource: p.leadSourceDirect ? "Direct" : (p.leadSourceVendor?.name ?? null),
     blockType: blockTypeLabel(p.contractType, p.guestType),
     submittedOn: day(p.submittedOn),
     checkIn: day(p.checkIn),
@@ -159,6 +184,8 @@ export function snapshotOf(p: ProposalWithChildren): ProposalSnapshot {
     notes: p.notes,
     allowedAttrition: dec(p.allowedAttrition),
     guaranteedRevenue: dec(p.guaranteedRevenue),
+    validUntil: day(p.validUntil),
+    taxIncluded: p.taxIncluded,
     amenities: [...p.amenities].sort((a, b) => a.label.localeCompare(b.label)).map((a) => ({ label: a.label, status: a.status, note: a.note })),
     concessions: p.concessions
       .map((c) => ({ label: c.concession?.label ?? c.label ?? "", offered: c.offered, met: c.met }))
@@ -180,6 +207,8 @@ const FIELD_LABELS: [keyof ProposalSnapshot, string][] = [
   ["notes", "Notes"],
   ["allowedAttrition", "Allowed attrition %"],
   ["guaranteedRevenue", "Guaranteed revenue"],
+  ["validUntil", "Valid until"],
+  ["taxIncluded", "Rates include taxes"],
 ];
 
 const show = (v: unknown): string | null => (v == null || v === "" ? null : typeof v === "boolean" ? (v ? "Yes" : "No") : String(v));
@@ -402,14 +431,62 @@ export async function deleteHotelProposalCore(id: string, eventId: string, userI
 }
 
 // Plain (client-serializable) form values for ProposalForm.
-export function toProposalValues(p: Omit<ProposalWithChildren, "concessions"> & { venueId: string; revision: number }) {
-  const { venueName: _venueName, blockType: _blockType, amenities: _amenities, concessions: _concessions, ...rest } = snapshotOf({ ...p, concessions: [] });
+export function toProposalValues(
+  p: Omit<ProposalWithChildren, "concessions" | "leadSourceVendor"> & { venueId: string; revision: number; leadSourceVendor?: { name: string } | null },
+) {
+  const {
+    venueName: _venueName,
+    blockType: _blockType,
+    amenities: _amenities,
+    concessions: _concessions,
+    leadSource: _leadSource,
+    ...rest
+  } = snapshotOf({ ...p, leadSourceVendor: p.leadSourceVendor ?? null, concessions: [] });
   return {
     ...rest,
+    leadSourceDirect: p.leadSourceDirect,
+    leadSourceVendorId: p.leadSourceVendorId,
+    leadSourceContactId: p.leadSourceContactId,
     amenities: p.amenities.map((a) => ({ label: a.label, status: a.status, note: a.note })),
     contractType: p.contractType,
     guestType: p.guestType,
     venueId: p.venueId,
     revision: p.revision,
+    validUntil: day(p.validUntil),
+    taxIncluded: p.taxIncluded,
   };
+}
+
+// A hotel added in passing ("New hotel" on a proposal, prefilled from an
+// emailed offer, or on an RFP's recipients): a lodging venue with its sales
+// contact. A venue with the same name
+// is refused, so it gets picked instead. VENUES WRITE is checked by
+// createVenueCore.
+export async function createNewHotelCore(eventId: string, hotel: OfferHotel, amenities: string[], userId: string) {
+  const tenantId = await requireEventTenantId(eventId);
+  const name = hotel.name?.trim();
+  if (!name) throw new Error("The hotel needs a name");
+  const same = await prisma.venue.findFirst({
+    where: { tenantId, name: { equals: name, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (same) throw new Error(`${name} is already in Venues; choose it as the hotel`);
+  const clean = (v: string | null) => v?.trim() || null;
+  const venue = await createVenueCore(
+    { name, address: clean(hotel.address), city: clean(hotel.city), state: clean(hotel.state), zip: clean(hotel.zip), country: null, notes: null, isLodging: true, amenities },
+    userId,
+    tenantId,
+  );
+  const first = clean(hotel.contactFirstName);
+  const last = clean(hotel.contactLastName);
+  if (first || last) {
+    const link = await createAndAddVenueContactCore(
+      { venueId: venue.id, firstName: first ?? "", lastName: last ?? "", email: clean(hotel.contactEmail), organization: name, role: clean(hotel.contactTitle) },
+      userId,
+      tenantId,
+    );
+    const phone = clean(hotel.contactPhone);
+    if (phone) await prisma.contact.update({ where: { id: link.contactId, tenantId }, data: { phone } });
+  }
+  return venue;
 }

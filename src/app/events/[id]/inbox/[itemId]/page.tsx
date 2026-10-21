@@ -11,6 +11,12 @@ import {
   applyInboundGuests,
   applyInboundOffer,
   applyInboundRevision,
+  applyInboundQuote,
+  applyInboundBeo,
+  applyInboundContract,
+  getQuoteReview,
+  getBeoReview,
+  getContractReview,
   getDeclineReview,
   getOfferReview,
   dismissInboundEmail,
@@ -29,6 +35,10 @@ import { InboxProposalPanel } from "../../../inbox/InboxProposalPanel";
 import { InboxReview } from "../../../inbox/InboxReview";
 import { InboxDeclineReview } from "../../../inbox/InboxDeclineReview";
 import { InboxOfferForm } from "../../../inbox/InboxOfferForm";
+import { InboxQuoteReview } from "../../../inbox/InboxQuoteReview";
+import { InboxBeoReview } from "../../../inbox/InboxBeoReview";
+import { InboxContractReview } from "../../../inbox/InboxContractReview";
+import type { ContractTarget } from "@/lib/inboundParse";
 import { hasPermission } from "@/lib/permissions";
 import { canSeeDiagnostics } from "@/lib/tenant";
 import { isParsingConfigured, type InboundProposal } from "@/lib/inboundParse";
@@ -50,12 +60,30 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
   const proposal = item.proposal as InboundProposal | null;
   const parsing = isParsingConfigured();
   const ready = canWrite && item.status === "PARSED";
-  const [destinations, review, offer, decline] = await Promise.all([
+  const [destinations, review, offer, decline, quote, beo, contract] = await Promise.all([
     canWrite ? getInboxDestinationEvents(eventId) : [],
     ready ? getInboxReview(itemId, eventId) : null,
     ready ? getOfferReview(itemId, eventId) : null,
     ready ? getDeclineReview(itemId, eventId) : null,
+    ready ? getQuoteReview(itemId, eventId) : null,
+    ready ? getBeoReview(itemId, eventId) : null,
+    ready ? getContractReview(itemId, eventId) : null,
   ]);
+  // Where an applied quote, BEO or contract went.
+  const appliedLink =
+    item.status === "APPLIED" && proposal?.appliedQuoteId
+      ? { label: "Quote recorded", href: `/events/${eventId}/quotes/${proposal.appliedQuoteId}` }
+      : item.status === "APPLIED" && proposal?.appliedTo
+        ? {
+            label: `Applied to ${proposal.appliedTo.label}`,
+            href:
+              proposal.appliedTo.target === "HOTEL_PROPOSAL"
+                ? `/events/${eventId}/hotels/proposals/${proposal.appliedTo.id}`
+                : proposal.appliedTo.target === "VENDOR_QUOTE"
+                  ? `/events/${eventId}/quotes/${proposal.appliedTo.id}`
+                  : `/events/${eventId}/catering-orders/${proposal.appliedTo.id}`,
+          }
+        : null;
   const appliedProposal =
     item.status === "APPLIED" && proposal?.appliedProposalId
       ? await prisma.hotelProposal.findFirst({
@@ -112,6 +140,18 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
     "use server";
     await applyInboundDecline(itemId, eventId, rfpId, venueId, reason);
   };
+  const applyQuote = async (formData: FormData) => {
+    "use server";
+    await applyInboundQuote(itemId, eventId, formData);
+  };
+  const applyBeo = async (orderId: string, keys: string[]) => {
+    "use server";
+    await applyInboundBeo(itemId, eventId, orderId, keys);
+  };
+  const applyContract = async (target: ContractTarget, targetId: string, note: string | null) => {
+    "use server";
+    await applyInboundContract(itemId, eventId, target, targetId, note);
+  };
   const itemHref = `/events/${eventId}/inbox/${itemId}`;
   const applyCounts = async (blockId: string, counts: Parameters<typeof applyInboundCounts>[3]) => {
     "use server";
@@ -158,6 +198,7 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
               ? { name: appliedProposal.venue.name, href: `/events/${eventId}/hotels/proposals/${appliedProposal.id}` }
               : null
           }
+          appliedLink={appliedLink}
         />
         {offer && (
           <InboxOfferForm
@@ -167,13 +208,17 @@ export default async function EventInboxItemPage({ params }: { params: Promise<{
             rfpChoice={offer.rfpChoice}
             offeredConcessions={offer.offeredConcessions}
             revisions={offer.revisions}
-            newHotel={canAddVenue ? offer.newHotel : null}
+            newHotel={offer.newHotel}
+            canAddHotel={canAddVenue}
             create={applyOffer}
             revise={applyRevision}
             cancelHref={itemHref}
           />
         )}
         {decline && <InboxDeclineReview review={decline} itemHref={itemHref} apply={applyDecline} />}
+        {quote && <InboxQuoteReview review={quote} apply={applyQuote} cancelHref={itemHref} />}
+        {beo && <InboxBeoReview review={beo} apply={applyBeo} cancelHref={itemHref} />}
+        {contract && <InboxContractReview review={contract} apply={applyContract} cancelHref={itemHref} />}
         {review && (
           <InboxReview
             review={review}

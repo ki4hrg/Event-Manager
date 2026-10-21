@@ -17,7 +17,10 @@ import { requireListLabels } from "@/lib/hotelLabels";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import { buildComparison } from "@/lib/rfp/compare";
 import { FB_INCLUDES, parseSections } from "@/lib/rfp/sections";
+import { avLineItems, cateringLineItems, printLineItems, type LineItemRow } from "@/lib/rfp/lineItems";
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
+import type { OfferHotel } from "@/lib/inboundParse";
+import { createNewHotelCore } from "@/app/events/hotels/core";
 
 export type RfpWriteArgs = {
   title: string;
@@ -46,6 +49,8 @@ export type RfpWriteArgs = {
   regions: string[]; // hotel_region labels; with areas empty, the event's apply
   areas: string[]; // hotel_area labels
   siteVisitBy: string | null;
+  // OTHER only: an rfp_service option label. Undefined leaves it as it is.
+  service?: string | null;
 };
 
 export type RfpSpaceArgs = {
@@ -85,6 +90,8 @@ export type RfpFillArgs = {
   adjust: number;
 };
 
+export type RfpLineItemArgs = LineItemRow & { id?: string | null }; // an existing row keeps its id (and quotes' links)
+
 export type RfpConcessionArgs = { id?: string | null; label: string; value: string | null; required: boolean };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -107,6 +114,18 @@ const MAX_ALTERNATE_DATES = 3;
 function money(v: number | null, label: string) {
   if (v != null && (!Number.isFinite(v) || v < 0)) throw new Error(`${label} cannot be negative`);
   return v;
+}
+
+// An Other services RFP names what it's for from the rfp_service list.
+async function validService(eventId: string, kind: RfpKind, service: string | null) {
+  if (kind !== "OTHER" || !service?.trim()) return null;
+  const tenantId = await requireEventTenantId(eventId);
+  const option = await prisma.customOption.findFirst({
+    where: { tenantId, category: "rfp_service", label: { equals: service.trim(), mode: "insensitive" } },
+    select: { label: true },
+  });
+  if (!option) throw new Error(`"${service}" isn't in the RFP services list (Settings › Vendors)`);
+  return option.label;
 }
 
 async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs, keepAmenities: string[] = []) {
@@ -155,6 +174,7 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs, keep
     regions: Array.from(new Set(args.regions.filter(Boolean))),
     areas: Array.from(new Set(args.areas.filter(Boolean))),
     siteVisitBy: day(args.siteVisitBy),
+    ...(args.service !== undefined ? { service: await validService(eventId, kind, args.service) } : {}),
     alternateDates: {
       create: alternates.map((a, i) => ({ startDate: dateFromKey(a.startDate), endDate: dateFromKey(a.endDate), sortOrder: i })),
     },
@@ -244,13 +264,14 @@ export async function saveRfpBlocksCore(id: string, eventId: string, blocks: Rfp
 }
 
 export async function saveRfpConcessionsCore(id: string, eventId: string, concessions: RfpConcessionArgs[], userId: string) {
-  await authorizeRfp(id, eventId, "WRITE", userId);
+  const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
   const current = await prisma.rfpConcession.findMany({ where: { rfpId: id }, select: { id: true, label: true } });
   const given = concessions.filter((c) => c.label.trim());
   // From the concession list only (legacy labels the RFP holds may stay), once each.
   const labels = await requireListLabels(
     await requireEventTenantId(eventId),
-    "rfp_concession",
+    // Hotels ask for concessions; vendors are asked for terms.
+    kind === "HOTEL" ? "rfp_concession" : "rfp_term",
     given.map((c) => c.label),
     current.map((c) => c.label),
   );
@@ -332,6 +353,169 @@ export async function saveRfpSpaceCore(id: string, eventId: string, rows: RfpSpa
   });
 }
 
+// Replaces a vendor RFP's line items, updating kept ones in place by id so
+// quote lines answering them stay linked. Rows copied from an order must
+// point at this event's order (and the item at that order's).
+export async function saveRfpLineItemsCore(id: string, eventId: string, rows: RfpLineItemArgs[], userId: string) {
+  const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
+  if (kind === "HOTEL") throw new Error("A hotel RFP has room blocks, not line items");
+  const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { startDate: true, endDate: true } });
+  const first = addDays(dateKey(event.startDate), -NIGHT_WINDOW_DAYS);
+  const last = addDays(dateKey(event.endDate), NIGHT_WINDOW_DAYS);
+  const ids = (key: "avOrderId" | "cateringOrderId" | "printOrderId" | "equipmentItemId" | "printItemId" | "cateringLineItemId") =>
+    Array.from(new Set(rows.flatMap((r) => (r[key] ? [r[key] as string] : []))));
+  const [av, catering, print, equipment, printItems, cateringLines] = await Promise.all([
+    prisma.aVOrder.findMany({ where: { id: { in: ids("avOrderId") }, eventId }, select: { id: true } }),
+    prisma.cateringOrder.findMany({ where: { id: { in: ids("cateringOrderId") }, eventId }, select: { id: true } }),
+    prisma.printOrder.findMany({ where: { id: { in: ids("printOrderId") }, eventId }, select: { id: true } }),
+    prisma.equipmentItem.findMany({
+      where: { id: { in: ids("equipmentItemId") }, OR: [{ avOrder: { eventId } }, { videoSection: { avOrder: { eventId } } }] },
+      select: { id: true, avOrderId: true, videoSection: { select: { avOrderId: true } } },
+    }),
+    prisma.printItem.findMany({ where: { id: { in: ids("printItemId") }, printOrder: { eventId } }, select: { id: true, printOrderId: true } }),
+    prisma.cateringOrderLineItem.findMany({ where: { id: { in: ids("cateringLineItemId") }, cateringOrder: { eventId } }, select: { id: true, cateringOrderId: true } }),
+  ]);
+  const own = (list: { id: string }[]) => new Set(list.map((x) => x.id));
+  const [ownAv, ownCatering, ownPrint] = [own(av), own(catering), own(print)];
+  const equipmentOrder = new Map(equipment.map((e) => [e.id, e.avOrderId ?? e.videoSection?.avOrderId ?? null]));
+  const printItemOrder = new Map(printItems.map((p) => [p.id, p.printOrderId]));
+  const cateringLineOrder = new Map(cateringLines.map((l) => [l.id, l.cateringOrderId]));
+  const notFound = (what: string) => new PermissionError("NOT_FOUND", `${what} not found`);
+  const data = rows
+    .filter((r) => r.description.trim())
+    .map((r, i) => {
+      const label = r.description.trim();
+      for (const d of [r.day, r.endDay]) if (d && (!DATE_RE.test(d) || d < first || d > last)) throw new Error(`${label}: day ${d} is too far from the event`);
+      if (r.endDay && (!r.day || r.endDay < r.day)) throw new Error(`${label}: "through" must be on or after the day`);
+      for (const t of [r.startTime, r.endTime]) if (t && !TIME_RE.test(t)) throw new Error(`${label}: time must be HH:MM`);
+      if (r.quantity != null && (!Number.isInteger(r.quantity) || r.quantity < 0)) throw new Error(`${label}: quantity must be a whole number`);
+      if (r.avOrderId && !ownAv.has(r.avOrderId)) throw notFound("AV order");
+      if (r.cateringOrderId && !ownCatering.has(r.cateringOrderId)) throw notFound("Catering order");
+      if (r.printOrderId && !ownPrint.has(r.printOrderId)) throw notFound("Print order");
+      if (r.equipmentItemId && (!equipmentOrder.has(r.equipmentItemId) || equipmentOrder.get(r.equipmentItemId) !== r.avOrderId)) throw notFound("Equipment item");
+      if (r.printItemId && printItemOrder.get(r.printItemId) !== r.printOrderId) throw notFound("Print item");
+      if (r.cateringLineItemId && cateringLineOrder.get(r.cateringLineItemId) !== r.cateringOrderId) throw notFound("Catering line item");
+      return {
+        id: r.id ?? null,
+        group: r.group?.trim() || null,
+        description: label,
+        quantity: r.quantity,
+        unit: r.unit?.trim() || null,
+        day: r.day ? dateFromKey(r.day) : null,
+        endDay: r.day && r.endDay && r.endDay > r.day ? dateFromKey(r.endDay) : null,
+        startTime: r.startTime || null,
+        endTime: r.endTime || null,
+        notes: r.notes?.trim() || null,
+        avOrderId: r.avOrderId || null,
+        cateringOrderId: r.cateringOrderId || null,
+        printOrderId: r.printOrderId || null,
+        equipmentItemId: r.equipmentItemId || null,
+        printItemId: r.printItemId || null,
+        cateringLineItemId: r.cateringLineItemId || null,
+        sortOrder: i,
+      };
+    });
+  const existing = new Set((await prisma.rfpLineItem.findMany({ where: { rfpId: id }, select: { id: true } })).map((r) => r.id));
+  const kept = data.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
+  await prisma.$transaction(async (tx) => {
+    // A removed line's quote answers keep their price and lose the link (SetNull).
+    await tx.rfpLineItem.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
+    for (const { id: rowId, ...row } of data) {
+      if (rowId && existing.has(rowId)) await tx.rfpLineItem.update({ where: { id: rowId, rfpId: id }, data: row });
+      else await tx.rfpLineItem.create({ data: { ...row, rfpId: id } });
+    }
+    await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
+  });
+}
+
+// Support schedule types (set-up / tear-down): a line item's day and times
+// come from the other schedules when there are any.
+async function supportTypes(eventId: string) {
+  const options = await prisma.customOption.findMany({
+    where: { tenant: { events: { some: { id: eventId } } }, category: "schedule_type", group: { in: ["SETUP", "TEARDOWN"] } },
+    select: { label: true },
+  });
+  return new Set(options.length ? options.map((o) => o.label) : ["Setup", "Breakdown"]);
+}
+
+// The event's orders of the RFP's kind as line items, for "Add from orders".
+export async function rfpLineItemCandidatesCore(id: string, eventId: string, userId: string): Promise<LineItemRow[]> {
+  const { kind } = await authorizeRfp(id, eventId, "VIEW", userId);
+  const scheduleSelect = { select: { type: true, startTime: true, endTime: true } } as const;
+  const [event, support] = await Promise.all([
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { timezone: true } }),
+    supportTypes(eventId),
+  ]);
+  const itemSelect = { select: { id: true, item: true, quantity: true, notes: true }, orderBy: { sortOrder: "asc" } } as const;
+  switch (kind) {
+    case "AV": {
+      const orders = await prisma.aVOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          equipmentItems: itemSelect,
+          videoSection: { select: { equipmentItems: itemSelect } },
+          functionLinks: { select: { function: { select: { schedules: scheduleSelect } } } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return avLineItems(
+        orders.map((o) => ({
+          id: o.id,
+          name: o.name,
+          items: [...o.equipmentItems, ...(o.videoSection?.equipmentItems ?? [])],
+          schedules: o.functionLinks.flatMap((l) => l.function.schedules),
+        })),
+        support,
+        event.timezone,
+      );
+    }
+    case "CATERING": {
+      const orders = await prisma.cateringOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          mealType: true,
+          serviceStyle: true,
+          expectedCount: true,
+          confirmedCount: true,
+          guaranteeCount: true,
+          dietaryNotes: true,
+          function: { select: { schedules: scheduleSelect } },
+          lineItems: { select: { id: true, description: true, quantity: true, unitType: true, notes: true }, orderBy: { sortOrder: "asc" } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return cateringLineItems(
+        orders.map((o) => ({ ...o, schedules: o.function?.schedules ?? [] })),
+        support,
+        event.timezone,
+      );
+    }
+    case "PRINT": {
+      const orders = await prisma.printOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          items: { select: { id: true, description: true, quantity: true, distributionMethod: true, notes: true }, orderBy: { sortOrder: "asc" } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return printLineItems(orders);
+    }
+    case "HOTEL":
+    case "OTHER":
+      return [];
+    default: {
+      const _exhaustive: never = kind;
+      throw new Error(`Unhandled RFP kind: ${_exhaustive}`);
+    }
+  }
+}
+
 // Files the rendered document on the RFP as a record of what went out,
 // stamps the issue date, and moves a draft to ISSUED.
 export async function issueRfpCore(id: string, eventId: string, file: { fileName: string; buffer: Buffer }, userId: string) {
@@ -358,14 +542,34 @@ export async function issueRfpCore(id: string, eventId: string, file: { fileName
 
 export type RfpRecipientArgs = { sentOn: string | null; declinedToBid: boolean; notes: string | null };
 
+// Adds vendors (the tenant's) to a vendor RFP; ones already on it are skipped.
+export async function addRfpVendorRecipientsCore(id: string, eventId: string, vendorIds: string[], userId: string) {
+  const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
+  if (kind === "HOTEL") throw new Error("A hotel RFP goes to hotels");
+  const tenantId = await requireEventTenantId(eventId);
+  const ids = Array.from(new Set(vendorIds));
+  const vendors = await prisma.vendor.count({ where: { id: { in: ids }, tenantId } });
+  if (vendors !== ids.length) throw new PermissionError("NOT_FOUND", "Vendor not found");
+  await prisma.rfpRecipient.createMany({ data: ids.map((vendorId) => ({ rfpId: id, vendorId })), skipDuplicates: true });
+}
+
 // Adds hotels (the tenant's venues) to an RFP; ones already on it are skipped.
 export async function addRfpRecipientsCore(id: string, eventId: string, venueIds: string[], userId: string) {
-  await authorizeRfp(id, eventId, "WRITE", userId);
+  const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
+  if (kind !== "HOTEL") throw new Error("A vendor RFP goes to vendors");
   const tenantId = await requireEventTenantId(eventId);
   const ids = Array.from(new Set(venueIds));
   const venues = await prisma.venue.count({ where: { id: { in: ids }, tenantId } });
   if (venues !== ids.length) throw new PermissionError("NOT_FOUND", "Hotel not found");
   await prisma.rfpRecipient.createMany({ data: ids.map((venueId) => ({ rfpId: id, venueId })), skipDuplicates: true });
+}
+
+// A hotel not in Venues yet, created (VENUES WRITE) and added to the RFP.
+export async function addNewRfpRecipientCore(id: string, eventId: string, hotel: OfferHotel, userId: string) {
+  const { kind } = await authorizeRfp(id, eventId, "WRITE", userId);
+  if (kind !== "HOTEL") throw new Error("A vendor RFP goes to vendors");
+  const venue = await createNewHotelCore(eventId, hotel, [], userId);
+  await prisma.rfpRecipient.create({ data: { rfpId: id, venueId: venue.id } });
 }
 
 export async function updateRfpRecipientCore(recipientId: string, id: string, eventId: string, args: RfpRecipientArgs, userId: string) {
@@ -406,6 +610,8 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
         rfpBlockId: true,
         allowedAttrition: true,
         guaranteedRevenue: true,
+        validUntil: true,
+        taxIncluded: true,
         amenities: { select: { label: true, status: true } },
         venue: { select: { name: true, amenities: true } },
         block: { select: { id: true } },

@@ -7,6 +7,7 @@ import { FONT, chrome, fieldsTable, gridTable, numbering, richParagraphs, spacer
 import { formatNight } from "@/lib/hotels";
 import { concessionOfferRows, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpSpaceDay } from "@/lib/rfp/document";
 import { comparisonRows, type RfpComparison } from "@/lib/rfp/compare";
+import type { QuoteComparison } from "@/lib/rfp/compareQuotes";
 
 const heading = (text: string) =>
   new Paragraph({ heading: HeadingLevel.HEADING_1, keepNext: true, children: [new TextRun({ text, font: FONT })] });
@@ -71,6 +72,7 @@ const blankTable = (columns: string[], rows: string[][]) => gridTable({ columns,
 // Elements for the document body, in APEX Single Facility RFP order.
 export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = [];
+  const hotel = doc.meta.kind === "HOTEL";
 
   out.push(heading("I. Contact information"));
   out.push(
@@ -141,6 +143,22 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
     }
     out.push(...facts(doc.roomTerms));
   }
+  if (doc.lineItems) {
+    out.push(subheading("Line items"));
+    if (doc.lineItems.length === 0) out.push(note("No line items listed."));
+    else
+      out.push(
+        gridTable({
+          columns: ["Item", "Qty", "When", "Notes"],
+          numeric: [false, true, false, false],
+          rows: doc.lineItems.flatMap((g) => [
+            ...(g.group ? [[g.group, "", "", ""]] : []),
+            ...g.rows.map((r) => [g.group ? `   ${r.description}` : r.description, r.quantity, r.when, r.notes]),
+          ]),
+        }),
+        spacer(),
+      );
+  }
   if (doc.amenities.length) out.push(subheading("Requested amenities"), ...textParagraphs(doc.amenities.join(" · ")), spacer());
   if (doc.meetingSpace) {
     out.push(subheading("Function space"));
@@ -153,12 +171,12 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
     out.push(...facts(doc.fb.terms));
   }
   if (doc.concessions) {
-    out.push(subheading("Concessions desired"));
+    out.push(subheading(hotel ? "Concessions desired" : "Terms"));
     if (doc.concessions.length === 0) out.push(note("None listed."));
     for (const g of doc.concessions) {
       out.push(
-        label(g.group),
-        gridTable({ columns: ["Concession", "Requested", "Required"], rows: g.items.map((c) => [c.label, c.value, c.required ? "Required" : ""]) }),
+        ...(hotel ? [label(g.group)] : []),
+        gridTable({ columns: [hotel ? "Concession" : "Term", "Requested", "Required"], rows: g.items.map((c) => [c.label, c.value, c.required ? "Required" : ""]) }),
         spacer(),
       );
     }
@@ -188,7 +206,22 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
         blankTable(["F&B function", "Average per-person price"], [...r.mealTypes.map((m) => [m]), ["Standard tax %"], ["Standard service charge %"]]),
         spacer(),
       );
-    out.push(subheading("Concessions offered"), blankTable(["Heading", "Concession", "Offered"], concessionOfferRows(r.concessions)), spacer());
+    if (r.lineItems.length)
+      out.push(
+        subheading("Pricing"),
+        blankTable(
+          ["Item", "Qty", "Unit price", "Amount"],
+          [...r.lineItems.map((l) => [l.group ? `${l.group}: ${l.description}` : l.description, l.quantity ?? ""]), ["Service charge"], ["Tax"], ["Other fees"], ["Total"]],
+        ),
+        spacer(),
+      );
+    if (hotel) out.push(subheading("Concessions offered"), blankTable(["Heading", "Concession", "Offered"], concessionOfferRows(r.concessions)), spacer());
+    else
+      out.push(
+        subheading("Terms"),
+        blankTable(["Term", "Offered"], [...r.concessions.flatMap((g) => g.items.map((t) => [t])), ["Deposit"], ["Quote valid until"], ["Cancellation"]]),
+        spacer(),
+      );
   }
 
   return out;
@@ -248,6 +281,38 @@ export async function renderRfpCompareDocx(data: RfpComparison): Promise<Buffer>
   }
   if (data.groups.some((g) => g.offers.length)) children.push(note("▼ falls short of the request."));
   const head = chrome("Bid comparison", data.eventName, data.title, "");
+  return Packer.toBuffer(
+    new Document({
+      creator: "Event Manager",
+      title: `${data.eventName} — ${title}`,
+      numbering,
+      styles,
+      sections: [{ ...head, properties: { page: { size: { orientation: PageOrientation.LANDSCAPE } } }, children }],
+    }),
+  );
+}
+
+export async function renderQuoteCompareDocx(data: QuoteComparison): Promise<Buffer> {
+  const title = `${data.title} — Quote comparison`;
+  const children: (Paragraph | Table)[] = [new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: title, font: FONT, size: 36, bold: true })] })];
+  if (data.quotes.length === 0) children.push(note("No quotes yet."));
+  else {
+    const mark = (c: { text: string; missing: boolean }) => (c.missing ? `▼ ${c.text}` : c.text);
+    children.push(
+      gridTable({
+        columns: ["", "Requested", ...data.quotes.map((q) => `${q.vendor}${data.lowest === q.id ? " (lowest)" : ""}`)],
+        numeric: [false, true, ...data.quotes.map(() => true)],
+        rows: [
+          ...data.lines.map((l) => [l.group ? `${l.group}: ${l.label}` : l.label, l.requested, ...l.cells.map(mark)]),
+          ...(data.extras.some((e) => e.length) ? [["Extras", "", ...data.extras.map((e) => e.join("\n") || "—")]] : []),
+          ...data.footer.map((f) => [f.label, "", ...f.cells.map(mark)]),
+        ],
+      }),
+      spacer(),
+      note("▼ not quoted, or quoted for fewer than asked."),
+    );
+  }
+  const head = chrome("Quote comparison", data.eventName, data.title, "");
   return Packer.toBuffer(
     new Document({
       creator: "Event Manager",

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { dateFromKey, dateKey } from "@/lib/hotels";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+import { hasPermission, requirePermission } from "@/lib/permissions";
 import { getEvent } from "../../../../actions";
 import { createHotelProposal, getProposalFormChoices } from "../../../../hotels/actions";
 import { ProposalForm, type ProposalTemplate } from "../../../../hotels/ProposalForm";
@@ -22,9 +22,10 @@ export default async function NewProposalPage({
   const { id: eventId } = await params;
   await requirePermission("HOTELS", "WRITE", eventId);
   const { venueId, rfpBlockId } = await searchParams;
-  const [event, choices, rfpBlock] = await Promise.all([
+  const [event, choices, canAddHotel, rfpBlock] = await Promise.all([
     getEvent(eventId),
     getProposalFormChoices(eventId),
+    hasPermission("VENUES", "WRITE"),
     rfpBlockId
       ? prisma.rfpHotelBlock.findFirst({
           where: { id: rfpBlockId, rfp: { eventId } },
@@ -84,6 +85,7 @@ export default async function NewProposalPage({
             met: null,
           }))}
           defaultVenueId={choices.venues.some((v) => v.id === venueId) ? venueId : undefined}
+          canAddHotel={canAddHotel}
           action={createAction}
           cancelHref={`/events/${eventId}/hotels`}
         />

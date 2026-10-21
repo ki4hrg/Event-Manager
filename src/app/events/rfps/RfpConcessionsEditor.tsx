@@ -14,7 +14,28 @@ const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 d
 
 // The rfp_concession options under their headings; one list for both the row
 // selects and "+ Concession". Labels come only from the list (Settings › Hotels).
-export function ConcessionOptions({ options, available }: { options: { label: string; group: string | null }[]; available: (label: string) => boolean }) {
+export function ConcessionOptions({
+  options,
+  available,
+  flat = false,
+}: {
+  options: { label: string; group: string | null }[];
+  available: (label: string) => boolean;
+  flat?: boolean; // a vendor RFP's terms have no headings
+}) {
+  if (flat) {
+    return (
+      <>
+        {options
+          .filter((o) => available(o.label))
+          .map((o) => (
+            <option key={o.label} value={o.label}>
+              {o.label}
+            </option>
+          ))}
+      </>
+    );
+  }
   return (
     <>
       {CONCESSION_GROUPS.map((g) => {
@@ -41,8 +62,11 @@ export function RfpConcessionsEditor({
   resource,
   concessions,
   options,
+  terms = false,
   save,
 }: {
+  // A vendor RFP: "Terms" from the rfp_term list, no headings.
+  terms?: boolean;
   resource: PermissionResource;
   concessions: RfpConcessionArgs[];
   options: { label: string; group: string | null }[];
@@ -76,32 +100,33 @@ export function RfpConcessionsEditor({
     });
 
   const groupOf = (r: Row) => concessionGroupOf(r.custom ? null : known.get(r.label));
+  const groups = terms ? [{ value: "OTHER" as const, label: "" }] : CONCESSION_GROUPS;
 
   return (
     <div className={`${cardClass} space-y-4`}>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Concessions</h2>
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white">{terms ? "Terms" : "Concessions"}</h2>
       <fieldset disabled={!canWrite} className="space-y-4">
         {rows.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">None listed.</p>}
-        {CONCESSION_GROUPS.map((g) => {
+        {groups.map((g) => {
           const inGroup = rows.filter((r) => groupOf(r) === g.value);
           if (inGroup.length === 0) return null;
           return (
             <div key={g.value} className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{g.label}</p>
+              {g.label && <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{g.label}</p>}
               {inGroup.map((r) => (
                 <div key={r.key} className="flex flex-wrap items-center gap-2">
                   <select
-                    aria-label="Concession"
+                    aria-label={terms ? "Term" : "Concession"}
                     value={r.label}
                     onChange={(e) => set(r.key, { label: e.target.value, custom: false })}
                     className={`${inputClass} flex-1 min-w-[10rem]`}
                   >
                     {r.custom && <option value={r.label}>{r.label} (not in list)</option>}
-                    <ConcessionOptions options={options} available={(l) => l === r.label || !used.has(l)} />
+                    <ConcessionOptions options={options} flat={terms} available={(l) => l === r.label || !used.has(l)} />
                   </select>
                   <input
                     aria-label="Requested"
-                    placeholder="1/40, 20%, 30 days…"
+                    placeholder={terms ? "50% at signing, 72 hours…" : "1/40, 20%, 30 days…"}
                     value={r.value}
                     onChange={(e) => set(r.key, { value: e.target.value })}
                     className={`${inputClass} flex-1 min-w-[8rem]`}
@@ -127,15 +152,15 @@ export function RfpConcessionsEditor({
             {pending ? "Saving..." : "Save concessions"}
           </button>
           <select
-            aria-label="Add concession"
+            aria-label={terms ? "Add term" : "Add concession"}
             value=""
             onChange={(e) => {
               if (e.target.value) add(e.target.value, false);
             }}
             className={inputClass}
           >
-            <option value="">+ Concession</option>
-            <ConcessionOptions options={options} available={(l) => !used.has(l)} />
+            <option value="">{terms ? "+ Term" : "+ Concession"}</option>
+            <ConcessionOptions options={options} flat={terms} available={(l) => !used.has(l)} />
           </select>
         </div>
       )}
