@@ -31,7 +31,8 @@ import {
   purgeStaleFormSubmissions,
   removeSubmissionFiles,
 } from "./links";
-import { loadFormSnapshot, parseFormPayload, type FormSnapshot } from "./index";
+import { formModule } from "./index";
+import type { FormSnapshot } from "./types";
 import { FORM_TYPE_LABEL } from "./meta";
 
 function submitterFields(formData: FormData, required: boolean) {
@@ -51,8 +52,8 @@ function submitterFields(formData: FormData, required: boolean) {
 }
 
 // The target as it is now, refusing a form rendered against an older version.
-async function currentSnapshot(link: ActiveFormLink, formData: FormData): Promise<FormSnapshot> {
-  const snapshot = await loadFormSnapshot(link);
+async function currentSnapshot(link: ActiveFormLink, formData: FormData): Promise<FormSnapshot<unknown>> {
+  const snapshot = await formModule(link.formType).snapshot(link);
   if (!snapshot) throw new PublicFormError("closed");
   if (formData.get("version") !== snapshot.version) throw new PublicFormError("stale");
   return snapshot;
@@ -63,7 +64,7 @@ async function currentSnapshot(link: ActiveFormLink, formData: FormData): Promis
 export async function saveFormDraftCore(link: ActiveFormLink, draftKey: string | undefined, formData: FormData): Promise<string> {
   if (formLinkIsFull(link)) throw new PublicFormError("closed");
   const snapshot = await currentSnapshot(link, formData);
-  const payload = await parseFormPayload(link, formData, snapshot);
+  const payload = await formModule(link.formType).parse(formData, snapshot, link);
   const submitter = submitterFields(formData, false);
   const data = {
     ...submitter,
@@ -92,7 +93,7 @@ export async function saveFormDraftCore(link: ActiveFormLink, draftKey: string |
 export async function submitFormCore(link: ActiveFormLink, draftKey: string | undefined, formData: FormData) {
   if (formLinkIsFull(link)) throw new PublicFormError("closed");
   const snapshot = await currentSnapshot(link, formData);
-  const payload = await parseFormPayload(link, formData, snapshot);
+  const payload = await formModule(link.formType).parse(formData, snapshot, link);
   const submitter = submitterFields(formData, true);
   const draft = await findDraft(link.id, draftKey);
   if (!draft) await assertLinkHasCapacity(link.id);
@@ -150,10 +151,10 @@ export async function submitFormCore(link: ActiveFormLink, draftKey: string | un
   purgeStaleFormSubmissions().catch(() => {});
 }
 
-function notifySubmitted(link: ActiveFormLink, submissionId: string, snapshot: FormSnapshot) {
+function notifySubmitted(link: ActiveFormLink, submissionId: string, snapshot: FormSnapshot<unknown>) {
   if (!isEmailConfigured()) return;
   const formTitle = FORM_TYPE_LABEL[link.formType];
-  const targetName = snapshot.baseline.functionLabel;
+  const targetName = snapshot.targetName;
   if (link.recipientEmail) {
     sendFormReceiptEmail({ to: link.recipientEmail, eventName: link.event.name, formTitle, targetName }).catch(() => {});
   }
@@ -225,7 +226,7 @@ export async function attachPublicUploadCore(link: ActiveFormLink, draftKey: str
 
   if (!draft) {
     await assertLinkHasCapacity(link.id);
-    const snapshot = await loadFormSnapshot(link);
+    const snapshot = await formModule(link.formType).snapshot(link);
     if (!snapshot) throw new PublicFormError("closed");
     const created = await prisma.formSubmission.create({
       data: {

@@ -25,9 +25,13 @@ export type FormLinkSummary = {
 type Props = {
   title: string;
   formType: string;
-  targetField: { name: string; value: string };
-  sections: readonly { key: string; label: string }[];
-  recipients: { contactId: string; name: string; email: string | null }[];
+  // Single-recipient forms post their target; open forms have none.
+  targetField?: { name: string; value: string };
+  // Omitted for a form with one section.
+  sections?: readonly { key: string; label: string }[];
+  recipients?: { contactId: string; name: string; email: string | null }[];
+  // Open links default to unlimited responses.
+  defaultMaxSubmissions?: number | null;
   workflowTemplates: { id: string; name: string }[];
   links: FormLinkSummary[];
   emailEnabled: boolean;
@@ -40,8 +44,9 @@ export function FormLinkButton({
   title,
   formType,
   targetField,
-  sections,
-  recipients,
+  sections = [],
+  recipients = [],
+  defaultMaxSubmissions = 1,
   workflowTemplates,
   links,
   emailEnabled,
@@ -112,7 +117,7 @@ export function FormLinkButton({
                   }
                 >
                   <input type="hidden" name="formType" value={formType} />
-                  <input type="hidden" name={targetField.name} value={targetField.value} />
+                  {targetField && <input type="hidden" name={targetField.name} value={targetField.value} />}
                   <input type="hidden" name="contactId" value={recipient.contactId} />
                   {recipients.length > 0 && (
                     <div>
@@ -142,6 +147,7 @@ export function FormLinkButton({
                       <input name="recipientEmail" type="email" value={recipient.email} onChange={(e) => setRecipient({ ...recipient, email: e.target.value })} className={inputCls} />
                     </div>
                   </div>
+                  {sections.length > 0 && (
                   <fieldset>
                     <legend className={labelCls}>Sections</legend>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
@@ -153,6 +159,7 @@ export function FormLinkButton({
                       ))}
                     </div>
                   </fieldset>
+                  )}
                   <div>
                     <label className={labelCls}>Message</label>
                     <textarea name="intro" rows={2} maxLength={2000} className={inputCls} />
@@ -168,7 +175,7 @@ export function FormLinkButton({
                     </div>
                     <div>
                       <label className={labelCls}>Responses allowed</label>
-                      <input name="maxSubmissions" type="number" min={1} max={1000} defaultValue={1} className={inputCls} />
+                      <input name="maxSubmissions" type="number" min={1} max={1000} defaultValue={defaultMaxSubmissions ?? ""} placeholder="No limit" className={inputCls} />
                     </div>
                   </div>
                   {workflowTemplates.length > 0 && (

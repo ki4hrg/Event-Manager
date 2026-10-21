@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { btnDanger, btnPrimary } from "@/lib/buttonStyles";
 import type { FormDiffSection } from "@/lib/forms/meta";
+import type { ReviewChoice } from "@/lib/forms/types";
 
 // Every submitted value renders as React text. Submissions are public input;
 // nothing here may go through dangerouslySetInnerHTML.
@@ -24,12 +25,51 @@ function VerdictBadge({ verdict }: { verdict: FormDiffSection["verdict"] }) {
   return <span className="rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400">No answer</span>;
 }
 
+function Choice({ choice }: { choice: ReviewChoice }) {
+  // Many options (existing orders) read better as a select.
+  if (choice.options.length > 4) {
+    return (
+      <label className="block">
+        <span className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{choice.label}</span>
+        <select
+          name={`choice_${choice.key}`}
+          defaultValue={choice.defaultValue}
+          className="w-full sm:w-auto rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5"
+        >
+          {choice.options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+  return (
+    <fieldset className="space-y-1">
+      <legend className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{choice.label}</legend>
+      {choice.options.map((o) => (
+        <label key={o.value} className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
+          <input
+            type="radio"
+            name={`choice_${choice.key}`}
+            value={o.value}
+            defaultChecked={o.value === choice.defaultValue}
+            className="border-gray-300 dark:border-gray-600"
+          />
+          {o.label}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 export function FormDiff({
   sections,
   selectable,
+  choices = [],
 }: {
   sections: FormDiffSection[];
   selectable: boolean;
+  choices?: ReviewChoice[];
 }) {
   return (
     <div className="space-y-4">
@@ -44,7 +84,7 @@ export function FormDiff({
             ) : (
               <span className="text-sm font-semibold text-gray-900 dark:text-white">{s.label}</span>
             )}
-            <VerdictBadge verdict={s.verdict} />
+            {s.mode === "update" && <VerdictBadge verdict={s.verdict} />}
           </div>
           {s.note && (
             <p className="rounded bg-gray-50 dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line break-words">{s.note}</p>
@@ -55,29 +95,32 @@ export function FormDiff({
                 <thead>
                   <tr className="text-left text-xs text-gray-500 dark:text-gray-400">
                     <th className="py-1 pr-4 font-medium">Field</th>
-                    <th className="py-1 pr-4 font-medium">When sent</th>
+                    {s.mode === "update" && <th className="py-1 pr-4 font-medium">When sent</th>}
                     <th className="py-1 pr-4 font-medium">Submitted</th>
-                    <th className="py-1 font-medium">On file now</th>
+                    {s.mode === "update" && <th className="py-1 font-medium">On file now</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700 align-top">
                   {s.rows.map((r) => (
                     <tr key={r.field}>
                       <td className="py-2 pr-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{r.label}</td>
-                      <td className="py-2 pr-4 text-gray-600 dark:text-gray-400"><Value v={r.baseline} /></td>
-                      <td className={`py-2 pr-4 ${STATUS_CLS[r.status]}`}><Value v={r.proposed} /></td>
-                      <td className="py-2 text-gray-600 dark:text-gray-400">
-                        <Value v={r.current} />
-                        {r.status === "conflict" && (
-                          <span className="block text-xs text-amber-700 dark:text-amber-300">Changed since this was sent</span>
-                        )}
-                      </td>
+                      {s.mode === "update" && <td className="py-2 pr-4 text-gray-600 dark:text-gray-400"><Value v={r.baseline} /></td>}
+                      <td className={`py-2 pr-4 ${s.mode === "create" ? "text-gray-900 dark:text-gray-100" : STATUS_CLS[r.status]}`}><Value v={r.proposed} /></td>
+                      {s.mode === "update" && (
+                        <td className="py-2 text-gray-600 dark:text-gray-400">
+                          <Value v={r.current} />
+                          {r.status === "conflict" && (
+                            <span className="block text-xs text-amber-700 dark:text-amber-300">Changed since this was sent</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
+          {selectable && choices.filter((c) => c.key === s.key).map((c) => <Choice key={c.key} choice={c} />)}
           {!s.applicable && s.rows.length === 0 && !s.note && s.verdict !== "changes" && (
             <p className="text-xs text-gray-500 dark:text-gray-400">Nothing to apply.</p>
           )}
@@ -98,15 +141,15 @@ function ApplyButton({ disabled }: { disabled: boolean }) {
 
 export function FormReview({
   sections,
-  versions,
-  contact,
+  version,
+  choices,
   approvalMessage,
   apply,
   reject,
 }: {
   sections: FormDiffSection[];
-  versions: { function: string; catering: string | null } | null;
-  contact: { proposed: string; matches: { id: string; label: string }[] } | null;
+  version: string | null;
+  choices: ReviewChoice[];
   approvalMessage: string | null;
   apply: (formData: FormData) => Promise<void>;
   reject: (formData: FormData) => Promise<void>;
@@ -114,30 +157,8 @@ export function FormReview({
   const [confirmReject, setConfirmReject] = useState(false);
   return (
     <form action={apply} className="space-y-6">
-      <input type="hidden" name="versionFunction" value={versions?.function ?? ""} />
-      <input type="hidden" name="versionCatering" value={versions?.catering ?? ""} />
-      <FormDiff sections={sections} selectable />
-
-      {contact && (
-        <fieldset className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-2">
-          <legend className="px-1 text-sm font-semibold text-gray-900 dark:text-white">On-site contact</legend>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{contact.proposed}</p>
-          <label className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
-            <input type="radio" name="contactChoice" value="new" defaultChecked className="border-gray-300 dark:border-gray-600" />
-            Create a new contact
-          </label>
-          {contact.matches.map((m) => (
-            <label key={m.id} className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
-              <input type="radio" name="contactChoice" value={`existing:${m.id}`} className="border-gray-300 dark:border-gray-600" />
-              Link existing contact: {m.label}
-            </label>
-          ))}
-          <label className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
-            <input type="radio" name="contactChoice" value="skip" className="border-gray-300 dark:border-gray-600" />
-            Don&apos;t add
-          </label>
-        </fieldset>
-      )}
+      <input type="hidden" name="version" value={version ?? ""} />
+      <FormDiff sections={sections} selectable choices={choices} />
 
       <div>
         <label htmlFor="reviewNotes" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Review notes</label>
@@ -152,7 +173,7 @@ export function FormReview({
       {approvalMessage && <p className="text-sm text-amber-700 dark:text-amber-300">{approvalMessage}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <ApplyButton disabled={!!approvalMessage || !versions} />
+        <ApplyButton disabled={!!approvalMessage || !version} />
         {confirmReject ? (
           <>
             <button type="submit" formAction={reject} className={btnDanger}>Confirm reject</button>

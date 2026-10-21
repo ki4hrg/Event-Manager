@@ -7,14 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { isEmailConfigured, sendFormLinkEmail } from "@/lib/email";
-import { formConfig, loadFormSnapshot } from "@/lib/forms/index";
-import {
-  diffFunctionReview,
-  functionReviewContactMatches,
-  functionReviewVersions,
-  type ContactChoice,
-} from "@/lib/forms/functionReview";
-import { FORM_TYPE_LABEL, type FunctionReviewBaseline, type FunctionReviewPayload } from "@/lib/forms/meta";
+import { formConfig, formModule } from "@/lib/forms/index";
+import { FORM_TYPE_LABEL } from "@/lib/forms/meta";
 import { applyFormSubmissionCore, createFormLinkCore, rejectFormSubmissionCore, revokeFormLinkCore } from "./core";
 
 async function eventTimezone(eventId: string) {
@@ -28,10 +22,10 @@ function endOfDay(value: string | null, timezone: string): Date | null {
   return parseDateTimeInTimezone(`${value}T23:59`, timezone);
 }
 
-export async function getFormLinks(eventId: string, functionId?: string) {
+export async function getFormLinks(eventId: string, filter: { functionId?: string; formType?: FormType } = {}) {
   await requirePermission("FORMS", "VIEW", eventId);
   return prisma.formLink.findMany({
-    where: { eventId, ...(functionId ? { functionId } : {}) },
+    where: { eventId, ...filter },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -82,13 +76,13 @@ export async function createFormLink(eventId: string, formData: FormData) {
 
   let emailed = false;
   if (formData.get("sendEmail") === "true" && link.recipientEmail && isEmailConfigured()) {
-    const snapshot = await loadFormSnapshot({ ...link, event: { timezone } });
+    const snapshot = await formModule(link.formType).snapshot({ ...link, event: { name: eventName, timezone } });
     await sendFormLinkEmail({
       to: link.recipientEmail,
       recipientName: link.recipientName,
       eventName,
       formTitle: FORM_TYPE_LABEL[link.formType],
-      targetName: snapshot?.baseline.functionLabel ?? eventName,
+      targetName: snapshot?.targetName ?? eventName,
       token: link.token,
       dueAt: link.dueAt?.toLocaleDateString("en-US", { timeZone: timezone, month: "long", day: "numeric", year: "numeric" }) ?? null,
     });
@@ -136,15 +130,14 @@ export async function getFormSubmissionReview(eventId: string, id: string) {
     include: {
       formLink: {
         select: {
-          id: true,
           formType: true,
-          functionId: true,
+          tenantId: true,
           eventId: true,
+          functionId: true,
+          contactId: true,
           config: true,
-          label: true,
           recipientName: true,
-          recipientEmail: true,
-          event: { select: { timezone: true } },
+          event: { select: { name: true, timezone: true } },
         },
       },
       files: { select: { id: true, fileName: true, fileSize: true, mimeType: true }, orderBy: { createdAt: "asc" } },
@@ -152,43 +145,33 @@ export async function getFormSubmissionReview(eventId: string, id: string) {
     },
   });
   if (!sub) return null;
-
-  switch (sub.formType) {
-    case "FUNCTION_REVIEW": {
-      const baseline = sub.baseline as FunctionReviewBaseline;
-      const payload = sub.payload as FunctionReviewPayload;
-      const sections = formConfig(sub.formLink).sections;
-      const snapshot = await loadFormSnapshot(sub.formLink);
-      const versions = sub.formLink.functionId ? await functionReviewVersions(sub.formLink.functionId, eventId) : null;
-      return {
-        submission: sub,
-        functionId: sub.formLink.functionId,
-        diff: diffFunctionReview(baseline, payload, snapshot?.baseline ?? baseline, sections),
-        targetName: snapshot?.baseline.functionLabel ?? baseline.functionLabel,
-        versions,
-        contactMatches: await functionReviewContactMatches(payload, session.tenantId),
-      };
-    }
-    default: {
-      const _exhaustive: never = sub.formType;
-      throw new Error(`Unhandled form type: ${_exhaustive}`);
-    }
-  }
+  const mod = formModule(sub.formType);
+  const snapshot = await mod.snapshot(sub.formLink);
+  const sections = formConfig(sub.formLink).sections;
+  return {
+    submission: sub,
+    functionId: sub.formLink.functionId,
+    diff: mod.diff(sub.baseline, sub.payload, snapshot?.baseline ?? sub.baseline, sections),
+    targetName: snapshot?.targetName ?? sub.formLink.event.name,
+    // Null when the target is gone; apply is then refused.
+    version: snapshot?.version ?? null,
+    choices: sub.state === "SUBMITTED" ? await mod.reviewChoices(sub.payload, sub.formLink) : [],
+  };
 }
 
 export async function applyFormSubmission(eventId: string, id: string, formData: FormData) {
   const session = await requirePermission("FORMS", "WRITE", eventId);
-  const choice = (formData.get("contactChoice") as string) || "skip";
+  const choices: Record<string, string> = {};
+  formData.forEach((value, key) => {
+    if (key.startsWith("choice_") && typeof value === "string") choices[key.slice("choice_".length)] = value;
+  });
   await applyFormSubmissionCore(
     id,
     eventId,
     {
       sections: formData.getAll("sections") as string[],
-      versions: {
-        function: formData.get("versionFunction") as string,
-        catering: (formData.get("versionCatering") as string) || null,
-      },
-      contactChoice: (choice === "new" || choice.startsWith("existing:") ? choice : "skip") as ContactChoice,
+      version: formData.get("version") as string,
+      choices,
       notes: (formData.get("reviewNotes") as string) || null,
     },
     session.user.id,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { OpenFormLinkButton } from "../../forms/OpenFormLinkButton";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -43,17 +44,20 @@ export default async function SupplyOrdersPage({
       <Suspense fallback={null}>
         <Toast />
       </Suspense>
-      <div className="mb-4">
-        <Breadcrumbs
-          items={[
-            { label: "Events", href: "/events" },
-            { label: event.name, href: `/events/${eventId}` },
-            { label: "Supply Orders" },
-          ]}
-        />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-          {event.name}
-        </h1>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <Breadcrumbs
+            items={[
+              { label: "Events", href: "/events" },
+              { label: event.name, href: `/events/${eventId}` },
+              { label: "Supply Orders" },
+            ]}
+          />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+            {event.name}
+          </h1>
+        </div>
+        <OpenFormLinkButton eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
       </div>
 
       <SupplyOrderList

@@ -48,8 +48,8 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
     ? "The approval workflow this form requires was removed. Assign it again and complete it to apply."
     : !completion.complete
       ? "Finish the approval workflow before applying."
-      : !review.versions
-        ? "The function this form reviews no longer exists."
+      : !review.version
+        ? "The record this form reviews no longer exists."
         : null;
 
   const assignWorkflowAction = async (templateId: string) => {
@@ -77,8 +77,9 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
     await rejectFormSubmission(eventId, submissionId, formData);
   };
 
-  const contactRow = review.diff.find((s) => s.key === "contact")?.rows.find((r) => r.field === "contact");
-  const title = `${FORM_TYPE_LABEL[submission.formType]} · ${review.targetName}`;
+  // Open forms target the event itself; name them by who sent them.
+  const subject = review.targetName === event.name ? submission.submitterName ?? "Unnamed" : review.targetName;
+  const title = `${FORM_TYPE_LABEL[submission.formType]} · ${subject}`;
   const date = (d: Date | null) =>
     d ? d.toLocaleString("en-US", { timeZone: timezone, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
 
@@ -114,18 +115,8 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
           {submission.state === "SUBMITTED" && canWrite ? (
             <FormReview
               sections={review.diff}
-              versions={review.versions}
-              contact={
-                contactRow?.proposed
-                  ? {
-                      proposed: contactRow.proposed,
-                      matches: review.contactMatches.map((m) => ({
-                        id: m.id,
-                        label: [[m.firstName, m.lastName].filter(Boolean).join(" "), m.organization].filter(Boolean).join(", "),
-                      })),
-                    }
-                  : null
-              }
+              version={review.version}
+              choices={review.choices}
               approvalMessage={approvalMessage}
               apply={applyAction}
               reject={rejectAction}

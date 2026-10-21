@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { OpenFormLinkButton } from "../../forms/OpenFormLinkButton";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../actions";
@@ -62,17 +63,20 @@ export default async function PrintOrdersPage({
 
   return (
     <>
-      <div className="mb-4">
-        <Breadcrumbs
-          items={[
-            { label: "Events", href: "/events" },
-            { label: event.name, href: `/events/${eventId}` },
-            { label: "Print Orders" },
-          ]}
-        />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-          {event.name}
-        </h1>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <Breadcrumbs
+            items={[
+              { label: "Events", href: "/events" },
+              { label: event.name, href: `/events/${eventId}` },
+              { label: "Print Orders" },
+            ]}
+          />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+            {event.name}
+          </h1>
+        </div>
+        <OpenFormLinkButton eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
       </div>
 
 

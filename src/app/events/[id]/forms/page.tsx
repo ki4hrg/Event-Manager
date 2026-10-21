@@ -12,6 +12,7 @@ import { reportTd, reportTh } from "@/lib/reportStyles";
 import { getEvent } from "../../actions";
 import { getFormLinks, getFormSubmissions, revokeFormLink, type SubmissionView } from "../../forms/actions";
 import { CopyFormLink, RevokeFormLink } from "../../forms/FormLinkActions";
+import { OpenFormLinkButton } from "../../forms/OpenFormLinkButton";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,12 @@ export default async function FormsPage({
       </Suspense>
       <div className="mb-4">
         <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.name, href: `/events/${eventId}` }, { label: "Forms" }]} />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Forms</h1>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Forms</h1>
+          <div className="flex flex-wrap gap-2">
+            <OpenFormLinkButton eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
+          </div>
+        </div>
       </div>
 
       <nav className="mb-4 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-gray-200 dark:border-gray-700">
@@ -75,7 +81,7 @@ export default async function FormsPage({
 
       {tab === "links" ? (
         links.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No form links yet. Create one from a function&apos;s page.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No form links yet.</p>
         ) : (
           <div className="max-w-6xl overflow-x-auto bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <table className="min-w-full">

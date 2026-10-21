@@ -7,17 +7,14 @@ import type { FormType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { generateShareToken } from "@/lib/shareLinks";
-import { getUploadDir, getUploadPath } from "@/lib/uploads";
-import { formSectionKeys } from "@/lib/forms/index";
-import {
-  applyFunctionReview,
-  type ContactChoice,
-  type FunctionReviewVersions,
-} from "@/lib/forms/functionReview";
-import type { FunctionReviewBaseline, FunctionReviewPayload } from "@/lib/forms/meta";
+import { ENTITY_FK_FIELD, getUploadDir, getUploadPath } from "@/lib/uploads";
+import { formModule } from "@/lib/forms/index";
+import type { FileTarget, FormLinkTarget } from "@/lib/forms/types";
 import { workflowCompletionCore } from "@/app/events/workflows/core";
 
 const MAX_LINK_DAYS = 366;
+
+export const STALE_REVIEW = "This record changed after the review was opened. Reload to see the latest before applying.";
 
 export type CreateFormLinkArgs = {
   eventId: string;
@@ -38,20 +35,9 @@ export type CreateFormLinkArgs = {
 export async function createFormLinkCore(args: CreateFormLinkArgs, userId: string) {
   await requirePermissionForUser(userId, "FORMS", "WRITE", args.eventId);
   const tenantId = await requireEventTenantId(args.eventId);
+  const mod = formModule(args.formType);
+  await mod.assertTarget(args, userId);
 
-  switch (args.formType) {
-    case "FUNCTION_REVIEW": {
-      if (!args.functionId) throw new Error("Pick a function");
-      await requirePermissionForUser(userId, "FUNCTIONS", "VIEW", args.eventId);
-      const fn = await prisma.function.findFirst({ where: { id: args.functionId, eventId: args.eventId }, select: { id: true } });
-      if (!fn) throw new PermissionError("NOT_FOUND", "Function not found");
-      break;
-    }
-    default: {
-      const _exhaustive: never = args.formType;
-      throw new Error(`Unhandled form type: ${_exhaustive}`);
-    }
-  }
   if (args.contactId) {
     const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
     if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
@@ -64,8 +50,8 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
     if (!template) throw new PermissionError("NOT_FOUND", "Workflow not found");
   }
 
-  const keys = formSectionKeys(args.formType);
-  const sections = args.sections.filter((s) => keys.has(s));
+  // A form with one section has nothing to pick.
+  const sections = mod.sectionKeys.size === 1 ? Array.from(mod.sectionKeys) : args.sections.filter((s) => mod.sectionKeys.has(s));
   if (sections.length === 0) throw new Error("Pick at least one section");
   const now = Date.now();
   if (args.expiresAt.getTime() <= now) throw new Error("The close date must be in the future");
@@ -111,8 +97,9 @@ export async function rejectFormSubmissionCore(id: string, eventId: string, note
 
 export type ApplyFormSubmissionArgs = {
   sections: string[];
-  versions: FunctionReviewVersions;
-  contactChoice: ContactChoice;
+  // The snapshot version the reviewer's diff was computed against.
+  version: string;
+  choices: Record<string, string>;
   notes: string | null;
 };
 
@@ -127,16 +114,32 @@ async function assertApproved(id: string, requiredTemplateId: string | null) {
   if (!complete) throw new Error("Finish the approval workflow before applying");
 }
 
+const linkTargetSelect = {
+  formType: true,
+  tenantId: true,
+  eventId: true,
+  functionId: true,
+  contactId: true,
+  config: true,
+  event: { select: { name: true, timezone: true } },
+} as const;
+
 export async function applyFormSubmissionCore(id: string, eventId: string, args: ApplyFormSubmissionArgs, userId: string) {
   await requirePermissionForUser(userId, "FORMS", "WRITE", eventId);
   const tenantId = await requireEventTenantId(eventId);
   const sub = await prisma.formSubmission.findFirst({
     where: { id, eventId, tenantId },
-    include: { formLink: { select: { functionId: true } }, event: { select: { timezone: true } }, files: true },
+    include: { formLink: { select: linkTargetSelect }, files: true },
   });
   if (!sub) throw new PermissionError("NOT_FOUND", "Submission not found");
   if (sub.state !== "SUBMITTED") throw new Error("This submission was already handled");
   if (args.sections.length === 0) throw new Error("Pick at least one section to apply");
+
+  const link: FormLinkTarget = sub.formLink;
+  const mod = formModule(sub.formType);
+  const snapshot = await mod.snapshot(link);
+  if (!snapshot) throw new Error("The record this form reviews no longer exists");
+  if (snapshot.version !== args.version) throw new Error(STALE_REVIEW);
 
   await assertApproved(id, sub.requiredTemplateId);
   // Claim it so a second click can't apply twice; put it back if apply fails.
@@ -146,33 +149,24 @@ export async function applyFormSubmissionCore(id: string, eventId: string, args:
   });
   if (claimed.count === 0) throw new Error("This submission was already handled");
 
-  let result: Prisma.InputJsonValue;
+  let result: Awaited<ReturnType<typeof mod.apply>>;
   try {
     // Re-checked after the claim: a step un-ticked in between still blocks.
     await assertApproved(id, sub.requiredTemplateId);
-    switch (sub.formType) {
-      case "FUNCTION_REVIEW": {
-        if (!sub.formLink.functionId) throw new Error("This form's function no longer exists");
-        result = await applyFunctionReview({
-          functionId: sub.formLink.functionId,
-          eventId,
-          baseline: sub.baseline as FunctionReviewBaseline,
-          payload: sub.payload as FunctionReviewPayload,
-          sections: new Set(args.sections),
-          versions: args.versions,
-          contactChoice: args.contactChoice,
-          submitter: { name: sub.submitterName, org: sub.submitterOrg },
-          submittedAt: sub.submittedAt ?? sub.createdAt,
-          timezone: sub.event.timezone || "America/Chicago",
-          userId,
-        });
-        break;
-      }
-      default: {
-        const _exhaustive: never = sub.formType;
-        throw new Error(`Unhandled form type: ${_exhaustive}`);
-      }
-    }
+    result = await mod.apply({
+      submission: {
+        id,
+        payload: sub.payload,
+        baseline: sub.baseline,
+        submitterName: sub.submitterName,
+        submitterOrg: sub.submitterOrg,
+        submittedAt: sub.submittedAt ?? sub.createdAt,
+      },
+      link,
+      sections: new Set(args.sections),
+      choices: args.choices,
+      userId,
+    });
   } catch (err) {
     await prisma.formSubmission.update({
       where: { id },
@@ -181,24 +175,25 @@ export async function applyFormSubmissionCore(id: string, eventId: string, args:
     throw err;
   }
 
-  const filed = await fileSubmissionAttachments(id, eventId, sub.files);
+  const filed = await fileSubmissionAttachments(id, result.filesTo ?? { entityType: "event", entityId: eventId }, sub.files);
   await prisma.formSubmission.update({
     where: { id },
-    data: { applyResult: { ...(result as Prisma.JsonObject), filedFiles: filed } },
+    data: { applyResult: { ...result, filedFiles: filed } as Prisma.InputJsonValue },
   });
 }
 
-// Files the submission's attachments on the event's Files page: copies under
-// the event with the same storedName, as inbound-email attachments are filed.
+// Files the submission's attachments on the record apply chose (the event's
+// Files by default): copies with the same storedName, as inbound-email
+// attachments are filed.
 async function fileSubmissionAttachments(
   id: string,
-  eventId: string,
+  target: FileTarget,
   files: { fileName: string; storedName: string; mimeType: string; fileSize: number }[],
 ) {
   if (files.length === 0) return 0;
-  mkdirSync(getUploadDir("event", eventId), { recursive: true });
+  mkdirSync(getUploadDir(target.entityType, target.entityId), { recursive: true });
   for (const f of files) {
-    copyFileSync(getUploadPath("formSubmission", id, f.storedName), getUploadPath("event", eventId, f.storedName));
+    copyFileSync(getUploadPath("formSubmission", id, f.storedName), getUploadPath(target.entityType, target.entityId, f.storedName));
   }
   await prisma.fileUpload.createMany({
     data: files.map((f) => ({
@@ -206,7 +201,7 @@ async function fileSubmissionAttachments(
       storedName: f.storedName,
       mimeType: f.mimeType,
       fileSize: f.fileSize,
-      eventId,
+      [ENTITY_FK_FIELD[target.entityType]]: target.entityId,
     })),
   });
   return files.length;

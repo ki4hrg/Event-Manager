@@ -3117,6 +3117,7 @@ model InboundEmail {
 
 enum FormType {
   FUNCTION_REVIEW
+  ITEM_REQUEST
 }
 
 enum FormSubmissionState {

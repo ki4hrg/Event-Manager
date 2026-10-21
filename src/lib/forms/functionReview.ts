@@ -8,15 +8,19 @@
 // staff and share views and must never take public input.
 
 import { prisma } from "@/lib/prisma";
-import { requirePermissionForUser, requireEventTenantId, PermissionError } from "@/lib/permissions";
+import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { formatTimeRange } from "@/lib/agendaUtils";
 import { getOptionsForEvent } from "@/lib/options";
 import { updateFunctionEsgCore, addFunctionContactCore, createAndAddFunctionContactCore } from "@/app/events/functions/core";
 import { updateCateringOrderCore } from "@/app/events/catering-orders/core";
 import { PublicFormError } from "./links";
+import { contactReviewChoice, resolveContactChoice } from "./contacts";
+import type { FormApplyContext, FormModule } from "./types";
 import {
   FUNCTION_REVIEW_SECTIONS,
+  FUNCTION_REVIEW_SECTION_KEYS,
+  readFormLinkConfig,
   type FormDiffRow,
   type FormDiffSection,
   type FunctionReviewBaseline,
@@ -136,7 +140,7 @@ export async function functionReviewBaseline(
 }
 
 // The sections a link asked for, minus ones the function has nothing for.
-export function functionReviewSections(configured: string[], baseline: FunctionReviewBaseline): FunctionReviewSection[] {
+function functionReviewSections(configured: string[], baseline: FunctionReviewBaseline): FunctionReviewSection[] {
   return FUNCTION_REVIEW_SECTIONS.map((s) => s.key).filter(
     (key) => configured.includes(key) && (key !== "catering" || baseline.catering !== null),
   );
@@ -168,7 +172,7 @@ function count(formData: FormData, key: string): number | null {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function parseFunctionReviewPayload(
+async function parseFunctionReviewPayload(
   formData: FormData,
   sections: FunctionReviewSection[],
   eventId: string,
@@ -244,7 +248,7 @@ function contactLine(c: NonNullable<FunctionReviewPayload["contact"]>): string {
   return [[c.firstName, c.lastName].filter(Boolean).join(" "), c.email, c.phone].filter(Boolean).join(" · ");
 }
 
-export function diffFunctionReview(
+function diffFunctionReview(
   baseline: FunctionReviewBaseline,
   payload: FunctionReviewPayload,
   current: FunctionReviewBaseline,
@@ -273,6 +277,7 @@ export function diffFunctionReview(
     return {
       key,
       label,
+      mode: "update" as const,
       verdict: response.verdict,
       note: response.note,
       rows,
@@ -283,48 +288,29 @@ export function diffFunctionReview(
 
 // ─── Apply ───────────────────────────────────────────────────────────────────
 
-export type FunctionReviewVersions = { function: string; catering: string | null };
-
-export async function functionReviewVersions(functionId: string, eventId: string): Promise<FunctionReviewVersions | null> {
+// Changes whenever a column this form can write changes; the generic apply
+// refuses when the record moved after the reviewer opened the diff.
+async function functionReviewVersion(functionId: string, eventId: string): Promise<string | null> {
   const fn = await prisma.function.findFirst({
     where: { id: functionId, eventId },
     select: { updatedAt: true, cateringOrder: { select: { updatedAt: true } } },
   });
   if (!fn) return null;
-  return { function: fn.updatedAt.toISOString(), catering: fn.cateringOrder?.updatedAt.toISOString() ?? null };
+  return `${fn.updatedAt.toISOString()}|${fn.cateringOrder?.updatedAt.toISOString() ?? ""}`;
 }
 
-// "new" creates a contact from the submitted details; "existing:<id>" links a
-// tenant contact the reviewer picked. A matched contact is never updated from
-// public input.
-export type ContactChoice = "new" | "skip" | `existing:${string}`;
-
-export const STALE_REVIEW = "The function changed after this review was opened. Reload to see the latest before applying.";
-
-export async function applyFunctionReview(args: {
-  functionId: string;
-  eventId: string;
-  baseline: FunctionReviewBaseline;
-  payload: FunctionReviewPayload;
-  sections: Set<string>;
-  versions: FunctionReviewVersions;
-  contactChoice: ContactChoice;
-  submitter: { name: string | null; org: string | null };
-  submittedAt: Date;
-  timezone: string;
-  userId: string;
-}) {
-  const { functionId, eventId, baseline, payload, sections, userId } = args;
+async function applyFunctionReview(ctx: FormApplyContext<FunctionReviewPayload, FunctionReviewBaseline>) {
+  const { link, sections, userId } = ctx;
+  const { payload, baseline } = ctx.submission;
+  const eventId = link.eventId;
+  const functionId = link.functionId;
+  if (!functionId) throw new Error("This form's function no longer exists");
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   const fn = await prisma.function.findFirst({
     where: { id: functionId, eventId },
-    select: { notes: true, updatedAt: true, cateringOrder: { select: { id: true, updatedAt: true } } },
+    select: { notes: true, cateringOrder: { select: { id: true } } },
   });
   if (!fn) throw new PermissionError("NOT_FOUND", "The function no longer exists");
-  // Compare-and-set on what the reviewer looked at: a write since then means
-  // the diff they approved is not the diff that would be applied.
-  if (fn.updatedAt.toISOString() !== args.versions.function) throw new Error(STALE_REVIEW);
-  if ((fn.cateringOrder?.updatedAt.toISOString() ?? null) !== args.versions.catering) throw new Error(STALE_REVIEW);
 
   const changed = (section: string) => (sections.has(section) ? changedFields(baseline, payload, section) : []);
   const pick = (section: string, field: keyof FunctionReviewPayload) => changed(section).some((f) => f.field === field);
@@ -347,11 +333,11 @@ export async function applyFunctionReview(args: {
     .filter(({ r }) => r?.verdict === "changes" && r.note)
     .map(({ label, r }) => `- ${label}: ${r!.note}`);
 
-  const applied: string[] = [];
   if (Object.keys(esg).length > 0) await updateFunctionEsgCore(functionId, eventId, esg, userId);
   if (description || requests.length > 0) {
-    const who = [args.submitter.name, args.submitter.org].filter(Boolean).join(", ") || "sponsor";
-    const date = args.submittedAt.toLocaleDateString("en-US", { timeZone: args.timezone, month: "short", day: "numeric", year: "numeric" });
+    const who = [ctx.submission.submitterName, ctx.submission.submitterOrg].filter(Boolean).join(", ") || "sponsor";
+    const timezone = link.event.timezone || "America/Chicago";
+    const date = ctx.submission.submittedAt.toLocaleDateString("en-US", { timeZone: timezone, month: "short", day: "numeric", year: "numeric" });
     const notes = requests.length > 0
       ? [fn.notes, `Function review from ${who} (${date}):\n${requests.join("\n")}`].filter(Boolean).join("\n\n")
       : fn.notes;
@@ -369,9 +355,10 @@ export async function applyFunctionReview(args: {
   }
 
   let contactId: string | null = null;
-  if (sections.has("contact") && payload.contact && args.contactChoice !== "skip") {
-    if (args.contactChoice === "new") {
-      const link = await createAndAddFunctionContactCore(
+  if (sections.has("contact") && payload.contact) {
+    const choice = await resolveContactChoice(ctx.choices.contact, link.tenantId);
+    if (choice.kind === "new") {
+      const added = await createAndAddFunctionContactCore(
         {
           functionId,
           eventId,
@@ -379,35 +366,69 @@ export async function applyFunctionReview(args: {
           lastName: payload.contact.lastName ?? "",
           email: payload.contact.email,
           phone: payload.contact.phone,
-          organization: args.submitter.org,
+          organization: ctx.submission.submitterOrg,
           role: "On-site Contact",
         },
         userId,
       );
-      contactId = link.contactId;
-    } else {
-      const id = args.contactChoice.slice("existing:".length);
-      const tenantId = await requireEventTenantId(eventId);
-      const contact = await prisma.contact.findFirst({ where: { id, tenantId }, select: { id: true } });
-      if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
-      const linked = await prisma.functionContact.findFirst({ where: { functionId, contactId: id }, select: { id: true } });
-      if (!linked) await addFunctionContactCore(functionId, eventId, id, "On-site Contact", userId);
-      contactId = id;
+      contactId = added.contactId;
+    } else if (choice.kind === "existing") {
+      const linked = await prisma.functionContact.findFirst({ where: { functionId, contactId: choice.contactId }, select: { id: true } });
+      if (!linked) await addFunctionContactCore(functionId, eventId, choice.contactId, "On-site Contact", userId);
+      contactId = choice.contactId;
     }
   }
 
-  for (const s of FUNCTION_REVIEW_SECTIONS) if (sections.has(s.key)) applied.push(s.key);
-  return { sections: applied, contactId };
+  return { applied: FUNCTION_REVIEW_SECTIONS.map((s) => s.key).filter((k) => sections.has(k)), contactId };
 }
 
-// Tenant contacts sharing the submitted email, for the reviewer's
-// "link to existing" choice. Names only; the reviewer is staff.
-export async function functionReviewContactMatches(payload: FunctionReviewPayload, tenantId: string) {
-  const email = payload.contact?.email;
-  if (!email) return [];
-  return prisma.contact.findMany({
-    where: { tenantId, email: { equals: email, mode: "insensitive" } },
-    select: { id: true, firstName: true, lastName: true, organization: true },
-    take: 5,
-  });
+// A saved draft whose function changed since: fields the submitter left as
+// they saw them follow the record; fields they edited keep their answer.
+function rebaseFunctionReview(
+  payload: FunctionReviewPayload,
+  oldBaseline: FunctionReviewBaseline | null,
+  newBaseline: FunctionReviewBaseline,
+): FunctionReviewPayload {
+  if (!oldBaseline) return payload;
+  const next: FunctionReviewPayload = { ...payload };
+  for (const f of APPLY_FIELDS) {
+    if (next[f.field] !== undefined && next[f.field] === f.read(oldBaseline)) {
+      (next as Record<string, unknown>)[f.field] = f.read(newBaseline);
+    }
+  }
+  return next;
 }
+
+export const functionReviewModule: FormModule<FunctionReviewPayload, FunctionReviewBaseline> = {
+  sectionKeys: FUNCTION_REVIEW_SECTION_KEYS,
+  async assertTarget({ eventId, functionId }, userId) {
+    if (!functionId) throw new Error("Pick a function");
+    await requirePermissionForUser(userId, "FUNCTIONS", "VIEW", eventId);
+    const fn = await prisma.function.findFirst({ where: { id: functionId, eventId }, select: { id: true } });
+    if (!fn) throw new PermissionError("NOT_FOUND", "Function not found");
+  },
+  async snapshot(link) {
+    if (!link.functionId) return null;
+    const timezone = link.event.timezone || "America/Chicago";
+    const [baseline, version] = await Promise.all([
+      functionReviewBaseline(link.functionId, link.eventId, timezone),
+      functionReviewVersion(link.functionId, link.eventId),
+    ]);
+    if (!baseline || !version) return null;
+    return {
+      baseline,
+      sections: functionReviewSections(readFormLinkConfig(link.config, FUNCTION_REVIEW_SECTION_KEYS).sections, baseline),
+      version,
+      targetName: baseline.functionLabel,
+    };
+  },
+  parse: (formData, snapshot, link) =>
+    parseFunctionReviewPayload(formData, snapshot.sections as FunctionReviewSection[], link.eventId),
+  rebase: rebaseFunctionReview,
+  diff: diffFunctionReview,
+  async reviewChoices(payload, link) {
+    if (!payload.contact) return [];
+    return [await contactReviewChoice("contact", "On-site contact", payload.contact.email, link.tenantId)];
+  },
+  apply: applyFunctionReview,
+};

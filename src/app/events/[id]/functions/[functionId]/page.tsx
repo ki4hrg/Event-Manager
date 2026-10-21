@@ -128,7 +128,7 @@ export default async function FunctionPage({
     hasPermission("FUNCTIONS", "WRITE", eventId),
     hasPermission("FORMS", "WRITE", eventId),
   ]);
-  const formLinks = canWriteForms ? await getFormLinks(eventId, functionId) : [];
+  const formLinks = canWriteForms ? await getFormLinks(eventId, { functionId }) : [];
 
   const [availableAVOrders, availableCateringOrders, availableSetupOrders, availablePrintOrders, availableSupplyOrders, availableMediaDeliverables, workflowInstances, allTemplates, substatuses] = await Promise.all([
     getAvailableAVOrdersForFunction(eventId, functionId),

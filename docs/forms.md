@@ -18,14 +18,27 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 | Piece | Where |
 |---|---|
 | Labels, payload/baseline types, diff types | `src/lib/forms/meta.ts` (client-safe) |
-| Form-type dispatch | `src/lib/forms/index.ts` |
-| Function Review: projection, parse, diff, apply | `src/lib/forms/functionReview.ts` |
+| The `FormModule` contract | `src/lib/forms/types.ts` |
+| Registry (`formModule(type)`) | `src/lib/forms/index.ts` |
+| Function Review | `src/lib/forms/functionReview.ts` |
+| Item Request (open link) | `src/lib/forms/itemRequest.ts` |
+| Reviewer contact choice (new / existing / skip) | `src/lib/forms/contacts.ts` |
 | Token lookup, throttle, draft lookup, purge | `src/lib/forms/links.ts` |
 | Public cores (draft, submit, upload, discard) | `src/lib/forms/publicCore.ts` |
 | Public page, actions, upload route | `src/app/f/[token]/` |
 | Staff cores and actions | `src/app/events/forms/{core,actions}.ts` |
 | Queue and review pages | `src/app/events/[id]/forms/` |
-| Link dialog | `src/app/events/forms/FormLinkButton.tsx` (on the function page) |
+| Link dialog | `src/app/events/forms/FormLinkButton.tsx`; `OpenFormLinkButton.tsx` for open forms |
+| Shared public form frame | `src/app/f/[token]/FormParts.tsx` |
+
+## Form types
+
+| Type | Link target | Apply writes |
+|---|---|---|
+| Function Review | a function (+ recipient contact) | ESG fields, description, catering count/dietary, on-site contact; change requests onto the function's notes |
+| Item Request | none (open link; from Forms, Print Orders, Supply Orders) | one item per line on a new or chosen print/supply order; procure → TO_PROCURE, shipping → DROP_SHIP + IN_TRANSIT, bringing → ON_HAND |
+
+Every module's `snapshot().version` changes when a column it can write changes. The public form posts it back (stale → `?error=stale`), and so does the review page, where `applyFormSubmissionCore` refuses on a mismatch. Create-only forms use a constant. Reviewer decisions per section arrive as `choice_<key>` (`ReviewChoice` in `types.ts`).
 
 ## Security rules
 

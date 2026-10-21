@@ -6,6 +6,7 @@ import type { FormSubmissionState, FormType } from "@prisma/client";
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = {
   FUNCTION_REVIEW: "Function Review",
+  ITEM_REQUEST: "Item Request",
 };
 
 export const FORM_STATE_LABEL: Record<FormSubmissionState, string> = {
@@ -115,6 +116,9 @@ export type FormDiffRow = {
 export type FormDiffSection = {
   key: string;
   label: string;
+  // "update" compares against a record on file; "create" proposes a new one,
+  // so there is no before/now and no verdict.
+  mode: "update" | "create";
   verdict: SectionVerdict | null;
   note: string | null;
   rows: FormDiffRow[];
@@ -131,4 +135,54 @@ export function formLinkStatus(link: { revokedAt: Date | null; expiresAt: Date; 
     return { label: "Submitted", cls: "text-gray-600 dark:text-gray-400" };
   }
   return { label: "Open", cls: "text-green-600 dark:text-green-400" };
+}
+
+// ─── Item Request ────────────────────────────────────────────────────────────
+// An open link: whoever has it asks for items to be procured, or tells the
+// team items are on their way. Apply turns each line into a print or supply
+// order item.
+
+export const ITEM_REQUEST_SECTION_KEYS = new Set<string>(["items"]);
+export const ITEM_REQUEST_MAX_LINES = 30;
+
+export const ITEM_REQUEST_MODES = [
+  { value: "request", label: "Request items" },
+  { value: "incoming", label: "Notify incoming items" },
+] as const;
+
+export const ITEM_KINDS = [
+  { value: "print", label: "Printed piece" },
+  { value: "supply", label: "Supply" },
+] as const;
+
+export const ITEM_SOURCES = [
+  { value: "procure", label: "Procure it for me" },
+  { value: "shipping", label: "I'm shipping it" },
+  { value: "bringing", label: "I'm bringing it" },
+] as const;
+
+export type ItemRequestMode = (typeof ITEM_REQUEST_MODES)[number]["value"];
+export type ItemKind = (typeof ITEM_KINDS)[number]["value"];
+export type ItemSource = (typeof ITEM_SOURCES)[number]["value"];
+
+export type ItemRequestLine = {
+  description: string;
+  quantity: number | null;
+  kind: ItemKind;
+  neededBy: string | null; // YYYY-MM-DD
+  destination: string | null; // "function:<id>" | "room:<id>", from the baseline list
+  source: ItemSource;
+  carrier: string | null;
+  tracking: string | null;
+  notes: string | null;
+};
+
+export type ItemRequestPayload = { mode: ItemRequestMode; items: ItemRequestLine[] };
+
+// Names and ids only: no times, attendance or room details.
+export type ItemRequestBaseline = { destinations: { value: string; label: string }[] };
+
+export function optionLabel(list: readonly { value: string; label: string }[], value: string | null): string | null {
+  if (value == null) return null;
+  return list.find((o) => o.value === value)?.label ?? value;
 }
