@@ -40,5 +40,11 @@ export const KIND_LABELS: Record<string, string> = {
   PICKUP_COUNTS: "Pickup counts",
   RFP_PROPOSAL: "Hotel proposal",
   RFP_DECLINE: "Declined to bid",
+  VENDOR_QUOTE: "Vendor quote",
+  BEO: "BEO",
+  CONTRACT: "Contract",
   OTHER: "Other",
 };
+
+// The quote review's vendor value for a vendor not on file yet.
+export const NEW_VENDOR = "__new_vendor__";

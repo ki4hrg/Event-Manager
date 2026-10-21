@@ -1,7 +1,7 @@
 # Proposal — Vendor RFPs (RFP tools phase 5)
 
-Status: Phases 1–4 implemented (vendor RFPs, quotes, award, comparison,
-MCP); phase 5 (inbox kinds) next. Follows docs/proposals/rfp-tools.md
+Status: implemented (vendor RFPs, quotes, award, comparison, MCP, inbox
+kinds). Follows docs/proposals/rfp-tools.md
 (hotel RFPs, phases 1–4). Where this design and the code differ, the code
 wins.
 

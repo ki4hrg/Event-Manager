@@ -106,9 +106,19 @@ export function VendorQuoteForm({
   vendors,
   lineItems,
   defaultVendorId,
+  hideVendor = false,
+  hiddenFields,
+  initialValues,
+  submitLabel,
   action,
   cancelHref,
 }: {
+  // The inbox review picks the vendor (and RFP) above the form and posts them here.
+  hideVendor?: boolean;
+  hiddenFields?: Record<string, string>;
+  submitLabel?: string;
+  // A new quote's starting values (one read from email).
+  initialValues?: QuoteValues;
   resource: PermissionResource;
   values: QuoteValues | null; // null: a new quote
   vendors: { id: string; name: string }[];
@@ -121,8 +131,9 @@ export function VendorQuoteForm({
   const isEdit = values != null;
   const canWrite = useCanWrite(resource);
   const [editing, setEditing] = useState(!isEdit);
-  const [lines, setLines] = useState(() => startLines(values, lineItems));
-  const [fees, setFees] = useState({ serviceCharge: values?.serviceCharge ?? "", tax: values?.tax ?? "", otherFees: values?.otherFees ?? "" });
+  const start = values ?? initialValues ?? null;
+  const [lines, setLines] = useState(() => startLines(start, lineItems));
+  const [fees, setFees] = useState({ serviceCharge: start?.serviceCharge ?? "", tax: start?.tax ?? "", otherFees: start?.otherFees ?? "" });
   const asked = new Map(lineItems.map((li) => [li.id, li]));
   const totals = quoteTotals({
     lines: lines.map((l) => ({ quantity: num(l.quantity), unitPrice: num(l.unitPrice), amount: num(l.amount) })),
@@ -214,25 +225,30 @@ export function VendorQuoteForm({
       className={`${cardClass} space-y-6`}
     >
       <input type="hidden" name="lines" value={JSON.stringify(lines.filter((l) => l.description.trim() || l.unitPrice || l.amount).map(toArgs))} />
+      {Object.entries(hiddenFields ?? {}).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Vendor *" htmlFor="q-vendorId">
-          <select id="q-vendorId" name="vendorId" required defaultValue={values?.vendorId ?? defaultVendorId ?? ""} className={inputClass}>
-            <option value="">Select a vendor</option>
-            {vendors.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {!hideVendor && (
+          <Field label="Vendor *" htmlFor="q-vendorId">
+            <select id="q-vendorId" name="vendorId" required defaultValue={values?.vendorId ?? defaultVendorId ?? ""} className={inputClass}>
+              <option value="">Select a vendor</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="Reference" htmlFor="q-reference">
-          <input id="q-reference" name="reference" placeholder="Quote number" defaultValue={values?.reference ?? ""} className={inputClass} />
+          <input id="q-reference" name="reference" placeholder="Quote number" defaultValue={start?.reference ?? ""} className={inputClass} />
         </Field>
         <Field label="Submitted" htmlFor="q-submittedOn">
-          <input id="q-submittedOn" type="date" name="submittedOn" defaultValue={values?.submittedOn ?? ""} className={inputClass} />
+          <input id="q-submittedOn" type="date" name="submittedOn" defaultValue={start?.submittedOn ?? ""} className={inputClass} />
         </Field>
         <Field label="Valid until" htmlFor="q-validUntil">
-          <input id="q-validUntil" type="date" name="validUntil" defaultValue={values?.validUntil ?? ""} className={inputClass} />
+          <input id="q-validUntil" type="date" name="validUntil" defaultValue={start?.validUntil ?? ""} className={inputClass} />
         </Field>
         {isEdit && (
           <Field label="Revision" htmlFor="q-revision">
@@ -314,17 +330,17 @@ export function VendorQuoteForm({
             </Field>
           ))}
           <Field label="Deposit" htmlFor="q-depositAmount">
-            <input id="q-depositAmount" type="number" min={0} step="0.01" placeholder="$" name="depositAmount" defaultValue={values?.depositAmount ?? ""} className={inputClass} />
+            <input id="q-depositAmount" type="number" min={0} step="0.01" placeholder="$" name="depositAmount" defaultValue={start?.depositAmount ?? ""} className={inputClass} />
           </Field>
           <Field label="Deposit due" htmlFor="q-depositDue">
-            <input id="q-depositDue" type="date" name="depositDue" defaultValue={values?.depositDue ?? ""} className={inputClass} />
+            <input id="q-depositDue" type="date" name="depositDue" defaultValue={start?.depositDue ?? ""} className={inputClass} />
           </Field>
         </div>
         <Field label="Cancellation" htmlFor="q-cancellationTerms">
-          <input id="q-cancellationTerms" name="cancellationTerms" defaultValue={values?.cancellationTerms ?? ""} className={inputClass} />
+          <input id="q-cancellationTerms" name="cancellationTerms" defaultValue={start?.cancellationTerms ?? ""} className={inputClass} />
         </Field>
         <Field label="Notes" htmlFor="q-notes">
-          <textarea id="q-notes" name="notes" rows={3} defaultValue={values?.notes ?? ""} className={inputClass} />
+          <textarea id="q-notes" name="notes" rows={3} defaultValue={start?.notes ?? ""} className={inputClass} />
         </Field>
       </fieldset>
 
@@ -333,7 +349,7 @@ export function VendorQuoteForm({
       </p>
 
       <div className="flex flex-wrap gap-3">
-        <SaveButton label={isEdit ? "Save" : "Record quote"} />
+        <SaveButton label={submitLabel ?? (isEdit ? "Save" : "Record quote")} />
         {isEdit ? (
           <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>
             Cancel

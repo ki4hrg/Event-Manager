@@ -1,6 +1,6 @@
 # Proposal — Email ingest (per-event inbox)
 
-Status: Phases 1–3 implemented (inbox, pickup parsing, RFP responses); phase 4 MCP tools implemented, new kinds in progress.
+Status: Phases 1–4 implemented (inbox, pickup parsing, RFP responses, MCP, vendor quotes / BEOs / contracts).
 Where this design and the code differ, the code wins.
 
 ## Problem
@@ -245,5 +245,16 @@ says it isn't configured.
    `dismiss_inbox_item`, and `submit_inbox_item`, which stores a message
    from the caller (`origin: MCP`, a MEMBER sender, text and base64
    attachments) and reads it like delivered mail
-   (`submitInboundItemCore`). Next: vendor quotes, BEOs (banquet event
-   orders) and contracts — see docs/proposals/vendor-rfps.md § Email ingest.
+   (`submitInboundItemCore`). New kinds — done (see
+   docs/proposals/vendor-rfps.md § Email ingest): **VENDOR_QUOTE** opens the
+   quote form prefilled (vendor or *New vendor*, the vendor RFP it answers or
+   standalone, lines priced against that RFP's line items) and records it
+   with the attachments filed on the quote (`applyInboundQuoteCore`);
+   **BEO** shows each field it states beside the catering order's value,
+   ticked where they differ, and writes the ticked ones and files the BEO
+   (`applyInboundBeoCore`); **CONTRACT** picks the hotel proposal, vendor
+   quote or catering order it covers, writes the terms that record holds
+   (attrition / valid until; deposit / cancellation; deposit deadline /
+   cancellation) and puts the rest in its notes (`applyInboundContractCore`).
+   Context given to Claude adds the event's vendors, vendor RFPs with line
+   items, catering orders, and contract targets.

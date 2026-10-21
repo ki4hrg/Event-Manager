@@ -4,10 +4,10 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "fs
 import Anthropic from "@anthropic-ai/sdk";
 import { Prisma, type HotelPickupMethod, type InboundStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
-import { getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "@/lib/uploads";
+import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
+import { ENTITY_FK_FIELD, getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "@/lib/uploads";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
-import { blockTypeLabel, dateKey, formatNight, roomTypeLabel } from "@/lib/hotels";
+import { blockTypeLabel, dateFromKey, dateKey, formatDateKey, formatMoney, formatNight, roomTypeLabel } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, rowsToGuests, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import {
@@ -20,10 +20,15 @@ import {
   type ParseBlock,
   type ParseRfp,
   type ParseVenue,
+  type ParseVendorContext,
+  type ContractTarget,
   offerAmenities,
 } from "@/lib/inboundParse";
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
-import { createHotelProposalCore, createNewHotelCore, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
+import { createHotelProposalCore, createNewHotelCore, toProposalValues, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
+import { createVendorQuoteCore, updateVendorQuoteCore, type QuoteWriteArgs } from "@/app/events/quotes/core";
+import { updateCateringOrderCore, type UpdateCateringOrderArgs } from "@/app/events/catering-orders/core";
+import { createVendorCore } from "@/app/vendors/core";
 import type { HotelChargeScope } from "@prisma/client";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
 import { eventScopeWhere } from "@/app/events/core";
@@ -324,6 +329,79 @@ const addressOf = (formatted: string | null) => formatted?.match(/<([^>]+)>/)?.[
 
 // Attachments in the order the item lists them (Prisma createdAt, then id),
 // which is the order proposal.sheet.attachment indexes.
+// Vendor-side candidates for a read: vendors a quote could come from (the
+// event's, its vendor RFPs' recipients, the sender's own), vendor RFPs with
+// their line items, catering orders a BEO could be for, and the records a
+// contract could cover.
+async function parseVendorContext(eventId: string, tenantId: string, senderAddresses: string[], timezone: string): Promise<ParseVendorContext> {
+  const [eventVendors, senderVendors, rfps, orders, proposals, quotes] = await Promise.all([
+    prisma.eventVendor.findMany({ where: { eventId }, select: { vendor: { select: { id: true, name: true } } } }),
+    senderAddresses.length
+      ? prisma.vendor.findMany({
+          where: { tenantId, contacts: { some: { contact: { OR: senderAddresses.map((a) => ({ email: { equals: a, mode: "insensitive" as const } })) } } } },
+          select: { id: true, name: true },
+        })
+      : [],
+    prisma.rfp.findMany({
+      where: { eventId, kind: { not: "HOTEL" } },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        title: true,
+        kind: true,
+        service: true,
+        recipients: { where: { vendorId: { not: null } }, select: { vendor: { select: { id: true, name: true } } } },
+        lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true, group: true, description: true, quantity: true, unit: true } },
+      },
+    }),
+    prisma.cateringOrder.findMany({
+      where: { eventId },
+      select: {
+        id: true,
+        name: true,
+        mealType: true,
+        expectedCount: true,
+        guaranteeCount: true,
+        function: { select: { schedules: { select: { startTime: true }, orderBy: { startTime: "asc" }, take: 1 } } },
+      },
+    }),
+    prisma.hotelProposal.findMany({ where: { eventId }, select: { id: true, status: true, revision: true, venue: { select: { name: true } } } }),
+    prisma.vendorQuote.findMany({ where: { eventId }, select: { id: true, status: true, vendor: { select: { name: true } }, rfp: { select: { title: true } } } }),
+  ]);
+  const vendors = new Map<string, ParseVenue>();
+  const add = (v: { id: string; name: string } | null, why: string) => {
+    if (v && !vendors.has(v.id)) vendors.set(v.id, { id: v.id, name: v.name, why });
+  };
+  senderVendors.forEach((v) => add(v, "the sender is one of its contacts"));
+  rfps.forEach((r) => r.recipients.forEach((x) => add(x.vendor, `sent RFP "${r.title}"`)));
+  eventVendors.forEach((e) => add(e.vendor, "a vendor on this event"));
+  const orderLabel = (o: (typeof orders)[number]) => {
+    const at = o.function?.schedules[0]?.startTime;
+    const count = o.guaranteeCount ?? o.expectedCount;
+    return [o.name, o.mealType, at ? formatNight(getDateKeyInTimezone(at, timezone)) : null, count != null ? `${count} guests` : null].filter(Boolean).join(" · ");
+  };
+  const contractTargets: { target: ContractTarget; id: string; label: string }[] = [
+    ...proposals.map((p) => ({ target: "HOTEL_PROPOSAL" as const, id: p.id, label: `${p.venue.name} proposal · ${p.status}${p.revision > 1 ? ` · rev ${p.revision}` : ""}` })),
+    ...quotes.map((q) => ({ target: "VENDOR_QUOTE" as const, id: q.id, label: `${q.vendor.name} quote${q.rfp ? ` for "${q.rfp.title}"` : ""} · ${q.status}` })),
+    ...orders.map((o) => ({ target: "CATERING_ORDER" as const, id: o.id, label: orderLabel(o) })),
+  ];
+  return {
+    vendors: Array.from(vendors.values()),
+    vendorRfps: rfps.map((r) => ({
+      id: r.id,
+      title: r.title,
+      kind: r.kind === "OTHER" ? (r.service ?? "Other services") : r.kind,
+      recipients: r.recipients.flatMap((x) => (x.vendor ? [`${x.vendor.name} (${x.vendor.id})`] : [])),
+      lineItems: r.lineItems.map((l) => ({
+        id: l.id,
+        label: [l.group, l.description, l.quantity != null ? `${l.quantity}${l.unit ? ` ${l.unit}` : ""}` : null].filter(Boolean).join(" · "),
+      })),
+    })),
+    cateringOrders: orders.map((o) => ({ id: o.id, label: orderLabel(o) })),
+    contractTargets,
+  };
+}
+
 export async function inboundAttachments(id: string) {
   return prisma.fileUpload.findMany({
     where: { inboundEmailId: id, fileType: null },
@@ -367,10 +445,11 @@ async function parseInboundEmail(id: string) {
     });
   try {
     const senders = [item.senderAddress, addressOf(item.forwardedFrom)].filter((x): x is string => !!x);
-    const [blocks, attachments, rfpContext] = await Promise.all([
+    const [blocks, attachments, rfpContext, vendorContext] = await Promise.all([
       parseBlocks(event.id),
       readAttachments(id),
       parseRfpContext(event.id, item.tenantId, senders),
+      parseVendorContext(event.id, item.tenantId, senders, event.timezone),
     ]);
     const { proposal, model } = await parseInboundMessage({
       subject: item.subject,
@@ -383,6 +462,7 @@ async function parseInboundEmail(id: string) {
       eventName: event.name,
       blocks,
       ...rfpContext,
+      ...vendorContext,
       attachments,
     });
     await settle({ status: "PARSED", kind: proposal.kind, proposal, model, error: null });
@@ -490,13 +570,13 @@ export async function applyInboundRevisionCore(id: string, eventId: string, prop
   });
 }
 
-// The message's attachments, filed on the proposal it was applied to.
-async function copyAttachmentsToProposal(id: string, proposalId: string) {
+// The message's attachments, filed on the record it was applied to.
+async function copyAttachmentsTo(id: string, entityType: "hotelProposal" | "vendorQuote" | "cateringOrder", entityId: string) {
   const files = await inboundAttachments(id);
   if (!files.length) return;
-  mkdirSync(getUploadDir("hotelProposal", proposalId), { recursive: true });
+  mkdirSync(getUploadDir(entityType, entityId), { recursive: true });
   for (const f of files) {
-    copyFileSync(getUploadPath("inboundEmail", id, f.storedName), getUploadPath("hotelProposal", proposalId, f.storedName));
+    copyFileSync(getUploadPath("inboundEmail", id, f.storedName), getUploadPath(entityType, entityId, f.storedName));
   }
   await prisma.fileUpload.createMany({
     data: files.map((f) => ({
@@ -504,8 +584,162 @@ async function copyAttachmentsToProposal(id: string, proposalId: string) {
       storedName: f.storedName,
       mimeType: f.mimeType,
       fileSize: f.fileSize,
-      hotelProposalId: proposalId,
+      [ENTITY_FK_FIELD[entityType]]: entityId,
     })),
+  });
+}
+
+const copyAttachmentsToProposal = (id: string, proposalId: string) => copyAttachmentsTo(id, "hotelProposal", proposalId);
+
+// ─── Vendor quotes, BEOs, contracts ──────────────────────────────────────────
+
+const KIND_MODEL: Partial<Record<string, string>> = { AV: "AV_ORDER", CATERING: "CATERING_ORDER", PRINT: "PRINT_ORDER" };
+
+// A vendor's quote, as reviewed in the quote form: records it (on its RFP, or
+// standalone) and files the message's attachments on it. A vendor not on
+// file is created first (VENDORS WRITE), tagged for the RFP's order type.
+export async function applyInboundQuoteCore(
+  id: string,
+  eventId: string,
+  rfpId: string | null,
+  args: QuoteWriteArgs,
+  newVendorName: string | null,
+  userId: string,
+): Promise<string> {
+  let quoteId = "";
+  await claimAndApply(id, eventId, userId, async () => {
+    let vendorId = args.vendorId;
+    if (newVendorName?.trim()) {
+      const tenantId = await requireEventTenantId(eventId);
+      const name = newVendorName.trim();
+      const same = await prisma.vendor.findFirst({ where: { tenantId, name: { equals: name, mode: "insensitive" } }, select: { id: true } });
+      if (same) throw new Error(`${name} is already a vendor; choose it`);
+      const kind = rfpId ? (await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } }))?.kind : null;
+      const model = kind ? KIND_MODEL[kind] : undefined;
+      vendorId = (await createVendorCore({ name, models: model ? [model] : [], notes: null }, userId, tenantId)).id;
+    }
+    const quote = await createVendorQuoteCore(eventId, rfpId, { ...args, vendorId }, userId);
+    quoteId = quote.id;
+    await copyAttachmentsTo(id, "vendorQuote", quote.id);
+    return { appliedQuoteId: quote.id };
+  });
+  return quoteId;
+}
+
+// What a BEO changes on its catering order: only the fields the reviewer
+// kept (undefined leaves one as it is).
+export type BeoApplyArgs = Pick<
+  UpdateCateringOrderArgs,
+  "mealType" | "serviceStyle" | "expectedCount" | "confirmedCount" | "guaranteeCount" | "fbMinimum" | "depositDeadline" | "guaranteeDeadline" | "paymentDeadline" | "cancellationTerms" | "dietaryNotes" | "notes"
+>;
+
+export async function applyInboundBeoCore(id: string, eventId: string, cateringOrderId: string, args: BeoApplyArgs, userId: string) {
+  await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
+  const order = await prisma.cateringOrder.findFirst({ where: { id: cateringOrderId, eventId }, select: { id: true, name: true } });
+  if (!order) throw new PermissionError("NOT_FOUND", "Catering order not found");
+  await claimAndApply(id, eventId, userId, async () => {
+    await updateCateringOrderCore(order.id, eventId, args, userId);
+    await copyAttachmentsTo(id, "cateringOrder", order.id);
+    return { appliedTo: { target: "CATERING_ORDER" as const, id: order.id, label: order.name } };
+  });
+}
+
+// What a contract writes on the record it covers; undefined leaves a field.
+// note is appended to the record's notes.
+export type ContractApplyArgs = {
+  depositAmount?: number | null; // vendor quote
+  depositDue?: string | null; // vendor quote (deposit due), catering order (deposit deadline)
+  attrition?: number | null; // hotel proposal
+  signBy?: string | null; // hotel proposal (valid until)
+  cancellationTerms?: string | null; // vendor quote, catering order
+  note?: string | null;
+};
+
+const appendNote = (current: string | null, note: string | null | undefined) =>
+  note?.trim() ? [current, note.trim()].filter(Boolean).join("\n\n") : current;
+
+export async function applyInboundContractCore(
+  id: string,
+  eventId: string,
+  target: ContractTarget,
+  targetId: string,
+  args: ContractApplyArgs,
+  userId: string,
+) {
+  const day = (v: string | null | undefined) => (v === undefined ? undefined : v ? dateFromKey(v) : null);
+  await claimAndApply(id, eventId, userId, async () => {
+    switch (target) {
+      case "HOTEL_PROPOSAL": {
+        const p = await prisma.hotelProposal.findFirst({
+          where: { id: targetId, eventId },
+          include: { venue: { select: { name: true } }, nights: true, charges: true, amenities: true, concessions: { include: { concession: { select: { label: true } } } } },
+        });
+        if (!p) throw new PermissionError("NOT_FOUND", "Proposal not found");
+        const v = toProposalValues(p);
+        const n = (x: string | null) => (x == null ? null : Number(x));
+        await updateHotelProposalCore(
+          p.id,
+          eventId,
+          {
+            ...v,
+            revisionSummary: null,
+            allowedAttrition: args.attrition !== undefined ? args.attrition : n(v.allowedAttrition),
+            guaranteedRevenue: n(v.guaranteedRevenue),
+            validUntil: args.signBy !== undefined ? args.signBy : v.validUntil,
+            notes: appendNote(v.notes, args.note),
+            nights: v.nights.map((x) => ({ ...x, rate: n(x.rate) })),
+            charges: v.charges.map((c) => ({ ...c, amount: n(c.amount) })),
+          },
+          userId,
+        );
+        await copyAttachmentsTo(id, "hotelProposal", p.id);
+        return { appliedTo: { target, id: p.id, label: `${p.venue.name} proposal` } };
+      }
+      case "VENDOR_QUOTE": {
+        const q = await prisma.vendorQuote.findFirst({ where: { id: targetId, eventId }, include: { vendor: { select: { name: true } }, lines: { orderBy: { sortOrder: "asc" } } } });
+        if (!q) throw new PermissionError("NOT_FOUND", "Quote not found");
+        const n = (x: { toString(): string } | null) => (x == null ? null : Number(x.toString()));
+        const k = (d: Date | null) => (d ? dateKey(d) : null);
+        await updateVendorQuoteCore(
+          q.id,
+          eventId,
+          {
+            vendorId: q.vendorId,
+            reference: q.reference,
+            submittedOn: k(q.submittedOn),
+            validUntil: k(q.validUntil),
+            revision: q.revision,
+            serviceCharge: n(q.serviceCharge),
+            tax: n(q.tax),
+            otherFees: n(q.otherFees),
+            depositAmount: args.depositAmount !== undefined ? args.depositAmount : n(q.depositAmount),
+            depositDue: args.depositDue !== undefined ? args.depositDue : k(q.depositDue),
+            cancellationTerms: args.cancellationTerms !== undefined ? args.cancellationTerms : q.cancellationTerms,
+            notes: appendNote(q.notes, args.note),
+            lines: q.lines.map((l) => ({ id: l.id, rfpLineItemId: l.rfpLineItemId, description: l.description, quantity: n(l.quantity), unitPrice: n(l.unitPrice), amount: n(l.amount), notes: l.notes })),
+          },
+          userId,
+        );
+        await copyAttachmentsTo(id, "vendorQuote", q.id);
+        return { appliedTo: { target, id: q.id, label: `${q.vendor.name} quote` } };
+      }
+      case "CATERING_ORDER": {
+        const o = await prisma.cateringOrder.findFirst({ where: { id: targetId, eventId }, select: { id: true, name: true, notes: true } });
+        if (!o) throw new PermissionError("NOT_FOUND", "Catering order not found");
+        await updateCateringOrderCore(
+          o.id,
+          eventId,
+          { depositDeadline: day(args.depositDue), cancellationTerms: args.cancellationTerms, notes: appendNote(o.notes, args.note) ?? undefined },
+          userId,
+        );
+        await copyAttachmentsTo(id, "cateringOrder", o.id);
+        return { appliedTo: { target, id: o.id, label: o.name } };
+      }
+      default: {
+        const _exhaustive: never = target;
+        throw new Error(`Unhandled contract target: ${_exhaustive}`);
+      }
+    }
   });
 }
 
@@ -840,7 +1074,74 @@ export type ApplyAsProposedArgs = {
   venueId?: string | null; // offers / declines: the hotel, else the one it was read as
   newHotel?: boolean; // an offer from a hotel not in Venues: create it from the offer
   method?: Exclude<HotelPickupMethod, "COUNTS">; // pickup guests: MERGE by default
+  vendorId?: string | null; // quotes: the vendor, else the one it was read as
+  newVendor?: boolean; // a quote from a vendor not on file: create it by the quote's name
+  cateringOrderId?: string | null; // BEOs: the order, else the one it was read as
+  target?: ContractTarget | null; // contracts: what it covers, else as read
+  targetId?: string | null;
 };
+
+// The quote a read proposes, as the quote form's args.
+export function quoteArgsFromRead(q: NonNullable<InboundProposal["quote"]>, vendorId: string): QuoteWriteArgs {
+  return {
+    vendorId,
+    reference: q.reference,
+    submittedOn: q.submittedOn,
+    validUntil: q.validUntil,
+    revision: 1,
+    serviceCharge: q.serviceCharge,
+    tax: q.tax,
+    otherFees: q.otherFees,
+    depositAmount: q.depositAmount,
+    depositDue: q.depositDue,
+    cancellationTerms: q.cancellationTerms,
+    notes: q.notes,
+    lines: q.lines.map((l) => ({ id: null, rfpLineItemId: l.rfpLineItemId, description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, amount: l.amount, notes: l.notes })),
+  };
+}
+
+// The fields a BEO states, as catering-order changes (unstated ones left out).
+export function beoArgsFromRead(b: NonNullable<InboundProposal["beo"]>): BeoApplyArgs {
+  const out: BeoApplyArgs = {};
+  const set = <K extends keyof BeoApplyArgs>(k: K, v: BeoApplyArgs[K] | null) => {
+    if (v != null) out[k] = v;
+  };
+  set("mealType", b.mealType);
+  set("serviceStyle", b.serviceStyle);
+  set("expectedCount", b.expectedCount);
+  set("confirmedCount", b.confirmedCount);
+  set("guaranteeCount", b.guaranteeCount);
+  set("fbMinimum", b.fbMinimum);
+  set("depositDeadline", b.depositDeadline ? dateFromKey(b.depositDeadline) : null);
+  set("guaranteeDeadline", b.guaranteeDeadline ? dateFromKey(b.guaranteeDeadline) : null);
+  set("paymentDeadline", b.paymentDeadline ? dateFromKey(b.paymentDeadline) : null);
+  set("cancellationTerms", b.cancellationTerms);
+  set("dietaryNotes", b.dietaryNotes);
+  return out;
+}
+
+// What a contract read writes, per target: only fields that target holds;
+// the rest of its terms become a note.
+export function contractArgsFromRead(c: NonNullable<InboundProposal["contract"]>, target: ContractTarget): ContractApplyArgs {
+  const status = c.signed === true ? "Contract signed" : c.signed === false ? "Contract sent for signature" : "Contract";
+  const unheld = [
+    target !== "HOTEL_PROPOSAL" && c.signBy ? `sign by ${formatDateKey(c.signBy)}` : null,
+    target !== "VENDOR_QUOTE" && c.depositAmount != null ? `deposit ${formatMoney(String(c.depositAmount))}` : null,
+    target === "HOTEL_PROPOSAL" && c.depositDue ? `deposit due ${formatDateKey(c.depositDue)}` : null,
+    target !== "HOTEL_PROPOSAL" && c.attrition != null ? `attrition ${c.attrition}%` : null,
+    c.cutoffDate ? `cut-off ${formatDateKey(c.cutoffDate)}` : null,
+    target === "HOTEL_PROPOSAL" && c.cancellationTerms ? `cancellation: ${c.cancellationTerms}` : null,
+    c.notes,
+  ].filter(Boolean);
+  return {
+    ...(target === "VENDOR_QUOTE" && c.depositAmount != null ? { depositAmount: c.depositAmount } : {}),
+    ...(target !== "HOTEL_PROPOSAL" && c.depositDue ? { depositDue: c.depositDue } : {}),
+    ...(target === "HOTEL_PROPOSAL" && c.attrition != null ? { attrition: c.attrition } : {}),
+    ...(target === "HOTEL_PROPOSAL" && c.signBy ? { signBy: c.signBy } : {}),
+    ...(target !== "HOTEL_PROPOSAL" && c.cancellationTerms ? { cancellationTerms: c.cancellationTerms } : {}),
+    note: `${status}${unheld.length ? `: ${unheld.join("; ")}` : ""}`,
+  };
+}
 
 // Applies a Ready item as Claude read it, without the review form (MCP).
 // Pickup goes to the block, a decline marks the hotel on its RFP, an offer
@@ -884,6 +1185,30 @@ export async function applyInboundAsProposedCore(id: string, eventId: string, ar
       const proposalArgs = await offerArgs(eventId, offer, venueId ?? "");
       const proposalId = await applyInboundOfferCore(id, eventId, proposalArgs, venueId ? null : offer.hotel, userId);
       return { applied: "proposal", proposalId };
+    }
+    case "VENDOR_QUOTE": {
+      const q = proposal.quote;
+      if (!q) throw new Error("This read has no quote");
+      const vendorId = args.vendorId ?? q.vendorId;
+      if (!vendorId && !(args.newVendor && q.vendorName)) throw new Error("The quote's vendor isn't on file: pass vendorId, or newVendor: true to add it by the quote's name");
+      const quoteId = await applyInboundQuoteCore(id, eventId, q.rfpId, quoteArgsFromRead(q, vendorId ?? ""), vendorId ? null : q.vendorName, userId);
+      return { applied: "quote", quoteId };
+    }
+    case "BEO": {
+      const b = proposal.beo;
+      const orderId = args.cateringOrderId ?? b?.cateringOrderId;
+      if (!b || !orderId) throw new Error("Which catering order? Pass cateringOrderId (list_catering_orders)");
+      const changes = beoArgsFromRead(b);
+      await applyInboundBeoCore(id, eventId, orderId, changes, userId);
+      return { applied: "beo", cateringOrderId: orderId, fields: Object.keys(changes) };
+    }
+    case "CONTRACT": {
+      const c = proposal.contract;
+      const target = args.target ?? c?.target;
+      const targetId = args.targetId ?? c?.targetId;
+      if (!c || !target || !targetId) throw new Error("What does it cover? Pass target (HOTEL_PROPOSAL, VENDOR_QUOTE, CATERING_ORDER) and targetId");
+      await applyInboundContractCore(id, eventId, target, targetId, contractArgsFromRead(c, target), userId);
+      return { applied: "contract", target, targetId };
     }
     case "OTHER":
       throw new Error("Nothing to apply: file its attachments or dismiss it");

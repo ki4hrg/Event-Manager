@@ -18,6 +18,7 @@ export function InboxProposalPanel({
   diagnostics,
   appliedTo,
   appliedProposal = null,
+  appliedLink = null,
 }: {
   status: InboundStatus;
   proposal: InboundProposal | null;
@@ -27,6 +28,7 @@ export function InboxProposalPanel({
   diagnostics: boolean;
   appliedTo: string | null;
   appliedProposal?: { name: string; href: string } | null;
+  appliedLink?: { label: string; href: string } | null;
 }) {
   if (status === "HELD" || (!parsing && !proposal && !error)) return null;
   return (
@@ -46,6 +48,13 @@ export function InboxProposalPanel({
           Created{" "}
           <Link href={appliedProposal.href} className="underline">
             {appliedProposal.name} proposal
+          </Link>
+        </p>
+      )}
+      {appliedLink && (
+        <p className="text-sm text-green-700 dark:text-green-400">
+          <Link href={appliedLink.href} className="underline">
+            {appliedLink.label}
           </Link>
         </p>
       )}
