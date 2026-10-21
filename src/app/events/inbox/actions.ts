@@ -288,6 +288,10 @@ export async function getInboxReview(id: string, eventId: string) {
     roomMap: Record<string, string>;
     statusMap: Record<string, boolean>;
   } | null = null;
+  // Only codes Claude placed; the rest start as the wizard guesses them.
+  const roomMap = Object.fromEntries(
+    (proposal.roomTypes ?? proposal.sheet?.roomTypes ?? []).flatMap((r) => (r.roomType ? [[r.raw, r.roomType]] : [])),
+  );
   if (proposal.kind === "PICKUP_GUESTS" && proposal.sheet) {
     const file = (await inboundAttachments(id))[proposal.sheet.attachment];
     const kind = file && sheetKind(file.fileName, file.mimeType);
@@ -305,9 +309,41 @@ export async function getInboxReview(id: string, eventId: string) {
       const statusMap = Object.fromEntries(
         distinctValues(rows, columns.status).map((raw) => [raw, cancelled.has(raw) || DEFAULT_CANCELLED.test(raw)]),
       );
-      const roomMap = Object.fromEntries(proposal.sheet.roomTypes.map((r) => [r.raw, r.roomType ?? ""]));
       sheet = { fileName: file.fileName, headers, rows, columns, roomMap, statusMap };
     }
+  } else if (proposal.kind === "PICKUP_GUESTS" && proposal.guests) {
+    // A list read from a PDF or the body goes through the same wizard, so its
+    // room types and statuses can be mapped before importing.
+    const guests = proposal.guests;
+    const pdf = (await inboundAttachments(id)).find((f) => f.mimeType === "application/pdf" || f.fileName.toLowerCase().endsWith(".pdf"));
+    const headers = ["Guest", "Confirmation #", "Arrival", "Departure", "Room type", "Status", "Booked", "Cancelled on"];
+    const rows = guests.map((g) => ({
+      Guest: g.guestName ?? "",
+      "Confirmation #": g.confirmationNumber ?? "",
+      Arrival: g.checkIn ?? "",
+      Departure: g.checkOut ?? "",
+      "Room type": g.roomType ?? "",
+      Status: g.rawStatus ?? (g.cancelled ? "Cancelled" : ""),
+      Booked: g.bookedOn ?? "",
+      "Cancelled on": g.cancelledOn ?? "",
+    }));
+    const columns = {
+      fullName: "Guest",
+      firstName: "",
+      lastName: "",
+      confirmation: "Confirmation #",
+      checkIn: "Arrival",
+      checkOut: "Departure",
+      roomType: "Room type",
+      status: "Status",
+      bookedOn: "Booked",
+      cancelledOn: "Cancelled on",
+    } satisfies PickupColumns;
+    const statusMap: Record<string, boolean> = {};
+    rows.forEach((r, i) => {
+      if (r.Status) statusMap[r.Status] = (statusMap[r.Status] ?? false) || guests[i].cancelled;
+    });
+    sheet = { fileName: pdf?.fileName ?? item.subject ?? "Email", headers, rows, columns, roomMap, statusMap };
   }
 
   return {
