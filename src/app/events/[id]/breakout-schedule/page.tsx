@@ -63,7 +63,7 @@ export default async function BreakoutSchedulePage({
             {event.name}
           </h1>
         </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 min-w-0">
           <Link
             href={`/events/${eventId}/${REPORTS.BREAKOUT_GRID.path}`}
             className={`${btnSecondary} text-sm`}

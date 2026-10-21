@@ -366,7 +366,7 @@ export function ProposalForm({
           </Fieldset>
         )}
 
-        <Fieldset title="Proposal">
+        <Fieldset title="Details">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Hotel *" htmlFor="p-venueId" wide>
               <select id="p-venueId" name="venueId" required value={venueId} onChange={(e) => pickVenue(e.target.value)} className={inputClass}>
