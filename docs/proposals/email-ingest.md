@@ -214,6 +214,13 @@ says it isn't configured.
    event's address as the Reply-To. Context given to Claude: the event's
    RFPs (blocks, recipients, concessions) and candidate hotels (recipients,
    hotels with a proposal, the sender's own hotel).
+   An offer from a hotel not on file: an existing venue with the offer's
+   hotel name is picked; otherwise a **New hotel** panel, prefilled from the
+   offer (name, address, sales contact), creates it as a lodging venue with
+   that contact (VENUES WRITE) and selects it.
+   Reading is two calls: classify (kind, summary, notes), then only that
+   kind's fields — one schema for every kind compiled to a grammar the API
+   rejected as too large.
 4. **Later.** Other kinds (vendor quotes, BEOs (banquet event orders),
    contracts), MCP `list_inbox_items` / `get_inbox_item` / `apply_inbox_item`,
    and an `origin: MCP` submit tool.
