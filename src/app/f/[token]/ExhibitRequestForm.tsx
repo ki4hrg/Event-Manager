@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import {
+  EXHIBIT_EQUIPMENT_SOURCES,
   EXHIBIT_MAX_EQUIPMENT,
   EXHIBIT_PROVIDERS,
+  type ExhibitEquipmentSource,
+  type ExhibitProvider,
   type ExhibitRequestBaseline,
   type ExhibitRequestPayload,
 } from "@/lib/forms/meta";
@@ -14,20 +17,53 @@ type Props = CommonFormProps & {
   draft: DraftView<ExhibitRequestPayload> | null;
 };
 
-function Provider({ name, label, value }: { name: string; label: string; value: string | null | undefined }) {
+// One power/AV question: hidden when the link offers no choices, fixed when
+// it offers one.
+function Service({
+  name,
+  label,
+  needsLabel,
+  allowed,
+  provider,
+  notes,
+}: {
+  name: string;
+  label: string;
+  needsLabel: string;
+  allowed: ExhibitProvider[] | undefined;
+  provider: string | null | undefined;
+  notes: string | null | undefined;
+}) {
+  const options = EXHIBIT_PROVIDERS.filter((p) => !allowed || allowed.includes(p.value));
+  if (options.length === 0) return null;
   return (
-    <div>
-      <label htmlFor={name} className={labelCls}>{label}</label>
-      <select id={name} name={name} defaultValue={value ?? ""} className={inputCls}>
-        <option value="">Not sure yet</option>
-        {EXHIBIT_PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-      </select>
-    </div>
+    <>
+      {options.length === 1 ? (
+        <OnFile label={label}>{options[0].label}</OnFile>
+      ) : (
+        <div>
+          <label htmlFor={`${name}Provider`} className={labelCls}>{label}</label>
+          <select id={`${name}Provider`} name={`${name}Provider`} defaultValue={provider ?? ""} className={inputCls}>
+            <option value="">Not sure yet</option>
+            {options.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
+        <label htmlFor={`${name}Notes`} className={labelCls}>{needsLabel}</label>
+        <input id={`${name}Notes`} name={`${name}Notes`} maxLength={2000} defaultValue={notes ?? ""} className={inputCls} />
+      </div>
+    </>
   );
+}
+
+function equipmentTitle(source: ExhibitEquipmentSource) {
+  return source === "provide" ? "Equipment you need us to provide" : "Equipment you're bringing";
 }
 
 export function ExhibitRequestForm({ baseline, draft, ...common }: Props) {
   const p = draft?.payload ?? null;
+  const sources = baseline.equipment ?? EXHIBIT_EQUIPMENT_SOURCES.map((src) => src.value);
   const savedEquipment = p?.equipment ?? [];
   const [rows, setRows] = useState<number[]>(() => (savedEquipment.length ? savedEquipment.map((_, i) => i) : [0]));
   const addRow = () => {
@@ -45,7 +81,8 @@ export function ExhibitRequestForm({ baseline, draft, ...common }: Props) {
             <label htmlFor="company" className={labelCls}>Company or organization on the booth</label>
             <input id="company" name="company" required maxLength={120} defaultValue={p?.company ?? ""} className={inputCls} />
           </div>
-          {baseline.boothTypes.length > 0 && (
+          {baseline.boothTypes.length === 1 && <OnFile label="Booth type">{baseline.boothTypes[0]}</OnFile>}
+          {baseline.boothTypes.length > 1 && (
             <div>
               <label htmlFor="boothType" className={labelCls}>Booth type</label>
               <select id="boothType" name="boothType" defaultValue={p?.boothType ?? ""} className={inputCls}>
@@ -54,10 +91,12 @@ export function ExhibitRequestForm({ baseline, draft, ...common }: Props) {
               </select>
             </div>
           )}
-          <div>
-            <label htmlFor="location" className={labelCls}>Preferred location</label>
-            <input id="location" name="location" maxLength={200} defaultValue={p?.location ?? ""} className={inputCls} />
-          </div>
+          {baseline.askLocation !== false && (
+            <div>
+              <label htmlFor="location" className={labelCls}>Preferred location</label>
+              <input id="location" name="location" maxLength={200} defaultValue={p?.location ?? ""} className={inputCls} />
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
@@ -92,47 +131,53 @@ export function ExhibitRequestForm({ baseline, draft, ...common }: Props) {
         </div>
       </Card>
 
-      <Card title="Power & audio visual">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Provider name="electricalProvider" label="Electrical" value={p?.electricalProvider} />
-          <div>
-            <label htmlFor="electricalNotes" className={labelCls}>Electrical needs</label>
-            <input id="electricalNotes" name="electricalNotes" maxLength={2000} defaultValue={p?.electricalNotes ?? ""} className={inputCls} />
+      {(baseline.electrical?.length !== 0 || baseline.av?.length !== 0) && (
+        <Card title={baseline.electrical?.length === 0 ? "Audio visual" : baseline.av?.length === 0 ? "Power" : "Power & audio visual"}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Service name="electrical" label="Electrical" needsLabel="Electrical needs" allowed={baseline.electrical} provider={p?.electricalProvider} notes={p?.electricalNotes} />
+            <Service name="av" label="Audio visual" needsLabel="Audio visual needs" allowed={baseline.av} provider={p?.avProvider} notes={p?.avNotes} />
           </div>
-          <Provider name="avProvider" label="Audio visual" value={p?.avProvider} />
-          <div>
-            <label htmlFor="avNotes" className={labelCls}>Audio visual needs</label>
-            <input id="avNotes" name="avNotes" maxLength={2000} defaultValue={p?.avNotes ?? ""} className={inputCls} />
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
-      <Card title="Equipment">
-        <div className="space-y-3">
-          {rows.map((index) => (
-            <div key={index} className="flex items-end gap-3">
-              <div className="flex-1 min-w-0">
-                <label htmlFor={`equip_${index}_item`} className={labelCls}>Item</label>
-                <input id={`equip_${index}_item`} name={`equip_${index}_item`} maxLength={200} defaultValue={savedEquipment[index]?.item ?? ""} className={inputCls} />
+      {sources.length > 0 && (
+        <Card title={sources.length === 1 ? equipmentTitle(sources[0]) : "Equipment & furnishings"}>
+          <div className="space-y-3">
+            {rows.map((index) => (
+              <div key={index} className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[12rem]">
+                  <label htmlFor={`equip_${index}_item`} className={labelCls}>Item</label>
+                  <input id={`equip_${index}_item`} name={`equip_${index}_item`} maxLength={200} placeholder="e.g. 6 ft table, monitor, banner stand" defaultValue={savedEquipment[index]?.item ?? ""} className={inputCls} />
+                </div>
+                <div className="w-20">
+                  <label htmlFor={`equip_${index}_quantity`} className={labelCls}>Qty</label>
+                  <input id={`equip_${index}_quantity`} name={`equip_${index}_quantity`} type="number" min={0} max={99999} inputMode="numeric" defaultValue={savedEquipment[index]?.quantity ?? ""} className={inputCls} />
+                </div>
+                {sources.length > 1 && (
+                  <div className="w-40">
+                    <label htmlFor={`equip_${index}_source`} className={labelCls}>Who supplies it</label>
+                    <select id={`equip_${index}_source`} name={`equip_${index}_source`} defaultValue={savedEquipment[index]?.source ?? sources[0]} className={inputCls}>
+                      {EXHIBIT_EQUIPMENT_SOURCES.filter((src) => sources.includes(src.value)).map((src) => (
+                        <option key={src.value} value={src.value}>{src.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {rows.length > 1 && (
+                  <button type="button" onClick={() => setRows(rows.filter((r) => r !== index))} className="pb-2 text-xs text-red-600 dark:text-red-400 hover:underline">
+                    Remove
+                  </button>
+                )}
               </div>
-              <div className="w-24">
-                <label htmlFor={`equip_${index}_quantity`} className={labelCls}>Qty</label>
-                <input id={`equip_${index}_quantity`} name={`equip_${index}_quantity`} type="number" min={0} max={99999} inputMode="numeric" defaultValue={savedEquipment[index]?.quantity ?? ""} className={inputCls} />
-              </div>
-              {rows.length > 1 && (
-                <button type="button" onClick={() => setRows(rows.filter((r) => r !== index))} className="pb-2 text-xs text-red-600 dark:text-red-400 hover:underline">
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        {rows.length < EXHIBIT_MAX_EQUIPMENT && (
-          <button type="button" onClick={addRow} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-            + Add an item
-          </button>
-        )}
-      </Card>
+            ))}
+          </div>
+          {rows.length < EXHIBIT_MAX_EQUIPMENT && (
+            <button type="button" onClick={addRow} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              + Add an item
+            </button>
+          )}
+        </Card>
+      )}
 
       <Card title="Anything else?">
         <label htmlFor="specialRequirements" className={labelCls}>Special requirements</label>

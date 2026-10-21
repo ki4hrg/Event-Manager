@@ -83,8 +83,9 @@ export type FunctionReviewBaseline = {
 // The form config a link stores. `sections` is always a subset of the form
 // type's section keys; `intro` renders as plain text. `mediaUploadUrl` is a
 // location staff host (a shared drive folder, an internal upload tool): when set, the form sends
-// presenters there and takes no uploads itself.
-export type FormLinkConfig = { sections: string[]; intro?: string | null; mediaUploadUrl?: string | null };
+// presenters there and takes no uploads itself. `options` holds a form type's
+// own link settings, read by its module (readExhibitLinkOptions).
+export type FormLinkConfig = { sections: string[]; intro?: string | null; mediaUploadUrl?: string | null; options?: unknown };
 
 // An https URL as typed, normalized, or null when it isn't one.
 export function httpsUrl(value: unknown): string | null {
@@ -98,11 +99,16 @@ export function httpsUrl(value: unknown): string | null {
 }
 
 export function readFormLinkConfig(raw: unknown, validKeys: Set<string>): FormLinkConfig {
-  const obj = (raw && typeof raw === "object" ? raw : {}) as { sections?: unknown; intro?: unknown; mediaUploadUrl?: unknown };
+  const obj = (raw && typeof raw === "object" ? raw : {}) as { sections?: unknown; intro?: unknown; mediaUploadUrl?: unknown; options?: unknown };
   const sections = Array.isArray(obj.sections)
     ? obj.sections.filter((s): s is string => typeof s === "string" && validKeys.has(s))
     : [];
-  return { sections, intro: typeof obj.intro === "string" ? obj.intro : null, mediaUploadUrl: httpsUrl(obj.mediaUploadUrl) };
+  return {
+    sections,
+    intro: typeof obj.intro === "string" ? obj.intro : null,
+    mediaUploadUrl: httpsUrl(obj.mediaUploadUrl),
+    options: obj.options ?? null,
+  };
 }
 
 // The hidden field bots fill. Its name must never be a real form field's
@@ -146,6 +152,19 @@ export type FormDiffSection = {
   // to record on the record's notes.
   applicable: boolean;
 };
+
+// The heading for a set of forms sent as one link (or a single form): the
+// form titles, and the target when they share one ("3 functions" when a
+// Function Review covers several). Shared by the public page, its link
+// preview and the email.
+export function formsHeading(parts: { formTitle: string; targetName: string | null }[], eventName: string) {
+  const titles = Array.from(new Set(parts.map((p) => p.formTitle)));
+  const targets = Array.from(new Set(parts.map((p) => p.targetName).filter((t): t is string => !!t && t !== eventName)));
+  let targetName: string | null = null;
+  if (targets.length === 1) targetName = targets[0];
+  else if (targets.length > 1 && titles.length === 1) targetName = `${targets.length} ${titles[0] === FORM_TYPE_LABEL.FUNCTION_REVIEW ? "functions" : "forms"}`;
+  return { formTitle: titles.join(" & ") || "Form", targetName };
+}
 
 // A link's state for staff lists. Plain helper so server pages can call it.
 export function formLinkStatus(link: { revokedAt: Date | null; expiresAt: Date; maxSubmissions: number | null; submittedCount: number }) {
@@ -224,6 +243,16 @@ export const EXHIBIT_PROVIDERS = [
 
 export type ExhibitProvider = (typeof EXHIBIT_PROVIDERS)[number]["value"];
 
+// Who supplies an equipment line: the event, or the exhibitor brings it.
+// `label` is the exhibitor's wording, `staffLabel` the link dialog's and the
+// review page's.
+export const EXHIBIT_EQUIPMENT_SOURCES = [
+  { value: "provide", label: "Please provide", staffLabel: "Items to provide" },
+  { value: "bring", label: "I'm bringing it", staffLabel: "Items they're bringing" },
+] as const;
+
+export type ExhibitEquipmentSource = (typeof EXHIBIT_EQUIPMENT_SOURCES)[number]["value"];
+
 export type ExhibitRequestPayload = {
   company: string | null;
   boothType: string | null;
@@ -236,10 +265,53 @@ export type ExhibitRequestPayload = {
   avProvider: ExhibitProvider | null;
   avNotes: string | null;
   specialRequirements: string | null;
-  equipment: { item: string; quantity: number | null }[];
+  // `source` is absent on submissions sent before it was asked.
+  equipment: { item: string; quantity: number | null; source?: ExhibitEquipmentSource | null }[];
 };
 
-export type ExhibitRequestBaseline = { groupName: string | null; boothTypes: string[] };
+// What a link asks for. `boothTypes` null offers every booth type on file;
+// one entry fixes the booth type. An empty provider list leaves that question
+// off the form; one entry fixes the answer.
+export type ExhibitLinkOptions = {
+  boothTypes: string[] | null;
+  askLocation: boolean;
+  electrical: ExhibitProvider[];
+  av: ExhibitProvider[];
+  equipment: ExhibitEquipmentSource[];
+};
+
+const ALL_EQUIPMENT_SOURCES: ExhibitEquipmentSource[] = EXHIBIT_EQUIPMENT_SOURCES.map((s) => s.value);
+
+const ALL_EXHIBIT_PROVIDERS: ExhibitProvider[] = EXHIBIT_PROVIDERS.map((p) => p.value);
+
+function providerList(raw: unknown): ExhibitProvider[] {
+  if (!Array.isArray(raw)) return ALL_EXHIBIT_PROVIDERS;
+  return ALL_EXHIBIT_PROVIDERS.filter((p) => raw.includes(p));
+}
+
+// Links made before these settings existed ask everything.
+export function readExhibitLinkOptions(raw: unknown): ExhibitLinkOptions {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    boothTypes: Array.isArray(obj.boothTypes) ? obj.boothTypes.filter((t): t is string => typeof t === "string") : null,
+    askLocation: typeof obj.askLocation === "boolean" ? obj.askLocation : true,
+    electrical: providerList(obj.electrical),
+    av: providerList(obj.av),
+    equipment: Array.isArray(obj.equipment)
+      ? ALL_EQUIPMENT_SOURCES.filter((v) => (obj.equipment as unknown[]).includes(v))
+      : ALL_EQUIPMENT_SOURCES,
+  };
+}
+
+// Older submissions' baselines carry only groupName and boothTypes.
+export type ExhibitRequestBaseline = {
+  groupName: string | null;
+  boothTypes: string[];
+  askLocation?: boolean;
+  electrical?: ExhibitProvider[];
+  av?: ExhibitProvider[];
+  equipment?: ExhibitEquipmentSource[];
+};
 
 // ─── Presentation Deliverables ───────────────────────────────────────────────
 // A presenter confirms the session's public details and sends what the team

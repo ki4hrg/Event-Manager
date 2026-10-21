@@ -3168,6 +3168,13 @@ model FormLink {
   // Exhibit requests may be scoped to one booth group.
   boothGroupId       String?
   boothGroup         ExhibitBoothGroup? @relation(fields: [boothGroupId], references: [id], onDelete: Cascade)
+  // A bundle is one link (and one email) over several child links: a Function
+  // Review of several functions, or a speaker's profile and deliverables. It
+  // holds no target and takes no submissions; each child is a normal link.
+  bundle             Boolean            @default(false)
+  parentId           String?
+  parent             FormLink?          @relation("FormLinkBundle", fields: [parentId], references: [id], onDelete: Cascade)
+  children           FormLink[]         @relation("FormLinkBundle")
   // { sections: string[], intro?: string }
   config             Json               @default("{}")
   label              String?
@@ -3195,6 +3202,7 @@ model FormLink {
   @@index([contactId])
   @@index([presentationId])
   @@index([boothGroupId])
+  @@index([parentId])
   @@index([workflowTemplateId])
   @@index([createdById])
 }

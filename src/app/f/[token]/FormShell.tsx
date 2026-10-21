@@ -9,6 +9,8 @@ export type PublicFormDto = {
   recipientName: string | null;
   dueAt: string | null;
   intro: string | null;
+  // The bundle index this form belongs to, when it was sent as one of several.
+  bundleHref?: string | null;
 };
 
 export function FormShell({ form, children }: { form: PublicFormDto; children: React.ReactNode }) {
@@ -16,6 +18,11 @@ export function FormShell({ form, children }: { form: PublicFormDto; children: R
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-3xl mx-auto px-4 py-4 min-w-0">
+          {form.bundleHref && (
+            <a href={form.bundleHref} className="mb-1 inline-block text-xs text-blue-600 dark:text-blue-400 hover:underline">
+              &larr; All forms
+            </a>
+          )}
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{form.eventName}</p>
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white break-words">
             {form.title}

@@ -2,8 +2,10 @@ import type { FormType } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { isEmailConfigured } from "@/lib/email";
 import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
-import { createFormLink, getFormLinks, revokeFormLink } from "./actions";
+import { getOptionsForEvent } from "@/lib/options";
+import { createFormLink, deleteFormLink, getFormLinks, getFunctionReviewPicker, revokeFormLink } from "./actions";
 import { FormLinkButton } from "./FormLinkButton";
+import { ExhibitLinkFields } from "./ExhibitLinkFields";
 
 type ButtonProps = React.ComponentProps<typeof FormLinkButton>;
 
@@ -17,6 +19,7 @@ export async function FormLinkEntry({
   target,
   recipients,
   sections,
+  companion,
   targetSelect,
   requireRecipient,
   externalUpload,
@@ -29,15 +32,21 @@ export async function FormLinkEntry({
   target?: { field: "functionId" | "presentationId"; id: string };
   recipients?: ButtonProps["recipients"];
   sections?: ButtonProps["sections"];
+  companion?: ButtonProps["companion"];
   targetSelect?: ButtonProps["targetSelect"];
   requireRecipient?: boolean;
   externalUpload?: boolean;
   defaultCloseDate?: string;
 }) {
   if (!(await hasPermission("FORMS", "WRITE", eventId))) return null;
-  const [links, templates] = await Promise.all([
+  // Function Review picks its functions in the dialog, starting from this
+  // page's function; their contacts are the recipients.
+  const picksFunctions = formType === "FUNCTION_REVIEW";
+  const [links, templates, functions, boothTypes] = await Promise.all([
     getFormLinks(eventId, target ? { formType, [target.field]: target.id } : { formType }),
     getWorkflowTemplateOptions(),
+    picksFunctions ? getFunctionReviewPicker(eventId) : null,
+    formType === "EXHIBIT_REQUEST" ? getOptionsForEvent(eventId, "booth_type") : null,
   ]);
 
   const create = async (formData: FormData) => {
@@ -49,16 +58,24 @@ export async function FormLinkEntry({
     "use server";
     await revokeFormLink(eventId, linkId);
   };
+  const deleteLink = async (linkId: string) => {
+    "use server";
+    await deleteFormLink(eventId, linkId);
+  };
 
   return (
     <FormLinkButton
       title={title}
       formType={formType}
-      targetField={target ? { name: target.field, value: target.id } : undefined}
+      targetField={target && !functions ? { name: target.field, value: target.id } : undefined}
+      functionPicker={functions ? { options: functions, initial: target ? [target.id] : [] } : undefined}
       sections={sections}
+      companion={companion}
       recipients={recipients}
+      extraFields={boothTypes ? <ExhibitLinkFields boothTypes={boothTypes.map((o) => o.label)} /> : undefined}
       // Targeted links go to one person; open links take any number.
-      defaultMaxSubmissions={target ? 1 : null}
+      defaultMaxSubmissions={target || functions ? 1 : null}
+      defaultAnyone={!target && !functions}
       targetSelect={targetSelect}
       requireRecipient={requireRecipient}
       externalUpload={externalUpload}
@@ -68,6 +85,7 @@ export async function FormLinkEntry({
       defaultCloseDate={defaultCloseDate ?? inThirtyDays()}
       create={create}
       revoke={revoke}
+      deleteLink={deleteLink}
     />
   );
 }

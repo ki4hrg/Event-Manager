@@ -344,11 +344,6 @@ export default async function FunctionPage({
             title="Request review"
             target={{ field: "functionId", id: functionId }}
             sections={FUNCTION_REVIEW_SECTIONS}
-            recipients={fn.contacts.map((c) => ({
-              contactId: c.contact.id,
-              name: [c.contact.firstName, c.contact.lastName].filter(Boolean).join(" "),
-              email: c.contact.email,
-            }))}
             defaultCloseDate={defaultFormCloseDate(event.startDate)}
           />
           {canWrite && (

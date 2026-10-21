@@ -84,6 +84,10 @@ export type FormModule<P, B> = {
   // Validates a new link's target as the creating user. Throws on a foreign
   // or missing target.
   assertTarget(args: LinkTargetArgs, userId: string): Promise<void>;
+  // A form type's own link settings (FormLinkConfig.options): read from the
+  // link dialog's fields, then validated against the event before storing.
+  linkOptionsFromForm?(formData: FormData): unknown;
+  linkOptions?(raw: unknown, args: LinkTargetArgs): Promise<Prisma.InputJsonValue>;
   snapshot(link: FormLinkTarget): Promise<FormSnapshot<B> | null>;
   parse(formData: FormData, snapshot: FormSnapshot<B>, link: FormLinkTarget): Promise<P>;
   rebase(payload: P, oldBaseline: B | null, newBaseline: B): P;

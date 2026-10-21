@@ -7,11 +7,11 @@ import { Toast } from "@/components/Toast";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { purgeStaleFormSubmissions } from "@/lib/forms/links";
-import { FORM_STATE_LABEL, FORM_TYPE_LABEL, formLinkStatus } from "@/lib/forms/meta";
+import { FORM_STATE_LABEL, FORM_TYPE_LABEL, FUNCTION_REVIEW_SECTIONS, formLinkStatus } from "@/lib/forms/meta";
 import { reportTd, reportTh } from "@/lib/reportStyles";
 import { getEvent } from "../../actions";
-import { getFormLinks, getFormSubmissions, revokeFormLink, type SubmissionView } from "../../forms/actions";
-import { CopyFormLink, RevokeFormLink } from "../../forms/FormLinkActions";
+import { deleteFormLink, getFormLinks, getFormSubmissions, revokeFormLink, type SubmissionView } from "../../forms/actions";
+import { CopyFormLink, DeleteFormLink, RevokeFormLink } from "../../forms/FormLinkActions";
 import { FormLinkEntry } from "../../forms/FormLinkEntry";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +58,7 @@ export default async function FormsPage({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-1">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Forms</h1>
           <div className="flex flex-wrap gap-2">
+            <FormLinkEntry eventId={eventId} formType="FUNCTION_REVIEW" title="Request review" sections={FUNCTION_REVIEW_SECTIONS} />
             <FormLinkEntry eventId={eventId} formType="ITEM_REQUEST" title="Item request link" />
             <FormLinkEntry eventId={eventId} formType="EXHIBIT_REQUEST" title="Exhibit request link" />
           </div>
@@ -104,34 +105,57 @@ export default async function FormsPage({
                     "use server";
                     await revokeFormLink(eventId, l.id);
                   };
+                  const remove = async () => {
+                    "use server";
+                    await deleteFormLink(eventId, l.id);
+                  };
+                  // A bundle's targets are its links' targets.
+                  const parts = l.bundle ? l.children : [l];
+                  const types = Array.from(new Set(parts.map((p) => FORM_TYPE_LABEL[p.formType])));
+                  const targets = Array.from(
+                    new Map(
+                      parts.flatMap((p) => [
+                        ...(p.function ? [{ href: `/events/${eventId}/functions/${p.function.id}`, label: formatFunctionLabel(p.function) }] : []),
+                        ...(p.presentation ? [{ href: `/events/${eventId}/presentations/${p.presentation.id}`, label: p.presentation.title }] : []),
+                      ]).map((t) => [t.href, t]),
+                    ).values(),
+                  );
                   return (
                     <tr key={l.id}>
                       <td className={reportTd}>
-                        {FORM_TYPE_LABEL[l.formType]}
+                        {types.join(" & ")}
                         {l.label && <span className="block text-gray-500 dark:text-gray-400">{l.label}</span>}
                       </td>
                       <td className={reportTd}>
-                        {l.function ? (
-                          <Link href={`/events/${eventId}/functions/${l.function.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
-                            {formatFunctionLabel(l.function)}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
+                        {targets.length === 0
+                          ? "—"
+                          : targets.map((t) => (
+                              <Link key={t.href} href={t.href} className="block text-blue-600 dark:text-blue-400 hover:underline">
+                                {t.label}
+                              </Link>
+                            ))}
                       </td>
                       <td className={reportTd}>
-                        {l.recipientName ?? "—"}
+                        {l.recipientName ?? "Anyone with the link"}
                         {l.recipientEmail && <span className="block text-gray-500 dark:text-gray-400">{l.recipientEmail}</span>}
                       </td>
                       <td className={reportTd}>
-                        {l.submittedCount}
-                        {l.maxSubmissions != null && ` of ${l.maxSubmissions}`}
+                        {l.bundle ? (
+                          `${l.children.filter((c) => c.submittedCount > 0).length} of ${l.children.length} forms`
+                        ) : (
+                          <>
+                            {l.submittedCount}
+                            {l.maxSubmissions != null && ` of ${l.maxSubmissions}`}
+                          </>
+                        )}
                         <span className="block text-gray-500 dark:text-gray-400">{l.accessCount} views</span>
                       </td>
                       <td className={reportTd}>{formatDate(l.expiresAt, timezone)}</td>
                       <td className={`${reportTd} ${status.cls}`}>{status.label}</td>
                       <td className={`${reportTd} whitespace-nowrap`}>
-                        {!l.revokedAt && (
+                        {l.revokedAt ? (
+                          <DeleteFormLink deleteLink={remove} />
+                        ) : (
                           <span className="flex gap-3">
                             <CopyFormLink token={l.token} />
                             <RevokeFormLink revoke={revoke} />

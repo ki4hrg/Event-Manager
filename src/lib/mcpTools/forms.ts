@@ -3,6 +3,7 @@ import { formLinkUrl } from "@/lib/email";
 import {
   applyFormSubmissionCore,
   createFormLinkCore,
+  deleteFormLinkCore,
   endOfDayInEvent,
   listFormLinksCore,
   listFormSubmissionsCore,
@@ -31,7 +32,7 @@ export const formTools: McpToolDefinition[] = [
   {
     name: "list_form_links",
     description:
-      "List an event's public form links (Function Review, Item Request, Exhibit Request, Presentation Deliverables, Speaker Profile), optionally one form type: type, label, recipient, target, close date, revoked, responses so far, and the public URL. Returns summary shape — use `list_form_submissions` / `get_form_submission` for what was sent.",
+      "List an event's public form links (Function Review, Item Request, Exhibit Request, Presentation Deliverables, Speaker Profile), optionally one form type: type, label, recipient, target, close date, revoked, responses so far, and the public URL. A bundle (one URL over several forms) lists once with its child links under `children`. Returns summary shape — use `list_form_submissions` / `get_form_submission` for what was sent.",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" }, formType: { type: "string", enum: FORM_TYPES } },
@@ -49,13 +50,27 @@ export const formTools: McpToolDefinition[] = [
   {
     name: "create_form_link",
     description:
-      "Create a public form link for an event. Targets: FUNCTION_REVIEW needs functionId (list_functions); PRESENTATION_DELIVERABLES needs presentationId and optionally contactId of one of its speakers; SPEAKER_PROFILE needs presentationId and the speaker's contactId (get_presentation); EXHIBIT_REQUEST takes an optional boothGroupId (list_booth_groups); ITEM_REQUEST takes none. expiresAt (YYYY-MM-DD, required, within a year) and dueAt close at the end of that day in the event's time zone. sections defaults to all of the form's sections. maxSubmissions omitted means unlimited. Returns the link with its public URL.",
+      "Create a public form link for an event. Targets: FUNCTION_REVIEW needs functionId, or functionIds to send several functions as one link (list_functions); PRESENTATION_DELIVERABLES needs presentationId and optionally contactId of one of its speakers; SPEAKER_PROFILE needs presentationId and the speaker's contactId (get_presentation); EXHIBIT_REQUEST takes an optional boothGroupId (list_booth_groups); ITEM_REQUEST takes none. expiresAt (YYYY-MM-DD, required, within a year) and dueAt close at the end of that day in the event's time zone. sections defaults to all of the form's sections. maxSubmissions omitted means unlimited. alsoFormTypes bundles more forms for the same target into one link (e.g. SPEAKER_PROFILE with PRESENTATION_DELIVERABLES); a bundle, like several functionIds, is one URL listing a form per target, each reviewed separately. EXHIBIT_REQUEST options: boothTypes (labels; omit for all, one fixes it, [] skips the question), askLocation (default true), electrical / av (subset of NOT_REQUIRED, VENUE, OUTSIDE_VENDOR; [] hides it, one fixes it), equipment (subset of provide, bring; [] hides it). Omit recipientName/recipientEmail/contactId for a general link anyone with the URL can use. Returns the link with its public URL.",
     inputSchema: {
       type: "object",
       properties: {
         eventId: { type: "string" },
         formType: { type: "string", enum: FORM_TYPES },
         functionId: { type: "string" },
+        functionIds: { type: "array", items: { type: "string" } },
+        alsoFormTypes: { type: "array", items: { type: "string", enum: FORM_TYPES } },
+        options: {
+          type: "object",
+          description: "EXHIBIT_REQUEST only.",
+          properties: {
+            boothTypes: { type: "array", items: { type: "string" } },
+            askLocation: { type: "boolean" },
+            electrical: { type: "array", items: { type: "string" } },
+            av: { type: "array", items: { type: "string" } },
+            equipment: { type: "array", items: { type: "string" } },
+          },
+          additionalProperties: false,
+        },
         presentationId: { type: "string" },
         contactId: { type: "string" },
         boothGroupId: { type: "string" },
@@ -82,6 +97,9 @@ export const formTools: McpToolDefinition[] = [
       const dueAt = dueRaw ? await endOfDayInEvent(dueRaw, eventId) : null;
       if (dueRaw && !dueAt) throw new Error("dueAt must be YYYY-MM-DD");
       const sections = optionalStringArray(args, "sections");
+      const alsoFormTypes = optionalStringArray(args, "alsoFormTypes");
+      if (alsoFormTypes.some((t) => !FORM_TYPES.includes(t as FormType))) throw new Error("Unknown form type in alsoFormTypes");
+      const allTypes = [formType, ...(alsoFormTypes as FormType[])];
       const link = await createFormLinkCore(
         {
           eventId,
@@ -90,7 +108,10 @@ export const formTools: McpToolDefinition[] = [
           presentationId: optionalString(args, "presentationId") ?? null,
           contactId: optionalString(args, "contactId") ?? null,
           boothGroupId: optionalString(args, "boothGroupId") ?? null,
-          sections: sections.length ? sections : Array.from(formModule(formType).sectionKeys),
+          functionIds: optionalStringArray(args, "functionIds"),
+          alsoFormTypes: alsoFormTypes as FormType[],
+          options: args.options ?? null,
+          sections: sections.length ? sections : allTypes.flatMap((t) => Array.from(formModule(t).sectionKeys)),
           intro: optionalString(args, "intro") ?? null,
           mediaUploadUrl: optionalString(args, "mediaUploadUrl") ?? null,
           label: optionalString(args, "label") ?? null,
@@ -109,7 +130,7 @@ export const formTools: McpToolDefinition[] = [
   },
   {
     name: "revoke_form_link",
-    description: "Revoke a public form link: the URL stops working, including for drafts in progress. Submissions already sent stay in the queue.",
+    description: "Revoke a public form link (a bundle revokes every link in it): the URL stops working, including for drafts in progress. Submissions already sent stay in the queue.",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" }, linkId: { type: "string" } },
@@ -119,6 +140,21 @@ export const formTools: McpToolDefinition[] = [
     handler: async (args, { userId }) => {
       await revokeFormLinkCore(requireString(args, "linkId"), requireString(args, "eventId"), userId);
       return { revoked: true };
+    },
+  },
+  {
+    name: "delete_form_link",
+    description:
+      "Delete a revoked form link (and, for a bundle, every link in it) with its drafts and handled submissions. Refused while any submission from it is waiting for review. Files already applied stay on their records.",
+    inputSchema: {
+      type: "object",
+      properties: { eventId: { type: "string" }, linkId: { type: "string" } },
+      required: ["eventId", "linkId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      await deleteFormLinkCore(requireString(args, "linkId"), requireString(args, "eventId"), userId);
+      return { deleted: true };
     },
   },
   {

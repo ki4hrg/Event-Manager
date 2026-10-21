@@ -102,3 +102,6 @@
 - [mcp] Tools that return text written by people outside the org (form submissions) put it under one `untrusted_submitter_content` key and say so in the description (src/lib/mcpTools/forms.ts)
 - [sidebar] EventSidebar takes `badges` keyed by segment (open form submissions); computed in the event layout
 - [routes] Archetype G gains `f/[token]/upload` (public multipart upload for forms; token + draft cookie + Origin check, under the `/f/` exemption)
+- [forms] Sending several forms as one link is a bundle (`FormLink.bundle` + `parentId`) of ordinary child links, not a combined FormModule: the review queue, diff and apply stay per form (docs/forms.md)
+- [forms] Every form link entry button uses `formLinkTriggerCls` from `FormLinkButton.tsx`; header buttons beside it use plain `btnSecondary` / `btnPrimary` without `text-sm` (exhibits page aligned to this)
+- [forms] A form type's own link settings live in `FormLinkConfig.options`, read by `linkOptionsFromForm` (dialog `opt_*` fields) and validated by `linkOptions`; legacy links without options must keep their old behavior

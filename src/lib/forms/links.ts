@@ -32,7 +32,14 @@ export function generateDraftKey(): string {
   return generateShareToken();
 }
 
+// A form that takes submissions. A bundle never does: the public actions and
+// the upload route resolve through here, so a bundle token can't hold a draft.
 export async function getActiveFormLink(token: string) {
+  const link = await findActiveLink(token);
+  return link && !link.bundle ? link : null;
+}
+
+async function findActiveLink(token: string) {
   if (!token || token.length > 100) return null;
   const link = await prisma.formLink.findUnique({
     where: { token },
@@ -42,6 +49,33 @@ export async function getActiveFormLink(token: string) {
   if (link.revokedAt) return null;
   if (link.expiresAt < new Date()) return null;
   return link;
+}
+
+// A bundle's links were created together, so creation time doesn't order
+// them: by form, then function.
+export const BUNDLE_ORDER: Prisma.FormLinkOrderByWithRelationInput[] = [{ formType: "asc" }, { function: { name: "asc" } }, { id: "asc" }];
+
+// A bundle's index: its open child links, in creation order.
+export async function getActiveFormBundle(token: string) {
+  const link = await findActiveLink(token);
+  if (!link?.bundle) return null;
+  const children = await prisma.formLink.findMany({
+    where: { parentId: link.id, revokedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: BUNDLE_ORDER,
+    include: { event: { select: { id: true, name: true, timezone: true, tenantId: true } } },
+  });
+  return { link, children };
+}
+
+// The bundle a child link belongs to, while it's open: the child form links
+// back to it.
+export async function activeBundleToken(parentId: string | null): Promise<string | null> {
+  if (!parentId) return null;
+  const parent = await prisma.formLink.findFirst({
+    where: { id: parentId, bundle: true, revokedAt: null, expiresAt: { gt: new Date() } },
+    select: { token: true },
+  });
+  return parent?.token ?? null;
 }
 
 export type ActiveFormLink = NonNullable<Awaited<ReturnType<typeof getActiveFormLink>>>;
