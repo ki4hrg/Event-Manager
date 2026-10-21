@@ -88,11 +88,14 @@ export default async function SettingsHotelsPage() {
               deleteOption={deleteOption}
               reorderOptions={reorder}
               mergeOption={list.mergeable ? mergeOption : undefined}
+              fallbackGroup={list.category === "rfp_concession" ? "OTHER" : undefined}
             />
             <OffListLabels
               title={`${list.title} not in the list`}
               labels={offList[i]}
-              options={options[i].map((o) => ({ id: o.id, label: o.label }))}
+              options={options[i].map((o) => ({ id: o.id, label: o.label, group: o.group }))}
+              groups={groupsFor(list.category).groupOptions}
+              fallbackGroup={list.category === "rfp_concession" ? "OTHER" : undefined}
               map={map}
               add={add}
             />
