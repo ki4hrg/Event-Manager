@@ -289,13 +289,13 @@ For PICKUP_COUNTS, fill "counts": one entry per night and room type with rooms p
 
 For RFP_PROPOSAL, fill "offer":
 - venueId: the hotel, from the candidate hotels; "" when it isn't one of them (say who it is in notes).
-- rfpBlockId: the requested block this offer answers, from the candidate RFPs' blocks; "" when there's no RFP or it's unclear.
+- rfpBlockId: the requested block this offer answers, from the candidate RFPs' blocks, only when the offer is a response to that RFP: it names or quotes the RFP, answers its requested concessions, or comes from a hotel the RFP was sent to for the same dates. A hotel's own or unsolicited offer, or one that merely overlaps the event's dates, answers no RFP: "". "" too when it's unclear which block.
 - submittedOn: the date of the offer. checkIn / checkOut: the first night and the departure day (the day after the last night).
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types when one fits, else "" for run of house / all types.
 - charges: other fees the hotel lists (resort fee, parking, deposits), with amount and scope when given.
 - allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee in dollars, if stated.
 - amenities: those the hotel offers that match the org's amenity list exactly.
-- concessions: for each concession the RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
+- concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
 - hotelNotes: anything else in the offer a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly.
 - hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
 

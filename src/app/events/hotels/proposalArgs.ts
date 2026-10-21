@@ -4,6 +4,10 @@ import type { ProposalChargeArgs, ProposalConcessionArgs, ProposalNightArgs, Pro
 // ProposalForm's FormData → the proposal cores' args. Plain module: the
 // hotels actions and the inbox (applying a proposal read from email) share it.
 
+// ProposalForm's venueId for an emailed offer's hotel that isn't in Venues
+// yet: the inbox creates it on save.
+export const NEW_HOTEL = "__new__";
+
 export function readJson<T>(formData: FormData, key: string): T[] {
   const raw = formData.get(key);
   if (typeof raw !== "string" || !raw) return [];

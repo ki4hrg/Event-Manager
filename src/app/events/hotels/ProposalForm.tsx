@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import type { OfferHotel } from "@/lib/inboundParse";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import {
   addDays,
@@ -18,6 +19,7 @@ import {
   nightKeys,
   stageOf,
 } from "@/lib/hotels";
+import { NEW_HOTEL } from "./proposalArgs";
 import { RoomGrid, type GridNight } from "./RoomGrid";
 import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "./RoomGridEditor";
 
@@ -51,6 +53,9 @@ export type ProposalChoices = {
 
 const inputClass =
   "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
+// Inputs sized by their row (concessions, charges), not the full width.
+const inlineInputClass =
+  "px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
 const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 
@@ -91,7 +96,9 @@ function OptionSelect({ id, name, value, options }: { id: string; name: string; 
 
 function Fieldset({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
-    <fieldset className="space-y-4">
+    // min-w-0: a fieldset is min-content wide by default, so the room grid
+    // would widen the page instead of scrolling.
+    <fieldset className="space-y-4 min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <legend className="text-sm font-semibold text-gray-900 dark:text-white">{title}</legend>
         {aside}
@@ -116,6 +123,29 @@ export type ProposalTemplate = {
   status: string | null;
   nights: GridNight[];
 };
+
+// The RFP blocks an emailed offer could answer, each with its concessions
+// (prefilled with the offer's answers for the block it was read as).
+export type RfpChoice = {
+  id: string;
+  label: string;
+  contractType: HotelContractType;
+  guestType: string | null;
+  concessions: ConcessionAnswer[];
+};
+
+const NEW_HOTEL_FIELDS: { key: keyof OfferHotel; label: string; wide?: boolean; type?: string }[] = [
+  { key: "name", label: "Hotel name *", wide: true },
+  { key: "address", label: "Address", wide: true },
+  { key: "city", label: "City" },
+  { key: "state", label: "State" },
+  { key: "zip", label: "ZIP" },
+  { key: "contactTitle", label: "Contact title" },
+  { key: "contactFirstName", label: "Contact first name" },
+  { key: "contactLastName", label: "Contact last name" },
+  { key: "contactEmail", label: "Contact email", type: "email" },
+  { key: "contactPhone", label: "Contact phone", type: "tel" },
+];
 
 function Details({ values, choices, concessions }: { values: ProposalValues; choices: ProposalChoices; concessions: ConcessionAnswer[] }) {
   const rows: [string, ReactNode][] = [
@@ -196,6 +226,8 @@ export function ProposalForm({
   defaultVenueId,
   fromRfp,
   draft,
+  rfpChoices,
+  newHotel,
   concessions = [],
   action,
   cancelHref,
@@ -204,6 +236,10 @@ export function ProposalForm({
   // A new proposal's starting values (one read from an emailed offer).
   draft?: ProposalValues;
   fromRfp?: ProposalTemplate;
+  // An emailed offer: pick the RFP block it answers, or none (standalone).
+  rfpChoices?: RfpChoice[];
+  // An emailed offer from a hotel not in Venues: offered as a new hotel.
+  newHotel?: OfferHotel | null;
   concessions?: ConcessionAnswer[];
   choices: ProposalChoices;
   defaultCheckIn?: string | null;
@@ -226,6 +262,16 @@ export function ProposalForm({
   );
 
   const [answers, setAnswers] = useState(concessions);
+  const [rfpBlockId, setRfpBlockId] = useState(fromRfp?.rfpBlockId ?? "");
+  const [venueId, setVenueId] = useState(initial?.venueId || defaultVenueId || (newHotel ? NEW_HOTEL : ""));
+  const rfpChoice = rfpChoices?.find((c) => c.id === rfpBlockId);
+  const pickRfp = (id: string) => {
+    setRfpBlockId(id);
+    setAnswers(rfpChoices?.find((c) => c.id === id)?.concessions ?? []);
+  };
+  // A draft's block type follows the RFP block it answers.
+  const defaultContractType = rfpChoices ? (rfpChoice?.contractType ?? null) : (initial?.contractType ?? fromRfp?.contractType ?? null);
+  const defaultGuestType = rfpChoices ? (rfpChoice?.guestType ?? null) : initial ? initial.guestType : (fromRfp?.guestType ?? null);
 
   if (!editing || !canWrite) {
     return (
@@ -267,7 +313,7 @@ export function ProposalForm({
     >
       <input type="hidden" name="nights" value={nightsJson} />
       <input type="hidden" name="charges" value={chargesJson} />
-      {!isEdit && fromRfp && <input type="hidden" name="rfpBlockId" value={fromRfp.rfpBlockId} />}
+      {!isEdit && rfpBlockId && <input type="hidden" name="rfpBlockId" value={rfpBlockId} />}
       {answers.length > 0 && (
         <input
           type="hidden"
@@ -276,11 +322,38 @@ export function ProposalForm({
         />
       )}
 
+      {!isEdit && rfpChoices && rfpChoices.length > 0 && (
+        <Fieldset title="Source">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input type="radio" checked={!!rfpBlockId} onChange={() => pickRfp(rfpChoices[0].id)} />
+              Answers an RFP
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input type="radio" checked={!rfpBlockId} onChange={() => pickRfp("")} />
+              Standalone proposal
+            </label>
+          </div>
+          {rfpBlockId && (
+            <Field label="RFP block" htmlFor="p-rfpBlockId">
+              <select id="p-rfpBlockId" value={rfpBlockId} onChange={(e) => pickRfp(e.target.value)} className={inputClass}>
+                {rfpChoices.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+        </Fieldset>
+      )}
+
       <Fieldset title="Proposal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Hotel *" htmlFor="p-venueId" wide>
-            <select id="p-venueId" name="venueId" required defaultValue={initial?.venueId ?? defaultVenueId ?? ""} className={inputClass}>
+            <select id="p-venueId" name="venueId" required value={venueId} onChange={(e) => setVenueId(e.target.value)} className={inputClass}>
               <option value="">Select a hotel</option>
+              {newHotel && <option value={NEW_HOTEL}>New hotel{newHotel.name ? `: ${newHotel.name}` : ""}</option>}
               {choices.venues.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.label}
@@ -289,6 +362,22 @@ export function ProposalForm({
               ))}
             </select>
           </Field>
+          {newHotel && venueId === NEW_HOTEL && (
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+              {NEW_HOTEL_FIELDS.map((f) => (
+                <Field key={f.key} label={f.label} htmlFor={`p-newHotel-${f.key}`} wide={f.wide}>
+                  <input
+                    id={`p-newHotel-${f.key}`}
+                    name={`newHotel.${f.key}`}
+                    type={f.type ?? "text"}
+                    required={f.key === "name"}
+                    defaultValue={newHotel[f.key] ?? ""}
+                    className={inputClass}
+                  />
+                </Field>
+              ))}
+            </div>
+          )}
           <Field label="Status *" htmlFor="p-status">
             <select id="p-status" name="status" required value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
               {status && !choices.statuses.some((s) => s.label === status) && <option value={status}>{status}</option>}
@@ -300,7 +389,7 @@ export function ProposalForm({
             </select>
           </Field>
           <Field label="Contract type" htmlFor="p-contractType">
-            <select id="p-contractType" name="contractType" defaultValue={initial?.contractType ?? fromRfp?.contractType ?? ""} className={inputClass}>
+            <select key={rfpBlockId} id="p-contractType" name="contractType" defaultValue={defaultContractType ?? ""} className={inputClass}>
               <option value="">Not set</option>
               {CONTRACT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -310,7 +399,7 @@ export function ProposalForm({
             </select>
           </Field>
           <Field label="Guest type" htmlFor="p-guestType">
-            <OptionSelect id="p-guestType" name="guestType" value={initial ? initial.guestType : (fromRfp?.guestType ?? null)} options={choices.guestTypes} />
+            <OptionSelect key={rfpBlockId} id="p-guestType" name="guestType" value={defaultGuestType} options={choices.guestTypes} />
           </Field>
           {stage === "DECLINED" && (
             <Field label="Declined reason" htmlFor="p-declinedReason" wide>
@@ -387,7 +476,7 @@ export function ProposalForm({
                     aria-label={`${a.label} met`}
                     value={a.met ?? ""}
                     onChange={(e) => set({ met: (e.target.value || null) as ConcessionMet | null })}
-                    className={`${inputClass} mt-0 w-auto`}
+                    className={inlineInputClass}
                   >
                     <option value="">—</option>
                     {(Object.keys(MET_LABELS) as ConcessionMet[]).map((m) => (
@@ -401,7 +490,7 @@ export function ProposalForm({
                     placeholder="Offered"
                     value={a.offered ?? ""}
                     onChange={(e) => set({ offered: e.target.value || null })}
-                    className={`${inputClass} mt-0 flex-1 min-w-[8rem]`}
+                    className={`${inlineInputClass} flex-1 min-w-[8rem]`}
                   />
                 </div>
               );
@@ -446,7 +535,7 @@ export function ProposalForm({
                   placeholder="Resort fee, parking…"
                   value={c.chargeType}
                   onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, chargeType: e.target.value } : x)))}
-                  className={`${inputClass} mt-0 flex-1 min-w-[10rem]`}
+                  className={`${inlineInputClass} flex-1 min-w-[10rem]`}
                 />
                 <input
                   aria-label="Amount"
@@ -455,13 +544,13 @@ export function ProposalForm({
                   placeholder="$"
                   value={c.amount}
                   onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
-                  className={`${inputClass} mt-0 w-24`}
+                  className={`${inlineInputClass} w-24`}
                 />
                 <select
                   aria-label="Scope"
                   value={c.scope}
                   onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, scope: e.target.value as HotelChargeScope } : x)))}
-                  className={`${inputClass} mt-0 w-auto`}
+                  className={inlineInputClass}
                 >
                   <option value="">—</option>
                   {CHARGE_SCOPES.map((s) => (

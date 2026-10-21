@@ -8,17 +8,16 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { getInboundEmailDomain } from "@/lib/email";
 import { getUploadPath } from "@/lib/uploads";
-import { dateKey } from "@/lib/hotels";
+import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import type { InboundProposal, OfferHotel } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
-import { readProposal } from "@/app/events/hotels/proposalArgs";
+import { NEW_HOTEL, readProposal } from "@/app/events/hotels/proposalArgs";
 import { getProposalFormChoices } from "@/app/events/hotels/actions";
-import type { ProposalValues, ConcessionAnswer } from "@/app/events/hotels/ProposalForm";
+import type { ProposalValues, RfpChoice } from "@/app/events/hotels/ProposalForm";
 import {
-  createInboundHotelCore,
   applyInboundDeclineCore,
   applyInboundOfferCore,
   applyInboundPickupCore,
@@ -151,21 +150,33 @@ export async function applyInboundCounts(id: string, eventId: string, blockId: s
   revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
 }
 
-// A hotel's offer as reviewed in the proposal form: creates the proposal and
-// opens it.
+const OFFER_HOTEL_KEYS = [
+  "name",
+  "address",
+  "city",
+  "state",
+  "zip",
+  "contactFirstName",
+  "contactLastName",
+  "contactTitle",
+  "contactEmail",
+  "contactPhone",
+] as const satisfies readonly (keyof OfferHotel)[];
+
+// A hotel's offer as reviewed in the proposal form: creates the proposal (and
+// the hotel, when it's a new one) and opens it.
 export async function applyInboundOffer(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const proposalId = await applyInboundOfferCore(id, eventId, readProposal(formData), session.user.id);
+  const args = readProposal(formData);
+  const newHotel =
+    args.venueId === NEW_HOTEL
+      ? (Object.fromEntries(OFFER_HOTEL_KEYS.map((k) => [k, (formData.get(`newHotel.${k}`) as string) || null])) as OfferHotel)
+      : null;
+  const proposalId = await applyInboundOfferCore(id, eventId, args, newHotel, session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);
+  if (newHotel) revalidatePath("/venues");
   redirect(`/events/${eventId}/hotels/proposals/${proposalId}?success=Proposal created`);
-}
-
-export async function createInboundHotel(id: string, eventId: string, hotel: OfferHotel) {
-  const session = await requirePermission("HOTELS", "WRITE", eventId);
-  await createInboundHotelCore(id, eventId, hotel, session.user.id);
-  revalidatePath(`/events/${eventId}/inbox/${id}`);
-  revalidatePath("/venues");
 }
 
 export async function applyInboundDecline(id: string, eventId: string, rfpId: string, venueId: string, reason: string | null) {
@@ -175,8 +186,9 @@ export async function applyInboundDecline(id: string, eventId: string, rfpId: st
   revalidatePath(`/events/${eventId}/hotels/rfps/${rfpId}`);
 }
 
-// The proposal form, filled from a hotel's offer: the draft, the concessions
-// of the RFP it answers, and the RFP block it starts from.
+// The proposal form, filled from a hotel's offer: the draft, and the event's
+// RFP blocks it could answer, defaulting to the one it was read as (none: a
+// standalone proposal).
 export async function getOfferReview(id: string, eventId: string) {
   const { tenantId } = await requirePermission("HOTELS", "VIEW", eventId);
   const item = await prisma.inboundEmail.findFirst({ where: { id, tenantId, eventId }, select: { proposal: true } });
@@ -190,14 +202,17 @@ export async function getOfferReview(id: string, eventId: string) {
       ? await prisma.venue.findFirst({ where: { tenantId, name: { equals: offer.hotel.name.trim(), mode: "insensitive" } }, select: { id: true } })
       : null;
   const venueId = offer.venueId ?? byName?.id ?? null;
-  const [choices, rfpBlock, existing] = await Promise.all([
+  const [choices, rfps, existing] = await Promise.all([
     getProposalFormChoices(eventId),
-    offer.rfpBlockId
-      ? prisma.rfpHotelBlock.findFirst({
-          where: { id: offer.rfpBlockId, rfp: { eventId } },
-          select: { id: true, contractType: true, guestType: true, rfp: { select: { concessions: { orderBy: { sortOrder: "asc" } } } } },
-        })
-      : null,
+    prisma.rfp.findMany({
+      where: { eventId, kind: "HOTEL", hotelBlocks: { some: {} } },
+      orderBy: { createdAt: "asc" },
+      select: {
+        title: true,
+        concessions: { orderBy: { sortOrder: "asc" } },
+        hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, contractType: true, guestType: true } },
+      },
+    }),
     venueId
       ? prisma.hotelProposal.findMany({
           where: { eventId, venueId },
@@ -210,8 +225,8 @@ export async function getOfferReview(id: string, eventId: string) {
     venueId: venueId ?? "",
     status: pending,
     leadSource: null,
-    contractType: rfpBlock?.contractType ?? null,
-    guestType: rfpBlock?.guestType ?? null,
+    contractType: null,
+    guestType: null,
     submittedOn: offer.submittedOn,
     checkIn: offer.checkIn,
     checkOut: offer.checkOut,
@@ -224,20 +239,26 @@ export async function getOfferReview(id: string, eventId: string) {
     nights: offer.nights.map((n) => ({ roomType: n.roomType, night: n.night, rooms: n.rooms, rate: n.rate != null ? String(n.rate) : null })),
     charges: offer.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount != null ? String(c.amount) : null, scope: c.scope })),
   };
+  // The offer's concession answers are for the block it was read as.
   const answers = new Map(offer.concessions.map((c) => [c.concessionId, c]));
-  const concessions: ConcessionAnswer[] = (rfpBlock?.rfp.concessions ?? []).map((c) => ({
-    id: c.id,
-    label: c.label,
-    value: c.value,
-    required: c.required,
-    offered: answers.get(c.id)?.offered ?? null,
-    met: answers.get(c.id)?.met ?? null,
-  }));
+  const rfpChoices: RfpChoice[] = rfps.flatMap((r) =>
+    r.hotelBlocks.map((b) => ({
+      id: b.id,
+      label: `${r.title} · ${blockTypeLabel(b.contractType, b.guestType) ?? "Block"}`,
+      contractType: b.contractType,
+      guestType: b.guestType,
+      concessions: r.concessions.map((c) => {
+        const answer = b.id === offer.rfpBlockId ? answers.get(c.id) : undefined;
+        return { id: c.id, label: c.label, value: c.value, required: c.required, offered: answer?.offered ?? null, met: answer?.met ?? null };
+      }),
+    })),
+  );
+  const rfpChoice = rfpChoices.find((c) => c.id === offer.rfpBlockId) ?? null;
   return {
     choices,
     draft,
-    concessions,
-    rfpBlock: rfpBlock ? { id: rfpBlock.id, contractType: rfpBlock.contractType, guestType: rfpBlock.guestType } : null,
+    rfpChoices,
+    rfpChoice,
     existing,
     newHotel: venueId ? null : (offer.hotel ?? null),
   };

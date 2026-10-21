@@ -215,9 +215,13 @@ says it isn't configured.
    RFPs (blocks, recipients, concessions) and candidate hotels (recipients,
    hotels with a proposal, the sender's own hotel).
    An offer from a hotel not on file: an existing venue with the offer's
-   hotel name is picked; otherwise a **New hotel** panel, prefilled from the
-   offer (name, address, sales contact), creates it as a lodging venue with
-   that contact (VENUES WRITE) and selects it.
+   hotel name is picked; otherwise the Hotel dropdown offers **New hotel:
+   <name>**, whose fields (prefilled from the offer: name, address, sales
+   contact) open under it, and saving creates it as a lodging venue with that
+   contact (VENUES WRITE) along with the proposal.
+   The form's **Source** picks the RFP block the offer answers, or
+   **Standalone proposal** (no RFP, no concessions). It defaults to the block
+   Claude read it as, which it sets only when the offer responds to that RFP.
    Reading is two calls: classify (kind, summary, notes), then only that
    kind's fields — one schema for every kind compiled to a grammar the API
    rejected as too large.
