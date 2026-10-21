@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AmenityStatus } from "@prisma/client";
 import { AMENITY_STATUS_LABELS } from "@/lib/hotels";
+import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
 
 // An amenity as a proposal states it, against the hotel's profile: Confirmed
 // (the offer commits to it) or Unavailable (not for this event). Unstated
@@ -13,6 +14,12 @@ export type ProposalAmenity = { label: string; status: AmenityStatus; note: stri
 const inlineInputClass =
   "px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
 const offProfileClass = "text-xs text-amber-700 dark:text-amber-300";
+
+const AMENITY_STATUS_OPTIONS: StatusCycleOption<AmenityStatus | "">[] = [
+  { value: "", label: "Not stated", color: "gray" },
+  { value: "CONFIRMED", label: AMENITY_STATUS_LABELS.CONFIRMED, color: "green" },
+  { value: "UNAVAILABLE", label: AMENITY_STATUS_LABELS.UNAVAILABLE, color: "red" },
+];
 
 // Profile amenities first (in profile order), then ones only the offer names.
 export function amenityLabels(profile: string[], stated: ProposalAmenity[], added: string[] = []) {
@@ -56,23 +63,16 @@ export function AmenityEditor({
               {!profile.includes(label) && <span className={offProfileClass}> · not on hotel profile</span>}
               {!list.includes(label) && <span className={offProfileClass}> · not in list</span>}
             </span>
-            <select
-              aria-label={`${label} in this offer`}
+            <StatusCycle
+              label={`${label} in this offer`}
               value={a?.status ?? ""}
-              onChange={(e) => set(label, { status: e.target.value as AmenityStatus | "" })}
-              className={inlineInputClass}
-            >
-              <option value="">Not stated</option>
-              {(Object.keys(AMENITY_STATUS_LABELS) as AmenityStatus[]).map((s) => (
-                <option key={s} value={s}>
-                  {AMENITY_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
+              options={AMENITY_STATUS_OPTIONS}
+              onChange={(status) => set(label, { status })}
+            />
             {a && (
               <input
                 aria-label={`${label} note`}
-                placeholder={a.status === "UNAVAILABLE" ? "Closed Apr 10–20…" : "As the offer puts it"}
+                placeholder={a.status === "UNAVAILABLE" ? "Closed Apr 10–20…" : "Hours, limits, fees…"}
                 value={a.note ?? ""}
                 onChange={(e) => set(label, { note: e.target.value || null })}
                 className={`${inlineInputClass} flex-1 min-w-[8rem]`}

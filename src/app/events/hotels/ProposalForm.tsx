@@ -22,6 +22,7 @@ import {
   stageOf,
 } from "@/lib/hotels";
 import { NEW_HOTEL } from "./proposalArgs";
+import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
 import { RoomGrid, type GridNight } from "./RoomGrid";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
 import { AmenityEditor, AmenityList, type ProposalAmenity } from "./ProposalAmenities";
@@ -161,6 +162,13 @@ export type RfpChoice = {
   guestType: string | null;
   concessions: ConcessionAnswer[];
 };
+
+const MET_OPTIONS: StatusCycleOption<ConcessionMet | "">[] = [
+  { value: "", label: "—", color: "gray" },
+  { value: "MET", label: MET_LABELS.MET, color: "green" },
+  { value: "PARTIAL", label: MET_LABELS.PARTIAL, color: "yellow" },
+  { value: "NOT_MET", label: MET_LABELS.NOT_MET, color: "red" },
+];
 
 const NEW_HOTEL_FIELDS: { key: keyof OfferHotel; label: string; wide?: boolean; type?: string }[] = [
   { key: "name", label: "Hotel name *", wide: true },
@@ -577,19 +585,12 @@ export function ProposalForm({
                     {a.value && <span className="text-gray-500 dark:text-gray-400"> (asked {a.value})</span>}
                     {a.required && <span className="text-gray-500 dark:text-gray-400"> · required</span>}
                   </span>
-                  <select
-                    aria-label={`${a.label} met`}
+                  <StatusCycle
+                    label={`${a.label} met`}
                     value={a.met ?? ""}
-                    onChange={(e) => set({ met: (e.target.value || null) as ConcessionMet | null })}
-                    className={inlineInputClass}
-                  >
-                    <option value="">—</option>
-                    {(Object.keys(MET_LABELS) as ConcessionMet[]).map((m) => (
-                      <option key={m} value={m}>
-                        {MET_LABELS[m]}
-                      </option>
-                    ))}
-                  </select>
+                    options={MET_OPTIONS}
+                    onChange={(met) => set({ met: met || null })}
+                  />
                   <input
                     aria-label={`${a.label} offered`}
                     placeholder="Offered"
