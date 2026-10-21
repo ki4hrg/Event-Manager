@@ -74,3 +74,8 @@
 - [sidebar] The event sidebar has one "Reports" link to the `/events/[id]/reports` hub rather than a link per report; entry pages paired with a report route as tabs light up via `NavLink.alsoActive` / `notActive` (Specifications ↔ reports/esg, Post-Event ↔ reports/post-event)
 - [prefs] Event sidebar collapse is UserSetting `event_sidebar_collapsed`, read in the event layout and passed down as `initialCollapsed` (no localStorage, no flash on load)
 - [pages] Report page breadcrumbs go Events › event › Reports › report name now that the hub exists
+- [esg] Date Revised is manual: only Issue/Re-issue (`issueEsgCore`) or an explicit `dateRevised` value sets it; section saves don't (src/app/events/specifications/core.ts)
+- [forms] An autosaving card freezes its values at mount (`useState(props)`): `RichTextEditor` resets when `defaultValue` changes and each save's `revalidatePath` refreshes props (`SpecSectionCard.tsx`, `RfpForm.tsx`)
+- [forms] `RichTextEditor` posts through a hidden input the form's `onChange` never sees, so autosaving forms pass its `onChange` to bump the version; a disabled `<fieldset>` doesn't disable tiptap, so read-only views render the stored HTML (`SpecFieldInput.tsx`)
+- [reports] Paired entry/report routes (ESG, PER) share one header with Edit | Preview tabs plus Word/Excel/Print (`SpecDocHeader`); their `ReportFilters` get `hidePrint`
+- [reports] When a `SectionDivider` titles an ESG/PER section, render `EsgSectionView` with `heading={false}` so the title isn't printed twice

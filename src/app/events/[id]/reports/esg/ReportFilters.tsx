@@ -29,7 +29,6 @@ type ReportFiltersProps = {
   basePath?: string;
   paramPrefix?: string;
   shareButton?: React.ReactNode;
-  downloadLinks?: React.ReactNode;
   hidePrint?: boolean;
 };
 
@@ -55,7 +54,6 @@ export function ReportFilters({
   basePath = `/events/${eventId}/reports/esg`,
   paramPrefix = "",
   shareButton,
-  downloadLinks,
   hidePrint = false,
 }: ReportFiltersProps) {
   const router = useRouter();
@@ -90,7 +88,6 @@ export function ReportFilters({
         </button>
       )}
       {shareButton}
-      {downloadLinks}
       {!hidePrint && (
         <a
           href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}

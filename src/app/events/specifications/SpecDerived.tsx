@@ -183,7 +183,7 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
       return (
         <Block def={def} edit={<EditLink href={keyStaffHref} label="Key staff →" />}>
           {people.length === 0 ? (
-            <Empty>Mark a key staff member as the emergency / crisis contact.</Empty>
+            <Empty>No emergency contact on key staff.</Empty>
           ) : (
             people
               .map((k) =>
@@ -204,7 +204,7 @@ export function SpecDerivedBlock({ def, data }: { def: EsgDerivedDef; data: EsgN
       return (
         <Block def={def} edit={<EditLink href={keyStaffHref} label="Key staff →" />}>
           {data.signatories.length === 0 ? (
-            <Empty>Give a key staff member an approval authority to list them here.</Empty>
+            <Empty>No key staff with approval authority.</Empty>
           ) : (
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {data.signatories.map((k) => (

@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "../../../actions";
 import { getPostEventReportData } from "@/app/events/reports/actions";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";
 import { ReportPaper } from "@/components/ReportPaper";
-import { ReportDownloadLinks } from "@/components/ReportDownloadLinks";
 import { ReportFilters } from "./ReportFilters";
 import { PostEventReport } from "./PostEventReport";
+import { SpecDocHeader } from "../../../specifications/SpecDocHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -35,27 +33,13 @@ export default async function PostEventReportPage({
 
   return (
     <>
-      <div className="mb-4">
-        <Breadcrumbs
-          items={[
-            { label: "Events", href: "/events" },
-            { label: event.name, href: `/events/${eventId}` },
-            { label: "Post-Event Report" },
-          ]}
-        />
-        <div className="flex flex-wrap items-baseline justify-between gap-2 mt-1">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{event.name}</h1>
-          <Link href={`/events/${eventId}/post-event`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-            Edit post-event details
-          </Link>
-        </div>
-      </div>
+      <SpecDocHeader eventId={eventId} eventName={event.name} doc="per" active="preview" query={showBlank ? "blank=1" : ""} />
       <div className="max-w-5xl mx-auto">
         <AddToDashboardBanner eventId={eventId} addToDashboardId={addToDashboard} dashboardChoices={dashboardChoices} />
         <ReportFilters
           eventId={eventId}
           showBlank={showBlank}
-          downloadLinks={<ReportDownloadLinks eventId={eventId} doc="per" query={showBlank ? "blank=1" : ""} />}
+          hidePrint
           shareButton={
             <ShareReportButton
               eventId={eventId}
