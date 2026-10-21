@@ -241,24 +241,20 @@ with `?rfpBlockId=` so the proposal starts as a copy of the requested block
    plus a generic `VendorQuote` response with line-item pricing. Candidate
    kinds: AV, off-site catering, transportation, DMC, print, security.
 
-## Open questions
+## Decisions
 
-Resolved defaults (Stage 1): several RFPs per event; meeting space is every
-on-site function with per-RFP function-type exclusions
-(`Rfp.excludedFunctionTypes`); block-type labels renamed; no letterhead; no
-backfill of existing REQUESTED proposals; the point of contact is picked from
-the event's key staff. `RfpRecipient` and `HotelProposal.rfpId/rfpBlockId`
-shipped in the Stage 1 migration, unused until Stage 2.
+The Stage 1 questions, as settled:
 
-1. **Block type labels.** Rename the UI labels to "Contract attendee",
-   "Courtesy attendee", "Staff" so they read clearly on the RFP? (Labels only;
-   values and share URLs unchanged.) Is a *courtesy staff* block ever a thing?
-   If so the enum needs a fourth value.
-2. **Several RFPs per event?** The model allows it (e.g. HQ hotel RFP vs an
-   overflow/courtesy RFP to a different hotel set). Fine, or one per event?
-3. **Meeting-space scope.** All on-site functions, or let each RFP exclude
-   function types (e.g. leave out exhibit hall / off-site)? Proposal: all
-   on-site functions, with a per-RFP exclusion list of function types if needed.
-4. **Branding.** Should the .docx carry a tenant logo/letterhead? There's no
-   tenant logo today; would need an upload on `/settings/organization`.
-5. **Existing REQUESTED proposals.** Leave as they are (no backfill into RFPs)?
+- **Several RFPs per event.** Yes (an HQ hotel RFP alongside an overflow or
+  courtesy one to a different hotel set).
+- **Meeting-space scope.** Every on-site function, with per-RFP function-type
+  exclusions (`Rfp.excludedFunctionTypes`).
+- **Block types.** Relabelled for the RFP, then split into a contract type and
+  a `hotel_guest_type` option (`blockTypeLabel`), which also covers a courtesy
+  staff block without a fourth enum value.
+- **Branding.** No letterhead or tenant logo on the .docx.
+- **Existing REQUESTED proposals.** Not backfilled into RFPs.
+- **Point of contact.** Picked from the event's key staff.
+
+`RfpRecipient` and `HotelProposal.rfpId/rfpBlockId` shipped in the Stage 1
+migration, unused until Stage 2.

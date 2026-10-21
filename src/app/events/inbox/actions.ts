@@ -16,10 +16,12 @@ import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { NEW_HOTEL, readProposal } from "@/app/events/hotels/proposalArgs";
 import { getProposalFormChoices } from "@/app/events/hotels/actions";
-import type { ProposalValues, RfpChoice } from "@/app/events/hotels/ProposalForm";
+import type { ConcessionAnswer, OfferedConcession, ProposalValues, RfpChoice } from "@/app/events/hotels/ProposalForm";
+import { toProposalValues } from "@/app/events/hotels/core";
 import {
   applyInboundDeclineCore,
   applyInboundOfferCore,
+  applyInboundRevisionCore,
   applyInboundPickupCore,
   dismissInboundEmailCore,
   fileInboundAttachmentCore,
@@ -179,6 +181,15 @@ export async function applyInboundOffer(id: string, eventId: string, formData: F
   redirect(`/events/${eventId}/hotels/proposals/${proposalId}?success=Proposal created`);
 }
 
+// A revised offer applied to the hotel's proposal it revises.
+export async function applyInboundRevision(id: string, eventId: string, proposalId: string, formData: FormData) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  await applyInboundRevisionCore(id, eventId, proposalId, readProposal(formData), session.user.id);
+  revalidatePath(`/events/${eventId}/inbox`);
+  revalidatePath(`/events/${eventId}/hotels`);
+  redirect(`/events/${eventId}/hotels/proposals/${proposalId}?success=Revision saved`);
+}
+
 export async function applyInboundDecline(id: string, eventId: string, rfpId: string, venueId: string, reason: string | null) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   await applyInboundDeclineCore(id, eventId, rfpId, venueId, reason, session.user.id);
@@ -216,7 +227,15 @@ export async function getOfferReview(id: string, eventId: string) {
     venueId
       ? prisma.hotelProposal.findMany({
           where: { eventId, venueId },
-          select: { id: true, revision: true, status: true },
+          orderBy: { updatedAt: "desc" },
+          include: {
+            venue: { select: { name: true } },
+            nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
+            charges: { orderBy: { sortOrder: "asc" } },
+            amenities: { orderBy: { sortOrder: "asc" } },
+            concessions: { orderBy: { sortOrder: "asc" }, include: { concession: { select: { label: true } } } },
+            rfp: { select: { title: true, concessions: { orderBy: { sortOrder: "asc" } } } },
+          },
         })
       : [],
   ]);
@@ -254,13 +273,57 @@ export async function getOfferReview(id: string, eventId: string) {
     })),
   );
   const rfpChoice = rfpChoices.find((c) => c.id === offer.rfpBlockId) ?? null;
+  // Each of the hotel's proposals, revised by the offer: what the offer
+  // states replaces what the proposal had, the rest carries over.
+  const revisions = existing.map((p) => {
+    const current = toProposalValues(p);
+    const amenities = new Map(current.amenities.map((a) => [a.label, a]));
+    for (const a of draft.amenities) amenities.set(a.label, a);
+    const concessions: ConcessionAnswer[] = (p.rfp?.concessions ?? []).map((c) => {
+      const had = p.concessions.find((a) => a.concessionId === c.id);
+      const answer = answers.get(c.id);
+      return {
+        id: c.id,
+        label: c.label,
+        value: c.value,
+        required: c.required,
+        offered: answer?.offered ?? had?.offered ?? null,
+        met: answer?.met ?? had?.met ?? null,
+      };
+    });
+    const offered = new Map<string, OfferedConcession>(
+      p.concessions.flatMap((c) => (c.concessionId || !c.label ? [] : [[c.label, { label: c.label, offered: c.offered }]])),
+    );
+    for (const c of offer.offeredConcessions ?? []) offered.set(c.label, { label: c.label, offered: c.offered ?? offered.get(c.label)?.offered ?? null });
+    const values: ProposalValues = {
+      ...current,
+      submittedOn: draft.submittedOn ?? current.submittedOn,
+      checkIn: draft.checkIn ?? current.checkIn,
+      checkOut: draft.checkOut ?? current.checkOut,
+      notes: draft.notes && !current.notes?.includes(draft.notes) ? [current.notes, draft.notes].filter(Boolean).join("\n\n") : current.notes,
+      revision: current.revision + 1,
+      allowedAttrition: draft.allowedAttrition ?? current.allowedAttrition,
+      guaranteedRevenue: draft.guaranteedRevenue ?? current.guaranteedRevenue,
+      amenities: Array.from(amenities.values()),
+      nights: draft.nights.length ? draft.nights : current.nights,
+      charges: draft.charges.length ? draft.charges : current.charges,
+    };
+    return {
+      id: p.id,
+      label: `${p.rfp ? p.rfp.title : "Standalone"} · rev ${p.revision} · ${p.status}`,
+      proposal: current,
+      draft: values,
+      concessions,
+      offeredConcessions: Array.from(offered.values()),
+    };
+  });
   return {
     choices,
     draft,
     rfpChoices,
     rfpChoice,
     offeredConcessions: offer.offeredConcessions ?? [],
-    existing,
+    revisions,
     newHotel: venueId ? null : (offer.hotel ?? null),
   };
 }

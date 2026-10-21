@@ -1,7 +1,7 @@
 import type { HotelContractType, RfpKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
-import { dateKey } from "@/lib/hotels";
+import { coveredByProfile, dateKey, labelKey } from "@/lib/hotels";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { recipientState } from "@/lib/rfp/recipients";
 import { RFP_SECTIONS } from "@/lib/rfp/sections";
@@ -445,7 +445,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "set_rfp_concessions",
     description:
-      "Replace an RFP's concessions with this list, in order. label is usually an rfp_concession option label; value is what we ask for (\"1/40\", \"20%\"). Pass existing ids (from get_rfp) to keep hotels' answers; concessions left out are removed with their answers.",
+      "Replace an RFP's concessions with this list, in order. label is an rfp_concession option label; value is what we ask for (\"1/40\", \"20%\"). Pass existing ids (from get_rfp) to keep hotels' answers; concessions left out are removed with their answers.",
     inputSchema: {
       type: "object",
       properties: {
@@ -550,7 +550,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "record_rfp_response",
     description:
-      "Record a hotel's proposal in answer to one requested RFP block. Starts from the block (stay dates, room grid, block type) and the first Pending proposal status; any proposal field given overrides it (nights with rates, attrition, charges…). concessions answers the RFP's concessions; offeredConcessions lists ones it offers unasked (default: the hotel's standing concessions). The hotel is added to the RFP's recipients if it wasn't. Returns the new proposal; edit it later with update_hotel_proposal.",
+      "Record a hotel's proposal in answer to one requested RFP block. Starts from the block (stay dates, room grid, block type) and the first Pending proposal status; any proposal field given overrides it (nights with rates, attrition, charges…). concessions answers the RFP's concessions (one the hotel's profile covers — an amenity of the same label, e.g. Complimentary Breakfast — starts MET unless answered or the offer's amenities say it's UNAVAILABLE); offeredConcessions lists ones it offers unasked (rfp_concession labels). The hotel is added to the RFP's recipients if it wasn't. Returns the new proposal; edit it later with update_hotel_proposal.",
     inputSchema: {
       type: "object",
       properties: {
@@ -588,7 +588,7 @@ export const rfpTools: McpToolDefinition[] = [
         },
         offeredConcessions: {
           type: "array",
-          description: "Concessions the hotel offers that the RFP didn't ask for: label (usually an rfp_concession option label) and offered terms.",
+          description: "Concessions the hotel offers that the RFP didn't ask for: label (an rfp_concession option label) and offered terms.",
           items: { type: "object", properties: { label: { type: "string" }, offered: { type: ["string", "null"] } }, required: ["label"] },
         },
       },
@@ -600,7 +600,10 @@ export const rfpTools: McpToolDefinition[] = [
       await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
       const block = await prisma.rfpHotelBlock.findFirst({
         where: { id: requireString(args, "rfpBlockId"), rfp: { eventId } },
-        include: { nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] }, rfp: { select: { event: { select: { tenantId: true } } } } },
+        include: {
+          nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
+          rfp: { select: { event: { select: { tenantId: true } }, concessions: { select: { id: true, label: true } } } },
+        },
       });
       if (!block) throw new Error("RFP block not found");
       const pending = await prisma.customOption.findFirst({
@@ -618,8 +621,19 @@ export const rfpTools: McpToolDefinition[] = [
             return { concessionId: String(c.concessionId), met: (c.met ?? null) as ProposalConcessionArgs["met"], offered: typeof c.offered === "string" ? c.offered : null };
           })
         : undefined;
+      // Requested concessions the hotel's profile covers start Met, as in the
+      // web form: unless answered, or the offer says the amenity is unavailable.
+      const venueId = requireString(args, "venueId");
+      const amenities = readProposalAmenities(args.amenities) ?? [];
+      const venue = await prisma.venue.findFirst({ where: { id: venueId, tenantId: block.rfp.event.tenantId }, select: { amenities: true } });
+      const unavailable = new Set(amenities.filter((a) => a.status === "UNAVAILABLE").map((a) => labelKey(a.label)));
+      const covered = coveredByProfile((venue?.amenities ?? []).filter((a) => !unavailable.has(labelKey(a))));
+      const answered = new Set((concessions ?? []).filter((c) => c.met || c.offered?.trim()).map((c) => c.concessionId));
+      const profileMet = block.rfp.concessions
+        .filter((c) => !answered.has(c.id) && covered(c.label))
+        .map((c): ProposalConcessionArgs => ({ concessionId: c.id, met: "MET", offered: null }));
       const proposal: ProposalWriteArgs = {
-        venueId: requireString(args, "venueId"),
+        venueId,
         status: str("status") ?? pending?.label ?? "",
         leadSource: null,
         contractType: block.contractType,
@@ -633,7 +647,7 @@ export const rfpTools: McpToolDefinition[] = [
         revisionSummary: null,
         allowedAttrition: typeof args.allowedAttrition === "number" ? args.allowedAttrition : null,
         guaranteedRevenue: typeof args.guaranteedRevenue === "number" ? args.guaranteedRevenue : null,
-        amenities: readProposalAmenities(args.amenities) ?? [],
+        amenities,
         nights: Array.isArray(args.nights)
           ? (args.nights as Record<string, unknown>[]).map((n) => ({
               roomType: typeof n.roomType === "string" ? n.roomType : null,
@@ -644,7 +658,7 @@ export const rfpTools: McpToolDefinition[] = [
           : block.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rooms: n.rooms, rate: null })),
         charges: [],
         rfpBlockId: block.id,
-        concessions,
+        concessions: concessions || profileMet.length ? [...(concessions ?? []), ...profileMet] : undefined,
         offeredConcessions: Array.isArray(args.offeredConcessions)
           ? (args.offeredConcessions as Record<string, unknown>[]).map((c) => ({ label: String(c.label ?? ""), offered: typeof c.offered === "string" ? c.offered : null }))
           : undefined,

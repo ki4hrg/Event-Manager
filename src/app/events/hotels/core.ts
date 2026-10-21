@@ -9,7 +9,7 @@
 import type { AmenityStatus, ConcessionMet, HotelChargeScope, HotelContractType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
-import { AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, nightKeys, roomTypeLabel } from "@/lib/hotels";
+import { AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
 
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
@@ -64,6 +64,9 @@ export type ProposalSnapshot = {
   guaranteedRevenue: string | null;
   // Older snapshots hold the labels ticked on the proposal (read as Confirmed).
   amenities: { label: string; status: AmenityStatus; note: string | null }[] | string[];
+  // Requested and unasked concessions alike, by label. Absent from
+  // snapshots taken before concessions were versioned.
+  concessions?: { label: string; offered: string | null; met: ConcessionMet | null }[];
   nights: { roomType: string | null; night: string; rate: string | null; rooms: number | null }[];
   charges: { chargeType: string; amount: string | null; scope: HotelChargeScope | null }[];
 };
@@ -135,6 +138,7 @@ const snapshotInclude = {
   nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
   charges: { orderBy: { sortOrder: "asc" } },
   amenities: { orderBy: { sortOrder: "asc" } },
+  concessions: { include: { concession: { select: { label: true } } } },
 } as const satisfies Prisma.HotelProposalInclude;
 
 type ProposalWithChildren = Prisma.HotelProposalGetPayload<{ include: typeof snapshotInclude }>;
@@ -156,6 +160,9 @@ export function snapshotOf(p: ProposalWithChildren): ProposalSnapshot {
     allowedAttrition: dec(p.allowedAttrition),
     guaranteedRevenue: dec(p.guaranteedRevenue),
     amenities: [...p.amenities].sort((a, b) => a.label.localeCompare(b.label)).map((a) => ({ label: a.label, status: a.status, note: a.note })),
+    concessions: p.concessions
+      .map((c) => ({ label: c.concession?.label ?? c.label ?? "", offered: c.offered, met: c.met }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
     nights: p.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rate: dec(n.rate), rooms: n.rooms })),
     charges: p.charges.map((c) => ({ chargeType: c.chargeType, amount: dec(c.amount), scope: c.scope })),
   };
@@ -199,6 +206,19 @@ export function diffSnapshots(prev: ProposalSnapshot, next: ProposalSnapshot): P
     const from = aBefore.get(key) ?? null;
     const to = aAfter.get(key) ?? null;
     if (from !== to) changes.push({ field: `Amenity: ${key}`, from, to });
+  }
+  // Not against a snapshot from before concessions were versioned: every
+  // answer would read as new.
+  if (prev.concessions && next.concessions) {
+    const concessionMap = (list: NonNullable<ProposalSnapshot["concessions"]>) =>
+      new Map(list.map((c) => [c.label, [c.met ? MET_LABELS[c.met] : null, c.offered].filter(Boolean).join(": ") || "Offered"]));
+    const before = concessionMap(prev.concessions);
+    const after = concessionMap(next.concessions);
+    for (const key of Array.from(new Set([...Array.from(before.keys()), ...Array.from(after.keys())])).sort()) {
+      const from = before.get(key) ?? null;
+      const to = after.get(key) ?? null;
+      if (from !== to) changes.push({ field: `Concession: ${key}`, from, to });
+    }
   }
 
   const cell = (n: ProposalSnapshot["nights"][number]) =>
@@ -382,8 +402,8 @@ export async function deleteHotelProposalCore(id: string, eventId: string, userI
 }
 
 // Plain (client-serializable) form values for ProposalForm.
-export function toProposalValues(p: ProposalWithChildren & { venueId: string; revision: number }) {
-  const { venueName: _venueName, blockType: _blockType, amenities: _amenities, ...rest } = snapshotOf(p);
+export function toProposalValues(p: Omit<ProposalWithChildren, "concessions"> & { venueId: string; revision: number }) {
+  const { venueName: _venueName, blockType: _blockType, amenities: _amenities, concessions: _concessions, ...rest } = snapshotOf({ ...p, concessions: [] });
   return {
     ...rest,
     amenities: p.amenities.map((a) => ({ label: a.label, status: a.status, note: a.note })),

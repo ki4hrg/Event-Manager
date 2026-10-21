@@ -60,6 +60,14 @@ export const MET_LABELS: Record<ConcessionMet, string> = { MET: "Met", PARTIAL: 
 // spacing and punctuation runs don't count.
 export const labelKey = (label: string) => label.trim().toLowerCase().replace(/[\s\-_/]+/g, " ");
 
+// A requested concession the hotel's profile already covers (an amenity of
+// the same label, e.g. Complimentary Breakfast) starts Met on a new proposal,
+// in the form and over MCP alike.
+export function coveredByProfile(profile: string[]) {
+  const keys = new Set(profile.map(labelKey));
+  return (concessionLabel: string) => keys.has(labelKey(concessionLabel));
+}
+
 // How a proposal states one of the hotel's amenities (unset: not mentioned).
 export const AMENITY_STATUS_LABELS: Record<AmenityStatus, string> = { CONFIRMED: "Confirmed", UNAVAILABLE: "Unavailable" };
 

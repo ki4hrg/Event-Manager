@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { mergeHotelLabel, offListHotelLabels, type HotelLabelCategory } from "@/lib/hotelLabels";
-import { labelKey } from "@/lib/hotels";
+import { duplicateLabelError } from "./optionLabels";
 
 export type OptionCategory = "function_type" | "contact_role" | "schedule_type" | "presenter_role" | "presentation_type" | "service_style" | "equipment_category" | "setup_type" | "vendor_contact_type" | "file_type" | "delivery_method" | "media_type" | "substatus" | "print_distribution" | "location_type" | "event_type" | "event_scope" | "event_frequency" | "meal_type" | "booth_type" | "reservation_method" | "per_facility_type" | "per_housing_provider" | "per_av_setup" | "proposal_status" | "hotel_room_type" | "hotel_guest_type" | "hotel_amenity" | "hotel_lead_source" | "hotel_brand" | "hotel_region" | "hotel_area" | "rfp_concession";
 
@@ -72,8 +72,8 @@ const isMergeable = (category: OptionCategory): category is HotelLabelCategory =
 // spacing is refused (labelKey).
 async function assertUniqueLabel(tenantId: string, category: OptionCategory, label: string, exceptId?: string) {
   const options = await prisma.customOption.findMany({ where: { tenantId, category }, select: { id: true, label: true } });
-  const same = options.find((o) => o.id !== exceptId && labelKey(o.label) === labelKey(label));
-  if (same) throw new Error(`"${same.label}" is already in this list${isMergeable(category) ? "; merge into it instead" : ""}`);
+  const error = duplicateLabelError(label, options, isMergeable(category), exceptId);
+  if (error) throw new Error(error);
 }
 
 export async function createOption(category: OptionCategory, formData: FormData) {

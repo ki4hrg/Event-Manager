@@ -22,7 +22,7 @@ import {
   type ParseVenue,
 } from "@/lib/inboundParse";
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
-import { createHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
+import { createHotelProposalCore, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
 import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
 import { EMAIL_SOURCE_FILE_TYPE, OPEN_STATUSES } from "./views";
@@ -466,25 +466,40 @@ export async function applyInboundOfferCore(
     const venueId = newHotel ? (await createOfferHotel(eventId, newHotel, confirmed, userId)).id : args.venueId;
     const proposal = await createHotelProposalCore(eventId, { ...args, venueId }, userId);
     proposalId = proposal.id;
-    const files = await inboundAttachments(id);
-    if (files.length) {
-      mkdirSync(getUploadDir("hotelProposal", proposal.id), { recursive: true });
-      for (const f of files) {
-        copyFileSync(getUploadPath("inboundEmail", id, f.storedName), getUploadPath("hotelProposal", proposal.id, f.storedName));
-      }
-      await prisma.fileUpload.createMany({
-        data: files.map((f) => ({
-          fileName: f.fileName,
-          storedName: f.storedName,
-          mimeType: f.mimeType,
-          fileSize: f.fileSize,
-          hotelProposalId: proposal.id,
-        })),
-      });
-    }
+    await copyAttachmentsToProposal(id, proposal.id);
     return { appliedProposalId: proposal.id };
   });
   return proposalId;
+}
+
+// A revised offer, saved over the proposal it revises (args.revision says
+// which revision it becomes).
+export async function applyInboundRevisionCore(id: string, eventId: string, proposalId: string, args: ProposalWriteArgs, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  await claimAndApply(id, eventId, userId, async () => {
+    await updateHotelProposalCore(proposalId, eventId, args, userId);
+    await copyAttachmentsToProposal(id, proposalId);
+    return { appliedProposalId: proposalId };
+  });
+}
+
+// The message's attachments, filed on the proposal it was applied to.
+async function copyAttachmentsToProposal(id: string, proposalId: string) {
+  const files = await inboundAttachments(id);
+  if (!files.length) return;
+  mkdirSync(getUploadDir("hotelProposal", proposalId), { recursive: true });
+  for (const f of files) {
+    copyFileSync(getUploadPath("inboundEmail", id, f.storedName), getUploadPath("hotelProposal", proposalId, f.storedName));
+  }
+  await prisma.fileUpload.createMany({
+    data: files.map((f) => ({
+      fileName: f.fileName,
+      storedName: f.storedName,
+      mimeType: f.mimeType,
+      fileSize: f.fileSize,
+      hotelProposalId: proposalId,
+    })),
+  });
 }
 
 // A hotel an offer came from that the org doesn't have yet: a lodging venue
