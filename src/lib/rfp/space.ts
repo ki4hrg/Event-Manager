@@ -75,7 +75,7 @@ export function formatClockRange(start: string | null, end: string | null): stri
 }
 
 // A function's own schedules; set-up and tear-down only when that's all it has.
-function ownSchedules(schedules: Schedule[], support: Set<string>) {
+export function ownSchedules(schedules: Schedule[], support: Set<string>) {
   const own = schedules.filter((s) => !support.has(s.type));
   return (own.length ? own : schedules).slice().sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 }

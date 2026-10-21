@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { patternStats, proposedRoles, proposeNights } from "@/lib/hotelPattern";
-import { resourceForKind } from "@/lib/rfp/kinds";
+import { RFP_KIND_LABELS, resourceForKind } from "@/lib/rfp/kinds";
+import { avLineItems, cateringLineItems, printLineItems, type LineItemRow } from "@/lib/rfp/lineItems";
 import { buildRfpDocument } from "@/lib/rfp/document";
 import { parseSections } from "@/lib/rfp/sections";
 import { effectiveScope, scopeLabels } from "@/lib/areas";
@@ -17,6 +18,8 @@ import type { OfferHotel } from "@/lib/inboundParse";
 import {
   addNewRfpRecipientCore,
   addRfpRecipientsCore,
+  addRfpVendorRecipientsCore,
+  saveRfpLineItemsCore,
   createRfpCore,
   deleteRfpCore,
   getRfpComparisonCore,
@@ -29,13 +32,15 @@ import {
   updateRfpRecipientCore,
   type RfpBlockArgs,
   type RfpConcessionArgs,
+  type RfpLineItemArgs,
   type RfpFillArgs,
   type RfpRecipientArgs,
   type RfpSpaceArgs,
   type RfpWriteArgs,
 } from "./core";
 
-// Where an RFP of each kind lives in the app.
+// The page that lists an RFP of each kind: hotel RFPs under Hotels, the rest
+// on the event's RFPs page.
 function rfpBase(eventId: string, kind: RfpKind) {
   switch (kind) {
     case "HOTEL":
@@ -44,7 +49,7 @@ function rfpBase(eventId: string, kind: RfpKind) {
     case "CATERING":
     case "PRINT":
     case "OTHER":
-      return `/events/${eventId}`;
+      return `/events/${eventId}/rfps`;
     default: {
       const _exhaustive: never = kind;
       throw new Error(`Unhandled RFP kind: ${_exhaustive}`);
@@ -52,7 +57,8 @@ function rfpBase(eventId: string, kind: RfpKind) {
   }
 }
 
-const rfpPath = (eventId: string, kind: RfpKind, id: string) => `${rfpBase(eventId, kind)}/rfps/${id}`;
+const rfpPath = (eventId: string, kind: RfpKind, id: string) =>
+  kind === "HOTEL" ? `${rfpBase(eventId, kind)}/rfps/${id}` : `${rfpBase(eventId, kind)}/${id}`;
 
 // Reads the RFP's kind first so the permission check uses its resource; a
 // foreign id is a not-found.
@@ -80,6 +86,33 @@ export async function getRfps(eventId: string, kind: RfpKind) {
   });
 }
 
+// Every RFP on the event the user may see (each kind is its own resource),
+// with what the RFPs page shows. Hotel proposals and vendor quotes both count
+// as responses.
+export async function getEventRfps(eventId: string) {
+  await requirePermission("EVENTS", "VIEW", eventId);
+  const kinds = (Object.keys(RFP_KIND_LABELS) as RfpKind[]).filter(Boolean);
+  const allowed = (await Promise.all(kinds.map(async (k) => ((await hasPermission(resourceForKind(k), "VIEW", eventId)) ? k : null)))).filter(
+    (k): k is RfpKind => k != null,
+  );
+  return prisma.rfp.findMany({
+    where: { eventId, kind: { in: allowed } },
+    select: {
+      id: true,
+      kind: true,
+      title: true,
+      service: true,
+      status: true,
+      responseDue: true,
+      issuedOn: true,
+      recipients: { select: { venueId: true, vendorId: true, sentOn: true, declinedToBid: true } },
+      hotelProposals: { select: { venueId: true } },
+      quotes: { select: { vendorId: true, status: true } },
+    },
+    orderBy: [{ kind: "asc" }, { createdAt: "asc" }],
+  });
+}
+
 export async function getRfp(id: string, eventId: string) {
   const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
   if (!rfp) return null;
@@ -94,7 +127,12 @@ export async function getRfp(id: string, eventId: string) {
       alternateDates: { orderBy: { sortOrder: "asc" } },
       spaceRequests: { orderBy: { sortOrder: "asc" } },
       files: { orderBy: { createdAt: "desc" } },
-      recipients: { orderBy: { createdAt: "asc" }, include: { venue: { select: { id: true, name: true, city: true, state: true } } } },
+      recipients: {
+        orderBy: { createdAt: "asc" },
+        include: { venue: { select: { id: true, name: true, city: true, state: true } }, vendor: { select: { id: true, name: true } } },
+      },
+      lineItems: { orderBy: { sortOrder: "asc" } },
+      quotes: { select: { id: true, vendorId: true, status: true, revision: true }, orderBy: { createdAt: "asc" } },
       hotelProposals: { select: { id: true, venueId: true, rfpBlockId: true, status: true } },
       updatedBy: { select: { name: true, email: true } },
     },
@@ -315,6 +353,85 @@ export async function getRfpSpaceCandidates(id: string, eventId: string) {
   ]);
 }
 
+// The event's orders of the RFP's kind as line items, for "Add from orders".
+export async function getRfpLineItemCandidates(id: string, eventId: string): Promise<LineItemRow[]> {
+  const kind = await rfpKind(id, eventId);
+  await requirePermission(resourceForKind(kind), "VIEW", eventId);
+  const scheduleSelect = { select: { type: true, startTime: true, endTime: true } } as const;
+  const [event, support] = await Promise.all([
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { timezone: true } }),
+    supportScheduleTypes(eventId),
+  ]);
+  const itemSelect = { select: { id: true, item: true, quantity: true, notes: true }, orderBy: { sortOrder: "asc" } } as const;
+  switch (kind) {
+    case "AV": {
+      const orders = await prisma.aVOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          equipmentItems: itemSelect,
+          videoSection: { select: { equipmentItems: itemSelect } },
+          functionLinks: { select: { function: { select: { schedules: scheduleSelect } } } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return avLineItems(
+        orders.map((o) => ({
+          id: o.id,
+          name: o.name,
+          items: [...o.equipmentItems, ...(o.videoSection?.equipmentItems ?? [])],
+          schedules: o.functionLinks.flatMap((l) => l.function.schedules),
+        })),
+        support,
+        event.timezone,
+      );
+    }
+    case "CATERING": {
+      const orders = await prisma.cateringOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          mealType: true,
+          serviceStyle: true,
+          expectedCount: true,
+          confirmedCount: true,
+          guaranteeCount: true,
+          dietaryNotes: true,
+          function: { select: { schedules: scheduleSelect } },
+          lineItems: { select: { id: true, description: true, quantity: true, unitType: true, notes: true }, orderBy: { sortOrder: "asc" } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return cateringLineItems(
+        orders.map((o) => ({ ...o, schedules: o.function?.schedules ?? [] })),
+        support,
+        event.timezone,
+      );
+    }
+    case "PRINT": {
+      const orders = await prisma.printOrder.findMany({
+        where: { eventId },
+        select: {
+          id: true,
+          name: true,
+          items: { select: { id: true, description: true, quantity: true, distributionMethod: true, notes: true }, orderBy: { sortOrder: "asc" } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return printLineItems(orders);
+    }
+    case "HOTEL":
+    case "OTHER":
+      return [];
+    default: {
+      const _exhaustive: never = kind;
+      throw new Error(`Unhandled RFP kind: ${_exhaustive}`);
+    }
+  }
+}
+
 export async function getRfpComparison(id: string, eventId: string) {
   const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
   if (!rfp) return null;
@@ -385,6 +502,7 @@ function readRfp(formData: FormData): RfpWriteArgs {
     regions: formData.getAll("regions") as string[],
     areas: formData.getAll("areas") as string[],
     siteVisitBy: str("siteVisitBy"),
+    service: formData.has("service") ? str("service") : undefined,
   };
 }
 
@@ -418,6 +536,13 @@ export async function saveRfpBlocks(id: string, eventId: string, blocks: RfpBloc
   const kind = await rfpKind(id, eventId);
   const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
   await saveRfpBlocksCore(id, eventId, blocks, session.user.id);
+  revalidatePath(rfpPath(eventId, kind, id));
+}
+
+export async function saveRfpLineItems(id: string, eventId: string, rows: RfpLineItemArgs[]) {
+  const kind = await rfpKind(id, eventId);
+  const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
+  await saveRfpLineItemsCore(id, eventId, rows, session.user.id);
   revalidatePath(rfpPath(eventId, kind, id));
 }
 
@@ -461,6 +586,14 @@ export async function addNewRfpRecipient(id: string, eventId: string, hotel: Off
   await addNewRfpRecipientCore(id, eventId, hotel, session.user.id);
   revalidatePath(rfpBase(eventId, kind));
   revalidatePath("/venues");
+}
+
+export async function addRfpVendorRecipients(id: string, eventId: string, vendorIds: string[]) {
+  const kind = await rfpKind(id, eventId);
+  const session = await requirePermission(resourceForKind(kind), "WRITE", eventId);
+  await addRfpVendorRecipientsCore(id, eventId, vendorIds, session.user.id);
+  revalidatePath(rfpBase(eventId, kind));
+  revalidatePath(rfpPath(eventId, kind, id));
 }
 
 export async function updateRfpRecipient(recipientId: string, id: string, eventId: string, args: RfpRecipientArgs) {

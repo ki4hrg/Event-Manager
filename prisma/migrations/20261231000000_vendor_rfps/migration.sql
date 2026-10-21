@@ -164,3 +164,17 @@ ALTER TABLE "VendorQuoteLine" ADD CONSTRAINT "VendorQuoteLine_quoteId_fkey" FORE
 -- AddForeignKey
 ALTER TABLE "VendorQuoteLine" ADD CONSTRAINT "VendorQuoteLine_rfpLineItemId_fkey" FOREIGN KEY ("rfpLineItemId") REFERENCES "RfpLineItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+
+-- Option lists for vendor RFPs, for tenants that predate them.
+INSERT INTO "CustomOption" ("id", "tenantId", "category", "label", "sortOrder", "updatedAt")
+SELECT gen_random_uuid()::text, t."id", v.category, v.label, v.sort, CURRENT_TIMESTAMP
+FROM "Tenant" t
+CROSS JOIN (VALUES
+  ('rfp_service', 'Transportation', 0), ('rfp_service', 'DMC', 1), ('rfp_service', 'Security', 2),
+  ('rfp_service', 'Staffing', 3), ('rfp_service', 'Photography', 4),
+  ('rfp_term', 'Deposit schedule', 0), ('rfp_term', 'Payment terms', 1), ('rfp_term', 'Cancellation', 2),
+  ('rfp_term', 'Overtime rate', 3), ('rfp_term', 'Delivery window', 4), ('rfp_term', 'Certificate of insurance', 5),
+  ('rfp_term', 'Price hold', 6)
+) AS v(category, label, sort)
+WHERE NOT EXISTS (SELECT 1 FROM "CustomOption" o WHERE o."tenantId" = t."id" AND o."category" = v.category AND lower(o."label") = lower(v.label))
+ON CONFLICT DO NOTHING;
