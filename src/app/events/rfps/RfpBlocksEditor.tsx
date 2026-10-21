@@ -16,6 +16,7 @@ export type RfpBlockValues = {
   contractType: HotelContractType;
   guestType: string | null;
   targetRate: string | null;
+  targetRateRequired: boolean;
   notes: string | null;
   nights: { roomType: string | null; night: string; rooms: number }[];
 };
@@ -27,6 +28,7 @@ type BlockState = {
   contractType: HotelContractType;
   guestType: string;
   targetRate: string;
+  targetRateRequired: boolean;
   notes: string;
   // Nights shown, first to last; each block keeps its own range.
   from: string;
@@ -194,6 +196,7 @@ export function RfpBlocksEditor({
       contractType: b.contractType,
       guestType: b.guestType ?? "",
       targetRate: b.targetRate ?? "",
+      targetRateRequired: b.targetRateRequired,
       notes: b.notes ?? "",
       ...range(b.nights.map((n) => n.night)),
       grid: toGridState(b.nights),
@@ -211,6 +214,7 @@ export function RfpBlocksEditor({
         contractType: "CONTRACT",
         guestType: guestTypes[0] ?? "",
         targetRate: "",
+        targetRateRequired: false,
         notes: "",
         ...range([]),
         grid: emptyGridState(keysBetween(arrival, lastNight), peakRooms),
@@ -247,6 +251,7 @@ export function RfpBlocksEditor({
             contractType: b.contractType,
             guestType: b.guestType || null,
             targetRate: b.targetRate !== "" ? Number(b.targetRate) : null,
+            targetRateRequired: b.targetRateRequired,
             notes: b.notes || null,
             nights: gridNights(keys, b.grid).map(({ roomType, night, rooms }) => ({ roomType, night, rooms })),
           };
@@ -316,6 +321,15 @@ export function RfpBlocksEditor({
                   onChange={(e) => change(b.id, { targetRate: e.target.value })}
                   className={inputClass}
                 />
+                <label className="mt-1 flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={b.targetRateRequired}
+                    onChange={(e) => change(b.id, { targetRateRequired: e.target.checked })}
+                    className="rounded border-gray-300 dark:border-gray-600"
+                  />
+                  Required
+                </label>
               </div>
             </div>
             <RoomGridEditor

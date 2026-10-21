@@ -77,6 +77,7 @@ export type RfpBlockArgs = {
   contractType: HotelContractType;
   guestType: string | null; // hotel_guest_type option label
   targetRate: number | null;
+  targetRateRequired?: boolean; // a ceiling, not a target
   notes: string | null;
   nights: { roomType: string | null; night: string; rooms: number }[];
 };
@@ -237,7 +238,7 @@ async function validBlocks(eventId: string, blocks: RfpBlockArgs[]) {
         return { roomType, night: dateFromKey(n.night), rooms: n.rooms };
       });
     if (!CONTRACT_TYPE_LABELS[b.contractType]) throw new Error(`Unknown contract type: ${b.contractType}`);
-    return { id: b.id ?? null, contractType: b.contractType, guestType: b.guestType || null, targetRate: b.targetRate, notes: b.notes?.trim() || null, nights };
+    return { id: b.id ?? null, contractType: b.contractType, guestType: b.guestType || null, targetRate: b.targetRate, targetRateRequired: b.targetRateRequired === true, notes: b.notes?.trim() || null, nights };
   });
 }
 
@@ -563,6 +564,9 @@ export async function issueRfpCore(id: string, eventId: string, file: { fileName
       },
     }),
     prisma.rfp.update({ where: { id, eventId }, data: { issuedOn: today, status: status === "DRAFT" ? "ISSUED" : status, updatedById: userId } }),
+    // Recipients already on it are sent this issue; a reissue keeps the date
+    // each was first sent, and one that declined stays unsent.
+    prisma.rfpRecipient.updateMany({ where: { rfpId: id, sentOn: null, declinedToBid: false }, data: { sentOn: today } }),
   ]);
 }
 

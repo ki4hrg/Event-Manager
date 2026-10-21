@@ -5,7 +5,7 @@
 import { Document, HeadingLevel, Packer, PageOrientation, Paragraph, TextRun, type Table } from "docx";
 import { FONT, chrome, fieldsTable, gridTable, numbering, richParagraphs, spacer, styles, textParagraphs } from "@/lib/esg/renderDocx";
 import { formatNight } from "@/lib/hotels";
-import { concessionOfferRows, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpSpaceDay } from "@/lib/rfp/document";
+import { concessionOfferRows, targetRateLine, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpSpaceDay } from "@/lib/rfp/document";
 import { comparisonRows, type RfpComparison } from "@/lib/rfp/compare";
 import type { QuoteComparison } from "@/lib/rfp/compareQuotes";
 
@@ -137,7 +137,8 @@ export function rfpBodyElements(doc: RfpDocument): (Paragraph | Table)[] {
     for (const b of doc.blocks) {
       out.push(label(b.label));
       if (b.nights.length) out.push(blockTable(b), note(`Rooms on peak night ${b.peak} · ${b.roomNights} room nights`));
-      if (b.targetRate) out.push(...textParagraphs(`Room rate must be no more than ${b.targetRate}`, { size: 18 }));
+      const rate = targetRateLine(b);
+      if (rate) out.push(...textParagraphs(rate, { size: 18 }));
       if (b.notes) out.push(...textParagraphs(b.notes, { size: 18 }));
       out.push(spacer());
     }
