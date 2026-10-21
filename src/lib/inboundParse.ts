@@ -20,8 +20,13 @@ export type ProposalSheet = {
   headerRow: number; // 1-based row of the header in that sheet
   columns: Record<PickupFieldKey, string | null>;
   cancelledStatuses: string[];
-  roomTypes: { raw: string; roomType: string | null }[];
+  // Older proposals kept the room-type map here; see InboundProposal.roomTypes.
+  roomTypes?: RoomTypeMap;
 };
+
+// Each raw room type in a guest list (a hotel's code, e.g. NKR) → the block's
+// room type it stands for, or null when none fits.
+export type RoomTypeMap = { raw: string; roomType: string | null }[];
 
 export type InboundProposal = {
   kind: InboundKind;
@@ -31,6 +36,7 @@ export type InboundProposal = {
   sheet: ProposalSheet | null;
   guests: PickupGuestRow[] | null;
   counts: { night: string; roomType: string | null; rooms: number }[] | null;
+  roomTypes?: RoomTypeMap;
 };
 
 export type ParseBlock = {
@@ -57,6 +63,7 @@ export type ParseInput = {
   timezone: string;
   eventName: string;
   blocks: ParseBlock[];
+  roomTypes: string[]; // the org's room type labels
   attachments: ParseAttachment[];
 };
 
@@ -101,8 +108,8 @@ const OUTPUT_SCHEMA = object({
     headerRow: { type: "integer" },
     columns: object(Object.fromEntries(PICKUP_FIELD_KEYS.map((k) => [k, str]))),
     cancelledStatuses: { type: "array", items: str },
-    roomTypes: { type: "array", items: object({ raw: str, roomType: str }) },
   }),
+  roomTypes: { type: "array", items: object({ raw: str, roomType: str }) },
   guests: { type: "array", items: guestSchema },
   counts: { type: "array", items: object({ night: str, roomType: str, rooms: { type: "integer" } }) },
 });
@@ -136,8 +143,9 @@ Text fields with nothing to say are "" (never null). Lists that don't apply are 
 blockId: the hotel block the report is for, chosen from the candidate blocks by hotel name, group code and dates. "" when none fits or it's ambiguous; say why in notes.
 
 For PICKUP_GUESTS:
-- When the list is in a spreadsheet attachment, fill "sheet" and leave "guests" empty. attachment is the attachment's number; headerRow is the 1-based row that holds the column headers. columns maps each field to the exact header text in that row ("" when the sheet has no such column): fullName, or firstName + lastName when the name is split; confirmation; checkIn; checkOut (a nights column is not a departure date); roomType; status; bookedOn (when the reservation was made); cancelledOn. cancelledStatuses lists the status values you can see that mean the reservation is cancelled or a no-show. roomTypes maps each raw room type you can see to one of the block's room types, or "" when none fits.
-- When the list is in a PDF or the message body, fill "guests" with every reservation, and set sheet.attachment to -1. Dates are YYYY-MM-DD; "" when not given. roomType is one of the block's room types when one fits, else the raw text. cancelled is true for cancelled or no-show reservations.
+- When the list is in a spreadsheet attachment, fill "sheet" and leave "guests" empty. attachment is the attachment's number; headerRow is the 1-based row that holds the column headers. columns maps each field to the exact header text in that row ("" when the sheet has no such column): fullName, or firstName + lastName when the name is split; confirmation; checkIn; checkOut (a nights column is not a departure date); roomType; status; bookedOn (when the reservation was made); cancelledOn. cancelledStatuses lists the status values you can see that mean the reservation is cancelled or a no-show.
+- When the list is in a PDF or the message body, fill "guests" with every reservation, and set sheet.attachment to -1. Dates are YYYY-MM-DD; "" when not given. roomType is the room type exactly as the report writes it (e.g. "NKR"), not translated. rawStatus is the status as written. cancelled is true for cancelled or no-show reservations.
+- Either way, roomTypes maps each distinct raw room type in the list to the room type it stands for: the block's own room type when the block lists one that fits, otherwise one of the org's room types (a block that is only "Run of house" still records what each guest actually booked). Hotels use codes: K or KNG for king, Q, QQ or DQ for queen / double queen, a leading N for non-smoking, S or STE for suites; match on the bed type, ignore smoking and view. Use "" only when none of these fits.
 
 For PICKUP_COUNTS, fill "counts": one entry per night and room type with rooms picked up. night is YYYY-MM-DD (the night of the stay, i.e. the arrival date of that night). roomType is one of the block's room types, or "" for a total across types.
 
@@ -161,6 +169,8 @@ function buildContent(input: ParseInput): Anthropic.Beta.BetaContentBlockParam[]
     "",
     "Candidate hotel blocks:",
     ...(input.blocks.length ? input.blocks.map(blockText) : ["(none)"]),
+    "",
+    `Org room types: ${input.roomTypes.join(", ") || "(none)"}`,
     "",
   ];
   input.attachments.forEach((a, i) => {
@@ -239,5 +249,6 @@ function checkProposal(p: InboundProposal, input: ParseInput): InboundProposal {
     sheet,
     guests: p.kind === "PICKUP_GUESTS" && !sheet ? (p.guests ?? []) : null,
     counts: p.kind === "PICKUP_COUNTS" ? (p.counts ?? []).filter((c) => Number.isInteger(c.rooms) && c.rooms >= 0) : null,
+    roomTypes: p.kind === "PICKUP_GUESTS" ? (p.roomTypes ?? []).filter((r) => r.raw) : [],
   };
 }
