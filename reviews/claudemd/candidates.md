@@ -99,3 +99,6 @@
 - [media-deliverables] `createMediaDeliverableCore` (src/app/events/media-deliverables/core.ts) now asserts linked functions/presentations are in the event and contacts in the tenant — the old action linked any ids it was given
 - [speakers] Proposal #55 minimal slice shipped: Contact.bio is plain text (not rich text as #55 suggested) because public forms write it; SpeakerProfile panel lives on the presentation page; contact files (headshots) are excluded from /api/upload because that route can't tie a contact to the uploader's tenant
 - [forms] A honeypot field named like a real field ("website") shadows it in FormData.get — public forms use HONEYPOT_FIELD (src/lib/forms/meta.ts)
+- [mcp] Tools that return text written by people outside the org (form submissions) put it under one `untrusted_submitter_content` key and say so in the description (src/lib/mcpTools/forms.ts)
+- [sidebar] EventSidebar takes `badges` keyed by segment (open form submissions); computed in the event layout
+- [routes] Archetype G gains `f/[token]/upload` (public multipart upload for forms; token + draft cookie + Origin check, under the `/f/` exemption)

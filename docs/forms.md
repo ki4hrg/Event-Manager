@@ -69,3 +69,19 @@ These are binding for every new form type.
 - **Headers.** `/f/*` sends `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`. `/api/files` sends `nosniff`.
 
 To add a form type, see [checklists/adding-form-type.md](./checklists/adding-form-type.md).
+
+## MCP
+
+`src/lib/mcpTools/forms.ts`:
+
+- `list_form_links`, `create_form_link`, `revoke_form_link` manage links.
+- `list_form_submissions` and `get_form_submission` read the queue.
+- `apply_form_submission` and `reject_form_submission` act on a submission.
+
+All of them go through the same cores as the UI. Three things differ from the UI:
+
+- `get_form_submission` returns everything a submitter wrote under `untrusted_submitter_content` and says so in its description.
+- `apply_form_submission` requires explicit `sections` and the `version` from `get_form_submission`.
+- There is no apply-all default.
+
+The event sidebar's Forms link shows the open-submission count.

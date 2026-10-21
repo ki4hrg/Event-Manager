@@ -300,6 +300,7 @@ function SidebarInner({
   currentSection,
   items,
   nav,
+  badges,
 }: {
   eventName: string;
   basePath: string;
@@ -310,6 +311,7 @@ function SidebarInner({
   currentSection: SidebarSection | null;
   items: SidebarItem[];
   nav: NavItem[];
+  badges: Record<string, number>;
 }) {
   const hasActiveItems = currentSection !== null && items.length > 0;
 
@@ -402,6 +404,11 @@ function SidebarInner({
                 {!collapsed && (
                   <span className="truncate leading-none">{item.label}</span>
                 )}
+                {!collapsed && item.segment && badges[item.segment] > 0 && (
+                  <span className="ml-auto rounded-full bg-blue-100 dark:bg-blue-900/40 px-1.5 text-xs leading-5 text-blue-700 dark:text-blue-300">
+                    {badges[item.segment]}
+                  </span>
+                )}
               </Link>
 
               {showItems && (
@@ -461,6 +468,8 @@ type EventSidebarProps = {
   // The saved collapse preference, read server-side by the event layout so the
   // first paint already has the right width.
   initialCollapsed: boolean;
+  // Counts shown beside a link, keyed by segment (open form submissions).
+  badges?: Record<string, number>;
 };
 
 export function EventSidebar({
@@ -471,6 +480,7 @@ export function EventSidebar({
   deniedResources,
   deniedWriteResources,
   initialCollapsed,
+  badges = {},
 }: EventSidebarProps) {
   const pathname = usePathname();
   const basePath = `/events/${eventId}`;
@@ -535,6 +545,7 @@ export function EventSidebar({
     pathname,
     currentSection,
     items,
+    badges,
     nav: useMemo(
       () => visibleNav(new Set(deniedResources), new Set(deniedWriteResources)),
       [deniedResources, deniedWriteResources],

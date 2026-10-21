@@ -5,57 +5,41 @@ import { redirect } from "next/navigation";
 import type { FormType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { isEmailConfigured, sendFormLinkEmail } from "@/lib/email";
 import { formConfig, formModule } from "@/lib/forms/index";
 import { FORM_TYPE_LABEL } from "@/lib/forms/meta";
-import { applyFormSubmissionCore, createFormLinkCore, rejectFormSubmissionCore, revokeFormLinkCore } from "./core";
+import {
+  applyFormSubmissionCore,
+  createFormLinkCore,
+  endOfDayInEvent,
+  listFormLinksCore,
+  listFormSubmissionsCore,
+  loadFormSubmissionReviewCore,
+  rejectFormSubmissionCore,
+  revokeFormLinkCore,
+  type SubmissionView,
+} from "./core";
+
+export type { SubmissionView };
 
 async function eventTimezone(eventId: string) {
   const event = await prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true, name: true } });
   return { timezone: event?.timezone || "America/Chicago", name: event?.name ?? "" };
 }
 
-// A date input (YYYY-MM-DD) as the end of that day in the event's time zone.
-function endOfDay(value: string | null, timezone: string): Date | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  return parseDateTimeInTimezone(`${value}T23:59`, timezone);
-}
 
 export async function getFormLinks(
   eventId: string,
   filter: { functionId?: string; presentationId?: string; formType?: FormType } = {},
 ) {
-  await requirePermission("FORMS", "VIEW", eventId);
-  return prisma.formLink.findMany({
-    where: { eventId, ...filter },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      token: true,
-      formType: true,
-      label: true,
-      recipientName: true,
-      recipientEmail: true,
-      expiresAt: true,
-      revokedAt: true,
-      dueAt: true,
-      maxSubmissions: true,
-      submittedCount: true,
-      accessCount: true,
-      lastAccessedAt: true,
-      createdAt: true,
-      function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
-      workflowTemplate: { select: { name: true } },
-      createdBy: { select: { name: true, email: true } },
-    },
-  });
+  const session = await requirePermission("FORMS", "VIEW", eventId);
+  return listFormLinksCore(eventId, filter, session.user.id);
 }
 
 export async function createFormLink(eventId: string, formData: FormData) {
   const session = await requirePermission("FORMS", "WRITE", eventId);
   const { timezone, name: eventName } = await eventTimezone(eventId);
-  const expiresAt = endOfDay(formData.get("expiresAt") as string, timezone);
+  const expiresAt = await endOfDayInEvent(formData.get("expiresAt") as string, eventId);
   if (!expiresAt) throw new Error("Pick a close date");
   const maxRaw = formData.get("maxSubmissions") as string;
   const link = await createFormLinkCore(
@@ -72,7 +56,7 @@ export async function createFormLink(eventId: string, formData: FormData) {
       sections: formData.getAll("sections") as string[],
       intro: (formData.get("intro") as string) || null,
       workflowTemplateId: (formData.get("workflowTemplateId") as string) || null,
-      dueAt: endOfDay(formData.get("dueAt") as string, timezone),
+      dueAt: await endOfDayInEvent(formData.get("dueAt") as string, eventId),
       expiresAt,
       maxSubmissions: maxRaw ? parseInt(maxRaw) : null,
     },
@@ -104,67 +88,14 @@ export async function revokeFormLink(eventId: string, linkId: string) {
   revalidatePath(`/events/${eventId}/forms`);
 }
 
-export type SubmissionView = "open" | "done";
-
 export async function getFormSubmissions(eventId: string, view: SubmissionView) {
-  await requirePermission("FORMS", "VIEW", eventId);
-  return prisma.formSubmission.findMany({
-    where: { eventId, state: view === "open" ? "SUBMITTED" : { in: ["APPLIED", "REJECTED"] } },
-    orderBy: { submittedAt: "desc" },
-    select: {
-      id: true,
-      formType: true,
-      state: true,
-      status: true,
-      substatus: true,
-      submitterName: true,
-      submitterOrg: true,
-      submittedAt: true,
-      handledAt: true,
-      formLink: {
-        select: { function: { select: { name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } } },
-      },
-    },
-  });
+  const session = await requirePermission("FORMS", "VIEW", eventId);
+  return listFormSubmissionsCore(eventId, view, session.user.id);
 }
 
 export async function getFormSubmissionReview(eventId: string, id: string) {
   const session = await requirePermission("FORMS", "VIEW", eventId);
-  const sub = await prisma.formSubmission.findFirst({
-    where: { id, eventId, tenantId: session.tenantId, state: { not: "DRAFT" } },
-    include: {
-      formLink: {
-        select: {
-          formType: true,
-          tenantId: true,
-          eventId: true,
-          functionId: true,
-          contactId: true,
-          presentationId: true,
-          boothGroupId: true,
-          config: true,
-          recipientName: true,
-          event: { select: { name: true, timezone: true } },
-        },
-      },
-      files: { select: { id: true, fileName: true, fileSize: true, mimeType: true }, orderBy: { createdAt: "asc" } },
-      handledBy: { select: { name: true, email: true } },
-    },
-  });
-  if (!sub) return null;
-  const mod = formModule(sub.formType);
-  const snapshot = await mod.snapshot(sub.formLink);
-  const sections = formConfig(sub.formLink).sections;
-  return {
-    submission: sub,
-    functionId: sub.formLink.functionId,
-    diff: mod.diff(sub.baseline, sub.payload, snapshot?.baseline ?? sub.baseline, sections),
-    targetName: snapshot?.targetName ?? sub.formLink.event.name,
-    open: mod.open,
-    // Null when the target is gone; apply is then refused.
-    version: snapshot?.version ?? null,
-    choices: sub.state === "SUBMITTED" ? await mod.reviewChoices(sub.payload, sub.formLink, sub.files) : [],
-  };
+  return loadFormSubmissionReviewCore(eventId, id, session.user.id);
 }
 
 export async function applyFormSubmission(eventId: string, id: string, formData: FormData) {

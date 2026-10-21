@@ -16,6 +16,7 @@ import { hotelTools } from "./hotels";
 import { rfpTools } from "./rfps";
 import { quoteTools } from "./quotes";
 import { inboxTools } from "./inbox";
+import { formTools } from "./forms";
 
 export const mcpTools: McpToolDefinition[] = [
   ...tenantTools,
@@ -27,6 +28,7 @@ export const mcpTools: McpToolDefinition[] = [
   ...rfpTools,
   ...quoteTools,
   ...inboxTools,
+  ...formTools,
   ...presentationTools,
   ...vendorTools,
   ...contactTools,

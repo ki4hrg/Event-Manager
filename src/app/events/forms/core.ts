@@ -8,7 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { generateShareToken } from "@/lib/shareLinks";
 import { ENTITY_FK_FIELD, getUploadDir, getUploadPath } from "@/lib/uploads";
-import { formModule } from "@/lib/forms/index";
+import { formConfig, formModule } from "@/lib/forms/index";
+import { parseDateTimeInTimezone } from "@/lib/timezones";
 import type { FileTarget, FormLinkTarget } from "@/lib/forms/types";
 import { workflowCompletionCore } from "@/app/events/workflows/core";
 
@@ -218,3 +219,108 @@ async function fileSubmissionAttachments(
   });
   return files.length;
 }
+
+// A date input (YYYY-MM-DD) as the end of that day in the event's time zone.
+export async function endOfDayInEvent(value: string | null | undefined, eventId: string): Promise<Date | null> {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true } });
+  return parseDateTimeInTimezone(`${value}T23:59`, event?.timezone || "America/Chicago");
+}
+
+// ─── Readers (shared by the pages and the MCP tools) ────────────────────────
+
+export async function listFormLinksCore(
+  eventId: string,
+  filter: { functionId?: string; presentationId?: string; formType?: FormType },
+  userId: string,
+) {
+  await requirePermissionForUser(userId, "FORMS", "VIEW", eventId);
+  return prisma.formLink.findMany({
+    where: { eventId, ...filter },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      token: true,
+      formType: true,
+      label: true,
+      recipientName: true,
+      recipientEmail: true,
+      expiresAt: true,
+      revokedAt: true,
+      dueAt: true,
+      maxSubmissions: true,
+      submittedCount: true,
+      accessCount: true,
+      lastAccessedAt: true,
+      createdAt: true,
+      function: { select: { id: true, name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
+      workflowTemplate: { select: { name: true } },
+      createdBy: { select: { name: true, email: true } },
+    },
+  });
+}
+
+export type SubmissionView = "open" | "done";
+
+export async function listFormSubmissionsCore(eventId: string, view: SubmissionView, userId: string) {
+  await requirePermissionForUser(userId, "FORMS", "VIEW", eventId);
+  return prisma.formSubmission.findMany({
+    where: { eventId, state: view === "open" ? "SUBMITTED" : { in: ["APPLIED", "REJECTED"] } },
+    orderBy: { submittedAt: "desc" },
+    select: {
+      id: true,
+      formType: true,
+      state: true,
+      status: true,
+      substatus: true,
+      submitterName: true,
+      submitterOrg: true,
+      submittedAt: true,
+      handledAt: true,
+      formLink: {
+        select: { function: { select: { name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } } },
+      },
+    },
+  });
+}
+
+export async function loadFormSubmissionReviewCore(eventId: string, id: string, userId: string) {
+  await requirePermissionForUser(userId, "FORMS", "VIEW", eventId);
+  const tenantId = await requireEventTenantId(eventId);
+  const sub = await prisma.formSubmission.findFirst({
+    where: { id, eventId, tenantId, state: { not: "DRAFT" } },
+    include: {
+      formLink: {
+        select: {
+          formType: true,
+          tenantId: true,
+          eventId: true,
+          functionId: true,
+          contactId: true,
+          presentationId: true,
+          boothGroupId: true,
+          config: true,
+          recipientName: true,
+          event: { select: { name: true, timezone: true } },
+        },
+      },
+      files: { select: { id: true, fileName: true, fileSize: true, mimeType: true }, orderBy: { createdAt: "asc" } },
+      handledBy: { select: { name: true, email: true } },
+    },
+  });
+  if (!sub) return null;
+  const mod = formModule(sub.formType);
+  const snapshot = await mod.snapshot(sub.formLink);
+  const sections = formConfig(sub.formLink).sections;
+  return {
+    submission: sub,
+    functionId: sub.formLink.functionId,
+    diff: mod.diff(sub.baseline, sub.payload, snapshot?.baseline ?? sub.baseline, sections),
+    targetName: snapshot?.targetName ?? sub.formLink.event.name,
+    open: mod.open,
+    // Null when the target is gone; apply is then refused.
+    version: snapshot?.version ?? null,
+    choices: sub.state === "SUBMITTED" ? await mod.reviewChoices(sub.payload, sub.formLink, sub.files) : [],
+  };
+}
+
