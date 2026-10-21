@@ -18,11 +18,13 @@ export function InboxItemActions({
   dismiss,
   restore,
   move,
+  reparse,
 }: {
   status: InboundStatus;
   routed: boolean;
   destinations: Destination[];
   release?: () => Promise<void>;
+  reparse?: () => Promise<void>;
   dismiss: () => Promise<void>;
   restore: () => Promise<void>;
   move: (toEventId: string) => Promise<void>;
@@ -48,6 +50,11 @@ export function InboxItemActions({
       {routed && status === "HELD" && release && (
         <button type="button" disabled={pending} onClick={() => run(release)} className={`${btnPrimary} disabled:opacity-50`}>
           Release
+        </button>
+      )}
+      {reparse && (status === "RECEIVED" || status === "PARSED" || status === "FAILED") && (
+        <button type="button" disabled={pending} onClick={() => run(reparse)} className={`${btnSecondary} disabled:opacity-50`}>
+          Re-read
         </button>
       )}
       {open && (

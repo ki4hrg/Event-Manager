@@ -35,18 +35,21 @@ const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 d
 // The message, its sender and its files. The HTML part is never rendered —
 // only text — since the mail comes from outside.
 // timezone: the event's; Unrouted mail has none and shows UTC.
+// diagnostics: the .eml and the SPF / DKIM / DMARC results (canSeeDiagnostics).
 export function InboxItemView({
   item,
   timezone = "UTC",
+  diagnostics = false,
   renderFileAction,
 }: {
   item: Item;
   timezone?: string;
+  diagnostics?: boolean;
   renderFileAction?: (file: FileUpload) => React.ReactNode;
 }) {
   const source = item.files.find((f) => f.fileType === EMAIL_SOURCE_FILE_TYPE);
   const attachments = item.files.filter((f) => f.fileType !== EMAIL_SOURCE_FILE_TYPE);
-  const verdicts = authVerdicts(item.authResults);
+  const verdicts = diagnostics ? authVerdicts(item.authResults) : [];
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className={`${cardClass} min-w-0 space-y-4`}>
@@ -114,7 +117,7 @@ export function InboxItemView({
               </li>
             ))}
           </ul>
-          {source && (
+          {diagnostics && source && (
             <a href={`/api/files/${source.id}`} className="inline-block pt-2 text-xs text-gray-600 dark:text-gray-400 hover:underline">
               Original message (.eml)
             </a>

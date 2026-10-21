@@ -19,6 +19,9 @@ model User {
   // flag rather than a Role — roles are tenant memberships, and a super admin
   // needs to act before any membership exists.
   isSuperAdmin               Boolean                  @default(false)
+  // Shows diagnostics (raw .eml, mail authentication results, parser errors)
+  // to someone who isn't a super admin. Set by super admins on the user page.
+  showDiagnostics            Boolean                  @default(false)
   // Which tenants this user may enter, and with what role in each. A user's
   // permissions are always resolved through the membership for the tenant in
   // question — there is no global role anymore.

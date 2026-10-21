@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { InboundStatus } from "@prisma/client";
 import { formatRelativeTime } from "@/lib/relativeTime";
-import { SENDER_MATCH_LABELS, STATUS_LABELS, type InboxView } from "./views";
+import { KIND_LABELS, SENDER_MATCH_LABELS, STATUS_LABELS, type InboxView } from "./views";
 
 type Item = {
   id: string;
@@ -10,6 +10,7 @@ type Item = {
   subject: string | null;
   receivedAt: Date;
   status: InboundStatus;
+  kind: string | null;
   senderMatch: string | null;
   envelopeTo: string;
   _count: { files: number };
@@ -28,10 +29,12 @@ const tabClass = (active: boolean) =>
       : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
   }`;
 
+// Green: trusted for the event. Blue: known to the org, not tied to this
+// event. Amber: unknown.
 export function senderBadgeClass(match: string | null): string {
-  return match
-    ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-    : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+  if (match === "MEMBER" || match === "CONTACT") return "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+  if (match === "ORG_CONTACT") return "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+  return "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
 }
 
 export function InboxTabs({
@@ -95,7 +98,10 @@ export function InboxList({
             <span className={`text-xs px-1.5 py-0.5 rounded ${senderBadgeClass(item.senderMatch)}`}>
               {item.senderMatch ? SENDER_MATCH_LABELS[item.senderMatch] ?? item.senderMatch : "Unknown sender"}
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">{STATUS_LABELS[item.status]}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {STATUS_LABELS[item.status]}
+              {item.kind && item.kind !== "OTHER" ? ` · ${KIND_LABELS[item.kind] ?? item.kind}` : ""}
+            </span>
             {item._count.files > 0 && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {item._count.files} attachment{item._count.files === 1 ? "" : "s"}
