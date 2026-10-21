@@ -9,10 +9,13 @@ Cloudflare Email Routing and posts it to Event Manager's
 1. Generate a secret: `openssl rand -hex 32`.
 2. On the Event Manager host, set `INBOUND_EMAIL_DOMAIN=eventmanage.net` and
    `INBOUND_EMAIL_SECRET=<secret>` (compose env), and redeploy.
-3. Here: set `APP_URL` in `wrangler.toml` to the app's public base URL, then
+3. From this directory (`workers/email-inbound/`), in a checkout of the repo on
+   any machine with Node and a browser (not the app host): set `APP_URL` in
+   `wrangler.toml` to the app's public base URL, then
 
    ```sh
-   npx wrangler login
+   cd workers/email-inbound
+   npx wrangler login                             # opens a browser to sign in to Cloudflare
    npx wrangler secret put INBOUND_EMAIL_SECRET   # same value as the app
    npx wrangler deploy
    ```
