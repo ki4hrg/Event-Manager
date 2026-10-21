@@ -1,0 +1,179 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { notFound, redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/permissions";
+import { resourceForKind } from "@/lib/rfp/kinds";
+import { buildQuoteComparison } from "@/lib/rfp/compareQuotes";
+import {
+  awardVendorQuoteCore,
+  createVendorQuoteCore,
+  deleteVendorQuoteCore,
+  quoteResource,
+  updateVendorQuoteCore,
+  type QuoteLineArgs,
+  type QuoteWriteArgs,
+} from "./core";
+
+const quotePath = (eventId: string, id: string) => `/events/${eventId}/quotes/${id}`;
+const rfpPath = (eventId: string, rfpId: string) => `/events/${eventId}/rfps/${rfpId}`;
+
+// The quote's RFP (for its permission resource); a foreign id is a not-found.
+async function quoteRfp(id: string, eventId: string) {
+  const quote = await prisma.vendorQuote.findFirst({ where: { id, eventId }, select: { rfpId: true, rfp: { select: { kind: true } } } });
+  if (!quote) notFound();
+  return quote;
+}
+
+export async function getVendorQuote(id: string, eventId: string) {
+  const found = await prisma.vendorQuote.findFirst({ where: { id, eventId }, select: { rfp: { select: { kind: true } } } });
+  if (!found) return null;
+  await requirePermission(quoteResource(found.rfp), "VIEW", eventId);
+  return prisma.vendorQuote.findFirst({
+    where: { id, eventId },
+    include: {
+      vendor: { select: { id: true, name: true } },
+      rfp: { select: { id: true, kind: true, title: true, status: true } },
+      lines: { orderBy: { sortOrder: "asc" } },
+      files: { orderBy: { createdAt: "desc" } },
+      updatedBy: { select: { name: true, email: true } },
+    },
+  });
+}
+
+// Quotes that answer no RFP, for the RFPs page.
+export async function getStandaloneQuotes(eventId: string) {
+  await requirePermission("EVENTS", "VIEW", eventId);
+  return prisma.vendorQuote.findMany({
+    where: { eventId, rfpId: null },
+    select: { id: true, status: true, revision: true, reference: true, submittedOn: true, vendor: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+// What the quote form needs: the tenant's vendors and, on an RFP, its line
+// items to price.
+export async function getQuoteFormChoices(eventId: string, rfpId: string | null) {
+  const rfp = rfpId ? await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { id: true, kind: true } }) : null;
+  if (rfpId && !rfp) notFound();
+  const session = await requirePermission(rfp ? resourceForKind(rfp.kind) : "EVENTS", "VIEW", eventId);
+  const [vendors, lineItems] = await Promise.all([
+    prisma.vendor.findMany({
+      where: { tenantId: session.tenantId, isSystemVendor: false, venueId: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    rfp
+      ? prisma.rfpLineItem.findMany({
+          where: { rfpId: rfp.id },
+          select: { id: true, group: true, description: true, quantity: true, unit: true },
+          orderBy: { sortOrder: "asc" },
+        })
+      : [],
+  ]);
+  return { vendors, lineItems };
+}
+
+export async function getQuoteComparison(rfpId: string, eventId: string) {
+  const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
+  if (!rfp || rfp.kind === "HOTEL") return null;
+  await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
+  const [full, event] = await Promise.all([
+    prisma.rfp.findFirstOrThrow({
+      where: { id: rfpId, eventId },
+      select: {
+        title: true,
+        lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true, group: true, description: true, quantity: true, unit: true } },
+        quotes: {
+          select: {
+            id: true,
+            status: true,
+            revision: true,
+            validUntil: true,
+            serviceCharge: true,
+            tax: true,
+            otherFees: true,
+            depositAmount: true,
+            depositDue: true,
+            vendor: { select: { name: true } },
+            lines: { select: { rfpLineItemId: true, description: true, quantity: true, unitPrice: true, amount: true }, orderBy: { sortOrder: "asc" } },
+          },
+        },
+      },
+    }),
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { name: true } }),
+  ]);
+  return buildQuoteComparison({
+    title: full.title,
+    eventName: event.name,
+    lineItems: full.lineItems,
+    quotes: full.quotes.map((q) => ({ ...q, vendor: q.vendor.name })),
+  });
+}
+
+function readQuote(formData: FormData): QuoteWriteArgs {
+  const str = (k: string) => (formData.get(k) as string) || null;
+  const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
+  const raw = formData.get("lines");
+  const lines = typeof raw === "string" && raw ? (JSON.parse(raw) as QuoteLineArgs[]) : [];
+  if (!Array.isArray(lines)) throw new Error("lines must be a list");
+  return {
+    vendorId: formData.get("vendorId") as string,
+    reference: str("reference"),
+    submittedOn: str("submittedOn"),
+    validUntil: str("validUntil"),
+    revision: formData.get("revision") ? parseInt(formData.get("revision") as string) : 1,
+    serviceCharge: num("serviceCharge"),
+    tax: num("tax"),
+    otherFees: num("otherFees"),
+    depositAmount: num("depositAmount"),
+    depositDue: str("depositDue"),
+    cancellationTerms: str("cancellationTerms"),
+    notes: str("notes"),
+    lines,
+  };
+}
+
+export async function createVendorQuote(eventId: string, rfpId: string | null, formData: FormData) {
+  const rfp = rfpId ? await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } }) : null;
+  if (rfpId && !rfp) notFound();
+  const session = await requirePermission(rfp ? resourceForKind(rfp.kind) : "EVENTS", "WRITE", eventId);
+  const quote = await createVendorQuoteCore(eventId, rfpId, readQuote(formData), session.user.id);
+  if (rfpId) revalidatePath(rfpPath(eventId, rfpId));
+  revalidatePath(`/events/${eventId}/rfps`);
+  redirect(`${quotePath(eventId, quote.id)}?success=Quote recorded`);
+}
+
+export async function updateVendorQuote(id: string, eventId: string, formData: FormData) {
+  const quote = await quoteRfp(id, eventId);
+  const session = await requirePermission(quoteResource(quote.rfp), "WRITE", eventId);
+  await updateVendorQuoteCore(id, eventId, readQuote(formData), session.user.id);
+  revalidatePath(quotePath(eventId, id));
+  if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
+  redirect(`${quotePath(eventId, id)}?success=Quote updated`);
+}
+
+export async function deleteVendorQuote(id: string, eventId: string) {
+  const quote = await quoteRfp(id, eventId);
+  const session = await requirePermission(quoteResource(quote.rfp), "DELETE", eventId);
+  await deleteVendorQuoteCore(id, eventId, session.user.id);
+  revalidatePath(`/events/${eventId}/rfps`);
+  if (quote.rfpId) {
+    revalidatePath(rfpPath(eventId, quote.rfpId));
+    redirect(`${rfpPath(eventId, quote.rfpId)}?success=Quote deleted`);
+  }
+  redirect(`/events/${eventId}/rfps?success=Quote deleted`);
+}
+
+export async function awardVendorQuote(id: string, eventId: string) {
+  const quote = await quoteRfp(id, eventId);
+  const session = await requirePermission(quoteResource(quote.rfp), "WRITE", eventId);
+  const { orders } = await awardVendorQuoteCore(id, eventId, session.user.id);
+  revalidatePath(quotePath(eventId, id));
+  revalidatePath(`/events/${eventId}/rfps`);
+  revalidatePath(`/events/${eventId}/vendors`);
+  if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
+  const message = orders ? `Quote accepted; vendor added to the event and ${orders} order${orders === 1 ? "" : "s"}` : "Quote accepted; vendor added to the event";
+  redirect(`${quotePath(eventId, id)}?success=${encodeURIComponent(message)}`);
+}

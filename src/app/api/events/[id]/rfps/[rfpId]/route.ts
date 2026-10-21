@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRfpComparison, getRfpDocument } from "@/app/events/rfps/actions";
+import { getQuoteComparison } from "@/app/events/quotes/actions";
+import { prisma } from "@/lib/prisma";
 
 // .docx downloads of an RFP document (?doc=rfp, the default) and its bid
 // comparison (?doc=compare) — a binary stream, so a route handler rather than
@@ -25,6 +27,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
     buffer = await render.renderRfpDocx(doc);
     name = render.rfpFileName(doc.meta.eventName, doc.meta.title);
+  } else if ((await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } }))?.kind !== "HOTEL") {
+    // Vendor RFPs compare quotes; the reader checks the kind's permission.
+    const data = await getQuoteComparison(rfpId, eventId);
+    if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    buffer = await render.renderQuoteCompareDocx(data);
+    name = render.rfpFileName(data.eventName, `${data.title} - Quote comparison`);
   } else {
     const data = await getRfpComparison(rfpId, eventId);
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });

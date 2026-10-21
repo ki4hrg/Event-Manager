@@ -7,6 +7,7 @@ import { FONT, chrome, fieldsTable, gridTable, numbering, richParagraphs, spacer
 import { formatNight } from "@/lib/hotels";
 import { concessionOfferRows, type RfpBlockDoc, type RfpDocument, type RfpFact, type RfpSpaceDay } from "@/lib/rfp/document";
 import { comparisonRows, type RfpComparison } from "@/lib/rfp/compare";
+import type { QuoteComparison } from "@/lib/rfp/compareQuotes";
 
 const heading = (text: string) =>
   new Paragraph({ heading: HeadingLevel.HEADING_1, keepNext: true, children: [new TextRun({ text, font: FONT })] });
@@ -280,6 +281,38 @@ export async function renderRfpCompareDocx(data: RfpComparison): Promise<Buffer>
   }
   if (data.groups.some((g) => g.offers.length)) children.push(note("▼ falls short of the request."));
   const head = chrome("Bid comparison", data.eventName, data.title, "");
+  return Packer.toBuffer(
+    new Document({
+      creator: "Event Manager",
+      title: `${data.eventName} — ${title}`,
+      numbering,
+      styles,
+      sections: [{ ...head, properties: { page: { size: { orientation: PageOrientation.LANDSCAPE } } }, children }],
+    }),
+  );
+}
+
+export async function renderQuoteCompareDocx(data: QuoteComparison): Promise<Buffer> {
+  const title = `${data.title} — Quote comparison`;
+  const children: (Paragraph | Table)[] = [new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: title, font: FONT, size: 36, bold: true })] })];
+  if (data.quotes.length === 0) children.push(note("No quotes yet."));
+  else {
+    const mark = (c: { text: string; missing: boolean }) => (c.missing ? `▼ ${c.text}` : c.text);
+    children.push(
+      gridTable({
+        columns: ["", "Requested", ...data.quotes.map((q) => `${q.vendor}${data.lowest === q.id ? " (lowest)" : ""}`)],
+        numeric: [false, true, ...data.quotes.map(() => true)],
+        rows: [
+          ...data.lines.map((l) => [l.group ? `${l.group}: ${l.label}` : l.label, l.requested, ...l.cells.map(mark)]),
+          ...(data.extras.some((e) => e.length) ? [["Extras", "", ...data.extras.map((e) => e.join("\n") || "—")]] : []),
+          ...data.footer.map((f) => [f.label, "", ...f.cells.map(mark)]),
+        ],
+      }),
+      spacer(),
+      note("▼ not quoted, or quoted for fewer than asked."),
+    );
+  }
+  const head = chrome("Quote comparison", data.eventName, data.title, "");
   return Packer.toBuffer(
     new Document({
       creator: "Event Manager",

@@ -14,6 +14,8 @@ import { recipientState, recipientSummary } from "@/lib/rfp/recipients";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
 import { getEvent } from "../../actions";
 import { getEventRfps } from "../../rfps/actions";
+import { getStandaloneQuotes } from "../../quotes/actions";
+import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from "@/lib/rfp/quotes";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +26,10 @@ const KINDS: RfpKind[] = ["HOTEL", "AV", "CATERING", "PRINT", "OTHER"];
 // Every RFP on the event, by kind. Hotel RFPs open under Hotels.
 export default async function EventRfpsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = await params;
-  const [event, rfps, writable] = await Promise.all([
+  const [event, rfps, quotes, writable] = await Promise.all([
     getEvent(eventId),
     getEventRfps(eventId),
+    getStandaloneQuotes(eventId),
     Promise.all(KINDS.map((k) => hasPermission(resourceForKind(k), "WRITE", eventId))),
   ]);
   if (!event) notFound();
@@ -46,13 +49,22 @@ export default async function EventRfpsPage({ params }: { params: Promise<{ id: 
           { label: "RFPs" },
         ]}
         title="RFPs"
-        actions={canCreate.map((k) => (
-          <Link key={k} href={href(k)} className={`${btnSecondary} text-sm`}>
-            + {RFP_KIND_LABELS[k]}
-          </Link>
-        ))}
+        actions={
+          <>
+            {canCreate.map((k) => (
+              <Link key={k} href={href(k)} className={`${btnSecondary} text-sm`}>
+                + {RFP_KIND_LABELS[k]}
+              </Link>
+            ))}
+            {canCreate.includes("OTHER") && (
+              <Link href={`/events/${eventId}/quotes/new`} className={`${btnSecondary} text-sm`}>
+                + Quote
+              </Link>
+            )}
+          </>
+        }
       />
-      {rfps.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No RFPs yet.</p>}
+      {rfps.length === 0 && quotes.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No RFPs yet.</p>}
       {KINDS.map((kind) => {
         const ofKind = rfps.filter((r) => r.kind === kind);
         if (ofKind.length === 0) return null;
@@ -92,6 +104,28 @@ export default async function EventRfpsPage({ params }: { params: Promise<{ id: 
           </section>
         );
       })}
+      {quotes.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Quotes without an RFP</h2>
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
+            {quotes.map((q) => (
+              <Link
+                key={q.id}
+                href={`/events/${eventId}/quotes/${q.id}`}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-blue-600 dark:text-blue-400">{q.vendor.name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {[q.reference, q.submittedOn ? `submitted ${formatDateKey(dateKey(q.submittedOn))}` : null, q.revision > 1 ? `rev ${q.revision}` : null].filter(Boolean).join(" · ") || "—"}
+                  </p>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[QUOTE_STATUS_COLORS[q.status]]}`}>{QUOTE_STATUS_LABELS[q.status]}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
