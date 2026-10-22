@@ -165,12 +165,20 @@ export async function updateUser(id: string, formData: FormData) {
   const current = await prisma.user.findFirst({
     where: superAdmin ? { id } : { id, memberships: { some: { tenantId } } },
     select: {
+      email: true,
       isSuperAdmin: true,
       showDiagnostics: true,
       memberships: { where: { tenantId }, select: { id: true, roleId: true } },
+      _count: { select: { memberships: true } },
     },
   });
   if (!current) throw new Error("User not found");
+  // The email is the sign-in (and password-reset) address of a global
+  // account: one tenant's admin may not re-point it for an account that also
+  // belongs to another organization or is a platform admin.
+  if (!superAdmin && email !== current.email && (current.isSuperAdmin || current._count.memberships > 1)) {
+    throw new Error("This account belongs to other organizations too; only a platform admin can change its email");
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing && existing.id !== id) {
