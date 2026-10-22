@@ -27,3 +27,17 @@ export const ENTITY_TYPE_RESOURCE: Record<WorkflowEntityType, PermissionResource
   media_deliverable: "MEDIA_DELIVERABLES",
   form_submission: "FORMS",
 };
+
+// Display labels, in the order the workflow editor offers them. A Record so a
+// new entity type can't ship without being offered for auto-assignment.
+export const WORKFLOW_ENTITY_LABELS: Record<WorkflowEntityType, string> = {
+  function: "Function",
+  presentation: "Presentation",
+  catering_order: "Catering Order",
+  av_order: "AV Order",
+  setup_order: "Setup Order",
+  print_order: "Print Order",
+  supply_order: "Supply Order",
+  media_deliverable: "Media Deliverable",
+  form_submission: "Form Submission",
+};
