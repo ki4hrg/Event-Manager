@@ -64,11 +64,17 @@ function equipmentTitle(source: ExhibitEquipmentSource) {
 export function ExhibitRequestForm({ baseline, draft, ...common }: Props) {
   const p = draft?.payload ?? null;
   const sources = baseline.equipment ?? EXHIBIT_EQUIPMENT_SOURCES.map((src) => src.value);
-  const savedEquipment = p?.equipment ?? [];
-  const [rows, setRows] = useState<number[]>(() => (savedEquipment.length ? savedEquipment.map((_, i) => i) : [0]));
+  const saved = p?.equipment ?? [];
+  const [rows, setRows] = useState<number[]>(() => (saved.length ? saved.map((_, i) => i) : [0]));
+  // Re-added indices start blank, not with a removed row's saved answers.
+  const [fresh, setFresh] = useState<Set<number>>(() => new Set());
+  const savedEquipment = saved.map((e, i) => (fresh.has(i) ? undefined : e));
   const addRow = () => {
     for (let i = 0; i < EXHIBIT_MAX_EQUIPMENT; i++) {
-      if (!rows.includes(i)) return setRows([...rows, i]);
+      if (!rows.includes(i)) {
+        setFresh(new Set(fresh).add(i));
+        return setRows([...rows, i]);
+      }
     }
   };
 

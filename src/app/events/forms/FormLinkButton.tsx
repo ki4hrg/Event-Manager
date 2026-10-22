@@ -158,6 +158,9 @@ export function FormLinkButton({
     setError(null);
   };
 
+  // YYYY-MM-DD in the browser's zone; the dialog only renders after a click.
+  const today = new Date().toLocaleDateString("en-CA");
+
   const visibleFunctions = functionPicker
     ? functionPicker.options.filter((f) => functionIds.includes(f.id) || matchesFunctionQuery(f, functionQuery))
     : [];
@@ -172,14 +175,11 @@ export function FormLinkButton({
           <div className="w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl">
             <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h2>
-              <button type="button" onClick={close} className="text-xl leading-none text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+              <button type="button" onClick={close} aria-label="Close" className="text-xl leading-none text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                 &times;
               </button>
             </div>
             <div className="px-5 py-4 space-y-4">
-              {error && (
-                <div className="rounded border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300">{error}</div>
-              )}
               {created ? (
                 <div className="space-y-3">
                   <p className="text-sm text-gray-800 dark:text-gray-200">
@@ -326,11 +326,11 @@ export function FormLinkButton({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className={labelCls}>Respond by</label>
-                      <input name="dueAt" type="date" className={inputCls} />
+                      <input name="dueAt" type="date" min={today} className={inputCls} />
                     </div>
                     <div>
                       <label className={labelCls}>Closes</label>
-                      <input name="expiresAt" type="date" required defaultValue={defaultCloseDate} className={inputCls} />
+                      <input name="expiresAt" type="date" required min={today} defaultValue={defaultCloseDate} className={inputCls} />
                     </div>
                     <div>
                       <label className={labelCls}>Responses allowed</label>
@@ -357,6 +357,9 @@ export function FormLinkButton({
                       <input type="checkbox" name="sendEmail" value="true" disabled={!person.email} className="rounded border-gray-300 dark:border-gray-600" />
                       Email the link to {person.name || "them"}
                     </label>
+                  )}
+                  {error && (
+                    <div className="rounded border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300">{error}</div>
                   )}
                   <div className="flex justify-end gap-3 pt-2">
                     <button type="button" onClick={close} className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">

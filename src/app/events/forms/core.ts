@@ -397,7 +397,10 @@ export async function listFormSubmissionsCore(eventId: string, view: SubmissionV
       submittedAt: true,
       handledAt: true,
       formLink: {
-        select: { function: { select: { name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } } },
+        select: {
+          function: { select: { name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
+          presentation: { select: { title: true } },
+        },
       },
     },
   });

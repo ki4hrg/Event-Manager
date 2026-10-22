@@ -344,7 +344,6 @@ export default async function FunctionPage({
             title="Request review"
             target={{ field: "functionId", id: functionId }}
             sections={FUNCTION_REVIEW_SECTIONS}
-            defaultCloseDate={defaultFormCloseDate(event.startDate)}
           />
           {canWrite && (
             <form action={duplicateFunctionAction}>
@@ -548,12 +547,4 @@ export default async function FunctionPage({
     </>
   );
 
-}
-
-// A form link stays open until the event starts, or 30 days when that's
-// sooner or already past. YYYY-MM-DD for the date input.
-function defaultFormCloseDate(eventStart: Date | null): string {
-  const inMonth = new Date(Date.now() + 30 * 86_400_000);
-  const start = eventStart && eventStart.getTime() > Date.now() + 86_400_000 ? eventStart : null;
-  return (start && start < inMonth ? start : inMonth).toISOString().slice(0, 10);
 }

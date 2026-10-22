@@ -77,6 +77,8 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
     await rejectFormSubmission(eventId, submissionId, formData);
   };
 
+  const appliedLinks = submission.state === "APPLIED" ? applyResultLinks(eventId, submission.applyResult) : [];
+
   // Open forms take anyone's submission; name them by who sent them.
   const subject = review.open ? submission.submitterName ?? "Unnamed" : review.targetName;
   const title = `${FORM_TYPE_LABEL[submission.formType]} · ${subject}`;
@@ -131,6 +133,15 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
                   {submission.reviewNotes && <span className="block mt-1 whitespace-pre-line">{submission.reviewNotes}</span>}
                 </p>
               )}
+              {appliedLinks.length > 0 && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  {appliedLinks.map((l) => (
+                    <Link key={l.href} href={l.href} className="text-blue-600 dark:text-blue-400 hover:underline">
+                      {l.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -149,8 +160,13 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">{date(submission.submittedAt)}</p>
             {review.functionId && (
-              <Link href={`/events/${eventId}/functions/${review.functionId}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+              <Link href={`/events/${eventId}/functions/${review.functionId}`} className="block text-xs text-blue-600 dark:text-blue-400 hover:underline">
                 Open function
+              </Link>
+            )}
+            {submission.formLink.presentationId && (
+              <Link href={`/events/${eventId}/presentations/${submission.formLink.presentationId}`} className="block text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                Open presentation
               </Link>
             )}
           </section>
@@ -188,4 +204,29 @@ export default async function FormSubmissionPage({ params }: { params: Promise<{
       </div>
     </>
   );
+}
+
+// Where an applied submission landed, from the result apply stored: the
+// records it created or filed onto.
+function applyResultLinks(eventId: string, raw: unknown): { href: string; label: string }[] {
+  if (!raw || typeof raw !== "object") return [];
+  const r = raw as {
+    filesTo?: { entityType?: string; entityId?: string };
+    created?: { printOrders?: string[]; supplyOrders?: string[] };
+    boothId?: string;
+    contactId?: string | null;
+  };
+  const base = `/events/${eventId}`;
+  const links: { href: string; label: string }[] = [];
+  for (const id of r.created?.printOrders ?? []) links.push({ href: `${base}/print-orders/${id}`, label: "Open print order" });
+  for (const id of r.created?.supplyOrders ?? []) links.push({ href: `${base}/supply-orders/${id}`, label: "Open supply order" });
+  const f = r.filesTo;
+  if (f?.entityId) {
+    if (f.entityType === "printOrder") links.push({ href: `${base}/print-orders/${f.entityId}`, label: "Open print order" });
+    if (f.entityType === "supplyOrder") links.push({ href: `${base}/supply-orders/${f.entityId}`, label: "Open supply order" });
+    if (f.entityType === "mediaDeliverable") links.push({ href: `${base}/media-deliverables/${f.entityId}`, label: "Open media deliverable" });
+  }
+  if (r.boothId) links.push({ href: `${base}/exhibits/${r.boothId}`, label: "Open booth" });
+  if (r.contactId) links.push({ href: `/contacts/${r.contactId}`, label: "Open contact" });
+  return Array.from(new Map(links.map((l) => [l.href, l])).values());
 }
