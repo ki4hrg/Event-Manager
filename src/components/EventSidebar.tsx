@@ -225,7 +225,7 @@ const NAV: NavItem[] = [
   { type: "link",  label: "Supply Orders",      segment: "supply-orders",      icon: <PackageIcon />,        sidebarSection: "supply-orders", resource: "SUPPLY_ORDERS" },
   { type: "group", label: "Sourcing" },
   { type: "link",  label: "Vendors",            segment: "vendors",            icon: <BuildingIcon />,       resource: "VENDORS" },
-  { type: "link",  label: "RFPs",               segment: "rfps",               icon: <DocumentSearchIcon />, resource: "EVENTS" },
+  { type: "link",  label: "RFPs",               segment: "rfps",               icon: <DocumentSearchIcon />, resource: "EVENTS", alsoActive: ["quotes"] },
   { type: "link",  label: "Hotels",             segment: "hotels",             icon: <BedIcon />,            resource: "HOTELS" },
   { type: "group", label: "Documentation" },
   { type: "link",  label: "Specifications",     segment: "specifications",     icon: <DocumentIcon />,       resource: "EVENTS", alsoActive: ["reports/esg"] },
@@ -468,7 +468,7 @@ type EventSidebarProps = {
   // The saved collapse preference, read server-side by the event layout so the
   // first paint already has the right width.
   initialCollapsed: boolean;
-  // Counts shown beside a link, keyed by segment (open form submissions).
+  // Counts shown beside a link, keyed by segment (open form submissions, open inbox mail).
   badges?: Record<string, number>;
 };
 

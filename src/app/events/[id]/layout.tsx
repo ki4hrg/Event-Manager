@@ -15,6 +15,7 @@ import {
 import { SECTION_RESOURCE } from "../sidebar-sections";
 import { getEvent } from "../actions";
 import { prisma } from "@/lib/prisma";
+import { OPEN_STATUSES } from "../inbox/views";
 
 // Resources with a dedicated sidebar entry. Reports, the agenda and the inbox
 // read across several of these and gate on their own pages, so they stay visible. VENDORS
@@ -88,10 +89,14 @@ export default async function EventLayout({
   const permissions = { ...eventScoped, ...globalScoped };
 
   const deniedResources = NAV_RESOURCES.filter((r) => !canDo(permissions, r, "VIEW"));
-  // Submissions waiting for review, beside the Forms link.
-  const openForms = canDo(permissions, "FORMS", "VIEW")
-    ? await prisma.formSubmission.count({ where: { eventId: id, state: "SUBMITTED" } })
-    : 0;
+  // Submissions waiting for review, beside the Forms link; open mail beside
+  // Inbox (the header's org-wide count, narrowed to this event).
+  const [openForms, openInbox] = await Promise.all([
+    canDo(permissions, "FORMS", "VIEW")
+      ? prisma.formSubmission.count({ where: { eventId: id, state: "SUBMITTED" } })
+      : 0,
+    prisma.inboundEmail.count({ where: { eventId: id, status: { in: OPEN_STATUSES } } }),
+  ]);
   const deniedWriteResources = ALL_RESOURCES.filter(
     (r) => !canDo(permissions, r, "WRITE"),
   );
@@ -105,7 +110,7 @@ export default async function EventLayout({
           deniedResources={deniedResources}
           deniedWriteResources={deniedWriteResources}
           sidebarCollapsed={sidebarCollapsed === "true"}
-          sidebarBadges={{ forms: openForms }}
+          sidebarBadges={{ forms: openForms, inbox: openInbox }}
           header={<Header />}
         >
           {children}
