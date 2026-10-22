@@ -26,6 +26,24 @@ export type OfferRevision = {
 
 const NEW = "__new__";
 
+export type OfferAttachment = { id: string; fileName: string; picked: boolean };
+
+// Which of the message's files go on the proposal.
+function AttachmentPick({ attachments }: { attachments: OfferAttachment[] }) {
+  return (
+    <fieldset className="space-y-2 min-w-0">
+      <legend className="text-sm font-semibold text-gray-900 dark:text-white">Attachments</legend>
+      <input type="hidden" name="attachmentPick" value="true" />
+      {attachments.map((a) => (
+        <label key={a.id} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 break-all">
+          <input type="checkbox" name="attachmentIds" value={a.id} defaultChecked={a.picked} />
+          {a.fileName}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 // An emailed offer as a new proposal, or, when the hotel already has one for
 // the event, as the next revision of it (the default).
 export function InboxOfferForm({
@@ -37,6 +55,7 @@ export function InboxOfferForm({
   revisions,
   newHotel,
   canAddHotel,
+  attachments,
   create,
   revise,
   skip,
@@ -50,6 +69,7 @@ export function InboxOfferForm({
   revisions: OfferRevision[];
   newHotel: ComponentProps<typeof ProposalForm>["newHotel"];
   canAddHotel: boolean;
+  attachments: OfferAttachment[];
   create: (formData: FormData) => Promise<void>;
   revise: (proposalId: string, formData: FormData) => Promise<void>;
   // One of several offers in a message: pass this hotel over.
@@ -59,6 +79,7 @@ export function InboxOfferForm({
   const [target, setTarget] = useState(revisions[0]?.id ?? NEW);
   const [skipping, startSkip] = useTransition();
   const revision = revisions.find((r) => r.id === target);
+  const attachmentPick = attachments.length > 0 ? <AttachmentPick attachments={attachments} /> : undefined;
   const fromRfp: ProposalTemplate | undefined = rfpChoice
     ? { rfpBlockId: rfpChoice.id, contractType: rfpChoice.contractType, guestType: rfpChoice.guestType, status: draft.status, nights: [] }
     : undefined;
@@ -98,6 +119,7 @@ export function InboxOfferForm({
           concessions={revision.concessions}
           offeredConcessions={revision.offeredConcessions}
           choices={choices}
+          extraFields={attachmentPick}
           action={(formData) => revise(revision.id, formData)}
           cancelHref={cancelHref}
         />
@@ -112,6 +134,7 @@ export function InboxOfferForm({
           offeredConcessions={offeredConcessions}
           newHotel={newHotel}
           canAddHotel={canAddHotel}
+          extraFields={attachmentPick}
           action={create}
           cancelHref={cancelHref}
         />

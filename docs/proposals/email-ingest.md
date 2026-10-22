@@ -210,8 +210,11 @@ says it isn't configured.
 3. **RFP responses** — done. `RFP_PROPOSAL` opens the proposal form filled
    from the offer (hotel, RFP block, dates, night grid with rates,
    charges, attrition, amenities, concession answers, notes); saving creates
-   the proposal through `createHotelProposalCore` and files the message's
-   attachments on it. When the hotel already has a proposal for the event,
+   the proposal through `createHotelProposalCore` and files the attachments
+   ticked in the review on it (by default: the files the read gives that
+   property, `ProposalOffer.attachments`, plus every file no other property
+   claims), then opens the proposal (the event's proposals once the message
+   has made more than one). When the hotel already has a proposal for the event,
    the review defaults to *Revision of* it: the form opens on the next
    revision, what the offer states (dates, grid, charges, terms, amenity
    statuses, concession answers) replacing the proposal's values and the rest

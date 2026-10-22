@@ -12,7 +12,7 @@ import { getUploadPath } from "@/lib/uploads";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
-import { offerAmenities, offerOutcomes, proposalOffers, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
+import { offerAmenities, offerAttachmentIndexes, offerOutcomes, proposalOffers, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { readNewHotel, readProposal } from "@/app/events/hotels/proposalArgs";
@@ -168,12 +168,18 @@ export async function applyInboundCounts(id: string, eventId: string, blockId: s
 }
 
 
-// After saving one of a message's offers: on to the next one still open,
-// else the proposal just saved.
-function offerRedirect(id: string, eventId: string, proposalId: string | null, next: number | null, done: string): never {
-  if (next != null) redirect(`/events/${eventId}/inbox/${id}?offer=${next + 1}&success=${encodeURIComponent(done)}`);
-  redirect(proposalId ? `/events/${eventId}/hotels/proposals/${proposalId}?success=${encodeURIComponent(done)}` : `/events/${eventId}/inbox?success=${encodeURIComponent(done)}`);
+// After saving one of a message's offers: the proposal just saved, or the
+// event's proposals once the message has made more than one (the rest stay
+// open in the Inbox).
+function savedOfferRedirect(eventId: string, proposalId: string, saved: number, done: string): never {
+  const success = `success=${encodeURIComponent(done)}`;
+  redirect(saved > 1 ? `/events/${eventId}/hotels?${success}#proposals` : `/events/${eventId}/hotels/proposals/${proposalId}?${success}`);
 }
+
+// The attachments the review picked to file on the proposal; null when the
+// form had no picker (the read decides).
+const readAttachmentPick = (formData: FormData) =>
+  formData.get("attachmentPick") === "true" ? (formData.getAll("attachmentIds") as string[]) : null;
 
 // A hotel's offer as reviewed in the proposal form: creates the proposal (and
 // the hotel, when it's a new one).
@@ -181,27 +187,28 @@ export async function applyInboundOffer(id: string, eventId: string, index: numb
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   const args = readProposal(formData);
   const newHotel = readNewHotel(formData);
-  const { proposalId, next } = await applyInboundOfferCore(id, eventId, index, args, newHotel, session.user.id);
+  const { proposalId, saved } = await applyInboundOfferCore(id, eventId, index, args, newHotel, readAttachmentPick(formData), session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);
   if (newHotel) revalidatePath("/venues");
-  offerRedirect(id, eventId, proposalId, next, "Proposal created");
+  savedOfferRedirect(eventId, proposalId, saved, saved > 1 ? `${saved} proposals created` : "Proposal created");
 }
 
 // A revised offer applied to the hotel's proposal it revises.
 export async function applyInboundRevision(id: string, eventId: string, index: number, proposalId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const { next } = await applyInboundRevisionCore(id, eventId, index, proposalId, readProposal(formData), session.user.id);
+  const { saved } = await applyInboundRevisionCore(id, eventId, index, proposalId, readProposal(formData), readAttachmentPick(formData), session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);
-  offerRedirect(id, eventId, proposalId, next, "Revision saved");
+  savedOfferRedirect(eventId, proposalId, saved, "Revision saved");
 }
 
 export async function skipInboundOffer(id: string, eventId: string, index: number) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   const next = await skipInboundOfferCore(id, eventId, index, session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
-  offerRedirect(id, eventId, null, next, "Offer skipped");
+  const success = `success=${encodeURIComponent("Offer skipped")}`;
+  redirect(next != null ? `/events/${eventId}/inbox/${id}?offer=${next + 1}&${success}` : `/events/${eventId}/inbox?${success}`);
 }
 
 export async function applyInboundDecline(id: string, eventId: string, rfpId: string, venueId: string, reason: string | null) {
@@ -253,8 +260,9 @@ export async function getOfferReview(id: string, eventId: string, index: number)
       ? await prisma.venue.findFirst({ where: { tenantId, name: { equals: offer.hotel.name.trim(), mode: "insensitive" } }, select: { id: true } })
       : null;
   const venueId = offer.venueId ?? byName?.id ?? null;
-  const [choices, rfps, existing] = await Promise.all([
+  const [choices, files, rfps, existing] = await Promise.all([
     getProposalFormChoices(eventId),
+    inboundAttachments(id),
     prisma.rfp.findMany({
       where: { eventId, kind: "HOTEL", hotelBlocks: { some: {} } },
       orderBy: { createdAt: "asc" },
@@ -371,6 +379,12 @@ export async function getOfferReview(id: string, eventId: string, index: number)
     offeredConcessions: offer.offeredConcessions ?? [],
     revisions,
     newHotel: venueId ? null : (offer.hotel ?? null),
+    // The message's files, picked when the read gives them to this offer
+    // (its own, and the ones shared by all).
+    attachments: (() => {
+      const picked = new Set(offerAttachmentIndexes(proposalOffers(proposal), index, files.length));
+      return files.map((f, i) => ({ id: f.id, fileName: f.fileName, picked: picked.has(i) }));
+    })(),
   };
 }
 
