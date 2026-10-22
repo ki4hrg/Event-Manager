@@ -117,7 +117,7 @@ follow-up.
 - `src/app/venues/{VenueStockList,VenueCapabilityList}.tsx` (new, `"use client"`)
 - `src/app/venues/{core,actions}.ts` — `*Core(args, userId)` CRUD pairs
 - `src/lib/venueStock.ts` (new) — `getVenueStockForRoom`, availability lookup, over-request comparison; plain module, not `"use client"`
-- `src/app/events/setup-orders/SetupTableList.tsx`, `catering-orders/EquipmentTable.tsx`, `supply-orders/SupplyOrderItemPanel.tsx` — annotation + warning
+- `src/app/events/setup-orders/SetupTableList.tsx`, `src/components/EquipmentTable.tsx`, `supply-orders/SupplyOrderItemPanel.tsx` — annotation + warning
 - `src/app/events/[id]/setup-orders/[setupOrderId]/page.tsx` and siblings — fetch stock in the existing `Promise.all`
 - `src/lib/mcpTools/` — `list_venue_stock`; `list_equipment_catalog` already exists to discover the required `equipmentId`
 

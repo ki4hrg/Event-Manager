@@ -62,7 +62,7 @@ import { GuestCountsCard } from "../../../catering-orders/GuestCountsCard";
 import { CateringOrderServiceForm } from "../../../catering-orders/CateringOrderServiceForm";
 import { CateringOrderContractForm } from "../../../catering-orders/CateringOrderContractForm";
 import { TimelineTable } from "../../../catering-orders/TimelineTable";
-import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
+import { EquipmentTable } from "@/components/EquipmentTable";
 import { LineItemTable } from "../../../catering-orders/LineItemTable";
 import { MenuSectionTable } from "../../../catering-orders/MenuSectionTable";
 import { AdditionalServiceLocationTable } from "../../../catering-orders/AdditionalServiceLocationTable";
@@ -548,6 +548,7 @@ export default async function CateringOrderPage({
               createItem={createEquipmentAction}
               updateItem={updateEquipmentAction}
               deleteItem={deleteEquipmentAction}
+              resource="CATERING_ORDERS"
             />
           </div>
         </div>

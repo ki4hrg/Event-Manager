@@ -23,7 +23,7 @@ import {
   updateBoothGroupEquipmentItem,
 } from "../../../../exhibits/actions";
 import { BoothGroupForm } from "../../../../exhibits/BoothForm";
-import { EquipmentTable } from "../../../../catering-orders/EquipmentTable";
+import { EquipmentTable } from "@/components/EquipmentTable";
 
 export const dynamic = "force-dynamic";
 

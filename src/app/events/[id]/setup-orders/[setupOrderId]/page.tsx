@@ -42,7 +42,7 @@ import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
 import { SetupTableList } from "../../../setup-orders/SetupTableList";
 import { SetupOrderDetailTable } from "../../../setup-orders/SetupOrderDetailTable";
 import { aggregateSetupTables, getSetupOrderDisplayName } from "../../../setup-orders/utils";
-import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
+import { EquipmentTable } from "@/components/EquipmentTable";
 import { FunctionMultiLinkControl } from "../../../functions/FunctionMultiLinkControl";
 import { LinkedItemsPanel } from "@/components/LinkedItemsPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
