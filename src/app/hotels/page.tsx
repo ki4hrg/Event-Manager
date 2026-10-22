@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
-import { btnSecondary } from "@/lib/buttonStyles";
+import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { hasPermission } from "@/lib/permissions";
 import { getOptions } from "@/app/settings/actions";
 import { getHotels } from "./actions";
 import { AmenityFilter } from "./AmenityFilter";
@@ -16,7 +17,7 @@ export default async function HotelsPage({ searchParams }: { searchParams: Promi
   const amenityOptions = (await getOptions("hotel_amenity")).map((a) => a.label);
   // Only listed amenities filter; an unknown one is ignored, not an empty list.
   const selected = (Array.isArray(amenity) ? amenity : amenity ? [amenity] : []).filter((a) => amenityOptions.includes(a));
-  const [hotels, areas] = await Promise.all([getHotels(selected), getOptions("hotel_area")]);
+  const [hotels, areas, canAddHotel] = await Promise.all([getHotels(selected), getOptions("hotel_area"), hasPermission("VENUES", "WRITE")]);
   const regionOf = (area: string | null) => areas.find((a) => a.label === area)?.group ?? null;
 
   return (
@@ -24,9 +25,16 @@ export default async function HotelsPage({ searchParams }: { searchParams: Promi
       <PageHeader
         title={`Hotels (${hotels.length})`}
         actions={
-          <Link href="/hotels/reports" className={btnSecondary}>
-            Reports
-          </Link>
+          <>
+            <Link href="/hotels/reports" className={btnSecondary}>
+              Reports
+            </Link>
+            {canAddHotel && (
+              <Link href="/venues/new?lodging=1" className={btnPrimary}>
+                Add Hotel
+              </Link>
+            )}
+          </>
         }
       />
       <AmenityFilter amenities={amenityOptions} selected={selected} />

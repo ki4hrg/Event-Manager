@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import type { HotelPickupMethod } from "@prisma/client";
-import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { btnDanger, btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import {
   DEFAULT_CANCELLED,
@@ -65,6 +65,8 @@ export function GuestImport({
   const [roomMap, setRoomMap] = useState<Record<string, string>>(source?.roomMap ?? {});
   const [statusMap, setStatusMap] = useState<Record<string, boolean>>(source?.statusMap ?? {});
   const [method, setMethod] = useState<ImportMethod>(hasGuests ? "MERGE" : "APPEND");
+  // Replacing an existing guest list asks once more on the button.
+  const [confirmReplace, setConfirmReplace] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -198,7 +200,15 @@ export function GuestImport({
               ] as const
             ).map(([value, label]) => (
               <label key={value} className="flex items-center gap-1.5">
-                <input type="radio" name="method" checked={method === value} onChange={() => setMethod(value)} />
+                <input
+                  type="radio"
+                  name="method"
+                  checked={method === value}
+                  onChange={() => {
+                    setMethod(value);
+                    setConfirmReplace(false);
+                  }}
+                />
                 {label}
               </label>
             ))}
@@ -209,9 +219,21 @@ export function GuestImport({
             {usable.filter((g) => g.bookedOn).length} with booked date
             {badDates > 0 && <span className="text-red-600 dark:text-red-400"> · {badDates} skipped (dates)</span>}
           </p>
-          <button type="button" disabled={pending || usable.length === 0} onClick={submit} className={`${btnPrimary} disabled:opacity-50`}>
-            {pending ? "Importing..." : "Import"}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={pending || usable.length === 0}
+              onClick={() => (method === "REPLACE" && hasGuests && !confirmReplace ? setConfirmReplace(true) : submit())}
+              className={`${method === "REPLACE" && confirmReplace ? btnDanger : btnPrimary} disabled:opacity-50`}
+            >
+              {pending ? "Importing..." : method === "REPLACE" && confirmReplace ? "Replace every guest?" : "Import"}
+            </button>
+            {confirmReplace && method === "REPLACE" && !pending && (
+              <button type="button" onClick={() => setConfirmReplace(false)} className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
+                Cancel
+              </button>
+            )}
+          </div>
         </>
       )}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
