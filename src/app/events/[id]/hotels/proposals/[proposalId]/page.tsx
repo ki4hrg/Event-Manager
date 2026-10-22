@@ -32,12 +32,13 @@ export const metadata: Metadata = { title: "Proposal" };
 
 export default async function ProposalPage({ params }: { params: Promise<{ id: string; proposalId: string }> }) {
   const { id: eventId, proposalId } = await params;
-  const [event, proposal, choices, fileTypeOptions, canEditHotel] = await Promise.all([
+  const [event, proposal, choices, fileTypeOptions, canEditHotel, canViewHotel] = await Promise.all([
     getEvent(eventId),
     getHotelProposal(proposalId, eventId),
     getProposalFormChoices(eventId),
     getOptions("file_type"),
     hasPermission("VENUES", "WRITE"),
+    hasPermission("VENUES", "VIEW"),
   ]);
   if (!event || !proposal) notFound();
 
@@ -83,6 +84,11 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         }
         actions={
           <>
+            {canViewHotel && (
+              <Link href={`/venues/${proposal.venueId}`} className={btnSecondary}>
+                View hotel
+              </Link>
+            )}
             {proposal.rfp && (
               <Link href={rfpHref(eventId, "HOTEL", proposal.rfp.id)} className={btnSecondary}>
                 View RFP
