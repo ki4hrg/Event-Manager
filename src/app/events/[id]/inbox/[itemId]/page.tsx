@@ -244,6 +244,7 @@ export default async function EventInboxItemPage({
             revisions={offer.revisions}
             newHotel={offer.newHotel}
             canAddHotel={canAddVenue}
+            attachments={offer.attachments}
             create={applyOffer}
             revise={applyRevision}
             cancelHref={itemHref}

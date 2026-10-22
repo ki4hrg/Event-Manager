@@ -25,6 +25,7 @@ import {
   type ContractTarget,
   type OfferOutcome,
   offerAmenities,
+  offerAttachmentIndexes,
   offerOutcomes,
   proposalOffers,
 } from "@/lib/inboundParse";
@@ -563,14 +564,14 @@ const hasAppliedOffer = (p: InboundProposal | null) => !!p && offerOutcomes(p).s
 // Sets one offer's outcome. change sees the current outcome and the item's
 // status, and throws to refuse. The write is a compare-and-set on updatedAt,
 // so two offers saved at once can't overwrite each other's outcome. Returns
-// the offers still to handle.
+// every offer's outcome after the change.
 async function setOfferOutcome(
   id: string,
   eventId: string,
   index: number,
   userId: string,
   change: (current: OfferOutcome, status: InboundStatus) => OfferOutcome,
-): Promise<number[]> {
+): Promise<OfferOutcome[]> {
   const tenantId = await requireEventTenantId(eventId);
   for (let attempt = 0; attempt < 5; attempt++) {
     const item = await inboxItem(id, tenantId, eventId);
@@ -589,14 +590,20 @@ async function setOfferOutcome(
         handledAt: new Date(),
       },
     });
-    if (updated.count) return open;
+    if (updated.count) return outcomes;
   }
   throw new Error("This message is being changed by someone else; reload and try again");
 }
 
+const firstOpen = (outcomes: OfferOutcome[]) => {
+  const i = outcomes.findIndex((o) => !o);
+  return i < 0 ? null : i;
+};
+
 // Claims an offer (so a second click can't save it twice), saves it, and
 // records the proposal; frees the claim if saving fails. Returns the
-// proposal, and the next offer still to handle.
+// proposal, the next offer still to handle, and how many of the message's
+// offers are now proposals.
 async function claimAndApplyOffer(id: string, eventId: string, index: number, userId: string, apply: () => Promise<string>) {
   await setOfferOutcome(id, eventId, index, userId, (current, status) => {
     if (status !== "PARSED") throw new Error("This message has nothing to apply");
@@ -610,39 +617,62 @@ async function claimAndApplyOffer(id: string, eventId: string, index: number, us
     await setOfferOutcome(id, eventId, index, userId, () => null);
     throw err;
   }
-  const open = await setOfferOutcome(id, eventId, index, userId, () => ({ proposalId }));
-  return { proposalId, next: open[0] ?? null };
+  const outcomes = await setOfferOutcome(id, eventId, index, userId, () => ({ proposalId }));
+  return { proposalId, next: firstOpen(outcomes), saved: outcomes.filter((o) => o && "proposalId" in o).length };
+}
+
+// The message's attachments filed on offer index's proposal: those picked in
+// the review (attachmentIds), else the ones the read gives that offer.
+async function offerAttachments(id: string, eventId: string, index: number, attachmentIds: string[] | null) {
+  const files = await inboundAttachments(id);
+  if (attachmentIds) return files.filter((f) => attachmentIds.includes(f.id));
+  const tenantId = await requireEventTenantId(eventId);
+  const item = await inboxItem(id, tenantId, eventId);
+  const keep = new Set(offerAttachmentIndexes(proposalOffers(item.proposal as InboundProposal | null), index, files.length));
+  return files.filter((_, i) => keep.has(i));
 }
 
 // A hotel's offer, as reviewed in the proposal form: creates the proposal
 // (and first the hotel, when it's one not in Venues yet) and files the
-// message's attachments on it.
+// offer's attachments on it (attachmentIds: the reviewer's pick; null: the
+// read's).
 export async function applyInboundOfferCore(
   id: string,
   eventId: string,
   index: number,
   args: ProposalWriteArgs,
   newHotel: OfferHotel | null,
+  attachmentIds: string[] | null,
   userId: string,
 ) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const files = await offerAttachments(id, eventId, index, attachmentIds);
   return claimAndApplyOffer(id, eventId, index, userId, async () => {
     // A new hotel's profile starts with the amenities its offer confirms.
     const confirmed = args.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label);
     const venueId = newHotel ? (await createNewHotelCore(eventId, newHotel, confirmed, userId)).id : args.venueId;
     const proposal = await createHotelProposalCore(eventId, { ...args, venueId }, userId);
-    await copyAttachmentsToProposal(id, proposal.id);
+    await copyAttachmentsTo(id, "hotelProposal", proposal.id, files);
     return proposal.id;
   });
 }
 
 // A revised offer, saved over the proposal it revises (args.revision says
 // which revision it becomes).
-export async function applyInboundRevisionCore(id: string, eventId: string, index: number, proposalId: string, args: ProposalWriteArgs, userId: string) {
+export async function applyInboundRevisionCore(
+  id: string,
+  eventId: string,
+  index: number,
+  proposalId: string,
+  args: ProposalWriteArgs,
+  attachmentIds: string[] | null,
+  userId: string,
+) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const files = await offerAttachments(id, eventId, index, attachmentIds);
   return claimAndApplyOffer(id, eventId, index, userId, async () => {
     await updateHotelProposalCore(proposalId, eventId, args, userId);
-    await copyAttachmentsToProposal(id, proposalId);
+    await copyAttachmentsTo(id, "hotelProposal", proposalId, files);
     return proposalId;
   });
 }
@@ -651,17 +681,23 @@ export async function applyInboundRevisionCore(id: string, eventId: string, inde
 // offer still to handle.
 export async function skipInboundOfferCore(id: string, eventId: string, index: number, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
-  const open = await setOfferOutcome(id, eventId, index, userId, (current, status) => {
+  const outcomes = await setOfferOutcome(id, eventId, index, userId, (current, status) => {
     if (status !== "PARSED") throw new Error("This message has nothing to apply");
     if (current) throw new Error("This offer was already handled");
     return { skipped: true };
   });
-  return open[0] ?? null;
+  return firstOpen(outcomes);
 }
 
-// The message's attachments, filed on the record it was applied to.
-async function copyAttachmentsTo(id: string, entityType: "hotelProposal" | "vendorQuote" | "cateringOrder", entityId: string) {
-  const files = await inboundAttachments(id);
+// The message's attachments (all, or the ones given), filed on the record it
+// was applied to.
+async function copyAttachmentsTo(
+  id: string,
+  entityType: "hotelProposal" | "vendorQuote" | "cateringOrder",
+  entityId: string,
+  only?: Awaited<ReturnType<typeof inboundAttachments>>,
+) {
+  const files = only ?? (await inboundAttachments(id));
   if (!files.length) return;
   mkdirSync(getUploadDir(entityType, entityId), { recursive: true });
   for (const f of files) {
@@ -678,7 +714,6 @@ async function copyAttachmentsTo(id: string, entityType: "hotelProposal" | "vend
   });
 }
 
-const copyAttachmentsToProposal = (id: string, proposalId: string) => copyAttachmentsTo(id, "hotelProposal", proposalId);
 
 // ─── Vendor quotes, BEOs, contracts ──────────────────────────────────────────
 
@@ -1305,7 +1340,7 @@ export async function applyInboundAsProposedCore(id: string, eventId: string, ar
       const venueId = args.venueId ?? offer.venueId;
       if (!venueId && !args.newHotel) throw new Error("The offer's hotel isn't in Venues: pass venueId, or newHotel: true to add it from the offer");
       const proposalArgs = await offerArgs(eventId, offer, venueId ?? "");
-      const { proposalId, next } = await applyInboundOfferCore(id, eventId, index, proposalArgs, venueId ? null : offer.hotel, userId);
+      const { proposalId, next } = await applyInboundOfferCore(id, eventId, index, proposalArgs, venueId ? null : offer.hotel, null, userId);
       return { applied: "proposal", proposalId, offerIndex: index, nextOfferIndex: next };
     }
     case "VENDOR_QUOTE": {

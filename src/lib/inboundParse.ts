@@ -54,6 +54,10 @@ export type ProposalOffer = {
   // Who sent the offer, as the offer gives it: for adding a hotel the org
   // doesn't have yet.
   hotel: OfferHotel;
+  // Attachments (indexes into the item's) that are this property's alone,
+  // e.g. its own proposal PDF; the rest go on every offer's proposal. Older
+  // reads have none.
+  attachments?: number[];
 };
 
 export type OfferAmenity = { label: string; status: "CONFIRMED" | "UNAVAILABLE"; note: string | null };
@@ -178,6 +182,14 @@ export function proposalOffers(p: Pick<InboundProposal, "kind" | "offers" | "off
   return p.offers ?? (p.offer ? [p.offer] : []);
 }
 
+// The attachments (indexes, of count) filed on offer index's proposal: its
+// own, and every one no other offer claims.
+export function offerAttachmentIndexes(offers: ProposalOffer[], index: number, count: number): number[] {
+  const own = new Set(offers[index]?.attachments ?? []);
+  const others = new Set(offers.flatMap((o, i) => (i === index ? [] : (o.attachments ?? []))));
+  return Array.from({ length: count }, (_, i) => i).filter((i) => own.has(i) || !others.has(i));
+}
+
 export function offerOutcomes(p: InboundProposal): OfferOutcome[] {
   return proposalOffers(p).map((_, i) => p.offerOutcomes?.[i] ?? (i === 0 && p.appliedProposalId ? { proposalId: p.appliedProposalId } : null));
 }
@@ -296,6 +308,7 @@ const offerSchema = object({
   offeredConcessions: { type: "array", items: object({ label: str, offered: str }) },
   hotelNotes: str,
   leadSourceVendorId: str,
+  attachments: { type: "array", items: int },
   hotel: object({
     name: str,
     address: str,
@@ -512,6 +525,7 @@ For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer i
 - offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
 - hotelNotes: only terms the fields above can't hold that a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly; often "". Never restate what the fields already carry: dates, rooms and rates, taxes, the deadline, attrition, amenities, concessions, whether it answers an RFP. Don't note what the offer leaves out, except space or services the RFP it answers asked for ("No meeting space offered" only when the RFP requested meeting space). Don't mention who forwarded it.
 - leadSourceVendorId: the lead source, from the candidate lead sources, when a CVB or third party sent, forwarded or is copied on the offer, or the offer credits one; "" otherwise (staff forwarding it isn't a lead source).
+- attachments: the numbers of the attachments that belong to this property alone (its own proposal PDF or sheet). Leave out files that cover every property in the message (one combined proposal, a shared catering menu); those go on each. Empty when there is one property.
 - hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
 
 For VENDOR_QUOTE, fill "quote":
@@ -794,6 +808,7 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
       ),
     hotelNotes: o.hotelNotes,
     leadSourceVendorId: o.leadSourceVendorId && input.leadSources.some((l) => l.id === o.leadSourceVendorId) ? o.leadSourceVendorId : null,
+    attachments: (o.attachments ?? []).filter((a, i, all) => Number.isInteger(a) && a >= 0 && a < input.attachments.length && all.indexOf(a) === i),
     hotel: o.hotel ?? {
       name: null,
       address: null,

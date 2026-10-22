@@ -188,6 +188,7 @@ export function ProposalForm({
   concessions = [],
   offeredConcessions = [],
   addAmenityToHotel,
+  extraFields,
   action,
   cancelHref,
 }: {
@@ -207,6 +208,8 @@ export function ProposalForm({
   offeredConcessions?: OfferedConcession[];
   // VENUES WRITE: put an amenity the offer confirms on the hotel's profile.
   addAmenityToHotel?: (label: string) => Promise<void>;
+  // Submitted with the form, above its buttons (the Inbox's attachment pick).
+  extraFields?: ReactNode;
   choices: ProposalChoices;
   defaultCheckIn?: string | null;
   defaultCheckOut?: string | null;
@@ -674,6 +677,8 @@ export function ProposalForm({
             <textarea id="p-notes" name="notes" rows={3} defaultValue={initial?.notes ?? ""} className={inputClass} />
           </Field>
         </Fieldset>
+
+        {extraFields}
 
         {!autosaving && (
           <div className="flex flex-wrap gap-3">
