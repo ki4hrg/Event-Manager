@@ -1,6 +1,7 @@
 "use client";
 
 import { DateInput } from "@/components/ui/DateInput";
+import { rangeEndFor, rangeEndMin } from "@/lib/dateRange";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { HotelChargeScope } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
@@ -255,10 +256,19 @@ export function BlockForm({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Check-in" htmlFor="b-checkIn">
-              <DateInput id="b-checkIn" name="checkIn" value={checkIn} onChange={setCheckIn} className={inputClass} />
+              <DateInput
+                id="b-checkIn"
+                name="checkIn"
+                value={checkIn}
+                onChange={(v) => {
+                  setCheckIn(v);
+                  setCheckOut(rangeEndFor(v, checkOut, 1));
+                }}
+                className={inputClass}
+              />
             </Field>
             <Field label="Check-out" htmlFor="b-checkOut">
-              <DateInput id="b-checkOut" name="checkOut" value={checkOut} onChange={setCheckOut} className={inputClass} />
+              <DateInput id="b-checkOut" name="checkOut" min={rangeEndMin(checkIn, 1)} value={checkOut} onChange={setCheckOut} className={inputClass} />
             </Field>
             <Field label="Cut-off" htmlFor="b-cutoffDate">
               <input id="b-cutoffDate" type="date" name="cutoffDate" defaultValue={values.cutoffDate ?? ""} className={inputClass} />

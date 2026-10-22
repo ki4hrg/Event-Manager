@@ -9,6 +9,7 @@ import type { RoomConflict } from "@/lib/conflicts";
 import { ConflictWarning } from "@/components/ConflictWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { syncRangeEnd } from "@/lib/dateRange";
 
 type ScheduleListProps = {
   schedules: FunctionSchedule[];
@@ -249,6 +250,7 @@ export function ScheduleList({
                     name="startTime"
                     required
                     defaultValue={defaultStartDateTimeLocal}
+                    onChange={(e) => syncRangeEnd(e.currentTarget, "endTime", { keepDuration: true, defaultMinutes: 60 })}
                     min={minDateTimeLocal}
                     max={maxDateTimeLocal}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
@@ -263,7 +265,7 @@ export function ScheduleList({
                     name="endTime"
                     required
                     defaultValue={defaultEndDateTimeLocal}
-                    min={minDateTimeLocal}
+                    min={defaultStartDateTimeLocal}
                     max={maxDateTimeLocal}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                   />
@@ -381,6 +383,7 @@ export function ScheduleList({
                           name="startTime"
                           required
                           defaultValue={formatDateTimeForInput(schedule.startTime, timezone)}
+                          onChange={(e) => syncRangeEnd(e.currentTarget, "endTime", { keepDuration: true, defaultMinutes: 60 })}
                           min={minDateTimeLocal}
                           max={maxDateTimeLocal}
                           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
@@ -395,7 +398,7 @@ export function ScheduleList({
                           name="endTime"
                           required
                           defaultValue={formatDateTimeForInput(schedule.endTime, timezone)}
-                          min={minDateTimeLocal}
+                          min={formatDateTimeForInput(schedule.startTime, timezone)}
                           max={maxDateTimeLocal}
                           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                         />

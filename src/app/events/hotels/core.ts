@@ -110,6 +110,8 @@ function validate(args: ProposalWriteArgs) {
   }
   if (args.guaranteedRevenue != null && args.guaranteedRevenue < 0) throw new Error("Guaranteed revenue cannot be negative");
   if (args.validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(args.validUntil)) throw new Error(`Invalid date: ${args.validUntil}`);
+  if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn) throw new Error("Check-out must be after check-in");
+  if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn) throw new Error("Valid until can't be before the submitted date");
   const keys = new Set(nightKeys(args.checkIn, args.checkOut));
   for (const n of args.nights) {
     if (!keys.has(n.night)) throw new Error(`Night ${n.night} is outside the stay`);

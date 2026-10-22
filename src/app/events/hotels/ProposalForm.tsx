@@ -1,6 +1,7 @@
 "use client";
 
 import { DateInput } from "@/components/ui/DateInput";
+import { rangeEndFor, rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
@@ -450,7 +451,14 @@ export function ProposalForm({
               </Field>
             )}
             <Field label="Submitted" htmlFor="p-submittedOn">
-              <input id="p-submittedOn" type="date" name="submittedOn" defaultValue={initial?.submittedOn ?? ""} className={inputClass} />
+              <input
+                id="p-submittedOn"
+                type="date"
+                name="submittedOn"
+                defaultValue={initial?.submittedOn ?? ""}
+                onChange={(e) => syncRangeEnd(e.currentTarget, "validUntil", { fillEmpty: false })}
+                className={inputClass}
+              />
             </Field>
             <Field label="Revision" htmlFor="p-revision">
               <input
@@ -474,10 +482,19 @@ export function ProposalForm({
         <Fieldset title="Stay">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Earliest check-in" htmlFor="p-checkIn">
-              <DateInput id="p-checkIn" name="checkIn" value={checkIn} onChange={setCheckIn} className={inputClass} />
+              <DateInput
+                id="p-checkIn"
+                name="checkIn"
+                value={checkIn}
+                onChange={(v) => {
+                  setCheckIn(v);
+                  setCheckOut(rangeEndFor(v, checkOut, 1));
+                }}
+                className={inputClass}
+              />
             </Field>
             <Field label="Latest check-out" htmlFor="p-checkOut">
-              <DateInput id="p-checkOut" name="checkOut" value={checkOut} onChange={setCheckOut} className={inputClass} />
+              <DateInput id="p-checkOut" name="checkOut" min={rangeEndMin(checkIn, 1)} value={checkOut} onChange={setCheckOut} className={inputClass} />
             </Field>
           </div>
         </Fieldset>
@@ -605,7 +622,7 @@ export function ProposalForm({
               />
             </Field>
             <Field label="Valid until" htmlFor="p-validUntil">
-              <input id="p-validUntil" type="date" name="validUntil" defaultValue={initial?.validUntil ?? ""} className={inputClass} />
+              <input id="p-validUntil" type="date" name="validUntil" min={rangeEndMin(initial?.submittedOn)} defaultValue={initial?.validUntil ?? ""} className={inputClass} />
             </Field>
             <Field label="Rates include taxes" htmlFor="p-taxIncluded">
               <select

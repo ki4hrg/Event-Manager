@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { Event, Venue } from "@prisma/client";
 import { btnSecondary } from "@/lib/buttonStyles";
+import { syncRangeEnd } from "@/lib/dateRange";
 
 type EventFormProps = {
   // `venueIds` in event order — the first is the primary venue.
@@ -250,6 +251,7 @@ export function EventForm({ event, venues, series, action, cancelHref }: EventFo
             name="startDate"
             required
             defaultValue={event ? formatDateForInput(event.startDate) : ""}
+            onChange={(e) => syncRangeEnd(e.currentTarget, "endDate")}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -266,6 +268,7 @@ export function EventForm({ event, venues, series, action, cancelHref }: EventFo
             id="endDate"
             name="endDate"
             required
+            min={event ? formatDateForInput(event.startDate) : undefined}
             defaultValue={event ? formatDateForInput(event.endDate) : ""}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />

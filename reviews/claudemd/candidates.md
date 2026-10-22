@@ -120,3 +120,4 @@
 - [read-only UI] CLAUDE.md's "`EquipmentTable` defaults to `CATERING_ORDERS`" is stale: it moved to `src/components/EquipmentTable.tsx` and `resource` is now required
 - [styling] `btnDangerSm` (src/lib/buttonStyles.ts) joins the class-string list: the solid small red button for inline delete/cancel confirms
 - [reports] Day-bucketed report sections use `groupByDay(items, dayKeyFn, startFn)` from src/lib/agendaUtils.ts rather than a local Map loop
+- [forms] Paired start/end date, datetime-local and time inputs use `syncRangeEnd` (uncontrolled, from the start onChange) or `rangeEndFor` (controlled) from `src/lib/dateRange.ts`; the end renders `min={start}` and the core throws on end < start. Optional ends (empty = not set / inherited) pass `fillEmpty: false`; hotel stays use `gapDays: 1`. RFP space/line-item clock times are exempt: end < start there means overnight.

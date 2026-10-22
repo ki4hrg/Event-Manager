@@ -58,6 +58,7 @@ const GROUP_KEYS = ["name", ...BOOTH_SHARED_KEYS] as const satisfies readonly (k
 // A foreign function, group or contact id reads as not-found, never a
 // cross-event link.
 async function assertBoothRefs(eventId: string, args: Partial<BoothWriteArgs>) {
+  if (args.startAt && args.endAt && args.endAt < args.startAt) throw new Error("Booth end can't be before its start");
   if (args.groupId) await assertGroupInEvent(args.groupId, eventId);
   if (args.functionId) {
     const fn = await prisma.function.findFirst({ where: { id: args.functionId, eventId }, select: { id: true } });

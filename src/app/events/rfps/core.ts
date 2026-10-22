@@ -134,10 +134,16 @@ async function validate(eventId: string, kind: RfpKind, args: RfpWriteArgs, keep
   const alternates = args.alternateDates.filter((a) => a.startDate || a.endDate);
   const dates = [args.responseDue, args.decisionBy, args.arrivalDate, args.departureDate, args.siteVisitBy, ...alternates.flatMap((a) => [a.startDate, a.endDate])];
   for (const d of dates) if (d && !DATE_RE.test(d)) throw new Error(`Invalid date: ${d}`);
-  if (args.arrivalDate && args.departureDate && args.departureDate <= args.arrivalDate) throw new Error("Departure must be after arrival");
+  // A hotel stay needs a night; any other RFP may start and end on one day.
+  const tooEarly = (start: string, end: string) => (kind === "HOTEL" ? end <= start : end < start);
+  if (args.arrivalDate && args.departureDate && tooEarly(args.arrivalDate, args.departureDate)) {
+    throw new Error(kind === "HOTEL" ? "Departure must be after arrival" : "End can't be before the start");
+  }
   if (alternates.length > MAX_ALTERNATE_DATES) throw new Error(`At most ${MAX_ALTERNATE_DATES} alternate dates`);
   for (const a of alternates) {
-    if (!a.startDate || !a.endDate || a.endDate <= a.startDate) throw new Error("Each alternate needs an arrival before its departure");
+    if (!a.startDate || !a.endDate || tooEarly(a.startDate, a.endDate)) {
+      throw new Error(kind === "HOTEL" ? "Each alternate needs an arrival before its departure" : "Each alternate needs a start and an end on or after it");
+    }
   }
   if (args.peakRooms != null && (!Number.isInteger(args.peakRooms) || args.peakRooms < 0)) throw new Error("Peak rooms must be a whole number");
   const contactIds = [args.contactId, args.decisionMakerId].filter((c): c is string => !!c);
