@@ -19,7 +19,7 @@ export default async function EquipmentCategoriesPage() {
     <div className="max-w-2xl">
       <OptionList
         title="Equipment Categories"
-        description="Categories for organizing equipment (e.g., AV, Tables, Chairs). Tables and Chairs are system categories and cannot be deleted."
+        description="Categories for organizing equipment (e.g., AV, Tables, Chairs)."
         category="equipment_category"
         options={categories}
         showColor={false}

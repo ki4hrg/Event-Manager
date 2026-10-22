@@ -48,7 +48,7 @@ export default async function NewWorkflowPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description <span className="font-normal text-gray-400">(optional)</span>
+              Description <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
             </label>
             <textarea
               name="description"
