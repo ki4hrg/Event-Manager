@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
+  MouseSensor,
   PointerSensor,
+  TouchSensor,
   pointerWithin,
   closestCenter,
   useSensor,
@@ -190,6 +192,7 @@ function ResizeHandle({
         e.preventDefault();
         onPointerDown(e);
       }}
+      onTouchStart={(e) => e.stopPropagation()}
     >
       <div className={`w-8 h-1 rounded-full ${colors.handle} opacity-0 group-hover/card:opacity-100 ${colors.handleHover} transition-all`} />
     </div>
@@ -945,7 +948,8 @@ export function AgendaGrid({
   const activeDay = days.find((d) => d.dateKey === resolvedDate) ?? days[0];
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
   const handleResizeStart = useCallback<OnResizeStart>(

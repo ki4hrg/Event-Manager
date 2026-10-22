@@ -19,6 +19,8 @@ export type GridState = {
 };
 export type GridEdge = "before" | "after";
 export type GridNight = { roomType: string | null; night: string; rooms: number; rate: number | null };
+// A stored night as the server hands it to the form (Decimal rate as a string).
+export type StoredNight = { roomType: string | null; night: string; rate: string | null; rooms: number | null };
 
 const EMPTY: GridCell = { rooms: "", rate: "" };
 

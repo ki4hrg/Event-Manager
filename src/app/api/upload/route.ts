@@ -19,6 +19,16 @@ import {
 export async function POST(request: NextRequest) {
   let filePath: string | null = null;
 
+  // Refuse an oversized body before formData() buffers all of it; the slack
+  // covers the multipart boundaries and the other fields.
+  const contentLength = Number(request.headers.get("content-length"));
+  if (contentLength > MAX_UPLOAD_BYTES + 64 * 1024) {
+    return NextResponse.json(
+      { error: `File exceeds maximum size of ${MAX_UPLOAD_BYTES} bytes` },
+      { status: 413 }
+    );
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
