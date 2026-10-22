@@ -528,3 +528,13 @@ Triage of all 131 entries in `reviews/claudemd/candidates.md`, each checked agai
 - `docs/checklists/adding-entity.md`: user-created roles get NONE for a new resource.
 
 **Retired without applying:** stale entries (pre-RBAC `requireAdmin` / `requireAuth` / PR1–PR3 notes, "no prisma/migrations", enum-rename `db push` workaround, `/api/mcp` paths, the fixed `AUTH_SECRET` bug, `loadPermissions`, Vendor Handoff lacking mobile cards) and feature-local implementation notes better kept in code comments or feature docs (ESG internals, inventory / storage-location / supply-container design, OAuth internals, LastUpdated placement, multi-day RoomSchedule split, mobile-audit tooling, one-off naming and copy choices). Three entries moved to `reviews/refactors/candidates.md` (`btnPrimarySm`, shared `intersect`, dnd sensors).
+
+---
+
+### 2026-10-22 · Design/usability + security sweep (branch `claude/zealous-feynman-uei79s`)
+
+**Brought in line with the code:** report readers `src/app/events/reports/actions.ts` → `data.ts` and `getEvent` → `src/app/events/event.ts` (plain modules — as `"use server"` exports they were unauthenticated endpoints on `/share/*`); the Server Actions carve-out now states the rule; `/settings/api-keys` → `/users/api-keys`; `EquipmentTable` moved to `src/components/` with a required `resource`.
+
+**Promoted from candidates:** `assertEventRefs` / `partyRefs` for client-supplied foreign ids (Data layer § Event ownership); `src/lib/dateRange.ts` for paired start/end inputs (Forms).
+
+**Process:** the CLAUDE.md candidates rule now allows updating CLAUDE.md directly when a change moves, renames or removes something it names; new rules still go through the parking lot.
