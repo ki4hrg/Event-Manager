@@ -82,6 +82,7 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
   const now = Date.now();
   if (args.expiresAt.getTime() <= now) throw new Error("The close date must be in the future");
   if (args.expiresAt.getTime() > now + MAX_LINK_DAYS * 86_400_000) throw new Error("Links can stay open for at most a year");
+  if (args.dueAt && args.dueAt > args.expiresAt) throw new Error("The respond-by date can't be after the close date");
   if (args.maxSubmissions != null && (args.maxSubmissions < 1 || args.maxSubmissions > 1000)) {
     throw new Error("Responses allowed must be between 1 and 1000");
   }

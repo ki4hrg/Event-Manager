@@ -64,6 +64,7 @@ function parseSpeakerProfile(formData: FormData, sections: string[]): SpeakerPro
   if (on.has("travel")) {
     payload.arrivalAt = localDateTime(formData, "arrivalAt");
     payload.departureAt = localDateTime(formData, "departureAt");
+    if (payload.arrivalAt && payload.departureAt && payload.departureAt < payload.arrivalAt) throw new PublicFormError("invalid");
     payload.hotel = text(formData, "hotel", 200);
     payload.travelNotes = text(formData, "travelNotes", NOTE_MAX);
   }

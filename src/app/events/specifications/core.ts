@@ -86,6 +86,19 @@ export async function checkValue(
 // Partial update of the event's specification. Keys must be ESG fields
 // (src/lib/esg/fields.ts); narrative keys merge into the existing JSON. Date
 // Revised is set only when the caller passes it or by issueEsgCore.
+// A start/end pair (`endKey`) written together can't run backwards. Values
+// are Dates once parsed; MCP may pass strings.
+function checkRanges(fields: { key: string; label: string; endKey?: string }[], values: Record<string, unknown>) {
+  const at = (v: unknown) => (v instanceof Date ? v.getTime() : typeof v === "string" && v ? Date.parse(v) : NaN);
+  for (const f of fields) {
+    if (!f.endKey) continue;
+    if (at(values[f.endKey]) < at(values[f.key])) {
+      const endLabel = fields.find((e) => e.key === f.endKey)?.label ?? f.endKey;
+      throw new Error(`${endLabel} can't be before ${f.label.toLowerCase()}`);
+    }
+  }
+}
+
 export async function upsertEventSpecificationCore(
   eventId: string,
   values: Record<string, unknown>,
@@ -103,6 +116,7 @@ export async function upsertEventSpecificationCore(
     if (field.storage === "column") columns[key] = value;
     else narrativePatch[key] = value;
   }
+  checkRanges(ESG_WRITABLE_FIELDS, values);
 
   const existing = await prisma.eventSpecification.findUnique({
     where: { eventId },
@@ -210,6 +224,7 @@ async function checkGridValues(eventId: string, grid: SpecGrid, values: Record<s
     }
     await checkValue(eventId, tenantId, key, column.kind, value);
   }
+  checkRanges(columns, values);
   for (const column of columns) {
     if (!column.required) continue;
     const v = values[column.key];

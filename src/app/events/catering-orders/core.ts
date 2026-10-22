@@ -261,6 +261,14 @@ export type TimelineItemWriteArgs = {
   notes: string | null;
 };
 
+// A timeline item may be a moment (no end); an end, when set, can't precede the start.
+function timelineTimes(args: TimelineItemWriteArgs, timezone: string) {
+  const startTime = parseDateTimeInTimezone(args.startTime, timezone);
+  const endTime = args.endTime ? parseDateTimeInTimezone(args.endTime, timezone) : null;
+  if (endTime && endTime < startTime) throw new Error("End time can't be before the start time");
+  return { startTime, endTime };
+}
+
 export async function createTimelineItemCore(
   cateringOrderId: string,
   eventId: string,
@@ -278,8 +286,7 @@ export async function createTimelineItemCore(
     data: {
       cateringOrderId,
       label: args.label,
-      startTime: parseDateTimeInTimezone(args.startTime, timezone),
-      endTime: args.endTime ? parseDateTimeInTimezone(args.endTime, timezone) : null,
+      ...timelineTimes(args, timezone),
       notes: args.notes,
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
@@ -301,8 +308,7 @@ export async function updateTimelineItemCore(
     where: { id, cateringOrder: { eventId } },
     data: {
       label: args.label,
-      startTime: parseDateTimeInTimezone(args.startTime, timezone),
-      endTime: args.endTime ? parseDateTimeInTimezone(args.endTime, timezone) : null,
+      ...timelineTimes(args, timezone),
       notes: args.notes,
     },
   });

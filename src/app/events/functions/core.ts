@@ -112,6 +112,10 @@ export async function createFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
+  // Wall-clock comparison: the zone shifts both ends alike.
+  if (args.startTime && args.endTime && parseDateTimeInTimezone(args.endTime, "UTC") <= parseDateTimeInTimezone(args.startTime, "UTC")) {
+    throw new Error("End time must be after start time");
+  }
   const defaults = await resolveCreateStatus(eventId, "FUNCTION");
   const numberData = await functionNumberData(eventId, null, args);
 
@@ -320,6 +324,7 @@ export async function createScheduleCore(
   const timezone = event?.timezone || "America/Chicago";
   const parsedStart = parseDateTimeInTimezone(args.startTime, timezone);
   const parsedEnd = parseDateTimeInTimezone(args.endTime, timezone);
+  if (parsedEnd <= parsedStart) throw new Error("End time must be after start time");
 
   if (!args.force && roomIds.length > 0) {
     const conflicts = await checkRoomConflicts(roomIds, parsedStart, parsedEnd, functionId);
@@ -365,6 +370,7 @@ export async function updateScheduleCore(
   const timezone = event?.timezone || "America/Chicago";
   const parsedStart = parseDateTimeInTimezone(args.startTime, timezone);
   const parsedEnd = parseDateTimeInTimezone(args.endTime, timezone);
+  if (parsedEnd <= parsedStart) throw new Error("End time must be after start time");
 
   if (!args.force && roomIds.length > 0) {
     const conflicts = await checkRoomConflicts(roomIds, parsedStart, parsedEnd, functionId);

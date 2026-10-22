@@ -260,6 +260,9 @@ export async function createSessionInGroup(
     select: { timezone: true },
   });
   const timezone = event?.timezone || "America/Chicago";
+  const start = parseDateTimeInTimezone(startTime, timezone);
+  const end = parseDateTimeInTimezone(endTime, timezone);
+  if (end <= start) throw new Error("End time must be after start time");
 
   const fn = await prisma.function.create({
     data: {
@@ -274,8 +277,8 @@ export async function createSessionInGroup(
     data: {
       functionId: fn.id,
       type: await defaultScheduleType(eventId),
-      startTime: parseDateTimeInTimezone(startTime, timezone),
-      endTime: parseDateTimeInTimezone(endTime, timezone),
+      startTime: start,
+      endTime: end,
       sortOrder: 0,
     },
   });
@@ -299,6 +302,9 @@ export async function updateSession(
     select: { timezone: true },
   });
   const timezone = event?.timezone || "America/Chicago";
+  const start = parseDateTimeInTimezone(startTime, timezone);
+  const end = parseDateTimeInTimezone(endTime, timezone);
+  if (end <= start) throw new Error("End time must be after start time");
 
   await prisma.function.update({
     where: { id: functionId, eventId },
@@ -315,8 +321,8 @@ export async function updateSession(
     await prisma.functionSchedule.update({
       where: { id: schedule.id },
       data: {
-        startTime: parseDateTimeInTimezone(startTime, timezone),
-        endTime: parseDateTimeInTimezone(endTime, timezone),
+        startTime: start,
+        endTime: end,
       },
     });
   }

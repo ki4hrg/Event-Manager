@@ -79,6 +79,7 @@ async function validate(eventId: string, rfpId: string | null, args: QuoteWriteA
   const vendor = await prisma.vendor.findFirst({ where: { id: args.vendorId, tenantId }, select: { id: true } });
   if (!vendor) throw new PermissionError("NOT_FOUND", "Vendor not found");
   for (const d of [args.submittedOn, args.validUntil, args.depositDue]) if (d && !DATE_RE.test(d)) throw new Error(`Invalid date: ${d}`);
+  if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn) throw new Error("Valid until can't be before the submitted date");
   if (!Number.isInteger(args.revision) || args.revision < 1) throw new Error("Revision must be a whole number of 1 or more");
   const asked = rfpId ? new Set((await prisma.rfpLineItem.findMany({ where: { rfpId }, select: { id: true } })).map((l) => l.id)) : new Set<string>();
   const lines = args.lines

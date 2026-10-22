@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary } from "@/lib/buttonStyles";
+import { syncRangeEnd } from "@/lib/dateRange";
 
 const inputCls =
   "w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5";
@@ -129,8 +130,8 @@ function Speaker({ s, saveContact, saveProfile, removeHeadshot }: { s: SpeakerPr
           {canWriteProfile && (
             <form key={`p-${s.updatedAt}`} action={submit((fd) => saveProfile(s.contactId, fd))} className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div><label className={labelCls}>Arrives</label><input type="datetime-local" name="arrivalAt" defaultValue={p?.arrivalAt ?? ""} className={inputCls} /></div>
-                <div><label className={labelCls}>Departs</label><input type="datetime-local" name="departureAt" defaultValue={p?.departureAt ?? ""} className={inputCls} /></div>
+                <div><label className={labelCls}>Arrives</label><input type="datetime-local" name="arrivalAt" defaultValue={p?.arrivalAt ?? ""} onChange={(e) => syncRangeEnd(e.currentTarget, "departureAt", { fillEmpty: false })} className={inputCls} /></div>
+                <div><label className={labelCls}>Departs</label><input type="datetime-local" name="departureAt" min={p?.arrivalAt || undefined} defaultValue={p?.departureAt ?? ""} className={inputCls} /></div>
                 <div><label className={labelCls}>Hotel</label><input name="hotel" defaultValue={p?.hotel ?? ""} className={inputCls} /></div>
                 <div><label className={labelCls}>Shirt size</label><input name="shirtSize" defaultValue={p?.shirtSize ?? ""} className={inputCls} /></div>
                 <div className="sm:col-span-2"><label className={labelCls}>Travel</label><textarea name="travelNotes" rows={2} defaultValue={p?.travelNotes ?? ""} className={inputCls} /></div>

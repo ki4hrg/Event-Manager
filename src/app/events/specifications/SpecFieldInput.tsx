@@ -3,6 +3,7 @@
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { PROVIDED_BY_LABELS } from "@/lib/esg/apex";
 import { toDateTimeLocal } from "@/lib/esg/format";
+import { syncRangeEnd } from "@/lib/dateRange";
 import type { EsgFieldKind } from "@/lib/esg/fields";
 
 // Serialized values: dates arrive as "YYYY-MM-DD", datetimes as ISO strings.
@@ -58,6 +59,8 @@ export function SpecFieldInput({
   placeholder,
   onRichTextChange,
   readOnly = false,
+  rangeStart,
+  rangeEndName,
 }: {
   name: string;
   kind: EsgFieldKind;
@@ -71,6 +74,9 @@ export function SpecFieldInput({
   onRichTextChange?: () => void;
   // A disabled fieldset doesn't reach the editor; render its HTML instead.
   readOnly?: boolean;
+  // Date / datetime range: the start this end can't precede, or the end this start keeps after it.
+  rangeStart?: SpecValue;
+  rangeEndName?: string;
 }) {
   switch (kind) {
     case "text":
@@ -130,7 +136,17 @@ export function SpecFieldInput({
         />
       );
     case "date":
-      return <input id={id} type="date" name={name} defaultValue={(value as string) ?? ""} className={specInputClass} />;
+      return (
+        <input
+          id={id}
+          type="date"
+          name={name}
+          defaultValue={(value as string) ?? ""}
+          min={(rangeStart as string | null | undefined) || undefined}
+          onChange={rangeEndName ? (e) => syncRangeEnd(e.currentTarget, rangeEndName, { fillEmpty: false }) : undefined}
+          className={specInputClass}
+        />
+      );
     case "datetime":
       return (
         <input
@@ -138,6 +154,8 @@ export function SpecFieldInput({
           type="datetime-local"
           name={name}
           defaultValue={toDateTimeLocal(value as string | null, timezone)}
+          min={toDateTimeLocal(rangeStart as string | null | undefined, timezone) || undefined}
+          onChange={rangeEndName ? (e) => syncRangeEnd(e.currentTarget, rangeEndName, { fillEmpty: false, keepDuration: true }) : undefined}
           className={specInputClass}
         />
       );

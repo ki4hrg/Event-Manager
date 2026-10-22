@@ -6,6 +6,7 @@ import type { TimelineItem } from "@prisma/client";
 import { formatTime } from "@/lib/agendaUtils";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { syncRangeEnd } from "@/lib/dateRange";
 
 type TimelineTableProps = {
   items: TimelineItem[];
@@ -103,6 +104,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
                 type="datetime-local"
                 name="startTime"
                 required
+                onChange={(e) => syncRangeEnd(e.currentTarget, "endTime", { keepDuration: true, fillEmpty: false })}
                 className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
@@ -163,6 +165,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
                         name="startTime"
                         required
                         defaultValue={formatTimeForInput(item.startTime, timezone)}
+                        onChange={(e) => syncRangeEnd(e.currentTarget, "endTime", { keepDuration: true, fillEmpty: false })}
                         className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                       />
                     </div>
@@ -171,6 +174,7 @@ export function TimelineTable({ items, timezone, createItem, updateItem, deleteI
                       <input
                         type="datetime-local"
                         name="endTime"
+                        min={formatTimeForInput(item.startTime, timezone)}
                         defaultValue={formatTimeForInput(item.endTime, timezone)}
                         className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                       />

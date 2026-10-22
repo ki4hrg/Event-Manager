@@ -77,6 +77,8 @@ function RowFields({
               value={values?.[c.key] ?? null}
               timezone={timezone}
               choices={choices}
+              rangeEndName={c.endKey}
+              rangeStart={values?.[columns.find((s) => s.endKey === c.key)?.key ?? ""]}
             />
           )}
         </div>

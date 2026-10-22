@@ -7,6 +7,7 @@ import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatMoney } from "@/lib/hotels";
+import { rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { lineAmount, quoteTotals } from "@/lib/rfp/quotes";
 import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
@@ -210,10 +211,17 @@ export function VendorQuoteForm({
             <input id="q-reference" name="reference" placeholder="Quote number" defaultValue={start?.reference ?? ""} className={inputClass} />
           </Field>
           <Field label="Submitted" htmlFor="q-submittedOn">
-            <input id="q-submittedOn" type="date" name="submittedOn" defaultValue={start?.submittedOn ?? ""} className={inputClass} />
+            <input
+              id="q-submittedOn"
+              type="date"
+              name="submittedOn"
+              defaultValue={start?.submittedOn ?? ""}
+              onChange={(e) => syncRangeEnd(e.currentTarget, "validUntil", { fillEmpty: false })}
+              className={inputClass}
+            />
           </Field>
           <Field label="Valid until" htmlFor="q-validUntil">
-            <input id="q-validUntil" type="date" name="validUntil" defaultValue={start?.validUntil ?? ""} className={inputClass} />
+            <input id="q-validUntil" type="date" name="validUntil" min={rangeEndMin(start?.submittedOn)} defaultValue={start?.validUntil ?? ""} className={inputClass} />
           </Field>
           {isEdit && (
             <Field label="Revision" htmlFor="q-revision">

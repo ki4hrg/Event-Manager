@@ -140,6 +140,8 @@ export function SpecSectionCard({
                     placeholder={inherited[f.key]?.value}
                     onRichTextChange={canWrite ? bump : undefined}
                     readOnly={!canWrite}
+                    rangeEndName={f.endKey}
+                    rangeStart={values[fields.find((s) => s.endKey === f.key)?.key ?? ""]}
                   />
                   {f.hint && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{f.hint}</p>}
                 </div>

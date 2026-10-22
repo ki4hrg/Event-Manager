@@ -24,6 +24,7 @@ import { ColumnPicker } from "@/components/ColumnPicker";
 import { parseHiddenColumns } from "@/lib/tableColumns";
 import { useHiddenColumns } from "@/lib/useHiddenColumns";
 import { FUNCTION_TABLE_COLUMNS, type FunctionTableColumn } from "./tableColumns";
+import { rangeEndFor } from "@/lib/dateRange";
 
 type SortField = "number" | "name" | "earliestStart" | "latestEnd" | "type" | "rooms";
 
@@ -510,7 +511,10 @@ export function FunctionTableView({
                     <input
                       type="date"
                       value={filters.dateFrom}
-                      onChange={(e) => setFilter("dateFrom", e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setFilters((prev) => ({ ...prev, dateFrom: v, dateTo: rangeEndFor(v, prev.dateTo, 0, false) }));
+                      }}
                       className={filterInput}
                       title="From date"
                     />
@@ -522,6 +526,7 @@ export function FunctionTableView({
                   <input
                     type="date"
                     value={filters.dateTo}
+                    min={filters.dateFrom || undefined}
                     onChange={(e) => setFilter("dateTo", e.target.value)}
                     className={filterInput}
                     title="To date"
