@@ -64,6 +64,18 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
     const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
     if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
   }
+  // Every target id is stored on the link whichever form uses it, and the
+  // links list renders their names: each must be this event's own, not only
+  // the ones the form's assertTarget checks.
+  const targetFunctionIds = functionIds.filter((id): id is string => !!id);
+  const [fnCount, presentation, boothGroup] = await Promise.all([
+    targetFunctionIds.length ? prisma.function.count({ where: { id: { in: targetFunctionIds }, eventId: args.eventId } }) : 0,
+    args.presentationId ? prisma.presentation.findFirst({ where: { id: args.presentationId, eventId: args.eventId }, select: { id: true } }) : true,
+    args.boothGroupId ? prisma.exhibitBoothGroup.findFirst({ where: { id: args.boothGroupId, eventId: args.eventId }, select: { id: true } }) : true,
+  ]);
+  if (fnCount !== targetFunctionIds.length) throw new PermissionError("NOT_FOUND", "Function not found");
+  if (!presentation) throw new PermissionError("NOT_FOUND", "Presentation not found");
+  if (!boothGroup) throw new PermissionError("NOT_FOUND", "Booth group not found");
   if (args.workflowTemplateId) {
     const template = await prisma.workflowTemplate.findFirst({
       where: { id: args.workflowTemplateId, tenantId },
