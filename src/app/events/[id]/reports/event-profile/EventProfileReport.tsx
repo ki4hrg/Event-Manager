@@ -1,6 +1,6 @@
 import type { CustomOption } from "@prisma/client";
 import type { EventProfileData } from "@/app/events/reports/actions";
-import { getDateKeyInTimezone, formatDateHeading, formatTime, formatTimeRange as formatTimeRangeShared, formatEventDate } from "@/lib/agendaUtils";
+import { getDateKeyInTimezone, groupByDay, formatDateHeading, formatTime, formatTimeRange as formatTimeRangeShared, formatEventDate } from "@/lib/agendaUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { colorClasses } from "@/lib/colors";
 import { formatPhone } from "@/lib/format-phone";
@@ -65,22 +65,6 @@ function fnRoomsLabel(fn: {
 
 function contactDisplayName(c: { firstName: string; lastName: string }): string {
   return `${c.firstName} ${c.lastName}`.trim();
-}
-
-function groupScheduleItemsByDay(
-  items: ScheduleItemRow[],
-  timezone: string
-): Map<string, ScheduleItemRow[]> {
-  const dated = new Map<string, ScheduleItemRow[]>();
-  for (const item of items) {
-    const key = getDateKeyInTimezone(item.startTime, timezone);
-    if (!dated.has(key)) dated.set(key, []);
-    dated.get(key)!.push(item);
-  }
-  dated.forEach((items) => {
-    items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-  });
-  return dated;
 }
 
 function effectiveRoomsForBlock(
@@ -562,8 +546,11 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
       : (PROFILE_SECTIONS.map((s) => s.value) as ProfileSection[])
   );
 
-  const scheduleByDay = groupScheduleItemsByDay(scheduleItems, timezone);
-  const sortedDateKeys = Array.from(scheduleByDay.keys()).sort();
+  const scheduleDays = groupByDay(
+    scheduleItems,
+    (i) => getDateKeyInTimezone(i.startTime, timezone),
+    (i) => i.startTime
+  );
 
   const navSections: { id: string; label: string }[] = [{ id: "summary", label: "Summary" }];
   if (active.has("contacts")) navSections.push({ id: "key-contacts", label: "Key Contacts" });
@@ -644,7 +631,7 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
         <section>
           <SectionDivider id="function-schedule" title="Schedule" />
           <div className="mt-3 space-y-5">
-            {sortedDateKeys.map((dateKey) => {
+            {scheduleDays.map(({ dateKey, items: dayItems }) => {
               const seenFunctionIds = new Set<string>();
               return (
                 <div key={dateKey}>
@@ -652,7 +639,7 @@ export function EventProfileReport({ data, serviceStyles, scheduleTypes, selecte
                     {formatDateHeading(dateKey, timezone)}
                   </h3>
                   <div className="space-y-2">
-                    {scheduleByDay.get(dateKey)!.map((item) => {
+                    {dayItems.map((item) => {
                       const attachAnchor = !seenFunctionIds.has(item.function.id);
                       seenFunctionIds.add(item.function.id);
                       return (

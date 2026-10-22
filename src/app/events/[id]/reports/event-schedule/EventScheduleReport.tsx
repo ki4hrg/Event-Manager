@@ -2,6 +2,7 @@ import type { CustomOption } from "@prisma/client";
 import type { EventScheduleData, EventScheduleItem } from "@/app/events/reports/actions";
 import {
   getDateKeyInTimezone,
+  groupByDay,
   formatDateHeading,
   formatTime,
 } from "@/lib/agendaUtils";
@@ -51,24 +52,6 @@ function breakoutSubRows(item: EventScheduleItem): BreakoutSubRow[] {
 
 function timeRange(start: Date, end: Date, timezone: string): string {
   return `${formatTime(start, timezone)} – ${formatTime(end, timezone)}`;
-}
-
-function groupByDay(
-  items: EventScheduleItem[],
-  timezone: string
-): { dateKey: string; items: EventScheduleItem[] }[] {
-  const dated = new Map<string, EventScheduleItem[]>();
-  for (const item of items) {
-    const key = getDateKeyInTimezone(item.startTime, timezone);
-    if (!dated.has(key)) dated.set(key, []);
-    dated.get(key)!.push(item);
-  }
-  return Array.from(dated.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateKey, items]) => ({
-      dateKey,
-      items: items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime()),
-    }));
 }
 
 function DayTable({
@@ -282,7 +265,11 @@ export function EventScheduleReport({
     return <EmptyState message="No results." />;
   }
 
-  const dayGroups = groupByDay(items, timezone);
+  const dayGroups = groupByDay(
+    items,
+    (i) => getDateKeyInTimezone(i.startTime, timezone),
+    (i) => i.startTime
+  );
 
   const navSections = [{ id: "top", label: "Top" }];
   const itemGroups = [

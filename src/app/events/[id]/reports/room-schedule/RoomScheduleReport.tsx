@@ -2,6 +2,7 @@ import type { CustomOption } from "@prisma/client";
 import type { RoomScheduleData } from "@/app/events/reports/actions";
 import {
   getDateKeyInTimezone,
+  groupByDay,
   formatDateHeading,
   formatTime,
   getStartOfDayInTimezone,
@@ -141,20 +142,6 @@ function buildAgendaItems(bucket: RoomBucket, timezone: string): AgendaItem[] {
   for (const entry of bucket.breakoutEntries) emit({ kind: "breakout", entry }, entry.block.schedules);
 
   return items;
-}
-
-function groupByDay(items: AgendaItem[]): { dateKey: string; items: AgendaItem[] }[] {
-  const dated = new Map<string, AgendaItem[]>();
-  for (const item of items) {
-    if (!dated.has(item.dayKey)) dated.set(item.dayKey, []);
-    dated.get(item.dayKey)!.push(item);
-  }
-  return Array.from(dated.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateKey, items]) => ({
-      dateKey,
-      items: items.sort((a, b) => a.start.getTime() - b.start.getTime()),
-    }));
 }
 
 function timeLabel(item: AgendaItem, timezone: string): string {
@@ -361,7 +348,7 @@ function RoomSection({
   scheduleTypes: CustomOption[];
 }) {
   const items = buildAgendaItems(bucket, timezone);
-  const dayGroups = groupByDay(items);
+  const dayGroups = groupByDay(items, (i) => i.dayKey, (i) => i.start);
   const venueName = bucket.room.venue?.name;
   const capacity = bucket.room.capacity;
 

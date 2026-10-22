@@ -149,6 +149,26 @@ export function getDateKeyInTimezone(date: Date, timezone: string): string {
   }).format(date);
 }
 
+// Buckets items by a YYYY-MM-DD day key: days ascending, items within a day by start.
+export function groupByDay<T>(
+  items: T[],
+  dayKey: (item: T) => string,
+  start: (item: T) => Date
+): { dateKey: string; items: T[] }[] {
+  const dated = new Map<string, T[]>();
+  for (const item of items) {
+    const key = dayKey(item);
+    if (!dated.has(key)) dated.set(key, []);
+    dated.get(key)!.push(item);
+  }
+  return Array.from(dated.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dateKey, dayItems]) => ({
+      dateKey,
+      items: dayItems.sort((a, b) => start(a).getTime() - start(b).getTime()),
+    }));
+}
+
 export function formatDateHeading(dateKey: string, timezone: string): string {
   const d = new Date(`${dateKey}T12:00:00Z`);
   return d.toLocaleDateString("en-US", {
