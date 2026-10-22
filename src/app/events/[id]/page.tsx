@@ -5,13 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import {
-  getEvent,
+  
   addEventKeyStaff,
   updateEventKeyStaff,
   removeEventKeyStaff,
   searchContactsForKeyStaff,
   createContactAndAddKeyStaff,
 } from "../actions";
+import { getEvent } from "@/app/events/event";
 import { KeyStaffList } from "../KeyStaffList";
 import { auth } from "@/lib/auth";
 import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";

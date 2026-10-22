@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { getOptions } from "@/app/settings/actions";
 import { prisma } from "@/lib/prisma";
 import { formatFileSize } from "@/lib/uploads";

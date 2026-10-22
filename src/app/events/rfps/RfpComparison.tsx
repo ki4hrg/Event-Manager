@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { prisma } from "@/lib/prisma";
 import { rfpHref, rfpListHref } from "@/lib/rfp/kinds";
-import { getEvent } from "../actions";
+import { getEvent } from "@/app/events/event";
 import { getQuoteComparison } from "../quotes/actions";
 import { QuoteCompareView } from "../quotes/QuoteCompareView";
 import { getRfpComparison } from "./actions";

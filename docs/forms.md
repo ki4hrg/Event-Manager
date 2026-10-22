@@ -56,7 +56,7 @@ Every module's `snapshot().version` changes when a column it can write changes. 
 
 These are binding for every new form type.
 
-- **Public actions take `(token, formData)` and re-resolve the token in every export.** Tenant, event and target come from the link. The draft is found by an HttpOnly cookie scoped to `/f/<token>`, and every lookup includes `formLinkId` and `state: DRAFT`. Never import a staff `actions.ts` or `src/app/events/reports/actions.ts` into `src/app/f/`.
+- **Public actions take `(token, formData)` and re-resolve the token in every export.** Tenant, event and target come from the link. The draft is found by an HttpOnly cookie scoped to `/f/<token>`, and every lookup includes `formLinkId` and `state: DRAFT`. Never import a staff `actions.ts` or `src/app/events/reports/data.ts` into `src/app/f/`.
 - **The page passes a public DTO**, never the `FormLink` row: its label, recipient email and workflow would serialize into the RSC payload.
 - **The projection is an explicit `select` allow-list.** No billing, cost center, internal notes, vendors, pricing, or contact details.
 - **Apply writes only plain-text and integer columns**, and only fields the submitter changed. It runs behind a compare-and-set on the target's `updatedAt` as of when the review rendered. Rich-text columns are forbidden for public input.

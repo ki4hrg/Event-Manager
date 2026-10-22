@@ -14,7 +14,7 @@ import {
   getBreakoutGroupOptions,
   getEventScheduleData,
   getPackingListData,
-} from "@/app/events/reports/actions";
+} from "@/app/events/reports/data";
 import type { McpToolDefinition } from "./types";
 import { optionalStringArray, requireString } from "./types";
 

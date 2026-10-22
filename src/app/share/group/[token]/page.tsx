@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getHotelInfoReportData } from "@/app/events/reports/actions";
+import { getHotelInfoReportData } from "@/app/events/reports/data";
 import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
 import { hotelInfoGuestTypes } from "@/lib/hotels";
 import { ReportFilters as HiReportFilters } from "@/app/events/[id]/reports/hotel-info/ReportFilters";
-import { getPostEventReportData } from "@/app/events/reports/actions";
+import { getPostEventReportData } from "@/app/events/reports/data";
 import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { ReportFilters as PerReportFilters } from "@/app/events/[id]/reports/post-event/ReportFilters";
-import { getEsgData } from "@/app/events/reports/actions";
+import { getEsgData } from "@/app/events/reports/data";
 import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
 import { ReportFilters as EsgReportFilters } from "@/app/events/[id]/reports/esg/ReportFilters";
 import { esgFiltersToQuery, resolveSharedEsgFilters } from "@/lib/esg/params";
@@ -31,9 +31,9 @@ import {
   getBreakoutScheduleData,
   getBreakoutGroupOptions,
   getPackingListData,
-} from "@/app/events/reports/actions";
+} from "@/app/events/reports/data";
 import { getOptionsForEvent } from "@/lib/options";
-import { getEvent } from "@/app/events/actions";
+import { getEvent } from "@/app/events/event";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { EquipmentResponsibilityReport } from "@/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";

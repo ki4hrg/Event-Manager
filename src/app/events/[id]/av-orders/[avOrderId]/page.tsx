@@ -6,7 +6,7 @@ import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { prisma } from "@/lib/prisma";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getAVOrder,
   updateAVOrder,

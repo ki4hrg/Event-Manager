@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { importPresentationsFromCSV, type ColumnMapping } from "../../../presentations/actions";
 import { ImportForm } from "./ImportForm";
 import { requirePermission } from "@/lib/permissions";

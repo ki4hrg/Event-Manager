@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getSetupOrder,
   updateSetupOrder,

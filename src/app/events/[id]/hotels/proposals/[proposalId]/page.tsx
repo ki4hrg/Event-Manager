@@ -8,7 +8,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { LastUpdated } from "@/components/LastUpdated";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getOptions } from "@/app/settings/actions";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import Link from "next/link";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { stageOf } from "@/lib/hotels";

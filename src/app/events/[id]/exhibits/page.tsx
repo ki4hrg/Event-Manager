@@ -7,7 +7,7 @@ import { Toast } from "@/components/Toast";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { hasPermission } from "@/lib/permissions";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { getBoothGroups, getExhibitBooths } from "../../exhibits/actions";
 import { FormLinkEntry } from "../../forms/FormLinkEntry";
 

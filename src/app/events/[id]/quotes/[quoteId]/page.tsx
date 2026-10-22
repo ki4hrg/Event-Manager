@@ -13,7 +13,7 @@ import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
 import { prisma } from "@/lib/prisma";
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from "@/lib/rfp/quotes";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { awardVendorQuote, deleteVendorQuote, getQuoteFormChoices, getVendorQuote, saveVendorQuote } from "../../../quotes/actions";
 import { quoteResource } from "../../../quotes/core";
 import { AwardQuoteButton } from "../../../quotes/AwardQuoteButton";

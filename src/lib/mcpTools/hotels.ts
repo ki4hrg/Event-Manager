@@ -21,7 +21,7 @@ import {
   type PickupCountArgs,
   type PickupGuestArgs,
 } from "@/app/events/hotels/blockCore";
-import { getHotelInfoReportData } from "@/app/events/reports/actions";
+import { getHotelInfoReportData } from "@/app/events/reports/data";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import type { McpToolDefinition } from "./types";
 import { requireString } from "./types";

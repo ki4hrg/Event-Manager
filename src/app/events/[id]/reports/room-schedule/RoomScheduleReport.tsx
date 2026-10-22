@@ -1,5 +1,5 @@
 import type { CustomOption } from "@prisma/client";
-import type { RoomScheduleData } from "@/app/events/reports/actions";
+import type { RoomScheduleData } from "@/app/events/reports/data";
 import {
   getDateKeyInTimezone,
   groupByDay,

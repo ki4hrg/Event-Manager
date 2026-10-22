@@ -1,4 +1,4 @@
-import type { HotelInfoData } from "@/app/events/reports/actions";
+import type { HotelInfoData } from "@/app/events/reports/data";
 import { ReportNav } from "@/components/ReportNav";
 import { reportSectionCard, reportTd, reportTh } from "@/lib/reportStyles";
 import { CHARGE_SCOPE_LABELS, formatDateKey, formatMoney } from "@/lib/hotels";

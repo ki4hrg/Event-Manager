@@ -10,7 +10,7 @@ import { btnSecondary } from "@/lib/buttonStyles";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { hasPermission } from "@/lib/permissions";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import { clearPickup, deleteHotelBlock, getBlockFormChoices, getHotelBlock, updateHotelBlock } from "../../../../hotels/actions";
 import { toBlockValues } from "../../../../hotels/blockCore";
 import { BlockForm } from "../../../../hotels/BlockForm";

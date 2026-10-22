@@ -11,7 +11,7 @@ import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getMediaDeliverable,
   updateMediaDeliverable,

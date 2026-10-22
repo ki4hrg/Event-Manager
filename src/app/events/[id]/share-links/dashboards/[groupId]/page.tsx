@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
-import { getEvent } from "@/app/events/actions";
+import { getEvent } from "@/app/events/event";
 import { getShareLinkGroup } from "@/app/events/share-link-groups/actions";
 import { DashboardEditor } from "./DashboardEditor";
 import { requirePermission } from "@/lib/permissions";

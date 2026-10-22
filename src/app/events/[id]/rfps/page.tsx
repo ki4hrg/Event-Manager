@@ -12,7 +12,7 @@ import { dateKey, formatDateKey } from "@/lib/hotels";
 import { newRfpHref, RFP_KIND_LABELS, RFP_KINDS, resourceForKind, rfpHref } from "@/lib/rfp/kinds";
 import { recipientState, recipientSummary } from "@/lib/rfp/recipients";
 import { RFP_STATUS_COLORS, RFP_STATUS_LABELS } from "@/lib/rfp/sections";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { getEventRfps } from "../../rfps/actions";
 import { getStandaloneQuotes } from "../../quotes/actions";
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from "@/lib/rfp/quotes";

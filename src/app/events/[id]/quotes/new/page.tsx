@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { requirePermission } from "@/lib/permissions";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { createVendorQuote, getQuoteFormChoices } from "../../../quotes/actions";
 import { VendorQuoteForm } from "../../../quotes/VendorQuoteForm";
 

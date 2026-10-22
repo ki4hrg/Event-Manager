@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunctions, bulkUpdateFunctions, renumberFunctions } from "../../functions/actions";
 import { FunctionNumberingControl } from "../../functions/FunctionNumberingControl";
 import { FunctionList } from "../../functions/FunctionList";

@@ -13,7 +13,7 @@ import {
   canDo,
 } from "@/lib/eventPermissions";
 import { SECTION_RESOURCE } from "../sidebar-sections";
-import { getEvent } from "../actions";
+import { getEvent } from "@/app/events/event";
 import { prisma } from "@/lib/prisma";
 import { OPEN_STATUSES } from "../inbox/views";
 

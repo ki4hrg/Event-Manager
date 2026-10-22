@@ -8,7 +8,7 @@ import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getCateringOrder,
   updateCateringOrderDetails,

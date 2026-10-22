@@ -1,5 +1,5 @@
 import type { CustomOption } from "@prisma/client";
-import type { EventProfileData } from "@/app/events/reports/actions";
+import type { EventProfileData } from "@/app/events/reports/data";
 import { getDateKeyInTimezone, groupByDay, formatDateHeading, formatTime, formatTimeRange as formatTimeRangeShared, formatEventDate } from "@/lib/agendaUtils";
 import { resolveOptionLabel, resolveOptionColor } from "@/lib/optionUtils";
 import { colorClasses } from "@/lib/colors";

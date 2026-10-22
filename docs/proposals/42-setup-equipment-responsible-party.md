@@ -15,7 +15,7 @@ uneven capacity to say who is responsible for a row:
 | `SetupOrder` header | **nothing** — only the `SetupOrderVendor` many:many ("vendors involved") | `prisma/schema.prisma:705-731` |
 
 The Equipment Responsibility report is where this hurts.
-`getEquipmentResponsibilityData` (`src/app/events/reports/actions.ts:145`) explodes
+`getEquipmentResponsibilityData` (`src/app/events/reports/data.ts:145`) explodes
 each `SetupTable` row into up to two equipment rows (`table:<type>` and
 `chair:<type>`, `actions.ts:368-412`) and hardcodes:
 
@@ -68,7 +68,7 @@ model the thing once and derive the label.
   the exact shape `SupplyOrder` already carries (`schema.prisma:1477-1481`).
 - `SetupTable` gains `providerContactId`, and (see open question 1)
   `operatorVendorId` / `operatorContactId` — mirroring the `partySelect` quad
-  used in `src/app/events/reports/actions.ts:852-856`.
+  used in `src/app/events/reports/data.ts:852-856`.
 - `SetupOrderDetail` gains `responsiblePartyContactId`. Keep the existing column
   name; renaming it costs a migration for no gain.
 
@@ -112,7 +112,7 @@ rollup and without a stored enum — every row stays concrete, per CLAUDE.md
 - `src/app/events/setup-orders/SetupOrderDetailTable.tsx` — same
 - `src/app/events/setup-orders/SetupOrderForm.tsx` — order-level default provider
 - `src/app/events/[id]/setup-orders/[setupOrderId]/page.tsx` — swap `getResponsiblePartyVendors` for `getResponsibleParties`, pass the pool down
-- `src/app/events/reports/actions.ts` — `getEquipmentResponsibilityData` setupTables loop (:368-412), `ResponsiblePartyGroup` (:39), `getVendorHandoffData`'s `tables` include (:975-978)
+- `src/app/events/reports/data.ts` — `getEquipmentResponsibilityData` setupTables loop (:368-412), `ResponsiblePartyGroup` (:39), `getVendorHandoffData`'s `tables` include (:975-978)
 - `src/app/events/[id]/reports/equipment-responsibility/EquipmentResponsibilityReport.tsx` — venue/rental badge, mobile card + desktop table
 - `src/app/events/[id]/reports/vendor-handoff/VendorHandoffReport.tsx` — setup tables now reachable by contact-provider
 - `src/lib/mcpTools/` — setup-order tool shapes if the party fields should be readable over MCP

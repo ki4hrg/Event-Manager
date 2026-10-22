@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { createSupplyOrder } from "../../../supply-orders/actions";
 import { SupplyOrderForm } from "../../../supply-orders/SupplyOrderForm";
 import { getResponsibleParties } from "@/lib/responsibleParties";

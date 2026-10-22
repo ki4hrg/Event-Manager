@@ -100,7 +100,7 @@ their own scopes, not in one call.
 
 **Reports.** Feed `avNeeds` and `dietary` into the speaker blocks
 `FunctionDetailReport.tsx` already renders from `presentationSlots → presentation
-→ speakers` (`reports/actions.ts:1381-1389`) — no new report, immediate value for
+→ speakers` (`reports/data.ts:1381-1389`) — no new report, immediate value for
 the AV lead and the caterer. A **Speaker Roster** report is the obvious next step
 but splits into two audiences (bio + headshot for the program; travel + dietary +
 honorarium for logistics), and the first is attendee-facing. That is exactly the
@@ -116,7 +116,7 @@ it free instead of inventing its own redaction.
 - `src/app/events/[id]/speakers/page.tsx` and `[contactId]/page.tsx` (new)
 - `src/components/EventSidebar.tsx` — `NAV` entry + `getActiveSection`
 - `src/app/events/[id]/presentations/[presentationId]/page.tsx` — completeness chip
-- `src/app/events/reports/actions.ts` — widen the speaker select in `fdFunctionInclude`; `FunctionDetailReport.tsx`
+- `src/app/events/reports/data.ts` — widen the speaker select in `fdFunctionInclude`; `FunctionDetailReport.tsx`
 - `src/lib/mcpTools/contacts.ts` — `get_speaker_profile` / `update_speaker_profile`
 
 ## Open questions for the owner

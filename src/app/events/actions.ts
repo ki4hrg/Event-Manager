@@ -1,6 +1,5 @@
 "use server";
 
-import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { eventVenuesInclude } from "@/lib/eventVenues";
@@ -40,17 +39,6 @@ export async function getEventSeriesOptions() {
     orderBy: { name: "asc" },
   });
 }
-
-// No requireAuth() — reused by /share/[token] (see CLAUDE.md share-link carve-out).
-export const getEvent = cache(async (id: string) => {
-  return prisma.event.findUnique({
-    where: { id },
-    include: {
-      ...eventVenuesInclude,
-      updatedBy: { select: { name: true, email: true } },
-    },
-  });
-});
 
 function readEventArgs(formData: FormData): EventWriteArgs {
   return {

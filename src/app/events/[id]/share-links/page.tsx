@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { listShareLinksForEvent } from "@/app/events/share-links/actions";
 import { listShareLinkGroupsForEvent } from "@/app/events/share-link-groups/actions";
 import { ShareLinksTable } from "./ShareLinksTable";

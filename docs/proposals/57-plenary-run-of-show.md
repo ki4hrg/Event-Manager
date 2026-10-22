@@ -106,7 +106,7 @@ magic type string — the `BREAKOUT_BLOCK` precedent shows how sticky those get
 (20 call sites, none discoverable from the type system).
 
 **Report.** Add cues as a section in the existing Function Detail report first, by
-adding `runOfShowCues` to `fdFunctionInclude` (`reports/actions.ts:1339`) and
+adding `runOfShowCues` to `fdFunctionInclude` (`reports/data.ts:1339`) and
 rendering it in `FunctionDetailReport.tsx`. `candidates.md` already records the
 rule: check whether a requested view is a section or toggle on an existing report
 before minting one. Only if the show caller needs different density (bigger type,
@@ -127,7 +127,7 @@ exemption.
 - `src/app/events/functions/run-of-show-core.ts` + `actions.ts` additions — `*Core(args, userId)` pair per CLAUDE.md § MCP writes
 - `src/app/events/functions/RunOfShowPanel.tsx` (new, `"use client"`)
 - `src/app/events/[id]/functions/[functionId]/page.tsx` — panel + inline `"use server"` closures binding `functionId` / `eventId`
-- `src/app/events/reports/actions.ts` (`fdFunctionInclude`, :1339) and `FunctionDetailReport.tsx` — cue section
+- `src/app/events/reports/data.ts` (`fdFunctionInclude`, :1339) and `FunctionDetailReport.tsx` — cue section
 - `src/lib/mcpTools/functions.ts` — `list_run_of_show_cues` / write tools if the connector should reach them
 - *(standalone report only)* the five surfaces in `docs/checklists/share-report-integration.md`
 

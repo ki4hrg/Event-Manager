@@ -2,7 +2,7 @@ import type { Room } from "@prisma/client";
 import type {
   BreakoutScheduleData,
   BreakoutScheduleGroup,
-} from "@/app/events/reports/actions";
+} from "@/app/events/reports/data";
 import {
   getEffectiveRooms,
   formatSessionTime,

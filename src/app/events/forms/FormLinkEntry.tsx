@@ -6,7 +6,7 @@ import { getOptionsForEvent } from "@/lib/options";
 import { createFormLink, deleteFormLink, getFormLinks, getFunctionReviewPicker, revokeFormLink } from "./actions";
 import { FormLinkButton } from "./FormLinkButton";
 import { ExhibitLinkFields } from "./ExhibitLinkFields";
-import { getEvent } from "../actions";
+import { getEvent } from "@/app/events/event";
 
 type ButtonProps = React.ComponentProps<typeof FormLinkButton>;
 

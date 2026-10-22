@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
-import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
+import { getEquipmentResponsibilityData } from "@/app/events/reports/data";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { ReportFilters } from "./ReportFilters";
 import { EquipmentResponsibilityReport } from "./EquipmentResponsibilityReport";

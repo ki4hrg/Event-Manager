@@ -14,7 +14,7 @@ import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getEventRooms } from "@/lib/eventVenues";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getPrintOrder,
   updatePrintOrder,

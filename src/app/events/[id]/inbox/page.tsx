@@ -7,7 +7,7 @@ import { Toast } from "@/components/Toast";
 import { hasPermission } from "@/lib/permissions";
 import { getInboundEmailDomain } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { getEventInbox } from "../../inbox/actions";
 import { InboxList, InboxTabs } from "../../inbox/InboxList";
 import { parseInboxView } from "../../inbox/views";

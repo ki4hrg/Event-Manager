@@ -14,7 +14,7 @@ import { dateKey } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
 import { rfpHref } from "@/lib/rfp/kinds";
 import { effectiveScope } from "@/lib/areas";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import type { RfpBlockArgs, RfpConcessionArgs, RfpFillArgs, RfpRecipientArgs, RfpSpaceArgs } from "../../../../rfps/core";
 import {
   addNewRfpRecipient,

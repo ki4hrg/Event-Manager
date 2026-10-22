@@ -10,7 +10,7 @@ import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/W
 import { hasPermission } from "@/lib/permissions";
 import { formatFileSize } from "@/lib/uploads";
 import { FORM_STATE_LABEL, FORM_TYPE_LABEL } from "@/lib/forms/meta";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { applyFormSubmission, getFormSubmissionReview, rejectFormSubmission } from "../../../forms/actions";
 import { FormDiff, FormReview } from "../../../forms/FormReview";
 import { workflowCompletionCore } from "../../../workflows/core";

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { getEvent } from "../../../actions";
-import { getHotelInfoReportData } from "@/app/events/reports/actions";
+import { getEvent } from "@/app/events/event";
+import { getHotelInfoReportData } from "@/app/events/reports/data";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { ShareReportButton } from "@/components/ShareReportButton";
 import { AddToDashboardBanner } from "@/components/AddToDashboardBanner";

@@ -1,5 +1,5 @@
-import type { getVendorHandoffData } from "@/app/events/reports/actions";
-import type { getEvent } from "@/app/events/actions";
+import type { getVendorHandoffData } from "@/app/events/reports/data";
+import type { getEvent } from "@/app/events/event";
 import { formatTime, formatDateHeading, formatEventDate } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { formatFunctionLabel } from "@/lib/functionNumbers";

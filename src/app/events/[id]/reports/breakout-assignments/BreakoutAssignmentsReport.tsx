@@ -1,7 +1,7 @@
 import type {
   BreakoutScheduleData,
   BreakoutScheduleGroup,
-} from "@/app/events/reports/actions";
+} from "@/app/events/reports/data";
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";

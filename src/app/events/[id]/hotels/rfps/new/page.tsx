@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { dateKey, parseContractTypes } from "@/lib/hotels";
 import { sectionsFor } from "@/lib/rfp/sections";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import { createRfp, getRfpFormChoices, getRfpPatternFill } from "../../../../rfps/actions";
 import type { RfpBlockArgs } from "../../../../rfps/core";
 import { RfpForm } from "../../../../rfps/RfpForm";

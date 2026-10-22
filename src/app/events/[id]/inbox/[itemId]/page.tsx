@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Toast } from "@/components/Toast";
 import { prisma } from "@/lib/prisma";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   applyInboundCounts,
   applyInboundDecline,

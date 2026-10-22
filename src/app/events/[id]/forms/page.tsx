@@ -9,7 +9,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { purgeStaleFormSubmissions } from "@/lib/forms/links";
 import { FORM_STATE_LABEL, FORM_TYPE_LABEL, FUNCTION_REVIEW_SECTIONS, formLinkStatus } from "@/lib/forms/meta";
 import { reportTd, reportTh } from "@/lib/reportStyles";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { deleteFormLink, getFormLinks, getFormSubmissions, revokeFormLink, type SubmissionView } from "../../forms/actions";
 import { CopyFormLink, DeleteFormLink, RevokeFormLink } from "../../forms/FormLinkActions";
 import { FormLinkEntry } from "../../forms/FormLinkEntry";
