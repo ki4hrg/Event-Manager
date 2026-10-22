@@ -9,6 +9,7 @@ import {
   requirePermissionForUser,
   PermissionError,
 } from "@/lib/permissions";
+import { assertEventRefs } from "@/lib/eventRefs";
 
 // The single definition of "which events may this user see". A role with
 // EVENTS:UNASSIGNED above NONE sees everything; everyone else sees only the
@@ -156,6 +157,7 @@ export type AddEventKeyStaffArgs = KeyStaffEsgArgs & {
 
 export async function addEventKeyStaffCore(args: AddEventKeyStaffArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", args.eventId);
+  await assertEventRefs(args.eventId, { contactIds: [args.contactId] });
   const row = await prisma.eventKeyStaff.create({
     data: {
       eventId: args.eventId,
