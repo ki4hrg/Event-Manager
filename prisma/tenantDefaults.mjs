@@ -32,15 +32,6 @@ export const DEFAULT_OPTIONS = {
     { label: "Staff", sortOrder: 3 },
     { label: "Other", sortOrder: 4 },
   ],
-  av_equipment: [
-    { label: "Projector", sortOrder: 0 },
-    { label: "Screen", sortOrder: 1 },
-    { label: "Microphone", sortOrder: 2 },
-    { label: "Podium", sortOrder: 3 },
-    { label: "Webcast", sortOrder: 4 },
-    { label: "Recording", sortOrder: 5 },
-    { label: "Video Playback", sortOrder: 6 },
-  ],
   // group marks the ESG "Set Up By" (SETUP) and "Dismantle No Later Than"
   // (TEARDOWN) schedules, so renaming a label doesn't break the derivation.
   schedule_type: [

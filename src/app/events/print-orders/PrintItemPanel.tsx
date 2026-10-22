@@ -189,6 +189,7 @@ function ItemForm({
               className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             >
               <option value="">— Select —</option>
+              {defaultDistributionMethod && !distributionOptions.some((o) => o.label === defaultDistributionMethod) && <option value={defaultDistributionMethod}>{defaultDistributionMethod}</option>}
               {distributionOptions.map((o) => (
                 <option key={o.id} value={o.label}>{o.label}</option>
               ))}

@@ -132,17 +132,21 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
             </p>
           ) : (
             <div className="flex flex-wrap gap-4">
-              {contactRoles.map((option) => (
-                <label key={option.id} className="flex items-center gap-2">
+              {/* Roles no longer on the list stay so a save doesn't drop them. */}
+              {[
+                ...contactRoles.map((o) => o.label),
+                ...(contact?.roles ?? []).filter((r) => !contactRoles.some((o) => o.label === r)),
+              ].map((label) => (
+                <label key={label} className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     name="roles"
-                    value={option.label}
-                    defaultChecked={contact?.roles.includes(option.label)}
+                    value={label}
+                    defaultChecked={contact?.roles.includes(label)}
                     className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-300">
-                    {option.label}
+                    {label}
                   </span>
                 </label>
               ))}
