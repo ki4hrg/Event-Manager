@@ -64,8 +64,9 @@ into a request, and a quote can't be compared against one.
 - **Responses are quotes.** A new `VendorQuote` (the vendor's price, with
   lines matched to the RFP's line items) plays the role `HotelProposal` plays
   for hotels. A quote may also stand alone, with no RFP.
-- **Award assigns the vendor.** Accepting a quote marks it ACCEPTED, the RFP's
-  other open quotes DECLINED, and the RFP CLOSED. It also adds the vendor to
+- **Award assigns the vendor.** Accepting a quote marks it ACCEPTED. Work can
+  be split, so several quotes on one RFP may be accepted; the confirm step
+  offers to decline the RFP's other open quotes and close the RFP. It also adds the vendor to
   the event (`EventVendor`) and to every source order the line items came
   from (`AVOrderVendor` / `CateringOrderVendor` / `PrintOrderVendor`, skip
   existing). It's all one transaction, and undoing it is a manual edit.

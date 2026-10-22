@@ -230,14 +230,19 @@ export const quoteTools: McpToolDefinition[] = [
   {
     name: "award_vendor_quote",
     description:
-      "Accept a vendor quote: it becomes ACCEPTED; on an RFP, the RFP's other quotes (including an earlier accepted one) become DECLINED and the RFP CLOSED. The vendor is added to the event and to every order the RFP's line items were copied from. Needs VENDORS write.",
+      "Accept a vendor quote: it becomes ACCEPTED and the vendor is added to the event and to every order the RFP's line items were copied from. Several quotes on one RFP may be accepted (split work). With declineOthers, the RFP's other RECEIVED quotes become DECLINED and the RFP CLOSED; earlier accepted quotes stay accepted. Needs VENDORS write.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" }, eventId: { type: "string" } },
+      properties: {
+        id: { type: "string" },
+        eventId: { type: "string" },
+        declineOthers: { type: "boolean", description: "Decline the RFP's other open quotes and close the RFP. Default false." },
+      },
       required: ["id", "eventId"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => awardVendorQuoteCore(requireString(args, "id"), requireString(args, "eventId"), userId),
+    handler: (args, { userId }) =>
+      awardVendorQuoteCore(requireString(args, "id"), requireString(args, "eventId"), userId, args.declineOthers === true),
   },
   {
     name: "delete_vendor_quote",

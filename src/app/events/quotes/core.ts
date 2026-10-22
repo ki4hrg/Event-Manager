@@ -164,11 +164,12 @@ export async function deleteVendorQuoteCore(id: string, eventId: string, userId:
   await prisma.vendorQuote.delete({ where: { id, eventId } });
 }
 
-// Accepting a quote: it's ACCEPTED, the RFP's other quotes DECLINED (one award
-// per RFP; a vendor an earlier award added stays on the event) and
-// the RFP CLOSED; the vendor is put on the event and on every order its RFP's
-// line items came from. VENDORS WRITE is needed to put a vendor on an event.
-export async function awardVendorQuoteCore(id: string, eventId: string, userId: string) {
+// Accepting a quote: it's ACCEPTED and the vendor is put on the event and on
+// every order its RFP's line items came from. Work can be split, so other
+// quotes may be accepted too; with declineOthers, the RFP's still-open quotes
+// are DECLINED and the RFP CLOSED. VENDORS WRITE is needed to put a vendor on
+// an event.
+export async function awardVendorQuoteCore(id: string, eventId: string, userId: string, declineOthers: boolean) {
   const quote = await authorizeQuote(id, eventId, "WRITE", userId);
   const tenantId = await requireEventTenantId(eventId);
   await requirePermissionForUser(userId, "VENDORS", "WRITE", { tenantId });
@@ -179,8 +180,8 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
   const vendorId = quote.vendorId;
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.vendorQuote.update({ where: { id, eventId }, data: { status: "ACCEPTED", updatedById: userId } });
-    if (quote.rfpId) {
-      await tx.vendorQuote.updateMany({ where: { rfpId: quote.rfpId, eventId, id: { not: id }, status: { not: "DECLINED" } }, data: { status: "DECLINED" } });
+    if (quote.rfpId && declineOthers) {
+      await tx.vendorQuote.updateMany({ where: { rfpId: quote.rfpId, eventId, id: { not: id }, status: "RECEIVED" }, data: { status: "DECLINED" } });
       await tx.rfp.update({ where: { id: quote.rfpId, eventId }, data: { status: "CLOSED", updatedById: userId } });
     }
     await tx.eventVendor.upsert({ where: { eventId_vendorId: { eventId, vendorId } }, create: { eventId, vendorId }, update: {} });
