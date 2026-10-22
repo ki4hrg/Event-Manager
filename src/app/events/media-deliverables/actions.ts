@@ -9,6 +9,7 @@ import { autoAssignDefaultWorkflows } from "@/app/events/workflows/actions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { getResponsibleParties, type ResponsiblePartyPool } from "@/lib/responsibleParties";
 import { createMediaDeliverableCore } from "./core";
+import { assertEventRefs } from "@/lib/eventRefs";
 
 async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId: string) {
   const found = await prisma.mediaDeliverable.findUnique({
@@ -18,8 +19,8 @@ async function assertMediaDeliverableInEvent(mediaDeliverableId: string, eventId
   if (!found) notFound();
 }
 
-async function bumpMediaDeliverable(mediaDeliverableId: string, userId: string) {
-  await prisma.mediaDeliverable.update({ where: { id: mediaDeliverableId }, data: { updatedById: userId } });
+async function bumpMediaDeliverable(mediaDeliverableId: string, eventId: string, userId: string) {
+  await prisma.mediaDeliverable.updateMany({ where: { id: mediaDeliverableId, eventId }, data: { updatedById: userId } });
 }
 
 function parseDeliverableData(formData: FormData) {
@@ -125,6 +126,7 @@ export async function updateMediaDeliverable(id: string, eventId: string, formDa
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   const name = (formData.get("name") as string)?.trim();
   const data = parseDeliverableData(formData);
+  await assertEventRefs(eventId, { vendorIds: [data.providerVendorId], contactIds: [data.providerContactId] });
 
   await prisma.mediaDeliverable.update({
     where: { id, eventId },
@@ -149,12 +151,13 @@ export async function deleteMediaDeliverable(id: string, eventId: string) {
 export async function linkMediaDeliverableToFunction(mediaDeliverableId: string, functionId: string, eventId: string) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
+  await assertEventRefs(eventId, { functionIds: [functionId] });
   await prisma.mediaDeliverableFunction.upsert({
     where: { mediaDeliverableId_functionId: { mediaDeliverableId, functionId } },
     create: { mediaDeliverableId, functionId },
     update: {},
   });
-  await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
+  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -164,7 +167,7 @@ export async function unlinkMediaDeliverableFromFunction(mediaDeliverableId: str
   await prisma.mediaDeliverableFunction.deleteMany({
     where: { mediaDeliverableId, functionId, mediaDeliverable: { eventId } },
   });
-  await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
+  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
   revalidatePath(`/events/${eventId}/functions/${functionId}`);
 }
@@ -176,12 +179,13 @@ export async function linkMediaDeliverableToPresentation(
 ) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
+  await assertEventRefs(eventId, { presentationIds: [presentationId] });
   await prisma.mediaDeliverablePresentation.upsert({
     where: { mediaDeliverableId_presentationId: { mediaDeliverableId, presentationId } },
     create: { mediaDeliverableId, presentationId },
     update: {},
   });
-  await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
+  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -195,7 +199,7 @@ export async function unlinkMediaDeliverableFromPresentation(
   await prisma.mediaDeliverablePresentation.deleteMany({
     where: { mediaDeliverableId, presentationId, mediaDeliverable: { eventId } },
   });
-  await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
+  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
   revalidatePath(`/events/${eventId}/presentations/${presentationId}`);
 }
@@ -268,11 +272,12 @@ export async function addMediaDeliverableContact(mediaDeliverableId: string, eve
   await assertMediaDeliverableInEvent(mediaDeliverableId, eventId);
   const contactId = formData.get("contactId") as string;
   const role = formData.get("role") as string;
+  await assertEventRefs(eventId, { contactIds: [contactId] });
 
   await prisma.mediaDeliverableContact.create({
     data: { mediaDeliverableId, contactId, role: role || null },
   });
-  await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
+  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
 }
 
@@ -287,14 +292,14 @@ export async function updateMediaDeliverableContact(
     where: { id, mediaDeliverable: { eventId } },
     data: { role: (formData.get("role") as string) || null },
   });
-  await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
+  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
 }
 
 export async function removeMediaDeliverableContact(id: string, mediaDeliverableId: string, eventId: string) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   await prisma.mediaDeliverableContact.delete({ where: { id, mediaDeliverable: { eventId } } });
-  await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
+  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
 }
 
@@ -325,7 +330,7 @@ export async function createAndAddMediaDeliverableContact(
   await prisma.mediaDeliverableContact.create({
     data: { mediaDeliverableId, contactId: contact.id, role: role || null },
   });
-  await bumpMediaDeliverable(mediaDeliverableId, session.user.id);
+  await bumpMediaDeliverable(mediaDeliverableId, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/media-deliverables/${mediaDeliverableId}`);
 }
 
@@ -389,6 +394,9 @@ export async function bulkUpdateMediaDeliverables(
 ) {
   const session = await requirePermission("MEDIA_DELIVERABLES", "WRITE", eventId);
   const { status, substatus, providerVendorId, providerContactId, mediaType, functionId, presentationId } = updates;
+  await assertEventRefs(eventId, { vendorIds: [providerVendorId], contactIds: [providerContactId], functionIds: [functionId], presentationIds: [presentationId] });
+  // Junction rows below are created per id: keep only this event's deliverables.
+  ids = (await prisma.mediaDeliverable.findMany({ where: { id: { in: ids }, eventId }, select: { id: true } })).map((d) => d.id);
 
   const scalarUpdates: Record<string, unknown> = {};
   if (status !== undefined) scalarUpdates.status = status;

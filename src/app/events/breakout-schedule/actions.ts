@@ -7,6 +7,7 @@ import { retireFunctionNumbers, syncFunctionNumbers } from "@/lib/functionNumber
 import { redirect, notFound } from "next/navigation";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
+import { assertEventRefs } from "@/lib/eventRefs";
 
 async function assertBreakoutGroupInEvent(groupId: string, eventId: string) {
   const found = await prisma.breakoutGroup.findUnique({ where: { id: groupId, eventId }, select: { id: true } });
@@ -165,6 +166,7 @@ export async function deleteBreakoutGroup(groupId: string, eventId: string) {
 export async function addRoomToGroup(groupId: string, roomId: string, eventId: string) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertBreakoutGroupInEvent(groupId, eventId);
+  await assertEventRefs(eventId, { roomIds: [roomId] });
   await prisma.breakoutGroupRoom.create({
     data: { breakoutGroupId: groupId, roomId },
   });
@@ -211,6 +213,7 @@ export async function setSessionRoomOverride(
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertSessionInEvent(functionId, eventId);
+  await assertEventRefs(eventId, { roomIds: [roomId] });
   await prisma.breakoutSessionRoomOverride.upsert({
     where: { functionId_roomId: { functionId, roomId } },
     update: { type },
@@ -350,6 +353,7 @@ export async function assignPresentationToSession(
   await requirePermission("FUNCTIONS", "WRITE", eventId);
   await assertSessionInEvent(functionId, eventId);
   await assertPresentationInEvent(presentationId, eventId);
+  await assertEventRefs(eventId, { roomIds: [roomId] });
   // Check room not already taken in this session
   if (roomId) {
     const conflict = await prisma.presentationSlot.findFirst({
@@ -394,6 +398,7 @@ export async function movePresentationSlot(
   });
   if (!slot) return { success: false, error: "Slot not found" };
   await assertSessionInEvent(newFunctionId, eventId);
+  await assertEventRefs(eventId, { roomIds: [newRoomId] });
 
   const sameSess = slot.functionId === newFunctionId;
   const sameRoom = slot.roomId === newRoomId;
@@ -556,6 +561,7 @@ export async function updateSlotRoom(
   eventId: string
 ) {
   await requirePermission("FUNCTIONS", "WRITE", eventId);
+  await assertEventRefs(eventId, { roomIds: [roomId] });
   await prisma.presentationSlot.update({
     where: { id: slotId, function: { eventId } },
     data: { roomId: roomId || null },
@@ -570,6 +576,7 @@ export async function setSlotAdvancer(
   advancerContactId: string | null,
 ) {
   await requirePermission("PRESENTATIONS", "WRITE", eventId);
+  await assertEventRefs(eventId, { vendorIds: [advancerVendorId], contactIds: [advancerContactId] });
   const slot = await prisma.presentationSlot.update({
     where: { id: slotId, function: { eventId } },
     data: {

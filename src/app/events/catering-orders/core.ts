@@ -5,6 +5,7 @@ import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
+import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
@@ -17,11 +18,8 @@ async function assertCateringOrderInEvent(cateringOrderId: string, eventId: stri
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
-async function bumpCateringOrder(cateringOrderId: string, userId: string) {
-  await prisma.cateringOrder.update({
-    where: { id: cateringOrderId },
-    data: { updatedById: userId },
-  });
+async function bumpCateringOrder(cateringOrderId: string, eventId: string, userId: string) {
+  await prisma.cateringOrder.updateMany({ where: { id: cateringOrderId, eventId }, data: { updatedById: userId } });
 }
 
 async function eventTimezone(eventId: string): Promise<string> {
@@ -64,6 +62,7 @@ export async function createCateringOrderCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { functionIds: [args.functionId], vendorIds: [args.vendorId] });
   const defaults = await resolveCreateStatus(eventId, "CATERING_ORDER");
 
   const cateringOrder = await prisma.cateringOrder.create({
@@ -173,6 +172,9 @@ export async function bulkUpdateCateringOrdersCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { vendorIds: [updates.vendorId] });
+  // Junction rows below are created per id: keep only this event's orders.
+  ids = (await prisma.cateringOrder.findMany({ where: { id: { in: ids }, eventId }, select: { id: true } })).map((o) => o.id);
   const { status, substatus, vendorId } = updates;
 
   if (status !== undefined || substatus !== undefined) {
@@ -211,6 +213,7 @@ export async function linkCateringOrderToFunctionCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await assertCateringOrderInEvent(cateringOrderId, eventId);
+  await assertEventRefs(eventId, { functionIds: [functionId] });
   return prisma.cateringOrder.update({
     where: { id: cateringOrderId, eventId },
     data: { functionId, updatedById: userId },
@@ -291,7 +294,7 @@ export async function createTimelineItemCore(
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -312,7 +315,7 @@ export async function updateTimelineItemCore(
       notes: args.notes,
     },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -324,7 +327,7 @@ export async function deleteTimelineItemCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await prisma.timelineItem.delete({ where: { id, cateringOrder: { eventId } } });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -348,8 +351,9 @@ export async function createCateringEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(args));
   await assertCateringOrderInEvent(cateringOrderId, eventId);
-  const item = await resolveEquipmentName(args.equipmentId, args.item);
+  const item = await resolveEquipmentName(args.equipmentId, args.item, eventId);
   const { _max } = await prisma.equipmentItem.aggregate({
     where: { cateringOrderId },
     _max: { sortOrder: true },
@@ -368,7 +372,7 @@ export async function createCateringEquipmentItemCore(
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -380,7 +384,8 @@ export async function updateCateringEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
-  const item = await resolveEquipmentName(args.equipmentId, args.item);
+  await assertEventRefs(eventId, partyRefs(args));
+  const item = await resolveEquipmentName(args.equipmentId, args.item, eventId);
   const row = await prisma.equipmentItem.update({
     where: { id, cateringOrder: { eventId } },
     data: {
@@ -394,7 +399,7 @@ export async function updateCateringEquipmentItemCore(
       notes: args.notes,
     },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -406,7 +411,7 @@ export async function deleteCateringEquipmentItemCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await prisma.equipmentItem.delete({ where: { id, cateringOrder: { eventId } } });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -435,7 +440,7 @@ export async function createCateringOrderLineItemCore(
   const row = await prisma.cateringOrderLineItem.create({
     data: { cateringOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -451,7 +456,7 @@ export async function updateCateringOrderLineItemCore(
     where: { id, cateringOrder: { eventId } },
     data: args,
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -463,7 +468,7 @@ export async function deleteCateringOrderLineItemCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await prisma.cateringOrderLineItem.delete({ where: { id, cateringOrder: { eventId } } });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -490,7 +495,7 @@ export async function createCateringOrderMenuSectionCore(
   const row = await prisma.cateringOrderMenuSection.create({
     data: { cateringOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -506,7 +511,7 @@ export async function updateCateringOrderMenuSectionCore(
     where: { id, cateringOrder: { eventId } },
     data: args,
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -518,7 +523,7 @@ export async function deleteCateringOrderMenuSectionCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await prisma.cateringOrderMenuSection.delete({ where: { id, cateringOrder: { eventId } } });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -539,6 +544,7 @@ export async function createCateringOrderServiceLocationCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await assertCateringOrderInEvent(cateringOrderId, eventId);
+  await assertEventRefs(eventId, { functionIds: [args.functionId] });
   const { _max } = await prisma.cateringOrderServiceLocation.aggregate({
     where: { cateringOrderId },
     _max: { sortOrder: true },
@@ -546,7 +552,7 @@ export async function createCateringOrderServiceLocationCore(
   const row = await prisma.cateringOrderServiceLocation.create({
     data: { cateringOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -558,11 +564,12 @@ export async function updateCateringOrderServiceLocationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { functionIds: [args.functionId] });
   const row = await prisma.cateringOrderServiceLocation.update({
     where: { id, cateringOrder: { eventId } },
     data: args,
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -576,7 +583,7 @@ export async function deleteCateringOrderServiceLocationCore(
   await prisma.cateringOrderServiceLocation.delete({
     where: { id, cateringOrder: { eventId } },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -591,10 +598,11 @@ export async function addCateringOrderContactCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await assertCateringOrderInEvent(cateringOrderId, eventId);
+  await assertEventRefs(eventId, { contactIds: [contactId] });
   const row = await prisma.cateringOrderContact.create({
     data: { cateringOrderId, contactId, role },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -610,7 +618,7 @@ export async function updateCateringOrderContactCore(
     where: { id, cateringOrder: { eventId } },
     data: { role },
   });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
   return row;
 }
 
@@ -622,7 +630,7 @@ export async function removeCateringOrderContactCore(
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
   await prisma.cateringOrderContact.delete({ where: { id, cateringOrder: { eventId } } });
-  await bumpCateringOrder(cateringOrderId, userId);
+  await bumpCateringOrder(cateringOrderId, eventId, userId);
 }
 
 export type CreateAndAddCateringOrderContactArgs = {
@@ -656,6 +664,6 @@ export async function createAndAddCateringOrderContactCore(
   const row = await prisma.cateringOrderContact.create({
     data: { cateringOrderId: args.cateringOrderId, contactId: contact.id, role: args.role },
   });
-  await bumpCateringOrder(args.cateringOrderId, userId);
+  await bumpCateringOrder(args.cateringOrderId, args.eventId, userId);
   return row;
 }

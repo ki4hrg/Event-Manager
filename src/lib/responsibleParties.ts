@@ -48,7 +48,7 @@ export async function getResponsibleParties(scope: ResponsiblePartyScope): Promi
     getResponsiblePartyVendors(scope.eventId, scope.modelType),
     functionIds.length
       ? prisma.functionContact.findMany({
-          where: { functionId: { in: functionIds } },
+          where: { functionId: { in: functionIds }, function: { eventId: scope.eventId } },
           select: {
             contact: {
               select: { id: true, firstName: true, lastName: true, organization: true },
@@ -58,7 +58,7 @@ export async function getResponsibleParties(scope: ResponsiblePartyScope): Promi
       : Promise.resolve([] as { contact: RawContact }[]),
     presentationIds.length
       ? prisma.presentationContact.findMany({
-          where: { presentationId: { in: presentationIds } },
+          where: { presentationId: { in: presentationIds }, presentation: { eventId: scope.eventId } },
           select: {
             contact: {
               select: { id: true, firstName: true, lastName: true, organization: true },

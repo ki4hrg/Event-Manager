@@ -207,7 +207,7 @@ export async function reorderShareLinkGroupItems(
   await prisma.$transaction(
     orderedIds.map((id, idx) =>
       prisma.shareLinkGroupItem.update({
-        where: { id, group: { eventId: group.eventId } },
+        where: { id, groupId },
         data: { sortOrder: (idx + 1) * 10 },
       }),
     ),

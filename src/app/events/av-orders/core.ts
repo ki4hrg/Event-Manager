@@ -7,6 +7,7 @@ import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
+import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
@@ -18,8 +19,8 @@ async function assertAVOrderInEvent(avOrderId: string, eventId: string) {
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
-async function bumpAVOrder(avOrderId: string, userId: string) {
-  await prisma.aVOrder.update({ where: { id: avOrderId }, data: { updatedById: userId } });
+async function bumpAVOrder(avOrderId: string, eventId: string, userId: string) {
+  await prisma.aVOrder.updateMany({ where: { id: avOrderId, eventId }, data: { updatedById: userId } });
 }
 
 // ---------------------------------------------------------------------------
@@ -40,6 +41,7 @@ export async function createAVOrderCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { functionIds: [args.functionId], presentationIds: [args.presentationId], vendorIds: [args.vendorId] });
   const defaults = await resolveCreateStatus(eventId, "AV_ORDER");
 
   const avOrder = await prisma.aVOrder.create({
@@ -130,6 +132,9 @@ export async function bulkUpdateAVOrdersCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { vendorIds: [updates.vendorId] });
+  // Junction rows below are created per id: keep only this event's orders.
+  ids = (await prisma.aVOrder.findMany({ where: { id: { in: ids }, eventId }, select: { id: true } })).map((o) => o.id);
   const { status, substatus, vendorId } = updates;
   if (status !== undefined || substatus !== undefined) {
     await prisma.aVOrder.updateMany({
@@ -166,12 +171,13 @@ export async function linkAVOrderToFunctionCore(
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
+  await assertEventRefs(eventId, { functionIds: [functionId] });
   const link = await prisma.aVOrderFunction.upsert({
     where: { avOrderId_functionId: { avOrderId, functionId } },
     create: { avOrderId, functionId },
     update: {},
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return link;
 }
 
@@ -186,7 +192,7 @@ export async function unlinkAVOrderFromFunctionCore(
   const r = await prisma.aVOrderFunction.deleteMany({
     where: { avOrderId, functionId, avOrder: { eventId } },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return { count: r.count };
 }
 
@@ -198,12 +204,13 @@ export async function linkAVOrderToPresentationCore(
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
   await assertAVOrderInEvent(avOrderId, eventId);
+  await assertEventRefs(eventId, { presentationIds: [presentationId] });
   const link = await prisma.aVOrderPresentation.upsert({
     where: { avOrderId_presentationId: { avOrderId, presentationId } },
     create: { avOrderId, presentationId },
     update: {},
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return link;
 }
 
@@ -218,7 +225,7 @@ export async function unlinkAVOrderFromPresentationCore(
   const r = await prisma.aVOrderPresentation.deleteMany({
     where: { avOrderId, presentationId, avOrder: { eventId } },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return { count: r.count };
 }
 
@@ -237,7 +244,7 @@ export async function updateAudioSectionCore(
     where: { id, avOrder: { eventId } },
     data: { notes },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -274,7 +281,7 @@ export async function createInputGroupCore(
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -295,11 +302,12 @@ export async function updateInputGroupCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(args));
   const row = await prisma.inputGroup.update({
     where: { id, audioSection: { avOrder: { eventId } } },
     data: args,
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -313,7 +321,7 @@ export async function deleteInputGroupCore(
   await prisma.inputGroup.delete({
     where: { id, audioSection: { avOrder: { eventId } } },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +346,7 @@ export async function createInputItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(args));
   const parent = await prisma.inputGroup.findUnique({
     where: { id: inputGroupId, audioSection: { avOrder: { eventId } } },
     select: { id: true },
@@ -350,7 +359,7 @@ export async function createInputItemCore(
   const row = await prisma.inputItem.create({
     data: { inputGroupId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -362,11 +371,12 @@ export async function updateInputItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(args));
   const row = await prisma.inputItem.update({
     where: { id, inputGroup: { audioSection: { avOrder: { eventId } } } },
     data: args,
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -380,7 +390,7 @@ export async function deleteInputItemCore(
   await prisma.inputItem.delete({
     where: { id, inputGroup: { audioSection: { avOrder: { eventId } } } },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +414,7 @@ export async function createMonitorMixCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(args));
   const parent = await prisma.audioSection.findUnique({
     where: { id: audioSectionId, avOrder: { eventId } },
     select: { id: true },
@@ -416,7 +427,7 @@ export async function createMonitorMixCore(
   const row = await prisma.monitorMix.create({
     data: { audioSectionId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -428,11 +439,12 @@ export async function updateMonitorMixCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(args));
   const row = await prisma.monitorMix.update({
     where: { id, audioSection: { avOrder: { eventId } } },
     data: args,
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -446,7 +458,7 @@ export async function deleteMonitorMixCore(
   await prisma.monitorMix.delete({
     where: { id, audioSection: { avOrder: { eventId } } },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -470,6 +482,7 @@ export async function createMonitorOutputCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(args));
   const parent = await prisma.monitorMix.findUnique({
     where: { id: monitorMixId, audioSection: { avOrder: { eventId } } },
     select: { id: true },
@@ -482,7 +495,7 @@ export async function createMonitorOutputCore(
   const row = await prisma.monitorOutput.create({
     data: { monitorMixId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -494,11 +507,12 @@ export async function updateMonitorOutputCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(args));
   const row = await prisma.monitorOutput.update({
     where: { id, monitorMix: { audioSection: { avOrder: { eventId } } } },
     data: args,
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -512,7 +526,7 @@ export async function deleteMonitorOutputCore(
   await prisma.monitorOutput.delete({
     where: { id, monitorMix: { audioSection: { avOrder: { eventId } } } },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -530,7 +544,7 @@ export async function updateVideoSectionCore(
     where: { id, avOrder: { eventId } },
     data: { notes },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -560,12 +574,13 @@ export async function createVideoEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(rawArgs));
   const parent = await prisma.videoSection.findUnique({
     where: { id: videoSectionId, avOrder: { eventId } },
     select: { id: true },
   });
   if (!parent) throw new PermissionError("NOT_FOUND");
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const { _max } = await prisma.equipmentItem.aggregate({
     where: { videoSectionId },
     _max: { sortOrder: true },
@@ -584,7 +599,7 @@ export async function createVideoEquipmentItemCore(
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -596,7 +611,8 @@ export async function updateVideoEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  await assertEventRefs(eventId, partyRefs(rawArgs));
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const row = await prisma.equipmentItem.update({
     where: { id, videoSection: { avOrder: { eventId } } },
     data: {
@@ -610,7 +626,7 @@ export async function updateVideoEquipmentItemCore(
       notes: rawArgs.notes,
     },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -624,7 +640,7 @@ export async function deleteVideoEquipmentItemCore(
   await prisma.equipmentItem.delete({
     where: { id, videoSection: { avOrder: { eventId } } },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
 }
 
 // --- AVOrder-direct equipment items ---
@@ -636,8 +652,9 @@ export async function createAVEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, partyRefs(rawArgs));
   await assertAVOrderInEvent(avOrderId, eventId);
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const { _max } = await prisma.equipmentItem.aggregate({
     where: { avOrderId },
     _max: { sortOrder: true },
@@ -656,7 +673,7 @@ export async function createAVEquipmentItemCore(
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -668,7 +685,8 @@ export async function updateAVEquipmentItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
-  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item);
+  await assertEventRefs(eventId, partyRefs(rawArgs));
+  const item = await resolveEquipmentName(rawArgs.equipmentId, rawArgs.item, eventId);
   const row = await prisma.equipmentItem.update({
     where: { id, avOrder: { eventId } },
     data: {
@@ -682,7 +700,7 @@ export async function updateAVEquipmentItemCore(
       notes: rawArgs.notes,
     },
   });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
   return row;
 }
 
@@ -694,5 +712,5 @@ export async function deleteAVEquipmentItemCore(
 ) {
   await requirePermissionForUser(userId, "AV_ORDERS", "WRITE", eventId);
   await prisma.equipmentItem.delete({ where: { id, avOrder: { eventId } } });
-  await bumpAVOrder(avOrderId, userId);
+  await bumpAVOrder(avOrderId, eventId, userId);
 }
