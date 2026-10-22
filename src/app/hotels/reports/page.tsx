@@ -162,7 +162,9 @@ async function Monitoring() {
               {blocks.map((b) => (
                 <tr key={b.blockId}>
                   <td className={reportTd}>
-                    {b.event.name}
+                    <Link href={`/events/${b.event.id}/hotels`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                      {b.event.name}
+                    </Link>
                     <div className="text-gray-500 dark:text-gray-400">{formatDateKey(b.event.startDate)}</div>
                   </td>
                   <td className={reportTd}>

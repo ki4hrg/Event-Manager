@@ -212,6 +212,12 @@ async function propagateLabelRename(
             { printOrder: inTenant },
             { supplyOrder: inTenant },
             { mediaDeliverable: inTenant },
+            { hotelProposal: inTenant },
+            { rfp: inTenant },
+            { vendorQuote: inTenant },
+            { inboundEmail: { tenantId } },
+            { formSubmission: { tenantId } },
+            { contact: { tenantId } },
           ],
         },
         data: { fileType: newLabel },
@@ -244,7 +250,12 @@ async function propagateLabelRename(
         tx.setupOrder.updateMany({ where: { substatus: oldLabel, ...inTenant }, data: { substatus: newLabel } }),
         tx.printOrder.updateMany({ where: { substatus: oldLabel, ...inTenant }, data: { substatus: newLabel } }),
         tx.mediaDeliverable.updateMany({ where: { substatus: oldLabel, ...inTenant }, data: { substatus: newLabel } }),
+        tx.supplyOrder.updateMany({ where: { substatus: oldLabel, ...inTenant }, data: { substatus: newLabel } }),
+        tx.formSubmission.updateMany({ where: { substatus: oldLabel, tenantId }, data: { substatus: newLabel } }),
         tx.eventStatusDefault.updateMany({ where: { substatus: oldLabel, ...inTenant }, data: { substatus: newLabel } }),
+        tx.workflowTemplate.updateMany({ where: { pendingSubstatusValue: oldLabel, tenantId }, data: { pendingSubstatusValue: newLabel } }),
+        tx.workflowTemplate.updateMany({ where: { completionSubstatusValue: oldLabel, tenantId }, data: { completionSubstatusValue: newLabel } }),
+        tx.workflowStep.updateMany({ where: { pendingSubstatusValue: oldLabel, template: { tenantId } }, data: { pendingSubstatusValue: newLabel } }),
       ]);
       break;
     case "contact_role":

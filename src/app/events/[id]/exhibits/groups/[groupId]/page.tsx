@@ -12,7 +12,7 @@ import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { hasPermission } from "@/lib/permissions";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   createBoothGroupEquipmentItem,
   deleteBoothGroup,
@@ -23,7 +23,7 @@ import {
   updateBoothGroupEquipmentItem,
 } from "../../../../exhibits/actions";
 import { BoothGroupForm } from "../../../../exhibits/BoothForm";
-import { EquipmentTable } from "../../../../catering-orders/EquipmentTable";
+import { EquipmentTable } from "@/components/EquipmentTable";
 
 export const dynamic = "force-dynamic";
 

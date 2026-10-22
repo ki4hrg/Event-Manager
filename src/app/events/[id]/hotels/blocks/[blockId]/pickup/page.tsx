@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { dateKey } from "@/lib/hotels";
 import { requirePermission } from "@/lib/permissions";
-import { getEvent } from "../../../../../actions";
+import { getEvent } from "@/app/events/event";
 import { getBlockFormChoices, getHotelBlock, importPickupGuests, savePickupCounts } from "../../../../../hotels/actions";
 import { PickupImport } from "../../../../../hotels/PickupImport";
 

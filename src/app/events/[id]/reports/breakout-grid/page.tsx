@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { getEvent } from "@/app/events/actions";
+import { getEvent } from "@/app/events/event";
 import {
   getBreakoutScheduleData,
   getBreakoutGroupOptions,
-} from "@/app/events/reports/actions";
+} from "@/app/events/reports/data";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { ReportFilters } from "./ReportFilters";
 import { BreakoutGridReport } from "./BreakoutGridReport";

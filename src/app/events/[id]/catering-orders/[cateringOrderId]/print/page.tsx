@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { CateringOrderDetails } from "@/app/events/catering-orders/CateringOrderDetails";
 import { getCateringOrder } from "@/app/events/catering-orders/actions";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import { getCateringOrderVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 

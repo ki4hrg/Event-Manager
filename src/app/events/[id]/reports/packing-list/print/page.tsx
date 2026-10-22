@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getEvent } from "@/app/events/actions";
-import { getPackingListData } from "@/app/events/reports/actions";
+import { getEvent } from "@/app/events/event";
+import { getPackingListData } from "@/app/events/reports/data";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { reportFooterText } from "@/lib/reportStyles";
 import { PackingListReport } from "../PackingListReport";

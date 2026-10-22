@@ -9,6 +9,7 @@ import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { BOOTH_SHARED_KEYS, withGroupDefaults, type BoothShared, type BoothSharedKey } from "@/lib/boothGroups";
 import { PROVIDED_BY_LABELS } from "@/lib/esg/apex";
 import { formatDayDateTime, toDateTimeLocal } from "@/lib/esg/format";
+import { syncRangeEnd } from "@/lib/dateRange";
 
 // One form for a booth and for a booth group: the group edits the shared
 // settings; a booth adds its own identity and may override any shared one
@@ -215,7 +216,8 @@ function SharedFields({
       </Field>
     );
   };
-  const datetime = (name: BoothSharedKey, label: string) => {
+  // `range` pairs a start with its end. An empty end inherits the group's, so it isn't filled.
+  const datetime = (name: BoothSharedKey, label: string, range?: { end: BoothSharedKey } | { start: BoothSharedKey }) => {
     const v = inherited(name);
     return (
       <Field label={label} name={name} hint={v ? `Group: ${v}` : null}>
@@ -224,6 +226,8 @@ function SharedFields({
           type="datetime-local"
           name={name}
           defaultValue={toDateTimeLocal(record?.[name] as Date | null, timezone)}
+          min={range && "start" in range ? toDateTimeLocal(record?.[range.start] as Date | null, timezone) || undefined : undefined}
+          onChange={range && "end" in range ? (e) => syncRangeEnd(e.currentTarget, range.end, { fillEmpty: false, keepDuration: true }) : undefined}
           className={inputClass}
         />
       </Field>
@@ -249,8 +253,8 @@ function SharedFields({
         {text("location", "Booth location")}
       </Fieldset>
       <Fieldset title="Times">
-        {datetime("startAt", "Booth start")}
-        {datetime("endAt", "Booth end")}
+        {datetime("startAt", "Booth start", { end: "endAt" })}
+        {datetime("endAt", "Booth end", { start: "startAt" })}
         {datetime("setupBy", "Set up by")}
         {datetime("teardownBy", "Tear down no later than")}
       </Fieldset>

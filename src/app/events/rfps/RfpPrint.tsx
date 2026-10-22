@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { rfpHref } from "@/lib/rfp/kinds";
-import { getEvent } from "../actions";
+import { getEvent } from "@/app/events/event";
 import { getRfpDocument } from "./actions";
 import { RfpDocumentView } from "./RfpDocumentView";
 

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { FunctionDetails } from "@/app/events/functions/FunctionDetails";
 import { getFunction } from "@/app/events/functions/actions";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 import { getOptions } from "@/app/settings/actions";
 import { formatFunctionLabel } from "@/lib/functionNumbers";

@@ -1,4 +1,4 @@
-import type { HotelInfoData } from "@/app/events/reports/actions";
+import type { HotelInfoData } from "@/app/events/reports/data";
 import { ReportNav } from "@/components/ReportNav";
 import { reportSectionCard, reportTd, reportTh } from "@/lib/reportStyles";
 import { CHARGE_SCOPE_LABELS, formatDateKey, formatMoney } from "@/lib/hotels";
@@ -11,14 +11,23 @@ export function HotelInfoReport({ data }: { data: HotelInfoData }) {
   if (data.hotels.length === 0) {
     return <p className="text-sm text-gray-500 dark:text-gray-400">No hotel blocks.</p>;
   }
+  // Blocks for more than one guest type name theirs, or two blocks at one hotel read alike.
+  const guestTypeOf = (h: (typeof data.hotels)[number]) =>
+    new Set(data.hotels.map((x) => x.guestType)).size > 1 ? h.guestType : null;
   return (
     <div className="space-y-6">
-      <ReportNav sections={data.hotels.map((h) => ({ id: `hotel-${h.id}`, label: h.name }))} />
+      <ReportNav
+        sections={data.hotels.map((h) => ({ id: `hotel-${h.id}`, label: guestTypeOf(h) ? `${h.name} (${guestTypeOf(h)})` : h.name }))}
+      />
       {data.hotels.map((h) => (
         <section key={h.id} id={`hotel-${h.id}`} className={`${reportSectionCard} print:break-inside-avoid scroll-mt-24`}>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white print:text-black">
             {h.name}
-            {h.isHq && <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400 print:text-gray-700">Headquarters hotel</span>}
+            {(h.isHq || guestTypeOf(h)) && (
+              <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400 print:text-gray-700">
+                {[h.isHq ? "Headquarters hotel" : null, guestTypeOf(h)].filter(Boolean).join(" · ")}
+              </span>
+            )}
           </h2>
           {h.address && <p className="text-sm text-gray-600 dark:text-gray-400 print:text-gray-700">{h.address}</p>}
           {(h.distanceMiles != null || h.driveMinutes != null) && (

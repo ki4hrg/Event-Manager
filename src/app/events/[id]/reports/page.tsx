@@ -9,7 +9,7 @@ import {
   REPORTS,
   SHARE_REPORT_TYPES,
 } from "@/lib/reportRegistry";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 
 export const dynamic = "force-dynamic";
 

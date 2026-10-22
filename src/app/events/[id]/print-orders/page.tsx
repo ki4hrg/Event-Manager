@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { FormLinkEntry } from "../../forms/FormLinkEntry";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { getPrintOrders, deletePrintOrder, deletePrintOrders, bulkUpdatePrintOrders } from "../../print-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { getSubstatusOptions } from "@/app/settings/actions";

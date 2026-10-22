@@ -8,7 +8,7 @@ import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getCateringOrder,
   updateCateringOrderDetails,
@@ -39,7 +39,7 @@ import {
   searchContactsForCateringOrder,
   createAndAddCateringOrderContact,
 } from "../../../catering-orders/actions";
-import { getOptions, getSubstatusOptions } from "../../../../settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getEquipment } from "@/app/equipment/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
@@ -62,7 +62,7 @@ import { GuestCountsCard } from "../../../catering-orders/GuestCountsCard";
 import { CateringOrderServiceForm } from "../../../catering-orders/CateringOrderServiceForm";
 import { CateringOrderContractForm } from "../../../catering-orders/CateringOrderContractForm";
 import { TimelineTable } from "../../../catering-orders/TimelineTable";
-import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
+import { EquipmentTable } from "@/components/EquipmentTable";
 import { LineItemTable } from "../../../catering-orders/LineItemTable";
 import { MenuSectionTable } from "../../../catering-orders/MenuSectionTable";
 import { AdditionalServiceLocationTable } from "../../../catering-orders/AdditionalServiceLocationTable";
@@ -548,6 +548,7 @@ export default async function CateringOrderPage({
               createItem={createEquipmentAction}
               updateItem={updateEquipmentAction}
               deleteItem={deleteEquipmentAction}
+              resource="CATERING_ORDERS"
             />
           </div>
         </div>

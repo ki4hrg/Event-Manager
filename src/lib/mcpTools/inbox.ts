@@ -3,8 +3,11 @@ import { requirePermissionForUser } from "@/lib/permissions";
 import {
   applyInboundAsProposedCore,
   dismissInboundEmailCore,
+  fileInboundAttachmentCore,
   orgInboxWhere,
   releaseInboundEmailCore,
+  reparseInboundEmailCore,
+  restoreInboundEmailCore,
   routeInboundEmailCore,
   submitInboundItemCore,
   type SubmitAttachment,
@@ -160,6 +163,43 @@ export const inboxTools: McpToolDefinition[] = [
     handler: async (args, { userId, tenantId }) => {
       const item = await itemFor(requireString(args, "id"), tenantId, userId, "WRITE");
       await dismissInboundEmailCore(item.id, item.eventId, tenantId, userId);
+      return { ok: true };
+    },
+  },
+  {
+    name: "restore_inbox_item",
+    description: "Restore a Dismissed item to Held (then release_inbox_item, or route_inbox_item for Unrouted mail).",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
+    handler: async (args, { userId, tenantId }) => {
+      const item = await itemFor(requireString(args, "id"), tenantId, userId, "WRITE");
+      await restoreInboundEmailCore(item.id, item.eventId, tenantId, userId);
+      return { ok: true };
+    },
+  },
+  {
+    name: "reread_inbox_item",
+    description: "Have Claude read an item again (status RECEIVED, PARSED or FAILED), replacing what it was read as. Refused once one of its hotel offers is saved.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
+    handler: async (args, { userId, tenantId }) => {
+      const item = await itemFor(requireString(args, "id"), tenantId, userId, "WRITE");
+      if (!item.eventId) throw new Error("Unrouted mail: route it to an event (route_inbox_item)");
+      await reparseInboundEmailCore(item.id, item.eventId, userId);
+      return { ok: true };
+    },
+  },
+  {
+    name: "file_inbox_attachment",
+    description: "Copy one of an item's attachments (fileId from get_inbox_item's attachments) to its event's Files. Filing the same attachment twice is a no-op.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, fileId: { type: "string" } },
+      required: ["id", "fileId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId, tenantId }) => {
+      const item = await itemFor(requireString(args, "id"), tenantId, userId, "VIEW");
+      if (!item.eventId) throw new Error("Unrouted mail: route it to an event (route_inbox_item)");
+      await fileInboundAttachmentCore(requireString(args, "fileId"), item.id, item.eventId, userId);
       return { ok: true };
     },
   },

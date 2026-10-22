@@ -35,6 +35,8 @@ export type EsgFieldDef = {
   hint?: string;
   // Render across the full card width (long text).
   wide?: boolean;
+  // A date / datetime start: the field in the same section that can't precede it.
+  endKey?: string;
 };
 
 export type EsgDerivedSource =
@@ -249,13 +251,13 @@ export const ESG_SECTIONS: EsgSectionDef[] = [
       txt("showHours", "Show dates & hours", "textarea"),
       txt("storageNeeds", "Storage needs", "textarea"),
       col("povDeliveries", "Anticipated POV deliveries", "int"),
-      col("exhibitorMoveInStart", "Exhibitor move-in begins", "datetime"),
+      col("exhibitorMoveInStart", "Exhibitor move-in begins", "datetime", { endKey: "exhibitorMoveInEnd" }),
       col("exhibitorMoveInEnd", "Exhibitor move-in ends", "datetime"),
-      col("exhibitorMoveOutStart", "Exhibitor move-out begins", "datetime"),
+      col("exhibitorMoveOutStart", "Exhibitor move-out begins", "datetime", { endKey: "exhibitorMoveOutEnd" }),
       col("exhibitorMoveOutEnd", "Exhibitor move-out ends", "datetime"),
-      col("contractorMoveInStart", "Service contractor move-in begins", "datetime"),
+      col("contractorMoveInStart", "Service contractor move-in begins", "datetime", { endKey: "contractorMoveInEnd" }),
       col("contractorMoveInEnd", "Service contractor move-in ends", "datetime"),
-      col("contractorMoveOutStart", "Service contractor move-out begins", "datetime"),
+      col("contractorMoveOutStart", "Service contractor move-out begins", "datetime", { endKey: "contractorMoveOutEnd" }),
       col("contractorMoveOutEnd", "Service contractor move-out ends", "datetime"),
       txt("exhibitsComments", "Other exhibits comments", "richtext"),
     ],
@@ -407,14 +409,15 @@ export const ESG_WRITABLE_FIELDS: EsgFieldDef[] = [...ESG_HEADER_FIELDS, ...ESG_
 
 // Grid columns. Kinds reuse EsgFieldKind; "function" picks one of the
 // event's functions.
-export type SpecGridColumn = { key: string; label: string; kind: EsgFieldKind; required?: boolean };
+// `endKey` marks a start column and names the column that can't precede it.
+export type SpecGridColumn = { key: string; label: string; kind: EsgFieldKind; required?: boolean; endKey?: string };
 
 export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
   vips: [
     { key: "name", label: "Name", kind: "text", required: true },
     { key: "title", label: "Title", kind: "text" },
     { key: "employer", label: "Employer", kind: "text" },
-    { key: "arrivalAt", label: "Arrival", kind: "datetime" },
+    { key: "arrivalAt", label: "Arrival", kind: "datetime", endKey: "departureAt" },
     { key: "departureAt", label: "Departure", kind: "datetime" },
     { key: "amenities", label: "Amenities", kind: "text" },
     { key: "upgrades", label: "Upgrades", kind: "text" },
@@ -423,7 +426,7 @@ export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
   ],
   shuttles: [
     { key: "routeName", label: "Route", kind: "text", required: true },
-    { key: "startAt", label: "Start", kind: "datetime" },
+    { key: "startAt", label: "Start", kind: "datetime", endKey: "endAt" },
     { key: "endAt", label: "End", kind: "datetime" },
     { key: "frequency", label: "Frequency", kind: "text" },
   ],
@@ -448,19 +451,19 @@ export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
   coverage: [
     { key: "kind", label: "Service", kind: "option", required: true },
     { key: "location", label: "Location", kind: "text" },
-    { key: "startAt", label: "Start", kind: "datetime" },
+    { key: "startAt", label: "Start", kind: "datetime", endKey: "endAt" },
     { key: "endAt", label: "End", kind: "datetime" },
   ],
   keys: [
     { key: "location", label: "Location", kind: "text" },
     { key: "functionId", label: "Function", kind: "function" },
-    { key: "startAt", label: "Start", kind: "datetime" },
+    { key: "startAt", label: "Start", kind: "datetime", endKey: "endAt" },
     { key: "endAt", label: "End", kind: "datetime" },
     { key: "quantity", label: "# of keys", kind: "int" },
     { key: "rekeyed", label: "Re-keyed", kind: "bool" },
   ],
   futureDates: [
-    { key: "startDate", label: "Start", kind: "date" },
+    { key: "startDate", label: "Start", kind: "date", endKey: "endDate" },
     { key: "endDate", label: "End", kind: "date" },
     { key: "facility", label: "Facility", kind: "text" },
     { key: "city", label: "City", kind: "text" },

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { reportTh as th, reportTd as td } from "@/lib/reportStyles";
 import { getFunctionsForTable } from "@/app/events/functions/actions";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { getWorkflowBadgeSummaries } from "@/app/events/workflows/actions";
 import type { WorkflowBadgeSummary } from "@/app/events/workflows/actions";
 import type { FunctionForTable } from "@/app/events/functions/actions";

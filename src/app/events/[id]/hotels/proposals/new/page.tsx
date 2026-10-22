@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { dateFromKey, dateKey } from "@/lib/hotels";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import { createHotelProposal, getProposalFormChoices } from "../../../../hotels/actions";
 import { ProposalForm, type ProposalTemplate } from "../../../../hotels/ProposalForm";
 

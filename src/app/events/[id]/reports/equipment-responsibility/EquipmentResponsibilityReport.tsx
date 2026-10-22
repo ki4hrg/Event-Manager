@@ -1,4 +1,4 @@
-import type { ResponsiblePartyGroup, EquipmentReportRow, EquipmentSourceRef } from "@/app/events/reports/actions";
+import type { ResponsiblePartyGroup, EquipmentReportRow, EquipmentSourceRef } from "@/app/events/reports/data";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { EmptyState } from "@/components/EmptyState";
 import { ReportNav } from "@/components/ReportNav";

@@ -31,8 +31,8 @@ type EquipmentTableProps = {
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   readOnlyItems?: { label: string; quantity: number; source?: string }[];
-  // Whose WRITE/DELETE gates editing. Defaults to catering for existing callers.
-  resource?: PermissionResource;
+  // The owning order's resource; its WRITE/DELETE gates editing.
+  resource: PermissionResource;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -115,7 +115,7 @@ export function EquipmentTable({
   updateItem,
   deleteItem,
   readOnlyItems,
-  resource = "CATERING_ORDERS",
+  resource,
 }: EquipmentTableProps) {
   const canWrite = useCanWrite(resource);
   const canDelete = useCanDelete(resource);

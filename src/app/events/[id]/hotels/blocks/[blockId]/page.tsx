@@ -9,7 +9,8 @@ import { LastUpdated } from "@/components/LastUpdated";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
-import { getEvent } from "../../../../actions";
+import { hasPermission } from "@/lib/permissions";
+import { getEvent } from "@/app/events/event";
 import { clearPickup, deleteHotelBlock, getBlockFormChoices, getHotelBlock, updateHotelBlock } from "../../../../hotels/actions";
 import { toBlockValues } from "../../../../hotels/blockCore";
 import { BlockForm } from "../../../../hotels/BlockForm";
@@ -29,7 +30,12 @@ export default async function BlockPage({
   const { id: eventId, blockId } = await params;
   // ?guests=all lifts the cap on the guest list shown (the pickup math always uses every guest).
   const allGuests = (await searchParams).guests === "all";
-  const [event, block, choices] = await Promise.all([getEvent(eventId), getHotelBlock(blockId, eventId), getBlockFormChoices(eventId)]);
+  const [event, block, choices, canViewHotel] = await Promise.all([
+    getEvent(eventId),
+    getHotelBlock(blockId, eventId),
+    getBlockFormChoices(eventId),
+    hasPermission("VENUES", "VIEW"),
+  ]);
   if (!event || !block) notFound();
 
   const pickup = blockPickup({ nights: block.nights, guests: block.pickupGuests, counts: block.pickupCounts });
@@ -75,6 +81,11 @@ export default async function BlockPage({
         }
         actions={
           <>
+            {canViewHotel && (
+              <Link href={`/venues/${venue.id}`} className={btnSecondary}>
+                View hotel
+              </Link>
+            )}
             <Link href={`/events/${eventId}/hotels/proposals/${block.proposal.id}`} className={btnSecondary}>
               View proposal
             </Link>

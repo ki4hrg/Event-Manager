@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/permissions";
-import { getEsgData, getPostEventReportData } from "@/app/events/reports/actions";
+import { getEsgData, getPostEventReportData } from "@/app/events/reports/data";
 import { parseEsgSearchParams } from "@/lib/esg/params";
 
 // .docx / .xlsx downloads of the ESG and Post-Event Report — a binary stream,

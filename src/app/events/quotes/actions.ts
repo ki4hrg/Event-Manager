@@ -137,10 +137,10 @@ export async function deleteVendorQuote(id: string, eventId: string) {
   redirect(`/events/${eventId}/rfps?success=Quote deleted`);
 }
 
-export async function awardVendorQuote(id: string, eventId: string) {
+export async function awardVendorQuote(id: string, eventId: string, declineOthers: boolean) {
   const quote = await quoteRfp(id, eventId);
   const session = await requirePermission(quoteResource(quote.rfp), "WRITE", eventId);
-  const { orders } = await awardVendorQuoteCore(id, eventId, session.user.id);
+  const { orders } = await awardVendorQuoteCore(id, eventId, session.user.id, declineOthers);
   revalidatePath(quotePath(eventId, id));
   revalidatePath(`/events/${eventId}/rfps`);
   revalidatePath(`/events/${eventId}/vendors`);

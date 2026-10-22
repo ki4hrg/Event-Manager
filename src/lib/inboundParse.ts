@@ -496,7 +496,7 @@ Classify the message as one of:
 - CONTRACT: a contract or agreement to sign (or signed) with a hotel, a vendor or a caterer, as opposed to an offer still being priced.
 - OTHER: anything else.
 
-You'll be asked first for the kind, a summary and notes, then for the fields of that kind. Text fields with nothing to say are "" (never null), and numbers that aren't given are -1. Lists that don't apply are empty. When there is no spreadsheet to map, set sheet.attachment to -1 and leave its other fields empty.
+You'll be asked first for the kind, a summary and notes, then for the fields of that kind. Text fields with nothing to say are "" (never null), and numbers that aren't given are -1. Amounts are plain numbers in the message's own currency; when that isn't US dollars, name the currency in notes. Lists that don't apply are empty. When there is no spreadsheet to map, set sheet.attachment to -1 and leave its other fields empty.
 
 blockId (pickup kinds only): the hotel block the report is for, chosen from the candidate blocks by hotel name, group code and dates. "" when none fits or it's ambiguous; say why in notes.
 
@@ -517,7 +517,7 @@ For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer i
 - charges: other fees the hotel lists (resort fee, parking, deposits), with amount and scope when given.
 - validUntil: the offer's deadline, YYYY-MM-DD: the date the rates are good until or the contract must be signed by (the earlier when both are given), or "".
 - taxIncluded: INCLUDED when the offer says its rates include taxes and fees, EXCLUDED when it says they don't ("plus tax", "taxes not included"), "" when it doesn't say.
-- allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee in dollars, if stated.
+- allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee as an amount, if stated.
 - amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"). note is "" unless it tells the reader something the label doesn't: dates, hours, limits, a fee, a condition ("closed Apr 3–10", "6–9:30 am, 2 per room", "$35/night"). Never restate the label ("Business Center" → ""). Leave out amenities the offer doesn't mention; never guess.
 - An inclusion such as breakfast, Wi-Fi or parking is an amenity only when the property gives it to every guest. When the offer ties it to this group's rate or package ("rate includes breakfast for two", "group rate includes parking"), it's a concession (offeredConcessions, or the RFP's matching concession), not an amenity. When you can't tell which, list it as an amenity with note "Rate includes it; unclear whether standard for all guests".
 - Concessions are what's given or negotiated for this group (comp rooms, a reduced valet rate, meal vouchers, waived fees, upgrades). One service can be both: valet parking is an amenity, a reduced valet rate a concession.
@@ -532,7 +532,7 @@ For VENDOR_QUOTE, fill "quote":
 - vendorId: the vendor, from the candidate vendors; "" when it isn't one of them, and then vendorName is the vendor's name as the quote gives it.
 - rfpId: the vendor RFP it answers, from the candidate vendor RFPs, only when the quote responds to that RFP (names it, prices its line items, or comes from a vendor it was sent to); else "".
 - lines: one per priced line, in the quote's order. rfpLineItemId is the RFP line item it prices, when rfpId is set and one fits; "" for extras. description in the quote's words; quantity, unitPrice and amount (the line total) as numbers, -1 when not given.
-- serviceCharge, tax, otherFees: totals in dollars, -1 when not given. depositAmount and depositDue (YYYY-MM-DD), validUntil (YYYY-MM-DD), reference (the quote number), submittedOn, cancellationTerms briefly.
+- serviceCharge, tax, otherFees: totals as amounts, -1 when not given. depositAmount and depositDue (YYYY-MM-DD), validUntil (YYYY-MM-DD), reference (the quote number), submittedOn, cancellationTerms briefly.
 - notes: only terms the fields can't hold, briefly; often "".
 
 For BEO, fill "beo":

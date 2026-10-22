@@ -7,6 +7,7 @@ import {
   type SpeakerProfileSection,
 } from "@/lib/forms/meta";
 import { Card, FormFrame, OnFile, inputCls, labelCls, type CommonFormProps, type DraftView } from "./FormParts";
+import { syncRangeEnd } from "@/lib/dateRange";
 
 type Props = CommonFormProps & {
   baseline: SpeakerProfileBaseline;
@@ -60,12 +61,12 @@ export function SpeakerProfileForm({ baseline, sections, draft, ...common }: Pro
         <Card title={sectionLabel("travel")}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="arrivalAt" className={labelCls}>Arriving</label>
-              <input id="arrivalAt" name="arrivalAt" type="datetime-local" defaultValue={val("arrivalAt")} className={inputCls} />
+              <label htmlFor="arrivalAt" className={labelCls}>Arriving (event local time)</label>
+              <input id="arrivalAt" name="arrivalAt" type="datetime-local" defaultValue={val("arrivalAt")} onChange={(e) => syncRangeEnd(e.currentTarget, "departureAt", { fillEmpty: false })} className={inputCls} />
             </div>
             <div>
-              <label htmlFor="departureAt" className={labelCls}>Departing</label>
-              <input id="departureAt" name="departureAt" type="datetime-local" defaultValue={val("departureAt")} className={inputCls} />
+              <label htmlFor="departureAt" className={labelCls}>Departing (event local time)</label>
+              <input id="departureAt" name="departureAt" type="datetime-local" min={val("arrivalAt") || undefined} defaultValue={val("departureAt")} className={inputCls} />
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="hotel" className={labelCls}>Hotel</label>

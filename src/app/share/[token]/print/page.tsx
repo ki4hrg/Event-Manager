@@ -2,18 +2,18 @@ import type { Metadata } from "next";
 import React from "react";
 import { notFound } from "next/navigation";
 import { getActiveShareLink, recordShareLinkAccess, resolveSharedBoolean } from "@/lib/shareLinks";
-import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData, getPackingListData } from "@/app/events/reports/actions";
-import { getOptions } from "@/app/settings/actions";
-import { getEvent } from "@/app/events/actions";
+import { getEquipmentResponsibilityData, getVendorHandoffData, getEventProfileData, getEventScheduleData, getRoomScheduleData, getFunctionDetailData, getBreakoutScheduleData, getPackingListData } from "@/app/events/reports/data";
+import { getOptionsForEvent } from "@/lib/options";
+import { getEvent } from "@/app/events/event";
 import { stripUpdatedBy } from "@/lib/stripUpdatedBy";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
-import { getEsgData } from "@/app/events/reports/actions";
+import { getEsgData } from "@/app/events/reports/data";
 import { EsgReport } from "@/app/events/[id]/reports/esg/EsgReport";
 import { resolveSharedEsgFilters } from "@/lib/esg/params";
-import { getHotelInfoReportData } from "@/app/events/reports/actions";
+import { getHotelInfoReportData } from "@/app/events/reports/data";
 import { HotelInfoReport } from "@/app/events/[id]/reports/hotel-info/HotelInfoReport";
 import { hotelInfoGuestTypes } from "@/lib/hotels";
-import { getPostEventReportData } from "@/app/events/reports/actions";
+import { getPostEventReportData } from "@/app/events/reports/data";
 import { PostEventReport } from "@/app/events/[id]/reports/post-event/PostEventReport";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "@/app/events/[id]/reports/vendor-handoff/VendorHandoffReport";
@@ -180,7 +180,7 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
     const [event, handoffData, functionTypes] = await Promise.all([
       getEvent(link.eventId).then(stripUpdatedBy),
       getVendorHandoffData(link.eventId, effectiveVendorId).then(stripUpdatedBy),
-      getOptions("function_type"),
+      getOptionsForEvent(link.eventId, "function_type"),
     ]);
 
     if (!event) notFound();
@@ -228,8 +228,8 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
       }).then(stripUpdatedBy),
-      getOptions("service_style"),
-      getOptions("schedule_type"),
+      getOptionsForEvent(link.eventId, "service_style"),
+      getOptionsForEvent(link.eventId, "schedule_type"),
     ]);
 
     if (!event || !data) notFound();
@@ -280,7 +280,7 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
         types: effectiveTypes && effectiveTypes.length > 0 ? effectiveTypes : undefined,
         includeNonPublic: effectiveIncludeNonPublic,
       }).then(stripUpdatedBy),
-      getOptions("schedule_type"),
+      getOptionsForEvent(link.eventId, "schedule_type"),
     ]);
 
     if (!event || !data) notFound();
@@ -333,8 +333,8 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
         days: effectiveDays && effectiveDays.length > 0 ? effectiveDays : undefined,
         roomIds: effectiveRoomIds && effectiveRoomIds.length > 0 ? effectiveRoomIds : undefined,
       }).then(stripUpdatedBy),
-      getOptions("function_type"),
-      getOptions("schedule_type"),
+      getOptionsForEvent(link.eventId, "function_type"),
+      getOptionsForEvent(link.eventId, "schedule_type"),
     ]);
 
     if (!event || !data) notFound();
@@ -373,10 +373,10 @@ export default async function SharePrintPage({ params, searchParams }: PageProps
       await Promise.all([
         getEvent(link.eventId).then(stripUpdatedBy),
         getFunctionDetailData(link.eventId, { functionIds: effectiveFunctionIds }).then(stripUpdatedBy),
-        getOptions("function_type"),
-        getOptions("schedule_type"),
-        getOptions("service_style"),
-        getOptions("setup_type"),
+        getOptionsForEvent(link.eventId, "function_type"),
+        getOptionsForEvent(link.eventId, "schedule_type"),
+        getOptionsForEvent(link.eventId, "service_style"),
+        getOptionsForEvent(link.eventId, "setup_type"),
       ]);
 
     if (!event || !data) notFound();

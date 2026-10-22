@@ -254,7 +254,8 @@ says it isn't configured.
    `apply_inbox_item` (applies a Ready item as read, without the review form:
    pickup counts / guests to a block, a decline, an offer as a proposal —
    `applyInboundAsProposedCore`), `release_inbox_item`, `route_inbox_item`,
-   `dismiss_inbox_item`, and `submit_inbox_item`, which stores a message
+   `dismiss_inbox_item`, `restore_inbox_item`, `reread_inbox_item`,
+   `file_inbox_attachment`, and `submit_inbox_item`, which stores a message
    from the caller (`origin: MCP`, a MEMBER sender, text and base64
    attachments) and reads it like delivered mail
    (`submitInboundItemCore`). New kinds — done (see

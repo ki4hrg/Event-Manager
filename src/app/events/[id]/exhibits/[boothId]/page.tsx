@@ -11,7 +11,7 @@ import { getEquipment } from "@/app/equipment/actions";
 import { getOptions } from "@/app/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   createBoothEquipmentItem,
   deleteBoothEquipmentItem,
@@ -22,7 +22,7 @@ import {
   updateExhibitBooth,
 } from "../../../exhibits/actions";
 import { BoothForm } from "../../../exhibits/BoothForm";
-import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
+import { EquipmentTable } from "@/components/EquipmentTable";
 
 export const dynamic = "force-dynamic";
 

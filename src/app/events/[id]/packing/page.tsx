@@ -7,7 +7,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
 import { REPORTS } from "@/lib/reportRegistry";
 import { Toast } from "@/components/Toast";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getPackingListItems,
   getSavedProviderFilter,

@@ -1,6 +1,7 @@
 "use client";
 
 import { DateInput } from "@/components/ui/DateInput";
+import { rangeEndFor, rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
@@ -22,10 +23,9 @@ import {
 } from "@/lib/hotels";
 import { LEAD_SOURCE_DIRECT, NEW_HOTEL, NEW_HOTEL_FIELDS } from "./proposalArgs";
 import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
-import type { GridNight } from "./RoomGrid";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
 import { AmenityEditor, type ProposalAmenity } from "./ProposalAmenities";
-import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "./RoomGridEditor";
+import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState, type StoredNight } from "./RoomGridEditor";
 
 export type ProposalValues = {
   venueId: string;
@@ -48,7 +48,7 @@ export type ProposalValues = {
   // The amenities the offer states (Confirmed / Unavailable); the hotel's
   // profile covers the rest.
   amenities: ProposalAmenity[];
-  nights: GridNight[];
+  nights: StoredNight[];
   charges: { chargeType: string; amount: string | null; scope: HotelChargeScope | null }[];
 };
 
@@ -150,7 +150,7 @@ export type ProposalTemplate = {
   contractType: HotelContractType;
   guestType: string | null;
   status: string | null;
-  nights: GridNight[];
+  nights: StoredNight[];
 };
 
 // The RFP blocks an emailed offer could answer, each with its concessions
@@ -451,7 +451,14 @@ export function ProposalForm({
               </Field>
             )}
             <Field label="Submitted" htmlFor="p-submittedOn">
-              <input id="p-submittedOn" type="date" name="submittedOn" defaultValue={initial?.submittedOn ?? ""} className={inputClass} />
+              <input
+                id="p-submittedOn"
+                type="date"
+                name="submittedOn"
+                defaultValue={initial?.submittedOn ?? ""}
+                onChange={(e) => syncRangeEnd(e.currentTarget, "validUntil", { fillEmpty: false })}
+                className={inputClass}
+              />
             </Field>
             <Field label="Revision" htmlFor="p-revision">
               <input
@@ -475,10 +482,19 @@ export function ProposalForm({
         <Fieldset title="Stay">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Earliest check-in" htmlFor="p-checkIn">
-              <DateInput id="p-checkIn" name="checkIn" value={checkIn} onChange={setCheckIn} className={inputClass} />
+              <DateInput
+                id="p-checkIn"
+                name="checkIn"
+                value={checkIn}
+                onChange={(v) => {
+                  setCheckIn(v);
+                  setCheckOut(rangeEndFor(v, checkOut, 1));
+                }}
+                className={inputClass}
+              />
             </Field>
             <Field label="Latest check-out" htmlFor="p-checkOut">
-              <DateInput id="p-checkOut" name="checkOut" value={checkOut} onChange={setCheckOut} className={inputClass} />
+              <DateInput id="p-checkOut" name="checkOut" min={rangeEndMin(checkIn, 1)} value={checkOut} onChange={setCheckOut} className={inputClass} />
             </Field>
           </div>
         </Fieldset>
@@ -606,7 +622,7 @@ export function ProposalForm({
               />
             </Field>
             <Field label="Valid until" htmlFor="p-validUntil">
-              <input id="p-validUntil" type="date" name="validUntil" defaultValue={initial?.validUntil ?? ""} className={inputClass} />
+              <input id="p-validUntil" type="date" name="validUntil" min={rangeEndMin(initial?.submittedOn)} defaultValue={initial?.validUntil ?? ""} className={inputClass} />
             </Field>
             <Field label="Rates include taxes" htmlFor="p-taxIncluded">
               <select

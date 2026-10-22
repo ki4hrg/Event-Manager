@@ -64,6 +64,18 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
     const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
     if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
   }
+  // Every target id is stored on the link whichever form uses it, and the
+  // links list renders their names: each must be this event's own, not only
+  // the ones the form's assertTarget checks.
+  const targetFunctionIds = functionIds.filter((id): id is string => !!id);
+  const [fnCount, presentation, boothGroup] = await Promise.all([
+    targetFunctionIds.length ? prisma.function.count({ where: { id: { in: targetFunctionIds }, eventId: args.eventId } }) : 0,
+    args.presentationId ? prisma.presentation.findFirst({ where: { id: args.presentationId, eventId: args.eventId }, select: { id: true } }) : true,
+    args.boothGroupId ? prisma.exhibitBoothGroup.findFirst({ where: { id: args.boothGroupId, eventId: args.eventId }, select: { id: true } }) : true,
+  ]);
+  if (fnCount !== targetFunctionIds.length) throw new PermissionError("NOT_FOUND", "Function not found");
+  if (!presentation) throw new PermissionError("NOT_FOUND", "Presentation not found");
+  if (!boothGroup) throw new PermissionError("NOT_FOUND", "Booth group not found");
   if (args.workflowTemplateId) {
     const template = await prisma.workflowTemplate.findFirst({
       where: { id: args.workflowTemplateId, tenantId },
@@ -82,6 +94,7 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
   const now = Date.now();
   if (args.expiresAt.getTime() <= now) throw new Error("The close date must be in the future");
   if (args.expiresAt.getTime() > now + MAX_LINK_DAYS * 86_400_000) throw new Error("Links can stay open for at most a year");
+  if (args.dueAt && args.dueAt > args.expiresAt) throw new Error("The respond-by date can't be after the close date");
   if (args.maxSubmissions != null && (args.maxSubmissions < 1 || args.maxSubmissions > 1000)) {
     throw new Error("Responses allowed must be between 1 and 1000");
   }
@@ -397,7 +410,10 @@ export async function listFormSubmissionsCore(eventId: string, view: SubmissionV
       submittedAt: true,
       handledAt: true,
       formLink: {
-        select: { function: { select: { name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } } },
+        select: {
+          function: { select: { name: true, functionNumber: true, breakoutGroup: { select: { name: true } } } },
+          presentation: { select: { title: true } },
+        },
       },
     },
   });

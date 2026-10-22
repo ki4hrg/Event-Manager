@@ -7,6 +7,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { groupRoomsByGroup, offersBulkAction, spansMultipleVenues } from "@/lib/roomGroups";
 import { resolveAdvancer } from "@/lib/presentationAdvancer";
 import { partyLabel } from "@/lib/partyLabel";
+import { syncRangeEnd } from "@/lib/dateRange";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 import {
@@ -324,6 +325,7 @@ function SessionManager({
                 name="startTime"
                 type="datetime-local"
                 required
+                onChange={(e) => syncRangeEnd(e.currentTarget, "endTime", { keepDuration: true, defaultMinutes: 60 })}
                 className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
             </div>

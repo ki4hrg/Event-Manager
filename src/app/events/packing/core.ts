@@ -235,7 +235,7 @@ export async function returnItemsToLocationCore(
   await prisma.$transaction(async (tx) => {
     if (toRehome.length > 0) {
       await tx.inventoryItem.updateMany({
-        where: { id: { in: toRehome.map((item) => item.inventoryItemId!) } },
+        where: { id: { in: toRehome.map((item) => item.inventoryItemId!) }, tenantId },
         data: { locationId: targetLocationId },
       });
     }

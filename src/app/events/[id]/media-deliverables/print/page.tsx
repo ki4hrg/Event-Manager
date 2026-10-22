@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { getMediaDeliverables } from "@/app/events/media-deliverables/actions";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { partyLabel } from "@/lib/partyLabel";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 

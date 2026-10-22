@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { dateKey } from "@/lib/hotels";
 import { resourceForKind, rfpHref } from "@/lib/rfp/kinds";
 import { ORDER_SOURCE } from "@/lib/rfp/lineItems";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import type { RfpConcessionArgs, RfpLineItemArgs, RfpRecipientArgs } from "../../../rfps/core";
 import {
   addRfpVendorRecipients,

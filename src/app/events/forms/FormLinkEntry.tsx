@@ -6,6 +6,7 @@ import { getOptionsForEvent } from "@/lib/options";
 import { createFormLink, deleteFormLink, getFormLinks, getFunctionReviewPicker, revokeFormLink } from "./actions";
 import { FormLinkButton } from "./FormLinkButton";
 import { ExhibitLinkFields } from "./ExhibitLinkFields";
+import { getEvent } from "@/app/events/event";
 
 type ButtonProps = React.ComponentProps<typeof FormLinkButton>;
 
@@ -42,7 +43,8 @@ export async function FormLinkEntry({
   // Function Review picks its functions in the dialog, starting from this
   // page's function; their contacts are the recipients.
   const picksFunctions = formType === "FUNCTION_REVIEW";
-  const [links, templates, functions, boothTypes] = await Promise.all([
+  const [event, links, templates, functions, boothTypes] = await Promise.all([
+    getEvent(eventId),
     getFormLinks(eventId, target ? { formType, [target.field]: target.id } : { formType }),
     getWorkflowTemplateOptions(),
     picksFunctions ? getFunctionReviewPicker(eventId) : null,
@@ -82,7 +84,7 @@ export async function FormLinkEntry({
       workflowTemplates={templates}
       links={links}
       emailEnabled={isEmailConfigured()}
-      defaultCloseDate={defaultCloseDate ?? inThirtyDays()}
+      defaultCloseDate={defaultCloseDate ?? defaultFormCloseDate(event?.startDate ?? null)}
       create={create}
       revoke={revoke}
       deleteLink={deleteLink}
@@ -90,7 +92,10 @@ export async function FormLinkEntry({
   );
 }
 
-// YYYY-MM-DD for the close-date input.
-function inThirtyDays(): string {
-  return new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+// A form link stays open until the event starts, or 30 days when that's
+// sooner or already past. YYYY-MM-DD for the date input.
+function defaultFormCloseDate(eventStart: Date | null): string {
+  const inMonth = new Date(Date.now() + 30 * 86_400_000);
+  const start = eventStart && eventStart.getTime() > Date.now() + 86_400_000 ? eventStart : null;
+  return (start && start < inMonth ? start : inMonth).toISOString().slice(0, 10);
 }

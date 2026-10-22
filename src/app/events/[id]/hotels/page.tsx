@@ -8,7 +8,7 @@ import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { hasPermission } from "@/lib/permissions";
 import { blockTypeLabel, dateKey, formatDateKey } from "@/lib/hotels";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
 import { scopeLabels } from "@/lib/areas";

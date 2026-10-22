@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { requirePermission } from "@/lib/permissions";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import { createBoothGroup, getBoothFormChoices } from "../../../../exhibits/actions";
 import { BoothGroupForm } from "../../../../exhibits/BoothForm";
 

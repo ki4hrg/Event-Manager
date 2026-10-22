@@ -33,6 +33,31 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
+// presenter_role options; keeps a stored role that's no longer on the list.
+function RoleSelect({ roles, defaultValue, className }: { roles: CustomOption[]; defaultValue?: string | null; className: string }) {
+  if (roles.length === 0 && !defaultValue) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        No roles defined.{" "}
+        <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
+          Add roles in Settings
+        </a>
+      </p>
+    );
+  }
+  return (
+    <select name="role" defaultValue={defaultValue ?? ""} className={className}>
+      <option value="">Select role...</option>
+      {defaultValue && !roles.some((r) => r.label === defaultValue) && <option value={defaultValue}>{defaultValue}</option>}
+      {roles.map((r) => (
+        <option key={r.id} value={r.label}>
+          {r.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function SpeakerList({
   speakers,
   presenterRoles,
@@ -217,26 +242,7 @@ export function SpeakerList({
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Role
                 </label>
-                {presenterRoles.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No roles defined.{" "}
-                    <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
-                      Add roles in Settings
-                    </a>
-                  </p>
-                ) : (
-                  <select
-                    name="role"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                  >
-                    <option value="">Select role...</option>
-                    {presenterRoles.map((r) => (
-                      <option key={r.id} value={r.label}>
-                        {r.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <RoleSelect roles={presenterRoles} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" />
               </div>
               <div className="flex items-center">
                 <label className="flex items-center space-x-2 mt-5">
@@ -318,12 +324,7 @@ export function SpeakerList({
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Role
                 </label>
-                <input
-                  type="text"
-                  name="role"
-                  placeholder="e.g. Speaker, Moderator..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                />
+                <RoleSelect roles={presenterRoles} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" />
               </div>
               <div className="flex items-end pb-2">
                 <label className="flex items-center space-x-2">
@@ -387,18 +388,11 @@ export function SpeakerList({
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Role
                       </label>
-                      <select
-                        name="role"
-                        defaultValue={speaker.role || ""}
+                      <RoleSelect
+                        roles={presenterRoles}
+                        defaultValue={speaker.role}
                         className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                      >
-                        <option value="">Select role...</option>
-                        {presenterRoles.map((r) => (
-                          <option key={r.id} value={r.label}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div className="flex items-center">
                       <label className="flex items-center space-x-2 mt-5">

@@ -9,6 +9,7 @@ import {
   requirePermissionForUser,
   PermissionError,
 } from "@/lib/permissions";
+import { assertEventRefs } from "@/lib/eventRefs";
 
 // The single definition of "which events may this user see". A role with
 // EVENTS:UNASSIGNED above NONE sees everything; everyone else sees only the
@@ -67,6 +68,10 @@ export type EventWriteArgs = {
   actualAttendance?: number | null;
 };
 
+function assertEventDates(args: EventWriteArgs) {
+  if (args.endDate < args.startDate) throw new Error("End date can't be before the start date");
+}
+
 function attendanceData(args: EventWriteArgs) {
   return {
     ...(args.isMembershipBased !== undefined ? { isMembershipBased: args.isMembershipBased } : {}),
@@ -79,6 +84,7 @@ function attendanceData(args: EventWriteArgs) {
 export async function createEventCore(input: EventWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", { tenantId });
   const args = { ...input, venueIds: Array.from(new Set(input.venueIds)) };
+  assertEventDates(args);
   await assertEventRefsInTenant(args, tenantId);
   // Auto-assign the creator as event staff so a role with EVENTS:UNASSIGNED:NONE
   // doesn't lose access to events they just created.
@@ -101,6 +107,7 @@ export async function createEventCore(input: EventWriteArgs, userId: string, ten
 export async function updateEventCore(id: string, input: EventWriteArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", id);
   const args = { ...input, venueIds: Array.from(new Set(input.venueIds)) };
+  assertEventDates(args);
   await assertEventRefsInTenant(args, await requireEventTenantId(id));
   // Rooms of a venue removed here stay attached to any function/order already
   // using them — dropping a venue never silently rewrites the schedule.
@@ -156,6 +163,7 @@ export type AddEventKeyStaffArgs = KeyStaffEsgArgs & {
 
 export async function addEventKeyStaffCore(args: AddEventKeyStaffArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", args.eventId);
+  await assertEventRefs(args.eventId, { contactIds: [args.contactId] });
   const row = await prisma.eventKeyStaff.create({
     data: {
       eventId: args.eventId,

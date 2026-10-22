@@ -110,7 +110,7 @@ export const REPORTS: Record<ShareReportType, ReportDefinition> = {
     path: "reports/hotel-info",
     category: "Documentation",
     resource: "HOTELS",
-    description: "Blocks, rates and pickup.",
+    description: "Booking details for each hotel block.",
   },
 };
 

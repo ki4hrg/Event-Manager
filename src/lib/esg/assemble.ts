@@ -1,6 +1,6 @@
 // Builds the EsgDocument from the event's stored specification, the derived
 // Part I inputs and its functions. Pure and synchronous: callers load the
-// data (src/app/events/reports/actions.ts → getEsgData).
+// data (src/app/events/reports/data.ts → getEsgData).
 
 import { formatEventDate, getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { withGroupDefaults } from "@/lib/boothGroups";

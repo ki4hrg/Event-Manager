@@ -5,7 +5,9 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Toast } from "@/components/Toast";
 import { hasPermission } from "@/lib/permissions";
-import { getEvent } from "../../actions";
+import { getInboundEmailDomain } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
+import { getEvent } from "@/app/events/event";
 import { getEventInbox } from "../../inbox/actions";
 import { InboxList, InboxTabs } from "../../inbox/InboxList";
 import { parseInboxView } from "../../inbox/views";
@@ -38,6 +40,10 @@ export default async function EventInboxPage({
   ]);
   if (!event) notFound();
   const basePath = `/events/${eventId}/inbox`;
+  // The address to forward mail to; nothing when the server takes no mail.
+  const domain = getInboundEmailDomain();
+  const tenant = domain && event.inboxSlug ? await prisma.tenant.findUnique({ where: { id: event.tenantId }, select: { slug: true } }) : null;
+  const address = domain && event.inboxSlug && tenant ? `${tenant.slug}.${event.inboxSlug}@${domain}` : null;
 
   return (
     <>
@@ -52,7 +58,12 @@ export default async function EventInboxPage({
         ]}
         title="Inbox"
       />
-      {!event.inboxSlug && (
+      {address && (
+        <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+          Forward to <span className="font-mono text-gray-900 dark:text-white break-all select-all">{address}</span>
+        </p>
+      )}
+      {domain && !event.inboxSlug && (
         <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
           This event has no inbox address.
           {canEditEvent && (

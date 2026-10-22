@@ -84,17 +84,20 @@ function Files({ token, files }: { token: string; files: DraftFile[] }) {
   const [isPending, startTransition] = useTransition();
   const [uploading, setUploading] = useState(false);
 
-  async function upload(file: File) {
+  // One request per file, in order; stops at the first refusal.
+  async function upload(files: File[]) {
     setError(null);
     setUploading(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch(`/f/${token}/upload`, { method: "POST", body });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(FORM_ERROR_COPY[data.error ?? "upload"] ?? FORM_ERROR_COPY.upload);
-        return;
+      for (const file of files) {
+        const body = new FormData();
+        body.append("file", file);
+        const res = await fetch(`/f/${token}/upload`, { method: "POST", body });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          setError(`${file.name}: ${FORM_ERROR_COPY[data.error ?? "upload"] ?? FORM_ERROR_COPY.upload}`);
+          break;
+        }
       }
       router.refresh();
     } catch {
@@ -136,16 +139,17 @@ function Files({ token, files }: { token: string; files: DraftFile[] }) {
       )}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <div>
-        <label htmlFor="form-upload" className={labelCls}>Add a file (PDF, image, Word, Excel or PowerPoint; up to 20 MB)</label>
+        <label htmlFor="form-upload" className={labelCls}>Add files (PDF, image, Word, Excel or PowerPoint; up to 20 MB each)</label>
         <input
           id="form-upload"
           ref={inputRef}
           type="file"
+          multiple
           accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.pptx"
           disabled={uploading}
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) upload(file);
+            const files = Array.from(e.target.files ?? []);
+            if (files.length) upload(files);
           }}
           className="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-100 dark:file:bg-gray-800 file:px-3 file:py-1.5 file:text-sm file:text-gray-700 dark:file:text-gray-200"
         />

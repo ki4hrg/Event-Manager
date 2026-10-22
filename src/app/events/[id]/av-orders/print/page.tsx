@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { AVOrderDetails } from "@/app/events/av-orders/AVOrderDetails";
 import { getAVOrders, getAVOrder } from "@/app/events/av-orders/actions";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { getAVOrderVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 

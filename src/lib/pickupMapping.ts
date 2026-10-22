@@ -35,6 +35,7 @@ export type PickupColumns = Record<PickupFieldKey, string>;
 export type SheetRow = Record<string, string>;
 
 // MM/DD/YYYY, M/D/YY or YYYY-MM-DD (optionally with a time) → YYYY-MM-DD.
+// A first part over 12 can only be a day, so DD/MM/YYYY reads right then.
 export function parseCsvDate(raw: string | undefined): string | null {
   const v = (raw ?? "").trim();
   if (!v) return null;
@@ -43,7 +44,9 @@ export function parseCsvDate(raw: string | undefined): string | null {
   m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b/);
   if (m) {
     const year = m[3].length === 2 ? `20${m[3]}` : m[3];
-    return `${year}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+    const [month, day] = parseInt(m[1]) > 12 ? [m[2], m[1]] : [m[1], m[2]];
+    if (parseInt(month) > 12) return null;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
   return null;
 }

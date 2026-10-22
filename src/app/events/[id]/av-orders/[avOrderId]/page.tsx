@@ -6,7 +6,7 @@ import { CancelOrDeleteButton } from "@/components/CancelOrDeleteButton";
 import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { prisma } from "@/lib/prisma";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getAVOrder,
   updateAVOrder,
@@ -55,7 +55,7 @@ import { AudioSectionPanel } from "../../../av-orders/AudioSectionPanel";
 import { VideoSectionPanel } from "../../../av-orders/VideoSectionPanel";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { EquipmentTable } from "../../../catering-orders/EquipmentTable";
+import { EquipmentTable } from "@/components/EquipmentTable";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";

@@ -207,7 +207,7 @@ function ColorPicker({
           selected === ""
             ? "border-blue-500"
             : "border-gray-300 dark:border-gray-600"
-        } bg-white dark:bg-gray-800 flex items-center justify-center text-gray-400 text-xs`}
+        } bg-white dark:bg-gray-800 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs`}
         title="No color"
       >
         ×
@@ -219,7 +219,7 @@ function ColorPicker({
           onClick={() => setSelected(c.value)}
           className={`w-6 h-6 rounded ${c.bg} border-2 ${
             selected === c.value
-              ? "border-blue-500 ring-2 ring-blue-300"
+              ? "border-blue-500 ring-2 ring-blue-300 dark:ring-blue-700"
               : "border-transparent"
           }`}
           title={c.value}
@@ -378,6 +378,9 @@ function SortableOptionRow({
             <span className="font-medium text-gray-900 dark:text-white break-words min-w-0">
               {option.label}
             </span>
+            {option.isSystem && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">System</span>
+            )}
             {groupOptions && option.group && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {groupOptions.find((g) => g.value === option.group)?.label ?? option.group}

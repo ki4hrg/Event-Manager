@@ -1,10 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+import { hasPermissionForUser, requirePermission } from "@/lib/permissions";
 import { eventVenuesOrderBy } from "@/lib/eventVenues";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PermissionResource, type Vendor } from "@prisma/client";
 import {
   createVendorCore,
@@ -37,6 +37,15 @@ import {
 // New callers should import from "@/app/vendors/core" directly.
 export type { ModelType };
 
+// An event's vendor lists: the event must be one the caller can open, and
+// VENDORS is checked in that event's tenant (not the active one), so another
+// tenant's event id reads as not-found.
+async function requireEventVendorView(eventId: string) {
+  const session = await requirePermission("EVENTS", "VIEW", eventId);
+  if (!(await hasPermissionForUser(session.user.id, PermissionResource.VENDORS, "VIEW", { tenantId: session.tenantId }))) notFound();
+  return session;
+}
+
 export type ResponsiblePartyOptions = {
   vendors: { id: string; name: string }[];
   // One per event venue that has a backing vendor, in event venue order.
@@ -45,7 +54,7 @@ export type ResponsiblePartyOptions = {
 };
 
 export async function getResponsiblePartyVendors(eventId: string, modelType?: string): Promise<ResponsiblePartyOptions> {
-  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requireEventVendorView(eventId);
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;
@@ -237,7 +246,7 @@ export type EventVendorEntry = {
 // and each event venue's vendor as virtual entries when they don't yet have an EventVendor row,
 // so they can be tagged as defaults like any other vendor.
 export async function getEventVendors(eventId: string): Promise<EventVendorEntry[]> {
-  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requireEventVendorView(eventId);
 
   const [eventVendors, systemVendor, eventVenues] = await Promise.all([
     prisma.eventVendor.findMany({
@@ -295,7 +304,7 @@ export async function getEventVendors(eventId: string): Promise<EventVendorEntry
 }
 
 export async function searchVendorsForEvent(query: string, eventId: string) {
-  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requireEventVendorView(eventId);
   // Returns vendors not already assigned to this event. Excludes system / venue-linked
   // vendors because those are always surfaced as virtual entries on the page.
   const assigned = await prisma.eventVendor.findMany({
@@ -342,7 +351,7 @@ export async function removeDefaultVendor(eventId: string, vendorId: string, mod
 }
 
 export async function getDefaultVendorForModel(eventId: string, modelType: ModelType) {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  await requireEventVendorView(eventId);
   return prisma.eventVendor.findFirst({
     where: { eventId, defaultFor: { has: modelType } },
   });
@@ -351,7 +360,7 @@ export async function getDefaultVendorForModel(eventId: string, modelType: Model
 // Entity vendor management helpers
 
 export async function getEventVendorsForPicker(eventId: string) {
-  await requirePermission(PermissionResource.VENDORS, "VIEW");
+  await requireEventVendorView(eventId);
   return prisma.eventVendor.findMany({
     where: { eventId },
     include: { vendor: true },
@@ -364,7 +373,7 @@ export async function getEventVendorsForPicker(eventId: string) {
 // Also includes the venue vendor and system (event team) vendor when they match the query,
 // since those are valid order vendors even when not registered via EventVendor.
 export async function searchAssignedEventVendors(query: string, eventId: string, modelType?: ModelType) {
-  const session = await requirePermission(PermissionResource.VENDORS, "VIEW");
+  const session = await requireEventVendorView(eventId);
   const modelFilter = modelType
     ? { OR: [{ models: { isEmpty: true } }, { models: { has: modelType } }] }
     : undefined;

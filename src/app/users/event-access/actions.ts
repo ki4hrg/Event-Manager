@@ -11,6 +11,7 @@ import {
   grantSeriesAccessCore,
   parseAccessCap,
 } from "@/app/events/[id]/staff/core";
+import { eventScopeWhere } from "@/app/events/core";
 
 // Reading someone's assignments is part of administering the user, so it rides
 // on USERS VIEW. Every mutation below still checks EVENTS WRITE on the specific
@@ -47,12 +48,14 @@ export async function getSeriesGrantOptions() {
 }
 
 export async function searchEventsForUserAccess(userId: string, query: string) {
-  const { tenantId } = await requirePermission(PermissionResource.USERS, "VIEW");
+  const session = await requirePermission(PermissionResource.USERS, "VIEW");
   if (!query || query.length < 2) return [];
   return prisma.event.findMany({
     where: {
       AND: [
-        { tenantId },
+        // Only events the admin can see themselves; granting one still needs
+        // EVENTS WRITE on it.
+        await eventScopeWhere(session.user.id, session.tenantId),
         { name: { contains: query, mode: "insensitive" } },
         { staff: { none: { userId } } },
       ],

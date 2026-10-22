@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Toast } from "@/components/Toast";
 import { prisma } from "@/lib/prisma";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   applyInboundCounts,
   applyInboundDecline,
@@ -88,32 +88,38 @@ export default async function EventInboxItemPage({
     canCatering && kind === "BEO" ? getBeoReview(itemId, eventId) : null,
     kind === "CONTRACT" ? getContractReview(itemId, eventId) : null,
   ]);
-  // Where an applied quote, BEO or contract went.
-  const appliedLink =
-    item.status === "APPLIED" && proposal?.appliedQuoteId
-      ? { label: "Quote recorded", href: `/events/${eventId}/quotes/${proposal.appliedQuoteId}` }
-      : item.status === "APPLIED" && proposal?.appliedTo
-        ? {
-            label: `Applied to ${proposal.appliedTo.label}`,
-            href:
-              proposal.appliedTo.target === "HOTEL_PROPOSAL"
-                ? `/events/${eventId}/hotels/proposals/${proposal.appliedTo.id}`
-                : proposal.appliedTo.target === "VENDOR_QUOTE"
-                  ? `/events/${eventId}/quotes/${proposal.appliedTo.id}`
-                  : `/events/${eventId}/catering-orders/${proposal.appliedTo.id}`,
-          }
-        : null;
   const appliedProposals = offers.flatMap((o) =>
     o.proposalId ? [{ name: o.name, href: `/events/${eventId}/hotels/proposals/${o.proposalId}` }] : [],
   );
   const shownOffer = offers[offerIndex];
-  const appliedTo =
+  const appliedBlock =
     item.status === "APPLIED" && proposal?.blockId
-      ? ((await prisma.hotelBlock.findFirst({
+      ? await prisma.hotelBlock.findFirst({
           where: { id: proposal.blockId, proposal: { eventId } },
-          select: { proposal: { select: { venue: { select: { name: true } } } } },
-        }))?.proposal.venue.name ?? null)
+          select: { id: true, proposal: { select: { venue: { select: { name: true } } } } },
+        })
       : null;
+  // Where an applied pickup, decline, quote, BEO or contract went.
+  const appliedLink =
+    item.status !== "APPLIED" || !proposal
+      ? null
+      : appliedBlock
+        ? { label: `Applied to ${appliedBlock.proposal.venue.name}`, href: `/events/${eventId}/hotels/blocks/${appliedBlock.id}` }
+        : proposal.kind === "RFP_DECLINE" && proposal.decline?.rfpId
+          ? { label: "Marked declined on the RFP", href: `/events/${eventId}/hotels/rfps/${proposal.decline.rfpId}` }
+          : proposal.appliedQuoteId
+            ? { label: "Quote recorded", href: `/events/${eventId}/quotes/${proposal.appliedQuoteId}` }
+            : proposal.appliedTo
+              ? {
+                  label: `Applied to ${proposal.appliedTo.label}`,
+                  href:
+                    proposal.appliedTo.target === "HOTEL_PROPOSAL"
+                      ? `/events/${eventId}/hotels/proposals/${proposal.appliedTo.id}`
+                      : proposal.appliedTo.target === "VENDOR_QUOTE"
+                        ? `/events/${eventId}/quotes/${proposal.appliedTo.id}`
+                        : `/events/${eventId}/catering-orders/${proposal.appliedTo.id}`,
+                }
+              : null;
 
   const release = async () => {
     "use server";
@@ -212,7 +218,6 @@ export default async function EventInboxItemPage({
           model={item.model}
           parsing={parsing}
           diagnostics={diagnostics}
-          appliedTo={appliedTo}
           appliedProposals={appliedProposals}
           appliedLink={appliedLink}
         />

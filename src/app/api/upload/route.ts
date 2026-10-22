@@ -14,10 +14,21 @@ import {
   ALLOWED_UPLOAD_MIME_TYPES,
   isValidEntityId,
   resolveEntityEventId,
+  eventlessOwnerTenantId,
 } from "@/lib/uploads";
 
 export async function POST(request: NextRequest) {
   let filePath: string | null = null;
+
+  // Refuse an oversized body before formData() buffers all of it; the slack
+  // covers the multipart boundaries and the other fields.
+  const contentLength = Number(request.headers.get("content-length"));
+  if (contentLength > MAX_UPLOAD_BYTES + 64 * 1024) {
+    return NextResponse.json(
+      { error: `File exceeds maximum size of ${MAX_UPLOAD_BYTES} bytes` },
+      { status: 413 }
+    );
+  }
 
   try {
     const formData = await request.formData();
@@ -46,7 +57,13 @@ export async function POST(request: NextRequest) {
     }
 
     const validEntityType = entityType as EntityType;
-    await requirePermission("FILES", "WRITE", await resolveEntityEventId(validEntityType, entityId));
+    const { tenantId } = await requirePermission("FILES", "WRITE", await resolveEntityEventId(validEntityType, entityId));
+    // A venue has no event: the check above ran against the active tenant,
+    // so the venue must be that tenant's own.
+    const ownerTenantId = await eventlessOwnerTenantId(validEntityType, entityId);
+    if (ownerTenantId && ownerTenantId !== tenantId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     const ext = path.extname(file.name);
     const storedName = `${randomUUID()}${ext}`;
     const uploadDir = getUploadDir(validEntityType, entityId);

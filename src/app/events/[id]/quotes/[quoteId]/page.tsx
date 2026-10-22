@@ -11,8 +11,9 @@ import { getOptions } from "@/app/settings/actions";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";
+import { prisma } from "@/lib/prisma";
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from "@/lib/rfp/quotes";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { awardVendorQuote, deleteVendorQuote, getQuoteFormChoices, getVendorQuote, saveVendorQuote } from "../../../quotes/actions";
 import { quoteResource } from "../../../quotes/core";
 import { AwardQuoteButton } from "../../../quotes/AwardQuoteButton";
@@ -26,7 +27,10 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
   const { id: eventId, quoteId } = await params;
   const [event, quote, fileTypeOptions] = await Promise.all([getEvent(eventId), getVendorQuote(quoteId, eventId), getOptions("file_type")]);
   if (!event || !quote) notFound();
-  const choices = await getQuoteFormChoices(eventId, quote.rfpId);
+  const [choices, otherOpen] = await Promise.all([
+    getQuoteFormChoices(eventId, quote.rfpId),
+    quote.rfpId ? prisma.vendorQuote.count({ where: { rfpId: quote.rfpId, eventId, id: { not: quoteId }, status: "RECEIVED" } }) : 0,
+  ]);
   const resource = quoteResource(quote.rfp);
   const base = `/events/${eventId}/quotes/${quoteId}`;
 
@@ -38,9 +42,9 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
     "use server";
     await deleteVendorQuote(quoteId, eventId);
   };
-  const awardAction = async () => {
+  const awardAction = async (declineOthers: boolean) => {
     "use server";
-    await awardVendorQuote(quoteId, eventId);
+    await awardVendorQuote(quoteId, eventId, declineOthers);
   };
   const str = (v: { toString(): string } | null) => (v == null ? null : v.toString());
   const day = (d: Date | null) => (d ? dateKey(d) : null);
@@ -72,7 +76,7 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
                 Compare quotes
               </Link>
             )}
-            {quote.status !== "ACCEPTED" && <AwardQuoteButton action={awardAction} resource={resource} onRfp={quote.rfp != null} />}
+            {quote.status !== "ACCEPTED" && <AwardQuoteButton action={awardAction} resource={resource} otherOpen={otherOpen} />}
             <DeleteButton action={deleteAction} resource={resource} label="Delete quote" />
           </>
         }

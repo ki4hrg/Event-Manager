@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
 import { btnOutlinedSm } from "@/lib/buttonStyles";
 import { CONTRACT_TYPES, formatNight } from "@/lib/hotels";
+import { rangeEndFor } from "@/lib/dateRange";
 
 const fieldClass =
   "block rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-2 py-1.5";
@@ -26,7 +27,8 @@ function useSetParam() {
 }
 
 function SeriesAndDates({ series }: { series: { id: string; name: string }[] }) {
-  const { sp, set } = useSetParam();
+  const { sp, set, setMany } = useSetParam();
+  const from = sp.get("from") ?? "";
   return (
     <>
       <label className={labelClass}>
@@ -43,11 +45,16 @@ function SeriesAndDates({ series }: { series: { id: string; name: string }[] }) 
       </label>
       <label className={labelClass}>
         From
-        <input type="date" value={sp.get("from") ?? ""} onChange={(e) => set("from", e.target.value)} className={fieldClass} />
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => setMany({ from: e.target.value, to: rangeEndFor(e.target.value, sp.get("to") ?? "", 0, false) })}
+          className={fieldClass}
+        />
       </label>
       <label className={labelClass}>
         To
-        <input type="date" value={sp.get("to") ?? ""} onChange={(e) => set("to", e.target.value)} className={fieldClass} />
+        <input type="date" value={sp.get("to") ?? ""} min={from || undefined} onChange={(e) => set("to", e.target.value)} className={fieldClass} />
       </label>
     </>
   );
@@ -184,11 +191,16 @@ export function ProposalControls({
         <>
           <label className={labelClass}>
             Start
-            <input type="date" value={sp.get("start") ?? ""} onChange={(e) => set("start", e.target.value)} className={fieldClass} />
+            <input
+              type="date"
+              value={sp.get("start") ?? ""}
+              onChange={(e) => setMany({ start: e.target.value, end: rangeEndFor(e.target.value, sp.get("end") ?? "") })}
+              className={fieldClass}
+            />
           </label>
           <label className={labelClass}>
             End
-            <input type="date" value={sp.get("end") ?? ""} onChange={(e) => set("end", e.target.value)} className={fieldClass} />
+            <input type="date" value={sp.get("end") ?? ""} min={sp.get("start") || undefined} onChange={(e) => set("end", e.target.value)} className={fieldClass} />
           </label>
         </>
       )}

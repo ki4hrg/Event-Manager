@@ -5,6 +5,7 @@ import type { AcquisitionState, EntityStatus, PackingStatus } from "@prisma/clie
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
+import { assertEventRefs } from "@/lib/eventRefs";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
 async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) {
@@ -15,8 +16,8 @@ async function assertSupplyOrderInEvent(supplyOrderId: string, eventId: string) 
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
-async function bumpSupplyOrder(supplyOrderId: string, userId: string) {
-  await prisma.supplyOrder.update({ where: { id: supplyOrderId }, data: { updatedById: userId } });
+async function bumpSupplyOrder(supplyOrderId: string, eventId: string, userId: string) {
+  await prisma.supplyOrder.updateMany({ where: { id: supplyOrderId, eventId }, data: { updatedById: userId } });
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ export async function createSupplyOrderCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { roomIds: [args.roomId], vendorIds: [args.providerVendorId], contactIds: [args.providerContactId], functionIds: [args.functionId], presentationIds: [args.presentationId] });
 
   let providerVendorId = args.providerVendorId;
   let providerContactId = args.providerContactId;
@@ -101,6 +103,7 @@ export async function updateSupplyOrderCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { roomIds: [args.roomId], vendorIds: [args.providerVendorId], contactIds: [args.providerContactId] });
   let providerVendorId = args.providerVendorId;
   let providerContactId = args.providerContactId;
   if (providerVendorId) providerContactId = null;
@@ -185,6 +188,9 @@ export async function bulkUpdateSupplyOrdersCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { functionIds: [updates.functionId], presentationIds: [updates.presentationId] });
+  // Junction rows below are created per id: keep only this event's orders.
+  ids = (await prisma.supplyOrder.findMany({ where: { id: { in: ids }, eventId }, select: { id: true } })).map((o) => o.id);
   const { status, substatus, functionId, presentationId } = updates;
 
   if (status !== undefined || substatus !== undefined) {
@@ -246,8 +252,9 @@ export async function linkSupplyOrderToFunctionCore(
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  await assertEventRefs(eventId, { functionIds: [functionId] });
   const link = await prisma.supplyOrderFunction.create({ data: { supplyOrderId, functionId } });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
   return link;
 }
 
@@ -261,7 +268,7 @@ export async function unlinkSupplyOrderFromFunctionCore(
   const r = await prisma.supplyOrderFunction.deleteMany({
     where: { supplyOrderId, functionId, supplyOrder: { eventId } },
   });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
   return { count: r.count };
 }
 
@@ -273,10 +280,11 @@ export async function linkSupplyOrderToPresentationCore(
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  await assertEventRefs(eventId, { presentationIds: [presentationId] });
   const link = await prisma.supplyOrderPresentation.create({
     data: { supplyOrderId, presentationId },
   });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
   return link;
 }
 
@@ -290,7 +298,7 @@ export async function unlinkSupplyOrderFromPresentationCore(
   const r = await prisma.supplyOrderPresentation.deleteMany({
     where: { supplyOrderId, presentationId, supplyOrder: { eventId } },
   });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
   return { count: r.count };
 }
 
@@ -338,6 +346,14 @@ function normalizeItemArgs(args: SupplyItemWriteArgs): SupplyItemWriteArgs {
   return { ...args, providerVendorId, providerContactId, sourceLocationId };
 }
 
+const supplyItemRefs = (args: SupplyItemWriteArgs) => ({
+  equipmentIds: [args.equipmentId],
+  vendorIds: [args.providerVendorId],
+  contactIds: [args.providerContactId],
+  storageLocationIds: [args.sourceLocationId, args.containerLocationId],
+  inventoryItemIds: [args.inventoryItemId],
+});
+
 /**
  * Container lines claim a container for one event. The claim can't be a schema
  * unique constraint: nodes are durable and reused across events, so uniqueness
@@ -381,6 +397,7 @@ export async function createSupplyOrderItemCore(
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   await assertSupplyOrderInEvent(supplyOrderId, eventId);
   const args = normalizeItemArgs(rawArgs);
+  await assertEventRefs(eventId, supplyItemRefs(args));
   if (args.containerLocationId) {
     await assertContainerUsable(args.containerLocationId, eventId);
   }
@@ -391,7 +408,7 @@ export async function createSupplyOrderItemCore(
   const item = await prisma.supplyOrderItem.create({
     data: { supplyOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
   return item;
 }
 
@@ -483,6 +500,7 @@ export async function updateSupplyOrderItemCore(
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   const args = normalizeItemArgs(rawArgs);
+  await assertEventRefs(eventId, supplyItemRefs(args));
   if (args.containerLocationId) {
     await assertContainerUsable(args.containerLocationId, eventId, id);
   }
@@ -490,7 +508,7 @@ export async function updateSupplyOrderItemCore(
     where: { id, supplyOrder: { eventId } },
     data: args,
   });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
   return item;
 }
 
@@ -502,7 +520,7 @@ export async function deleteSupplyOrderItemCore(
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   await prisma.supplyOrderItem.delete({ where: { id, supplyOrder: { eventId } } });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
 }
 
 export async function updateSupplyOrderItemPackingStatusCore(
@@ -517,7 +535,7 @@ export async function updateSupplyOrderItemPackingStatusCore(
     where: { id, supplyOrder: { eventId } },
     data: { packingStatus },
   });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
 }
 
 export async function updateSupplyOrderItemAcquisitionStateCore(
@@ -532,5 +550,5 @@ export async function updateSupplyOrderItemAcquisitionStateCore(
     where: { id, supplyOrder: { eventId } },
     data: { acquisitionState },
   });
-  await bumpSupplyOrder(supplyOrderId, userId);
+  await bumpSupplyOrder(supplyOrderId, eventId, userId);
 }

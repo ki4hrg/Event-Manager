@@ -12,6 +12,7 @@ import { BLANK, FB_INCLUDES, RFP_STATUS_LABELS, sectionsFor } from "@/lib/rfp/se
 import { isEmptyScope, scopeLabels, type AreaOption, type AreaScope } from "@/lib/areas";
 import { AreaChecklist } from "@/components/AreaChecklist";
 import { useAutosave } from "@/lib/useAutosave";
+import { rangeEndFor, rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 
 export type RfpValues = {
@@ -142,6 +143,8 @@ export function RfpForm({
   const [decider, setDecider] = useState(values.decisionMakerId ?? (values.decisionMaker ? OTHER : BLANK));
   const parts = sectionsFor(kind);
   const hotel = kind === "HOTEL";
+  // A hotel stay ends at least a night after it starts.
+  const stayGap = hotel ? 1 : 0;
   // Each change bumps the version; the form's payload is read after the
   // render that follows, so state-driven hidden inputs are current, and is
   // kept for a save that runs after the form unmounts.
@@ -217,10 +220,24 @@ export function RfpForm({
           <legend className={legendClass}>{hotel ? "Dates & rooms" : "Dates"}</legend>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Field label={hotel ? "Arrival" : "Start"} htmlFor="rfp-arrivalDate">
-              <input id="rfp-arrivalDate" type="date" name="arrivalDate" defaultValue={values.arrivalDate ?? ""} className={inputClass} />
+              <input
+                id="rfp-arrivalDate"
+                type="date"
+                name="arrivalDate"
+                defaultValue={values.arrivalDate ?? ""}
+                onChange={(e) => syncRangeEnd(e.currentTarget, "departureDate", { gapDays: stayGap })}
+                className={inputClass}
+              />
             </Field>
             <Field label={hotel ? "Departure" : "End"} htmlFor="rfp-departureDate">
-              <input id="rfp-departureDate" type="date" name="departureDate" defaultValue={values.departureDate ?? ""} className={inputClass} />
+              <input
+                id="rfp-departureDate"
+                type="date"
+                name="departureDate"
+                min={rangeEndMin(values.arrivalDate, stayGap)}
+                defaultValue={values.departureDate ?? ""}
+                className={inputClass}
+              />
             </Field>
             {hotel && (
               <Field label="Peak rooms" htmlFor="rfp-peakRooms">
@@ -236,11 +253,15 @@ export function RfpForm({
             <div key={i} className="flex flex-wrap items-end gap-2">
               <label className={labelClass}>
                 {hotel ? "Alternate arrival" : "Alternate start"}
-                <DateInput value={a.startDate} onChange={(v) => setAlternate(i, { startDate: v })} className={inputClass} />
+                <DateInput
+                  value={a.startDate}
+                  onChange={(v) => setAlternate(i, { startDate: v, endDate: rangeEndFor(v, a.endDate, stayGap) })}
+                  className={inputClass}
+                />
               </label>
               <label className={labelClass}>
                 {hotel ? "Departure" : "End"}
-                <DateInput value={a.endDate} onChange={(v) => setAlternate(i, { endDate: v })} className={inputClass} />
+                <DateInput value={a.endDate} min={rangeEndMin(a.startDate, stayGap)} onChange={(v) => setAlternate(i, { endDate: v })} className={inputClass} />
               </label>
               <button
                 type="button"

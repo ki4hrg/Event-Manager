@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { createMediaDeliverable, getMediaDeliverableProviderPool } from "../../../media-deliverables/actions";
 import { MediaDeliverableForm } from "../../../media-deliverables/MediaDeliverableForm";
 import { getResponsibleParties } from "@/lib/responsibleParties";

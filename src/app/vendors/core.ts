@@ -7,6 +7,7 @@
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, requireEventTenantId, PermissionError } from "@/lib/permissions";
+import { assertEventRefs } from "@/lib/eventRefs";
 
 // Vendor-scoped cores assert the vendor is the tenant's own before touching its
 // contacts; a foreign id reads as not-found.
@@ -132,6 +133,8 @@ export type AddVendorContactArgs = {
 export async function addVendorContactCore(args: AddVendorContactArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.VENDORS, "WRITE", { tenantId });
   await assertVendorInTenant(args.vendorId, tenantId);
+  const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
+  if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
   if (args.isPrimary) await clearOtherPrimaries(args.vendorId);
   const vc = await prisma.vendorContact.create({
     data: {
@@ -282,10 +285,11 @@ export async function addVendorToAVOrderCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.AV_ORDERS, "WRITE", eventId);
   await assertOrderInEvent("aVOrder", avOrderId, eventId);
+  await assertEventRefs(eventId, { vendorIds: [vendorId] });
   const row = await prisma.aVOrderVendor.create({
     data: { avOrderId, vendorId, notes },
   });
-  await prisma.aVOrder.update({ where: { id: avOrderId }, data: { updatedById: userId } });
+  await prisma.aVOrder.updateMany({ where: { id: avOrderId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -301,7 +305,7 @@ export async function updateAVOrderVendorCore(
     where: { id, avOrder: { eventId } },
     data: { notes },
   });
-  await prisma.aVOrder.update({ where: { id: avOrderId }, data: { updatedById: userId } });
+  await prisma.aVOrder.updateMany({ where: { id: avOrderId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -313,7 +317,7 @@ export async function removeVendorFromAVOrderCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.AV_ORDERS, "WRITE", eventId);
   await prisma.aVOrderVendor.delete({ where: { id, avOrder: { eventId } } });
-  await prisma.aVOrder.update({ where: { id: avOrderId }, data: { updatedById: userId } });
+  await prisma.aVOrder.updateMany({ where: { id: avOrderId, eventId }, data: { updatedById: userId } });
 }
 
 // --- Catering Order ---
@@ -327,10 +331,11 @@ export async function addVendorToCateringOrderCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.CATERING_ORDERS, "WRITE", eventId);
   await assertOrderInEvent("cateringOrder", cateringOrderId, eventId);
+  await assertEventRefs(eventId, { vendorIds: [vendorId] });
   const row = await prisma.cateringOrderVendor.create({
     data: { cateringOrderId, vendorId, notes },
   });
-  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: userId } });
+  await prisma.cateringOrder.updateMany({ where: { id: cateringOrderId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -346,7 +351,7 @@ export async function updateCateringOrderVendorCore(
     where: { id, cateringOrder: { eventId } },
     data: { notes },
   });
-  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: userId } });
+  await prisma.cateringOrder.updateMany({ where: { id: cateringOrderId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -358,7 +363,7 @@ export async function removeVendorFromCateringOrderCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.CATERING_ORDERS, "WRITE", eventId);
   await prisma.cateringOrderVendor.delete({ where: { id, cateringOrder: { eventId } } });
-  await prisma.cateringOrder.update({ where: { id: cateringOrderId }, data: { updatedById: userId } });
+  await prisma.cateringOrder.updateMany({ where: { id: cateringOrderId, eventId }, data: { updatedById: userId } });
 }
 
 // --- Setup Order ---
@@ -372,10 +377,11 @@ export async function addVendorToSetupOrderCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.SETUP_ORDERS, "WRITE", eventId);
   await assertOrderInEvent("setupOrder", setupOrderId, eventId);
+  await assertEventRefs(eventId, { vendorIds: [vendorId] });
   const row = await prisma.setupOrderVendor.create({
     data: { setupOrderId, vendorId, notes },
   });
-  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { updatedById: userId } });
+  await prisma.setupOrder.updateMany({ where: { id: setupOrderId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -391,7 +397,7 @@ export async function updateSetupOrderVendorCore(
     where: { id, setupOrder: { eventId } },
     data: { notes },
   });
-  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { updatedById: userId } });
+  await prisma.setupOrder.updateMany({ where: { id: setupOrderId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -403,7 +409,7 @@ export async function removeVendorFromSetupOrderCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.SETUP_ORDERS, "WRITE", eventId);
   await prisma.setupOrderVendor.delete({ where: { id, setupOrder: { eventId } } });
-  await prisma.setupOrder.update({ where: { id: setupOrderId }, data: { updatedById: userId } });
+  await prisma.setupOrder.updateMany({ where: { id: setupOrderId, eventId }, data: { updatedById: userId } });
 }
 
 // --- Print Order ---
@@ -417,10 +423,11 @@ export async function addVendorToPrintOrderCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.PRINT_ORDERS, "WRITE", eventId);
   await assertOrderInEvent("printOrder", printOrderId, eventId);
+  await assertEventRefs(eventId, { vendorIds: [vendorId] });
   const row = await prisma.printOrderVendor.create({
     data: { printOrderId, vendorId, notes },
   });
-  await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: userId } });
+  await prisma.printOrder.updateMany({ where: { id: printOrderId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -436,7 +443,7 @@ export async function updatePrintOrderVendorCore(
     where: { id, printOrder: { eventId } },
     data: { notes },
   });
-  await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: userId } });
+  await prisma.printOrder.updateMany({ where: { id: printOrderId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -448,5 +455,5 @@ export async function removeVendorFromPrintOrderCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.PRINT_ORDERS, "WRITE", eventId);
   await prisma.printOrderVendor.delete({ where: { id, printOrder: { eventId } } });
-  await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: userId } });
+  await prisma.printOrder.updateMany({ where: { id: printOrderId, eventId }, data: { updatedById: userId } });
 }

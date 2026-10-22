@@ -169,18 +169,33 @@ export async function resolveEntityEventId(entityType: EntityType, entityId: str
   }
 }
 
-// The tenant of a file whose owner has no event: an Unrouted inbound
-// email's, or a contact's. The permission check for such a file runs against
-// the active tenant, so the caller must also match this. Null: not such a file.
+// The tenant of a file whose owner has no event: a venue's, a contact's, or
+// an Unrouted inbound email's. The permission check for such a file runs
+// against the active tenant, so the caller must also match this. Null: not
+// such a file.
 export async function inboundFileTenantId(record: FileOwner): Promise<string | null> {
-  const type = getEntityTypeFromRecord(record);
-  if (type === "contact" && record.contactId) {
-    const c = await prisma.contact.findUnique({ where: { id: record.contactId }, select: { tenantId: true } });
-    return c?.tenantId ?? null;
+  const entityId = getEntityIdFromRecord(record);
+  return entityId ? eventlessOwnerTenantId(getEntityTypeFromRecord(record), entityId) : null;
+}
+
+// The same, for an owner named by type and id (an upload's target).
+export async function eventlessOwnerTenantId(entityType: EntityType, entityId: string): Promise<string | null> {
+  switch (entityType) {
+    case "venue": {
+      const v = await prisma.venue.findUnique({ where: { id: entityId }, select: { tenantId: true } });
+      return v?.tenantId ?? null;
+    }
+    case "contact": {
+      const c = await prisma.contact.findUnique({ where: { id: entityId }, select: { tenantId: true } });
+      return c?.tenantId ?? null;
+    }
+    case "inboundEmail": {
+      const o = await prisma.inboundEmail.findUnique({ where: { id: entityId }, select: { tenantId: true } });
+      return o?.tenantId ?? null;
+    }
+    default:
+      return null;
   }
-  if (type !== "inboundEmail" || !record.inboundEmailId) return null;
-  const o = await prisma.inboundEmail.findUnique({ where: { id: record.inboundEmailId }, select: { tenantId: true } });
-  return o?.tenantId ?? null;
 }
 
 // ─── Public form uploads ─────────────────────────────────────────────────────

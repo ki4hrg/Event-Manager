@@ -125,6 +125,7 @@ function PresentationFields({ presentation, tracks, presentationTypes, advancerO
             className={inputClass}
           >
             <option value="">No type</option>
+            {presentation?.type && !presentationTypes.some((o) => o.label === presentation?.type) && <option value={presentation?.type}>{presentation?.type}</option>}
             {presentationTypes.map((t) => (
               <option key={t.id} value={t.label}>{t.label}</option>
             ))}

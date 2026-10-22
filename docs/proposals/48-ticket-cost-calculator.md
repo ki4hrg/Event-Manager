@@ -65,7 +65,7 @@ A page at `/events/[id]/costs`, laid out like a report (`ReportNav`, `SectionDiv
 
 ### 3. Auth — the one place this must *not* copy the report archetype
 
-Report data actions in `src/app/events/reports/actions.ts` are deliberately **auth-free** so
+Report data actions in `src/app/events/reports/data.ts` are deliberately **auth-free** so
 `/share/[token]` can reuse them. Budget numbers must not inherit that. Recommendation: add a
 `COSTS` `PermissionResource` (event-scoped, seeded admin-only like `API_KEYS`), keep
 `getEventCostRollup()` in a colocated `src/app/events/[id]/costs/actions.ts` that calls

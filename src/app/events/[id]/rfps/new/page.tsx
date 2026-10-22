@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
 import { RFP_KIND_LABELS, resourceForKind, VENDOR_RFP_KINDS, type VendorRfpKind } from "@/lib/rfp/kinds";
 import { sectionsFor } from "@/lib/rfp/sections";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { createRfp, getRfpFormChoices } from "../../../rfps/actions";
 import { RfpForm } from "../../../rfps/RfpForm";
 

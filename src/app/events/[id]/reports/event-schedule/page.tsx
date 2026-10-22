@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { getEvent } from "@/app/events/actions";
-import { getEventScheduleData } from "@/app/events/reports/actions";
+import { getEvent } from "@/app/events/event";
+import { getEventScheduleData } from "@/app/events/reports/data";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
 import { getOptions } from "@/app/settings/actions";
 import { ReportFilters } from "./ReportFilters";

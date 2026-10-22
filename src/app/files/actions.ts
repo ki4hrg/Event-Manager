@@ -13,8 +13,9 @@ export async function deleteFile(fileId: string, revalidateTarget: string) {
 
   if (!record) return;
 
-  // Venue-attached files have no event; resolveFileEventId returns null
-  // and requirePermission falls through to GLOBAL scope.
+  // Venue, contact and Unrouted inbound files have no event;
+  // resolveFileEventId returns null and requirePermission falls through to
+  // GLOBAL scope in the active tenant, which the owner must then match.
   const { tenantId } = await requirePermission("FILES", "DELETE", await resolveFileEventId(record));
   const inboundTenantId = await inboundFileTenantId(record);
   if (inboundTenantId && inboundTenantId !== tenantId) return;

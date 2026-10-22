@@ -16,7 +16,6 @@ export function InboxProposalPanel({
   model,
   parsing,
   diagnostics,
-  appliedTo,
   appliedProposals = [],
   appliedLink = null,
 }: {
@@ -26,7 +25,6 @@ export function InboxProposalPanel({
   model: string | null;
   parsing: boolean;
   diagnostics: boolean;
-  appliedTo: string | null;
   // Proposals saved from its offers (some may still be open).
   appliedProposals?: { name: string; href: string }[];
   appliedLink?: { label: string; href: string } | null;
@@ -43,7 +41,6 @@ export function InboxProposalPanel({
           {proposal.notes && <p className="text-sm text-amber-700 dark:text-amber-300">{proposal.notes}</p>}
         </>
       )}
-      {status === "APPLIED" && appliedTo && <p className="text-sm text-green-700 dark:text-green-400">Applied to {appliedTo}</p>}
       {appliedProposals.map((p) => (
         <p key={p.href} className="text-sm text-green-700 dark:text-green-400">
           Created{" "}
@@ -58,9 +55,6 @@ export function InboxProposalPanel({
             {appliedLink.label}
           </Link>
         </p>
-      )}
-      {status === "APPLIED" && proposal?.kind === "RFP_DECLINE" && (
-        <p className="text-sm text-green-700 dark:text-green-400">Marked declined on the RFP</p>
       )}
       {diagnostics && model && <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{model}</p>}
     </div>

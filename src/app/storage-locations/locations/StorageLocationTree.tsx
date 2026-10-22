@@ -146,6 +146,7 @@ function LocationForm({
         </label>
         <select name="type" defaultValue={location?.type ?? ""} className={inputClass}>
           <option value="">— None —</option>
+          {location?.type && !types.some((o) => o.label === location?.type) && <option value={location?.type}>{location?.type}</option>}
           {types.map((t) => (
             <option key={t.id} value={t.label}>
               {t.label}

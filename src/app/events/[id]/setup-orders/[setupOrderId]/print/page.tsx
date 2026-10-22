@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { SetupOrderDetails } from "@/app/events/setup-orders/SetupOrderDetails";
 import { getSetupOrder } from "@/app/events/setup-orders/actions";
-import { getEvent } from "../../../../actions";
+import { getEvent } from "@/app/events/event";
 import { getSetupOrderVendors } from "@/app/vendors/actions";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";

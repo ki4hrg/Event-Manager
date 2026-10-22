@@ -17,6 +17,14 @@ export function HotelHistory({ proposals }: { proposals: Proposal[] }) {
             </Link>
             <span className="text-gray-500 dark:text-gray-400">
               {[blockTypeLabel(p.contractType, p.guestType), p.status].filter(Boolean).join(" · ")}
+              {p.block && (
+                <>
+                  {" · "}
+                  <Link href={`/events/${p.event.id}/hotels/blocks/${p.block.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                    Block
+                  </Link>
+                </>
+              )}
             </span>
           </li>
         ))}

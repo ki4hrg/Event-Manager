@@ -46,7 +46,7 @@ Mark a surface ✗ if it's relevant to the new entity but not yet wired. Some li
 - `src/lib/uploads.ts` — `ENTITY_DIRS` entry, `getEntityTypeFromRecord` check, `resolveEntityEventId` switch arm
 
 ## Reports — existing ones the entity should flow through
-- `src/app/events/reports/actions.ts`:
+- `src/app/events/reports/data.ts`:
   - `getFunctionDetailData` `fdFunctionInclude` + nested presentation include — add `<entity>Links` (or whichever relation exists on Function/Presentation)
   - `getEquipmentResponsibilityData` — widen `modelType` unions and add a normalization loop if the entity carries equipment items
   - `getVendorHandoffData` — fetch the entity's records when the vendor is provider (order-level OR per-item); update `relevantModelTypes`; shape into the return payload

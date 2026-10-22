@@ -219,7 +219,7 @@ export function RfpLineItemsEditor({
                 </label>
                 <label className={smallLabel}>
                   Day
-                  <DateInput value={r.day ?? ""} onChange={(v) => set(r.key, { day: v || null, ...(v ? {} : { endDay: null }) })} className={inputClass} />
+                  <DateInput value={r.day ?? ""} onChange={(v) => set(r.key, { day: v || null, ...(!v || (r.endDay && r.endDay < v) ? { endDay: null } : {}) })} className={inputClass} />
                 </label>
                 <label className={smallLabel}>
                   Through

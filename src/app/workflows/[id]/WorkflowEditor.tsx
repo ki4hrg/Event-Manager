@@ -11,6 +11,7 @@ import type {
 } from "@prisma/client";
 import { EDIT_STATUS_OPTIONS } from "@/lib/statusConstants";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { WORKFLOW_ENTITY_LABELS } from "@/app/events/workflows/entity-types";
 
 type StepWithItems = WorkflowStep & { items: WorkflowChecklistItem[] };
 type TemplateWithSteps = WorkflowTemplate & {
@@ -35,18 +36,7 @@ type WorkflowEditorProps = {
   deleteItem: (id: string) => Promise<void>;
 };
 
-const ENTITY_TYPE_OPTIONS = [
-  { value: "function", label: "Function" },
-  { value: "catering_order", label: "Catering Order" },
-  { value: "av_order", label: "AV Order" },
-  { value: "setup_order", label: "Setup Order" },
-  { value: "print_order", label: "Print Order" },
-  { value: "supply_order", label: "Supply Order" },
-  { value: "media_deliverable", label: "Media Deliverable" },
-  { value: "form_submission", label: "Form Submission" },
-  { value: "presentation", label: "Presentation" },
-];
-
+const ENTITY_TYPE_OPTIONS = Object.entries(WORKFLOW_ENTITY_LABELS).map(([value, label]) => ({ value, label }));
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();

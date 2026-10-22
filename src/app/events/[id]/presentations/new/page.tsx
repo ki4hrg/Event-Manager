@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import { createPresentation, getTracks, searchContacts } from "../../../presentations/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
 import { getOptions } from "@/app/settings/actions";

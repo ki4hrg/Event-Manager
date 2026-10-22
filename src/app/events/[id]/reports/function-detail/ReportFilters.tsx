@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { FunctionPickerOption } from "@/app/events/reports/actions";
+import type { FunctionPickerOption } from "@/app/events/reports/data";
 import { btnOutlinedXs } from "@/lib/buttonStyles";
 
 type ReportFiltersProps = {

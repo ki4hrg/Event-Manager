@@ -7,7 +7,7 @@ Status: draft for owner review. No code written.
 The schema has exactly one notion of "public": `FunctionSchedule.isPublic`
 (`prisma/schema.prisma:530`, default `false`). It drives four things —
 `getEventScheduleData` filters to `isPublic: true` unless `includeNonPublic` is
-passed (`src/app/events/reports/actions.ts:1638-1641`); `RoomScheduleReport.tsx:50-55`
+passed (`src/app/events/reports/data.ts:1638-1641`); `RoomScheduleReport.tsx:50-55`
 splits public rows first; `EventProfileReport.tsx:146` renders a "Public" badge;
 and the Schedule Items page filters, sorts and bulk-edits on it
 (`src/app/events/schedule-items/ScheduleItemList.tsx`).
@@ -105,7 +105,7 @@ prepending the dashboard share view requires.
 
 - `prisma/schema.prisma` — five nullable columns + `Presentation.isPublic`
 - `src/lib/publicLabels.ts` (new); `src/lib/shareLinks.ts` — `audience` on `ShareLinkFilters`
-- `src/app/events/reports/actions.ts` — `EventScheduleFilters` (:1619), `getEventScheduleData` (:1624), `RoomScheduleFilters` (:1085), `getRoomScheduleData` (:1090)
+- `src/app/events/reports/data.ts` — `EventScheduleFilters` (:1619), `getEventScheduleData` (:1624), `RoomScheduleFilters` (:1085), `getRoomScheduleData` (:1090)
 - `src/app/events/[id]/reports/{event-schedule,room-schedule}/{page,ReportFilters,*Report}.tsx` + their `print/page.tsx`
 - The five surfaces in `docs/checklists/share-report-integration.md` — no new report type, so filter plumbing only
 - `src/app/events/functions/{core,actions}.ts` + `FunctionForm.tsx` — `publicName`

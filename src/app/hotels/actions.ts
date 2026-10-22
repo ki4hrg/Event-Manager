@@ -55,6 +55,7 @@ export async function getVenueHotelHistory(venueId: string) {
       revision: true,
       contractType: true,
       guestType: true,
+      block: { select: { id: true } },
       event: { select: { id: true, name: true, startDate: true, timezone: true } },
     },
     orderBy: { event: { startDate: "desc" } },

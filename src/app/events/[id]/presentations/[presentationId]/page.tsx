@@ -8,7 +8,7 @@ import { Toast } from "@/components/Toast";
 import { WorkflowStatusBadge, computeWorkflowBadgeSummary } from "@/components/WorkflowStatusBadge";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
-import { getEvent } from "../../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getPresentation,
   getTracks,

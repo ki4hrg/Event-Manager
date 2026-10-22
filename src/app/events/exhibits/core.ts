@@ -58,6 +58,7 @@ const GROUP_KEYS = ["name", ...BOOTH_SHARED_KEYS] as const satisfies readonly (k
 // A foreign function, group or contact id reads as not-found, never a
 // cross-event link.
 async function assertBoothRefs(eventId: string, args: Partial<BoothWriteArgs>) {
+  if (args.startAt && args.endAt && args.endAt < args.startAt) throw new Error("Booth end can't be before its start");
   if (args.groupId) await assertGroupInEvent(args.groupId, eventId);
   if (args.functionId) {
     const fn = await prisma.function.findFirst({ where: { id: args.functionId, eventId }, select: { id: true } });
@@ -181,7 +182,7 @@ export async function createBoothEquipmentItemCore(
   if ("boothId" in target) await assertBoothInEvent(target.boothId, eventId);
   else await assertGroupInEvent(target.groupId, eventId);
   await assertEquipmentRefs(eventId, args);
-  const item = await resolveEquipmentName(args.equipmentId, args.item);
+  const item = await resolveEquipmentName(args.equipmentId, args.item, eventId);
   const owner = "boothId" in target ? { exhibitBoothId: target.boothId } : { exhibitBoothGroupId: target.groupId };
   const { _max } = await prisma.equipmentItem.aggregate({ where: owner, _max: { sortOrder: true } });
   return prisma.equipmentItem.create({
@@ -201,7 +202,7 @@ export async function updateBoothEquipmentItemCore(
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   await assertEquipmentRefs(eventId, args);
-  const item = await resolveEquipmentName(args.equipmentId, args.item);
+  const item = await resolveEquipmentName(args.equipmentId, args.item, eventId);
   return prisma.equipmentItem.update({ where: { id, ...inEventBooths(eventId) }, data: { ...args, item } });
 }
 

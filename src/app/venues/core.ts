@@ -129,9 +129,17 @@ export type RoomWriteArgs = {
   groupId: string | null;
 };
 
+// A room's group is one of its own venue's groups.
+async function assertRoomGroupInVenue(groupId: string | null, venueId: string) {
+  if (!groupId) return;
+  const group = await prisma.roomGroup.findFirst({ where: { id: groupId, venueId }, select: { id: true } });
+  if (!group) throw new PermissionError("NOT_FOUND", "Room group not found");
+}
+
 export async function createRoomCore(venueId: string, args: RoomWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
   await assertVenueInTenant(venueId, tenantId);
+  await assertRoomGroupInVenue(args.groupId, venueId);
   const room = await prisma.room.create({
     data: {
       name: args.name,
@@ -154,6 +162,7 @@ export async function updateRoomCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
   await assertVenueInTenant(venueId, tenantId);
+  await assertRoomGroupInVenue(args.groupId, venueId);
   const room = await prisma.room.update({
     where: { id: roomId, venueId },
     data: {
@@ -218,6 +227,8 @@ export async function addVenueContactCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.VENUES, "WRITE", { tenantId });
   await assertVenueInTenant(venueId, tenantId);
+  const contact = await prisma.contact.findFirst({ where: { id: contactId, tenantId }, select: { id: true } });
+  if (!contact) throw new PermissionError("NOT_FOUND", "Contact not found");
   const link = await prisma.venueContact.create({
     data: { venueId, contactId, role },
   });

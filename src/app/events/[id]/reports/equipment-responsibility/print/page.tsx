@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import React from "react";
 import { notFound } from "next/navigation";
-import { getEvent } from "@/app/events/actions";
-import { getEquipmentResponsibilityData } from "@/app/events/reports/actions";
+import { getEvent } from "@/app/events/event";
+import { getEquipmentResponsibilityData } from "@/app/events/reports/data";
 import { partyGroupKey } from "@/app/events/reports/report-utils";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { reportTh as th, reportTd as td, reportGroupRow } from "@/lib/reportStyles";

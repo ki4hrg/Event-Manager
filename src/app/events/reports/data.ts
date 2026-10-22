@@ -1,4 +1,8 @@
-"use server";
+// Report readers. Deliberately NOT a "use server" module: these take no auth
+// (the /share views reuse them), so as Server Actions every export would be an
+// unauthenticated RPC endpoint reachable from the public share routes. Callers
+// gate access themselves: report pages via the event layout, share views via
+// the token, MCP tools via requirePermissionForUser.
 
 import { prisma } from "@/lib/prisma";
 import { optionsWhereForEvent } from "@/lib/options";

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import type { EntityStatus } from "@prisma/client";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import {
   getPresentations,
   getTracks,

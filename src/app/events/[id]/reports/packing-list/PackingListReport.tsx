@@ -3,7 +3,7 @@ import type {
   PackingListOrderBlock,
   PackingListRoomSection,
   PackingProcurementGroup,
-} from "@/app/events/reports/actions";
+} from "@/app/events/reports/data";
 import type { PackableItem } from "@/lib/packingItems";
 import { EmptyState } from "@/components/EmptyState";
 import { ReportNav } from "@/components/ReportNav";

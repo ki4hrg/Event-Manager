@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { PermissionResource } from "@prisma/client";
 import { useCanDo } from "@/components/PermissionsProvider";
-import { btnDanger } from "@/lib/buttonStyles";
+import { btnDanger, btnDangerSm } from "@/lib/buttonStyles";
 
 type DeleteButtonProps = {
   action: () => Promise<void>;
@@ -36,7 +36,7 @@ export function DeleteButton({
         <button
           type="button"
           onClick={async () => { setConfirming(false); await action(); }}
-          className="px-3 py-1.5 text-sm text-white bg-red-600 rounded-md hover:bg-red-700"
+          className={btnDangerSm}
         >
           {label}
         </button>

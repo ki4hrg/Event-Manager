@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getEvent } from "@/app/events/actions";
-import { getVendorHandoffData } from "@/app/events/reports/actions";
+import { getEvent } from "@/app/events/event";
+import { getVendorHandoffData } from "@/app/events/reports/data";
 import { getOptions } from "@/app/settings/actions";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { VendorHandoffReport } from "../VendorHandoffReport";

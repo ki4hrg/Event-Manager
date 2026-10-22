@@ -33,7 +33,7 @@ Two incidental findings in the create path, worth fixing alongside:
   `resolveOptionLabel` finds nothing and the row renders with a raw key and no color.
 - Both write `isPublic: false` (the schema default), and the Event Schedule report
   filters to `isPublic: true` unless `includeNonPublic` is set
-  (`reports/actions.ts:1640`) — so anything created from the grid is invisible on
+  (`reports/data.ts:1640`) — so anything created from the grid is invisible on
   the public schedule until someone toggles it on the Schedule Items page.
 
 ## Two readings

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
-import { getEvent } from "../../actions";
+import { getEvent } from "@/app/events/event";
 import { getSupplyOrders, deleteSupplyOrder } from "../../supply-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { SupplyOrderList } from "../../supply-orders/SupplyOrderList";

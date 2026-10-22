@@ -14,6 +14,8 @@ type VenueFormProps = {
   areas: { label: string; group: string | null }[];
   // The hotel_amenity list.
   amenities: string[];
+  // A new venue starts as lodging (from /hotels).
+  defaultLodging?: boolean;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -36,11 +38,11 @@ function SaveButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function VenueForm({ venue, brands, areas, amenities, action }: VenueFormProps) {
+export function VenueForm({ venue, brands, areas, amenities, defaultLodging = false, action }: VenueFormProps) {
   const isEdit = !!venue;
   const canWrite = useCanWrite("VENUES");
   const [editing, setEditing] = useState(false);
-  const [isLodging, setIsLodging] = useState(venue?.isLodging ?? false);
+  const [isLodging, setIsLodging] = useState(venue?.isLodging ?? defaultLodging);
 
   if (isEdit && (!editing || !canWrite)) {
     const addressParts = [venue.address, venue.city, venue.state, venue.zip, venue.country].filter(Boolean);

@@ -50,6 +50,17 @@ async function assertInstanceMatches(
   if (!inst || inst.entityType !== entityType || inst.entityId !== entityId) notFound();
 }
 
+// Confirms a step / checklist item belongs to the instance's own template, so
+// a completion can't be recorded against (or cascade from) a foreign step.
+async function assertInInstanceTemplate(instanceId: string, ref: { stepId: string } | { itemId: string }) {
+  const onInstance = { template: { instances: { some: { id: instanceId } } } };
+  const found =
+    "stepId" in ref
+      ? await prisma.workflowStep.findFirst({ where: { id: ref.stepId, ...onInstance }, select: { id: true } })
+      : await prisma.workflowChecklistItem.findFirst({ where: { id: ref.itemId, step: onInstance }, select: { id: true } });
+  if (!found) notFound();
+}
+
 async function filterEntityIdsInEvent(
   entityType: WorkflowEntityType,
   entityIds: string[],
@@ -281,6 +292,13 @@ export async function assignWorkflow(
 ) {
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
+  // The template must be the event's tenant's own; a foreign id would attach
+  // (and then render) another organization's workflow.
+  const template = await prisma.workflowTemplate.findFirst({
+    where: { id: templateId, tenant: { events: { some: { id: eventId } } } },
+    select: { id: true },
+  });
+  if (!template) notFound();
   await prisma.workflowInstance.create({
     data: { templateId, entityType, entityId },
   });
@@ -313,6 +331,7 @@ export async function toggleStepCompletion(
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
   await assertInstanceMatches(instanceId, entityType, entityId);
+  await assertInInstanceTemplate(instanceId, { stepId });
   const existing = await prisma.workflowStepCompletion.findUnique({
     where: { instanceId_stepId: { instanceId, stepId } },
   });
@@ -427,6 +446,7 @@ export async function toggleItemCompletion(
   await gateWorkflowAction(entityType, eventId, "WRITE");
   await assertEntityInEvent(entityType, entityId, eventId);
   await assertInstanceMatches(instanceId, entityType, entityId);
+  await assertInInstanceTemplate(instanceId, { itemId });
   const existing = await prisma.workflowChecklistCompletion.findUnique({
     where: { instanceId_itemId: { instanceId, itemId } },
   });

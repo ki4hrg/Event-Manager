@@ -490,9 +490,9 @@ export async function deleteAVEquipmentItem(id: string, avOrderId: string, event
 // Party options
 // ============================================================================
 
-async function getSpeakersForAVOrder(avOrderId: string) {
+async function getSpeakersForAVOrder(avOrderId: string, eventId: string) {
   const presentations = await prisma.aVOrderPresentation.findMany({
-    where: { avOrderId },
+    where: { avOrderId, avOrder: { eventId } },
     select: {
       presentation: {
         select: {
@@ -525,11 +525,11 @@ export async function getAVOrderPartyOptions(avOrderId: string, eventId: string)
   await requirePermission("AV_ORDERS", "VIEW", eventId);
   const [avOrderVendors, contacts] = await Promise.all([
     prisma.aVOrderVendor.findMany({
-      where: { avOrderId },
+      where: { avOrderId, avOrder: { eventId } },
       select: { vendor: { select: { id: true, name: true } } },
       orderBy: { vendor: { name: "asc" } },
     }),
-    getSpeakersForAVOrder(avOrderId),
+    getSpeakersForAVOrder(avOrderId, eventId),
   ]);
   return { vendors: avOrderVendors.map((av) => av.vendor), contacts };
 }
@@ -543,8 +543,8 @@ export async function getAVOrderResponsiblePartyOptions(
 }> {
   await requirePermission("AV_ORDERS", "VIEW", eventId);
   const [functionLinks, presentationLinks] = await Promise.all([
-    prisma.aVOrderFunction.findMany({ where: { avOrderId }, select: { functionId: true } }),
-    prisma.aVOrderPresentation.findMany({ where: { avOrderId }, select: { presentationId: true } }),
+    prisma.aVOrderFunction.findMany({ where: { avOrderId, avOrder: { eventId } }, select: { functionId: true } }),
+    prisma.aVOrderPresentation.findMany({ where: { avOrderId, avOrder: { eventId } }, select: { presentationId: true } }),
   ]);
   const pool = await getResponsibleParties({
     eventId,

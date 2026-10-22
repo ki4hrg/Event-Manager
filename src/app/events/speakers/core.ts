@@ -65,6 +65,16 @@ export async function upsertSpeakerProfileCore(eventId: string, contactId: strin
     select: { id: true },
   });
   if (!speaks) throw new PermissionError("NOT_FOUND", "Speaker not found");
+  if (args.arrivalAt !== undefined || args.departureAt !== undefined) {
+    // A partial update is checked against the stored other end.
+    const stored =
+      args.arrivalAt === undefined || args.departureAt === undefined
+        ? await prisma.speakerProfile.findUnique({ where: { eventId_contactId: { eventId, contactId } }, select: { arrivalAt: true, departureAt: true } })
+        : null;
+    const arrival = args.arrivalAt !== undefined ? args.arrivalAt : stored?.arrivalAt;
+    const departure = args.departureAt !== undefined ? args.departureAt : stored?.departureAt;
+    if (arrival && departure && departure < arrival) throw new Error("Departure can't be before arrival");
+  }
   const data: Record<string, unknown> = {};
   for (const k of PROFILE_KEYS) if (args[k] !== undefined) data[k] = args[k];
   return prisma.speakerProfile.upsert({

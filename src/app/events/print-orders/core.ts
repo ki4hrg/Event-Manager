@@ -5,6 +5,7 @@ import type { AcquisitionState, EntityStatus, PackingStatus } from "@prisma/clie
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
+import { assertEventRefs } from "@/lib/eventRefs";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
 async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
@@ -15,8 +16,8 @@ async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
   if (!found) throw new PermissionError("NOT_FOUND");
 }
 
-async function bumpPrintOrder(printOrderId: string, userId: string) {
-  await prisma.printOrder.update({ where: { id: printOrderId }, data: { updatedById: userId } });
+async function bumpPrintOrder(printOrderId: string, eventId: string, userId: string) {
+  await prisma.printOrder.updateMany({ where: { id: printOrderId, eventId }, data: { updatedById: userId } });
 }
 
 // ---------------------------------------------------------------------------
@@ -40,6 +41,7 @@ export async function createPrintOrderCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { roomIds: [args.roomId], functionIds: [args.functionId], presentationIds: [args.presentationId], vendorIds: [args.vendorId] });
   const defaults = await resolveCreateStatus(eventId, "PRINT_ORDER");
 
   const printOrder = await prisma.printOrder.create({
@@ -99,6 +101,7 @@ export async function updatePrintOrderCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { roomIds: [args.roomId] });
   return prisma.printOrder.update({
     where: { id, eventId },
     data: {
@@ -160,6 +163,9 @@ export async function bulkUpdatePrintOrdersCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { vendorIds: [updates.vendorId], functionIds: [updates.functionId] });
+  // Items and junction rows below are written per id: keep only this event's orders.
+  ids = (await prisma.printOrder.findMany({ where: { id: { in: ids }, eventId }, select: { id: true } })).map((o) => o.id);
   const { status, substatus, packingStatus, vendorId, functionId } = updates;
 
   if (status !== undefined || substatus !== undefined || packingStatus !== undefined) {
@@ -228,10 +234,11 @@ export async function linkPrintOrderToFunctionCore(
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
   await assertPrintOrderInEvent(printOrderId, eventId);
+  await assertEventRefs(eventId, { functionIds: [functionId] });
   const link = await prisma.printOrderFunction.create({
     data: { printOrderId, functionId },
   });
-  await bumpPrintOrder(printOrderId, userId);
+  await bumpPrintOrder(printOrderId, eventId, userId);
   return link;
 }
 
@@ -246,7 +253,7 @@ export async function unlinkPrintOrderFromFunctionCore(
   const r = await prisma.printOrderFunction.deleteMany({
     where: { printOrderId, functionId, printOrder: { eventId } },
   });
-  await bumpPrintOrder(printOrderId, userId);
+  await bumpPrintOrder(printOrderId, eventId, userId);
   return { count: r.count };
 }
 
@@ -257,6 +264,7 @@ export async function linkPrintOrderToPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, { presentationIds: [presentationId] });
   return prisma.printOrder.update({
     where: { id: printOrderId, eventId },
     data: { presentationId, updatedById: userId },
@@ -308,6 +316,12 @@ export type PrintItemWriteArgs = {
   sourceLocationId: string | null;
 };
 
+const printItemRefs = (args: PrintItemWriteArgs) => ({
+  vendorIds: [args.designerVendorId, args.printerVendorId],
+  contactIds: [args.designerContactId, args.printerContactId],
+  storageLocationIds: [args.sourceLocationId],
+});
+
 export async function createPrintItemCore(
   printOrderId: string,
   eventId: string,
@@ -316,6 +330,7 @@ export async function createPrintItemCore(
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
   await assertPrintOrderInEvent(printOrderId, eventId);
+  await assertEventRefs(eventId, printItemRefs(args));
   const { _max } = await prisma.printItem.aggregate({
     where: { printOrderId },
     _max: { sortOrder: true },
@@ -323,7 +338,7 @@ export async function createPrintItemCore(
   const item = await prisma.printItem.create({
     data: { printOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
-  await bumpPrintOrder(printOrderId, userId);
+  await bumpPrintOrder(printOrderId, eventId, userId);
   return item;
 }
 
@@ -335,11 +350,12 @@ export async function updatePrintItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  await assertEventRefs(eventId, printItemRefs(args));
   const item = await prisma.printItem.update({
     where: { id, printOrder: { eventId } },
     data: args,
   });
-  await bumpPrintOrder(printOrderId, userId);
+  await bumpPrintOrder(printOrderId, eventId, userId);
   return item;
 }
 
@@ -351,7 +367,7 @@ export async function deletePrintItemCore(
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
   await prisma.printItem.delete({ where: { id, printOrder: { eventId } } });
-  await bumpPrintOrder(printOrderId, userId);
+  await bumpPrintOrder(printOrderId, eventId, userId);
 }
 
 export async function updatePrintItemPackingStatusCore(
@@ -366,7 +382,7 @@ export async function updatePrintItemPackingStatusCore(
     where: { id, printOrder: { eventId } },
     data: { packingStatus },
   });
-  await bumpPrintOrder(printOrderId, userId);
+  await bumpPrintOrder(printOrderId, eventId, userId);
 }
 
 export async function updatePrintItemAcquisitionStateCore(
@@ -381,5 +397,5 @@ export async function updatePrintItemAcquisitionStateCore(
     where: { id, printOrder: { eventId } },
     data: { acquisitionState },
   });
-  await bumpPrintOrder(printOrderId, userId);
+  await bumpPrintOrder(printOrderId, eventId, userId);
 }

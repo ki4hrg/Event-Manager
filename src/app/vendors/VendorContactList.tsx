@@ -48,6 +48,7 @@ function ContactTypeField({
         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
       >
         <option value="">— None —</option>
+        {defaultValue && !contactTypes.some((o) => o.label === defaultValue) && <option value={defaultValue}>{defaultValue}</option>}
         {contactTypes.map((t) => (
           <option key={t.id} value={t.label}>
             {t.label}
