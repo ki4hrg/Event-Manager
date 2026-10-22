@@ -14,6 +14,7 @@ import {
   ALLOWED_UPLOAD_MIME_TYPES,
   isValidEntityId,
   resolveEntityEventId,
+  eventlessOwnerTenantId,
 } from "@/lib/uploads";
 
 export async function POST(request: NextRequest) {
@@ -46,7 +47,13 @@ export async function POST(request: NextRequest) {
     }
 
     const validEntityType = entityType as EntityType;
-    await requirePermission("FILES", "WRITE", await resolveEntityEventId(validEntityType, entityId));
+    const { tenantId } = await requirePermission("FILES", "WRITE", await resolveEntityEventId(validEntityType, entityId));
+    // A venue has no event: the check above ran against the active tenant,
+    // so the venue must be that tenant's own.
+    const ownerTenantId = await eventlessOwnerTenantId(validEntityType, entityId);
+    if (ownerTenantId && ownerTenantId !== tenantId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     const ext = path.extname(file.name);
     const storedName = `${randomUUID()}${ext}`;
     const uploadDir = getUploadDir(validEntityType, entityId);
