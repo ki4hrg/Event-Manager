@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import type { EntityStatus, PermissionResource } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
-import { btnDanger, btnSecondary } from "@/lib/buttonStyles";
+import { btnDanger, btnDangerSm, btnSecondary } from "@/lib/buttonStyles";
 
 type SubstatusOption = { id: string; label: string; group: string | null };
 
@@ -80,7 +80,7 @@ export function CancelOrDeleteButton({
               type="button"
               onClick={handleDelete}
               disabled={isPending}
-              className="px-3 py-1.5 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+              className={btnDangerSm}
             >
               Delete
             </button>
