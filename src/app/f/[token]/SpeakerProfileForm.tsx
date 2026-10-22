@@ -60,11 +60,11 @@ export function SpeakerProfileForm({ baseline, sections, draft, ...common }: Pro
         <Card title={sectionLabel("travel")}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="arrivalAt" className={labelCls}>Arriving</label>
+              <label htmlFor="arrivalAt" className={labelCls}>Arriving (event local time)</label>
               <input id="arrivalAt" name="arrivalAt" type="datetime-local" defaultValue={val("arrivalAt")} className={inputCls} />
             </div>
             <div>
-              <label htmlFor="departureAt" className={labelCls}>Departing</label>
+              <label htmlFor="departureAt" className={labelCls}>Departing (event local time)</label>
               <input id="departureAt" name="departureAt" type="datetime-local" defaultValue={val("departureAt")} className={inputCls} />
             </div>
             <div className="sm:col-span-2">

@@ -105,9 +105,14 @@ export function ItemRequestForm({ baseline, draft, ...common }: Props) {
   // Stable field indices: a removed row's index is reused, and the server
   // refuses any index at or past the cap.
   const [rows, setRows] = useState<number[]>(() => (saved.length ? saved.map((_, i) => i) : [0]));
+  // Re-added indices start blank, not with a removed row's saved answers.
+  const [fresh, setFresh] = useState<Set<number>>(() => new Set());
   const addRow = () => {
     for (let i = 0; i < ITEM_REQUEST_MAX_LINES; i++) {
-      if (!rows.includes(i)) return setRows([...rows, i]);
+      if (!rows.includes(i)) {
+        setFresh(new Set(fresh).add(i));
+        return setRows([...rows, i]);
+      }
     }
   };
 
@@ -138,7 +143,7 @@ export function ItemRequestForm({ baseline, draft, ...common }: Props) {
               key={index}
               index={index}
               position={pos + 1}
-              line={saved[index]}
+              line={fresh.has(index) ? undefined : saved[index]}
               mode={mode}
               destinations={baseline.destinations}
               onRemove={rows.length > 1 ? () => setRows(rows.filter((r) => r !== index)) : null}

@@ -118,7 +118,7 @@ export const HONEYPOT_FIELD = "contact_fax_hp";
 // Public error codes → fixed copy. The public actions redirect with ?error=<code>
 // rather than surfacing raw messages.
 export const FORM_ERROR_COPY: Record<string, string> = {
-  invalid: "Some answers couldn't be read. Check the highlighted fields and try again.",
+  invalid: "Some answers couldn't be read. Check them and try again.",
   closed: "This form is no longer accepting responses.",
   busy: "Too many responses were sent from this link recently. Try again in an hour.",
   upload: "That file couldn't be uploaded. Use a PDF, image, or Word, Excel or PowerPoint file under 20 MB.",
