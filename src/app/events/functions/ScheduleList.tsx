@@ -350,6 +350,7 @@ export function ScheduleList({
                           defaultValue={schedule.type}
                           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                         >
+                          {schedule.type && !scheduleTypes.some((o) => o.label === schedule.type) && <option value={schedule.type}>{schedule.type}</option>}
                           {scheduleTypes.map((t) => (
                             <option key={t.id} value={t.label}>
                               {t.label}

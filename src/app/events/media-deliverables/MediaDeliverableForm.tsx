@@ -209,6 +209,7 @@ export function MediaDeliverableForm({
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">— Select —</option>
+                {mediaDeliverable?.mediaType && !mediaTypeOptions.some((o) => o.label === mediaDeliverable?.mediaType) && <option value={mediaDeliverable?.mediaType}>{mediaDeliverable?.mediaType}</option>}
                 {mediaTypeOptions.map((o) => (
                   <option key={o.id} value={o.label}>
                     {o.label}
@@ -227,6 +228,7 @@ export function MediaDeliverableForm({
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">— Select —</option>
+                {mediaDeliverable?.delivery && !deliveryOptions.some((o) => o.label === mediaDeliverable?.delivery) && <option value={mediaDeliverable?.delivery}>{mediaDeliverable?.delivery}</option>}
                 {deliveryOptions.map((o) => (
                   <option key={o.id} value={o.label}>
                     {o.label}

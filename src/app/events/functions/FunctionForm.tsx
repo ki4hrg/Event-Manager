@@ -334,6 +334,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select type...</option>
+                  {fn?.type && !functionTypes.some((o) => o.label === fn?.type) && <option value={fn?.type}>{fn?.type}</option>}
                   {functionTypes.map((t) => (
                     <option key={t.id} value={t.label}>
                       {t.label}
