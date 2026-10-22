@@ -150,7 +150,20 @@ export default async function FormsPage({
                         )}
                         <span className="block text-gray-500 dark:text-gray-400">{l.accessCount} views</span>
                       </td>
-                      <td className={reportTd}>{formatDate(l.expiresAt, timezone)}</td>
+                      <td className={reportTd}>
+                        {formatDate(l.expiresAt, timezone)}
+                        {l.dueAt && (
+                          <span
+                            className={`block ${
+                              l.dueAt < new Date() && !l.revokedAt && (l.bundle ? l.children.some((c) => c.submittedCount === 0) : l.submittedCount === 0)
+                                ? "text-amber-700 dark:text-amber-400"
+                                : "text-gray-500 dark:text-gray-400"
+                            }`}
+                          >
+                            Due {formatDate(l.dueAt, timezone)}
+                          </span>
+                        )}
+                      </td>
                       <td className={`${reportTd} ${status.cls}`}>{status.label}</td>
                       <td className={`${reportTd} whitespace-nowrap`}>
                         {l.revokedAt ? (
@@ -183,6 +196,7 @@ export default async function FormsPage({
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {FORM_TYPE_LABEL[s.formType]}
                   {s.formLink.function && <span className="font-normal text-gray-600 dark:text-gray-400"> · {formatFunctionLabel(s.formLink.function)}</span>}
+                  {s.formLink.presentation && <span className="font-normal text-gray-600 dark:text-gray-400"> · {s.formLink.presentation.title}</span>}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {[s.submitterName, s.submitterOrg].filter(Boolean).join(", ") || "Unnamed"} · {formatDate(s.submittedAt, timezone)}
