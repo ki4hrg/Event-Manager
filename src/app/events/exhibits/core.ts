@@ -181,7 +181,7 @@ export async function createBoothEquipmentItemCore(
   if ("boothId" in target) await assertBoothInEvent(target.boothId, eventId);
   else await assertGroupInEvent(target.groupId, eventId);
   await assertEquipmentRefs(eventId, args);
-  const item = await resolveEquipmentName(args.equipmentId, args.item);
+  const item = await resolveEquipmentName(args.equipmentId, args.item, eventId);
   const owner = "boothId" in target ? { exhibitBoothId: target.boothId } : { exhibitBoothGroupId: target.groupId };
   const { _max } = await prisma.equipmentItem.aggregate({ where: owner, _max: { sortOrder: true } });
   return prisma.equipmentItem.create({
@@ -201,7 +201,7 @@ export async function updateBoothEquipmentItemCore(
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   await assertEquipmentRefs(eventId, args);
-  const item = await resolveEquipmentName(args.equipmentId, args.item);
+  const item = await resolveEquipmentName(args.equipmentId, args.item, eventId);
   return prisma.equipmentItem.update({ where: { id, ...inEventBooths(eventId) }, data: { ...args, item } });
 }
 

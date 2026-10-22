@@ -11,6 +11,7 @@ import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
+import { assertEventRefs } from "@/lib/eventRefs";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 import {
   renumberFunctions,
@@ -112,6 +113,7 @@ export async function createFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
+  await assertEventRefs(eventId, { roomIds: args.roomIds, breakoutGroupIds: [args.breakoutGroupId] });
   const defaults = await resolveCreateStatus(eventId, "FUNCTION");
   const numberData = await functionNumberData(eventId, null, args);
 
@@ -172,6 +174,7 @@ export async function updateFunctionCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
+  await assertEventRefs(eventId, { roomIds: args.roomIds, breakoutGroupIds: [args.breakoutGroupId] });
   const numberData = await functionNumberData(eventId, id, args);
   // eventId in the where clause atomically verifies the function belongs to
   // the claimed event — guards against a caller passing another event's id.
@@ -343,7 +346,7 @@ export async function createScheduleCore(
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   await syncFunctionNumbers(eventId);
   return { value: { id: created.id } };
 }
@@ -381,7 +384,7 @@ export async function updateScheduleCore(
       isPublic: args.isPublic,
     },
   });
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   await syncFunctionNumbers(eventId);
   return { value: { id: scheduleId } };
 }
@@ -394,7 +397,7 @@ export async function deleteScheduleCore(
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "DELETE", eventId);
   await prisma.functionSchedule.delete({ where: { id: scheduleId, function: { eventId } } });
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   await syncFunctionNumbers(eventId);
 }
 
@@ -410,10 +413,11 @@ export async function addFunctionContactCore(
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
+  await assertEventRefs(eventId, { contactIds: [contactId] });
   const link = await prisma.functionContact.create({
     data: { functionId, contactId, role },
   });
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   return link;
 }
 
@@ -429,7 +433,7 @@ export async function updateFunctionContactCore(
     where: { id: functionContactId, function: { eventId } },
     data: { role },
   });
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   return link;
 }
 
@@ -441,7 +445,7 @@ export async function removeFunctionContactCore(
 ) {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   await prisma.functionContact.delete({ where: { id: functionContactId, function: { eventId } } });
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
 }
 
 export type CreateAndAddFunctionContactArgs = {
@@ -495,6 +499,7 @@ export async function updateFunctionRoomCore(
 ): Promise<{ success: boolean; error?: string }> {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
+  await assertEventRefs(eventId, { roomIds: [newRoomId] });
   if (oldRoomId === newRoomId) return { success: true };
 
   const existing = await prisma.functionRoom.findUnique({
@@ -508,7 +513,7 @@ export async function updateFunctionRoomCore(
     }),
     prisma.functionRoom.create({ data: { functionId, roomId: newRoomId } }),
   ]);
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   return { success: true };
 }
 
@@ -523,6 +528,7 @@ export async function scheduleUnscheduledFunctionCore(
 ): Promise<{ success: boolean; error?: string; conflicts?: RoomConflict[] }> {
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
+  await assertEventRefs(eventId, { roomIds: [roomId] });
   const start = new Date(startTime);
   const end = new Date(endTime);
   if (end <= start) return { success: false, error: "End time must be after start time" };
@@ -547,7 +553,7 @@ export async function scheduleUnscheduledFunctionCore(
       sortOrder: 0,
     },
   });
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   await syncFunctionNumbers(eventId);
   return { success: true };
 }
@@ -580,7 +586,7 @@ export async function rescheduleEntryCore(
     where: { id: scheduleId, function: { eventId } },
     data: { startTime, endTime },
   });
-  await prisma.function.update({ where: { id: functionId }, data: { updatedById: userId } });
+  await prisma.function.update({ where: { id: functionId, eventId }, data: { updatedById: userId } });
   await syncFunctionNumbers(eventId);
   return { success: true };
 }

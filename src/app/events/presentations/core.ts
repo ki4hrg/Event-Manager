@@ -5,6 +5,7 @@ import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
+import { assertEventRefs } from "@/lib/eventRefs";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
 async function assertPresentationInEvent(presentationId: string, eventId: string) {
@@ -83,6 +84,7 @@ export async function createPresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRESENTATIONS", "WRITE", eventId);
+  await assertEventRefs(eventId, { trackIds: [args.trackId], breakoutGroupIds: [args.breakoutGroupId], vendorIds: [args.advancerVendorId], contactIds: [args.advancerContactId, ...args.speakerContactIds] });
   const defaults = await resolveCreateStatus(eventId, "PRESENTATION");
 
   const presentation = await prisma.presentation.create({
@@ -156,6 +158,7 @@ export async function updatePresentationCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRESENTATIONS", "WRITE", eventId);
+  await assertEventRefs(eventId, { trackIds: [args.trackId], breakoutGroupIds: [args.breakoutGroupId], vendorIds: [args.advancerVendorId], contactIds: [args.advancerContactId] });
   return prisma.presentation.update({
     where: { id, eventId },
     data: {
@@ -199,6 +202,7 @@ export async function bulkUpdatePresentationsCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "PRESENTATIONS", "WRITE", eventId);
+  await assertEventRefs(eventId, { trackIds: [updates.trackId] });
   const { status, substatus, trackId, type } = updates;
   const r = await prisma.presentation.updateMany({
     where: { id: { in: ids }, eventId },
@@ -261,6 +265,7 @@ export async function addSpeakerCore(
 ) {
   await requirePermissionForUser(userId, "PRESENTATIONS", "WRITE", eventId);
   await assertPresentationInEvent(presentationId, eventId);
+  await assertEventRefs(eventId, { contactIds: [contactId] });
 
   const maxOrder = await prisma.presentationContact.findFirst({
     where: { presentationId },
@@ -284,7 +289,7 @@ export async function addSpeakerCore(
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: userId } });
+  await prisma.presentation.update({ where: { id: presentationId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -310,7 +315,7 @@ export async function updateSpeakerCore(
     where: { id: speakerId, presentation: { eventId } },
     data: { role, isPrimary },
   });
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: userId } });
+  await prisma.presentation.update({ where: { id: presentationId, eventId }, data: { updatedById: userId } });
   return row;
 }
 
@@ -324,7 +329,7 @@ export async function removeSpeakerCore(
   await prisma.presentationContact.delete({
     where: { id: speakerId, presentation: { eventId } },
   });
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: userId } });
+  await prisma.presentation.update({ where: { id: presentationId, eventId }, data: { updatedById: userId } });
 }
 
 export type CreateAndAddSpeakerArgs = {
@@ -400,5 +405,5 @@ export async function reorderSpeakersCore(
       }),
     ),
   );
-  await prisma.presentation.update({ where: { id: presentationId }, data: { updatedById: userId } });
+  await prisma.presentation.update({ where: { id: presentationId, eventId }, data: { updatedById: userId } });
 }
