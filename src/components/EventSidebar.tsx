@@ -468,7 +468,7 @@ type EventSidebarProps = {
   // The saved collapse preference, read server-side by the event layout so the
   // first paint already has the right width.
   initialCollapsed: boolean;
-  // Counts shown beside a link, keyed by segment (open form submissions).
+  // Counts shown beside a link, keyed by segment (open form submissions, open inbox mail).
   badges?: Record<string, number>;
 };
 

@@ -119,6 +119,14 @@ export async function updateWorkflowTemplate(id: string, formData: FormData) {
 
 export async function deleteWorkflowTemplate(id: string) {
   const { tenantId } = await requirePermission(PermissionResource.WORKFLOWS, "DELETE");
+  // Submissions record the approval they need by id; deleting the template
+  // would leave them unappliable.
+  const awaiting = await prisma.formSubmission.count({
+    where: { tenantId, requiredTemplateId: id, state: "SUBMITTED" },
+  });
+  if (awaiting > 0) {
+    throw new Error(`${awaiting} form submission${awaiting === 1 ? " still needs" : "s still need"} this workflow's approval`);
+  }
   await prisma.workflowTemplate.delete({ where: { id, tenantId } });
   redirect("/workflows");
 }

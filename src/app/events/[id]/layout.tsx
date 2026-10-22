@@ -89,14 +89,14 @@ export default async function EventLayout({
   const permissions = { ...eventScoped, ...globalScoped };
 
   const deniedResources = NAV_RESOURCES.filter((r) => !canDo(permissions, r, "VIEW"));
-  // Submissions waiting for review, beside the Forms link.
-  const openForms = canDo(permissions, "FORMS", "VIEW")
-    ? await prisma.formSubmission.count({ where: { eventId: id, state: "SUBMITTED" } })
-    : 0;
-  // Mail not yet applied or dismissed, beside the Inbox link (like the header's).
-  const openInbox = await prisma.inboundEmail.count({
-    where: { tenantId: event.tenantId, eventId: id, status: { in: OPEN_STATUSES } },
-  });
+  // Submissions waiting for review, beside the Forms link; open mail beside
+  // Inbox (the header's org-wide count, narrowed to this event).
+  const [openForms, openInbox] = await Promise.all([
+    canDo(permissions, "FORMS", "VIEW")
+      ? prisma.formSubmission.count({ where: { eventId: id, state: "SUBMITTED" } })
+      : 0,
+    prisma.inboundEmail.count({ where: { tenantId: event.tenantId, eventId: id, status: { in: OPEN_STATUSES } } }),
+  ]);
   const deniedWriteResources = ALL_RESOURCES.filter(
     (r) => !canDo(permissions, r, "WRITE"),
   );
