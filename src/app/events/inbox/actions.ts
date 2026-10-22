@@ -110,18 +110,22 @@ export async function releaseInboundEmail(id: string, eventId: string) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
   await releaseInboundEmailCore(id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
+  redirect(`/events/${eventId}/inbox/${id}?success=Released`);
 }
 
 export async function dismissInboundEmail(id: string, eventId: string | null) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
   await dismissInboundEmailCore(id, eventId, session.tenantId, session.user.id);
   revalidatePath(eventId ? `/events/${eventId}/inbox` : "/inbox");
+  // Back to the list, for the next item.
+  redirect(eventId ? `/events/${eventId}/inbox?success=Dismissed` : "/inbox?view=held&success=Dismissed");
 }
 
 export async function restoreInboundEmail(id: string, eventId: string | null) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
   await restoreInboundEmailCore(id, eventId, session.tenantId, session.user.id);
   revalidatePath(eventId ? `/events/${eventId}/inbox` : "/inbox");
+  redirect(`${eventId ? `/events/${eventId}/inbox` : "/inbox"}/${id}?success=Restored`);
 }
 
 // Moves an item to another event, or routes an Unrouted one (fromEventId null).
@@ -138,12 +142,14 @@ export async function fileInboundAttachment(fileId: string, id: string, eventId:
   await fileInboundAttachmentCore(fileId, id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/inbox/${id}`);
   revalidatePath(`/events/${eventId}/files`);
+  redirect(`/events/${eventId}/inbox/${id}?success=Filed on event`);
 }
 
 export async function reparseInboundEmail(id: string, eventId: string) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
   await reparseInboundEmailCore(id, eventId, session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
+  redirect(`/events/${eventId}/inbox/${id}?success=Reading again`);
 }
 
 export async function applyInboundGuests(
