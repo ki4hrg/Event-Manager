@@ -164,7 +164,8 @@ export async function deleteVendorQuoteCore(id: string, eventId: string, userId:
   await prisma.vendorQuote.delete({ where: { id, eventId } });
 }
 
-// Accepting a quote: it's ACCEPTED, the RFP's other open quotes DECLINED and
+// Accepting a quote: it's ACCEPTED, the RFP's other quotes DECLINED (one award
+// per RFP; a vendor an earlier award added stays on the event) and
 // the RFP CLOSED; the vendor is put on the event and on every order its RFP's
 // line items came from. VENDORS WRITE is needed to put a vendor on an event.
 export async function awardVendorQuoteCore(id: string, eventId: string, userId: string) {
@@ -176,10 +177,10 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
     : [];
   const ids = (key: "avOrderId" | "cateringOrderId" | "printOrderId") => Array.from(new Set(sources.flatMap((s) => (s[key] ? [s[key] as string] : []))));
   const vendorId = quote.vendorId;
-  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.vendorQuote.update({ where: { id, eventId }, data: { status: "ACCEPTED", updatedById: userId } });
     if (quote.rfpId) {
-      await tx.vendorQuote.updateMany({ where: { rfpId: quote.rfpId, eventId, id: { not: id }, status: "RECEIVED" }, data: { status: "DECLINED" } });
+      await tx.vendorQuote.updateMany({ where: { rfpId: quote.rfpId, eventId, id: { not: id }, status: { not: "DECLINED" } }, data: { status: "DECLINED" } });
       await tx.rfp.update({ where: { id: quote.rfpId, eventId }, data: { status: "CLOSED", updatedById: userId } });
     }
     await tx.eventVendor.upsert({ where: { eventId_vendorId: { eventId, vendorId } }, create: { eventId, vendorId }, update: {} });
@@ -192,8 +193,8 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
     await tx.aVOrderVendor.createMany({ data: av.map((o) => ({ avOrderId: o.id, vendorId })), skipDuplicates: true });
     await tx.cateringOrderVendor.createMany({ data: catering.map((o) => ({ cateringOrderId: o.id, vendorId })), skipDuplicates: true });
     await tx.printOrderVendor.createMany({ data: print.map((o) => ({ printOrderId: o.id, vendorId })), skipDuplicates: true });
+    return { orders: av.length + catering.length + print.length };
   });
-  return { orders: ids("avOrderId").length + ids("cateringOrderId").length + ids("printOrderId").length };
 }
 
 // The quotes answering a vendor RFP against its line items

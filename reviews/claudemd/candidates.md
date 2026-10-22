@@ -106,3 +106,4 @@
 - [forms] Every form link entry button uses `formLinkTriggerCls` from `FormLinkButton.tsx`; header buttons beside it use plain `btnSecondary` / `btnPrimary` without `text-sm` (exhibits page aligned to this)
 - [forms] A form type's own link settings live in `FormLinkConfig.options`, read by `linkOptionsFromForm` (dialog `opt_*` fields) and validated by `linkOptions`; legacy links without options must keep their old behavior
 - [inbox] A message with several hotel offers files each attachment on the proposal(s) whose offer claims it (ProposalOffer.attachments); unclaimed files go on every one, and the review's checkboxes override (src/app/events/inbox/core.ts offerAttachments)
+- [ui/permissions] A client control whose action calls a core that checks a second resource (award → VENDORS, issue → FILES) must gate on both `useCanWrite`s, or a user lacking the second gets an opaque 500 from the uncaught PermissionError (AwardQuoteButton, IssueRfpButton)

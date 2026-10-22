@@ -11,7 +11,7 @@ import { IssueRfpButton } from "./IssueRfpButton";
 import { MenuButton } from "./MenuButton";
 
 // An RFP page's header, hotel or vendor: Compare (once there are responses),
-// Download, Issue, Delete.
+// Download, Issue (until it's closed), Delete.
 export function RfpHeader({
   event,
   rfp,
@@ -67,7 +67,7 @@ export function RfpHeader({
               { label: "Word (.docx)", href: `/api/events/${event.id}/rfps/${rfp.id}?format=docx`, download: true },
             ]}
           />
-          <IssueRfpButton action={issue} resource={resource} reissue={rfp.issuedOn != null} />
+          {rfp.status !== "CLOSED" && <IssueRfpButton action={issue} resource={resource} reissue={rfp.issuedOn != null} />}
           <DeleteButton action={remove} resource={resource} label="Delete RFP" />
         </>
       }

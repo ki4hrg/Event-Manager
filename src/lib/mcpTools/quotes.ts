@@ -230,7 +230,7 @@ export const quoteTools: McpToolDefinition[] = [
   {
     name: "award_vendor_quote",
     description:
-      "Accept a vendor quote: it becomes ACCEPTED; on an RFP, the RFP's other open quotes become DECLINED and the RFP CLOSED. The vendor is added to the event and to every order the RFP's line items were copied from. Needs VENDORS write.",
+      "Accept a vendor quote: it becomes ACCEPTED; on an RFP, the RFP's other quotes (including an earlier accepted one) become DECLINED and the RFP CLOSED. The vendor is added to the event and to every order the RFP's line items were copied from. Needs VENDORS write.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
