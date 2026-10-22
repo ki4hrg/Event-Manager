@@ -284,7 +284,7 @@ model CustomOption {
   id        String   @id @default(cuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category  String // "function_type", "contact_role", "av_equipment", "equipment_category", "setup_type", "substatus"
+  category  String // an OptionCategory (src/app/settings/actions.ts)
   label     String // The display label and stored value (e.g., "Meal / BEO", "Speaker")
   color     String? // Optional color for badges (e.g., "orange", "blue")
   group     String? // Optional grouping key; used by "substatus" category to tie options to an EntityStatus value
