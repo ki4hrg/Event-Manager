@@ -6,12 +6,13 @@ import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 
 // Accept a quote: inline confirm, since it closes the RFP and puts the
-// vendor on the event and its orders.
+// vendor on the event and its orders (which needs VENDORS write too).
 export function AwardQuoteButton({ action, resource, onRfp }: { action: () => Promise<void>; resource: PermissionResource; onRfp: boolean }) {
   const canWrite = useCanWrite(resource);
+  const canAssign = useCanWrite("VENDORS");
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
-  if (!canWrite) return null;
+  if (!canWrite || !canAssign) return null;
   if (!confirming) {
     return (
       <button type="button" onClick={() => setConfirming(true)} className={btnPrimary}>
