@@ -22,10 +22,9 @@ import {
 } from "@/lib/hotels";
 import { LEAD_SOURCE_DIRECT, NEW_HOTEL, NEW_HOTEL_FIELDS } from "./proposalArgs";
 import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
-import type { GridNight } from "./RoomGrid";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
 import { AmenityEditor, type ProposalAmenity } from "./ProposalAmenities";
-import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "./RoomGridEditor";
+import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState, type StoredNight } from "./RoomGridEditor";
 
 export type ProposalValues = {
   venueId: string;
@@ -48,7 +47,7 @@ export type ProposalValues = {
   // The amenities the offer states (Confirmed / Unavailable); the hotel's
   // profile covers the rest.
   amenities: ProposalAmenity[];
-  nights: GridNight[];
+  nights: StoredNight[];
   charges: { chargeType: string; amount: string | null; scope: HotelChargeScope | null }[];
 };
 
@@ -150,7 +149,7 @@ export type ProposalTemplate = {
   contractType: HotelContractType;
   guestType: string | null;
   status: string | null;
-  nights: GridNight[];
+  nights: StoredNight[];
 };
 
 // The RFP blocks an emailed offer could answer, each with its concessions
