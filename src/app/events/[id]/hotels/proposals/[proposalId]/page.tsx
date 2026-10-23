@@ -12,6 +12,7 @@ import { getEvent } from "@/app/events/event";
 import Link from "next/link";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { stageOf } from "@/lib/hotels";
+import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { hasPermission } from "@/lib/permissions";
 import { addVenueAmenity } from "@/app/venues/actions";
 import { CreateBlockButton } from "../../../../hotels/CreateBlockButton";
@@ -116,6 +117,8 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
               return { id: c.id, label: c.label, value: c.value, required: c.required, offered: answer?.offered ?? null, met: answer?.met ?? null };
             })}
             offeredConcessions={proposal.concessions.flatMap((c) => (c.concessionId ? [] : [{ label: c.label ?? "", offered: c.offered }]))}
+            spaceRequests={meetingRequests(proposal.rfp?.spaceRequests ?? [])}
+            mealTypes={rfpMealTypes(proposal.rfp?.spaceRequests ?? [])}
             choices={choices}
             addAmenityToHotel={canEditHotel ? addAmenityAction : undefined}
             action={updateAction}

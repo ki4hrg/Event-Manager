@@ -178,7 +178,7 @@ Output: structured output (`output_config.format`) with a JSON schema for
 | `PICKUP_GUESTS` (spreadsheet) | **column mapping**: header → field, which status values mean cancelled, room-type map | the CSV wizard's mapping (moved to `src/lib/pickupMapping.ts`), then `importPickupGuestsCore` (MERGE) |
 | `PICKUP_GUESTS` (PDF) | guest rows | `importPickupGuestsCore` (MERGE) |
 | `PICKUP_COUNTS` | night × room type → rooms | `savePickupCountsCore` |
-| `RFP_PROPOSAL` | proposal fields, night grid, rates, concession answers | `createHotelProposalCore` with `rfpId` / `rfpBlockId` |
+| `RFP_PROPOSAL` | proposal fields, night grid, rates, guest charges, concession answers; then, in a third call when the classify step flags meeting space or F&B (`eventSpace`), each offer's function space (answers to the RFP's meeting space requests, rental and its waiver), meeting space charges, F&B terms and meal prices — one schema with both is too large to compile | `createHotelProposalCore` with `rfpId` / `rfpBlockId` |
 | `RFP_DECLINE` | reason | `updateRfpRecipientCore` (`declinedToBid`, notes) |
 | `OTHER` | summary | nothing; file the attachments or dismiss |
 

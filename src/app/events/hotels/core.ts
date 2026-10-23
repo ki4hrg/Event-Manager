@@ -2,16 +2,18 @@
 // src/app/contacts/core.ts for the rationale.
 //
 // A proposal is replaced whole on save: its nightly room grid and charges are
-// rewritten in the same transaction. Every save also refreshes the
-// HotelProposalVersion row for the current revision, so earlier revisions stay
-// frozen and the current one always matches the proposal.
+// rewritten in the same transaction (its function space, meal prices and
+// meeting space charges too, when the save carries them). Every save also
+// refreshes the HotelProposalVersion row for the current revision, so earlier
+// revisions stay frozen and the current one always matches the proposal.
 
-import type { AmenityStatus, ConcessionMet, HotelChargeScope, HotelContractType, Prisma } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope, HotelContractType, HotelWaiverType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
 import { offerOutcomes, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
+import { spaceSummary } from "@/lib/rfp/proposalSpace";
 import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
 
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
@@ -21,6 +23,25 @@ export type ProposalConcessionArgs = { concessionId: string; offered: string | n
 export type ProposalOfferedConcessionArgs = { label: string; offered: string | null };
 // An amenity the offer confirms or says is unavailable (hotel_amenity label).
 export type ProposalAmenityArgs = { label: string; status: AmenityStatus; note: string | null };
+// A room offered for one of the RFP's meeting space requests, or unasked
+// (spaceRequestId null; name is then the room or function it's for).
+export type ProposalSpaceArgs = {
+  spaceRequestId: string | null;
+  name: string;
+  room: string | null;
+  capacity: number | null;
+  hold24: boolean | null;
+  rental: number | null;
+  rentalScope: HotelChargeScope | null;
+  // What the rental is waived with: F&B spend, room nights or other, how
+  // much, and per day / night / stay.
+  waiverType?: HotelWaiverType | null;
+  waiverAmount?: number | null;
+  waiverScope?: HotelChargeScope | null;
+  note: string | null;
+};
+// Average per-person price for a meal type.
+export type ProposalMealArgs = { mealType: string; price: number | null };
 
 export type ProposalWriteArgs = {
   venueId: string;
@@ -45,7 +66,18 @@ export type ProposalWriteArgs = {
   // The amenities the offer states; the hotel's profile covers the rest.
   amenities: ProposalAmenityArgs[];
   nights: ProposalNightArgs[];
+  // Guest charges (resort fee, parking, breakfast).
   charges: ProposalChargeArgs[];
+  // Optional below: undefined leaves what the proposal has.
+  // Meeting space charges (rental, AV) not tied to one room.
+  meetingCharges?: ProposalChargeArgs[];
+  spaces?: ProposalSpaceArgs[];
+  fbMinimum?: number | null;
+  fbMinimumScope?: HotelChargeScope | null;
+  fbMinimumNote?: string | null; // what it applies to: "waives meeting room rental"
+  fbTaxRate?: number | null; // percent
+  fbServiceCharge?: number | null; // percent
+  meals?: ProposalMealArgs[];
   // Create only: the requested RFP block this offer answers.
   rfpBlockId?: string | null;
   // Answers to the RFP's concessions; undefined leaves them as they are.
@@ -78,7 +110,29 @@ export type ProposalSnapshot = {
   // snapshots taken before concessions were versioned.
   concessions?: { label: string; offered: string | null; met: ConcessionMet | null }[];
   nights: { roomType: string | null; night: string; rate: string | null; rooms: number | null }[];
+  // Guest charges; snapshots taken before meeting space charges were split
+  // out hold every charge here, and none of the fields below.
   charges: { chargeType: string; amount: string | null; scope: HotelChargeScope | null }[];
+  meetingCharges?: { chargeType: string; amount: string | null; scope: HotelChargeScope | null }[];
+  spaces?: {
+    spaceRequestId: string | null;
+    name: string;
+    room: string | null;
+    capacity: number | null;
+    hold24: boolean | null;
+    rental: string | null;
+    rentalScope: HotelChargeScope | null;
+    waiverType?: HotelWaiverType | null;
+    waiverAmount?: string | null;
+    waiverScope?: HotelChargeScope | null;
+    note: string | null;
+  }[];
+  fbMinimum?: string | null;
+  fbMinimumScope?: HotelChargeScope | null;
+  fbMinimumNote?: string | null;
+  fbTaxRate?: string | null;
+  fbServiceCharge?: string | null;
+  meals?: { mealType: string; price: string | null }[];
 };
 
 export type ProposalChange = { field: string; from: string | null; to: string | null };
@@ -112,6 +166,15 @@ function validate(args: ProposalWriteArgs) {
   if (args.validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(args.validUntil)) throw new Error(`Invalid date: ${args.validUntil}`);
   if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn) throw new Error("Check-out must be after check-in");
   if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn) throw new Error("Valid until can't be before the submitted date");
+  if (args.fbMinimum != null && args.fbMinimum < 0) throw new Error("F&B minimum cannot be negative");
+  for (const [v, label] of [[args.fbTaxRate, "F&B tax"], [args.fbServiceCharge, "Service charge"]] as const) {
+    if (v != null && (v < 0 || v > 100)) throw new Error(`${label} must be between 0 and 100`);
+  }
+  for (const r of args.spaces ?? []) {
+    if (r.capacity != null && (!Number.isInteger(r.capacity) || r.capacity < 0)) throw new Error("Capacity must be a whole number");
+    if (r.rental != null && r.rental < 0) throw new Error("Rental cannot be negative");
+    if (r.waiverAmount != null && r.waiverAmount < 0) throw new Error("A waiver amount cannot be negative");
+  }
   const keys = new Set(nightKeys(args.checkIn, args.checkOut));
   for (const n of args.nights) {
     if (!keys.has(n.night)) throw new Error(`Night ${n.night} is outside the stay`);
@@ -131,9 +194,9 @@ function nightRows(args: ProposalWriteArgs) {
 }
 
 function chargeRows(args: ProposalWriteArgs) {
-  return args.charges
-    .filter((c) => c.chargeType.trim())
-    .map((c, i) => ({ chargeType: c.chargeType.trim(), amount: c.amount, scope: c.scope, sortOrder: i }));
+  const rows = (list: ProposalChargeArgs[], kind: HotelChargeKind) =>
+    list.filter((c) => c.chargeType.trim()).map((c, i) => ({ chargeType: c.chargeType.trim(), amount: c.amount, scope: c.scope, kind, sortOrder: i }));
+  return [...rows(args.charges, "GUEST"), ...rows(args.meetingCharges ?? [], "MEETING")];
 }
 
 function scalarData(args: ProposalWriteArgs) {
@@ -155,15 +218,27 @@ function scalarData(args: ProposalWriteArgs) {
     guaranteedRevenue: args.guaranteedRevenue,
     validUntil: args.validUntil ? dateFromKey(args.validUntil) : null,
     taxIncluded: args.taxIncluded,
+    fbMinimum: args.fbMinimum,
+    fbMinimumScope: args.fbMinimumScope,
+    fbMinimumNote: args.fbMinimumNote === undefined ? undefined : args.fbMinimumNote?.trim() || null,
+    fbTaxRate: args.fbTaxRate,
+    fbServiceCharge: args.fbServiceCharge,
   };
 }
 
-const snapshotInclude = {
+// What toProposalValues / writeArgsOf read from a proposal.
+export const proposalValuesInclude = {
   venue: { select: { name: true } },
-  leadSourceVendor: { select: { name: true } },
   nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
   charges: { orderBy: { sortOrder: "asc" } },
   amenities: { orderBy: { sortOrder: "asc" } },
+  spaces: { orderBy: { sortOrder: "asc" } },
+  meals: { orderBy: { sortOrder: "asc" } },
+} as const satisfies Prisma.HotelProposalInclude;
+
+const snapshotInclude = {
+  ...proposalValuesInclude,
+  leadSourceVendor: { select: { name: true } },
   concessions: { include: { concession: { select: { label: true } } } },
 } as const satisfies Prisma.HotelProposalInclude;
 
@@ -193,9 +268,32 @@ export function snapshotOf(p: ProposalWithChildren): ProposalSnapshot {
       .map((c) => ({ label: c.concession?.label ?? c.label ?? "", offered: c.offered, met: c.met }))
       .sort((a, b) => a.label.localeCompare(b.label)),
     nights: p.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rate: dec(n.rate), rooms: n.rooms })),
-    charges: p.charges.map((c) => ({ chargeType: c.chargeType, amount: dec(c.amount), scope: c.scope })),
+    charges: chargesOf(p.charges, "GUEST"),
+    meetingCharges: chargesOf(p.charges, "MEETING"),
+    spaces: p.spaces.map((r) => ({
+      spaceRequestId: r.spaceRequestId,
+      name: r.name,
+      room: r.room,
+      capacity: r.capacity,
+      hold24: r.hold24,
+      rental: dec(r.rental),
+      rentalScope: r.rentalScope,
+      waiverType: r.waiverType,
+      waiverAmount: dec(r.waiverAmount),
+      waiverScope: r.waiverScope,
+      note: r.note,
+    })),
+    fbMinimum: dec(p.fbMinimum),
+    fbMinimumScope: p.fbMinimumScope,
+    fbMinimumNote: p.fbMinimumNote,
+    fbTaxRate: dec(p.fbTaxRate),
+    fbServiceCharge: dec(p.fbServiceCharge),
+    meals: p.meals.map((m) => ({ mealType: m.mealType, price: dec(m.price) })),
   };
 }
+
+const chargesOf = (charges: ProposalWithChildren["charges"], kind: HotelChargeKind) =>
+  charges.filter((c) => c.kind === kind).map((c) => ({ chargeType: c.chargeType, amount: dec(c.amount), scope: c.scope }));
 
 const FIELD_LABELS: [keyof ProposalSnapshot, string][] = [
   ["venueName", "Hotel"],
@@ -211,7 +309,23 @@ const FIELD_LABELS: [keyof ProposalSnapshot, string][] = [
   ["guaranteedRevenue", "Guaranteed revenue"],
   ["validUntil", "Valid until"],
   ["taxIncluded", "Rates include taxes"],
+  ["fbMinimum", "F&B minimum"],
+  ["fbMinimumScope", "F&B minimum scope"],
+  ["fbMinimumNote", "F&B minimum applies to"],
+  ["fbTaxRate", "F&B tax %"],
+  ["fbServiceCharge", "Service charge %"],
 ];
+
+// Each key's from → to, over the keys either side has.
+function mapChanges(prefix: string, before: Map<string, string | null>, after: Map<string, string | null>): ProposalChange[] {
+  return Array.from(new Set([...Array.from(before.keys()), ...Array.from(after.keys())]))
+    .sort()
+    .flatMap((key) => {
+      const from = before.get(key) ?? null;
+      const to = after.get(key) ?? null;
+      return from === to ? [] : [{ field: `${prefix}: ${key}`, from, to }];
+    });
+}
 
 const show = (v: unknown): string | null => (v == null || v === "" ? null : typeof v === "boolean" ? (v ? "Yes" : "No") : String(v));
 
@@ -264,13 +378,22 @@ export function diffSnapshots(prev: ProposalSnapshot, next: ProposalSnapshot): P
   }
 
   const charge = (c: ProposalSnapshot["charges"][number]) => [c.amount != null ? `$${c.amount}` : null, c.scope].filter(Boolean).join(" ") || "—";
-  const chargeMap = (s: ProposalSnapshot) => new Map(s.charges.map((c) => [c.chargeType, charge(c)]));
-  const cBefore = chargeMap(prev);
-  const cAfter = chargeMap(next);
-  for (const key of Array.from(new Set([...Array.from(cBefore.keys()), ...Array.from(cAfter.keys())])).sort()) {
-    const from = cBefore.get(key) ?? null;
-    const to = cAfter.get(key) ?? null;
-    if (from !== to) changes.push({ field: `Charge: ${key}`, from, to });
+  const chargeMap = (list: ProposalSnapshot["charges"]) => new Map(list.map((c) => [c.chargeType, charge(c)]));
+  // Against a snapshot from before meeting space charges were split out,
+  // every charge is compared as one list, so a moved charge isn't a change.
+  if (prev.meetingCharges) {
+    changes.push(...mapChanges("Charge", chargeMap(prev.charges), chargeMap(next.charges)));
+    changes.push(...mapChanges("Meeting charge", chargeMap(prev.meetingCharges), chargeMap(next.meetingCharges ?? [])));
+  } else {
+    changes.push(...mapChanges("Charge", chargeMap(prev.charges), chargeMap([...next.charges, ...(next.meetingCharges ?? [])])));
+  }
+  if (prev.spaces && next.spaces) {
+    const spaceMap = (list: NonNullable<ProposalSnapshot["spaces"]>) => new Map(list.map((r) => [r.name, spaceSummary(r)]));
+    changes.push(...mapChanges("Space", spaceMap(prev.spaces), spaceMap(next.spaces)));
+  }
+  if (prev.meals && next.meals) {
+    const mealMap = (list: NonNullable<ProposalSnapshot["meals"]>) => new Map(list.map((m) => [m.mealType, m.price != null ? `$${m.price}` : null]));
+    changes.push(...mapChanges("Meal", mealMap(prev.meals), mealMap(next.meals)));
   }
   return changes;
 }
@@ -318,6 +441,51 @@ async function writeOfferedConcessions(tx: Prisma.TransactionClient, proposalId:
     .filter((c) => c.label && !seen.has(c.label.toLowerCase()) && seen.add(c.label.toLowerCase()));
   await tx.hotelProposalConcession.deleteMany({ where: { proposalId, concessionId: null } });
   await tx.hotelProposalConcession.createMany({ data: kept.map((c, i) => ({ proposalId, ...c, sortOrder: i })) });
+}
+
+// Rewrites a proposal's function space rows. Requested rows answer the
+// meeting space requests of the RFP the proposal answers, one each.
+async function writeSpaces(tx: Prisma.TransactionClient, proposalId: string, rfpId: string | null, rows: ProposalSpaceArgs[] | undefined) {
+  if (rows === undefined) return;
+  const kept = rows.filter((r) => r.name.trim());
+  const ids = kept.flatMap((r) => (r.spaceRequestId ? [r.spaceRequestId] : []));
+  if (new Set(ids).size !== ids.length) throw new Error("A meeting space request is answered once");
+  if (ids.length) {
+    if (!rfpId) throw new Error("Only a proposal answering an RFP answers its meeting space requests");
+    if ((await tx.rfpSpaceRequest.count({ where: { id: { in: ids }, rfpId, kind: "MEETING" } })) !== ids.length) {
+      throw new PermissionError("NOT_FOUND", "Meeting space request not found");
+    }
+  }
+  await tx.hotelProposalSpace.deleteMany({ where: { proposalId } });
+  await tx.hotelProposalSpace.createMany({
+    data: kept.map((r, i) => ({
+      proposalId,
+      spaceRequestId: r.spaceRequestId,
+      name: r.name.trim(),
+      room: r.room?.trim() || null,
+      capacity: r.capacity,
+      hold24: r.hold24,
+      rental: r.rental,
+      rentalScope: r.rentalScope,
+      waiverType: r.waiverType ?? null,
+      waiverAmount: r.waiverType ? (r.waiverAmount ?? null) : null,
+      waiverScope: r.waiverType ? (r.waiverScope ?? null) : null,
+      note: r.note?.trim() || null,
+      sortOrder: i,
+    })),
+  });
+}
+
+// Rewrites a proposal's meal prices, in order (one per meal type, priced only).
+async function writeMeals(tx: Prisma.TransactionClient, proposalId: string, rows: ProposalMealArgs[] | undefined) {
+  if (rows === undefined) return;
+  const seen = new Set<string>();
+  const kept = rows
+    .map((m) => ({ mealType: m.mealType.trim(), price: m.price }))
+    .filter((m) => m.mealType && m.price != null && !seen.has(m.mealType.toLowerCase()) && seen.add(m.mealType.toLowerCase()));
+  if (kept.some((m) => m.price! < 0)) throw new Error("A meal price cannot be negative");
+  await tx.hotelProposalMeal.deleteMany({ where: { proposalId } });
+  await tx.hotelProposalMeal.createMany({ data: kept.map((m, i) => ({ proposalId, ...m, sortOrder: i })) });
 }
 
 // Rewrites the amenities a proposal states, in order (one per label).
@@ -392,6 +560,8 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
       },
     });
     await writeConcessions(tx, proposal.id, rfpBlock?.rfpId ?? null, args.concessions);
+    await writeSpaces(tx, proposal.id, rfpBlock?.rfpId ?? null, args.spaces);
+    await writeMeals(tx, proposal.id, args.meals);
     await writeOfferedConcessions(tx, proposal.id, offeredConcessions);
     await writeAmenities(tx, proposal.id, amenities);
     await recordVersion(tx, proposal.id, args.revisionSummary, userId);
@@ -409,7 +579,7 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
   const { amenities, offeredConcessions } = await listLabels(eventId, args, id);
   return prisma.$transaction(async (tx) => {
     await tx.hotelProposalNight.deleteMany({ where: { proposalId: id } });
-    await tx.hotelCharge.deleteMany({ where: { proposalId: id } });
+    await tx.hotelCharge.deleteMany({ where: { proposalId: id, kind: args.meetingCharges === undefined ? "GUEST" : undefined } });
     const proposal = await tx.hotelProposal.update({
       where: { id, eventId },
       data: {
@@ -420,6 +590,8 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
       },
     });
     await writeConcessions(tx, id, existing.rfpId, args.concessions);
+    await writeSpaces(tx, id, existing.rfpId, args.spaces);
+    await writeMeals(tx, id, args.meals);
     await writeOfferedConcessions(tx, id, offeredConcessions);
     await writeAmenities(tx, id, amenities);
     await recordVersion(tx, id, args.revisionSummary, userId);
@@ -485,6 +657,28 @@ export function toProposalValues(
     revision: p.revision,
     validUntil: day(p.validUntil),
     taxIncluded: p.taxIncluded,
+  };
+}
+
+// The write args that save a loaded proposal back unchanged, for callers that
+// change a few fields (MCP partial updates, a contract applied to it).
+export function writeArgsOf(p: Parameters<typeof toProposalValues>[0]): ProposalWriteArgs {
+  const v = toProposalValues(p);
+  const n = (x: string | null | undefined) => (x == null ? null : Number(x));
+  const charges = (list: ProposalSnapshot["charges"]) => list.map((c) => ({ ...c, amount: n(c.amount) }));
+  return {
+    ...v,
+    revisionSummary: null,
+    allowedAttrition: n(v.allowedAttrition),
+    guaranteedRevenue: n(v.guaranteedRevenue),
+    nights: v.nights.map((x) => ({ ...x, rate: n(x.rate) })),
+    charges: charges(v.charges),
+    meetingCharges: charges(v.meetingCharges ?? []),
+    spaces: (v.spaces ?? []).map((r) => ({ ...r, rental: n(r.rental), waiverAmount: n(r.waiverAmount) })),
+    fbMinimum: n(v.fbMinimum),
+    fbTaxRate: n(v.fbTaxRate),
+    fbServiceCharge: n(v.fbServiceCharge),
+    meals: (v.meals ?? []).map((m) => ({ ...m, price: n(m.price) })),
   };
 }
 

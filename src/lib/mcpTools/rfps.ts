@@ -29,7 +29,7 @@ import {
 } from "@/app/events/rfps/core";
 import { getQuoteComparisonCore } from "@/app/events/quotes/core";
 import { createHotelProposalCore, type ProposalConcessionArgs, type ProposalWriteArgs } from "@/app/events/hotels/core";
-import { readProposalAmenities } from "./hotels";
+import { chargeSchema, checkProposalExtras, nameRequestedSpaces, proposalSpaceProps, readProposalAmenities } from "./hotels";
 import type { McpToolDefinition } from "./types";
 import { partialBoolean, partialInt, partialString, requireString } from "./types";
 
@@ -645,7 +645,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "record_rfp_response",
     description:
-      "Record a hotel's proposal in answer to one requested RFP block. Starts from the block (stay dates, room grid, block type) and the first Pending proposal status; any proposal field given overrides it (nights with rates, attrition, charges…). concessions answers the RFP's concessions (one the hotel's profile covers — an amenity of the same label, e.g. Complimentary Breakfast — starts MET unless answered or the offer's amenities say it's UNAVAILABLE); offeredConcessions lists ones it offers unasked (rfp_concession labels). The hotel is added to the RFP's recipients if it wasn't. Returns the new proposal; edit it later with update_hotel_proposal.",
+      "Record a hotel's proposal in answer to one requested RFP block. Starts from the block (stay dates, room grid, block type) and the first Pending proposal status; any proposal field given overrides it (nights with rates, attrition, guest and meeting space charges, function space answering the RFP's meeting space requests, F&B terms…). concessions answers the RFP's concessions (one the hotel's profile covers — an amenity of the same label, e.g. Complimentary Breakfast — starts MET unless answered or the offer's amenities say it's UNAVAILABLE); offeredConcessions lists ones it offers unasked (rfp_concession labels). The hotel is added to the RFP's recipients if it wasn't. Returns the new proposal; edit it later with update_hotel_proposal.",
     inputSchema: {
       type: "object",
       properties: {
@@ -675,6 +675,12 @@ export const rfpTools: McpToolDefinition[] = [
           },
         },
         notes: { type: ["string", "null"] },
+        charges: {
+          type: "array",
+          description: "Guest charges (resort fee, parking, breakfast).",
+          items: chargeSchema,
+        },
+        ...proposalSpaceProps,
         concessions: {
           type: "array",
           items: {
@@ -695,6 +701,8 @@ export const rfpTools: McpToolDefinition[] = [
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
       await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+      checkProposalExtras({ ...args, meetingCharges: [...((args.charges as unknown[]) ?? []), ...((args.meetingCharges as unknown[]) ?? [])] });
+      await nameRequestedSpaces(args);
       const block = await prisma.rfpHotelBlock.findFirst({
         where: { id: requireString(args, "rfpBlockId"), rfp: { eventId } },
         include: {
@@ -757,7 +765,15 @@ export const rfpTools: McpToolDefinition[] = [
               rate: typeof n.rate === "number" ? n.rate : null,
             }))
           : block.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rooms: n.rooms, rate: null })),
-        charges: [],
+        charges: (args.charges as ProposalWriteArgs["charges"] | undefined) ?? [],
+        meetingCharges: args.meetingCharges as ProposalWriteArgs["meetingCharges"],
+        spaces: args.spaces as ProposalWriteArgs["spaces"],
+        fbMinimum: typeof args.fbMinimum === "number" ? args.fbMinimum : null,
+        fbMinimumScope: (args.fbMinimumScope ?? null) as ProposalWriteArgs["fbMinimumScope"],
+        fbMinimumNote: str("fbMinimumNote") ?? null,
+        fbTaxRate: typeof args.fbTaxRate === "number" ? args.fbTaxRate : null,
+        fbServiceCharge: typeof args.fbServiceCharge === "number" ? args.fbServiceCharge : null,
+        meals: args.meals as ProposalWriteArgs["meals"],
         rfpBlockId: block.id,
         concessions: concessions || profileMet.length ? [...(concessions ?? []), ...profileMet] : undefined,
         offeredConcessions: Array.isArray(args.offeredConcessions)

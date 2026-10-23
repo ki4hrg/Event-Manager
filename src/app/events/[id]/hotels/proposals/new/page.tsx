@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { dateFromKey, dateKey } from "@/lib/hotels";
+import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { getEvent } from "@/app/events/event";
@@ -31,7 +32,7 @@ export default async function NewProposalPage({
           where: { id: rfpBlockId, rfp: { eventId } },
           include: {
             nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
-            rfp: { select: { concessions: { orderBy: { sortOrder: "asc" } } } },
+            rfp: { select: { concessions: { orderBy: { sortOrder: "asc" } }, spaceRequests: { orderBy: { sortOrder: "asc" } } } },
           },
         })
       : null,
@@ -85,6 +86,8 @@ export default async function NewProposalPage({
             offered: null,
             met: null,
           }))}
+          spaceRequests={meetingRequests(rfpBlock?.rfp.spaceRequests ?? [])}
+          mealTypes={rfpMealTypes(rfpBlock?.rfp.spaceRequests ?? [])}
           defaultVenueId={choices.venues.some((v) => v.id === venueId) ? venueId : undefined}
           canAddHotel={canAddHotel}
           action={createAction}

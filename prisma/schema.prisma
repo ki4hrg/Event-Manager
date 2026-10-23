@@ -2492,6 +2492,20 @@ enum HotelChargeScope {
   PER_PERSON_PER_DAY
 }
 
+// What a meeting room's rental is waived with.
+enum HotelWaiverType {
+  FB_SPEND
+  ROOM_NIGHTS
+  OTHER
+}
+
+// What a proposal charge is for: the group's guests (resort fee, parking,
+// breakfast) or its meeting space (rental, AV). Blocks hold guest charges.
+enum HotelChargeKind {
+  GUEST
+  MEETING
+}
+
 model HotelProposal {
   id                  String                    @id @default(cuid())
   eventId             String
@@ -2524,6 +2538,19 @@ model HotelProposal {
   validUntil          DateTime?                 @db.Date
   // Whether the quoted rates include taxes and fees; null = not stated.
   taxIncluded         Boolean?
+  // F&B terms, answering the RFP's F&B minimum and response form: the minimum
+  // (per day or for the stay) and what it applies to ("waives meeting room
+  // rental"), and the hotel's standard tax and service charge, percent.
+  fbMinimum           Decimal?                  @db.Decimal(10, 2)
+  fbMinimumScope      HotelChargeScope?
+  fbMinimumNote       String?
+  fbTaxRate           Decimal?                  @db.Decimal(5, 2)
+  fbServiceCharge     Decimal?                  @db.Decimal(5, 2)
+  // Average per-person price by meal type.
+  meals               HotelProposalMeal[]
+  // The function space offered: answers to the RFP's meeting space requests,
+  // and rooms offered unasked.
+  spaces              HotelProposalSpace[]
   // Amenities this offer confirms or says are unavailable; the rest are the
   // hotel's profile, unstated.
   amenities           HotelProposalAmenity[]
@@ -2552,6 +2579,46 @@ model HotelProposal {
   @@index([leadSourceContactId])
 }
 
+// One function space row of a proposal: the room the hotel offers for one of
+// the RFP's meeting space requests (spaceRequestId), or a room it offers
+// unasked. name keeps the request's function name if the request goes.
+model HotelProposalSpace {
+  id             String            @id @default(cuid())
+  proposalId     String
+  proposal       HotelProposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  spaceRequestId String?
+  spaceRequest   RfpSpaceRequest?  @relation(fields: [spaceRequestId], references: [id], onDelete: SetNull)
+  name           String
+  room           String?
+  capacity       Int?
+  hold24         Boolean? // 24-hour hold available; null = not stated
+  rental         Decimal?          @db.Decimal(10, 2)
+  rentalScope    HotelChargeScope?
+  // The rental is waived with this much F&B spend, room nights or other
+  // business (per day / per night / per stay); the note covers the rest.
+  waiverType     HotelWaiverType?
+  waiverAmount   Decimal?          @db.Decimal(10, 2)
+  waiverScope    HotelChargeScope?
+  note           String?
+  sortOrder      Int               @default(0)
+
+  @@unique([proposalId, spaceRequestId])
+  @@index([spaceRequestId])
+}
+
+// A proposal's average per-person F&B price for one meal type (a meal_type
+// label, or the RFP's F&B function name when it has no type).
+model HotelProposalMeal {
+  id         String        @id @default(cuid())
+  proposalId String
+  proposal   HotelProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  mealType   String
+  price      Decimal?      @db.Decimal(10, 2)
+  sortOrder  Int           @default(0)
+
+  @@index([proposalId])
+}
+
 model HotelProposalNight {
   id         String        @id @default(cuid())
   proposalId String
@@ -2573,6 +2640,7 @@ model HotelCharge {
   chargeType String
   amount     Decimal?          @db.Decimal(10, 2)
   scope      HotelChargeScope?
+  kind       HotelChargeKind   @default(GUEST)
   sortOrder  Int               @default(0)
 
   @@index([proposalId])
@@ -2832,17 +2900,17 @@ enum RfpSpaceKind {
 // (functionId / cateringOrderId remember which) or entered by hand. Times are
 // event-local "HH:MM".
 model RfpSpaceRequest {
-  id              String         @id @default(cuid())
+  id              String               @id @default(cuid())
   rfpId           String
-  rfp             Rfp            @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  rfp             Rfp                  @relation(fields: [rfpId], references: [id], onDelete: Cascade)
   kind            RfpSpaceKind
   functionId      String?
-  function        Function?      @relation(fields: [functionId], references: [id], onDelete: SetNull)
+  function        Function?            @relation(fields: [functionId], references: [id], onDelete: SetNull)
   cateringOrderId String?
-  cateringOrder   CateringOrder? @relation(fields: [cateringOrderId], references: [id], onDelete: SetNull)
-  day             DateTime?      @db.Date // null = not scheduled yet
+  cateringOrder   CateringOrder?       @relation(fields: [cateringOrderId], references: [id], onDelete: SetNull)
+  day             DateTime?            @db.Date // null = not scheduled yet
   // Repeats daily through this day (same times), or spans to it with a 24-hr hold.
-  endDay          DateTime?      @db.Date
+  endDay          DateTime?            @db.Date
   startTime       String?
   endTime         String?
   // function_type label for MEETING rows, meal_type label for FB rows.
@@ -2852,9 +2920,10 @@ model RfpSpaceRequest {
   setup           String? // setup_type option label
   areaSqFt        Int?
   av              String?
-  hold24          Boolean        @default(false)
+  hold24          Boolean              @default(false)
   room            String?
-  sortOrder       Int            @default(0)
+  sortOrder       Int                  @default(0)
+  proposalSpaces  HotelProposalSpace[]
 
   @@index([rfpId])
   @@index([functionId])
