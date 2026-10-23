@@ -23,6 +23,17 @@ import {
 } from "@/lib/hotels";
 import { LEAD_SOURCE_DIRECT, NEW_HOTEL, NEW_HOTEL_FIELDS } from "./proposalArgs";
 import { StatusCycle, type StatusCycleOption } from "@/components/ui/StatusCycle";
+import {
+  BLANK_SPACE,
+  mealRows,
+  spaceAnswers,
+  spaceArgs,
+  WAIVER_TYPES,
+  type SpaceAnswer,
+  type SpaceRequestDoc,
+  type StoredSpace,
+} from "@/lib/rfp/proposalSpace";
+import type { HotelWaiverType } from "@prisma/client";
 import { ConcessionOptions } from "../rfps/RfpConcessionsEditor";
 import { AmenityEditor, type ProposalAmenity } from "./ProposalAmenities";
 import { gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState, type StoredNight } from "./RoomGridEditor";
@@ -49,8 +60,19 @@ export type ProposalValues = {
   // profile covers the rest.
   amenities: ProposalAmenity[];
   nights: StoredNight[];
-  charges: { chargeType: string; amount: string | null; scope: HotelChargeScope | null }[];
+  charges: ChargeValue[];
+  // Absent: a form source without them (left as the proposal has them).
+  meetingCharges?: ChargeValue[];
+  spaces?: StoredSpace[];
+  fbMinimum?: string | null;
+  fbMinimumScope?: HotelChargeScope | null;
+  fbMinimumNote?: string | null;
+  fbTaxRate?: string | null;
+  fbServiceCharge?: string | null;
+  meals?: { mealType: string; price: string | null }[];
 };
+
+type ChargeValue = { chargeType: string; amount: string | null; scope: HotelChargeScope | null };
 
 export type ProposalChoices = {
   // amenities: the hotel's profile.
@@ -61,6 +83,7 @@ export type ProposalChoices = {
   roomTypes: string[];
   guestTypes: string[];
   amenities: string[];
+  mealTypes: string[];
   // Vendors tagged LEAD_SOURCE (CVBs, third-party planners), with their contacts.
   leadSources: { id: string; name: string; contacts: { id: string; name: string }[] }[];
 };
@@ -105,6 +128,243 @@ function OptionSelect({ id, name, value, options }: { id: string; name: string; 
         </option>
       ))}
     </select>
+  );
+}
+
+type ChargeRow = { chargeType: string; amount: string; scope: HotelChargeScope | "" };
+
+const chargeRowsOf = (list: ChargeValue[] | undefined): ChargeRow[] => (list ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" }));
+
+const chargesJsonOf = (rows: ChargeRow[]) =>
+  JSON.stringify(
+    rows.filter((c) => c.chargeType.trim()).map((c) => ({ chargeType: c.chargeType, amount: c.amount !== "" ? Number(c.amount) : null, scope: c.scope || null })),
+  );
+
+function ScopeSelect({ label, value, onChange, name }: { label: string; value?: HotelChargeScope | ""; onChange?: (v: HotelChargeScope | "") => void; name?: string }) {
+  return (
+    <select
+      aria-label={label}
+      name={name}
+      value={onChange ? value : undefined}
+      defaultValue={onChange ? undefined : value}
+      onChange={onChange ? (e) => onChange(e.target.value as HotelChargeScope | "") : undefined}
+      className={inlineInputClass}
+    >
+      <option value="">—</option>
+      {CHARGE_SCOPES.map((s) => (
+        <option key={s.value} value={s.value}>
+          {s.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function ChargeList({ label, placeholder, rows, onChange }: { label: string; placeholder: string; rows: ChargeRow[]; onChange: (rows: ChargeRow[]) => void }) {
+  const set = (i: number, patch: Partial<ChargeRow>) => onChange(rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  return (
+    <div>
+      <p className={labelClass}>{label}</p>
+      <div className="mt-1 space-y-2">
+        {rows.map((c, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2">
+            <input
+              aria-label="Charge"
+              placeholder={placeholder}
+              value={c.chargeType}
+              onChange={(e) => set(i, { chargeType: e.target.value })}
+              className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+            />
+            <input
+              aria-label="Amount"
+              type="number"
+              step="0.01"
+              placeholder="$"
+              value={c.amount}
+              onChange={(e) => set(i, { amount: e.target.value })}
+              className={`${inlineInputClass} w-24`}
+            />
+            <ScopeSelect label="Scope" value={c.scope} onChange={(scope) => set(i, { scope })} />
+            <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} className="text-sm text-red-600 dark:text-red-400 hover:underline">
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange([...rows, { chargeType: "", amount: "", scope: "" }])}
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          + Charge
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The function space offered: a row per RFP meeting space request (room,
+// capacity, 24-hr hold, rental), then rooms offered unasked.
+function SpaceEditor({ rows, onChange }: { rows: SpaceAnswer[]; onChange: (rows: SpaceAnswer[]) => void }) {
+  const set = (i: number, patch: Partial<SpaceAnswer>) => onChange(rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  return (
+    <div className="space-y-3">
+      {rows.map((r, i) => (
+        <div key={r.request?.id ?? `extra-${i}`} className="space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+          {r.request ? (
+            <p className="text-sm text-gray-900 dark:text-white">
+              <span className="text-gray-500 dark:text-gray-400">{r.request.when} · </span>
+              {r.request.name}
+              {r.request.asked && <span className="text-gray-500 dark:text-gray-400"> (asked {r.request.asked})</span>}
+            </p>
+          ) : (
+            <input
+              aria-label="Function"
+              placeholder="Function or room"
+              value={r.name}
+              onChange={(e) => set(i, { name: e.target.value })}
+              className={`${inlineInputClass} w-full`}
+            />
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              aria-label="Room offered"
+              placeholder="Room offered"
+              value={r.room}
+              onChange={(e) => set(i, { room: e.target.value })}
+              className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+            />
+            <input
+              aria-label="Capacity"
+              type="number"
+              min={0}
+              placeholder="Capacity"
+              value={r.capacity}
+              onChange={(e) => set(i, { capacity: e.target.value })}
+              className={`${inlineInputClass} w-28`}
+            />
+            <select
+              aria-label="24-hr hold"
+              value={r.hold24 == null ? "" : String(r.hold24)}
+              onChange={(e) => set(i, { hold24: e.target.value === "" ? null : e.target.value === "true" })}
+              className={inlineInputClass}
+            >
+              <option value="">24-hr hold —</option>
+              <option value="true">24-hr hold</option>
+              <option value="false">No 24-hr hold</option>
+            </select>
+            <input
+              aria-label="Rental"
+              type="number"
+              step="0.01"
+              min={0}
+              placeholder="Rental $"
+              value={r.rental}
+              onChange={(e) => set(i, { rental: e.target.value })}
+              className={`${inlineInputClass} w-28`}
+            />
+            <ScopeSelect label="Rental scope" value={r.rentalScope} onChange={(rentalScope) => set(i, { rentalScope })} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Rental waived with"
+              value={r.waiverType}
+              onChange={(e) => set(i, { waiverType: e.target.value as HotelWaiverType | "" })}
+              className={inlineInputClass}
+            >
+              <option value="">Not waived</option>
+              {WAIVER_TYPES.map((w) => (
+                <option key={w.value} value={w.value}>
+                  Waived with {w.label.toLowerCase()}
+                </option>
+              ))}
+            </select>
+            {r.waiverType && (
+              <>
+                <input
+                  aria-label="Waiver amount"
+                  type="number"
+                  step={r.waiverType === "ROOM_NIGHTS" ? "1" : "0.01"}
+                  min={0}
+                  placeholder={r.waiverType === "ROOM_NIGHTS" ? "Room nights" : "$"}
+                  value={r.waiverAmount}
+                  onChange={(e) => set(i, { waiverAmount: e.target.value })}
+                  className={`${inlineInputClass} w-28`}
+                />
+                <ScopeSelect label="Waiver scope" value={r.waiverScope} onChange={(waiverScope) => set(i, { waiverScope })} />
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              aria-label="Note"
+              placeholder="Note"
+              value={r.note}
+              onChange={(e) => set(i, { note: e.target.value })}
+              className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+            />
+            {!r.request && (
+              <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} className="text-sm text-red-600 dark:text-red-400 hover:underline">
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...rows, { request: null, ...BLANK_SPACE }])}
+        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        + Room
+      </button>
+    </div>
+  );
+}
+
+type MealRow = { mealType: string; price: string; asked: boolean };
+
+function MealEditor({ rows, options, onChange }: { rows: MealRow[]; options: string[]; onChange: (rows: MealRow[]) => void }) {
+  return (
+    <div>
+      <p className={labelClass}>Average price per person</p>
+      <div className="mt-1 space-y-2">
+        {rows.map((m, i) => (
+          <div key={m.mealType} className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-900 dark:text-white min-w-[10rem] flex-1">{m.mealType}</span>
+            <input
+              aria-label={`${m.mealType} price`}
+              type="number"
+              step="0.01"
+              min={0}
+              placeholder="$"
+              value={m.price}
+              onChange={(e) => onChange(rows.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))}
+              className={`${inlineInputClass} w-28`}
+            />
+            {!m.asked && (
+              <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} className="text-sm text-red-600 dark:text-red-400 hover:underline">
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+        <select
+          aria-label="Add meal"
+          value=""
+          onChange={(e) => e.target.value && onChange([...rows, { mealType: e.target.value, price: "", asked: false }])}
+          className={inlineInputClass}
+        >
+          <option value="">+ Meal</option>
+          {options
+            .filter((o) => !rows.some((m) => m.mealType.toLowerCase() === o.toLowerCase()))
+            .map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+        </select>
+      </div>
+    </div>
   );
 }
 
@@ -161,6 +421,8 @@ export type RfpChoice = {
   contractType: HotelContractType;
   guestType: string | null;
   concessions: ConcessionAnswer[];
+  spaceRequests: SpaceRequestDoc[];
+  mealTypes: string[];
 };
 
 const MET_OPTIONS: StatusCycleOption<ConcessionMet | "">[] = [
@@ -187,6 +449,8 @@ export function ProposalForm({
   canAddHotel = false,
   concessions = [],
   offeredConcessions = [],
+  spaceRequests = [],
+  mealTypes = [],
   addAmenityToHotel,
   extraFields,
   action,
@@ -206,6 +470,9 @@ export function ProposalForm({
   concessions?: ConcessionAnswer[];
   // Concessions offered unasked.
   offeredConcessions?: OfferedConcession[];
+  // The RFP's meeting space requests and the meal types it asks prices for.
+  spaceRequests?: SpaceRequestDoc[];
+  mealTypes?: string[];
   // VENUES WRITE: put an amenity the offer confirms on the hotel's profile.
   addAmenityToHotel?: (label: string) => Promise<void>;
   // Submitted with the form, above its buttons (the Inbox's attachment pick).
@@ -232,9 +499,10 @@ export function ProposalForm({
   const [checkIn, setCheckIn] = useState(initial ? initial.checkIn ?? "" : defaultCheckIn ?? "");
   const [checkOut, setCheckOut] = useState(initial ? initial.checkOut ?? "" : defaultCheckOut ?? "");
   const [grid, setGrid] = useState<GridState>(() => toGridState(initial?.nights ?? fromRfp?.nights ?? []));
-  const [charges, setCharges] = useState(
-    (initial?.charges ?? []).map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })),
-  );
+  const [charges, setCharges] = useState(() => chargeRowsOf(initial?.charges));
+  const [meetingCharges, setMeetingCharges] = useState(() => chargeRowsOf(initial?.meetingCharges));
+  const [spaces, setSpaces] = useState(() => spaceAnswers(spaceRequests, initial?.spaces ?? []));
+  const [meals, setMeals] = useState<MealRow[]>(() => mealRows(mealTypes, initial?.meals ?? []));
 
   const [rfpBlockId, setRfpBlockId] = useState(fromRfp?.rfpBlockId ?? "");
   const [leadSource, setLeadSource] = useState(initial?.leadSourceDirect ? LEAD_SOURCE_DIRECT : (initial?.leadSourceVendorId ?? ""));
@@ -259,6 +527,11 @@ export function ProposalForm({
   const rfpChoice = rfpChoices?.find((c) => c.id === rfpBlockId);
   const pickRfp = (id: string) => {
     setRfpBlockId(id);
+    // Answers to another RFP's requests carry over as rooms offered unasked;
+    // meal prices carry over too.
+    const next = rfpChoices?.find((c) => c.id === id);
+    setSpaces((prev) => spaceAnswers(next?.spaceRequests ?? [], spaceArgs(prev)));
+    setMeals((prev) => mealRows(next?.mealTypes ?? [], prev.map((m) => ({ mealType: m.mealType, price: m.price || null }))));
     // Leaving the RFP keeps what the hotel offered against its requests (not
     // what the profile answered).
     if (!id) {
@@ -287,11 +560,7 @@ export function ProposalForm({
 
   const nightsJson = JSON.stringify(gridNights(keys, grid));
   const gridOver = overNights(keys, grid).length > 0;
-  const chargesJson = JSON.stringify(
-    charges
-      .filter((c) => c.chargeType.trim())
-      .map((c) => ({ chargeType: c.chargeType, amount: c.amount !== "" ? Number(c.amount) : null, scope: c.scope || null })),
-  );
+  const mealsJson = JSON.stringify(meals.map((m) => ({ mealType: m.mealType, price: m.price !== "" ? Number(m.price) : null })));
 
   // Autosave: the form's payload is read after each render (so state-driven
   // hidden inputs are current) and kept for a save after unmount. The saved
@@ -303,7 +572,7 @@ export function ProposalForm({
   useEffect(() => {
     if (formRef.current) payload.current = new FormData(formRef.current);
   });
-  const sig = JSON.stringify([status, revision, checkIn, checkOut, grid, charges, leadSource, amenities, answers, offered]);
+  const sig = JSON.stringify([status, revision, checkIn, checkOut, grid, charges, meetingCharges, spaces, meals, leadSource, amenities, answers, offered]);
   const autosave = useAutosave(
     autosaving && canWrite ? `${formVersion}|${sig}` : "",
     async () => {
@@ -331,7 +600,10 @@ export function ProposalForm({
       )}
       <fieldset disabled={!canWrite} className="space-y-6 min-w-0">
         <input type="hidden" name="nights" value={nightsJson} />
-        <input type="hidden" name="charges" value={chargesJson} />
+        <input type="hidden" name="charges" value={chargesJsonOf(charges)} />
+        <input type="hidden" name="meetingCharges" value={chargesJsonOf(meetingCharges)} />
+        <input type="hidden" name="spaces" value={JSON.stringify(spaceArgs(spaces))} />
+        <input type="hidden" name="meals" value={mealsJson} />
         {!isEdit && rfpBlockId && <input type="hidden" name="rfpBlockId" value={rfpBlockId} />}
         {answers.length > 0 && (
           <input
@@ -507,6 +779,59 @@ export function ProposalForm({
           )}
         </Fieldset>
 
+        <Fieldset title="Function space">
+          <SpaceEditor rows={spaces} onChange={setSpaces} />
+          <ChargeList label="Meeting space charges" placeholder="AV, room rental…" rows={meetingCharges} onChange={setMeetingCharges} />
+        </Fieldset>
+
+        <Fieldset title="Food & beverage">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="p-fbMinimum" className={labelClass}>
+                F&B minimum
+              </label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <input
+                  id="p-fbMinimum"
+                  type="number"
+                  name="fbMinimum"
+                  min={0}
+                  step="0.01"
+                  placeholder="$"
+                  defaultValue={initial?.fbMinimum ?? ""}
+                  className={`${inlineInputClass} flex-1 min-w-[6rem]`}
+                />
+                <ScopeSelect label="F&B minimum scope" name="fbMinimumScope" value={initial?.fbMinimumScope ?? ""} />
+              </div>
+            </div>
+            <Field label="Minimum applies to" htmlFor="p-fbMinimumNote">
+              <input
+                id="p-fbMinimumNote"
+                name="fbMinimumNote"
+                placeholder="Waives meeting room rental"
+                defaultValue={initial?.fbMinimumNote ?? ""}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="F&B tax %" htmlFor="p-fbTaxRate">
+              <input id="p-fbTaxRate" type="number" name="fbTaxRate" min={0} max={100} step="0.01" defaultValue={initial?.fbTaxRate ?? ""} className={inputClass} />
+            </Field>
+            <Field label="Service charge %" htmlFor="p-fbServiceCharge">
+              <input
+                id="p-fbServiceCharge"
+                type="number"
+                name="fbServiceCharge"
+                min={0}
+                max={100}
+                step="0.01"
+                defaultValue={initial?.fbServiceCharge ?? ""}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+          <MealEditor rows={meals} options={choices.mealTypes} onChange={setMeals} />
+        </Fieldset>
+
         <Fieldset title="Amenities">
           <AmenityEditor
             profile={venueId === NEW_HOTEL ? [] : profileOf(venueId)}
@@ -637,58 +962,7 @@ export function ProposalForm({
               </select>
             </Field>
           </div>
-          <div>
-            <p className={labelClass}>Charges</p>
-            <div className="mt-1 space-y-2">
-              {charges.map((c, i) => (
-                <div key={i} className="flex flex-wrap items-center gap-2">
-                  <input
-                    aria-label="Charge"
-                    placeholder="Resort fee, parking…"
-                    value={c.chargeType}
-                    onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, chargeType: e.target.value } : x)))}
-                    className={`${inlineInputClass} flex-1 min-w-[10rem]`}
-                  />
-                  <input
-                    aria-label="Amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="$"
-                    value={c.amount}
-                    onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
-                    className={`${inlineInputClass} w-24`}
-                  />
-                  <select
-                    aria-label="Scope"
-                    value={c.scope}
-                    onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, scope: e.target.value as HotelChargeScope } : x)))}
-                    className={inlineInputClass}
-                  >
-                    <option value="">—</option>
-                    {CHARGE_SCOPES.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setCharges((prev) => prev.filter((_, j) => j !== i))}
-                    className="text-sm text-red-600 dark:text-red-400 hover:underline"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setCharges((prev) => [...prev, { chargeType: "", amount: "", scope: "" }])}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                + Charge
-              </button>
-            </div>
-          </div>
+          <ChargeList label="Guest charges" placeholder="Resort fee, parking…" rows={charges} onChange={setCharges} />
           <Field label="Notes" htmlFor="p-notes">
             <textarea id="p-notes" name="notes" rows={3} defaultValue={initial?.notes ?? ""} className={inputClass} />
           </Field>

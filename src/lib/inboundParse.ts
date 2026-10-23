@@ -35,12 +35,22 @@ export type ProposalOffer = {
   checkIn: string | null;
   checkOut: string | null;
   nights: { night: string; roomType: string | null; rooms: number | null; rate: number | null }[];
-  charges: { chargeType: string; amount: number | null; scope: ChargeScope | null }[];
+  // Guest charges (resort fee, parking, breakfast).
+  charges: OfferCharge[];
   allowedAttrition: number | null;
   guaranteedRevenue: number | null;
   // Older reads have neither.
   validUntil?: string | null; // rates good until / contract by
   taxIncluded?: boolean | null; // rates include taxes and fees; null = not stated
+  // Function space and F&B; older reads have none of these.
+  meetingCharges?: OfferCharge[]; // meeting space charges (AV, rental) not tied to one room
+  spaces?: OfferSpace[];
+  fbMinimum?: number | null;
+  fbMinimumScope?: ChargeScope | null;
+  fbMinimumNote?: string | null;
+  fbTaxRate?: number | null; // percent
+  fbServiceCharge?: number | null; // percent
+  meals?: { mealType: string; price: number | null }[];
   // Amenities the offer confirms or says are unavailable. Older reads hold
   // bare labels (read as confirmed): see offerAmenities.
   amenities: OfferAmenity[] | string[];
@@ -58,6 +68,25 @@ export type ProposalOffer = {
   // e.g. its own proposal PDF; the rest go on every offer's proposal. Older
   // reads have none.
   attachments?: number[];
+};
+
+export type OfferCharge = { chargeType: string; amount: number | null; scope: ChargeScope | null };
+
+// A room offered for one of the RFP's meeting space requests (spaceRequestId)
+// or unasked; name is the request's function, or the room.
+export type OfferSpace = {
+  spaceRequestId: string | null;
+  name: string;
+  room: string | null;
+  capacity: number | null;
+  hold24: boolean | null;
+  rental: number | null;
+  rentalScope: ChargeScope | null;
+  // What waives the rental: F&B spend, room nights or other. Older reads have none.
+  waiverType?: "FB_SPEND" | "ROOM_NIGHTS" | "OTHER" | null;
+  waiverAmount?: number | null;
+  waiverScope?: ChargeScope | null;
+  note: string | null;
 };
 
 export type OfferAmenity = { label: string; status: "CONFIRMED" | "UNAVAILABLE"; note: string | null };
@@ -213,6 +242,10 @@ export type ParseRfp = {
   recipients: string[]; // venue ids
   blocks: { id: string; label: string; nights: string }[];
   concessions: { id: string; label: string; value: string | null }[];
+  // Meeting space requests (when / function / what was asked) and the F&B
+  // the RFP asks hotels to price.
+  meetingSpace: { id: string; name: string; label: string }[];
+  mealTypes: string[];
 };
 
 // Vendor-side candidates: vendors a quote could come from, vendor RFPs with
@@ -285,6 +318,9 @@ const guestSchema = object({
 const int = { type: "integer" } as const;
 const num = { type: "number" } as const;
 
+const SCOPES = ["", "PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY"];
+const scope = { type: "string", enum: SCOPES } as const;
+
 const offerSchema = object({
   venueId: str,
   rfpBlockId: str,
@@ -292,10 +328,7 @@ const offerSchema = object({
   checkIn: str,
   checkOut: str,
   nights: { type: "array", items: object({ night: str, roomType: str, rooms: int, rate: num }) },
-  charges: {
-    type: "array",
-    items: object({ chargeType: str, amount: num, scope: { type: "string", enum: ["", "PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY"] } }),
-  },
+  charges: { type: "array", items: object({ chargeType: str, amount: num, scope }) },
   allowedAttrition: num,
   guaranteedRevenue: num,
   validUntil: str,
@@ -372,11 +405,48 @@ const contractSchema = object({
 
 // One schema covering every kind compiles to a grammar the API refuses as too
 // large, so a read is two calls: classify (kind, summary, notes), then fill in
-// only that kind's fields.
+// only that kind's fields (and for hotel offers, a third for function space
+// and F&B: SPACE_SCHEMA).
 const CLASSIFY_SCHEMA = object({
   kind: { type: "string", enum: [...INBOUND_KINDS] },
   summary: str,
   notes: str,
+  eventSpace: { type: "boolean" },
+});
+
+// An offer's function space and F&B, read in a call of their own after the
+// offers (with them the offer schema is again too large to compile); offer is
+// the offer's index.
+const SPACE_SCHEMA = object({
+  offers: {
+    type: "array",
+    items: object({
+      offer: int,
+      spaces: {
+        type: "array",
+        items: object({
+          spaceRequestId: str,
+          name: str,
+          room: str,
+          capacity: int,
+          hold24: { type: "string", enum: ["", "YES", "NO"] },
+          rental: num,
+          rentalScope: scope,
+          waiverType: { type: "string", enum: ["", "FB_SPEND", "ROOM_NIGHTS", "OTHER"] },
+          waiverAmount: num,
+          waiverScope: scope,
+          note: str,
+        }),
+      },
+      meetingCharges: { type: "array", items: object({ chargeType: str, amount: num, scope }) },
+      fbMinimum: num,
+      fbMinimumScope: scope,
+      fbMinimumNote: str,
+      fbTaxRate: num,
+      fbServiceCharge: num,
+      meals: { type: "array", items: object({ mealType: str, price: num }) },
+    }),
+  },
 });
 
 const sheetSchema = object({
@@ -428,11 +498,29 @@ function emptyToNull(v: unknown): unknown {
 
 const numOrNull = (n: number | null) => (n == null || n < 0 ? null : n);
 
-function offerFromWire(o: ProposalOffer): ProposalOffer {
+// The read's spaces carry a YES / NO hold (merged in from the function space call).
+type WireOffer = Omit<ProposalOffer, "spaces"> & { spaces?: (Omit<OfferSpace, "hold24"> & { hold24: string | null })[] };
+
+function offerFromWire(o: WireOffer): ProposalOffer {
+  const pct = (n: number | null | undefined) => (n == null || n < 0 || n > 100 ? null : n);
   return {
     ...o,
     nights: o.nights.map((n) => ({ ...n, rooms: numOrNull(n.rooms), rate: numOrNull(n.rate) })),
     charges: o.charges.map((c) => ({ ...c, amount: numOrNull(c.amount) })),
+    meetingCharges: (o.meetingCharges ?? []).map((c) => ({ ...c, amount: numOrNull(c.amount) })),
+    spaces: (o.spaces ?? []).map((r) => ({
+      ...r,
+      capacity: numOrNull(r.capacity),
+      hold24: r.hold24 === "YES" ? true : r.hold24 === "NO" ? false : null,
+      rental: numOrNull(r.rental),
+      waiverType: r.waiverType ?? null,
+      waiverAmount: r.waiverType ? numOrNull(r.waiverAmount ?? null) : null,
+      waiverScope: r.waiverType ? (r.waiverScope ?? null) : null,
+    })),
+    fbMinimum: numOrNull(o.fbMinimum ?? null),
+    fbTaxRate: pct(o.fbTaxRate),
+    fbServiceCharge: pct(o.fbServiceCharge),
+    meals: (o.meals ?? []).map((m) => ({ ...m, price: numOrNull(m.price) })),
     allowedAttrition: numOrNull(o.allowedAttrition),
     guaranteedRevenue: numOrNull(o.guaranteedRevenue),
     validUntil: /^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil ?? "")) ? (o.validUntil as string) : null,
@@ -445,7 +533,7 @@ function fromWire(raw: unknown): InboundProposal {
   return {
     ...p,
     sheet: p.sheet && p.sheet.attachment >= 0 ? p.sheet : null,
-    offers: p.kind === "RFP_PROPOSAL" ? (p.offers ?? []).map(offerFromWire) : null,
+    offers: p.kind === "RFP_PROPOSAL" ? ((p.offers ?? []) as unknown as WireOffer[]).map(offerFromWire) : null,
     decline: p.kind === "RFP_DECLINE" ? p.decline : null,
     quote:
       p.quote && p.kind === "VENDOR_QUOTE"
@@ -496,7 +584,7 @@ Classify the message as one of:
 - CONTRACT: a contract or agreement to sign (or signed) with a hotel, a vendor or a caterer, as opposed to an offer still being priced.
 - OTHER: anything else.
 
-You'll be asked first for the kind, a summary and notes, then for the fields of that kind. Text fields with nothing to say are "" (never null), and numbers that aren't given are -1. Amounts are plain numbers in the message's own currency; when that isn't US dollars, name the currency in notes. Lists that don't apply are empty. When there is no spreadsheet to map, set sheet.attachment to -1 and leave its other fields empty.
+You'll be asked first for the kind, a summary and notes (and eventSpace: true when it's RFP_PROPOSAL and the offer quotes meeting or function space, AV, or F&B terms such as a minimum, tax and service, or meal prices; else false), then for the fields of that kind. Text fields with nothing to say are "" (never null), and numbers that aren't given are -1. Amounts are plain numbers in the message's own currency; when that isn't US dollars, name the currency in notes. Lists that don't apply are empty. When there is no spreadsheet to map, set sheet.attachment to -1 and leave its other fields empty.
 
 blockId (pickup kinds only): the hotel block the report is for, chosen from the candidate blocks by hotel name, group code and dates. "" when none fits or it's ambiguous; say why in notes.
 
@@ -514,16 +602,16 @@ For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer i
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types only when the offer puts those rooms on that type: a bed type (one bed / king, two beds / double / queen) or a suite. Rooms of any or unspecified type (Any Room, Run of House, ROH, Standard Room) are run of house: "". Never move rooms onto a bed type because a rate for that type is quoted elsewhere in the message; such a rate prices the rooms the offer does put on that type, and only those.
 - Booking-portal grids (Cvent and the like) give each night a row of counts under columns such as Any Room, One Bed, Two Beds, Suite, Staff and Total. Each non-zero cell is one entry: Any Room is run of house (""), One Bed and Two Beds the org's king and double-queen types, Suite its suite type, Staff run of house unless a type is named. Skip zero cells and the Total column; a night's entries add up to its Total. Read the grid from the PDF's text when a row is cut at a page break.
 - rate: the rate the offer gives for that room type. Run-of-house rooms take the offer's standard or run-of-house rate (a portal's "Standard Room" rate); suites take its suite rate.
-- charges: other fees the hotel lists (resort fee, parking, deposits, meeting room rental, AV), with amount and scope when given. Scope follows the offer's unit: a nightly fee (resort fee, parking) is PER_NIGHT; meeting space, AV and other day-rate services ("per day", "per full day use") are PER_DAY, or PER_PERSON_PER_DAY for a per-person day rate (a day meeting package).
+- charges: fees guests or the group pay for rooms and stays (resort fee, parking, breakfast, deposits), with amount and scope when given: a nightly fee is PER_NIGHT, a per-person fee PER_PERSON or PER_PERSON_PER_NIGHT. Meeting space, AV and F&B are read separately: leave them out here.
 - validUntil: the offer's deadline, YYYY-MM-DD: the date the rates are good until or the contract must be signed by (the earlier when both are given), or "".
 - taxIncluded: INCLUDED when the offer says its rates include taxes and fees, EXCLUDED when it says they don't ("plus tax", "taxes not included"), "" when it doesn't say.
-- allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: the total revenue or F&B the group commits to for the whole agreement, as an amount, if stated. A minimum spend tied to one room or day (an F&B minimum that waives or replaces the meeting room rental, "$500 spend per day for meeting space") is not a guarantee: put it in hotelNotes and leave guaranteedRevenue empty.
+- allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: the total revenue or F&B the group commits to for the whole agreement, as an amount, if stated. A minimum spend tied to one room or day (an F&B minimum that waives or replaces the meeting room rental, "$500 spend per day for meeting space") is not a guarantee: it's read with the function space, and guaranteedRevenue stays empty.
 - amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"). note is "" unless it tells the reader something the label doesn't: dates, hours, limits, a fee, a condition ("closed Apr 3–10", "6–9:30 am, 2 per room", "$35/night"). Never restate the label ("Business Center" → ""). Leave out amenities the offer doesn't mention; never guess.
 - An inclusion such as breakfast, Wi-Fi or parking is an amenity only when the property gives it to every guest. When the offer ties it to this group's rate or package ("rate includes breakfast for two", "group rate includes parking"), it's a concession (offeredConcessions, or the RFP's matching concession), not an amenity. When you can't tell which, list it as an amenity with note "Rate includes it; unclear whether standard for all guests".
 - Concessions are what's given or negotiated for this group (comp rooms, a reduced valet rate, meal vouchers, waived fees, upgrades). One service can be both: valet parking is an amenity, a reduced valet rate a concession.
 - concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
 - offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
-- hotelNotes: only terms the fields above can't hold that a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly; often "". Never restate what the fields already carry: dates, rooms and rates, taxes, the deadline, attrition, amenities, concessions, whether it answers an RFP. Don't note what the offer leaves out, except space or services the RFP it answers asked for ("No meeting space offered" only when the RFP requested meeting space). Don't mention who forwarded it.
+- hotelNotes: only terms the fields above can't hold that a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly; often "". Never restate what the fields already carry: dates, rooms and rates, taxes, the deadline, attrition, function space, F&B terms, amenities, concessions, whether it answers an RFP. Don't note what the offer leaves out, except space or services the RFP it answers asked for ("No meeting space offered" only when the RFP requested meeting space). Don't mention who forwarded it.
 - leadSourceVendorId: the lead source, from the candidate lead sources, when a CVB or third party sent, forwarded or is copied on the offer, or the offer credits one; "" otherwise (staff forwarding it isn't a lead source).
 - attachments: the numbers of the attachments that belong to this property alone (its own proposal PDF or sheet). Leave out files that cover every property in the message (one combined proposal, a shared catering menu); those go on each. Empty when there is one property.
 - hotel: the hotel as the offer presents it, always filled when given: its name, street address, city, state (2-letter in the US), ZIP, and the sales contact who sent or signed it (first and last name, title, email, phone). Not the CVB or a third party that forwarded it.
@@ -546,6 +634,12 @@ For CONTRACT, fill "contract":
 - depositAmount, depositDue, attrition (percent), cutoffDate (reservation cut-off), cancellationTerms briefly — only as stated.
 - notes: only other key terms a planner needs (minimums, rate guarantees, force majeure exceptions), briefly.
 
+When asked for the function space and F&B of RFP_PROPOSAL offers (listed by number), fill "offers" with one entry per listed offer that quotes meeting space, AV or F&B terms, with offer its number; leave out the others. For each entry:
+- spaces: the function space the offer gives. When the offer answers an RFP, one entry per meeting space request of that RFP it answers, with its spaceRequestId from the RFP's list; then entries with spaceRequestId "" for rooms offered that no request covers. name is the request's function name, or for an unasked room its name. room: the room offered, as named. capacity: how many it holds for the requested set-up (else its stated capacity). hold24: YES or NO when the offer says whether the room is held 24 hours, else "". rental and rentalScope: the room's rental as quoted ($900 per full day use is 900 PER_DAY). waiverType, waiverAmount and waiverScope: what waives the rental, when the offer says: FB_SPEND with the spend ("or waived with a $500 F&B spend per day" is FB_SPEND 500 PER_DAY), ROOM_NIGHTS with the number of room nights ("waived with 50 room nights" is ROOM_NIGHTS 50 PER_STAY), OTHER for anything else (described in note); else "" and -1. note: other conditions on the room, briefly. A named room's rental goes here, not in meetingCharges.
+- meetingCharges: meeting space services not tied to one room (AV, a room rental quoted without naming the room), with amount and scope: day-rate services ("per day", "per full day use") are PER_DAY, or PER_PERSON_PER_DAY for a per-person day rate (a day meeting package).
+- fbMinimum: an F&B minimum for the event, as an amount, with fbMinimumScope (PER_DAY, PER_STAY for the whole event, or "") and fbMinimumNote: what it applies to, briefly ("per function"); else -1 and "". A spend that waives one room's rental is that room's waiver, not this. fbTaxRate and fbServiceCharge: the standard F&B tax and service charge as percentages (24 for 24%), when stated.
+- meals: the average per-person price for each meal type the offer prices (a breakfast buffet at $24 is that meal at 24). For the RFP's F&B to price use exactly its names; others as the offer names them. A menu priced item by item gives no per-person average: leave it out. A breakfast that is a fee on the room (per person per night) is a guest charge, not a meal.
+
 For RFP_DECLINE, fill "decline": rfpId and venueId from the candidates (venueId should be one of that RFP's recipients), and the reason in a few words.
 
 summary: one short line saying what the message is ("Hilton pickup report, 42 reservations as of Oct 20"). notes: only what a reviewer must check that the proposed record doesn't already show (totals that don't add up, a block you couldn't tell apart, a date the message contradicts itself on), else "". Not ambiguity the record resolves (quoted dates the night-by-night grid makes plain), not what's merely absent, not that it answers no RFP, not that one message covers several properties (each is its own offer), and not forwarding by staff.`;
@@ -561,6 +655,8 @@ function rfpText(r: ParseRfp, venues: Map<string, string>): string {
     `  sent to: ${r.recipients.map((v) => `${venues.get(v) ?? "?"} (${v})`).join(", ") || "nobody yet"}`,
     ...r.blocks.map((b) => `  block ${b.id}: ${b.label}; ${b.nights}`),
     ...r.concessions.map((c) => `  concession ${c.id}: ${c.label}${c.value ? ` (asked: ${c.value})` : ""}`),
+    ...r.meetingSpace.map((m) => `  meeting space ${m.id}: ${m.label}`),
+    ...(r.mealTypes.length ? [`  F&B to price: ${r.mealTypes.join(", ")}`] : []),
   ];
   return lines.join("\n");
 }
@@ -675,7 +771,7 @@ export async function parseInboundMessage(input: ParseInput): Promise<{ proposal
   if (!apiKey) throw new ParseError("Parsing isn't configured");
   const client = new Anthropic({ apiKey });
   const content = buildContent(input);
-  const classified = await callJson(client, [...content, { type: "text", text: "First: the kind, summary and notes." }], CLASSIFY_SCHEMA);
+  const classified = await callJson(client, [...content, { type: "text", text: "First: the kind, summary, notes and eventSpace." }], CLASSIFY_SCHEMA);
   const kind = classified.data.kind as InboundKind;
   let detail: Record<string, unknown> = {};
   let model = classified.model;
@@ -688,7 +784,24 @@ export async function parseInboundMessage(input: ParseInput): Promise<{ proposal
     detail = second.data;
     model = second.model;
   }
-  const raw = fromWire({ ...EMPTY_WIRE, ...classified.data, ...detail, kind });
+  // An offer's function space and F&B come in a call of their own, when the
+  // classify step saw any, matched back to the offers by index.
+  const offers = kind === "RFP_PROPOSAL" && Array.isArray(detail.offers) ? (detail.offers as Record<string, unknown>[]) : [];
+  if (classified.data.eventSpace === true && offers.length) {
+    const listed = offers.map((o, i) => `${i}: ${(o.hotel as OfferHotel | undefined)?.name || `offer ${i + 1}`}${o.rfpBlockId ? ` (answers block ${o.rfpBlockId})` : ""}`);
+    const third = await callJson(
+      client,
+      [...content, { type: "text", text: `This message is RFP_PROPOSAL with these offers:\n${listed.join("\n")}\nNow fill in their function space and F&B.` }],
+      SPACE_SCHEMA,
+    );
+    for (const s of (third.data.offers as Record<string, unknown>[] | undefined) ?? []) {
+      const { offer, ...rest } = s;
+      if (typeof offer === "number" && offers[offer]) Object.assign(offers[offer], rest);
+    }
+    model = third.model;
+  }
+  const { eventSpace: _eventSpace, ...classifiedFields } = classified.data;
+  const raw = fromWire({ ...EMPTY_WIRE, ...classifiedFields, ...detail, kind });
   return { proposal: checkProposal(raw, input), model };
 }
 
@@ -788,6 +901,26 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
         rate: n.rate,
       })),
     charges: o.charges.filter((c) => c.chargeType?.trim()),
+    meetingCharges: (o.meetingCharges ?? []).filter((c) => c.chargeType?.trim()),
+    // Requested rows answer that RFP's requests, once each, under the
+    // request's name; anything else is a room offered unasked.
+    spaces: (o.spaces ?? [])
+      .map((r) => {
+        const request = rfp?.meetingSpace.find((m) => m.id === r.spaceRequestId);
+        return {
+          ...r,
+          spaceRequestId: request?.id ?? null,
+          name: request?.name ?? (r.name?.trim() || r.room?.trim() || ""),
+          capacity: r.capacity != null && Number.isInteger(r.capacity) ? r.capacity : null,
+        };
+      })
+      .filter((r, i, all) => r.name && (!r.spaceRequestId || all.findIndex((x) => x.spaceRequestId === r.spaceRequestId) === i)),
+    fbMinimum: o.fbMinimum ?? null,
+    fbMinimumScope: o.fbMinimumScope ?? null,
+    fbMinimumNote: o.fbMinimumNote ?? null,
+    fbTaxRate: o.fbTaxRate ?? null,
+    fbServiceCharge: o.fbServiceCharge ?? null,
+    meals: (o.meals ?? []).filter((m, i, all) => m.mealType?.trim() && m.price != null && all.findIndex((x) => x.mealType === m.mealType) === i),
     allowedAttrition: o.allowedAttrition != null && o.allowedAttrition <= 100 ? o.allowedAttrition : null,
     guaranteedRevenue: o.guaranteedRevenue,
     validUntil: o.validUntil ?? null,

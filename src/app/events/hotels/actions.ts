@@ -58,8 +58,12 @@ export async function getHotelProposal(id: string, eventId: string) {
         include: { createdBy: { select: { name: true, email: true } } },
       },
       block: { select: { id: true } },
-      rfp: { select: { id: true, title: true, concessions: { orderBy: { sortOrder: "asc" } } } },
+      rfp: {
+        select: { id: true, title: true, concessions: { orderBy: { sortOrder: "asc" } }, spaceRequests: { orderBy: { sortOrder: "asc" } } },
+      },
       concessions: { orderBy: { sortOrder: "asc" } },
+      spaces: { orderBy: { sortOrder: "asc" } },
+      meals: { orderBy: { sortOrder: "asc" } },
       leadSourceVendor: { select: { name: true } },
       updatedBy: { select: { name: true, email: true } },
     },
@@ -85,7 +89,7 @@ export async function getProposalFormChoices(eventId: string) {
       orderBy: { name: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "rfp_concession"] } },
+      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "rfp_concession", "meal_type"] } },
       select: { category: true, label: true, group: true, color: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -109,6 +113,7 @@ export async function getProposalFormChoices(eventId: string) {
     roomTypes: of("hotel_room_type").map((o) => o.label),
     guestTypes: of("hotel_guest_type").map((o) => o.label),
     amenities: of("hotel_amenity").map((o) => o.label),
+    mealTypes: of("meal_type").map((o) => o.label),
     leadSources: leadSources.map((v) => ({
       id: v.id,
       name: v.name,

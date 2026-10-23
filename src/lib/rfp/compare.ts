@@ -2,9 +2,10 @@
 // asked for. One group per requested block, plus one for RFP proposals not
 // tied to a block. Read by the compare page and its .docx. Pure.
 
-import type { AmenityStatus, ConcessionMet, HotelChargeScope, HotelContractType } from "@prisma/client";
+import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope, HotelContractType } from "@prisma/client";
 import { CHARGE_SCOPE_LABELS, dateKey, formatDateKey, formatMoney, formatNight, MET_LABELS } from "@/lib/hotels";
 import { blockLabel } from "@/lib/rfp/document";
+import { spaceSummary, type SpaceRequestDoc, type StoredSpace } from "@/lib/rfp/proposalSpace";
 
 type Dec = { toString(): string } | null;
 
@@ -14,6 +15,9 @@ export type CompareInput = {
   amenities: string[]; // requested
   blocks: { id: string; contractType: HotelContractType; guestType: string | null; targetRate: Dec; nights: { night: Date; rooms: number }[] }[];
   concessions: { id: string; label: string; value: string | null; required: boolean }[];
+  meetingSpace: SpaceRequestDoc[];
+  mealTypes: string[]; // the F&B the RFP asks hotels to price
+  fbMinimum: Dec; // what the RFP states
   proposals: {
     id: string;
     hotel: string;
@@ -26,7 +30,14 @@ export type CompareInput = {
     guaranteedRevenue: Dec;
     validUntil: Date | null;
     taxIncluded: boolean | null;
-    charges: { chargeType: string; amount: Dec; scope: HotelChargeScope | null }[];
+    charges: { chargeType: string; amount: Dec; scope: HotelChargeScope | null; kind: HotelChargeKind }[];
+    spaces: StoredSpace[];
+    fbMinimum: Dec;
+    fbMinimumScope: HotelChargeScope | null;
+    fbMinimumNote: string | null;
+    fbTaxRate: Dec;
+    fbServiceCharge: Dec;
+    meals: { mealType: string; price: Dec }[];
     profile: string[]; // the hotel's amenities
     amenities: { label: string; status: AmenityStatus }[]; // as the offer states them
     // Answers to requested concessions (concessionId), and ones offered unasked (label).
@@ -51,7 +62,14 @@ export type CompareOffer = {
   guaranteedRevenue: string | null;
   validUntil: string | null; // YYYY-MM-DD
   taxIncluded: boolean | null;
-  charges: string[];
+  charges: string[]; // guest charges
+  meetingCharges: string[];
+  // Each meeting space request's answer, by request id; then rooms offered unasked.
+  spaces: Record<string, string>;
+  otherSpaces: string[];
+  fbMinimum: string | null;
+  fbRates: string | null; // tax and service charge
+  meals: Record<string, string>; // by meal type, lower-cased
   // The hotel's profile plus what the offer confirms, less what it says is unavailable.
   amenities: string[];
   unavailable: string[];
@@ -72,11 +90,16 @@ export type RfpComparison = {
   eventName: string;
   amenities: string[];
   concessions: CompareInput["concessions"];
+  meetingSpace: SpaceRequestDoc[];
+  mealTypes: string[];
+  fbMinimum: string | null;
   groups: CompareGroup[];
 };
 
 const sum = (ns: number[]) => ns.reduce((s, n) => s + n, 0);
 const num = (d: Dec) => (d == null ? null : Number(d.toString()));
+const amountLine = (amount: Dec, scope: HotelChargeScope | null) =>
+  [amount != null ? formatMoney(amount.toString()) : null, scope ? CHARGE_SCOPE_LABELS[scope].toLowerCase() : null].filter(Boolean).join(" ");
 
 function byNight(nights: { night: Date; rooms: number | null }[]) {
   const out: Record<string, number> = {};
@@ -112,9 +135,15 @@ function offer(p: CompareInput["proposals"][number], requested: Record<string, n
     guaranteedRevenue: p.guaranteedRevenue != null ? formatMoney(p.guaranteedRevenue.toString()) : null,
     validUntil: p.validUntil ? dateKey(p.validUntil) : null,
     taxIncluded: p.taxIncluded,
-    charges: p.charges.map((c) =>
-      [c.chargeType, c.amount != null ? formatMoney(c.amount.toString()) : null, c.scope ? CHARGE_SCOPE_LABELS[c.scope].toLowerCase() : null].filter(Boolean).join(" "),
-    ),
+    charges: p.charges.filter((c) => c.kind === "GUEST").map((c) => [c.chargeType, amountLine(c.amount, c.scope)].filter(Boolean).join(" ")),
+    meetingCharges: p.charges.filter((c) => c.kind === "MEETING").map((c) => [c.chargeType, amountLine(c.amount, c.scope)].filter(Boolean).join(" ")),
+    spaces: Object.fromEntries(p.spaces.flatMap((r) => (r.spaceRequestId ? [[r.spaceRequestId, spaceSummary(r)]] : []))),
+    otherSpaces: p.spaces.filter((r) => !r.spaceRequestId).map((r) => `${r.name}: ${spaceSummary(r)}`),
+    fbMinimum: p.fbMinimum != null ? [amountLine(p.fbMinimum, p.fbMinimumScope), p.fbMinimumNote].filter(Boolean).join(" · ") : null,
+    fbRates:
+      [p.fbTaxRate != null ? `${num(p.fbTaxRate)}% tax` : null, p.fbServiceCharge != null ? `${num(p.fbServiceCharge)}% service` : null].filter(Boolean).join(" · ") ||
+      null,
+    meals: Object.fromEntries(p.meals.map((m) => [m.mealType.toLowerCase(), m.price != null ? formatMoney(m.price.toString()) : "—"])),
     amenities: Array.from(new Set([...p.profile, ...p.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label)])).filter(
       (a) => !p.amenities.some((x) => x.label === a && x.status === "UNAVAILABLE"),
     ),
@@ -148,7 +177,16 @@ export function buildComparison(input: CompareInput): RfpComparison {
   });
   const loose = input.proposals.filter((p) => !p.rfpBlockId || !input.blocks.some((b) => b.id === p.rfpBlockId));
   if (loose.length) groups.push(group("Not tied to a requested block", null, loose, input.concessions));
-  return { title: input.title, eventName: input.eventName, amenities: input.amenities, concessions: input.concessions, groups };
+  return {
+    title: input.title,
+    eventName: input.eventName,
+    amenities: input.amenities,
+    concessions: input.concessions,
+    meetingSpace: input.meetingSpace,
+    mealTypes: input.mealTypes,
+    fbMinimum: input.fbMinimum != null ? formatMoney(input.fbMinimum.toString()) : null,
+    groups,
+  };
 }
 
 export function metSummary(o: CompareOffer, total: number): string {
@@ -165,7 +203,12 @@ const money = (n: number | null) => (n == null ? "—" : formatMoney(n));
 // The comparison table for one group as text, shared by the page and the
 // .docx: one row per measure, concession and night; `short` marks a cell
 // that falls short of the request.
-export function comparisonRows(g: CompareGroup, concessions: CompareInput["concessions"], amenities: string[] = []): CompareRow[] {
+export function comparisonRows(
+  g: CompareGroup,
+  concessions: CompareInput["concessions"],
+  amenities: string[] = [],
+  asked: Pick<RfpComparison, "meetingSpace" | "mealTypes" | "fbMinimum"> = { meetingSpace: [], mealTypes: [], fbMinimum: null },
+): CompareRow[] {
   const req = g.requested;
   const row = (label: string, requested: string, cell: (o: CompareOffer) => { text: string; short?: boolean }): CompareRow => ({
     label,
@@ -187,7 +230,17 @@ export function comparisonRows(g: CompareGroup, concessions: CompareInput["conce
     row("Attrition", "", (o) => ({ text: o.attrition ?? "—" })),
     row("Guaranteed revenue", "", (o) => ({ text: o.guaranteedRevenue ?? "—" })),
     row("Valid until", "", (o) => ({ text: o.validUntil ? formatDateKey(o.validUntil) : "—" })),
-    row("Charges", "", (o) => ({ text: o.charges.join("\n") || "—" })),
+    row("Guest charges", "", (o) => ({ text: o.charges.join("\n") || "—" })),
+    // Function space: each meeting space request's answer, rooms offered
+    // unasked, and charges not tied to a room.
+    ...asked.meetingSpace.map((r) =>
+      row(`${r.when} · ${r.name}`, r.asked ?? "", (o) => ({ text: o.spaces[r.id] ?? "—", short: !o.spaces[r.id] })),
+    ),
+    ...(g.offers.some((o) => o.otherSpaces.length) ? [row("Other rooms offered", "", (o) => ({ text: o.otherSpaces.join("\n") || "—" }))] : []),
+    row("Meeting space charges", "", (o) => ({ text: o.meetingCharges.join("\n") || "—" })),
+    row("F&B minimum", asked.fbMinimum ?? "", (o) => ({ text: o.fbMinimum ?? "—" })),
+    row("F&B tax & service", "", (o) => ({ text: o.fbRates ?? "—" })),
+    ...asked.mealTypes.map((m) => row(`${m} (per person)`, "", (o) => ({ text: o.meals[m.toLowerCase()] ?? "—" }))),
     row("Amenities", amenities.join(", "), (o) => {
       const missing = amenities.filter((a) => !o.amenities.includes(a) && !o.unavailable.includes(a));
       const lost = amenities.filter((a) => o.unavailable.includes(a));

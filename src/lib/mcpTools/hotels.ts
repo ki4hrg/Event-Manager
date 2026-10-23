@@ -3,8 +3,9 @@ import { requirePermissionForUser } from "@/lib/permissions";
 import {
   createHotelProposalCore,
   deleteHotelProposalCore,
-  toProposalValues,
+  proposalValuesInclude,
   updateHotelProposalCore,
+  writeArgsOf,
   type ProposalAmenityArgs,
   type ProposalWriteArgs,
 } from "@/app/events/hotels/core";
@@ -46,11 +47,51 @@ function merged<T extends object>(current: T, args: Record<string, unknown>, key
   return out;
 }
 
+const SCOPE_ERROR = "scope must be PER_NIGHT, PER_STAY, PER_PERSON, PER_PERSON_PER_NIGHT, PER_DAY or PER_PERSON_PER_DAY";
+
 function checkCharges(v: unknown) {
   if (!Array.isArray(v)) return;
   for (const c of v as { scope?: unknown }[]) {
-    if (c.scope != null && !SCOPES.has(String(c.scope))) throw new Error("charge scope must be PER_NIGHT, PER_STAY, PER_PERSON, PER_PERSON_PER_NIGHT, PER_DAY or PER_PERSON_PER_DAY");
+    if (c.scope != null && !SCOPES.has(String(c.scope))) throw new Error(`charge ${SCOPE_ERROR}`);
   }
+}
+
+// Function space rows, meeting charges and the F&B minimum's scope, as the
+// proposal cores take them.
+export function checkProposalExtras(args: Record<string, unknown>) {
+  checkCharges(args.meetingCharges);
+  if (args.fbMinimumScope != null && !SCOPES.has(String(args.fbMinimumScope))) throw new Error(`fbMinimumScope ${SCOPE_ERROR.slice(6)}`);
+  if (args.spaces === undefined) return;
+  if (!Array.isArray(args.spaces)) throw new Error("spaces must be a list");
+  for (const r of args.spaces as Record<string, unknown>[]) {
+    if (typeof r?.name !== "string" && typeof r?.spaceRequestId !== "string") throw new Error("Each space needs a name or a spaceRequestId");
+    if (r.rentalScope != null && !SCOPES.has(String(r.rentalScope))) throw new Error(`rentalScope ${SCOPE_ERROR.slice(6)}`);
+    if (r.waiverScope != null && !SCOPES.has(String(r.waiverScope))) throw new Error(`waiverScope ${SCOPE_ERROR.slice(6)}`);
+    if (r.waiverType != null && !["FB_SPEND", "ROOM_NIGHTS", "OTHER"].includes(String(r.waiverType))) throw new Error("waiverType must be FB_SPEND, ROOM_NIGHTS or OTHER");
+  }
+}
+
+// A space answering a request is named after it (the form shows the request's name).
+export async function nameRequestedSpaces(args: Record<string, unknown>) {
+  if (!Array.isArray(args.spaces)) return;
+  const rows = args.spaces as Record<string, unknown>[];
+  const ids = rows.flatMap((r) => (typeof r.spaceRequestId === "string" ? [r.spaceRequestId] : []));
+  const names = new Map(
+    ids.length ? (await prisma.rfpSpaceRequest.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })).map((r) => [r.id, r.name]) : [],
+  );
+  args.spaces = rows.map((r) => ({
+    spaceRequestId: typeof r.spaceRequestId === "string" ? r.spaceRequestId : null,
+    name: (typeof r.spaceRequestId === "string" ? names.get(r.spaceRequestId) : undefined) ?? String(r.name ?? r.room ?? ""),
+    room: typeof r.room === "string" ? r.room : null,
+    capacity: typeof r.capacity === "number" ? r.capacity : null,
+    hold24: typeof r.hold24 === "boolean" ? r.hold24 : null,
+    rental: typeof r.rental === "number" ? r.rental : null,
+    rentalScope: r.rentalScope ?? null,
+    waiverType: r.waiverType ?? null,
+    waiverAmount: typeof r.waiverAmount === "number" ? r.waiverAmount : null,
+    waiverScope: r.waiverScope ?? null,
+    note: typeof r.note === "string" ? r.note : null,
+  }));
 }
 
 const nightSchema = {
@@ -64,14 +105,56 @@ const nightSchema = {
   required: ["night"],
 } as const;
 
-const chargeSchema = {
+const scopeSchema = { type: ["string", "null"], enum: ["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY", null] } as const;
+
+export const chargeSchema = {
   type: "object",
   properties: {
     chargeType: { type: "string", description: "e.g. Resort fee, Parking." },
     amount: { type: ["number", "null"] },
-    scope: { type: ["string", "null"], enum: ["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY", null] },
+    scope: scopeSchema,
   },
   required: ["chargeType"],
+} as const;
+
+// A proposal's function space and F&B; shared with record_rfp_response.
+export const proposalSpaceProps = {
+  meetingCharges: {
+    type: "array",
+    items: chargeSchema,
+    description: "Meeting space charges not tied to one room (AV, a rental quoted without naming the room). Replaces the list; omit to leave it unchanged.",
+  },
+  spaces: {
+    type: "array",
+    description:
+      "Function space offered: one row per RFP meeting space request it answers (spaceRequestId: a get_rfp spaceRequests id of kind MEETING, once each; only on a proposal answering that RFP), and rooms offered unasked (spaceRequestId null, name the room or function). Replaces the list; omit to leave it unchanged.",
+    items: {
+      type: "object",
+      properties: {
+        spaceRequestId: { type: ["string", "null"] },
+        name: { type: ["string", "null"], description: "Unasked rows: the room or function. Requested rows take the request's name." },
+        room: { type: ["string", "null"], description: "The room offered." },
+        capacity: { type: ["integer", "null"], description: "For the requested set-up." },
+        hold24: { type: ["boolean", "null"], description: "24-hour hold available; null when not stated." },
+        rental: { type: ["number", "null"] },
+        rentalScope: scopeSchema,
+        waiverType: { type: ["string", "null"], enum: ["FB_SPEND", "ROOM_NIGHTS", "OTHER", null], description: "What waives the rental." },
+        waiverAmount: { type: ["number", "null"], description: "F&B spend in dollars, or a number of room nights." },
+        waiverScope: { ...scopeSchema, description: "PER_DAY, PER_NIGHT or PER_STAY." },
+        note: { type: ["string", "null"] },
+      },
+    },
+  },
+  fbMinimum: { type: ["number", "null"], description: "Minimum F&B spend. Not guaranteedRevenue (the whole agreement's commitment)." },
+  fbMinimumScope: { ...scopeSchema, description: "PER_DAY, or PER_STAY for the whole event." },
+  fbMinimumNote: { type: ["string", "null"], description: "What the minimum applies to or waives, e.g. \"waives meeting room rental\"." },
+  fbTaxRate: { type: ["number", "null"], description: "Standard F&B tax, percent." },
+  fbServiceCharge: { type: ["number", "null"], description: "Standard service charge, percent." },
+  meals: {
+    type: "array",
+    description: "Average per-person price by meal type (the RFP's F&B names, or meal_type labels). Replaces the list; omit to leave it unchanged.",
+    items: { type: "object", properties: { mealType: { type: "string" }, price: { type: ["number", "null"] } }, required: ["mealType"] },
+  },
 } as const;
 
 const proposalProps = {
@@ -108,7 +191,8 @@ const proposalProps = {
     },
   },
   nights: { type: "array", items: nightSchema, description: "The full room grid (replaces it). Each night must fall in the stay." },
-  charges: { type: "array", items: chargeSchema, description: "The full charge list (replaces it)." },
+  charges: { type: "array", items: chargeSchema, description: "Guest charges (resort fee, parking, breakfast): the full list (replaces it)." },
+  ...proposalSpaceProps,
   concessions: {
     type: "array",
     description: "Answers to the RFP's concessions (only for a proposal linked to an RFP; ids from get_rfp). Replaces all answers.",
@@ -137,7 +221,7 @@ const proposalProps = {
 const PROPOSAL_KEYS = [
   "venueId", "status", "leadSourceDirect", "leadSourceVendorId", "leadSourceContactId", "contractType", "guestType", "submittedOn", "checkIn", "checkOut", "declinedReason", "notes",
   "revision", "revisionSummary", "allowedAttrition", "guaranteedRevenue", "validUntil", "taxIncluded", "amenities", "nights", "charges", "concessions",
-  "offeredConcessions",
+  "offeredConcessions", "meetingCharges", "spaces", "fbMinimum", "fbMinimumScope", "fbMinimumNote", "fbTaxRate", "fbServiceCharge", "meals",
 ] as const satisfies readonly (keyof ProposalWriteArgs)[];
 
 function checkOfferedConcessions(v: unknown) {
@@ -168,25 +252,10 @@ function checkConcessions(v: unknown) {
   }
 }
 
-const proposalInclude = {
-  venue: { select: { name: true } },
-  nights: { orderBy: [{ night: "asc" as const }, { roomType: "asc" as const }] },
-  charges: { orderBy: { sortOrder: "asc" as const } },
-  amenities: { orderBy: { sortOrder: "asc" as const } },
-};
-
 async function currentProposal(id: string, eventId: string): Promise<ProposalWriteArgs> {
-  const p = await prisma.hotelProposal.findFirst({ where: { id, eventId }, include: proposalInclude });
+  const p = await prisma.hotelProposal.findFirst({ where: { id, eventId }, include: proposalValuesInclude });
   if (!p) throw new Error("Proposal not found");
-  const v = toProposalValues(p);
-  return {
-    ...v,
-    revisionSummary: null,
-    allowedAttrition: v.allowedAttrition == null ? null : Number(v.allowedAttrition),
-    guaranteedRevenue: v.guaranteedRevenue == null ? null : Number(v.guaranteedRevenue),
-    nights: v.nights.map((n) => ({ ...n, rate: n.rate == null ? null : Number(n.rate) })),
-    charges: v.charges.map((c) => ({ ...c, amount: c.amount == null ? null : Number(c.amount) })),
-  };
+  return writeArgsOf(p);
 }
 
 const blockProps = {
@@ -276,7 +345,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "get_hotel_proposal",
     description:
-      "Get one hotel proposal with its nightly room grid (room type × night: rooms, rate), charges, amenities, terms, every revision (snapshot + field changes), and — when it answers an RFP — the RFP, its block and concession answers. concessions holds both answers to requested ones (concessionId, met) and ones offered unasked (label).",
+      "Get one hotel proposal with its nightly room grid (room type × night: rooms, rate), charges (kind GUEST or MEETING), function space (spaces; spaceRequestId answers that RFP meeting space request), F&B terms and meal prices, amenities, terms, every revision (snapshot + field changes), and — when it answers an RFP — the RFP, its block and concession answers. concessions holds both answers to requested ones (concessionId, met) and ones offered unasked (label).",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -289,7 +358,7 @@ export const hotelTools: McpToolDefinition[] = [
       return prisma.hotelProposal.findFirst({
         where: { id: requireString(args, "id"), eventId },
         include: {
-          ...proposalInclude,
+          ...proposalValuesInclude,
           versions: { orderBy: { revision: "desc" } },
           block: { select: { id: true } },
           rfp: { select: { id: true, title: true } },
@@ -308,8 +377,10 @@ export const hotelTools: McpToolDefinition[] = [
       required: ["eventId", "venueId", "status"],
       additionalProperties: false,
     },
-    handler: (args, { userId }) => {
+    handler: async (args, { userId }) => {
       checkCharges(args.charges);
+      checkProposalExtras(args);
+      await nameRequestedSpaces(args);
       if (args.concessions !== undefined) throw new Error("Only a proposal answering an RFP answers requested concessions — use record_rfp_response, or offeredConcessions");
       checkOfferedConcessions(args.offeredConcessions);
       const blank: ProposalWriteArgs = {
@@ -323,7 +394,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "update_hotel_proposal",
     description:
-      "Update a hotel proposal; omitted fields are unchanged, but `nights` and `charges` replace the whole list when given. Raise `revision` (with `revisionSummary`) when the hotel sends a revised offer.",
+      "Update a hotel proposal; omitted fields are unchanged, but `nights`, `charges` (guest), `meetingCharges`, `spaces` and `meals` replace the whole list when given. Raise `revision` (with `revisionSummary`) when the hotel sends a revised offer.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" }, ...proposalProps },
@@ -335,6 +406,8 @@ export const hotelTools: McpToolDefinition[] = [
       const eventId = requireString(args, "eventId");
       await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
       checkCharges(args.charges);
+      checkProposalExtras(args);
+      await nameRequestedSpaces(args);
       checkConcessions(args.concessions);
       checkOfferedConcessions(args.offeredConcessions);
       return updateHotelProposalCore(id, eventId, merged(await currentProposal(id, eventId), args, PROPOSAL_KEYS), userId);

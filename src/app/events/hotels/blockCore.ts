@@ -85,8 +85,12 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
             rooms: n.rooms ?? 0,
           })),
         },
+        // Guest charges only: a block is what guests book (meeting space
+        // stays on the proposal).
         charges: {
-          create: proposal.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount, scope: c.scope, sortOrder: c.sortOrder })),
+          create: proposal.charges
+            .filter((c) => c.kind === "GUEST")
+            .map((c) => ({ chargeType: c.chargeType, amount: c.amount, scope: c.scope, sortOrder: c.sortOrder })),
         },
       },
     });

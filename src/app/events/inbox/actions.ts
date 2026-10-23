@@ -12,7 +12,16 @@ import { getUploadPath } from "@/lib/uploads";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
-import { offerAmenities, offerAttachmentIndexes, offerOutcomes, proposalOffers, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
+import {
+  offerAmenities,
+  offerAttachmentIndexes,
+  offerOutcomes,
+  proposalOffers,
+  type InboundProposal,
+  type OfferCharge,
+  type OfferHotel,
+} from "@/lib/inboundParse";
+import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { readNewHotel, readProposal } from "@/app/events/hotels/proposalArgs";
@@ -250,6 +259,11 @@ export async function getInboundOffers(id: string, eventId: string) {
   });
 }
 
+const text = (n: number | null | undefined) => (n != null ? String(n) : null);
+const chargeValue = (c: OfferCharge) => ({ chargeType: c.chargeType, amount: text(c.amount), scope: c.scope });
+const sameSpace = (a: { spaceRequestId: string | null; name: string }, b: { spaceRequestId: string | null; name: string }) =>
+  a.spaceRequestId ? a.spaceRequestId === b.spaceRequestId : !b.spaceRequestId && a.name.toLowerCase() === b.name.toLowerCase();
+
 // The proposal form, filled from one of a message's hotel offers: the draft,
 // and the event's RFP blocks it could answer, defaulting to the one it was
 // read as (none: a standalone proposal).
@@ -275,6 +289,7 @@ export async function getOfferReview(id: string, eventId: string, index: number)
       select: {
         title: true,
         concessions: { orderBy: { sortOrder: "asc" } },
+        spaceRequests: { orderBy: { sortOrder: "asc" } },
         hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, contractType: true, guestType: true } },
       },
     }),
@@ -288,7 +303,9 @@ export async function getOfferReview(id: string, eventId: string, index: number)
             charges: { orderBy: { sortOrder: "asc" } },
             amenities: { orderBy: { sortOrder: "asc" } },
             concessions: { orderBy: { sortOrder: "asc" }, include: { concession: { select: { label: true } } } },
-            rfp: { select: { title: true, concessions: { orderBy: { sortOrder: "asc" } } } },
+            spaces: { orderBy: { sortOrder: "asc" } },
+            meals: { orderBy: { sortOrder: "asc" } },
+            rfp: { select: { title: true, concessions: { orderBy: { sortOrder: "asc" } }, spaceRequests: { orderBy: { sortOrder: "asc" } } } },
           },
         })
       : [],
@@ -314,7 +331,15 @@ export async function getOfferReview(id: string, eventId: string, index: number)
     taxIncluded: offer.taxIncluded ?? null,
     amenities: offerAmenities(offer),
     nights: offer.nights.map((n) => ({ roomType: n.roomType, night: n.night, rooms: n.rooms, rate: n.rate != null ? String(n.rate) : null })),
-    charges: offer.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount != null ? String(c.amount) : null, scope: c.scope })),
+    charges: offer.charges.map(chargeValue),
+    meetingCharges: (offer.meetingCharges ?? []).map(chargeValue),
+    spaces: offer.spaces ?? [],
+    fbMinimum: text(offer.fbMinimum),
+    fbMinimumScope: offer.fbMinimumScope ?? null,
+    fbMinimumNote: offer.fbMinimumNote ?? null,
+    fbTaxRate: text(offer.fbTaxRate),
+    fbServiceCharge: text(offer.fbServiceCharge),
+    meals: (offer.meals ?? []).map((m) => ({ mealType: m.mealType, price: text(m.price) })),
   };
   // The offer's concession answers are for the block it was read as.
   const answers = new Map(offer.concessions.map((c) => [c.concessionId, c]));
@@ -328,6 +353,8 @@ export async function getOfferReview(id: string, eventId: string, index: number)
         const answer = b.id === offer.rfpBlockId ? answers.get(c.id) : undefined;
         return { id: c.id, label: c.label, value: c.value, required: c.required, offered: answer?.offered ?? null, met: answer?.met ?? null };
       }),
+      spaceRequests: meetingRequests(r.spaceRequests),
+      mealTypes: rfpMealTypes(r.spaceRequests),
     })),
   );
   const rfpChoice = rfpChoices.find((c) => c.id === offer.rfpBlockId) ?? null;
@@ -367,6 +394,22 @@ export async function getOfferReview(id: string, eventId: string, index: number)
       amenities: Array.from(amenities.values()),
       nights: draft.nights.length ? draft.nights : current.nights,
       charges: draft.charges.length ? draft.charges : current.charges,
+      meetingCharges: draft.meetingCharges?.length ? draft.meetingCharges : current.meetingCharges,
+      // A room the offer states replaces the one it had for that request (or
+      // of that name); the rest carry over.
+      spaces: [
+        ...(current.spaces ?? []).filter((r) => !draft.spaces?.some((d) => sameSpace(d, r))),
+        ...(draft.spaces ?? []).map((d) => (p.rfp ? d : { ...d, spaceRequestId: null })),
+      ],
+      fbMinimum: draft.fbMinimum ?? current.fbMinimum,
+      fbMinimumScope: draft.fbMinimum != null ? draft.fbMinimumScope : current.fbMinimumScope,
+      fbMinimumNote: draft.fbMinimum != null ? draft.fbMinimumNote : current.fbMinimumNote,
+      fbTaxRate: draft.fbTaxRate ?? current.fbTaxRate,
+      fbServiceCharge: draft.fbServiceCharge ?? current.fbServiceCharge,
+      meals: [
+        ...(current.meals ?? []).filter((m) => !draft.meals?.some((d) => d.mealType.toLowerCase() === m.mealType.toLowerCase())),
+        ...(draft.meals ?? []),
+      ],
     };
     return {
       id: p.id,
@@ -375,6 +418,8 @@ export async function getOfferReview(id: string, eventId: string, index: number)
       draft: values,
       concessions,
       offeredConcessions: Array.from(offered.values()),
+      spaceRequests: meetingRequests(p.rfp?.spaceRequests ?? []),
+      mealTypes: rfpMealTypes(p.rfp?.spaceRequests ?? []),
     };
   });
   return {

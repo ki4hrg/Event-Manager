@@ -270,7 +270,7 @@ export async function renderRfpCompareDocx(data: RfpComparison): Promise<Buffer>
       children.push(note("No proposals yet."), spacer());
       continue;
     }
-    const rows = comparisonRows(g, data.concessions, data.amenities);
+    const rows = comparisonRows(g, data.concessions, data.amenities, data);
     children.push(
       gridTable({
         columns: ["", ...(g.requested ? ["Requested"] : []), ...g.offers.map((o) => o.hotel)],

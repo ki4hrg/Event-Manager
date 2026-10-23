@@ -21,6 +21,7 @@ import { avLineItems, cateringLineItems, printLineItems, type LineItemRow } from
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
 import type { OfferHotel } from "@/lib/inboundParse";
 import { createNewHotelCore } from "@/app/events/hotels/core";
+import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 
 export type RfpWriteArgs = {
   title: string;
@@ -632,6 +633,8 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
       select: {
         title: true,
         amenities: true,
+        fbMinimum: true,
+        spaceRequests: { orderBy: { sortOrder: "asc" } },
         concessions: { orderBy: { sortOrder: "asc" }, select: { id: true, label: true, value: true, required: true } },
         hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, contractType: true, guestType: true, targetRate: true, nights: { select: { night: true, rooms: true } } } },
       },
@@ -648,11 +651,18 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
         guaranteedRevenue: true,
         validUntil: true,
         taxIncluded: true,
+        fbMinimum: true,
+        fbMinimumScope: true,
+        fbMinimumNote: true,
+        fbTaxRate: true,
+        fbServiceCharge: true,
+        spaces: { orderBy: { sortOrder: "asc" } },
+        meals: { select: { mealType: true, price: true }, orderBy: { sortOrder: "asc" } },
         amenities: { select: { label: true, status: true } },
         venue: { select: { name: true, amenities: true } },
         block: { select: { id: true } },
         nights: { select: { night: true, rooms: true, rate: true } },
-        charges: { select: { chargeType: true, amount: true, scope: true }, orderBy: { sortOrder: "asc" } },
+        charges: { select: { chargeType: true, amount: true, scope: true, kind: true }, orderBy: { sortOrder: "asc" } },
         concessions: { select: { concessionId: true, label: true, offered: true, met: true }, orderBy: { sortOrder: "asc" } },
       },
     }),
@@ -663,6 +673,9 @@ export async function getRfpComparisonCore(id: string, eventId: string, userId: 
     amenities: rfp.amenities,
     blocks: rfp.hotelBlocks,
     concessions: rfp.concessions,
+    meetingSpace: meetingRequests(rfp.spaceRequests),
+    mealTypes: rfpMealTypes(rfp.spaceRequests),
+    fbMinimum: rfp.fbMinimum,
     proposals: proposals.map((p) => ({ ...p, hotel: p.venue.name, profile: p.venue.amenities, hasBlock: p.block != null })),
   });
 }

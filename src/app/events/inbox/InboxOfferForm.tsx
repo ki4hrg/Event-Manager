@@ -11,6 +11,7 @@ import {
   type ProposalValues,
   type RfpChoice,
 } from "../hotels/ProposalForm";
+import type { SpaceRequestDoc } from "@/lib/rfp/proposalSpace";
 
 const inputClass =
   "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm";
@@ -22,6 +23,8 @@ export type OfferRevision = {
   draft: ProposalValues;
   concessions: ConcessionAnswer[];
   offeredConcessions: OfferedConcession[];
+  spaceRequests: SpaceRequestDoc[];
+  mealTypes: string[];
 };
 
 const NEW = "__new__";
@@ -118,6 +121,8 @@ export function InboxOfferForm({
           draft={revision.draft}
           concessions={revision.concessions}
           offeredConcessions={revision.offeredConcessions}
+          spaceRequests={revision.spaceRequests}
+          mealTypes={revision.mealTypes}
           choices={choices}
           extraFields={attachmentPick}
           action={(formData) => revise(revision.id, formData)}
@@ -131,6 +136,8 @@ export function InboxOfferForm({
           rfpChoices={rfpChoices}
           fromRfp={fromRfp}
           concessions={rfpChoice?.concessions ?? []}
+          spaceRequests={rfpChoice?.spaceRequests ?? []}
+          mealTypes={rfpChoice?.mealTypes ?? []}
           offeredConcessions={offeredConcessions}
           newHotel={newHotel}
           canAddHotel={canAddHotel}

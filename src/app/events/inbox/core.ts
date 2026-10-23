@@ -30,15 +30,15 @@ import {
   proposalOffers,
 } from "@/lib/inboundParse";
 import { importPickupGuestsCore, savePickupCountsCore, type PickupCountArgs } from "@/app/events/hotels/blockCore";
-import { createHotelProposalCore, createNewHotelCore, toProposalValues, updateHotelProposalCore, type ProposalWriteArgs } from "@/app/events/hotels/core";
+import { createHotelProposalCore, createNewHotelCore, proposalValuesInclude, updateHotelProposalCore, writeArgsOf, type ProposalWriteArgs } from "@/app/events/hotels/core";
 import { createVendorQuoteCore, quoteResource, updateVendorQuoteCore, type QuoteWriteArgs } from "@/app/events/quotes/core";
 import { updateCateringOrderCore, type UpdateCateringOrderArgs } from "@/app/events/catering-orders/core";
 import { createVendorCore } from "@/app/vendors/core";
-import type { HotelChargeScope } from "@prisma/client";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
 import { eventScopeWhere } from "@/app/events/core";
 import { EMAIL_SOURCE_FILE_TYPE, MIME_BY_EXT, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
+import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 
 // Event inboxes (docs/proposals/email-ingest.md). No "use server": the ingest
 // is called by the signed /api/inbound-email route, and the person-facing
@@ -283,6 +283,7 @@ async function parseRfpContext(eventId: string, tenantId: string, senderAddresse
           select: { id: true, contractType: true, guestType: true, nights: { select: { night: true, roomType: true, rooms: true } } },
         },
         concessions: { orderBy: { sortOrder: "asc" }, select: { id: true, label: true, value: true } },
+        spaceRequests: { orderBy: { sortOrder: "asc" } },
       },
     }),
     prisma.hotelProposal.findMany({ where: { eventId }, select: { venue: { select: { id: true, name: true } } } }),
@@ -329,6 +330,8 @@ async function parseRfpContext(eventId: string, tenantId: string, senderAddresse
       nights: `requested ${nightsText(b.nights)}`,
     })),
     concessions: r.concessions,
+    meetingSpace: meetingRequests(r.spaceRequests).map((m) => ({ id: m.id, name: m.name, label: [m.when, m.name, m.asked && `asked ${m.asked}`].filter(Boolean).join(" · ") })),
+    mealTypes: rfpMealTypes(r.spaceRequests),
   }));
   return {
     hotels: Array.from(hotels.values()),
@@ -825,23 +828,18 @@ export async function applyInboundContractCore(
       case "HOTEL_PROPOSAL": {
         const p = await prisma.hotelProposal.findFirst({
           where: { id: targetId, eventId },
-          include: { venue: { select: { name: true } }, nights: true, charges: true, amenities: true, concessions: { include: { concession: { select: { label: true } } } } },
+          include: proposalValuesInclude,
         });
         if (!p) throw new PermissionError("NOT_FOUND", "Proposal not found");
-        const v = toProposalValues(p);
-        const n = (x: string | null) => (x == null ? null : Number(x));
+        const v = writeArgsOf(p);
         await updateHotelProposalCore(
           p.id,
           eventId,
           {
             ...v,
-            revisionSummary: null,
-            allowedAttrition: args.attrition !== undefined ? args.attrition : n(v.allowedAttrition),
-            guaranteedRevenue: n(v.guaranteedRevenue),
+            allowedAttrition: args.attrition !== undefined ? args.attrition : v.allowedAttrition,
             validUntil: args.signBy !== undefined ? args.signBy : v.validUntil,
             notes: appendNote(v.notes, args.note),
-            nights: v.nights.map((x) => ({ ...x, rate: n(x.rate) })),
-            charges: v.charges.map((c) => ({ ...c, amount: n(c.amount) })),
           },
           userId,
         );
@@ -1218,7 +1216,16 @@ async function offerArgs(eventId: string, offer: ProposalOffer, venueId: string)
     taxIncluded: offer.taxIncluded ?? null,
     amenities: offerAmenities(offer),
     nights: offer.nights.map((n) => ({ roomType: n.roomType, night: n.night, rooms: n.rooms, rate: n.rate })),
-    charges: offer.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount, scope: (c.scope as HotelChargeScope | null) ?? null })),
+    charges: offer.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount, scope: c.scope })),
+    meetingCharges: offer.meetingCharges ?? [],
+    // Requested rows only answer the RFP of the block it was read as.
+    spaces: (offer.spaces ?? []).map((r) => (block ? r : { ...r, spaceRequestId: null })),
+    fbMinimum: offer.fbMinimum ?? null,
+    fbMinimumScope: offer.fbMinimumScope ?? null,
+    fbMinimumNote: offer.fbMinimumNote ?? null,
+    fbTaxRate: offer.fbTaxRate ?? null,
+    fbServiceCharge: offer.fbServiceCharge ?? null,
+    meals: offer.meals ?? [],
     rfpBlockId: block?.id ?? null,
     concessions: block ? offer.concessions.map((c) => ({ concessionId: c.concessionId, offered: c.offered, met: c.met })) : undefined,
     offeredConcessions: offer.offeredConcessions ?? [],

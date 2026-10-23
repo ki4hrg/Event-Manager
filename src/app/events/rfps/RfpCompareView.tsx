@@ -12,7 +12,8 @@ const desktop = "hidden sm:block print:block overflow-x-auto print:overflow-visi
 
 const money = (n: number | null) => (n == null ? "—" : formatMoney(n));
 
-function Group({ g, concessions, amenities, eventId }: { g: CompareGroup; concessions: RfpComparison["concessions"]; amenities: string[]; eventId: string | null }) {
+function Group({ g, data, eventId }: { g: CompareGroup; data: RfpComparison; eventId: string | null }) {
+  const { concessions, amenities, meetingSpace } = data;
   const hotel = (o: CompareOffer) =>
     eventId ? (
       <Link href={`/events/${eventId}/hotels/proposals/${o.id}`} className="text-blue-600 dark:text-blue-400 hover:underline print:text-black">
@@ -21,7 +22,7 @@ function Group({ g, concessions, amenities, eventId }: { g: CompareGroup; conces
     ) : (
       o.hotel
     );
-  const table = comparisonRows(g, concessions, amenities);
+  const table = comparisonRows(g, concessions, amenities, data);
   return (
     <section className={reportSectionCard}>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white print:text-black">{g.label}</h2>
@@ -59,6 +60,16 @@ function Group({ g, concessions, amenities, eventId }: { g: CompareGroup; conces
                 <p className={`text-xs ${muted}`}>
                   {[o.attrition ? `attrition ${o.attrition}` : null, concessions.length ? metSummary(o, concessions.length) : null].filter(Boolean).join(" · ")}
                 </p>
+                {(meetingSpace.length > 0 || o.fbMinimum) && (
+                  <p className={`text-xs ${muted}`}>
+                    {[
+                      meetingSpace.length ? `${meetingSpace.filter((r) => o.spaces[r.id]).length}/${meetingSpace.length} meeting rooms offered` : null,
+                      o.fbMinimum ? `F&B minimum ${o.fbMinimum}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -76,8 +87,8 @@ function Group({ g, concessions, amenities, eventId }: { g: CompareGroup; conces
                 </tr>
               </thead>
               <tbody>
-                {table.map((r) => (
-                  <tr key={r.label}>
+                {table.map((r, i) => (
+                  <tr key={i}>
                     <td className={`${reportTd} font-medium whitespace-nowrap`}>{r.label}</td>
                     {g.requested && <td className={`${reportTd} text-right tabular-nums`}>{r.requested}</td>}
                     {r.cells.map((c, i) => (
@@ -101,7 +112,7 @@ export function RfpCompareView({ data, eventId }: { data: RfpComparison; eventId
   return (
     <div className="space-y-6 print:space-y-4">
       {data.groups.map((g, i) => (
-        <Group key={i} g={g} concessions={data.concessions} amenities={data.amenities} eventId={eventId} />
+        <Group key={i} g={g} data={data} eventId={eventId} />
       ))}
     </div>
   );

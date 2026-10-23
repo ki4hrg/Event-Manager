@@ -1,6 +1,16 @@
 import { parseContractTypes } from "@/lib/hotels";
 import type { OfferHotel } from "@/lib/inboundParse";
-import type { ProposalChargeArgs, ProposalConcessionArgs, ProposalNightArgs, ProposalOfferedConcessionArgs, ProposalAmenityArgs, ProposalWriteArgs } from "./core";
+import type { HotelChargeScope } from "@prisma/client";
+import type {
+  ProposalAmenityArgs,
+  ProposalChargeArgs,
+  ProposalConcessionArgs,
+  ProposalMealArgs,
+  ProposalNightArgs,
+  ProposalOfferedConcessionArgs,
+  ProposalSpaceArgs,
+  ProposalWriteArgs,
+} from "./core";
 
 // ProposalForm's FormData → the proposal cores' args. Plain module: the
 // hotels actions and the inbox (applying a proposal read from email) share it.
@@ -57,6 +67,8 @@ export function readJson<T>(formData: FormData, key: string): T[] {
 export function readProposal(formData: FormData): ProposalWriteArgs {
   const str = (k: string) => (formData.get(k) as string) || null;
   const num = (k: string) => (formData.get(k) ? Number(formData.get(k)) : null);
+  // Fields the form may leave out: absent leaves what the proposal has.
+  const optional = <T>(k: string, read: (k: string) => T) => (formData.has(k) ? read(k) : undefined);
   return {
     venueId: formData.get("venueId") as string,
     status: formData.get("status") as string,
@@ -81,6 +93,14 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     amenities: readJson<ProposalAmenityArgs>(formData, "amenities"),
     nights: readJson<ProposalNightArgs>(formData, "nights"),
     charges: readJson<ProposalChargeArgs>(formData, "charges"),
+    meetingCharges: optional("meetingCharges", (k) => readJson<ProposalChargeArgs>(formData, k)),
+    spaces: optional("spaces", (k) => readJson<ProposalSpaceArgs>(formData, k)),
+    fbMinimum: optional("fbMinimum", num),
+    fbMinimumScope: optional("fbMinimumScope", (k) => (str(k) as HotelChargeScope | null)),
+    fbMinimumNote: optional("fbMinimumNote", str),
+    fbTaxRate: optional("fbTaxRate", num),
+    fbServiceCharge: optional("fbServiceCharge", num),
+    meals: optional("meals", (k) => readJson<ProposalMealArgs>(formData, k)),
     rfpBlockId: str("rfpBlockId"),
     concessions: formData.has("concessions") ? readJson<ProposalConcessionArgs>(formData, "concessions") : undefined,
     offeredConcessions: formData.has("offeredConcessions") ? readJson<ProposalOfferedConcessionArgs>(formData, "offeredConcessions") : undefined,
