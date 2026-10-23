@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
-import type { OfferHotel } from "@/lib/inboundParse";
+import { offerOutcomes, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
 import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
 
 export type ProposalNightArgs = { roomType: string | null; night: string; rate: number | null; rooms: number | null };
@@ -429,7 +429,36 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
 
 export async function deleteHotelProposalCore(id: string, eventId: string, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "DELETE", eventId);
-  await prisma.hotelProposal.delete({ where: { id, eventId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.hotelProposal.delete({ where: { id, eventId } });
+    await reopenInboundOffers(tx, id, eventId);
+  });
+}
+
+// An inbox offer saved as this proposal goes back to open, so the message can
+// be saved again or re-read; an Applied message is Ready again.
+async function reopenInboundOffers(tx: Prisma.TransactionClient, proposalId: string, eventId: string) {
+  const items = await tx.inboundEmail.findMany({
+    where: {
+      eventId,
+      OR: [
+        { proposal: { path: ["offerOutcomes"], array_contains: [{ proposalId }] } },
+        { proposal: { path: ["appliedProposalId"], equals: proposalId } },
+      ],
+    },
+    select: { id: true, status: true, proposal: true },
+  });
+  for (const item of items) {
+    const { appliedProposalId: _legacy, ...proposal } = item.proposal as InboundProposal;
+    const outcomes = offerOutcomes(item.proposal as InboundProposal).map((o) => (o && "proposalId" in o && o.proposalId === proposalId ? null : o));
+    await tx.inboundEmail.update({
+      where: { id: item.id },
+      data: {
+        proposal: { ...proposal, offerOutcomes: outcomes },
+        ...(item.status === "APPLIED" ? { status: "PARSED" as const } : {}),
+      },
+    });
+  }
 }
 
 // Plain (client-serializable) form values for ProposalForm.

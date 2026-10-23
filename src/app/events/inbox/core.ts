@@ -493,8 +493,14 @@ export async function reparseInboundEmailCore(id: string, eventId: string, userI
   const item = await inboxItem(id, await requireEventTenantId(eventId), eventId);
   if (!["RECEIVED", "PARSED", "FAILED"].includes(item.status)) return;
   if (!isParsingConfigured()) throw new Error("Parsing isn't configured");
-  // A fresh read forgets which offers became proposals.
-  if (hasAppliedOffer(item.proposal as InboundProposal | null)) throw new Error("Some of its offers are already saved as proposals");
+  // A fresh read forgets which offers became proposals. Ones since deleted
+  // don't count.
+  const proposal = item.proposal as InboundProposal | null;
+  const outcomes = proposal ? offerOutcomes(proposal) : [];
+  const savedIds = outcomes.flatMap((o) => (o && "proposalId" in o ? [o.proposalId] : []));
+  if (outcomes.some((o) => o && "pending" in o) || (savedIds.length && (await prisma.hotelProposal.count({ where: { id: { in: savedIds }, eventId } })))) {
+    throw new Error("Some of its offers are already saved as proposals");
+  }
   await prisma.inboundEmail.update({
     where: { id },
     data: { status: "RECEIVED", kind: null, proposal: Prisma.DbNull, model: null, error: null },
