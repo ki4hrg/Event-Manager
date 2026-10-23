@@ -123,3 +123,4 @@
 - [security/tenancy] Owners with no event (venue, contact, Unrouted inbound email) are checked against the active tenant, so every file read/delete/upload must also match the owner's tenant (`eventlessOwnerTenantId`, src/lib/uploads.ts)
 - [security/accounts] Users are global: a tenant admin's edit of identity fields (email) on an account shared with another tenant or held by a super admin is a cross-tenant account takeover via password reset (src/app/users/actions.ts updateUser)
 - [inbox] Deleting a record an inbox item's outcome points at (a hotel proposal) reopens that offer and puts an Applied item back to Ready — otherwise the message is stuck (re-forwards dedupe by Message-ID onto the same item) (reopenInboundOffers in src/app/events/hotels/core.ts)
+- [inbox parse] guaranteedRevenue is the whole-agreement revenue/F&B commitment; a per-room or per-day F&B minimum that waives meeting-room rental goes in hotelNotes (src/lib/inboundParse.ts prompt)

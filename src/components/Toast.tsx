@@ -13,18 +13,23 @@ export function Toast() {
     const success = searchParams.get("success");
     if (success) {
       startTransition(() => setMessage(success));
-      requestAnimationFrame(() => setVisible(true));
 
       const url = new URL(window.location.href);
       url.searchParams.delete("success");
       const target = url.searchParams.size > 0 ? url.toString() : url.pathname;
       router.replace(target, { scroll: false });
-
-      const hideTimer = setTimeout(() => setVisible(false), 3000);
-      const clearTimer = setTimeout(() => setMessage(null), 3300);
-      return () => { clearTimeout(hideTimer); clearTimeout(clearTimer); };
     }
   }, [searchParams, router]);
+
+  // Keyed on the message, not the URL: the replace above re-runs that effect,
+  // and its cleanup would cancel these and leave the toast up.
+  useEffect(() => {
+    if (!message) return;
+    const showFrame = requestAnimationFrame(() => setVisible(true));
+    const hideTimer = setTimeout(() => setVisible(false), 3000);
+    const clearTimer = setTimeout(() => setMessage(null), 3300);
+    return () => { cancelAnimationFrame(showFrame); clearTimeout(hideTimer); clearTimeout(clearTimer); };
+  }, [message]);
 
   if (!message) return null;
 
