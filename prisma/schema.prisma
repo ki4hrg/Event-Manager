@@ -2488,6 +2488,8 @@ enum HotelChargeScope {
   PER_STAY
   PER_PERSON
   PER_PERSON_PER_NIGHT
+  PER_DAY
+  PER_PERSON_PER_DAY
 }
 
 model HotelProposal {

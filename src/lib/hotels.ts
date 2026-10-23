@@ -44,6 +44,8 @@ export const CHARGE_SCOPES: { value: HotelChargeScope; label: string }[] = [
   { value: "PER_STAY", label: "Per stay" },
   { value: "PER_PERSON", label: "Per person" },
   { value: "PER_PERSON_PER_NIGHT", label: "Per person per night" },
+  { value: "PER_DAY", label: "Per day" },
+  { value: "PER_PERSON_PER_DAY", label: "Per person per day" },
 ];
 
 export const CHARGE_SCOPE_LABELS: Record<HotelChargeScope, string> = {
@@ -51,6 +53,8 @@ export const CHARGE_SCOPE_LABELS: Record<HotelChargeScope, string> = {
   PER_STAY: "Per stay",
   PER_PERSON: "Per person",
   PER_PERSON_PER_NIGHT: "Per person per night",
+  PER_DAY: "Per day",
+  PER_PERSON_PER_DAY: "Per person per day",
 };
 
 // How a proposal answers one of its RFP's concessions.

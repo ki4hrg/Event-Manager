@@ -24,7 +24,7 @@ export type ProposalSheet = {
   roomTypes?: RoomTypeMap;
 };
 
-export type ChargeScope = "PER_NIGHT" | "PER_STAY" | "PER_PERSON" | "PER_PERSON_PER_NIGHT";
+export type ChargeScope = "PER_NIGHT" | "PER_STAY" | "PER_PERSON" | "PER_PERSON_PER_NIGHT" | "PER_DAY" | "PER_PERSON_PER_DAY";
 export type ConcessionMetValue = "MET" | "PARTIAL" | "NOT_MET";
 
 // A hotel's offer, in the shape ProposalForm starts from.
@@ -294,7 +294,7 @@ const offerSchema = object({
   nights: { type: "array", items: object({ night: str, roomType: str, rooms: int, rate: num }) },
   charges: {
     type: "array",
-    items: object({ chargeType: str, amount: num, scope: { type: "string", enum: ["", "PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT"] } }),
+    items: object({ chargeType: str, amount: num, scope: { type: "string", enum: ["", "PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY"] } }),
   },
   allowedAttrition: num,
   guaranteedRevenue: num,
@@ -514,10 +514,10 @@ For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer i
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types only when the offer puts those rooms on that type: a bed type (one bed / king, two beds / double / queen) or a suite. Rooms of any or unspecified type (Any Room, Run of House, ROH, Standard Room) are run of house: "". Never move rooms onto a bed type because a rate for that type is quoted elsewhere in the message; such a rate prices the rooms the offer does put on that type, and only those.
 - Booking-portal grids (Cvent and the like) give each night a row of counts under columns such as Any Room, One Bed, Two Beds, Suite, Staff and Total. Each non-zero cell is one entry: Any Room is run of house (""), One Bed and Two Beds the org's king and double-queen types, Suite its suite type, Staff run of house unless a type is named. Skip zero cells and the Total column; a night's entries add up to its Total. Read the grid from the PDF's text when a row is cut at a page break.
 - rate: the rate the offer gives for that room type. Run-of-house rooms take the offer's standard or run-of-house rate (a portal's "Standard Room" rate); suites take its suite rate.
-- charges: other fees the hotel lists (resort fee, parking, deposits), with amount and scope when given.
+- charges: other fees the hotel lists (resort fee, parking, deposits, meeting room rental, AV), with amount and scope when given. Scope follows the offer's unit: a nightly fee (resort fee, parking) is PER_NIGHT; meeting space, AV and other day-rate services ("per day", "per full day use") are PER_DAY, or PER_PERSON_PER_DAY for a per-person day rate (a day meeting package).
 - validUntil: the offer's deadline, YYYY-MM-DD: the date the rates are good until or the contract must be signed by (the earlier when both are given), or "".
 - taxIncluded: INCLUDED when the offer says its rates include taxes and fees, EXCLUDED when it says they don't ("plus tax", "taxes not included"), "" when it doesn't say.
-- allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: a minimum revenue or F&B guarantee as an amount, if stated.
+- allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: the total revenue or F&B the group commits to for the whole agreement, as an amount, if stated. A minimum spend tied to one room or day (an F&B minimum that waives or replaces the meeting room rental, "$500 spend per day for meeting space") is not a guarantee: put it in hotelNotes and leave guaranteedRevenue empty.
 - amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"). note is "" unless it tells the reader something the label doesn't: dates, hours, limits, a fee, a condition ("closed Apr 3–10", "6–9:30 am, 2 per room", "$35/night"). Never restate the label ("Business Center" → ""). Leave out amenities the offer doesn't mention; never guess.
 - An inclusion such as breakfast, Wi-Fi or parking is an amenity only when the property gives it to every guest. When the offer ties it to this group's rate or package ("rate includes breakfast for two", "group rate includes parking"), it's a concession (offeredConcessions, or the RFP's matching concession), not an amenity. When you can't tell which, list it as an amenity with note "Rate includes it; unclear whether standard for all guests".
 - Concessions are what's given or negotiated for this group (comp rooms, a reduced valet rate, meal vouchers, waived fees, upgrades). One service can be both: valet parking is an amenity, a reduced valet rate a concession.

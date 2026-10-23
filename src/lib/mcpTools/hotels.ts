@@ -27,7 +27,7 @@ import type { McpToolDefinition } from "./types";
 import { requireString } from "./types";
 
 const CONTRACT_TYPES = new Set(["CONTRACT", "COURTESY"]);
-const SCOPES = new Set(["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT"]);
+const SCOPES = new Set(["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY"]);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Partial-update merge: a key present in args (null clears) replaces the
@@ -49,7 +49,7 @@ function merged<T extends object>(current: T, args: Record<string, unknown>, key
 function checkCharges(v: unknown) {
   if (!Array.isArray(v)) return;
   for (const c of v as { scope?: unknown }[]) {
-    if (c.scope != null && !SCOPES.has(String(c.scope))) throw new Error("charge scope must be PER_NIGHT, PER_STAY, PER_PERSON or PER_PERSON_PER_NIGHT");
+    if (c.scope != null && !SCOPES.has(String(c.scope))) throw new Error("charge scope must be PER_NIGHT, PER_STAY, PER_PERSON, PER_PERSON_PER_NIGHT, PER_DAY or PER_PERSON_PER_DAY");
   }
 }
 
@@ -69,7 +69,7 @@ const chargeSchema = {
   properties: {
     chargeType: { type: "string", description: "e.g. Resort fee, Parking." },
     amount: { type: ["number", "null"] },
-    scope: { type: ["string", "null"], enum: ["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", null] },
+    scope: { type: ["string", "null"], enum: ["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY", null] },
   },
   required: ["chargeType"],
 } as const;
