@@ -52,27 +52,51 @@ function GroupSelect({ groups, defaultValue }: { groups: RoomGroup[]; defaultVal
   );
 }
 
-// One capacity per set-up: the list, then any the room holds that's off it.
+// The room's set-up capacities, one row each, plus a picker to add a set-up
+// from the list (a stored set-up no longer on it keeps its row).
 function SetupCapacities({ setupTypes, capacities = [] }: { setupTypes: string[]; capacities?: RoomCapacity[] }) {
-  const stored = new Map(capacities.map((c) => [c.setupType, c.capacity]));
-  const labels = [...setupTypes, ...capacities.map((c) => c.setupType).filter((t) => !setupTypes.includes(t))];
-  if (labels.length === 0) return null;
+  const [rows, setRows] = useState(() => capacities.map((c) => ({ setupType: c.setupType, capacity: String(c.capacity) })));
+  const unused = setupTypes.filter((t) => !rows.some((r) => r.setupType === t));
+  if (setupTypes.length === 0 && rows.length === 0) return null;
   return (
-    <div className="basis-full grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
-      {labels.map((label) => (
-        <label key={label} className="flex items-center justify-between gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <span className="min-w-0 break-words">{label}</span>
-          <input type="hidden" name="capacitySetup" value={label} />
+    <div className="basis-full space-y-2">
+      {rows.map((r, i) => (
+        <div key={r.setupType} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <span className="flex-1 min-w-0 break-words">{r.setupType}</span>
+          <input type="hidden" name="capacitySetup" value={r.setupType} />
           <input
             type="number"
             name="capacityCount"
             min={0}
-            aria-label={`${label} capacity`}
-            defaultValue={stored.get(label) ?? ""}
+            aria-label={`${r.setupType} capacity`}
+            value={r.capacity}
+            onChange={(e) => setRows((prev) => prev.map((x, j) => (j === i ? { ...x, capacity: e.target.value } : x)))}
             className="w-20 px-2 py-1 text-right border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
           />
-        </label>
+          <button
+            type="button"
+            onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
+            className="text-sm text-red-600 dark:text-red-400 hover:underline"
+          >
+            Remove
+          </button>
+        </div>
       ))}
+      {unused.length > 0 && (
+        <select
+          aria-label="Add set-up capacity"
+          value=""
+          onChange={(e) => e.target.value && setRows((prev) => [...prev, { setupType: e.target.value, capacity: "" }])}
+          className="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+        >
+          <option value="">+ Capacity by set-up</option>
+          {unused.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }
