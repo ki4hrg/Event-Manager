@@ -8,6 +8,7 @@ import { btnOutlinedSm } from "@/lib/buttonStyles";
 import { REPORTS } from "@/lib/reportRegistry";
 import { Toast } from "@/components/Toast";
 import { getEvent } from "@/app/events/event";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import {
   getPackingListItems,
   getSavedProviderFilter,
@@ -58,11 +59,12 @@ export default async function PackingListPage({
 
   // URL param wins when present, so skip the saved-setting lookup in that
   // case (saves a DB query on every 15s polling refresh).
-  const [event, payload, savedProvider, savedLocation] = await Promise.all([
+  const [event, payload, savedProvider, savedLocation, packingSubstatuses] = await Promise.all([
     getEvent(eventId),
     getPackingListItems(eventId),
     urlProvider == null ? getSavedProviderFilter(eventId) : Promise.resolve<string | null>(null),
     urlLocation == null ? getSavedLocationFilter(eventId) : Promise.resolve<string | null>(null),
+    getOptions("packing_substatus"),
   ]);
 
   if (!event) notFound();
@@ -74,18 +76,20 @@ export default async function PackingListPage({
     itemId: string,
     supplyOrderId: string,
     packingStatus: PackingStatus,
+    packingSubstatus?: string | null,
   ) => {
     "use server";
-    await updateSupplyOrderItemPackingStatus(itemId, supplyOrderId, eventId, packingStatus);
+    await updateSupplyOrderItemPackingStatus(itemId, supplyOrderId, eventId, packingStatus, packingSubstatus);
   };
 
   const togglePrintItem = async (
     itemId: string,
     printOrderId: string,
     packingStatus: PackingStatus,
+    packingSubstatus?: string | null,
   ) => {
     "use server";
-    await updatePrintItemPackingStatus(itemId, printOrderId, eventId, packingStatus);
+    await updatePrintItemPackingStatus(itemId, printOrderId, eventId, packingStatus, packingSubstatus);
   };
 
   const toggleSupplyAcquisition = async (
@@ -184,6 +188,7 @@ export default async function PackingListPage({
         initialProvider={initialProvider}
         initialLocation={initialLocation}
         initialGroupBy={urlGroupBy}
+        packingSubstatusOptions={packingSubstatuses.map((o) => ({ label: o.label, group: o.group }))}
         toggleSupplyItem={toggleSupplyItem}
         togglePrintItem={togglePrintItem}
         toggleSupplyAcquisition={toggleSupplyAcquisition}

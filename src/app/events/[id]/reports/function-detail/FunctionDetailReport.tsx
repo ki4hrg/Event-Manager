@@ -16,6 +16,7 @@ import {
   ACQUISITION_LABEL,
   PACKING_STATUS_CLASS,
   PACKING_STATUS_LABEL,
+  packingStatusText,
   STATUS_CLASS,
   STATUS_LABEL,
 } from "@/lib/statusConstants";
@@ -502,7 +503,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
             {order.name}
           </span>
           <StatusBadge status={order.status} />
-          <PackingStatusBadge status={order.packingStatus} />
+          <PackingStatusBadge status={order.packingStatus} substatus={order.packingSubstatus} />
         </div>
         <VendorPills vendors={order.vendors} />
       </div>
@@ -541,7 +542,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                   )}
                 </div>
                 <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                  {PACKING_STATUS_LABEL[it.packingStatus]} · {ACQUISITION_LABEL[it.acquisitionState]}
+                  {packingStatusText(it.packingStatus, it.packingSubstatus)} · {ACQUISITION_LABEL[it.acquisitionState]}
                 </p>
                 {partyLabel(it.designerVendor, it.designerContact) && (
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
@@ -605,7 +606,7 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
                       {it.quantity ?? "—"}
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                      {PACKING_STATUS_LABEL[it.packingStatus]}
+                      {packingStatusText(it.packingStatus, it.packingSubstatus)}
                     </td>
                     <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                       {ACQUISITION_LABEL[it.acquisitionState]}
@@ -639,11 +640,11 @@ function PrintOrderCard({ order }: { order: PrintOrder }) {
   );
 }
 
-function PackingStatusBadge({ status }: { status: PackingStatus | null }) {
+function PackingStatusBadge({ status, substatus }: { status: PackingStatus | null; substatus: string | null }) {
   if (!status) return null;
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${PACKING_STATUS_CLASS[status]}`}>
-      {PACKING_STATUS_LABEL[status]}
+      {packingStatusText(status, substatus)}
     </span>
   );
 }
@@ -698,7 +699,7 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
                     )}
                   </div>
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                    {PACKING_STATUS_LABEL[it.packingStatus]} · {ACQUISITION_LABEL[it.acquisitionState]}
+                    {packingStatusText(it.packingStatus, it.packingSubstatus)} · {ACQUISITION_LABEL[it.acquisitionState]}
                   </p>
                   {providerOverride && (
                     <p className="text-gray-500 dark:text-gray-400 mt-0.5">Provider: {itemProvider}</p>
@@ -742,7 +743,7 @@ function SupplyOrderCard({ order }: { order: SupplyOrder }) {
                         {it.quantity ?? "—"}
                       </td>
                       <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
-                        {PACKING_STATUS_LABEL[it.packingStatus]}
+                        {packingStatusText(it.packingStatus, it.packingSubstatus)}
                       </td>
                       <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
                         {ACQUISITION_LABEL[it.acquisitionState]}

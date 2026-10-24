@@ -1676,6 +1676,7 @@ model PrintOrder {
   status           EntityStatus?
   substatus        String? // @option substatus
   packingStatus    PackingStatus?
+  packingSubstatus String? // @option packing_substatus
   eventId          String
   event            Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
   roomId           String?
@@ -1718,6 +1719,7 @@ model PrintItem {
   quantity           Int?
   acquisitionState   AcquisitionState @default(TO_PROCURE)
   packingStatus      PackingStatus    @default(NEEDED)
+  packingSubstatus   String? // @option packing_substatus
   distributionMethod String? // @option print_distribution
   distributionNotes  String?
   designerVendorId   String?
@@ -1809,6 +1811,7 @@ model SupplyOrderItem {
   providerContactId String?
   providerContact   Contact?         @relation("SupplyOrderItemProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
   packingStatus     PackingStatus    @default(NEEDED)
+  packingSubstatus  String? // @option packing_substatus
   notes             String?
   sortOrder         Int              @default(0)
 

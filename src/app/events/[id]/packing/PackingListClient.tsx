@@ -13,12 +13,14 @@ import { btnOutlinedSm } from "@/lib/buttonStyles";
 import { labelMicroCaps } from "@/lib/reportStyles";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
+import { PackingSubstatusSelect, type PackingSubstatusOption } from "@/components/ui/PackingSubstatusSelect";
 import type { PackableItem, PackingListPayload } from "../../packing/actions";
 import type { ReturnToLocationResult } from "../../packing/core";
 import { isUserError, type UserError } from "@/lib/userErrors";
 
-type ToggleSupply = (itemId: string, supplyOrderId: string, status: PackingStatus) => Promise<void>;
-type TogglePrint = (itemId: string, printOrderId: string, status: PackingStatus) => Promise<void>;
+// An omitted sub-state is cleared when the status changes.
+type ToggleSupply = (itemId: string, supplyOrderId: string, status: PackingStatus, substatus?: string | null) => Promise<void>;
+type TogglePrint = (itemId: string, printOrderId: string, status: PackingStatus, substatus?: string | null) => Promise<void>;
 type ToggleSupplyAcquisition = (
   itemId: string,
   supplyOrderId: string,
@@ -55,6 +57,7 @@ type Props = {
   initialProvider?: string;
   initialLocation?: string;
   initialGroupBy?: string;
+  packingSubstatusOptions: PackingSubstatusOption[];
   toggleSupplyItem: ToggleSupply;
   togglePrintItem: TogglePrint;
   toggleSupplyAcquisition: ToggleSupplyAcquisition;
@@ -90,6 +93,7 @@ export function PackingListClient({
   initialProvider,
   initialLocation,
   initialGroupBy,
+  packingSubstatusOptions,
   toggleSupplyItem,
   togglePrintItem,
   toggleSupplyAcquisition,
@@ -373,7 +377,10 @@ export function PackingListClient({
   }
 
   function cycle(item: PackableItem) {
-    const next = NEXT_STATUS[item.packingStatus];
+    writePacking(item, NEXT_STATUS[item.packingStatus]);
+  }
+
+  function writePacking(item: PackableItem, next: PackingStatus, substatus?: string | null) {
     setPendingItemIds((s) => {
       const n = new Set(s);
       n.add(item.itemId);
@@ -389,9 +396,9 @@ export function PackingListClient({
       let failed = false;
       try {
         if (item.kind === "SUPPLY") {
-          await toggleSupplyItem(item.itemId, item.parentOrderId, next);
+          await toggleSupplyItem(item.itemId, item.parentOrderId, next, substatus);
         } else {
-          await togglePrintItem(item.itemId, item.parentOrderId, next);
+          await togglePrintItem(item.itemId, item.parentOrderId, next, substatus);
         }
         router.refresh();
       } catch {
@@ -853,13 +860,23 @@ export function PackingListClient({
                               </p>
                             )}
                           </div>
-                          <StatusPill
-                            item={item}
-                            canWrite={canWriteItem}
-                            isPending={pendingItemIds.has(item.itemId)}
-                            hasError={errorItemIds.has(item.itemId)}
-                            onCycle={cycle}
-                          />
+                          <div className="flex flex-col items-end gap-1">
+                            <StatusPill
+                              item={item}
+                              canWrite={canWriteItem}
+                              isPending={pendingItemIds.has(item.itemId)}
+                              hasError={errorItemIds.has(item.itemId)}
+                              onCycle={cycle}
+                            />
+                            <PackingSubstatusSelect
+                              status={item.packingStatus}
+                              options={packingSubstatusOptions}
+                              value={item.packingSubstatus}
+                              disabled={!canWriteItem || pendingItemIds.has(item.itemId)}
+                              onChange={(sub) => writePacking(item, item.packingStatus, sub)}
+                              className="max-w-28 text-xs px-1.5 py-1"
+                            />
+                          </div>
                         </div>
                         <div className="mt-2">
                           <PackingProcurementWarning
@@ -951,13 +968,23 @@ export function PackingListClient({
                             {item.sourceLocationName ?? "—"}
                           </td>
                           <td className="py-2 pr-3">
-                            <StatusPill
-                              item={item}
-                              canWrite={canWriteItem}
-                              isPending={pendingItemIds.has(item.itemId)}
-                              hasError={errorItemIds.has(item.itemId)}
-                              onCycle={cycle}
-                            />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <StatusPill
+                                item={item}
+                                canWrite={canWriteItem}
+                                isPending={pendingItemIds.has(item.itemId)}
+                                hasError={errorItemIds.has(item.itemId)}
+                                onCycle={cycle}
+                              />
+                              <PackingSubstatusSelect
+                                status={item.packingStatus}
+                                options={packingSubstatusOptions}
+                                value={item.packingSubstatus}
+                                disabled={!canWriteItem || pendingItemIds.has(item.itemId)}
+                                onChange={(sub) => writePacking(item, item.packingStatus, sub)}
+                                className="text-xs px-1.5 py-1"
+                              />
+                            </div>
                           </td>
                         </tr>
                         );

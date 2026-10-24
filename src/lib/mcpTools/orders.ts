@@ -153,7 +153,7 @@ import {
 } from "@/app/events/av-orders/core";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import type { McpToolDefinition } from "./types";
-import { requireString, optionalString, optionalStringArray } from "./types";
+import { requireString, optionalString, optionalStringArray, partialString } from "./types";
 
 function optionalInt(args: Record<string, unknown>, key: string): number | null {
   const v = args[key];
@@ -170,12 +170,18 @@ function parseOptionalDate(args: Record<string, unknown>, key: string): Date | n
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+// A packing sub-state is a label from the tenant's packing_substatus list,
+// grouped under one packing status.
+const PACKING_SUBSTATUS_DESC =
+  "Optional packing sub-state label (e.g. Packed under NEEDED, Shipped under IN_TRANSIT, Returned under DELIVERED); must belong to the packing status. Omitted: kept while the status stays the same, cleared when it changes. null clears.";
+
 function readPrintItemArgs(args: Record<string, unknown>): PrintItemWriteArgs {
   return {
     description: requireString(args, "description"),
     quantity: optionalInt(args, "quantity"),
     acquisitionState: (optionalString(args, "acquisitionState") ?? "TO_PROCURE") as AcquisitionState,
     packingStatus: (optionalString(args, "packingStatus") ?? "NEEDED") as PackingStatus,
+    packingSubstatus: partialString(args, "packingSubstatus"),
     distributionMethod: optionalString(args, "distributionMethod") ?? null,
     distributionNotes: optionalString(args, "distributionNotes") ?? null,
     designerVendorId: optionalString(args, "designerVendorId") ?? null,
@@ -192,6 +198,7 @@ const printItemProps = {
   quantity: { type: "number", description: "Optional integer." },
   acquisitionState: { type: "string", enum: ["ON_HAND", "TO_PROCURE", "DROP_SHIP"], description: "Defaults TO_PROCURE." },
   packingStatus: { type: "string", enum: ["NEEDED", "IN_TRANSIT", "DELIVERED"], description: "Defaults NEEDED." },
+  packingSubstatus: { type: ["string", "null"], description: PACKING_SUBSTATUS_DESC },
   distributionMethod: { type: "string", description: "Optional." },
   distributionNotes: { type: "string", description: "Optional." },
   designerVendorId: { type: "string", description: "Optional vendor id." },
@@ -214,6 +221,7 @@ function readSupplyItemArgs(args: Record<string, unknown>): SupplyItemWriteArgs 
     providerVendorId: optionalString(args, "providerVendorId") ?? null,
     providerContactId: optionalString(args, "providerContactId") ?? null,
     packingStatus: (optionalString(args, "packingStatus") ?? "NEEDED") as PackingStatus,
+    packingSubstatus: partialString(args, "packingSubstatus"),
     notes: optionalString(args, "notes") ?? null,
     sourceLocationId: optionalString(args, "sourceLocationId") ?? null,
     containerLocationId: optionalString(args, "containerLocationId") ?? null,
@@ -229,6 +237,7 @@ const supplyItemProps = {
   providerVendorId: { type: "string", description: "Optional. Single-party: vendor OR contact (setting vendor clears contact)." },
   providerContactId: { type: "string", description: "Optional. Single-party (see providerVendorId)." },
   packingStatus: { type: "string", enum: PACKING_STATUSES, description: "Defaults NEEDED." },
+  packingSubstatus: { type: ["string", "null"], description: PACKING_SUBSTATUS_DESC },
   notes: { type: "string" },
   sourceLocationId: { type: "string", description: "Optional storage location this item comes from. On a container line it means where that container sits for this event. See `list_storage_locations`." },
   inventoryItemId: { type: "string", description: "Optional provenance link to the durable inventory row this line was pulled from. Records origin only — it never decrements or reserves the inventory. See `list_inventory_items`." },
@@ -971,13 +980,14 @@ export const orderTools: McpToolDefinition[] = [
   },
   {
     name: "update_print_order_packing_status",
-    description: "Set or clear order-level packing status. When a concrete value is passed (NEEDED/IN_TRANSIT/DELIVERED) it cascades to every PrintItem on the order in the same transaction. Pass null to clear without cascade.",
+    description: "Set or clear order-level packing status. When a concrete value is passed (NEEDED/IN_TRANSIT/DELIVERED) it cascades to every PrintItem on the order in the same transaction. Pass null to clear without cascade. A packingSubstatus cascades with it.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
         eventId: { type: "string" },
         packingStatus: { type: ["string", "null"], enum: ["NEEDED", "IN_TRANSIT", "DELIVERED", null] },
+        packingSubstatus: { type: ["string", "null"], description: PACKING_SUBSTATUS_DESC },
       },
       required: ["id", "eventId"],
       additionalProperties: false,
@@ -988,7 +998,7 @@ export const orderTools: McpToolDefinition[] = [
       const raw = args["packingStatus"];
       const packingStatus =
         raw === null || raw === undefined ? null : (raw as PackingStatus);
-      await updatePrintOrderPackingStatusCore(id, eventId, packingStatus, userId);
+      await updatePrintOrderPackingStatusCore(id, eventId, packingStatus, userId, partialString(args, "packingSubstatus"));
       return { ok: true };
     },
   },
@@ -1007,6 +1017,7 @@ export const orderTools: McpToolDefinition[] = [
         },
         substatus: { type: "string" },
         packingStatus: { type: "string", enum: ["NEEDED", "IN_TRANSIT", "DELIVERED"] },
+        packingSubstatus: { type: ["string", "null"], description: `With packingStatus only. ${PACKING_SUBSTATUS_DESC}` },
         vendorId: { type: "string", description: "When set, replaces all vendor links on the targeted orders." },
         functionId: { type: "string", description: "When set, ensures this function is linked on all targets (skip-existing)." },
       },
@@ -1022,6 +1033,8 @@ export const orderTools: McpToolDefinition[] = [
       if ("substatus" in args) updates.substatus = optionalString(args, "substatus") ?? null;
       const packingStatus = optionalString(args, "packingStatus");
       if (packingStatus) updates.packingStatus = packingStatus as PackingStatus;
+      const packingSubstatus = partialString(args, "packingSubstatus");
+      if (packingSubstatus !== undefined) updates.packingSubstatus = packingSubstatus;
       const vendorId = optionalString(args, "vendorId");
       if (vendorId) updates.vendorId = vendorId;
       const functionId = optionalString(args, "functionId");
@@ -1317,6 +1330,7 @@ export const orderTools: McpToolDefinition[] = [
         supplyOrderId: { type: "string" },
         eventId: { type: "string" },
         packingStatus: { type: "string", enum: PACKING_STATUSES },
+        packingSubstatus: { type: ["string", "null"], description: PACKING_SUBSTATUS_DESC },
       },
       required: ["supplyOrderId", "eventId", "packingStatus"],
       additionalProperties: false,
@@ -1327,6 +1341,7 @@ export const orderTools: McpToolDefinition[] = [
         requireString(args, "eventId"),
         requireString(args, "packingStatus") as PackingStatus,
         userId,
+        partialString(args, "packingSubstatus"),
       );
       return { ok: true };
     },
@@ -1540,7 +1555,7 @@ export const orderTools: McpToolDefinition[] = [
   },
   {
     name: "update_supply_order_item_packing_status",
-    description: "Set the packing status on a single SupplyOrderItem.",
+    description: "Set the packing status (and optional sub-state) on a single SupplyOrderItem.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1548,6 +1563,7 @@ export const orderTools: McpToolDefinition[] = [
         supplyOrderId: { type: "string" },
         eventId: { type: "string" },
         packingStatus: { type: "string", enum: PACKING_STATUSES },
+        packingSubstatus: { type: ["string", "null"], description: PACKING_SUBSTATUS_DESC },
       },
       required: ["id", "supplyOrderId", "eventId", "packingStatus"],
       additionalProperties: false,
@@ -1557,7 +1573,7 @@ export const orderTools: McpToolDefinition[] = [
       const supplyOrderId = requireString(args, "supplyOrderId");
       const eventId = requireString(args, "eventId");
       const packingStatus = requireString(args, "packingStatus") as PackingStatus;
-      await updateSupplyOrderItemPackingStatusCore(id, supplyOrderId, eventId, packingStatus, userId);
+      await updateSupplyOrderItemPackingStatusCore(id, supplyOrderId, eventId, packingStatus, userId, partialString(args, "packingSubstatus"));
       return { ok: true };
     },
   },

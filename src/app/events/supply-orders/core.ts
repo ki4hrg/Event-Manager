@@ -2,6 +2,7 @@
 // NOT a "use server" file — see src/app/contacts/core.ts for the security rationale.
 
 import type { AcquisitionState, EntityStatus, PackingStatus } from "@prisma/client";
+import { assertPackingSubstatus, packingItemsWrite, packingSubstatusFor } from "@/lib/packingSubstatus";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
@@ -139,13 +140,16 @@ export async function bulkSetSupplyOrderItemsPackingStatusCore(
   eventId: string,
   packingStatus: PackingStatus,
   userId: string,
+  packingSubstatus?: string | null,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
   await assertSupplyOrderInEvent(supplyOrderId, eventId);
+  await assertPackingSubstatus(eventId, packingStatus, packingSubstatus);
+  const write = packingItemsWrite(packingStatus, packingSubstatus);
   await prisma.$transaction(async (tx) => {
     await tx.supplyOrderItem.updateMany({
-      where: { supplyOrderId },
-      data: { packingStatus },
+      where: { supplyOrderId, ...write.where },
+      data: write.data,
     });
     await tx.supplyOrder.update({
       where: { id: supplyOrderId },
@@ -313,6 +317,8 @@ export type SupplyItemWriteArgs = {
   providerVendorId: string | null;
   providerContactId: string | null;
   packingStatus: PackingStatus;
+  // Omitted on an update: kept while the status stays put.
+  packingSubstatus?: string | null;
   notes: string | null;
   // Where this item comes from. On a container line this means something else:
   // where that container sits for this event, overriding its durable home.
@@ -401,12 +407,13 @@ export async function createSupplyOrderItemCore(
   if (args.containerLocationId) {
     await assertContainerUsable(args.containerLocationId, eventId);
   }
+  const packingSubstatus = await packingSubstatusFor(eventId, args.packingStatus, args.packingSubstatus, null);
   const { _max } = await prisma.supplyOrderItem.aggregate({
     where: { supplyOrderId },
     _max: { sortOrder: true },
   });
   const item = await prisma.supplyOrderItem.create({
-    data: { supplyOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
+    data: { supplyOrderId, ...args, packingSubstatus, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
   await bumpSupplyOrder(supplyOrderId, eventId, userId);
   return item;
@@ -504,9 +511,15 @@ export async function updateSupplyOrderItemCore(
   if (args.containerLocationId) {
     await assertContainerUsable(args.containerLocationId, eventId, id);
   }
+  const stored = await prisma.supplyOrderItem.findFirst({
+    where: { id, supplyOrder: { eventId } },
+    select: { packingStatus: true, packingSubstatus: true },
+  });
+  if (!stored) throw new PermissionError("NOT_FOUND");
+  const packingSubstatus = await packingSubstatusFor(eventId, args.packingStatus, args.packingSubstatus, stored);
   const item = await prisma.supplyOrderItem.update({
     where: { id, supplyOrder: { eventId } },
-    data: args,
+    data: { ...args, packingSubstatus },
   });
   await bumpSupplyOrder(supplyOrderId, eventId, userId);
   return item;
@@ -529,11 +542,17 @@ export async function updateSupplyOrderItemPackingStatusCore(
   eventId: string,
   packingStatus: PackingStatus,
   userId: string,
+  packingSubstatus?: string | null,
 ) {
   await requirePermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId);
+  const stored = await prisma.supplyOrderItem.findFirst({
+    where: { id, supplyOrder: { eventId } },
+    select: { packingStatus: true, packingSubstatus: true },
+  });
+  if (!stored) throw new PermissionError("NOT_FOUND");
   await prisma.supplyOrderItem.update({
     where: { id, supplyOrder: { eventId } },
-    data: { packingStatus },
+    data: { packingStatus, packingSubstatus: await packingSubstatusFor(eventId, packingStatus, packingSubstatus, stored) },
   });
   await bumpSupplyOrder(supplyOrderId, eventId, userId);
 }

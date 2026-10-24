@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
+import { assertPackingSubstatus, packingItemsWrite, packingSubstatusFor } from "@/lib/packingSubstatus";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
 async function assertPrintOrderInEvent(printOrderId: string, eventId: string) {
@@ -114,25 +115,30 @@ export async function updatePrintOrderCore(
   });
 }
 
-// Order-level packing status — cascade to every item in the same transaction.
+// Order-level packing status (and sub-state; omitted, it's kept only while
+// the status stays put) — cascade to every item in the same transaction.
 export async function updatePrintOrderPackingStatusCore(
   printOrderId: string,
   eventId: string,
   packingStatus: PackingStatus | null,
   userId: string,
+  packingSubstatus?: string | null,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
-  await assertPrintOrderInEvent(printOrderId, eventId);
+  const stored = await prisma.printOrder.findUnique({
+    where: { id: printOrderId, eventId },
+    select: { packingStatus: true, packingSubstatus: true },
+  });
+  if (!stored) throw new PermissionError("NOT_FOUND");
+  const substatus = await packingSubstatusFor(eventId, packingStatus, packingSubstatus, stored);
   await prisma.$transaction(async (tx) => {
     await tx.printOrder.update({
       where: { id: printOrderId },
-      data: { packingStatus, updatedById: userId },
+      data: { packingStatus, packingSubstatus: substatus, updatedById: userId },
     });
     if (packingStatus) {
-      await tx.printItem.updateMany({
-        where: { printOrderId },
-        data: { packingStatus },
-      });
+      const write = packingItemsWrite(packingStatus, packingSubstatus === undefined ? undefined : substatus);
+      await tx.printItem.updateMany({ where: { printOrderId, ...write.where }, data: write.data });
     }
   });
 }
@@ -152,6 +158,8 @@ export type BulkPrintOrderUpdates = {
   status?: EntityStatus;
   substatus?: string | null;
   packingStatus?: PackingStatus | null;
+  // With packingStatus only; omitted, rows that change status lose theirs.
+  packingSubstatus?: string | null;
   vendorId?: string;
   functionId?: string;
 };
@@ -167,23 +175,34 @@ export async function bulkUpdatePrintOrdersCore(
   // Items and junction rows below are written per id: keep only this event's orders.
   ids = (await prisma.printOrder.findMany({ where: { id: { in: ids }, eventId }, select: { id: true } })).map((o) => o.id);
   const { status, substatus, packingStatus, vendorId, functionId } = updates;
+  const packingSubstatus = packingStatus ? updates.packingSubstatus : packingStatus === null ? null : undefined;
+  if (packingStatus) await assertPackingSubstatus(eventId, packingStatus, packingSubstatus);
 
   if (status !== undefined || substatus !== undefined || packingStatus !== undefined) {
     await prisma.$transaction(async (tx) => {
+      // Orders leaving their packing status drop a sub-state the update doesn't name.
+      if (packingStatus && packingSubstatus === undefined) {
+        await tx.printOrder.updateMany({
+          where: { id: { in: ids }, eventId, OR: [{ packingStatus: { not: packingStatus } }, { packingStatus: null }] },
+          data: { packingSubstatus: null },
+        });
+      }
       await tx.printOrder.updateMany({
         where: { id: { in: ids }, eventId },
         data: {
           ...(status !== undefined ? { status } : {}),
           ...(substatus !== undefined ? { substatus } : {}),
           ...(packingStatus !== undefined ? { packingStatus } : {}),
+          ...(packingSubstatus !== undefined ? { packingSubstatus } : {}),
           updatedById: userId,
         },
       });
       // Cascade packing status to items when it changes to a concrete value.
       if (packingStatus) {
+        const write = packingItemsWrite(packingStatus, packingSubstatus);
         await tx.printItem.updateMany({
-          where: { printOrderId: { in: ids } },
-          data: { packingStatus },
+          where: { printOrderId: { in: ids }, ...write.where },
+          data: write.data,
         });
       }
     });
@@ -304,6 +323,8 @@ export type PrintItemWriteArgs = {
   quantity: number | null;
   acquisitionState: AcquisitionState;
   packingStatus: PackingStatus;
+  // Omitted on an update: kept while the status stays put.
+  packingSubstatus?: string | null;
   distributionMethod: string | null;
   distributionNotes: string | null;
   designerVendorId: string | null;
@@ -331,12 +352,13 @@ export async function createPrintItemCore(
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
   await assertPrintOrderInEvent(printOrderId, eventId);
   await assertEventRefs(eventId, printItemRefs(args));
+  const packingSubstatus = await packingSubstatusFor(eventId, args.packingStatus, args.packingSubstatus, null);
   const { _max } = await prisma.printItem.aggregate({
     where: { printOrderId },
     _max: { sortOrder: true },
   });
   const item = await prisma.printItem.create({
-    data: { printOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
+    data: { printOrderId, ...args, packingSubstatus, sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
   await bumpPrintOrder(printOrderId, eventId, userId);
   return item;
@@ -351,9 +373,15 @@ export async function updatePrintItemCore(
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
   await assertEventRefs(eventId, printItemRefs(args));
+  const stored = await prisma.printItem.findFirst({
+    where: { id, printOrder: { eventId } },
+    select: { packingStatus: true, packingSubstatus: true },
+  });
+  if (!stored) throw new PermissionError("NOT_FOUND");
+  const packingSubstatus = await packingSubstatusFor(eventId, args.packingStatus, args.packingSubstatus, stored);
   const item = await prisma.printItem.update({
     where: { id, printOrder: { eventId } },
-    data: args,
+    data: { ...args, packingSubstatus },
   });
   await bumpPrintOrder(printOrderId, eventId, userId);
   return item;
@@ -376,11 +404,17 @@ export async function updatePrintItemPackingStatusCore(
   eventId: string,
   packingStatus: PackingStatus,
   userId: string,
+  packingSubstatus?: string | null,
 ) {
   await requirePermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId);
+  const stored = await prisma.printItem.findFirst({
+    where: { id, printOrder: { eventId } },
+    select: { packingStatus: true, packingSubstatus: true },
+  });
+  if (!stored) throw new PermissionError("NOT_FOUND");
   await prisma.printItem.update({
     where: { id, printOrder: { eventId } },
-    data: { packingStatus },
+    data: { packingStatus, packingSubstatus: await packingSubstatusFor(eventId, packingStatus, packingSubstatus, stored) },
   });
   await bumpPrintOrder(printOrderId, eventId, userId);
 }

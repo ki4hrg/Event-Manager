@@ -121,9 +121,10 @@ export async function updatePrintOrderPackingStatus(
   id: string,
   eventId: string,
   packingStatus: PackingStatus | null,
+  packingSubstatus?: string | null,
 ) {
   const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await updatePrintOrderPackingStatusCore(id, eventId, packingStatus, session.user.id);
+  await updatePrintOrderPackingStatusCore(id, eventId, packingStatus, session.user.id, packingSubstatus);
   revalidatePath(`/events/${eventId}/print-orders`);
   revalidatePath(`/events/${eventId}/print-orders/${id}`);
 }
@@ -225,6 +226,8 @@ function parsePrintItemData(formData: FormData): PrintItemWriteArgs {
     quantity: formData.get("quantity") ? parseInt(formData.get("quantity") as string) : null,
     acquisitionState: ((formData.get("acquisitionState") as string) || "TO_PROCURE") as AcquisitionState,
     packingStatus: ((formData.get("packingStatus") as string) || "NEEDED") as PackingStatus,
+    // Absent when the status has no sub-states: kept only while the status stays put.
+    packingSubstatus: formData.has("packingSubstatus") ? (formData.get("packingSubstatus") as string) || null : undefined,
     distributionMethod: (formData.get("distributionMethod") as string) || null,
     distributionNotes: (formData.get("distributionNotes") as string) || null,
     designerVendorId: (formData.get("designerVendorId") as string) || null,
@@ -260,9 +263,10 @@ export async function updatePrintItemPackingStatus(
   printOrderId: string,
   eventId: string,
   packingStatus: PackingStatus,
+  packingSubstatus?: string | null,
 ) {
   const session = await requirePermission("PRINT_ORDERS", "WRITE", eventId);
-  await updatePrintItemPackingStatusCore(id, printOrderId, eventId, packingStatus, session.user.id);
+  await updatePrintItemPackingStatusCore(id, printOrderId, eventId, packingStatus, session.user.id, packingSubstatus);
   revalidatePath(`/events/${eventId}/print-orders/${printOrderId}`);
   revalidatePath(`/events/${eventId}/packing`);
 }

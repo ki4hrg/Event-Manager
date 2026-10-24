@@ -21,6 +21,7 @@ import { formatDietaryCounts } from "@/lib/dietary";
 import {
   ACQUISITION_LABEL,
   PACKING_STATUS_LABEL,
+  packingStatusText,
 } from "@/lib/statusConstants";
 
 type HandoffData = NonNullable<Awaited<ReturnType<typeof getVendorHandoffData>>>;
@@ -1195,7 +1196,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
                     )}
                   </div>
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                    {PACKING_STATUS_LABEL[item.packingStatus]} · {ACQUISITION_LABEL[item.acquisitionState]}
+                    {packingStatusText(item.packingStatus, item.packingSubstatus)} · {ACQUISITION_LABEL[item.acquisitionState]}
                   </p>
                   {itemProviderName && (
                     <p className="text-gray-500 dark:text-gray-400 mt-0.5">Provider: {itemProviderName}</p>
@@ -1235,7 +1236,7 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
                     <tr key={item.id}>
                       <td className={td}>{itemLabel}</td>
                       <td className={td}>{item.quantity ?? "—"}</td>
-                      <td className={td}>{PACKING_STATUS_LABEL[item.packingStatus]}</td>
+                      <td className={td}>{packingStatusText(item.packingStatus, item.packingSubstatus)}</td>
                       <td className={td}>{ACQUISITION_LABEL[item.acquisitionState]}</td>
                       <td className={td}>{item.sourceLocation?.name ?? "—"}</td>
                       <td className={td}>{itemProviderName}</td>
@@ -1307,7 +1308,7 @@ function PrintOrderSection({ order, vendorId }: { order: PrintOrder; vendorId: s
                     )}
                   </div>
                   <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                    {PACKING_STATUS_LABEL[item.packingStatus]} · {ACQUISITION_LABEL[item.acquisitionState]}
+                    {packingStatusText(item.packingStatus, item.packingSubstatus)} · {ACQUISITION_LABEL[item.acquisitionState]}
                   </p>
                   {designer && <p className="text-gray-500 dark:text-gray-400 mt-0.5">Designer: {designer}</p>}
                   {printer && <p className="text-gray-500 dark:text-gray-400 mt-0.5">Printer: {printer}</p>}
@@ -1354,7 +1355,7 @@ function PrintOrderSection({ order, vendorId }: { order: PrintOrder; vendorId: s
                       {item.distributionMethod ?? "—"}
                       {item.distributionNotes ? ` — ${item.distributionNotes}` : ""}
                     </td>
-                    <td className={td}>{PACKING_STATUS_LABEL[item.packingStatus]}</td>
+                    <td className={td}>{packingStatusText(item.packingStatus, item.packingSubstatus)}</td>
                     <td className={td}>{ACQUISITION_LABEL[item.acquisitionState]}</td>
                     <td className={td}>{item.sourceLocation?.name ?? "—"}</td>
                     <td className={td}>{item.notes ?? ""}</td>

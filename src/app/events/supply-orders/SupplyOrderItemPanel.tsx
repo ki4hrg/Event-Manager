@@ -11,6 +11,7 @@ import type {
 import { FormSection } from "@/components/ui/FormSection";
 import { GroupedEquipmentSelect } from "@/components/ui/GroupedEquipmentSelect";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
+import { PackingSubstatusSelect, type PackingSubstatusOption } from "@/components/ui/PackingSubstatusSelect";
 import { PartyField } from "@/app/events/av-orders/party-field";
 import { partyLabel } from "@/lib/partyLabel";
 import type { ResponsiblePartyPool } from "@/lib/responsibleParties";
@@ -65,7 +66,8 @@ type SupplyOrderItemPanelProps = {
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
-  updateItemPackingStatus: (id: string, packingStatus: PackingStatus) => Promise<void>;
+  packingSubstatusOptions: PackingSubstatusOption[];
+  updateItemPackingStatus: (id: string, packingStatus: PackingStatus, packingSubstatus?: string | null) => Promise<void>;
   updateItemAcquisitionState: (id: string, acquisitionState: AcquisitionState) => Promise<void>;
   createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string | UserError>;
   previewContainerCascade: (containerLocationId: string) => Promise<ContainerCascadeCounts>;
@@ -196,6 +198,7 @@ function ItemForm({
   canManageLocations,
   createContainer,
   pool,
+  packingSubstatusOptions,
   onSubmit,
   onCancel,
   submitLabel,
@@ -208,6 +211,7 @@ function ItemForm({
   canManageLocations: boolean;
   createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string | UserError>;
   pool: ResponsiblePartyPool;
+  packingSubstatusOptions: PackingSubstatusOption[];
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
@@ -221,6 +225,7 @@ function ItemForm({
   const [isContainer, setIsContainer] = useState(!!item?.containerLocationId);
   const [containerId, setContainerId] = useState(item?.containerLocationId ?? "");
   const [sourceId, setSourceId] = useState(item?.sourceLocationId ?? "");
+  const [packingStatus, setPackingStatus] = useState<PackingStatus>(item?.packingStatus ?? "NEEDED");
 
   return (
     <form action={onSubmit} className="space-y-3">
@@ -340,13 +345,22 @@ function ItemForm({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Packing Status</label>
             <select
               name="packingStatus"
-              defaultValue={item?.packingStatus ?? "NEEDED"}
+              value={packingStatus}
+              onChange={(e) => setPackingStatus(e.target.value as PackingStatus)}
               className={inputClass}
             >
               {PACKING_STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
+            <PackingSubstatusSelect
+              key={packingStatus}
+              name="packingSubstatus"
+              status={packingStatus}
+              options={packingSubstatusOptions}
+              defaultValue={packingStatus === item?.packingStatus ? item.packingSubstatus : null}
+              className={`${inputClass} mt-2`}
+            />
           </div>
         </FormSection>
         <FormSection>
@@ -375,30 +389,48 @@ function ItemForm({
 function PackingStatusToggle({
   itemId,
   current,
+  currentSubstatus,
+  substatusOptions,
   onChange,
 }: {
   itemId: string;
   current: PackingStatus;
-  onChange: (id: string, status: PackingStatus) => Promise<void>;
+  currentSubstatus: string | null;
+  substatusOptions: PackingSubstatusOption[];
+  onChange: (id: string, status: PackingStatus, substatus?: string | null) => Promise<void>;
 }) {
   const canWrite = useCanWrite("SUPPLY_ORDERS");
   const [isPending, startTransition] = useTransition();
   return (
-    <select
-      value={current}
-      disabled={isPending || !canWrite}
-      onChange={(e) => {
-        const next = e.target.value as PackingStatus;
-        startTransition(async () => {
-          await onChange(itemId, next);
-        });
-      }}
-      className={`text-xs rounded px-2 py-0.5 border-0 font-medium disabled:opacity-50 ${PACKING_STATUS_CLASS[current]}`}
-    >
-      {PACKING_STATUS_OPTIONS.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
+    <>
+      <select
+        value={current}
+        disabled={isPending || !canWrite}
+        onChange={(e) => {
+          const next = e.target.value as PackingStatus;
+          startTransition(async () => {
+            await onChange(itemId, next);
+          });
+        }}
+        className={`text-xs rounded px-2 py-0.5 border-0 font-medium disabled:opacity-50 ${PACKING_STATUS_CLASS[current]}`}
+      >
+        {PACKING_STATUS_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <PackingSubstatusSelect
+        status={current}
+        options={substatusOptions}
+        value={currentSubstatus}
+        disabled={isPending || !canWrite}
+        onChange={(substatus) =>
+          startTransition(async () => {
+            await onChange(itemId, current, substatus);
+          })
+        }
+        className="text-xs px-1.5 py-0.5"
+      />
+    </>
   );
 }
 
@@ -549,6 +581,7 @@ export function SupplyOrderItemPanel({
   canManageLocations,
   pool,
   orderProvider,
+  packingSubstatusOptions,
   createItem,
   updateItem,
   deleteItem,
@@ -579,6 +612,7 @@ export function SupplyOrderItemPanel({
     canManageLocations,
     createContainer,
     pool,
+    packingSubstatusOptions,
   };
 
   const handleCreate = async (formData: FormData) => {
@@ -677,6 +711,8 @@ export function SupplyOrderItemPanel({
                         <PackingStatusToggle
                           itemId={item.id}
                           current={item.packingStatus}
+                          currentSubstatus={item.packingSubstatus}
+                          substatusOptions={packingSubstatusOptions}
                           onChange={updateItemPackingStatus}
                         />
                         <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -774,6 +810,8 @@ export function SupplyOrderItemPanel({
                           <PackingStatusToggle
                             itemId={item.id}
                             current={item.packingStatus}
+                            currentSubstatus={item.packingSubstatus}
+                            substatusOptions={packingSubstatusOptions}
                             onChange={updateItemPackingStatus}
                           />
                           <span className="text-xs text-gray-500 dark:text-gray-400">

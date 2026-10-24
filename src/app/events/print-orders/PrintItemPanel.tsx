@@ -10,9 +10,10 @@ import {
   ACQUISITION_LABEL,
   ACQUISITION_OPTIONS,
   PACKING_STATUS_CLASS,
-  PACKING_STATUS_LABEL,
   PACKING_STATUS_OPTIONS,
+  packingStatusText,
 } from "@/lib/statusConstants";
+import { PackingSubstatusSelect, type PackingSubstatusOption } from "@/components/ui/PackingSubstatusSelect";
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
@@ -29,6 +30,7 @@ type PrintItemPanelProps = {
   items: PrintItemWithParties[];
   locationOptions: LocationOption[];
   distributionOptions: { id: string; label: string }[];
+  packingSubstatusOptions: PackingSubstatusOption[];
   vendors: PartyOptions;
   contacts: ContactOptions;
   createItem: (formData: FormData) => Promise<void>;
@@ -55,6 +57,7 @@ function ItemForm({
   defaultQuantity = "",
   defaultAcquisitionState = "TO_PROCURE",
   defaultPackingStatus = "NEEDED",
+  defaultPackingSubstatus = null,
   defaultDistributionMethod = "",
   defaultDistributionNotes = "",
   defaultDesignerVendorId = "",
@@ -65,6 +68,7 @@ function ItemForm({
   defaultSourceLocationId = "",
   locationOptions,
   distributionOptions,
+  packingSubstatusOptions,
   vendors,
   contacts,
   onSubmit,
@@ -75,6 +79,7 @@ function ItemForm({
   defaultQuantity?: number | string;
   defaultAcquisitionState?: AcquisitionState;
   defaultPackingStatus?: PackingStatus;
+  defaultPackingSubstatus?: string | null;
   defaultDistributionMethod?: string;
   defaultDistributionNotes?: string;
   defaultDesignerVendorId?: string;
@@ -85,12 +90,14 @@ function ItemForm({
   defaultSourceLocationId?: string;
   locationOptions: LocationOption[];
   distributionOptions: { id: string; label: string }[];
+  packingSubstatusOptions: PackingSubstatusOption[];
   vendors: PartyOptions;
   contacts: ContactOptions;
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
 }) {
+  const [packingStatus, setPackingStatus] = useState<PackingStatus>(defaultPackingStatus);
   return (
     <form action={onSubmit} className="space-y-3">
       <div className="space-y-3">
@@ -171,13 +178,22 @@ function ItemForm({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Packing</label>
             <select
               name="packingStatus"
-              defaultValue={defaultPackingStatus}
+              value={packingStatus}
+              onChange={(e) => setPackingStatus(e.target.value as PackingStatus)}
               className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             >
               {PACKING_STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
+            <PackingSubstatusSelect
+              key={packingStatus}
+              name="packingSubstatus"
+              status={packingStatus}
+              options={packingSubstatusOptions}
+              defaultValue={packingStatus === defaultPackingStatus ? defaultPackingSubstatus : null}
+              className="w-full mt-2 px-3 py-1.5 text-sm"
+            />
           </div>
         </FormSection>
         <FormSection title="Distribution">
@@ -246,6 +262,7 @@ export function PrintItemPanel({
   items,
   locationOptions,
   distributionOptions,
+  packingSubstatusOptions,
   vendors,
   contacts,
   createItem,
@@ -287,6 +304,7 @@ export function PrintItemPanel({
           <ItemForm
             locationOptions={locationOptions}
             distributionOptions={distributionOptions}
+            packingSubstatusOptions={packingSubstatusOptions}
             vendors={vendors}
             contacts={contacts}
             onSubmit={handleCreate}
@@ -308,6 +326,7 @@ export function PrintItemPanel({
                   defaultQuantity={item.quantity ?? ""}
                   defaultAcquisitionState={item.acquisitionState}
                   defaultPackingStatus={item.packingStatus}
+                  defaultPackingSubstatus={item.packingSubstatus}
                   defaultDistributionMethod={item.distributionMethod ?? ""}
                   defaultDistributionNotes={item.distributionNotes ?? ""}
                   defaultDesignerVendorId={item.designerVendorId ?? ""}
@@ -318,6 +337,7 @@ export function PrintItemPanel({
                   defaultSourceLocationId={item.sourceLocationId ?? ""}
                   locationOptions={locationOptions}
                   distributionOptions={distributionOptions}
+                  packingSubstatusOptions={packingSubstatusOptions}
                   vendors={vendors}
                   contacts={contacts}
                   onSubmit={(fd) => handleUpdate(item.id, fd)}
@@ -336,7 +356,7 @@ export function PrintItemPanel({
                         · {ACQUISITION_LABEL[item.acquisitionState]}
                       </span>
                       <span className={`text-xs px-1.5 py-0.5 rounded ${PACKING_STATUS_CLASS[item.packingStatus]}`}>
-                        {PACKING_STATUS_LABEL[item.packingStatus]}
+                        {packingStatusText(item.packingStatus, item.packingSubstatus)}
                       </span>
                       {item.distributionMethod && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">· {item.distributionMethod}</span>

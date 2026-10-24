@@ -9,13 +9,13 @@
 // Plain server module (it reaches Prisma through the targets). Client
 // components import its types only; pages hand them the resolved props.
 
-import { EntityStatus, PermissionResource, Prisma } from "@prisma/client";
+import { EntityStatus, PackingStatus, PermissionResource, Prisma } from "@prisma/client";
 import { FUNCTION_SPACES, MEAL_BUCKETS, SCHEDULE_ROLES } from "@/lib/esg/apex";
 import { CHARGE_SCOPES, PROPOSAL_STAGES } from "@/lib/hotels";
 import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
 import { hotelLabelUses, mergeHotelLabel, type HotelLabelCategory } from "@/lib/hotelLabels";
 import { MAIN_SCHEDULE_GROUP } from "@/lib/scheduleTypes";
-import { STATUS_LABEL } from "@/lib/statusConstants";
+import { PACKING_STATUS_LABEL, STATUS_LABEL } from "@/lib/statusConstants";
 
 type Db = Prisma.TransactionClient;
 
@@ -244,7 +244,7 @@ export const OPTION_SECTIONS = {
     title: "People & vendors",
     lists: ["contact_role", "assignment_role", "staff_title", "venue_contact_type", "vendor_contact_type"],
   },
-  status: { title: "Statuses", lists: ["substatus"] },
+  status: { title: "Statuses", lists: ["substatus", "packing_substatus"] },
   inventory: { title: "Inventory", lists: ["equipment_category", "location_type"] },
 } as const satisfies Record<string, { title: string; lists: readonly string[] }>;
 
@@ -289,6 +289,13 @@ export const SUBSTATUS_GROUPS: readonly GroupChoice[] = Object.values(EntityStat
   value: status,
   label: `${STATUS_LABEL[status]} Substatuses`,
   description: `Finer states within ${STATUS_LABEL[status]}.`,
+}));
+
+// One packing sub-state list per packing status, in the enum's order.
+export const PACKING_SUBSTATUS_GROUPS: readonly GroupChoice[] = Object.values(PackingStatus).map((status) => ({
+  value: status,
+  label: `${PACKING_STATUS_LABEL[status]} Sub-states`,
+  description: `Finer packing states within ${PACKING_STATUS_LABEL[status]}.`,
 }));
 
 // A file type's group: the type a feature files its own documents under
@@ -472,6 +479,17 @@ export const OPTION_CATEGORIES = {
     groups: { kind: "fixed", label: "Status", choices: SUBSTATUS_GROUPS, split: true },
     resource: SETTINGS,
     renameTargets: SUBSTATUS_TARGETS,
+  },
+  packing_substatus: {
+    title: "Packing Sub-states",
+    description: "Finer states within each packing status.",
+    groups: { kind: "fixed", label: "Packing status", choices: PACKING_SUBSTATUS_GROUPS, split: true },
+    resource: SETTINGS,
+    renameTargets: [
+      col("printOrder", "packingSubstatus", inEvent),
+      col("printItem", "packingSubstatus", (t) => ({ printOrder: inEvent(t) })),
+      col("supplyOrderItem", "packingSubstatus", (t) => ({ supplyOrder: inEvent(t) })),
+    ],
   },
   proposal_status: {
     title: "Proposal Statuses",

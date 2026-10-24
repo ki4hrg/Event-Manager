@@ -155,9 +155,10 @@ export async function bulkSetSupplyOrderItemsPackingStatus(
   supplyOrderId: string,
   eventId: string,
   packingStatus: PackingStatus,
+  packingSubstatus?: string | null,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await bulkSetSupplyOrderItemsPackingStatusCore(supplyOrderId, eventId, packingStatus, session.user.id);
+  await bulkSetSupplyOrderItemsPackingStatusCore(supplyOrderId, eventId, packingStatus, session.user.id, packingSubstatus);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
   revalidatePath(`/events/${eventId}/packing`);
 }
@@ -280,6 +281,8 @@ function parseSupplyItemData(formData: FormData): SupplyItemWriteArgs {
     providerVendorId: (formData.get("providerVendorId") as string) || null,
     providerContactId: (formData.get("providerContactId") as string) || null,
     packingStatus: ((formData.get("packingStatus") as string) || "NEEDED") as PackingStatus,
+    // Absent when the status has no sub-states: kept only while the status stays put.
+    packingSubstatus: formData.has("packingSubstatus") ? (formData.get("packingSubstatus") as string) || null : undefined,
     notes: (formData.get("notes") as string) || null,
     sourceLocationId: (formData.get("sourceLocationId") as string) || null,
     containerLocationId: (formData.get("containerLocationId") as string) || null,
@@ -313,9 +316,10 @@ export async function updateSupplyOrderItemPackingStatus(
   supplyOrderId: string,
   eventId: string,
   packingStatus: PackingStatus,
+  packingSubstatus?: string | null,
 ) {
   const session = await requirePermission("SUPPLY_ORDERS", "WRITE", eventId);
-  await updateSupplyOrderItemPackingStatusCore(id, supplyOrderId, eventId, packingStatus, session.user.id);
+  await updateSupplyOrderItemPackingStatusCore(id, supplyOrderId, eventId, packingStatus, session.user.id, packingSubstatus);
   revalidatePath(`/events/${eventId}/supply-orders/${supplyOrderId}`);
   revalidatePath(`/events/${eventId}/packing`);
 }
