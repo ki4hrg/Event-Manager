@@ -299,7 +299,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "get_rfp",
     description:
-      "Get one RFP: details (requested dates, alternates, peak rooms, F&B minimum, amenities, decision timeline, service), document parts, requested hotel blocks (room type × night rooms, target rate) or vendor line items (with the order / item each was copied from), function-space rows, concessions (terms on vendor RFPs), recipients (hotel or vendor, sent date, declined, state: NOT_SENT / AWAITING / OVERDUE / DECLINED / RESPONDED), and the proposals or quotes linked to it.",
+      "Get one RFP: details (requested dates, alternates, peak rooms, F&B minimum, amenities, decision timeline, service), document parts, requested hotel blocks (room type × night rooms, target rate) or vendor line items (with the order / item each was copied from and awardedQuoteId, the accepted quote that won it; null = open), function-space rows, concessions (terms on vendor RFPs), recipients (hotel or vendor, sent date, declined, state: NOT_SENT / AWAITING / OVERDUE / DECLINED / RESPONDED), and the proposals or quotes linked to it.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },
@@ -823,7 +823,7 @@ export const rfpTools: McpToolDefinition[] = [
   {
     name: "get_rfp_comparison",
     description:
-      "Compare the responses to an RFP. Hotel RFP: per requested block, each hotel's room nights and peak vs requested, nightly shortfall, weighted average rate vs target, room revenue, attrition, guaranteed revenue, validity, charges, amenities and concession answers (met / partial / not met). Vendor RFP: each quote's price per line item (missing: not quoted or fewer than asked), extras, subtotal, fees, total, deposit, validity, and the lowest total.",
+      "Compare the responses to an RFP. Hotel RFP: per requested block, each hotel's room nights and peak vs requested, nightly shortfall, weighted average rate vs target, room revenue, attrition, guaranteed revenue, validity, charges, amenities and concession answers (met / partial / not met). Vendor RFP: each quote's price per line item (missing: not quoted or fewer than asked; awarded: the quote won the line), each line's lineItemId and awardedQuoteId (null = open), lines won per quote, how many lines are awarded, extras, subtotal, fees, total, deposit, validity, and the lowest total.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" } },

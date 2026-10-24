@@ -298,7 +298,7 @@ export async function renderQuoteCompareDocx(data: QuoteComparison): Promise<Buf
   const children: (Paragraph | Table)[] = [new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: title, font: FONT, size: 36, bold: true })] })];
   if (data.quotes.length === 0) children.push(note("No quotes yet."));
   else {
-    const mark = (c: { text: string; missing: boolean }) => (c.missing ? `▼ ${c.text}` : c.text);
+    const mark = (c: { text: string; missing: boolean; awarded: boolean }) => `${c.awarded ? "✓ " : ""}${c.missing ? `▼ ${c.text}` : c.text}`;
     children.push(
       gridTable({
         columns: ["", "Requested", ...data.quotes.map((q) => `${q.vendor}${data.lowest === q.id ? " (lowest)" : ""}`)],
@@ -310,7 +310,7 @@ export async function renderQuoteCompareDocx(data: QuoteComparison): Promise<Buf
         ],
       }),
       spacer(),
-      note("▼ not quoted, or quoted for fewer than asked."),
+      note(`▼ not quoted, or quoted for fewer than asked.${data.awarded ? ` ✓ awarded (${data.awarded} of ${data.lines.length} lines).` : ""}`),
     );
   }
   const head = chrome("Quote comparison", data.eventName, data.title, "");

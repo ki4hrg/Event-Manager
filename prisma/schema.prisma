@@ -3108,8 +3108,13 @@ model RfpLineItem {
   cateringLineItem   CateringOrderLineItem? @relation(fields: [cateringLineItemId], references: [id], onDelete: SetNull)
   sortOrder          Int                    @default(0)
   quoteLines         VendorQuoteLine[]
+  // The accepted quote that won this line (work split across vendors); an
+  // award puts its vendor on this line's order only.
+  awardedQuoteId     String?
+  awardedQuote       VendorQuote?           @relation("RfpLineAward", fields: [awardedQuoteId], references: [id], onDelete: SetNull)
 
   @@index([rfpId])
+  @@index([awardedQuoteId])
   @@index([avOrderId])
   @@index([cateringOrderId])
   @@index([printOrderId])
@@ -3147,6 +3152,7 @@ model VendorQuote {
   cancellationTerms String?
   notes             String?
   lines             VendorQuoteLine[]
+  awardedLines      RfpLineItem[]     @relation("RfpLineAward")
   files             FileUpload[]
   updatedById       String?
   updatedBy         User?             @relation("VendorQuoteUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
