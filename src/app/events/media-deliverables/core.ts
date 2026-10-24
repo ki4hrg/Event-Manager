@@ -61,7 +61,7 @@ export async function createMediaDeliverableCore(eventId: string, args: CreateMe
     },
   });
 
-  await Promise.all([
+  const [, , , applied] = await Promise.all([
     args.functionIds.length
       ? prisma.mediaDeliverableFunction.createMany({
           data: args.functionIds.map((functionId) => ({ mediaDeliverableId: deliverable.id, functionId })),
@@ -80,5 +80,5 @@ export async function createMediaDeliverableCore(eventId: string, args: CreateMe
       : Promise.resolve(null),
     autoAssignDefaultWorkflowsCore("media_deliverable", deliverable.id, eventId),
   ]);
-  return deliverable;
+  return { ...deliverable, ...applied };
 }

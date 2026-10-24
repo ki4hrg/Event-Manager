@@ -83,8 +83,8 @@ export async function createSupplyOrderCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("supply_order", supplyOrder.id, supplyOrder.eventId);
-  return supplyOrder;
+  const applied = await autoAssignDefaultWorkflowsCore("supply_order", supplyOrder.id, supplyOrder.eventId);
+  return { ...supplyOrder, ...applied };
 }
 
 export type UpdateSupplyOrderArgs = {

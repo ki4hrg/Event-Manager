@@ -118,8 +118,8 @@ export async function createPresentationCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("presentation", presentation.id, presentation.eventId);
-  return presentation;
+  const applied = await autoAssignDefaultWorkflowsCore("presentation", presentation.id, presentation.eventId);
+  return { ...presentation, ...applied };
 }
 
 export async function updatePresentationInstanceCountCore(

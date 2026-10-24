@@ -157,9 +157,9 @@ export async function createFunctionCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("function", fn.id, eventId);
+  const applied = await autoAssignDefaultWorkflowsCore("function", fn.id, eventId);
   await syncFunctionNumbers(eventId);
-  return fn;
+  return { ...fn, ...applied };
 }
 
 export type FunctionUpdateArgs = FunctionEsgArgs & {

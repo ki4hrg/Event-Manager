@@ -18,6 +18,7 @@ import { resolveRfpFileType, rfpFileTypeLabel } from "@/lib/fileTypes";
 import { pickupPatternCore } from "@/app/hotels/core";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { requireListLabels } from "@/lib/hotelLabels";
+import { LIST_HOMES } from "@/lib/optionCategories";
 import type { PatternBasis } from "@/lib/hotelPattern";
 import { buildComparison } from "@/lib/rfp/compare";
 import { FB_INCLUDES, parseSections } from "@/lib/rfp/sections";
@@ -130,7 +131,7 @@ async function validService(eventId: string, kind: RfpKind, service: string | nu
     where: { tenantId, category: "rfp_service", label: { equals: service.trim(), mode: "insensitive" } },
     select: { label: true },
   });
-  if (!option) throw new Error(`"${service}" isn't in the RFP services list (Settings › Vendors)`);
+  if (!option) throw new Error(`"${service}" isn't in the RFP services list (${LIST_HOMES.rfp_service})`);
   return option.label;
 }
 

@@ -82,8 +82,8 @@ export async function createSetupOrderCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("setup_order", setupOrder.id, setupOrder.eventId);
-  return setupOrder;
+  const applied = await autoAssignDefaultWorkflowsCore("setup_order", setupOrder.id, setupOrder.eventId);
+  return { ...setupOrder, ...applied };
 }
 
 export type UpdateSetupOrderArgs = {
@@ -176,8 +176,8 @@ export async function duplicateSetupOrderCore(id: string, eventId: string, userI
     }),
   ]);
 
-  await autoAssignDefaultWorkflowsCore("setup_order", duplicate.id, duplicate.eventId);
-  return duplicate;
+  const applied = await autoAssignDefaultWorkflowsCore("setup_order", duplicate.id, duplicate.eventId);
+  return { ...duplicate, ...applied };
 }
 
 export type BulkSetupOrderUpdates = {

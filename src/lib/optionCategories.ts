@@ -106,6 +106,26 @@ function mergeTarget(category: HotelLabelCategory): CustomTarget {
   };
 }
 
+// Live form links offer booth types by option id (config.options.boothTypeIds),
+// so a rename carries through on its own; a delete waits until no live link
+// offers the type, or the public form would lose it.
+const formLinkBoothTypes: CustomTarget = {
+  kind: "custom",
+  name: "FormLink booth types",
+  rename: async () => {},
+  uses: async (db, tenantId) => {
+    const rows = await db.$queryRaw<{ label: string; n: number }[]>`
+      SELECT co."label", count(*)::int AS n
+      FROM "CustomOption" co
+      JOIN "FormLink" fl ON fl."tenantId" = co."tenantId"
+        AND (fl."config" -> 'options' -> 'boothTypeIds') @> jsonb_build_array(co."id")
+      WHERE co."tenantId" = ${tenantId} AND co."category" = 'booth_type'
+        AND fl."revokedAt" IS NULL AND fl."expiresAt" > now()
+      GROUP BY co."label"`;
+    return new Map(rows.map((r) => [r.label, r.n]));
+  },
+};
+
 // A file hangs off exactly one parent; any of them places it in a tenant.
 const fileInTenant = (tenantId: string): Prisma.FileUploadWhereInput => ({
   OR: [
@@ -273,7 +293,7 @@ export const OPTION_CATEGORIES = {
     section: "event-planning",
     description: "Booth / stand types.",
     resource: SETTINGS,
-    renameTargets: [col("exhibitBooth", "boothType", inEvent), col("exhibitBoothGroup", "boothType", inEvent)],
+    renameTargets: [col("exhibitBooth", "boothType", inEvent), col("exhibitBoothGroup", "boothType", inEvent), formLinkBoothTypes],
   },
   presenter_role: {
     title: "Presenter Roles",
