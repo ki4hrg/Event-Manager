@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { PROFILE_SECTIONS } from "./EventProfileReport";
-import { btnOutlinedXs } from "@/lib/buttonStyles";
+import { FilterChip, FilterGroup, ReportFilterShell } from "@/components/ReportFilterShell";
+import { useUrlChipFilter } from "@/lib/useUrlChipFilter";
 
 type DayOption = { value: string; label: string };
 type TypeOption = { value: string; label: string };
@@ -21,10 +20,6 @@ type ReportFiltersProps = {
   hidePrint?: boolean;
 };
 
-function toggleFilter(selected: string[], value: string): string[] {
-  return selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value];
-}
-
 export function ReportFilters({
   eventId,
   days,
@@ -37,172 +32,54 @@ export function ReportFilters({
   shareButton,
   hidePrint = false,
 }: ReportFiltersProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
-  const daysKey = `${paramPrefix}days`;
-  const sectionsKey = `${paramPrefix}sections`;
-  const typesKey = `${paramPrefix}types`;
-
-  function pushWith(key: string, next: string[]) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (next.length > 0) {
-      params.set(key, next.join(","));
-    } else {
-      params.delete(key);
-    }
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
-
-  function toggleDay(value: string) {
-    pushWith(daysKey, toggleFilter(selectedDays, value));
-  }
-
-  function toggleSection(value: string) {
-    pushWith(sectionsKey, toggleFilter(selectedSections, value));
-  }
-
-  function toggleType(value: string) {
-    pushWith(typesKey, toggleFilter(selectedTypes, value));
-  }
-
-  function clearFilters() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete(daysKey);
-    params.delete(sectionsKey);
-    params.delete(typesKey);
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
-
-  const hasFilters = selectedDays.length > 0 || selectedSections.length > 0 || selectedTypes.length > 0;
-  const filterCount = selectedDays.length + selectedSections.length + selectedTypes.length;
-
-  const actions = (
-    <>
-      {hasFilters && (
-        <button
-          onClick={clearFilters}
-          className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          Clear filters
-        </button>
-      )}
-      {shareButton}
-      {!hidePrint && (
-        <a
-          href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-          className={btnOutlinedXs}
-        >
-          Print / Save PDF
-        </a>
-      )}
-    </>
-  );
-
-  const filterChips = (
-    <>
-      {days.length > 1 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Day</p>
-          <div className="flex flex-wrap gap-2">
-            {days.map((d) => {
-              const active = selectedDays.includes(d.value);
-              return (
-                <button
-                  key={d.value}
-                  onClick={() => toggleDay(d.value)}
-                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                    active
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-                  }`}
-                >
-                  {d.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Sections</p>
-        <div className="flex flex-wrap gap-2">
-          {PROFILE_SECTIONS.map(({ value, label }) => {
-            const active = selectedSections.includes(value);
-            return (
-              <button
-                key={value}
-                onClick={() => toggleSection(value)}
-                className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                  active
-                    ? "bg-blue-600 border-blue-600 text-white"
-                    : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {scheduleTypes.length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Schedule Item Type</p>
-          <div className="flex flex-wrap gap-2">
-            {scheduleTypes.map(({ value, label }) => {
-              const active = selectedTypes.includes(value);
-              return (
-                <button
-                  key={value}
-                  onClick={() => toggleType(value)}
-                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                    active
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </>
-  );
+  const filter = useUrlChipFilter(paramPrefix, basePath);
 
   return (
-    <div className="print:hidden mb-6">
-      <div className="sm:hidden">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-          <button
-            onClick={() => setFiltersOpen((open) => !open)}
-            className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300"
-          >
-            <span aria-hidden>{filtersOpen ? "▾" : "▸"}</span>
-            <span>{filtersOpen ? "Hide filters" : "Show filters"}</span>
-            {filterCount > 0 && (
-              <span className="ml-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
-                {filterCount}
-              </span>
-            )}
-          </button>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">{actions}</div>
-        </div>
-        {filtersOpen && (
-          <div className="flex flex-wrap items-start gap-6">{filterChips}</div>
-        )}
-      </div>
+    <ReportFilterShell
+      activeCount={selectedDays.length + selectedSections.length + selectedTypes.length}
+      onClear={() => filter.clear(["days", "sections", "types"])}
+      shareButton={shareButton}
+      printHref={hidePrint ? null : filter.printHref}
+    >
+      {days.length > 1 && (
+        <FilterGroup label="Day">
+          {days.map((d) => (
+            <FilterChip
+              key={d.value}
+              active={selectedDays.includes(d.value)}
+              onClick={() => filter.toggle("days", selectedDays, d.value)}
+            >
+              {d.label}
+            </FilterChip>
+          ))}
+        </FilterGroup>
+      )}
 
-      <div className="hidden sm:flex flex-wrap items-start gap-6">
-        {filterChips}
-        <div className="flex items-end gap-3 ml-auto">{actions}</div>
-      </div>
-    </div>
+      <FilterGroup label="Sections">
+        {PROFILE_SECTIONS.map(({ value, label }) => (
+          <FilterChip
+            key={value}
+            active={selectedSections.includes(value)}
+            onClick={() => filter.toggle("sections", selectedSections, value)}
+          >
+            {label}
+          </FilterChip>
+        ))}
+      </FilterGroup>
+
+      {scheduleTypes.length > 0 && (
+        <FilterGroup label="Schedule Item Type">
+          {scheduleTypes.map(({ value, label }) => (
+            <FilterChip
+              key={value}
+              active={selectedTypes.includes(value)}
+              onClick={() => filter.toggle("types", selectedTypes, value)}
+            >
+              {label}
+            </FilterChip>
+          ))}
+        </FilterGroup>
+      )}
+    </ReportFilterShell>
   );
 }
