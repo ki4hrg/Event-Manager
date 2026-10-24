@@ -9,6 +9,7 @@ import {
   PermissionError, requireEventTenantId } from "@/lib/permissions";
 import { checkRoomConflicts, type RoomConflict } from "@/lib/conflicts";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
+import { rangeTouched } from "@/lib/dateRange";
 import { defaultScheduleType } from "@/lib/scheduleTypes";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { assertEventRefs } from "@/lib/eventRefs";
@@ -366,14 +367,19 @@ export async function updateScheduleCore(
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   await assertFunctionInEvent(functionId, eventId);
 
-  const [event, roomIds] = await Promise.all([
+  const [event, roomIds, stored] = await Promise.all([
     prisma.event.findUnique({ where: { id: eventId }, select: { timezone: true } }),
     args.force ? Promise.resolve([]) : getFunctionRoomIds(functionId),
+    prisma.functionSchedule.findFirst({ where: { id: scheduleId, function: { eventId } }, select: { startTime: true, endTime: true } }),
   ]);
+  if (!stored) throw new PermissionError("NOT_FOUND", "Schedule not found");
   const timezone = event?.timezone || "America/Chicago";
   const parsedStart = parseDateTimeInTimezone(args.startTime, timezone);
   const parsedEnd = parseDateTimeInTimezone(args.endTime, timezone);
-  if (parsedEnd <= parsedStart) throw new Error("End time must be after start time");
+  // A row stored reversed before this check existed still saves its other edits.
+  if (parsedEnd <= parsedStart && rangeTouched({ start: stored.startTime, end: stored.endTime }, parsedStart, parsedEnd)) {
+    throw new Error("End time must be after start time");
+  }
 
   if (!args.force && roomIds.length > 0) {
     const conflicts = await checkRoomConflicts(roomIds, parsedStart, parsedEnd, functionId);

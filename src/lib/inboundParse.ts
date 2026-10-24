@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/email";
-import { PICKUP_FIELD_KEYS, type PickupFieldKey, type PickupGuestRow } from "@/lib/pickupMapping";
+import { PICKUP_FIELD_KEYS, type DateOrder, type PickupFieldKey, type PickupGuestRow } from "@/lib/pickupMapping";
 
 // Claude reads one inbox message and proposes what it is (docs/proposals/
 // email-ingest.md § Parsing). It only ever proposes: a person reviews the
@@ -20,6 +20,9 @@ export type ProposalSheet = {
   headerRow: number; // 1-based row of the header in that sheet
   columns: Record<PickupFieldKey, string | null>;
   cancelledStatuses: string[];
+  // How the sheet writes slashed dates; null when the reader couldn't tell
+  // (absent from older proposals). The review wizard starts from it.
+  dateOrder?: DateOrder | null;
   // Older proposals kept the room-type map here; see InboundProposal.roomTypes.
   roomTypes?: RoomTypeMap;
 };
@@ -457,6 +460,7 @@ const sheetSchema = object({
   headerRow: { type: "integer" },
   columns: object(Object.fromEntries(PICKUP_FIELD_KEYS.map((k) => [k, str]))),
   cancelledStatuses: { type: "array", items: str },
+  dateOrder: { type: "string", enum: ["", "MDY", "DMY"] },
 });
 
 const DETAIL_SCHEMAS: Record<Exclude<InboundKind, "OTHER">, Record<string, unknown>> = {
@@ -592,7 +596,7 @@ You'll be asked first for the kind, a summary and notes (and eventSpace: true wh
 blockId (pickup kinds only): the hotel block the report is for, chosen from the candidate blocks by hotel name, group code and dates. "" when none fits or it's ambiguous; say why in notes.
 
 For PICKUP_GUESTS:
-- When the list is in a spreadsheet attachment, fill "sheet" and leave "guests" empty. attachment is the attachment's number; headerRow is the 1-based row that holds the column headers. columns maps each field to the exact header text in that row ("" when the sheet has no such column): fullName, or firstName + lastName when the name is split; confirmation; checkIn; checkOut (a nights column is not a departure date); roomType; status; bookedOn (when the reservation was made); cancelledOn. cancelledStatuses lists the status values you can see that mean the reservation is cancelled or a no-show.
+- When the list is in a spreadsheet attachment, fill "sheet" and leave "guests" empty. attachment is the attachment's number; headerRow is the 1-based row that holds the column headers. columns maps each field to the exact header text in that row ("" when the sheet has no such column): fullName, or firstName + lastName when the name is split; confirmation; checkIn; checkOut (a nights column is not a departure date); roomType; status; bookedOn (when the reservation was made); cancelledOn. cancelledStatuses lists the status values you can see that mean the reservation is cancelled or a no-show. dateOrder is how the sheet writes dates like 05/06/2026: "DMY" when day first, "MDY" when month first, "" when its dates can't tell you (every one could be either) or are YYYY-MM-DD; judge from values over 12, the hotel's country, and month names elsewhere in the message.
 - When the list is in a PDF or the message body, fill "guests" with every reservation, and set sheet.attachment to -1. Dates are YYYY-MM-DD; "" when not given. roomType is the room type exactly as the report writes it (e.g. "NKR"), not translated. rawStatus is the status as written. cancelled is true for cancelled or no-show reservations.
 - Either way, roomTypes maps each distinct raw room type in the list to the room type it stands for: the block's own room type when the block lists one that fits, otherwise one of the org's room types (a block that is only "Run of house" still records what each guest actually booked). Hotels use codes: K or KNG for king, Q, QQ or DQ for queen / double queen, a leading N for non-smoking, S or STE for suites; match on the bed type, ignore smoking and view. Use "" only when none of these fits.
 

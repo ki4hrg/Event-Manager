@@ -84,3 +84,12 @@ export const DEFAULT_ROLE_NAME = "User";
 export function permissionFieldName(resource: PermissionResource, scope: PermissionScope) {
   return `permission:${resource}:${scope}`;
 }
+
+// Resources a role has no stored level for at one of its scopes — added after
+// the role was last saved. They read as NONE, so a custom role's users quietly
+// lose the section; /users/roles flags them. System roles are rewritten by the
+// seed and never have gaps.
+export function unsetResources(perms: { resource: PermissionResource; scope: PermissionScope }[]): ResourceEntry[] {
+  const set = new Set(perms.map((p) => `${p.resource}:${p.scope}`));
+  return PERMISSION_GROUPS.flatMap((g) => g.resources.filter((r) => g.scopes.some((s) => !set.has(`${r.value}:${s}`))));
+}

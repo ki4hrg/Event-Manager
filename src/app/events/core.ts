@@ -10,6 +10,7 @@ import {
   PermissionError,
 } from "@/lib/permissions";
 import { assertEventRefs } from "@/lib/eventRefs";
+import { rangeTouched } from "@/lib/dateRange";
 
 // The single definition of "which events may this user see". A role with
 // EVENTS:UNASSIGNED above NONE sees everything; everyone else sees only the
@@ -68,8 +69,12 @@ export type EventWriteArgs = {
   actualAttendance?: number | null;
 };
 
-function assertEventDates(args: EventWriteArgs) {
-  if (args.endDate < args.startDate) throw new Error("End date can't be before the start date");
+// `stored` is the event being updated (null on create): dates it already holds
+// aren't rechecked, so an event stored reversed still saves its other edits.
+function assertEventDates(args: EventWriteArgs, stored: { startDate: Date; endDate: Date } | null) {
+  if (args.endDate >= args.startDate) return;
+  if (!rangeTouched(stored && { start: stored.startDate, end: stored.endDate }, args.startDate, args.endDate)) return;
+  throw new Error("End date can't be before the start date");
 }
 
 function attendanceData(args: EventWriteArgs) {
@@ -84,7 +89,7 @@ function attendanceData(args: EventWriteArgs) {
 export async function createEventCore(input: EventWriteArgs, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", { tenantId });
   const args = { ...input, venueIds: Array.from(new Set(input.venueIds)) };
-  assertEventDates(args);
+  assertEventDates(args, null);
   await assertEventRefsInTenant(args, tenantId);
   // Auto-assign the creator as event staff so a role with EVENTS:UNASSIGNED:NONE
   // doesn't lose access to events they just created.
@@ -107,8 +112,9 @@ export async function createEventCore(input: EventWriteArgs, userId: string, ten
 export async function updateEventCore(id: string, input: EventWriteArgs, userId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", id);
   const args = { ...input, venueIds: Array.from(new Set(input.venueIds)) };
-  assertEventDates(args);
-  await assertEventRefsInTenant(args, await requireEventTenantId(id));
+  const tenantId = await requireEventTenantId(id);
+  assertEventDates(args, await prisma.event.findFirst({ where: { id, tenantId }, select: { startDate: true, endDate: true } }));
+  await assertEventRefsInTenant(args, tenantId);
   // Rooms of a venue removed here stay attached to any function/order already
   // using them — dropping a venue never silently rewrites the schedule.
   return prisma.event.update({

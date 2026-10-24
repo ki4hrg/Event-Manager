@@ -11,7 +11,11 @@ import { PERMISSION_GROUPS, permissionFieldName } from "./resources";
 export async function getRoles() {
   await requirePermission(PermissionResource.ROLES, "VIEW");
   return prisma.role.findMany({
-    include: { _count: { select: { memberships: true } } },
+    include: {
+      _count: { select: { memberships: true } },
+      // For flagging resources the role has never set (unsetResources).
+      permissions: { select: { resource: true, scope: true } },
+    },
     orderBy: [{ isSystem: "desc" }, { name: "asc" }],
   });
 }

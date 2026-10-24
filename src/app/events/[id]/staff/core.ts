@@ -7,6 +7,7 @@ import { PermissionLevel, PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { UNCAPPED } from "@/lib/accessLevels";
+import { eventScopeWhere } from "@/app/events/core";
 
 // A cap of NONE would leave someone on the staff list — and therefore in their
 // own events list — while denying them the event entirely. Removing the staff
@@ -117,8 +118,9 @@ export async function grantSeriesAccessCore(
     tenantId: series.tenantId,
   });
 
+  // Only events the actor can see, so `skipped` never names one they can't.
   const events = await prisma.event.findMany({
-    where: { seriesId: args.seriesId, tenantId: series.tenantId },
+    where: { AND: [{ seriesId: args.seriesId }, await eventScopeWhere(actorUserId, series.tenantId)] },
     select: { id: true, name: true },
     orderBy: { startDate: "desc" },
   });

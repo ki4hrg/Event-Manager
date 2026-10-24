@@ -14,13 +14,14 @@ import {
 import { eventScopeWhere } from "@/app/events/core";
 
 // Reading someone's assignments is part of administering the user, so it rides
-// on USERS VIEW. Every mutation below still checks EVENTS WRITE on the specific
-// event through the shared core — being able to see the panel doesn't grant the
-// ability to change any particular row.
+// on USERS VIEW, but only over events the admin can open themselves ("Visible
+// events"): the panel never names an event the admin couldn't see elsewhere.
+// Every mutation below still checks EVENTS WRITE on the specific event through
+// the shared core — seeing a row doesn't grant changing it.
 export async function getUserEventAccess(userId: string) {
-  const { tenantId } = await requirePermission(PermissionResource.USERS, "VIEW");
+  const session = await requirePermission(PermissionResource.USERS, "VIEW");
   return prisma.eventStaff.findMany({
-    where: { userId, event: { tenantId } },
+    where: { userId, event: await eventScopeWhere(session.user.id, session.tenantId) },
     select: {
       id: true,
       accessLevel: true,
@@ -38,11 +39,13 @@ export async function getUserEventAccess(userId: string) {
   });
 }
 
+// The event count is of events the admin can see.
 export async function getSeriesGrantOptions() {
-  const { tenantId } = await requirePermission(PermissionResource.USERS, "VIEW");
+  const session = await requirePermission(PermissionResource.USERS, "VIEW");
+  const visible = await eventScopeWhere(session.user.id, session.tenantId);
   return prisma.eventSeries.findMany({
-    where: { tenantId },
-    select: { id: true, name: true, _count: { select: { events: true } } },
+    where: { tenantId: session.tenantId },
+    select: { id: true, name: true, _count: { select: { events: { where: visible } } } },
     orderBy: { name: "asc" },
   });
 }

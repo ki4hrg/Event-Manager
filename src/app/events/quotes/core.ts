@@ -11,6 +11,7 @@ import type { PermissionResource, Prisma, RfpKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { dateFromKey } from "@/lib/hotels";
+import { rangeTouched } from "@/lib/dateRange";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { buildQuoteComparison } from "@/lib/rfp/compareQuotes";
 
@@ -49,7 +50,7 @@ export const quoteResource = (rfp: { kind: RfpKind } | null): PermissionResource
 async function authorizeQuote(id: string, eventId: string, action: PermissionAction, userId: string) {
   const quote = await prisma.vendorQuote.findFirst({
     where: { id, eventId },
-    select: { rfpId: true, vendorId: true, status: true, revision: true, rfp: { select: { kind: true } } },
+    select: { rfpId: true, vendorId: true, status: true, revision: true, submittedOn: true, validUntil: true, rfp: { select: { kind: true } } },
   });
   if (!quote) throw new PermissionError("NOT_FOUND", "Quote not found");
   await requirePermissionForUser(userId, quoteResource(quote.rfp), action, eventId);
@@ -74,12 +75,17 @@ function money(v: number | null, label: string) {
   return v;
 }
 
-async function validate(eventId: string, rfpId: string | null, args: QuoteWriteArgs) {
+// `stored` is the quote being updated (null on create): a range it already
+// holds isn't rechecked.
+async function validate(eventId: string, rfpId: string | null, args: QuoteWriteArgs, stored: { submittedOn: Date | null; validUntil: Date | null } | null) {
   const tenantId = await requireEventTenantId(eventId);
   const vendor = await prisma.vendor.findFirst({ where: { id: args.vendorId, tenantId }, select: { id: true } });
   if (!vendor) throw new PermissionError("NOT_FOUND", "Vendor not found");
   for (const d of [args.submittedOn, args.validUntil, args.depositDue]) if (d && !DATE_RE.test(d)) throw new Error(`Invalid date: ${d}`);
-  if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn) throw new Error("Valid until can't be before the submitted date");
+  const validity = stored && { start: stored.submittedOn, end: stored.validUntil };
+  if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn && rangeTouched(validity, args.submittedOn, args.validUntil)) {
+    throw new Error("Valid until can't be before the submitted date");
+  }
   if (!Number.isInteger(args.revision) || args.revision < 1) throw new Error("Revision must be a whole number of 1 or more");
   const asked = rfpId ? new Set((await prisma.rfpLineItem.findMany({ where: { rfpId }, select: { id: true } })).map((l) => l.id)) : new Set<string>();
   const lines = args.lines
@@ -126,7 +132,7 @@ async function validate(eventId: string, rfpId: string | null, args: QuoteWriteA
 // its recipients if it wasn't sent one.
 export async function createVendorQuoteCore(eventId: string, rfpId: string | null, args: QuoteWriteArgs, userId: string) {
   const rfp = await authorizeRfp(rfpId, eventId, userId);
-  const { data, lines } = await validate(eventId, rfp?.id ?? null, args);
+  const { data, lines } = await validate(eventId, rfp?.id ?? null, args, null);
   return prisma.$transaction(async (tx) => {
     const quote = await tx.vendorQuote.create({
       data: { ...data, eventId, rfpId: rfp?.id ?? null, updatedById: userId, lines: { create: lines.map(({ id: _id, at: _at, ...l }) => l) } },
@@ -143,7 +149,7 @@ export async function createVendorQuoteCore(eventId: string, rfpId: string | nul
 export async function updateVendorQuoteCore(id: string, eventId: string, args: QuoteWriteArgs, userId: string) {
   const current = await authorizeQuote(id, eventId, "WRITE", userId);
   if (args.revision < current.revision) throw new Error("Revision cannot go down");
-  const { data, lines } = await validate(eventId, current.rfpId, args);
+  const { data, lines } = await validate(eventId, current.rfpId, args, current);
   const existing = new Set((await prisma.vendorQuoteLine.findMany({ where: { quoteId: id }, select: { id: true } })).map((l) => l.id));
   const kept = lines.flatMap((l) => (l.id && existing.has(l.id) ? [l.id] : []));
   return prisma.$transaction(async (tx) => {
