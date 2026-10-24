@@ -1,12 +1,12 @@
-// The admin area: which admin pages a user may open, for the header's Admin
-// links and the grouped settings nav. Both read this one map, so a page added
-// here appears in each with the same label and the same gate. Every page still
-// checks its own permission in its layout; this only decides what to link.
+// The admin area: which admin pages a user may open, for the grouped admin nav
+// and the header's Admin link (the first of them). Every page still checks its
+// own permission in its layout; this only decides what to link.
 //
 // Server module (it reads the option-category registry); callers resolve the
 // user's levels and pass them in.
 
 import { PermissionResource } from "@prisma/client";
+import type { SideNavGroup, SideNavLink } from "@/components/SideNav";
 import {
   OPTION_CATEGORIES,
   OPTION_SECTIONS,
@@ -17,10 +17,10 @@ import {
   type OptionCategoryDef,
 } from "@/lib/optionCategories";
 
-export type AdminNavLink = { label: string; href: string };
+export type AdminNavLink = SideNavLink;
 // "page" groups are admin pages (Organization, Access, System); "list"
 // groups are functional areas of option lists. The nav renders them apart.
-export type AdminNavGroup = { label: string; kind: "page" | "list"; links: AdminNavLink[] };
+export type AdminNavGroup = SideNavGroup & { kind: "page" | "list" };
 
 // Who can open what: a resource's GLOBAL view, or super admin for /tenants.
 export type AdminAccess = {
@@ -28,7 +28,7 @@ export type AdminAccess = {
   isSuperAdmin: boolean;
 };
 
-// Every resource the admin pages gate on, for callers resolving levels.
+// Every resource the admin pages and lists gate on, for callers resolving levels.
 export const ADMIN_RESOURCES: PermissionResource[] = [
   PermissionResource.SETTINGS,
   PermissionResource.WORKFLOWS,
@@ -46,7 +46,6 @@ export const ADMIN_PAGES = {
   settings: page("Settings", "/settings"),
   organization: page("Organization", "/settings/organization"),
   workflows: page("Workflows", "/workflows"),
-  equipment: page("Equipment", "/equipment"),
   users: page("Users", "/users"),
   roles: page("Roles", "/users/roles"),
   apiKeys: page("API Keys", "/users/api-keys"),
@@ -54,26 +53,10 @@ export const ADMIN_PAGES = {
   tenants: page("Organizations", "/tenants"),
 } as const;
 
-// The header's Admin links. /users lets in any of its three resources.
-export function adminHeaderLinks({ canView, isSuperAdmin }: AdminAccess): AdminNavLink[] {
-  return [
-    (canView(PermissionResource.USERS) || canView(PermissionResource.ROLES) || canView(PermissionResource.API_KEYS)) &&
-      ADMIN_PAGES.users,
-    canView(PermissionResource.EQUIPMENT) && ADMIN_PAGES.equipment,
-    canView(PermissionResource.SETTINGS) && ADMIN_PAGES.settings,
-    canView(PermissionResource.SYSTEM) && ADMIN_PAGES.system,
-    canView(PermissionResource.WORKFLOWS) && ADMIN_PAGES.workflows,
-    isSuperAdmin && ADMIN_PAGES.tenants,
-  ].filter((l): l is AdminNavLink => !!l);
-}
-
-// A list's nav link: its page under /settings, or, for a user who can't open
-// /settings, the page hosting it in its own feature (none for most lists).
+// A list's nav link: its page under /settings.
 function listLink(category: OptionCategory, { canView }: AdminAccess): AdminNavLink | null {
   const def: OptionCategoryDef = OPTION_CATEGORIES[category];
-  if (!canView(def.resource)) return null;
-  if (canView(PermissionResource.SETTINGS)) return page(def.title, optionListHref(category));
-  return def.host ? page(def.title, def.host) : null;
+  return canView(PermissionResource.SETTINGS) && canView(def.resource) ? page(def.title, optionListHref(category)) : null;
 }
 
 // The admin nav: the admin pages (Organization, Workflows, Access, System),
@@ -109,6 +92,25 @@ export function adminNavGroups(access: AdminAccess): AdminNavGroup[] {
       ].filter((l): l is AdminNavLink => !!l),
     },
     ...areaGroups,
+  ];
+  return groups.filter((g) => g.links.length > 0);
+}
+
+// The header's Admin link: the first admin page the user can open, or none.
+// Every admin page is in the admin nav, so the header carries just the entry.
+export function adminHomeHref(access: AdminAccess): string | null {
+  return adminNavGroups(access)[0]?.links[0]?.href ?? null;
+}
+
+// The inventory area's nav (InventoryShell): the equipment catalog, then the
+// storage locations. Their option lists live in Settings.
+export function inventoryNavGroups({ canView }: Pick<AdminAccess, "canView">): SideNavGroup[] {
+  const groups: SideNavGroup[] = [
+    { label: "Equipment Items", links: canView(PermissionResource.EQUIPMENT) ? [page("Equipment Items", "/equipment/items")] : [] },
+    {
+      label: "Inventory",
+      links: canView(PermissionResource.STORAGE_LOCATIONS) ? [page("Storage Locations", "/storage-locations/locations")] : [],
+    },
   ];
   return groups.filter((g) => g.links.length > 0);
 }

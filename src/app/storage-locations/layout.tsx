@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { PermissionResource } from "@prisma/client";
 import { requirePermission } from "@/lib/permissions";
-import { PageWrapper } from "@/components/PageWrapper";
-import { StorageLocationTabs } from "./StorageLocationTabs";
+import { InventoryShell } from "@/components/InventoryShell";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: { default: "Storage", template: "%s · Storage · Event Manager" },
+  title: { default: "Storage Locations", template: "%s · Inventory · Event Manager" },
 };
 
 export default async function StorageLocationsLayout({
@@ -18,12 +17,9 @@ export default async function StorageLocationsLayout({
   await requirePermission(PermissionResource.STORAGE_LOCATIONS, "VIEW");
 
   return (
-    <PageWrapper>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Storage</h1>
-      </div>
-      <StorageLocationTabs />
+    <InventoryShell>
+      <h1 className="mb-6 text-2xl font-semibold text-gray-900 dark:text-white">Storage Locations</h1>
       {children}
-    </PageWrapper>
+    </InventoryShell>
   );
 }

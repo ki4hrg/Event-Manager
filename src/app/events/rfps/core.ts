@@ -30,7 +30,7 @@ import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 
 export type RfpWriteArgs = {
   title: string;
-  status: RfpStatus;
+  status?: RfpStatus; // undefined = unchanged
   responseDue: string | null; // YYYY-MM-DD
   decisionBy: string | null;
   sections: string[];

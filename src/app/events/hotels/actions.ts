@@ -13,6 +13,7 @@ import {
   createHotelProposalCore,
   createNewHotelCore,
   deleteHotelProposalCore,
+  linkHotelProposalCore,
   updateHotelProposalCore,
 } from "./core";
 import { readJson, readNewHotel, readProposal } from "./proposalArgs";
@@ -185,6 +186,14 @@ export async function createHotelProposal(eventId: string, formData: FormData) {
 export async function updateHotelProposal(id: string, eventId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   await updateHotelProposalCore(id, eventId, readProposal(formData), session.user.id);
+  revalidatePath(`/events/${eventId}/hotels`);
+  revalidatePath(`/events/${eventId}/hotels/proposals/${id}`);
+}
+
+// Called from an RFP's recipients card; the client refreshes.
+export async function linkHotelProposal(id: string, eventId: string, rfpBlockId: string) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  await linkHotelProposalCore(id, eventId, rfpBlockId, session.user.id);
   revalidatePath(`/events/${eventId}/hotels`);
   revalidatePath(`/events/${eventId}/hotels/proposals/${id}`);
 }

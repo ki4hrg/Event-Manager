@@ -59,14 +59,11 @@ export async function getSubstatusOptions(group?: string) {
 
 // ── Option lists ─────────────────────────────────────────────────────────────
 // Every action takes the category, checks it against the registry
-// (src/lib/optionCategories.ts) and gates on that list's resource, so the
-// equipment and storage screens share these under their own permission.
+// (src/lib/optionCategories.ts) and gates on that list's resource (equipment
+// categories and location types under their own).
 
-// The list's own page, and its host page outside Settings if it has one.
 function revalidateList(category: OptionCategory) {
   revalidatePath(optionListHref(category));
-  const host = optionCategory(category).host;
-  if (host) revalidatePath(host);
 }
 
 // One spelling per list: a label matching another option but for case or

@@ -15,6 +15,7 @@ import { blockLabel } from "@/lib/rfp/document";
 import { rfpHref } from "@/lib/rfp/kinds";
 import { effectiveScope } from "@/lib/areas";
 import { getEvent } from "@/app/events/event";
+import { getHotelProposals, linkHotelProposal } from "@/app/events/hotels/actions";
 import type { RfpBlockArgs, RfpConcessionArgs, RfpFillArgs, RfpRecipientArgs, RfpSpaceArgs } from "../../../../rfps/core";
 import {
   addNewRfpRecipient,
@@ -57,13 +58,14 @@ export default async function RfpPage({
 }) {
   const { id: eventId, rfpId } = await params;
   const preview = (await searchParams).view === "preview";
-  const [event, rfp, choices, fileTypeOptions, canAddHotel, doc] = await Promise.all([
+  const [event, rfp, choices, fileTypeOptions, canAddHotel, doc, proposals] = await Promise.all([
     getEvent(eventId),
     getRfp(rfpId, eventId),
     getRfpFormChoices(eventId, "HOTEL"),
     getOptions("file_type"),
     hasPermission("VENUES", "WRITE"),
     preview ? getRfpDocument(rfpId, eventId) : null,
+    getHotelProposals(eventId),
   ]);
   if (!event || !rfp) notFound();
   if (rfp.kind !== "HOTEL") redirect(rfpHref(eventId, rfp.kind, rfpId));
@@ -127,6 +129,10 @@ export default async function RfpPage({
   const removeRecipientAction = async (recipientId: string) => {
     "use server";
     await removeRfpRecipient(recipientId, rfpId, eventId);
+  };
+  const linkProposalAction = async (proposalId: string, blockId: string) => {
+    "use server";
+    await linkHotelProposal(proposalId, eventId, blockId);
   };
   const contactName = rfp.contact ? `${rfp.contact.firstName} ${rfp.contact.lastName}`.trim() : null;
   const day = (d: Date | null) => (d ? dateKey(d) : null);
@@ -284,6 +290,10 @@ export default async function RfpPage({
             addNew={canAddHotel ? addNewRecipientAction : undefined}
             update={updateRecipientAction}
             remove={removeRecipientAction}
+            unlinked={proposals
+              .filter((p) => !p.rfp)
+              .map((p) => ({ id: p.id, label: [p.venue.name, p.status, p.leadSourceVendor?.name].filter(Boolean).join(" · ") }))}
+            linkProposal={linkProposalAction}
           />
           <FileUploadPanel entityType="rfp" entityId={rfpId} files={rfp.files} fileTypeOptions={fileTypeOptions} revalidateTarget={base} />
         </div>

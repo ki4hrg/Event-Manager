@@ -10,7 +10,6 @@ export type HeaderLink = { href: string; label: string };
 
 type MobileNavProps = {
   mainLinks: HeaderLink[];
-  adminLinks: HeaderLink[];
   tenants: { id: string; name: string }[];
   activeTenant: { id: string; name: string } | null;
   email: string | null;
@@ -22,7 +21,6 @@ type MobileNavProps = {
 // one menu button that drops a full-width panel under the header.
 export function MobileNav({
   mainLinks,
-  adminLinks,
   tenants,
   activeTenant,
   email,
@@ -91,18 +89,6 @@ export function MobileNav({
                 {l.label}
               </Link>
             ))}
-            {adminLinks.length > 0 && (
-              <>
-                <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Admin
-                </p>
-                {adminLinks.map((l) => (
-                  <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className={linkClass(l.href)}>
-                    {l.label}
-                  </Link>
-                ))}
-              </>
-            )}
           </nav>
 
           <div className="px-4 py-3 space-y-3 border-t border-gray-200 dark:border-gray-700">
