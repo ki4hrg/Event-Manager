@@ -22,7 +22,7 @@ export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `
   const printHref = selectedVendorId && !hidePrint ? `${basePath}/print?vendorId=${selectedVendorId}` : null;
 
   return (
-    <ReportFilterShell activeCount={selectedVendorId ? 1 : 0} shareButton={shareButton} printHref={printHref}>
+    <ReportFilterShell activeCount={selectedVendorId ? 1 : 0} shareButton={shareButton} printHref={printHref} defaultOpen={!selectedVendorId}>
       <div className="min-w-0 max-w-full">
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
           Vendor

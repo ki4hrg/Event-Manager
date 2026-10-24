@@ -18,6 +18,8 @@ type ReportFilterShellProps = {
   printHref: string | null;
   // False when no control would render, so the mobile toggle is dropped.
   collapsible?: boolean;
+  // Mobile filters start expanded (a report that shows nothing until a filter is set).
+  defaultOpen?: boolean;
 };
 
 // Report filter bar: mobile "Show filters / N" collapse plus the always-visible
@@ -29,8 +31,9 @@ export function ReportFilterShell({
   shareButton,
   printHref,
   collapsible = true,
+  defaultOpen = false,
 }: ReportFilterShellProps) {
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(defaultOpen);
 
   const actions = (
     <>
