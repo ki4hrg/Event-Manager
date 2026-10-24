@@ -58,7 +58,7 @@ export async function OptionCategoryEditor({ category, query }: { category: Opti
     );
   }
 
-  const offList = mergeable ? offListLabels(uses, options) : [];
+  const offList = offListLabels(uses, options);
 
   return (
     <div id={category} className="space-y-4 min-w-0 scroll-mt-24">

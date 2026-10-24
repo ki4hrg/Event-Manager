@@ -1,6 +1,7 @@
 "use client";
 
 import { DateInput } from "@/components/ui/DateInput";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 import { rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAutosave } from "@/lib/useAutosave";
@@ -114,21 +115,6 @@ function Field({ label, htmlFor, wide, children }: { label: string; htmlFor: str
       </label>
       {children}
     </div>
-  );
-}
-
-// A select over an option list that keeps a stored label no longer in it.
-function OptionSelect({ id, name, value, options }: { id: string; name: string; value: string | null; options: string[] }) {
-  return (
-    <select id={id} name={name} defaultValue={value ?? ""} className={inputClass}>
-      <option value="">Not set</option>
-      {value && !options.includes(value) && <option value={value}>{value}</option>}
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
   );
 }
 
@@ -459,7 +445,6 @@ const MET_OPTIONS: StatusCycleOption<ConcessionMet | "">[] = [
   { value: "NOT_MET", label: MET_LABELS.NOT_MET, color: "red" },
 ];
 
-
 // Three modes: create (no proposal: submits, then the detail page autosaves),
 // edit (a proposal: autosaves through a non-redirecting action), and revise
 // (a proposal plus a draft, from the Inbox: submits as the next revision).
@@ -753,7 +738,7 @@ export function ProposalForm({
               </select>
             </Field>
             <Field label="Guest type" htmlFor="p-guestType">
-              <OptionSelect key={rfpBlockId} id="p-guestType" name="guestType" value={defaultGuestType} options={choices.guestTypes} />
+              <OptionSelect key={rfpBlockId} id="p-guestType" name="guestType" defaultValue={defaultGuestType} options={choices.guestTypes} className={inputClass} />
             </Field>
             {stage === "DECLINED" && (
               <Field label="Declined reason" htmlFor="p-declinedReason" wide>

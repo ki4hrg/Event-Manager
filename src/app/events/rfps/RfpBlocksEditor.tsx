@@ -9,6 +9,7 @@ import type { PatternBasis } from "@/lib/hotelPattern";
 import { useAutosave } from "@/lib/useAutosave";
 import { emptyGridState, gridNights, overNights, RoomGridEditor, toGridState, type GridEdge, type GridState } from "../hotels/RoomGridEditor";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 import type { RfpBlockArgs, RfpFillArgs } from "./core";
 
 export type RfpBlockValues = {
@@ -297,15 +298,13 @@ export function RfpBlocksEditor({
                 <label htmlFor={`b-${b.id}-guest`} className={labelClass}>
                   Guest type
                 </label>
-                <select id={`b-${b.id}-guest`} value={b.guestType} onChange={(e) => change(b.id, { guestType: e.target.value })} className={inputClass}>
-                  <option value="">Not set</option>
-                  {b.guestType && !guestTypes.includes(b.guestType) && <option value={b.guestType}>{b.guestType}</option>}
-                  {guestTypes.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
+                <OptionSelect
+                  id={`b-${b.id}-guest`}
+                  value={b.guestType}
+                  options={guestTypes}
+                  onChange={(e) => change(b.id, { guestType: e.target.value })}
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label htmlFor={`b-${b.id}-rate`} className={labelClass}>

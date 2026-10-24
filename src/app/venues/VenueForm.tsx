@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import type { Venue } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 
 type VenueFormProps = {
@@ -208,15 +209,7 @@ export function VenueForm({ venue, brands, areas, amenities, defaultLodging = fa
                 <label htmlFor="brand" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Brand
                 </label>
-                <select id="brand" name="brand" defaultValue={venue?.brand ?? ""} className={fieldClass}>
-                  <option value="">Not set</option>
-                  {venue?.brand && !brands.includes(venue.brand) && <option value={venue.brand}>{venue.brand}</option>}
-                  {brands.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
+                <OptionSelect id="brand" name="brand" defaultValue={venue?.brand} options={brands} className={fieldClass} />
               </div>
               <div>
                 <label htmlFor="area" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

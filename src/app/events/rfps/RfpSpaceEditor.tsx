@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useRef, useState, useTransition } from "react";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 import type { PermissionResource, RfpSpaceKind } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { DateInput } from "@/components/ui/DateInput";
@@ -32,20 +33,6 @@ const checkClass = "rounded border-gray-300 dark:border-gray-600";
 const dayHeading = "text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400";
 
 const dayLabel = (day: string | null) => (day ? formatNight(day) : DAY_TBD);
-
-function TypeSelect({ value, options, onChange, label }: { value: string | null; options: string[]; onChange: (v: string | null) => void; label: string }) {
-  return (
-    <select aria-label={label} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} className={inputClass}>
-      <option value="">—</option>
-      {value && !options.includes(value) && <option value={value}>{value}</option>}
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 function Picker({ kind, rows, candidates, onAdd, onClose }: { kind: RfpSpaceKind; rows: Row[]; candidates: SpaceRow[]; onAdd: (rows: SpaceRow[]) => void; onClose: () => void }) {
   const [picked, setPicked] = useState<Set<number>>(new Set());
@@ -247,12 +234,12 @@ export function RfpSpaceEditor({
                 </label>
                 <label className={`${smallLabel} ${meeting ? "" : "col-span-2 sm:col-span-1"}`}>
                   Type
-                  <TypeSelect label="Type" value={r.functionType} options={types} onChange={(v) => set(r.key, { functionType: v })} />
+                  <OptionSelect aria-label="Type" value={r.functionType} options={types} blank="—" onChange={(e) => set(r.key, { functionType: e.target.value || null })} className={inputClass} />
                 </label>
                 {meeting && (
                   <label className={smallLabel}>
                     Requested set-up
-                    <TypeSelect label="Requested set-up" value={r.setup} options={setupTypes} onChange={(v) => set(r.key, { setup: v })} />
+                    <OptionSelect aria-label="Requested set-up" value={r.setup} options={setupTypes} blank="—" onChange={(e) => set(r.key, { setup: e.target.value || null })} className={inputClass} />
                   </label>
                 )}
                 <label className={smallLabel}>

@@ -192,7 +192,6 @@ export async function mergeOption(category: OptionCategory, id: string, intoId: 
 export async function mapOffListLabel(category: OptionCategory, label: string, intoId: string) {
   const def = optionCategory(category);
   const { tenantId } = await requirePermission(def.resource, "WRITE");
-  if (!isMergeable(category)) throw new Error("This list has no off-list labels");
   const into = await prisma.customOption.findFirst({ where: { id: intoId, tenantId, category }, select: { label: true } });
   if (!into) throw new Error("Option not found");
   await prisma.$transaction((tx) => propagateLabelRename(tx, tenantId, category, label, into.label));

@@ -631,7 +631,7 @@ export async function clearDeletedLabel(tx: Db, tenantId: string, category: Opti
 
 // How many records hold each label of a category, across every target that
 // blocks a delete (and options grouped under it). Labels not on the list
-// appear too — they are the off-list labels of a strict list.
+// appear too: the off-list labels Settings offers to map or add.
 export async function optionLabelUses(db: Db, tenantId: string, category: OptionCategory): Promise<Map<string, number>> {
   const uses = new Map<string, number>();
   const add = (label: unknown, n: number) => {

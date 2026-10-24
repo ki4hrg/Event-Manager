@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { PermissionResource, RfpKind, RfpStatus } from "@prisma/client";
@@ -98,20 +99,6 @@ function Field({ label, htmlFor, wide, children }: { label: string; htmlFor: str
   );
 }
 
-function OptionSelect({ id, name, value, options }: { id: string; name: string; value: string | null; options: string[] }) {
-  return (
-    <select id={id} name={name} defaultValue={value ?? BLANK} className={inputClass}>
-      <option value={BLANK}>Not set</option>
-      {value && !options.includes(value) && <option value={value}>{value}</option>}
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 export function RfpForm({
   kind,
   resource,
@@ -190,7 +177,7 @@ export function RfpForm({
           </Field>
           {kind === "OTHER" && (
             <Field label="Service" htmlFor="rfp-service">
-              <OptionSelect id="rfp-service" name="service" value={values.service ?? null} options={choices.services ?? []} />
+              <OptionSelect id="rfp-service" name="service" defaultValue={values.service} options={choices.services ?? []} blankValue={BLANK} className={inputClass} />
             </Field>
           )}
           {isEdit && (
@@ -356,7 +343,7 @@ export function RfpForm({
           <legend className={legendClass}>Guest rooms</legend>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Reservations" htmlFor="rfp-reservationMethod">
-              <OptionSelect id="rfp-reservationMethod" name="reservationMethod" value={values.reservationMethod} options={choices.reservationMethods} />
+              <OptionSelect id="rfp-reservationMethod" name="reservationMethod" defaultValue={values.reservationMethod} options={choices.reservationMethods} blankValue={BLANK} className={inputClass} />
             </Field>
             <Field label="Rebates / commissions" htmlFor="rfp-commissionNotes">
               <input id="rfp-commissionNotes" name="commissionNotes" defaultValue={values.commissionNotes ?? ""} className={inputClass} />
