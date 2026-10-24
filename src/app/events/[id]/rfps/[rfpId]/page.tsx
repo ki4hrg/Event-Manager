@@ -181,6 +181,7 @@ export default async function VendorRfpPage({
                   source={ORDER_SOURCE[kind]}
                   loadCandidates={candidatesAction}
                   save={saveLinesAction}
+                  units={choices.units}
                 />
               )}
               {rfp.sections.includes("concessions") && (

@@ -4,6 +4,7 @@ import { Fragment, useRef, useState, useTransition } from "react";
 import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { DateInput } from "@/components/ui/DateInput";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight } from "@/lib/hotels";
 import { formatClockRange } from "@/lib/rfp/space";
@@ -177,6 +178,7 @@ export function RfpLineItemsEditor({
   source,
   loadCandidates,
   save,
+  units,
 }: {
   resource: PermissionResource;
   rows: (LineItemRow & { id: string })[];
@@ -186,6 +188,8 @@ export function RfpLineItemsEditor({
   source: string | null;
   loadCandidates: () => Promise<LineItemRow[]>;
   save: (rows: RfpLineItemArgs[]) => Promise<(string | null)[]>;
+  // The tenant's unit list.
+  units: string[];
 }) {
   const canWrite = useCanWrite(resource);
   const [candidates, setCandidates] = useState<LineItemRow[] | null>(null);
@@ -276,7 +280,7 @@ export function RfpLineItemsEditor({
                 </label>
                 <label className={smallLabel}>
                   Unit
-                  <input value={r.unit ?? ""} placeholder="each, day…" onChange={(e) => set(r.key, { unit: e.target.value || null })} className={inputClass} />
+                  <OptionSelect value={r.unit} options={units} blank="—" onChange={(e) => set(r.key, { unit: e.target.value || null })} className={inputClass} />
                 </label>
                 <label className={smallLabel}>
                   Group

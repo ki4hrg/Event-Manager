@@ -21,6 +21,7 @@ type CommonProps = {
   timezone: string;
   functions: Choice[];
   boothTypes: string[];
+  costCenters: string[];
   action: (formData: FormData) => Promise<void>;
   cancelHref: string;
 };
@@ -188,6 +189,7 @@ function SharedFields({
   timezone,
   functions,
   boothTypes,
+  costCenters,
   defaultFunctionId,
 }: {
   record: BoothShared | null | undefined;
@@ -195,6 +197,7 @@ function SharedFields({
   timezone: string;
   functions: Choice[];
   boothTypes: string[];
+  costCenters: string[];
   defaultFunctionId?: string;
 }) {
   const inherited = (key: BoothSharedKey) => (fallback ? sharedDisplay(key, fallback[key], timezone, functions) : null);
@@ -283,7 +286,7 @@ function SharedFields({
       <Fieldset title="Billing">
         {select("taxExempt", "Tax-exempt", yesNo, boolValue(record?.taxExempt))}
         {text("taxExemptId", "Tax-exempt ID #")}
-        {text("costCenter", "Cost center")}
+        {select("costCenter", "Cost center", costCenters.map((c) => ({ value: c, label: c })), record?.costCenter)}
         {text("billingNotes", "Billing instructions", true, true)}
       </Fieldset>
     </>
@@ -349,6 +352,7 @@ export function BoothForm({
   timezone,
   functions,
   boothTypes,
+  costCenters,
   action,
   cancelHref,
 }: CommonProps & {
@@ -426,6 +430,7 @@ export function BoothForm({
           timezone={timezone}
           functions={functions}
           boothTypes={boothTypes}
+          costCenters={costCenters}
           defaultFunctionId={group ? undefined : defaultFunctionId}
         />
         <Buttons isEdit={isEdit} saveLabel="Create Booth" cancelHref={cancelHref} onCancel={() => setEditing(false)} />
@@ -439,6 +444,7 @@ export function BoothGroupForm({
   timezone,
   functions,
   boothTypes,
+  costCenters,
   defaultFunctionId,
   action,
   cancelHref,
@@ -473,6 +479,7 @@ export function BoothGroupForm({
           timezone={timezone}
           functions={functions}
           boothTypes={boothTypes}
+          costCenters={costCenters}
           defaultFunctionId={defaultFunctionId}
         />
         <Buttons isEdit={isEdit} saveLabel="Create Group" cancelHref={cancelHref} onCancel={() => setEditing(false)} />

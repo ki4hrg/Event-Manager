@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import type { Room, RoomGroup } from "@prisma/client";
+import type { Room as RoomRecord, RoomCapacity, RoomGroup } from "@prisma/client";
+import { formatRoomCapacities } from "@/lib/roomCapacity";
+
+type Room = RoomRecord & { capacities: RoomCapacity[] };
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
 
@@ -10,6 +13,8 @@ type RoomListProps = {
   rooms: Room[];
   roomGroups: RoomGroup[];
   venueId: string;
+  // The setup_type list: one capacity input per set-up.
+  setupTypes: string[];
   createRoom: (formData: FormData) => Promise<void>;
   updateRoom: (roomId: string, formData: FormData) => Promise<void>;
   deleteRoom: (roomId: string) => Promise<void>;
@@ -47,9 +52,59 @@ function GroupSelect({ groups, defaultValue }: { groups: RoomGroup[]; defaultVal
   );
 }
 
+// The room's set-up capacities, one row each, plus a picker to add a set-up
+// from the list (a stored set-up no longer on it keeps its row).
+function SetupCapacities({ setupTypes, capacities = [] }: { setupTypes: string[]; capacities?: RoomCapacity[] }) {
+  const [rows, setRows] = useState(() => capacities.map((c) => ({ setupType: c.setupType, capacity: String(c.capacity) })));
+  const unused = setupTypes.filter((t) => !rows.some((r) => r.setupType === t));
+  if (setupTypes.length === 0 && rows.length === 0) return null;
+  return (
+    <div className="basis-full space-y-2">
+      {rows.map((r, i) => (
+        <div key={r.setupType} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <span className="flex-1 min-w-0 break-words">{r.setupType}</span>
+          <input type="hidden" name="capacitySetup" value={r.setupType} />
+          <input
+            type="number"
+            name="capacityCount"
+            min={0}
+            aria-label={`${r.setupType} capacity`}
+            value={r.capacity}
+            onChange={(e) => setRows((prev) => prev.map((x, j) => (j === i ? { ...x, capacity: e.target.value } : x)))}
+            className="w-20 px-2 py-1 text-right border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
+            className="text-sm text-red-600 dark:text-red-400 hover:underline"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      {unused.length > 0 && (
+        <select
+          aria-label="Add set-up capacity"
+          value=""
+          onChange={(e) => e.target.value && setRows((prev) => [...prev, { setupType: e.target.value, capacity: "" }])}
+          className="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
+        >
+          <option value="">+ Capacity by set-up</option>
+          {unused.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
 function RoomRow({
   room,
   groups,
+  setupTypes,
   isEditing,
   onEdit,
   onCancelEdit,
@@ -58,6 +113,7 @@ function RoomRow({
 }: {
   room: Room;
   groups: RoomGroup[];
+  setupTypes: string[];
   isEditing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
@@ -98,6 +154,7 @@ function RoomRow({
               placeholder="Notes"
             />
             <GroupSelect groups={groups} defaultValue={room.groupId} />
+            <SetupCapacities setupTypes={setupTypes} capacities={room.capacities} />
             <SubmitButton label="Save" />
             <button
               type="button"
@@ -115,7 +172,10 @@ function RoomRow({
   return (
     <tr>
       <td className="px-6 py-4 font-medium text-gray-900 dark:text-white text-sm">{room.name}</td>
-      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{room.capacity ?? "—"}</td>
+      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+        {room.capacity ?? "—"}
+        {room.capacities.length > 0 && <div className="text-xs text-gray-500 dark:text-gray-400">{formatRoomCapacities(room.capacities)}</div>}
+      </td>
       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{room.notes ?? "—"}</td>
       <td className="px-6 py-4 text-right space-x-3 whitespace-nowrap">
         {canWrite && (
@@ -136,6 +196,7 @@ function RoomRow({
 function RoomsTable({
   rooms,
   groups,
+  setupTypes,
   editingId,
   setEditingId,
   updateRoom,
@@ -143,6 +204,7 @@ function RoomsTable({
 }: {
   rooms: Room[];
   groups: RoomGroup[];
+  setupTypes: string[];
   editingId: string | null;
   setEditingId: (id: string | null) => void;
   updateRoom: (roomId: string, formData: FormData) => Promise<void>;
@@ -169,6 +231,7 @@ function RoomsTable({
             key={room.id}
             room={room}
             groups={groups}
+            setupTypes={setupTypes}
             isEditing={editingId === room.id}
             onEdit={() => setEditingId(room.id)}
             onCancelEdit={() => setEditingId(null)}
@@ -186,6 +249,7 @@ export function RoomList({
   rooms,
   roomGroups,
   venueId,
+  setupTypes,
   createRoom,
   updateRoom,
   deleteRoom,
@@ -285,6 +349,9 @@ export function RoomList({
               <GroupSelect groups={roomGroups} />
             </div>
           )}
+          <div className="mt-3 flex">
+            <SetupCapacities setupTypes={setupTypes} />
+          </div>
           <div className="mt-3 flex gap-2">
             <SubmitButton label="Add Room" />
             <button
@@ -357,6 +424,7 @@ export function RoomList({
                 <RoomsTable
                   rooms={groupRooms}
                   groups={roomGroups}
+                  setupTypes={setupTypes}
                   editingId={editingRoomId}
                   setEditingId={setEditingRoomId}
                   updateRoom={updateRoom}
@@ -377,6 +445,7 @@ export function RoomList({
               <RoomsTable
                 rooms={ungroupedRooms}
                 groups={roomGroups}
+                setupTypes={setupTypes}
                 editingId={editingRoomId}
                 setEditingId={setEditingRoomId}
                 updateRoom={updateRoom}
@@ -390,6 +459,7 @@ export function RoomList({
           <RoomsTable
             rooms={rooms}
             groups={roomGroups}
+            setupTypes={setupTypes}
             editingId={editingRoomId}
             setEditingId={setEditingRoomId}
             updateRoom={updateRoom}

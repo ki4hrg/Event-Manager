@@ -41,6 +41,35 @@ export const DEFAULT_OPTIONS = {
     { label: "Main Event", color: "green", group: "MAIN", sortOrder: 2 },
     { label: "Breakdown", color: "orange", group: "TEARDOWN", sortOrder: 3 },
   ],
+  // Contacts on functions, catering orders and media deliverables.
+  assignment_role: [
+    { label: "Point of contact", sortOrder: 0 },
+    { label: "Host", sortOrder: 1 },
+    { label: "Presenter", sortOrder: 2 },
+    { label: "Moderator", sortOrder: 3 },
+    { label: "Panelist", sortOrder: 4 },
+  ],
+  staff_title: [
+    { label: "Event Lead", sortOrder: 0 },
+    { label: "Logistics Lead", sortOrder: 1 },
+    { label: "Registration Lead", sortOrder: 2 },
+    { label: "Communications Lead", sortOrder: 3 },
+    { label: "Sponsorship Lead", sortOrder: 4 },
+  ],
+  venue_contact_type: [
+    { label: "Sales", sortOrder: 0 },
+    { label: "Event Services", sortOrder: 1 },
+    { label: "Catering", sortOrder: 2 },
+    { label: "AV", sortOrder: 3 },
+    { label: "Billing", sortOrder: 4 },
+    { label: "On-site", sortOrder: 5 },
+  ],
+  vendor_contact_type: [
+    { label: "Sales", sortOrder: 0 },
+    { label: "Billing", sortOrder: 1 },
+    { label: "Technical", sortOrder: 2 },
+    { label: "On-site", sortOrder: 3 },
+  ],
   presenter_role: [
     { label: "Presenter", sortOrder: 0 },
     { label: "Co-Presenter", sortOrder: 1 },
@@ -199,6 +228,35 @@ export const DEFAULT_OPTIONS = {
     { label: "Boxed", sortOrder: 0 },
     { label: "Buffet", sortOrder: 1 },
     { label: "Plated", sortOrder: 2 },
+  ],
+  // Special meals: counted on catering orders, picked on speaker profiles.
+  dietary_need: [
+    { label: "Vegetarian", sortOrder: 0 },
+    { label: "Vegan", sortOrder: 1 },
+    { label: "Gluten-free", sortOrder: 2 },
+    { label: "Dairy-free", sortOrder: 3 },
+    { label: "Nut allergy", sortOrder: 4 },
+    { label: "Shellfish allergy", sortOrder: 5 },
+    { label: "Kosher", sortOrder: 6 },
+    { label: "Halal", sortOrder: 7 },
+  ],
+  // Catering and RFP line items. "guests" is what an RFP line copied from a
+  // catering order counts (src/lib/rfp/lineItems.ts).
+  unit: [
+    { label: "each", sortOrder: 0 },
+    { label: "per person", sortOrder: 1 },
+    { label: "guests", sortOrder: 2 },
+    { label: "flat", sortOrder: 3 },
+    { label: "per hour", sortOrder: 4 },
+    { label: "per day", sortOrder: 5 },
+  ],
+  // Guest charges; group is the scope a new charge of the type starts with.
+  hotel_charge: [
+    { label: "Resort fee", group: "PER_NIGHT", sortOrder: 0 },
+    { label: "Destination fee", group: "PER_NIGHT", sortOrder: 1 },
+    { label: "Parking", group: "PER_NIGHT", sortOrder: 2 },
+    { label: "Valet parking", group: "PER_NIGHT", sortOrder: 3 },
+    { label: "Early departure fee", group: "PER_STAY", sortOrder: 4 },
   ],
   booth_type: [
     { label: "8'x10'", sortOrder: 0 },

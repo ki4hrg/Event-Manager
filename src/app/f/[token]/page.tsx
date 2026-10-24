@@ -11,6 +11,7 @@ import {
 } from "@/lib/forms/links";
 import { formConfig, formModule } from "@/lib/forms/index";
 import { functionReviewSetupTypes } from "@/lib/forms/functionReview";
+import { speakerProfileDietaryNeeds } from "@/lib/forms/speakerProfile";
 import {
   FORM_ERROR_COPY,
   FORM_TYPE_LABEL,
@@ -194,6 +195,7 @@ export default async function PublicFormPage({
           <SpeakerProfileForm
             {...common}
             baseline={snapshot.baseline as SpeakerProfileBaseline}
+            dietaryNeeds={await speakerProfileDietaryNeeds(link.eventId)}
             sections={snapshot.sections as SpeakerProfileSection[]}
             draft={draftView && { ...draftView, payload: payload as SpeakerProfilePayload | null }}
           />

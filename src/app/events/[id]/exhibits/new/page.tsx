@@ -48,6 +48,7 @@ export default async function NewBoothPage({
           contacts={choices.contacts}
           groups={choices.groups}
           boothTypes={choices.boothTypes}
+          costCenters={choices.costCenters}
           defaultFunctionId={choices.functions.some((f) => f.id === functionId) ? functionId : undefined}
           defaultGroupId={choices.groups.some((g) => g.id === groupId) ? groupId : undefined}
           action={createAction}

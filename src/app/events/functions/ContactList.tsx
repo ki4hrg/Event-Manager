@@ -7,6 +7,7 @@ import type { Contact } from "@prisma/client";
 import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 
 type ContactItem = {
   id: string;
@@ -22,6 +23,8 @@ type ContactListProps = {
   removeContact: (id: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
   createContact?: (formData: FormData) => Promise<void>;
+  // The option list a contact's role picks from (assignment_role; venue_contact_type on venues).
+  roles: string[];
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -44,6 +47,7 @@ export function ContactList({
   removeContact,
   searchContacts,
   createContact,
+  roles,
 }: ContactListProps) {
   const canWrite = useCanWrite("FUNCTIONS");
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
@@ -216,10 +220,9 @@ export function ContactList({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Role
               </label>
-              <input
-                type="text"
+              <OptionSelect
                 name="role"
-                placeholder="e.g. Moderator, Panelist..."
+                options={roles}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
@@ -289,10 +292,9 @@ export function ContactList({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Role
               </label>
-              <input
-                type="text"
+              <OptionSelect
                 name="role"
-                placeholder="e.g. Moderator, Panelist..."
+                options={roles}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
@@ -343,11 +345,10 @@ export function ContactList({
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Role
                     </label>
-                    <input
-                      type="text"
+                    <OptionSelect
                       name="role"
-                      defaultValue={item.role || ""}
-                      placeholder="e.g. Moderator, Panelist..."
+                      defaultValue={item.role}
+                      options={roles}
                       className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                     />
                   </div>

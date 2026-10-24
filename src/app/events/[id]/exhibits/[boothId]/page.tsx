@@ -109,6 +109,7 @@ export default async function BoothPage({ params }: { params: Promise<{ id: stri
             contacts={choices.contacts}
             groups={choices.groups}
             boothTypes={choices.boothTypes}
+            costCenters={choices.costCenters}
             action={updateAction}
             cancelHref={`/events/${eventId}/exhibits`}
           />

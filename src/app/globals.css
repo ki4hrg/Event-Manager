@@ -49,6 +49,14 @@ textarea {
    viewport on a phone and sits taller than its text-input neighbours.
    Dropping the native appearance lets width/padding utilities apply. Kept in
    the base layer so any utility class still wins. */
+/* A fieldset's default min-width is min-content, so a wide table inside one
+   widens the whole form instead of scrolling in its overflow-x-auto box. */
+@layer base {
+  fieldset {
+    min-width: 0;
+  }
+}
+
 @layer base {
   input[type="date"],
   input[type="time"],

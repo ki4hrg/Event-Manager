@@ -11,7 +11,7 @@
 
 import { EntityStatus, PermissionResource, Prisma } from "@prisma/client";
 import { FUNCTION_SPACES, MEAL_BUCKETS, SCHEDULE_ROLES } from "@/lib/esg/apex";
-import { PROPOSAL_STAGES } from "@/lib/hotels";
+import { CHARGE_SCOPES, PROPOSAL_STAGES } from "@/lib/hotels";
 import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
 import { hotelLabelUses, mergeHotelLabel, type HotelLabelCategory } from "@/lib/hotelLabels";
 import { MAIN_SCHEDULE_GROUP } from "@/lib/scheduleTypes";
@@ -68,10 +68,10 @@ const inEvent = (tenantId: string) => ({ event: { tenantId } });
 
 // A String[] column. `join` reaches the tenant through Event for tables
 // without their own tenantId.
-function arrayCol(table: "Contact" | "Event" | "Rfp", column: string): CustomTarget {
+function arrayCol(table: "Contact" | "Event" | "Rfp" | "SpeakerProfile", column: string): CustomTarget {
   const t = Prisma.raw(`"${table}"`);
   const c = Prisma.raw(`"${column}"`);
-  const viaEvent = table === "Rfp";
+  const viaEvent = table === "Rfp" || table === "SpeakerProfile";
   return {
     kind: "custom",
     name: `${table}.${column}`,
@@ -128,6 +128,68 @@ const formLinkBoothTypes: CustomTarget = {
   },
 };
 
+// Dietary counts are unique per (order, label), so a rename onto a label the
+// order already counts adds the two counts together.
+const dietaryCounts: CustomTarget = {
+  kind: "custom",
+  name: "CateringOrderDietaryCount.label",
+  rename: async (tx, tenantId, from, to) => {
+    await tx.$executeRaw`
+      UPDATE "CateringOrderDietaryCount" t SET "count" = t."count" + f."count"
+      FROM "CateringOrderDietaryCount" f, "BEO" co, "Event" e
+      WHERE f."cateringOrderId" = t."cateringOrderId" AND t."label" = ${to} AND f."label" = ${from}
+        AND co."id" = t."cateringOrderId" AND e."id" = co."eventId" AND e."tenantId" = ${tenantId}`;
+    await tx.$executeRaw`
+      DELETE FROM "CateringOrderDietaryCount" f
+      USING "BEO" co, "Event" e
+      WHERE co."id" = f."cateringOrderId" AND e."id" = co."eventId" AND e."tenantId" = ${tenantId} AND f."label" = ${from}
+        AND EXISTS (SELECT 1 FROM "CateringOrderDietaryCount" t WHERE t."cateringOrderId" = f."cateringOrderId" AND t."label" = ${to})`;
+    await tx.cateringOrderDietaryCount.updateMany({ where: { cateringOrder: { event: { tenantId } }, label: from }, data: { label: to } });
+  },
+  uses: async (db, tenantId) => {
+    const rows = await db.cateringOrderDietaryCount.groupBy({ by: ["label"], where: { cateringOrder: { event: { tenantId } } }, _count: { _all: true } });
+    return new Map(rows.map((r) => [r.label, r._count._all]));
+  },
+};
+
+// A room holds one capacity per set-up, so a rename onto a set-up the room
+// already lists keeps that one.
+const roomCapacities: CustomTarget = {
+  kind: "custom",
+  name: "RoomCapacity.setupType",
+  rename: async (tx, tenantId, from, to) => {
+    await tx.$executeRaw`
+      DELETE FROM "RoomCapacity" f
+      USING "Room" r, "Venue" v
+      WHERE r."id" = f."roomId" AND v."id" = r."venueId" AND v."tenantId" = ${tenantId} AND f."setupType" = ${from}
+        AND EXISTS (SELECT 1 FROM "RoomCapacity" t WHERE t."roomId" = f."roomId" AND t."setupType" = ${to})`;
+    await tx.roomCapacity.updateMany({ where: { room: { venue: { tenantId } }, setupType: from }, data: { setupType: to } });
+  },
+  uses: async (db, tenantId) => {
+    const rows = await db.roomCapacity.groupBy({ by: ["setupType"], where: { room: { venue: { tenantId } } }, _count: { _all: true } });
+    return new Map(rows.map((r) => [r.setupType, r._count._all]));
+  },
+};
+
+// Key staff are unique per (event, contact, title), so a rename onto a title
+// the same person already holds on that event folds the duplicate away.
+const keyStaffTitles: CustomTarget = {
+  kind: "custom",
+  name: "EventKeyStaff.title",
+  rename: async (tx, tenantId, from, to) => {
+    await tx.$executeRaw`
+      DELETE FROM "EventKeyStaff" k
+      USING "Event" e
+      WHERE e."id" = k."eventId" AND e."tenantId" = ${tenantId} AND k."title" = ${from}
+        AND EXISTS (SELECT 1 FROM "EventKeyStaff" o WHERE o."eventId" = k."eventId" AND o."contactId" = k."contactId" AND o."title" = ${to})`;
+    await tx.eventKeyStaff.updateMany({ where: { event: { tenantId }, title: from }, data: { title: to } });
+  },
+  uses: async (db, tenantId) => {
+    const rows = await db.eventKeyStaff.groupBy({ by: ["title"], where: { event: { tenantId } }, _count: { _all: true } });
+    return new Map(rows.filter((r) => r.title).map((r) => [r.title as string, r._count._all]));
+  },
+};
+
 // A file hangs off exactly one parent; any of them places it in a tenant.
 const fileInTenant = (tenantId: string): Prisma.FileUploadWhereInput => ({
   OR: [
@@ -157,12 +219,12 @@ const fileInTenant = (tenantId: string): Prisma.FileUploadWhereInput => ({
 export const OPTION_SECTIONS = {
   events: {
     title: "Events",
-    lists: ["event_type", "event_scope", "event_frequency", "per_facility_type", "hotel_region", "hotel_area", "file_type"],
+    lists: ["event_type", "event_scope", "event_frequency", "per_facility_type", "hotel_region", "hotel_area", "file_type", "cost_center"],
   },
   program: { title: "Program", lists: ["function_type", "schedule_type", "presentation_type", "presenter_role", "booth_type"] },
   orders: {
     title: "Orders",
-    lists: ["service_style", "meal_type", "setup_type", "per_av_setup", "delivery_method", "media_type", "print_distribution"],
+    lists: ["service_style", "meal_type", "dietary_need", "unit", "setup_type", "per_av_setup", "delivery_method", "media_type", "print_distribution"],
   },
   hotels: {
     title: "Hotels",
@@ -170,6 +232,7 @@ export const OPTION_SECTIONS = {
       "hotel_room_type",
       "hotel_guest_type",
       "hotel_amenity",
+      "hotel_charge",
       "hotel_brand",
       "reservation_method",
       "proposal_status",
@@ -177,7 +240,10 @@ export const OPTION_SECTIONS = {
     ],
   },
   rfps: { title: "RFPs", lists: ["rfp_service", "rfp_term", "rfp_concession"] },
-  people: { title: "People & vendors", lists: ["contact_role", "vendor_contact_type"] },
+  people: {
+    title: "People & vendors",
+    lists: ["contact_role", "assignment_role", "staff_title", "venue_contact_type", "vendor_contact_type"],
+  },
   status: { title: "Statuses", lists: ["substatus"] },
   inventory: { title: "Inventory", lists: ["equipment_category", "location_type"] },
 } as const satisfies Record<string, { title: string; lists: readonly string[] }>;
@@ -299,12 +365,13 @@ export const OPTION_CATEGORIES = {
   },
   setup_type: {
     title: "Setup Types",
-    description: "Room setups for setup orders.",
+    description: "Room setups for setup orders and room capacities.",
     resource: SETTINGS,
     renameTargets: [
       col("setupOrder", "setupType", inEvent),
       col("rfpSpaceRequest", "setup", (t) => ({ rfp: inEvent(t) })),
       col("function", "defaultSetup", inEvent),
+      roomCapacities,
     ],
   },
   booth_type: {
@@ -348,6 +415,43 @@ export const OPTION_CATEGORIES = {
       col("rfpSpaceRequest", "functionType", (t) => ({ kind: "FB", rfp: inEvent(t) })),
       col("hotelProposalMeal", "mealType", (t) => ({ proposal: inEvent(t) })),
     ],
+  },
+  dietary_need: {
+    title: "Dietary Needs",
+    description: "Special meals counted on catering orders and picked on speaker profiles.",
+    resource: SETTINGS,
+    renameTargets: [dietaryCounts, arrayCol("SpeakerProfile", "dietaryNeeds")],
+  },
+  unit: {
+    title: "Units",
+    description: "Units for catering and RFP line items.",
+    resource: SETTINGS,
+    renameTargets: [
+      col("cateringOrderLineItem", "unitType", (t) => ({ cateringOrder: inEvent(t) })),
+      col("rfpLineItem", "unit", (t) => ({ rfp: inEvent(t) })),
+    ],
+  },
+  assignment_role: {
+    title: "Assignment Roles",
+    description: "Roles for contacts on functions, catering orders and media deliverables.",
+    resource: SETTINGS,
+    renameTargets: [
+      col("functionContact", "role", (t) => ({ function: inEvent(t) })),
+      col("cateringOrderContact", "role", (t) => ({ cateringOrder: inEvent(t) })),
+      col("mediaDeliverableContact", "role", (t) => ({ mediaDeliverable: inEvent(t) })),
+    ],
+  },
+  staff_title: {
+    title: "Staff Titles",
+    description: "Titles for an event's key staff.",
+    resource: SETTINGS,
+    renameTargets: [keyStaffTitles],
+  },
+  venue_contact_type: {
+    title: "Venue Contact Types",
+    description: "Roles for venue contacts.",
+    resource: SETTINGS,
+    renameTargets: [col("venueContact", "role", (tenantId) => ({ venue: { tenantId } }))],
   },
   vendor_contact_type: {
     title: "Vendor Contact Types",
@@ -395,6 +499,18 @@ export const OPTION_CATEGORIES = {
     mergeable: { noun: "amenity" },
     resource: SETTINGS,
     renameTargets: [mergeTarget("hotel_amenity")],
+  },
+  hotel_charge: {
+    title: "Guest Charges",
+    description: "Charges hotels add to a guest's stay.",
+    groups: { kind: "fixed", label: "Default scope", choices: CHARGE_SCOPES },
+    resource: SETTINGS,
+    renameTargets: [
+      col("hotelCharge", "chargeType", (t) => ({
+        kind: "GUEST",
+        OR: [{ proposal: inEvent(t) }, { block: { proposal: inEvent(t) } }],
+      })),
+    ],
   },
   hotel_brand: {
     title: "Brands",
@@ -447,6 +563,16 @@ export const OPTION_CATEGORIES = {
     mergeable: { noun: "RFP term" },
     resource: SETTINGS,
     renameTargets: [mergeTarget("rfp_term")],
+  },
+  cost_center: {
+    title: "Cost Centers",
+    description: "Cost centers for functions and exhibit booths.",
+    resource: SETTINGS,
+    renameTargets: [
+      col("function", "costCenter", inEvent),
+      col("exhibitBooth", "costCenter", inEvent),
+      col("exhibitBoothGroup", "costCenter", inEvent),
+    ],
   },
   event_type: {
     title: "Event Types",
@@ -631,7 +757,7 @@ export async function clearDeletedLabel(tx: Db, tenantId: string, category: Opti
 
 // How many records hold each label of a category, across every target that
 // blocks a delete (and options grouped under it). Labels not on the list
-// appear too — they are the off-list labels of a strict list.
+// appear too: the off-list labels Settings offers to map or add.
 export async function optionLabelUses(db: Db, tenantId: string, category: OptionCategory): Promise<Map<string, number>> {
   const uses = new Map<string, number>();
   const add = (label: unknown, n: number) => {

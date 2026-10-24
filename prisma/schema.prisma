@@ -585,10 +585,23 @@ model Room {
   supplyOrders         SupplyOrder[]
   printOrders          PrintOrder[]
   functionRoomNumbers  FunctionRoomNumber[]
+  capacities           RoomCapacity[]
   createdAt            DateTime                      @default(now())
   updatedAt            DateTime                      @updatedAt
 
   @@index([groupId])
+}
+
+// How many a room holds in one set-up (theater, classroom, banquet). Room.capacity
+// stays the room's single headline number.
+model RoomCapacity {
+  id        String @id @default(cuid())
+  roomId    String
+  room      Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  setupType String // @option setup_type
+  capacity  Int
+
+  @@unique([roomId, setupType])
 }
 
 // Flexible contact model with roles
@@ -658,7 +671,7 @@ model VenueContact {
   id        String  @id @default(cuid())
   venueId   String
   contactId String
-  role      String? // e.g., "Sales Manager", "Event Coordinator"
+  role      String? // @option venue_contact_type
   venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -670,7 +683,7 @@ model EventKeyStaff {
   id                 String   @id @default(cuid())
   eventId            String
   contactId          String
-  title              String?
+  title              String? // @option staff_title
   models             String[]
   sortOrder          Int      @default(0)
   // ESG Part I §C / §L / §X
@@ -714,7 +727,7 @@ model Function {
   securityNotes             String?
   signageNotes              String?
   billingNotes              String?
-  costCenter                String?
+  costCenter                String? // @option cost_center
   roomNumbers               FunctionRoomNumber[]
   exhibitBooths             ExhibitBooth[]
   exhibitBoothGroups        ExhibitBoothGroup[]
@@ -782,7 +795,7 @@ model FunctionContact {
   id         String   @id @default(cuid())
   functionId String
   contactId  String
-  role       String? // e.g., "Presenter", "Moderator", "Panelist"
+  role       String? // @option assignment_role
   function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
   contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -868,6 +881,7 @@ model CateringOrder {
   timelineItems              TimelineItem[]
   equipmentItems             EquipmentItem[]
   lineItems                  CateringOrderLineItem[]
+  dietaryCounts              CateringOrderDietaryCount[]
   menuSections               CateringOrderMenuSection[]
   additionalServiceLocations CateringOrderServiceLocation[]
   contacts                   CateringOrderContact[]
@@ -1048,7 +1062,7 @@ model CateringOrderLineItem {
   cateringOrderId String        @map("beoId")
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   description     String
-  unitType        String?
+  unitType        String? // @option unit
   unitPrice       Decimal?
   quantity        Int?
   notes           String?
@@ -1059,6 +1073,19 @@ model CateringOrderLineItem {
 
   @@index([cateringOrderId])
   @@map("BEOLineItem")
+}
+
+// Special-meal counts on a catering order (BEO): how many guests need each
+// dietary_need option. Free-form detail stays in CateringOrder.dietaryNotes.
+model CateringOrderDietaryCount {
+  id              String        @id @default(cuid())
+  cateringOrderId String
+  cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
+  label           String // @option dietary_need
+  count           Int
+  sortOrder       Int           @default(0)
+
+  @@unique([cateringOrderId, label])
 }
 
 model CateringOrderMenuSection {
@@ -1099,7 +1126,7 @@ model CateringOrderContact {
   id              String        @id @default(cuid())
   cateringOrderId String        @map("beoId")
   contactId       String
-  role            String?
+  role            String? // @option assignment_role
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -1635,7 +1662,7 @@ model MediaDeliverableContact {
   id                 String           @id @default(cuid())
   mediaDeliverableId String
   contactId          String
-  role               String?
+  role               String? // @option assignment_role
   mediaDeliverable   MediaDeliverable @relation(fields: [mediaDeliverableId], references: [id], onDelete: Cascade)
   contact            Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -2322,7 +2349,7 @@ model ExhibitBoothGroup {
   utilitiesNotes        String?
   taxExempt             Boolean?
   taxExemptId           String?
-  costCenter            String?
+  costCenter            String? // @option cost_center
   billingNotes          String?
   sortOrder             Int             @default(0)
   booths                ExhibitBooth[]
@@ -2376,7 +2403,7 @@ model ExhibitBooth {
   utilitiesNotes        String?
   taxExempt             Boolean?
   taxExemptId           String?
-  costCenter            String?
+  costCenter            String? // @option cost_center
   billingNotes          String?
   sortOrder             Int                @default(0)
   equipmentItems        EquipmentItem[]
@@ -2653,7 +2680,7 @@ model HotelCharge {
   proposal   HotelProposal?    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   blockId    String?
   block      HotelBlock?       @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  chargeType String
+  chargeType String // @option hotel_charge (GUEST charges)
   amount     Decimal?          @db.Decimal(10, 2)
   scope      HotelChargeScope?
   kind       HotelChargeKind   @default(GUEST)
@@ -3061,7 +3088,7 @@ model RfpLineItem {
   group              String?
   description        String
   quantity           Int?
-  unit               String?
+  unit               String? // @option unit
   day                DateTime?              @db.Date
   endDay             DateTime?              @db.Date
   startTime          String?
@@ -3348,6 +3375,7 @@ model SpeakerProfile {
   travelNotes   String?
   hotel         String?
   dietary       String?
+  dietaryNeeds  String[]  @default([]) // @option dietary_need
   avNeeds       String?
   shirtSize     String?
   notes         String?

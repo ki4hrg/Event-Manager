@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { syncRangeEnd } from "@/lib/dateRange";
+import { OptionChecklist } from "@/components/ui/OptionChecklist";
 
 const inputCls =
   "w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5";
@@ -22,6 +23,7 @@ export type SpeakerProfileView = {
     travelNotes: string | null;
     hotel: string | null;
     dietary: string | null;
+    dietaryNeeds: string[];
     avNeeds: string | null;
     shirtSize: string | null;
     notes: string | null;
@@ -31,6 +33,8 @@ export type SpeakerProfileView = {
 
 type Props = {
   speakers: SpeakerProfileView[];
+  // The dietary_need list.
+  dietaryNeeds: string[];
   saveContact: (contactId: string, formData: FormData) => Promise<void>;
   saveProfile: (contactId: string, formData: FormData) => Promise<void>;
   removeHeadshot: (contactId: string) => Promise<void>;
@@ -48,7 +52,7 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 
 const show = (local: string) => (local ? local.replace("T", " ") : null);
 
-function Speaker({ s, saveContact, saveProfile, removeHeadshot }: { s: SpeakerProfileView } & Omit<Props, "speakers">) {
+function Speaker({ s, dietaryNeeds, saveContact, saveProfile, removeHeadshot }: { s: SpeakerProfileView } & Omit<Props, "speakers">) {
   const canWriteContact = useCanWrite("CONTACTS");
   const canWriteProfile = useCanWrite("PRESENTATIONS");
   const router = useRouter();
@@ -93,7 +97,7 @@ function Speaker({ s, saveContact, saveProfile, removeHeadshot }: { s: SpeakerPr
           <Field label="Departs" value={p ? show(p.departureAt) : null} />
           <Field label="Hotel" value={p?.hotel} />
           <Field label="Travel" value={p?.travelNotes} />
-          <Field label="Dietary" value={p?.dietary} />
+          <Field label="Dietary" value={[p?.dietaryNeeds.join(", "), p?.dietary].filter(Boolean).join(" · ") || null} />
           <Field label="AV needs" value={p?.avNeeds} />
           <Field label="Shirt size" value={p?.shirtSize} />
           <Field label="Notes" value={p?.notes} />
@@ -135,8 +139,12 @@ function Speaker({ s, saveContact, saveProfile, removeHeadshot }: { s: SpeakerPr
                 <div><label className={labelCls}>Hotel</label><input name="hotel" defaultValue={p?.hotel ?? ""} className={inputCls} /></div>
                 <div><label className={labelCls}>Shirt size</label><input name="shirtSize" defaultValue={p?.shirtSize ?? ""} className={inputCls} /></div>
                 <div className="sm:col-span-2"><label className={labelCls}>Travel</label><textarea name="travelNotes" rows={2} defaultValue={p?.travelNotes ?? ""} className={inputCls} /></div>
-                <div><label className={labelCls}>Dietary</label><input name="dietary" defaultValue={p?.dietary ?? ""} className={inputCls} /></div>
-                <div><label className={labelCls}>AV needs</label><input name="avNeeds" defaultValue={p?.avNeeds ?? ""} className={inputCls} /></div>
+                <div className="sm:col-span-2">
+                  <label className={labelCls}>Dietary</label>
+                  <OptionChecklist name="dietaryNeeds" options={dietaryNeeds} checked={p?.dietaryNeeds ?? []} />
+                  <input name="dietary" aria-label="Other dietary needs" placeholder="Other" defaultValue={p?.dietary ?? ""} className={`${inputCls} mt-2`} />
+                </div>
+                <div className="sm:col-span-2"><label className={labelCls}>AV needs</label><input name="avNeeds" defaultValue={p?.avNeeds ?? ""} className={inputCls} /></div>
                 <div className="sm:col-span-2"><label className={labelCls}>Notes</label><textarea name="notes" rows={2} defaultValue={p?.notes ?? ""} className={inputCls} /></div>
                 <div className="sm:col-span-2"><label className={labelCls}>Internal notes</label><textarea name="internalNotes" rows={2} defaultValue={p?.internalNotes ?? ""} className={inputCls} /></div>
               </div>

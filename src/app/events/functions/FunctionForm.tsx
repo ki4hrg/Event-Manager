@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import type { Function, Room, FunctionRoom, CustomOption, BreakoutGroup } from "@prisma/client";
 import { ReadOnlyField } from "@/components/ReadOnlyField";
 import { groupRoomsByGroup } from "@/lib/roomGroups";
+import { formatRoomCapacities } from "@/lib/roomCapacity";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { syncRangeEnd } from "@/lib/dateRange";
@@ -17,6 +18,7 @@ type FunctionWithRelations = Function & {
 type RoomWithGroup = Room & {
   group?: { id: string; name: string; sortOrder: number } | null;
   venue?: { id: string; name: string; rank?: number };
+  capacities?: { setupType: string; capacity: number }[];
 };
 
 type FunctionFormProps = {
@@ -46,6 +48,10 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
+
+// "capacity: 300 · Theater 250 · Banquet 180"
+const capacityText = (room: RoomWithGroup) =>
+  [room.capacity ? `capacity: ${room.capacity}` : null, formatRoomCapacities(room.capacities ?? [])].filter(Boolean).join(" · ") || null;
 
 function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: RoomWithGroup[]; selectedRoomIds: string[]; noCard?: boolean }) {
   const [roomFilter, setRoomFilter] = useState("");
@@ -156,9 +162,9 @@ function RoomSelector({ rooms, selectedRoomIds, noCard = false }: { rooms: RoomW
                       className="rounded border-gray-300 dark:border-gray-700 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                     />
                     <span className="text-gray-900 dark:text-white">{room.name}</span>
-                    {room.capacity && (
+                    {capacityText(room) && (
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        (capacity: {room.capacity})
+                        ({capacityText(room)})
                       </span>
                     )}
                   </label>

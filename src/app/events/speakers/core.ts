@@ -47,6 +47,8 @@ export type SpeakerProfileArgs = {
   travelNotes?: string | null;
   hotel?: string | null;
   dietary?: string | null;
+  // dietary_need labels.
+  dietaryNeeds?: string[];
   avNeeds?: string | null;
   shirtSize?: string | null;
   notes?: string | null;
@@ -54,7 +56,7 @@ export type SpeakerProfileArgs = {
 };
 
 const PROFILE_KEYS = [
-  "arrivalAt", "departureAt", "travelNotes", "hotel", "dietary", "avNeeds", "shirtSize", "notes", "internalNotes",
+  "arrivalAt", "departureAt", "travelNotes", "hotel", "dietary", "dietaryNeeds", "avNeeds", "shirtSize", "notes", "internalNotes",
 ] as const satisfies readonly (keyof SpeakerProfileArgs)[];
 
 // Partial upsert: omitted keys are unchanged. The contact must speak at the

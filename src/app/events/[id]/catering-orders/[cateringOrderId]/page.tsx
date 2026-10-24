@@ -139,7 +139,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions, unitOptions, assignmentRoles, dietaryOptions] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -166,6 +166,9 @@ export default async function CateringOrderPage({
       searchAssignedEventVendors("", eventId, "CATERING_ORDER"),
       getSubstatusOptions(),
       getOptions("meal_type"),
+      getOptions("unit"),
+      getOptions("assignment_role"),
+      getOptions("dietary_need"),
     ]);
   if (!event || !cateringOrder) {
     notFound();
@@ -479,6 +482,7 @@ export default async function CateringOrderPage({
 
             <ContactList
               contacts={cateringOrder.contacts}
+              roles={assignmentRoles.map((o) => o.label)}
               addContact={addContactAction}
               updateContact={updateContactAction}
               removeContact={removeContactAction}
@@ -529,7 +533,7 @@ export default async function CateringOrderPage({
       {activeTab === "service" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <CateringOrderServiceForm cateringOrder={cateringOrder} action={updateServiceAction} />
+            <CateringOrderServiceForm cateringOrder={cateringOrder} dietaryNeeds={dietaryOptions.map((o) => o.label)} action={updateServiceAction} />
           </div>
           <div className="lg:col-span-2 space-y-6">
             <TimelineTable
@@ -562,6 +566,7 @@ export default async function CateringOrderPage({
           <div className="lg:col-span-2">
             <LineItemTable
               items={cateringOrder.lineItems}
+              units={unitOptions.map((o) => o.label)}
               createItem={createLineItemAction}
               updateItem={updateLineItemAction}
               deleteItem={deleteLineItemAction}

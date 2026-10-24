@@ -129,12 +129,14 @@ export type UpdateCateringOrderArgs = {
   cancellationTerms?: string | null;
   dietaryNotes?: string | null;
   notes?: string | null;
+  // Special-meal counts by dietary_need label; replaces the order's counts.
+  dietaryCounts?: { label: string; count: number }[];
 };
 
 export async function updateCateringOrderCore(
   id: string,
   eventId: string,
-  args: UpdateCateringOrderArgs,
+  { dietaryCounts, ...args }: UpdateCateringOrderArgs,
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
@@ -142,7 +144,22 @@ export async function updateCateringOrderCore(
   for (const [k, v] of Object.entries(args)) {
     if (v !== undefined) data[k] = v;
   }
-  return prisma.cateringOrder.update({ where: { id, eventId }, data });
+  if (dietaryCounts === undefined) return prisma.cateringOrder.update({ where: { id, eventId }, data });
+  // One row per label; a zero or negative count means none.
+  const counts = new Map<string, number>();
+  for (const c of dietaryCounts) {
+    const label = c.label.trim();
+    if (!label || !Number.isInteger(c.count) || c.count <= 0) continue;
+    counts.set(label, (counts.get(label) ?? 0) + c.count);
+  }
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.cateringOrder.update({ where: { id, eventId }, data });
+    await tx.cateringOrderDietaryCount.deleteMany({ where: { cateringOrderId: id } });
+    await tx.cateringOrderDietaryCount.createMany({
+      data: Array.from(counts, ([label, count], sortOrder) => ({ cateringOrderId: id, label, count, sortOrder })),
+    });
+    return order;
+  });
 }
 
 export async function deleteCateringOrderCore(id: string, eventId: string, userId: string) {

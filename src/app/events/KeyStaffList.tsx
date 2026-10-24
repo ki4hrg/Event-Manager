@@ -8,6 +8,7 @@ import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { formatPhone } from "@/lib/format-phone";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 
 type KeyStaffWithContact = EventKeyStaff & { contact: Contact };
 
@@ -18,6 +19,8 @@ type KeyStaffListProps = {
   removeKeyStaff: (id: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
   createContact?: (formData: FormData) => Promise<void>;
+  // The staff_title list.
+  titles: string[];
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -127,6 +130,7 @@ export function KeyStaffList({
   removeKeyStaff,
   searchContacts,
   createContact,
+  titles,
 }: KeyStaffListProps) {
   const canWrite = useCanWrite("EVENTS");
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
@@ -289,10 +293,9 @@ export function KeyStaffList({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Title
             </label>
-            <input
-              type="text"
+            <OptionSelect
               name="title"
-              placeholder="e.g. Logistics Team Lead, Communications Lead..."
+              options={titles}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             />
           </div>
@@ -368,10 +371,9 @@ export function KeyStaffList({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Title
               </label>
-              <input
-                type="text"
+              <OptionSelect
                 name="title"
-                placeholder="e.g. Logistics Team Lead, Communications Lead..."
+                options={titles}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
@@ -413,10 +415,10 @@ export function KeyStaffList({
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Title
                     </label>
-                    <input
-                      type="text"
+                    <OptionSelect
                       name="title"
-                      defaultValue={entry.title ?? ""}
+                      defaultValue={entry.title}
+                      options={titles}
                       className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                     />
                   </div>

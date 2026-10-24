@@ -95,7 +95,7 @@ export default async function PresentationPage({
   params: Promise<{ id: string; presentationId: string }>;
 }) {
   const { id: eventId, presentationId } = await params;
-  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates, substatuses] = await Promise.all([
+  const [event, presentation, tracks, presenterRoles, presentationTypes, workflowInstances, allTemplates, substatuses, dietaryOptions] = await Promise.all([
     getEvent(eventId),
     getPresentation(presentationId),
     getTracks(eventId),
@@ -104,6 +104,7 @@ export default async function PresentationPage({
     getWorkflowInstances("presentation", presentationId, eventId),
     getWorkflowTemplateOptions(),
     getSubstatusOptions(),
+    getOptions("dietary_need"),
   ]);
 
   if (!event || !presentation) {
@@ -488,6 +489,7 @@ export default async function PresentationPage({
                       travelNotes: prof.travelNotes,
                       hotel: prof.hotel,
                       dietary: prof.dietary,
+                      dietaryNeeds: prof.dietaryNeeds,
                       avNeeds: prof.avNeeds,
                       shirtSize: prof.shirtSize,
                       notes: prof.notes,
@@ -496,6 +498,7 @@ export default async function PresentationPage({
                   : null,
               };
             })}
+            dietaryNeeds={dietaryOptions.map((o) => o.label)}
             saveContact={saveSpeakerContactAction}
             saveProfile={saveSpeakerProfileAction}
             removeHeadshot={removeSpeakerHeadshotAction}

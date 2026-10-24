@@ -57,6 +57,25 @@ export const CHARGE_SCOPE_LABELS: Record<HotelChargeScope, string> = {
   PER_PERSON_PER_DAY: "Per person per day",
 };
 
+// A hotel_charge option: its label, and the scope a new charge of that type
+// starts with (the option's group).
+export type ChargeTypeOption = { label: string; scope: HotelChargeScope | null };
+
+export const toChargeTypeOption = (o: { label: string; group: string | null }): ChargeTypeOption => ({
+  label: o.label,
+  scope: o.group && Object.hasOwn(CHARGE_SCOPE_LABELS, o.group) ? (o.group as HotelChargeScope) : null,
+});
+
+// Picking a charge type fills an unset scope with the type's.
+export const chargeTypePatch = (
+  label: string,
+  row: { scope: HotelChargeScope | "" },
+  types: ChargeTypeOption[],
+): { chargeType: string; scope: HotelChargeScope | "" } => ({
+  chargeType: label,
+  scope: row.scope || (types.find((t) => t.label === label)?.scope ?? ""),
+});
+
 // How a proposal answers one of its RFP's concessions.
 export const MET_LABELS: Record<ConcessionMet, string> = { MET: "Met", PARTIAL: "Partial", NOT_MET: "Not met" };
 

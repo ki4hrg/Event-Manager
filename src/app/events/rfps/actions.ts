@@ -165,7 +165,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
       orderBy: { sortOrder: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_region", "hotel_area", "reservation_method", "rfp_concession", "rfp_service", "rfp_term"] } },
+      where: { tenantId: session.tenantId, category: { in: ["function_type", "meal_type", "setup_type", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_region", "hotel_area", "reservation_method", "rfp_concession", "rfp_service", "rfp_term", "unit"] } },
       select: { category: true, label: true, group: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -197,6 +197,7 @@ export async function getRfpFormChoices(eventId: string, kind: RfpKind) {
     concessions: options.filter((o) => o.category === "rfp_concession").map((o) => ({ label: o.label, group: o.group })),
     // Vendor RFPs: what an Other services RFP is for, and the terms they ask.
     services: of("rfp_service"),
+    units: of("unit"),
     terms: options.filter((o) => o.category === "rfp_term").map((o) => ({ label: o.label, group: null })),
     series,
     hotels: hotels.map((h) => ({ id: h.id, area: h.area, amenities: h.amenities, label: [h.name, [h.city, h.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ") })),

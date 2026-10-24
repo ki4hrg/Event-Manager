@@ -8,6 +8,7 @@
 
 import { copyFileSync, mkdirSync } from "fs";
 import { prisma } from "@/lib/prisma";
+import { getOptionsForEvent } from "@/lib/options";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
 import { HEADSHOT_MIME_TYPES, getUploadDir, getUploadPath } from "@/lib/uploads";
@@ -34,6 +35,18 @@ function text(formData: FormData, key: string, max: number): string | null {
   const value = raw.trim();
   if (value.length > max) throw new PublicFormError("invalid");
   return value || null;
+}
+
+// Picked list labels: each a short string, at most a list's worth.
+function labels(formData: FormData, key: string): string[] {
+  const values = formData.getAll(key);
+  if (values.length > 50 || values.some((v) => typeof v !== "string" || v.length > 100)) throw new PublicFormError("invalid");
+  return Array.from(new Set((values as string[]).map((v) => v.trim()).filter(Boolean)));
+}
+
+// The event's dietary_need list, for the public form's checkboxes.
+export async function speakerProfileDietaryNeeds(eventId: string): Promise<string[]> {
+  return (await getOptionsForEvent(eventId, "dietary_need")).map((o) => o.label);
 }
 
 function localDateTime(formData: FormData, key: string): string | null {
@@ -71,6 +84,7 @@ function parseSpeakerProfile(formData: FormData, sections: string[]): SpeakerPro
   }
   if (on.has("needs")) {
     payload.dietary = text(formData, "dietary", NOTE_MAX);
+    payload.dietaryNeeds = labels(formData, "dietaryNeeds");
     payload.avNeeds = text(formData, "avNeeds", NOTE_MAX);
     payload.shirtSize = text(formData, "shirtSize", 20);
   }
@@ -92,6 +106,7 @@ const TRAVEL_FIELDS = [
 ] as const;
 
 const NEEDS_FIELDS = [
+  ["dietaryNeeds", "Dietary needs"],
   ["dietary", "Dietary"],
   ["avNeeds", "AV needs"],
   ["shirtSize", "Shirt size"],
@@ -121,13 +136,18 @@ function diffSpeakerProfile(
     }
     // Travel and needs were never shown to the submitter: only what they sent.
     const fields = key === "travel" ? TRAVEL_FIELDS : NEEDS_FIELDS;
+    const shown = (field: (typeof fields)[number][0]): string | null => {
+      const v = payload[field];
+      if (Array.isArray(v)) return v.length ? v.join(", ") : null;
+      return v && (field === "arrivalAt" || field === "departureAt") ? v.replace("T", " ") : (v ?? null);
+    };
     const rows: FormDiffRow[] = fields
-      .filter(([f]) => payload[f])
+      .filter(([f]) => shown(f))
       .map(([field, label]) => ({
         field,
         label,
         baseline: null,
-        proposed: field === "arrivalAt" || field === "departureAt" ? payload[field]!.replace("T", " ") : payload[field]!,
+        proposed: shown(field),
         current: null,
         status: "changed" as const,
       }));
@@ -198,6 +218,7 @@ async function applySpeakerProfile(ctx: FormApplyContext<SpeakerProfilePayload, 
   }
   if (sections.has("needs")) {
     if (payload.dietary) profile.dietary = payload.dietary;
+    if (payload.dietaryNeeds?.length) profile.dietaryNeeds = payload.dietaryNeeds;
     if (payload.avNeeds) profile.avNeeds = payload.avNeeds;
     if (payload.shirtSize) profile.shirtSize = payload.shirtSize;
   }
