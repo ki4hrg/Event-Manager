@@ -11,6 +11,7 @@ import { createContactCore } from "@/app/contacts/core";
 import { createBoothEquipmentItemCore, createExhibitBoothCore } from "@/app/events/exhibits/core";
 import { PublicFormError } from "./links";
 import { contactReviewChoice, resolveContactChoice } from "./contacts";
+import { catalogChoice, pickedEquipment, requestedAs, tenantCatalog } from "./catalog";
 import {
   EXHIBIT_MAX_EQUIPMENT,
   EXHIBIT_EQUIPMENT_SOURCES,
@@ -232,19 +233,22 @@ async function applyExhibitRequest(ctx: FormApplyContext<ExhibitRequestPayload, 
   );
 
   if (sections.has("equipment")) {
-    for (const e of payload.equipment) {
+    const catalog = await tenantCatalog(link.tenantId);
+    for (let i = 0; i < payload.equipment.length; i++) {
+      const e = payload.equipment[i];
+      const equipmentId = pickedEquipment(ctx.choices, `equip-${i}`);
       await createBoothEquipmentItemCore(
         { boothId: booth.id },
         eventId,
         {
-          equipmentId: null,
+          equipmentId,
           item: e.item,
           quantity: e.quantity,
           providerVendorId: null,
           providerContactId: null,
           operatorVendorId: null,
           operatorContactId: null,
-          notes: e.source === "bring" ? "Exhibitor is bringing this" : null,
+          notes: [e.source === "bring" ? "Exhibitor is bringing this" : null, requestedAs(catalog, equipmentId, e.item)].filter(Boolean).join(" · ") || null,
         },
         userId,
       );
@@ -312,8 +316,11 @@ export const exhibitRequestModule: FormModule<ExhibitRequestPayload, ExhibitRequ
   rebase: (payload) => payload,
   diff: (baseline, payload) => diffExhibitRequest(baseline, payload),
   async reviewChoices(payload, link) {
-    if (!payload.contact) return [];
-    return [await contactReviewChoice("contact", "Contact", payload.contact.email, link.tenantId)];
+    const catalog = payload.equipment.length ? await tenantCatalog(link.tenantId) : [];
+    return [
+      ...(payload.contact ? [await contactReviewChoice("contact", "Contact", payload.contact.email, link.tenantId)] : []),
+      ...(catalog.length ? payload.equipment.map((e, i) => catalogChoice(catalog, `equip-${i}`, "equipment", e.item)) : []),
+    ];
   },
   apply: applyExhibitRequest,
 };

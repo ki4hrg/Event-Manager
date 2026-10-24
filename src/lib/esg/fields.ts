@@ -410,6 +410,7 @@ export const ESG_WRITABLE_FIELDS: EsgFieldDef[] = [...ESG_HEADER_FIELDS, ...ESG_
 // Grid columns. Kinds reuse EsgFieldKind; "function" picks one of the
 // event's functions.
 // `endKey` marks a start column and names the column that can't precede it.
+// A sequence chains them, each column to the next (departure → drop-off → return).
 export type SpecGridColumn = { key: string; label: string; kind: EsgFieldKind; required?: boolean; endKey?: string };
 
 export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
@@ -434,9 +435,9 @@ export const SPEC_GRID_COLUMNS: Record<SpecGrid, SpecGridColumn[]> = {
     { key: "label", label: "Off-site function", kind: "text", required: true },
     { key: "functionId", label: "Linked function", kind: "function" },
     { key: "departureLocation", label: "Departure location", kind: "text" },
-    { key: "departureAt", label: "Departure", kind: "datetime" },
+    { key: "departureAt", label: "Departure", kind: "datetime", endKey: "dropoffAt" },
     { key: "dropoffLocation", label: "Drop-off location", kind: "text" },
-    { key: "dropoffAt", label: "Drop-off", kind: "datetime" },
+    { key: "dropoffAt", label: "Drop-off", kind: "datetime", endKey: "returnAt" },
     { key: "returnLocation", label: "Return location", kind: "text" },
     { key: "returnAt", label: "Return", kind: "datetime" },
     { key: "provider", label: "Provider", kind: "text" },

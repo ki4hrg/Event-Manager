@@ -35,6 +35,52 @@ const when = (r: LineItemRow) =>
     .filter(Boolean)
     .join(" · ");
 
+// What a copied row takes from its source, for Refresh.
+const SOURCE_FIELDS = [
+  ["description", "Description"],
+  ["quantity", "Qty"],
+  ["unit", "Unit"],
+  ["day", "Day"],
+  ["endDay", "Through"],
+  ["startTime", "Start"],
+  ["endTime", "End"],
+  ["notes", "Notes"],
+] as const satisfies readonly (readonly [keyof LineItemRow, string])[];
+type SourceField = (typeof SOURCE_FIELDS)[number][0];
+
+const shown = (field: SourceField, v: string | number | null) =>
+  v == null || v === "" ? "—" : field === "day" || field === "endDay" ? formatNight(String(v)) : String(v);
+
+// Each copied row whose source changed: what differs, and the values to take.
+// Rows whose source is gone are listed apart; Refresh never removes them.
+type RefreshPlan = {
+  changes: { key: number; description: string; diffs: { label: string; from: string; to: string }[]; patch: Partial<LineItemRow> }[];
+  gone: string[];
+};
+
+function refreshPlan(rows: Row[], candidates: LineItemRow[]): RefreshPlan {
+  const bySource = new Map(candidates.map((c) => [sourceKey(c), c]));
+  const plan: RefreshPlan = { changes: [], gone: [] };
+  for (const r of rows) {
+    const key = sourceKey(r);
+    if (!key) continue;
+    const c = bySource.get(key);
+    if (!c) {
+      plan.gone.push(r.description || "Untitled line");
+      continue;
+    }
+    const changed = SOURCE_FIELDS.filter(([f]) => (r[f] ?? null) !== (c[f] ?? null));
+    if (changed.length === 0) continue;
+    plan.changes.push({
+      key: r.key,
+      description: r.description || c.description,
+      diffs: changed.map(([f, label]) => ({ label, from: shown(f, r[f]), to: shown(f, c[f]) })),
+      patch: Object.fromEntries(changed.map(([f]) => [f, c[f]])),
+    });
+  }
+  return plan;
+}
+
 function Picker({ rows, candidates, source, onAdd, onClose }: { rows: Row[]; candidates: LineItemRow[]; source: string; onAdd: (rows: LineItemRow[]) => void; onClose: () => void }) {
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const have = new Set(rows.map(sourceKey).filter(Boolean));
@@ -127,12 +173,15 @@ function Picker({ rows, candidates, source, onAdd, onClose }: { rows: Row[]; can
 export function RfpLineItemsEditor({
   resource,
   rows: initial,
+  priced,
   source,
   loadCandidates,
   save,
 }: {
   resource: PermissionResource;
   rows: (LineItemRow & { id: string })[];
+  // Saved line ids a quote prices; removing one asks first.
+  priced: string[];
   // "AV orders", "catering orders"…; null when the kind has none to copy from.
   source: string | null;
   loadCandidates: () => Promise<LineItemRow[]>;
@@ -143,6 +192,9 @@ export function RfpLineItemsEditor({
   const [loading, startLoading] = useTransition();
   const [nextKey, setNextKey] = useState(initial.length);
   const [rows, setRows] = useState<Row[]>(() => initial.map((r, i) => ({ ...r, key: i })));
+  const [plan, setPlan] = useState<RefreshPlan | null>(null);
+  const [confirming, setConfirming] = useState<number | null>(null);
+  const pricedIds = new Set(priced);
   // Saved ids by row key: a row created by one save is updated by the next.
   const ids = useRef(new Map(rows.flatMap((r) => (r.id ? [[r.key, r.id] as const] : []))));
   const status = useAutosave(rows, async (sent) => {
@@ -185,6 +237,19 @@ export function RfpLineItemsEditor({
     cateringLineItemId: null,
   };
   const int = (v: string) => (v === "" ? null : parseInt(v));
+  const remove = (key: number) => {
+    setConfirming(null);
+    update(rows.filter((x) => x.key !== key));
+  };
+  const isPriced = (key: number) => {
+    const id = ids.current.get(key);
+    return !!id && pricedIds.has(id);
+  };
+  const applyPlan = (p: RefreshPlan) => {
+    const patches = new Map(p.changes.map((c) => [c.key, c.patch]));
+    update(rows.map((r) => (patches.has(r.key) ? { ...r, ...patches.get(r.key) } : r)));
+    setPlan(null);
+  };
 
   return (
     <div className={`${cardClass} space-y-4`}>
@@ -246,15 +311,61 @@ export function RfpLineItemsEditor({
                   <button type="button" onClick={() => move(r.key, 1)} disabled={i === rows.length - 1} className="text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-40">
                     Down
                   </button>
-                  <button type="button" onClick={() => update(rows.filter((x) => x.key !== r.key))} className="text-red-600 dark:text-red-400 hover:underline">
-                    Remove
-                  </button>
+                  {confirming === r.key ? (
+                    <>
+                      <span className="text-gray-700 dark:text-gray-300">Quotes price this line.</span>
+                      <button type="button" onClick={() => remove(r.key)} className="text-red-600 dark:text-red-400 hover:underline">
+                        Remove anyway
+                      </button>
+                      <button type="button" onClick={() => setConfirming(null)} className="text-blue-600 dark:text-blue-400 hover:underline">
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => (isPriced(r.key) ? setConfirming(r.key) : remove(r.key))}
+                      className="text-red-600 dark:text-red-400 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           </Fragment>
         ))}
       </fieldset>
+      {plan && (
+        <div className="space-y-3 border border-blue-200 dark:border-blue-900 rounded-lg p-3 text-sm">
+          {plan.changes.length === 0 && plan.gone.length === 0 && <p className="text-gray-700 dark:text-gray-300">Every copied line matches its order.</p>}
+          {plan.changes.map((c) => (
+            <div key={c.key}>
+              <p className="font-medium text-gray-900 dark:text-white">{c.description}</p>
+              <ul className="ml-4 text-gray-600 dark:text-gray-400">
+                {c.diffs.map((d) => (
+                  <li key={d.label}>
+                    {d.label}: <span className="line-through">{d.from}</span> → {d.to}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          {plan.gone.length > 0 && (
+            <p className="text-gray-600 dark:text-gray-400">No longer in the orders (kept): {plan.gone.join(", ")}</p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            {plan.changes.length > 0 && (
+              <button type="button" onClick={() => applyPlan(plan)} className={btnPrimary}>
+                Update {plan.changes.length} {plan.changes.length === 1 ? "line" : "lines"}
+              </button>
+            )}
+            <button type="button" onClick={() => setPlan(null)} className={btnSecondary}>
+              {plan.changes.length > 0 ? "Cancel" : "Close"}
+            </button>
+          </div>
+        </div>
+      )}
       {candidates && source && <Picker rows={rows} candidates={candidates} source={source} onAdd={append} onClose={() => setCandidates(null)} />}
       {canWrite && (
         <div className="flex flex-wrap items-center gap-3">
@@ -269,6 +380,16 @@ export function RfpLineItemsEditor({
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
             >
               {loading ? "Loading…" : `Add from ${source}`}
+            </button>
+          )}
+          {source && !candidates && !plan && rows.some((r) => sourceKey(r)) && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => startLoading(async () => setPlan(refreshPlan(rows, await loadCandidates())))}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+            >
+              Refresh from {source}
             </button>
           )}
         </div>

@@ -5,7 +5,7 @@
 import type { EntityStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser, PermissionError } from "@/lib/permissions";
-import { resolveEquipmentName } from "@/lib/equipment-utils";
+import { catalogIdForName, resolveEquipmentName } from "@/lib/equipment-utils";
 import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
@@ -149,8 +149,10 @@ export async function duplicateSetupOrderCore(id: string, eventId: string, userI
         setupOrderId: duplicate.id,
         quantity: t.quantity,
         tableType: t.tableType,
+        tableEquipmentId: t.tableEquipmentId,
         chairCount: t.chairCount,
         chairType: t.chairType,
+        chairEquipmentId: t.chairEquipmentId,
         providerVendorId: t.providerVendorId,
         notes: t.notes,
         sortOrder: t.sortOrder,
@@ -308,6 +310,15 @@ export type SetupTableWriteArgs = {
   notes: string | null;
 };
 
+// The table and chair types as named, linked to the catalog rows they name.
+async function tableData(args: SetupTableWriteArgs, eventId: string) {
+  const [tableEquipmentId, chairEquipmentId] = await Promise.all([
+    catalogIdForName(args.tableType, "Tables", eventId),
+    catalogIdForName(args.chairType, "Chairs", eventId),
+  ]);
+  return { ...args, tableEquipmentId, chairEquipmentId };
+}
+
 export async function createSetupTableCore(
   setupOrderId: string,
   eventId: string,
@@ -322,7 +333,7 @@ export async function createSetupTableCore(
     _max: { sortOrder: true },
   });
   const row = await prisma.setupTable.create({
-    data: { setupOrderId, ...args, sortOrder: (_max.sortOrder ?? -1) + 1 },
+    data: { setupOrderId, ...(await tableData(args, eventId)), sortOrder: (_max.sortOrder ?? -1) + 1 },
   });
   await bumpSetupOrder(setupOrderId, eventId, userId);
   return row;
@@ -339,7 +350,7 @@ export async function updateSetupTableCore(
   await assertEventRefs(eventId, { vendorIds: [args.providerVendorId] });
   const row = await prisma.setupTable.update({
     where: { id, setupOrder: { eventId } },
-    data: args,
+    data: await tableData(args, eventId),
   });
   await bumpSetupOrder(setupOrderId, eventId, userId);
   return row;

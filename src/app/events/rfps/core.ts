@@ -568,7 +568,7 @@ export const rfpDetailInclude = {
     orderBy: { createdAt: "asc" },
     include: { venue: { select: { id: true, name: true, city: true, state: true } }, vendor: { select: { id: true, name: true } } },
   },
-  lineItems: { orderBy: { sortOrder: "asc" } },
+  lineItems: { orderBy: { sortOrder: "asc" }, include: { _count: { select: { quoteLines: true } } } },
   quotes: { select: { id: true, vendorId: true, status: true, revision: true }, orderBy: { createdAt: "asc" } },
   hotelProposals: { select: { id: true, venueId: true, rfpBlockId: true, status: true } },
   updatedBy: { select: { name: true, email: true } },

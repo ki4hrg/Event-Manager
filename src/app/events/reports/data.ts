@@ -30,6 +30,10 @@ export type EquipmentReportFilters = {
   modelTypes?: string[];
 };
 
+// Where an equipment row comes from: an order type, or an exhibit booth
+// (booth and booth-group inventory, which hangs off no order).
+export type EquipmentSourceKind = "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER" | "SUPPLY_ORDER" | "EXHIBIT_BOOTH";
+
 export type EquipmentSourceRef = {
   orderId: string;
   orderName: string;
@@ -37,7 +41,7 @@ export type EquipmentSourceRef = {
   functionTypeLabel: string | null;
   functionGroupName: string | null;
   functionNames: string[];
-  modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER" | "SUPPLY_ORDER";
+  modelType: EquipmentSourceKind;
   quantity: number;
   isScheduled: boolean;
 };
@@ -78,8 +82,11 @@ type NormalizedItem = {
   functionType: string;
   functionGroupName: string | null;
   functionNames: string[];
-  modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER" | "SUPPLY_ORDER";
+  modelType: EquipmentSourceKind;
   scheduleWindows: { start: Date; end: Date }[];
+  // Concurrency slot for the peak sweep when it isn't the function name — one
+  // booth's share of its group's standard inventory.
+  peakSlot?: string;
 };
 
 function extractWindows(
@@ -159,11 +166,17 @@ function calculatePeak(
   return { peak: peak + unscheduledQty, isExact: unscheduledQty === 0 };
 }
 
+const boothEquipmentInclude = {
+  equipment: { select: { id: true, name: true, category: true } },
+  providerVendor: { select: { id: true, name: true } },
+  providerContact: { select: { id: true, firstName: true, lastName: true } },
+} as const;
+
 export async function getEquipmentResponsibilityData(
   eventId: string,
   filters?: EquipmentReportFilters
 ): Promise<VendorEquipmentGroup[]> {
-  const [equipmentItems, inputItems, monitorMixes, setupTables, supplyOrderItems, functionTypeOptions] = await Promise.all([
+  const [equipmentItems, inputItems, monitorMixes, setupTables, supplyOrderItems, booths, emptyBoothGroups, functionTypeOptions] = await Promise.all([
     prisma.equipmentItem.findMany({
       where: {
         OR: [
@@ -292,6 +305,41 @@ export async function getEquipmentResponsibilityData(
         },
       },
     }),
+    // Booth inventory: each booth's own items plus its group's standard items.
+    prisma.exhibitBooth.findMany({
+      where: { eventId, OR: [{ equipmentItems: { some: {} } }, { group: { equipmentItems: { some: {} } } }] },
+      select: {
+        id: true,
+        name: true,
+        boothNumber: true,
+        startAt: true,
+        endAt: true,
+        function: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            startAt: true,
+            endAt: true,
+            function: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+            equipmentItems: { include: boothEquipmentInclude },
+          },
+        },
+        equipmentItems: { include: boothEquipmentInclude },
+      },
+    }),
+    // A group with no booths yet still states what each booth will need.
+    prisma.exhibitBoothGroup.findMany({
+      where: { eventId, booths: { none: {} }, equipmentItems: { some: {} } },
+      select: {
+        id: true,
+        name: true,
+        startAt: true,
+        endAt: true,
+        function: { select: { schedules: { select: { startTime: true, endTime: true } } } },
+        equipmentItems: { include: boothEquipmentInclude },
+      },
+    }),
     prisma.customOption.findMany({
       where: optionsWhereForEvent(eventId, "function_type"),
       select: { label: true },
@@ -305,7 +353,7 @@ export async function getEquipmentResponsibilityData(
     const attrContact = item.providerContact;
     let orderId: string;
     let orderName: string;
-    let modelType: "AV_ORDER" | "CATERING_ORDER" | "SETUP_ORDER" | "SUPPLY_ORDER";
+    let modelType: EquipmentSourceKind;
     let fns: FunctionRef[];
 
     if (item.cateringOrder) {
@@ -461,6 +509,70 @@ export async function getEquipmentResponsibilityData(
     normalized.push(...expandByFunction(base, fns));
   }
 
+  type BoothEquipment = (typeof booths)[number]["equipmentItems"][number];
+  type BoothWindowSource = {
+    startAt: Date | null;
+    endAt: Date | null;
+    function: { schedules: { startTime: Date; endTime: Date }[] } | null;
+  };
+  // A booth's own times, then its group's, then its exhibit function's schedules.
+  const boothWindows = (...sources: (BoothWindowSource | null)[]): { start: Date; end: Date }[] => {
+    const present = sources.filter((s): s is BoothWindowSource => s !== null);
+    const start = present.find((s) => s.startAt)?.startAt ?? null;
+    const end = present.find((s) => s.endAt)?.endAt ?? null;
+    if (start && end) return [{ start, end }];
+    const fn = present.find((s) => s.function)?.function;
+    return fn ? extractWindows([fn]) : [];
+  };
+  const pushBoothItem = (
+    item: BoothEquipment,
+    context: { orderId: string; orderName: string; peakSlot: string; windows: { start: Date; end: Date }[] },
+  ) => {
+    const attrVendor = item.providerVendor;
+    const attrContact = item.providerContact;
+    normalized.push({
+      equipmentId: item.equipmentId,
+      equipmentKey: item.equipmentId ?? `item:${item.item.toLowerCase()}`,
+      itemName: item.equipment?.name ?? item.item,
+      category: item.equipment?.category ?? null,
+      attributionVendorId: attrVendor?.id ?? null,
+      attributionVendorName: attrVendor?.name ?? null,
+      attributionContactId: attrVendor ? null : (attrContact?.id ?? null),
+      attributionContactName: attrVendor ? null : (attrContact ? `${attrContact.firstName} ${attrContact.lastName}` : null),
+      quantity: item.quantity ?? 1,
+      orderId: context.orderId,
+      orderName: context.orderName,
+      // No function type: the source is labelled by the booth / group name.
+      functionType: "",
+      functionGroupName: null,
+      functionNames: [context.orderName],
+      modelType: "EXHIBIT_BOOTH",
+      scheduleWindows: context.windows,
+      peakSlot: context.peakSlot,
+    });
+  };
+
+  for (const booth of booths) {
+    const label = booth.boothNumber ? `Booth ${booth.boothNumber} · ${booth.name}` : booth.name;
+    const windows = boothWindows(booth, booth.group);
+    for (const item of booth.equipmentItems) {
+      pushBoothItem(item, { orderId: booth.id, orderName: label, peakSlot: booth.id, windows });
+    }
+    // Group inventory is per booth (ESG Part IIIb lists it on every booth), so
+    // each booth contributes the group's quantities once.
+    if (booth.group) {
+      for (const item of booth.group.equipmentItems) {
+        pushBoothItem(item, { orderId: booth.group.id, orderName: booth.group.name, peakSlot: booth.id, windows });
+      }
+    }
+  }
+  for (const group of emptyBoothGroups) {
+    const windows = boothWindows(group);
+    for (const item of group.equipmentItems) {
+      pushBoothItem(item, { orderId: group.id, orderName: group.name, peakSlot: group.id, windows });
+    }
+  }
+
   let filtered = normalized;
   if (filters?.vendorIds?.length) {
     filtered = filtered.filter((item) =>
@@ -481,7 +593,7 @@ export async function getEquipmentResponsibilityData(
         equipmentId: string | null;
         itemName: string;
         category: string | null;
-        sources: { quantity: number; windows: { start: Date; end: Date }[]; source: EquipmentSourceRef }[];
+        sources: { quantity: number; windows: { start: Date; end: Date }[]; peakSlot: string | undefined; source: EquipmentSourceRef }[];
       }
     >;
   };
@@ -520,6 +632,7 @@ export async function getEquipmentResponsibilityData(
     party.equipmentMap.get(item.equipmentKey)!.sources.push({
       quantity: item.quantity,
       windows: item.scheduleWindows,
+      peakSlot: item.peakSlot,
       source: {
         orderId: item.orderId,
         orderName: item.orderName,
@@ -579,7 +692,7 @@ export async function getEquipmentResponsibilityData(
 
         // Peak grouping by (orderId, functionSlot): items from the same order running
         // at the same function are concurrent and must be summed, not maxed
-        const fnSlot = s.source.functionNames[0] ?? "__none__";
+        const fnSlot = s.peakSlot ?? s.source.functionNames[0] ?? "__none__";
         const peakKey = `${s.source.orderId}::${fnSlot}`;
         const pk = peakMap.get(peakKey);
         if (!pk) {
@@ -866,6 +979,11 @@ export async function getOrderAssignedVendors(eventId: string) {
         { setupOrderVendors: { some: { setupOrder: { eventId } } } },
         { supplyOrdersAsProvider: { some: { eventId } } },
         { supplyOrderItemsAsProvider: { some: { supplyOrder: { eventId } } } },
+        { printOrderVendors: { some: { printOrder: { eventId } } } },
+        { printItemsAsDesigner: { some: { printOrder: { eventId } } } },
+        { printItemsAsPrinter: { some: { printOrder: { eventId } } } },
+        { equipmentItemsAsProvider: { some: boothEquipmentForEvent(eventId) } },
+        { equipmentItemsAsOperator: { some: boothEquipmentForEvent(eventId) } },
       ],
     },
     select: { id: true, name: true },
@@ -873,6 +991,11 @@ export async function getOrderAssignedVendors(eventId: string) {
     orderBy: { name: "asc" },
   });
   return vendors;
+}
+
+// Equipment on the event's exhibit booths and booth groups.
+function boothEquipmentForEvent(eventId: string): Prisma.EquipmentItemWhereInput {
+  return { OR: [{ exhibitBooth: { eventId } }, { exhibitBoothGroup: { eventId } }] };
 }
 
 const partySelect = {
@@ -893,8 +1016,24 @@ const functionInclude = {
   breakoutGroup: { select: { name: true } },
 } as const;
 
+const handoffPresentationSelect = {
+  id: true,
+  title: true,
+  slots: {
+    include: {
+      function: { include: functionInclude },
+      room: { select: { id: true, name: true } },
+    },
+  },
+} as const;
+
+const boothTimesSelect = { startAt: true, endAt: true, setupBy: true, teardownBy: true } as const;
+
 export async function getVendorHandoffData(eventId: string, vendorId: string) {
-  const [vendor, cateringOrders, avOrders, setupOrders, supplyOrders] = await Promise.all([
+  const vendorEquipment: Prisma.EquipmentItemWhereInput = {
+    OR: [{ providerVendorId: vendorId }, { operatorVendorId: vendorId }],
+  };
+  const [vendor, cateringOrders, avOrders, setupOrders, supplyOrders, printOrders, booths, boothGroups] = await Promise.all([
     // Scoped to the event's tenant so a share link can't be pointed at another
     // tenant's vendor by swapping the id in the URL.
     prisma.vendor.findFirst({
@@ -1058,6 +1197,60 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
       },
       orderBy: { createdAt: "asc" },
     }),
+    // On the order, or the designer / printer of one of its items.
+    prisma.printOrder.findMany({
+      where: {
+        eventId,
+        OR: [
+          { vendors: { some: { vendorId } } },
+          { items: { some: { OR: [{ designerVendorId: vendorId }, { printerVendorId: vendorId }] } } },
+        ],
+      },
+      include: {
+        room: { select: { id: true, name: true } },
+        vendors: { include: { vendor: { select: { id: true, name: true } } } },
+        functions: { include: { function: { include: functionInclude } } },
+        presentation: { select: handoffPresentationSelect },
+        items: {
+          include: {
+            sourceLocation: { select: { id: true, name: true } },
+            designerVendor: { select: { id: true, name: true } },
+            designerContact: { select: { id: true, firstName: true, lastName: true } },
+            printerVendor: { select: { id: true, name: true } },
+            printerContact: { select: { id: true, firstName: true, lastName: true } },
+          },
+          orderBy: { sortOrder: "asc" },
+        },
+        updatedBy: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.exhibitBooth.findMany({
+      where: { eventId, equipmentItems: { some: vendorEquipment } },
+      select: {
+        id: true,
+        name: true,
+        boothNumber: true,
+        companyName: true,
+        location: true,
+        ...boothTimesSelect,
+        group: { select: { id: true, name: true, location: true, ...boothTimesSelect } },
+        equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    prisma.exhibitBoothGroup.findMany({
+      where: { eventId, equipmentItems: { some: vendorEquipment } },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        ...boothTimesSelect,
+        booths: { select: { id: true, name: true, boothNumber: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
+        equipmentItems: { include: equipmentItemInclude, orderBy: { sortOrder: "asc" } },
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
   ]);
 
   if (!vendor) return null;
@@ -1067,6 +1260,7 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
     ...(avOrders.length > 0 ? (["AV_ORDER"] as const) : []),
     ...(setupOrders.length > 0 ? (["SETUP_ORDER"] as const) : []),
     ...(supplyOrders.length > 0 ? (["SUPPLY_ORDER"] as const) : []),
+    ...(printOrders.length > 0 ? (["PRINT_ORDER"] as const) : []),
   ];
 
   const keyStaff =
@@ -1098,12 +1292,39 @@ export async function getVendorHandoffData(eventId: string, vendorId: string) {
     presentations: o.presentations.map((l) => l.presentation),
   }));
 
+  // PrintOrder links one presentation by FK; shape it as a list like the others.
+  const printOrdersShaped = printOrders.map((o) => ({
+    ...o,
+    functions: o.functions.map((l) => l.function),
+    presentations: o.presentation ? [o.presentation] : [],
+  }));
+
+  const boothLabel = (b: { name: string; boothNumber: string | null }) =>
+    b.boothNumber ? `Booth ${b.boothNumber} · ${b.name}` : b.name;
+  // Blank booth times inherit the group's, as on the booth page.
+  const boothsShaped = booths.map((b) => ({
+    ...b,
+    label: boothLabel(b),
+    startAt: b.startAt ?? b.group?.startAt ?? null,
+    endAt: b.endAt ?? b.group?.endAt ?? null,
+    setupBy: b.setupBy ?? b.group?.setupBy ?? null,
+    teardownBy: b.teardownBy ?? b.group?.teardownBy ?? null,
+    location: b.location ?? b.group?.location ?? null,
+  }));
+  const boothGroupsShaped = boothGroups.map((g) => ({
+    ...g,
+    booths: g.booths.map((b) => ({ id: b.id, label: boothLabel(b) })),
+  }));
+
   return {
     vendor,
     cateringOrders,
     avOrders: avOrdersShaped,
     setupOrders: setupOrdersShaped,
     supplyOrders: supplyOrdersShaped,
+    printOrders: printOrdersShaped,
+    booths: boothsShaped,
+    boothGroups: boothGroupsShaped,
     keyStaff,
   };
 }

@@ -22,8 +22,10 @@ import {
   getHotelProposal,
   getProposalFormChoices,
   getProposalRfpChoices,
+  linkHotelProposal,
   updateHotelProposal,
 } from "../../../../hotels/actions";
+import { LinkRfpControl } from "../../../../hotels/LinkRfpControl";
 import { toProposalValues } from "../../../../hotels/core";
 import { ProposalForm } from "../../../../hotels/ProposalForm";
 import { VersionHistory } from "../../../../hotels/VersionHistory";
@@ -65,6 +67,10 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
     "use server";
     await addVenueAmenity(proposal.venueId, label);
   };
+  const linkAction = async (rfpBlockId: string) => {
+    "use server";
+    await linkHotelProposal(proposalId, eventId, rfpBlockId);
+  };
   const accepted = stageOf(proposal.status, choices.statuses) === "ACCEPTED";
 
   return (
@@ -96,10 +102,12 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
                 View hotel
               </Link>
             )}
-            {proposal.rfp && (
+            {proposal.rfp ? (
               <Link href={rfpHref(eventId, "HOTEL", proposal.rfp.id)} className={btnSecondary}>
                 View RFP
               </Link>
+            ) : (
+              <LinkRfpControl blocks={rfpChoices.map((c) => ({ id: c.id, label: c.label }))} action={linkAction} />
             )}
             {proposal.block ? (
               <Link href={`/events/${eventId}/hotels/blocks/${proposal.block.id}`} className={btnSecondary}>
@@ -115,8 +123,11 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0">
-          {/* Autosaves: not keyed on updatedAt, or each save would remount it. */}
+          {/* Autosaves: not keyed on updatedAt, or each save would remount it.
+              Keyed on its RFP link, so a link made from the header reloads
+              the RFP's concessions and requests. */}
           <ProposalForm
+            key={proposal.rfpBlockId ?? "standalone"}
             proposal={toProposalValues(proposal)}
             concessions={(proposal.rfp?.concessions ?? []).map((c) => {
               const answer = proposal.concessions.find((a) => a.concessionId === c.id);

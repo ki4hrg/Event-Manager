@@ -562,13 +562,35 @@ async function addRecipient(tx: Prisma.TransactionClient, rfpId: string, venueId
   await tx.rfpRecipient.upsert({ where: { rfpId_venueId: { rfpId, venueId } }, create: { rfpId, venueId }, update: {} });
 }
 
+// A hotel RFP is decided once every block it requested has an accepted
+// proposal (a proposal_status in the ACCEPTED stage): an issued one closes,
+// as a vendor RFP does when its quote is accepted. Never reopens one.
+export async function closeAwardedRfp(rfpId: string | null, eventId: string, userId: string) {
+  if (!rfpId) return;
+  const rfp = await prisma.rfp.findFirst({
+    where: { id: rfpId, eventId, kind: "HOTEL", status: "ISSUED" },
+    select: { hotelBlocks: { select: { proposals: { select: { status: true } } } } },
+  });
+  if (!rfp || rfp.hotelBlocks.length === 0) return;
+  const accepted = new Set(
+    (
+      await prisma.customOption.findMany({
+        where: { tenantId: await requireEventTenantId(eventId), category: "proposal_status", group: "ACCEPTED" },
+        select: { label: true },
+      })
+    ).map((o) => o.label),
+  );
+  if (!rfp.hotelBlocks.every((b) => b.proposals.some((p) => accepted.has(p.status)))) return;
+  await prisma.rfp.update({ where: { id: rfpId, eventId }, data: { status: "CLOSED", updatedById: userId } });
+}
+
 export async function createHotelProposalCore(eventId: string, args: ProposalWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   validate(args, null);
   await assertProposalRefs(eventId, args);
   const rfpBlock = await findRfpBlock(eventId, args.rfpBlockId);
   const { amenities, offeredConcessions } = await listLabels(eventId, args);
-  return prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     if (rfpBlock) await addRecipient(tx, rfpBlock.rfpId, args.venueId);
     const proposal = await tx.hotelProposal.create({
       data: {
@@ -589,6 +611,8 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
     await recordVersion(tx, proposal.id, args.revisionSummary, userId);
     return proposal;
   });
+  await closeAwardedRfp(created.rfpId, eventId, userId);
+  return created;
 }
 
 export async function updateHotelProposalCore(id: string, eventId: string, args: ProposalWriteArgs, userId: string) {
@@ -606,7 +630,7 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
   const rfpBlock = relink ? await findRfpBlock(eventId, args.rfpBlockId) : null;
   const rfpId = relink ? (rfpBlock?.rfpId ?? null) : existing.rfpId;
   const { amenities, offeredConcessions } = await listLabels(eventId, args, id);
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     if (rfpBlock) await addRecipient(tx, rfpBlock.rfpId, args.venueId);
     // Answers to another RFP's concessions and space requests don't carry
     // over: the answers go, the rooms stay as offered unasked.
@@ -634,6 +658,8 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
     await recordVersion(tx, id, args.revisionSummary, userId);
     return proposal;
   });
+  await closeAwardedRfp(updated.rfpId, eventId, userId);
+  return updated;
 }
 
 // Links a proposal recorded without an RFP to the block it answers, from the
@@ -677,6 +703,7 @@ export async function linkHotelProposalCore(id: string, eventId: string, rfpBloc
       }
     }
   });
+  await closeAwardedRfp(block.rfpId, eventId, userId);
 }
 
 export async function deleteHotelProposalCore(id: string, eventId: string, userId: string) {

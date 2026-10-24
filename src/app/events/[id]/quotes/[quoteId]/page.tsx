@@ -14,9 +14,10 @@ import { dateKey } from "@/lib/hotels";
 import { prisma } from "@/lib/prisma";
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from "@/lib/rfp/quotes";
 import { getEvent } from "@/app/events/event";
-import { awardVendorQuote, deleteVendorQuote, getQuoteFormChoices, getVendorQuote, saveVendorQuote } from "../../../quotes/actions";
+import { awardVendorQuote, deleteVendorQuote, getQuoteFormChoices, getVendorQuote, saveVendorQuote, setVendorQuoteStatus } from "../../../quotes/actions";
 import { quoteResource } from "../../../quotes/core";
 import { AwardQuoteButton } from "../../../quotes/AwardQuoteButton";
+import { QuoteStatusControl } from "../../../quotes/QuoteStatusControl";
 import { VendorQuoteForm } from "../../../quotes/VendorQuoteForm";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,10 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
   const awardAction = async (declineOthers: boolean) => {
     "use server";
     await awardVendorQuote(quoteId, eventId, declineOthers);
+  };
+  const statusAction = async (status: "RECEIVED" | "DECLINED", removeFromOrders: boolean) => {
+    "use server";
+    await setVendorQuoteStatus(quoteId, eventId, status, removeFromOrders);
   };
   const str = (v: { toString(): string } | null) => (v == null ? null : v.toString());
   const day = (d: Date | null) => (d ? dateKey(d) : null);
@@ -77,6 +82,7 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
               </Link>
             )}
             {quote.status !== "ACCEPTED" && <AwardQuoteButton action={awardAction} resource={resource} otherOpen={otherOpen} />}
+            <QuoteStatusControl status={quote.status} answersRfp={!!quote.rfpId} action={statusAction} resource={resource} />
             <DeleteButton action={deleteAction} resource={resource} label="Delete quote" />
           </>
         }

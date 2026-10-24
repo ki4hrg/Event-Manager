@@ -5,12 +5,15 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { resourceForKind } from "@/lib/rfp/kinds";
+import { withUserErrors } from "@/lib/userErrors";
 import {
   awardVendorQuoteCore,
   createVendorQuoteCore,
   deleteVendorQuoteCore,
   getQuoteComparisonCore,
   quoteResource,
+  recordNoAwardCore,
+  setVendorQuoteStatusCore,
   updateVendorQuoteCore,
   type QuoteLineArgs,
   type QuoteWriteArgs,
@@ -147,4 +150,37 @@ export async function awardVendorQuote(id: string, eventId: string, declineOther
   if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
   const message = orders ? `Quote accepted; vendor added to the event and ${orders} order${orders === 1 ? "" : "s"}` : "Quote accepted; vendor added to the event";
   redirect(`${quotePath(eventId, id)}?success=${encodeURIComponent(message)}`);
+}
+
+// Decline / reopen a quote, or withdraw its award (optionally taking the
+// vendor off the RFP's orders).
+export async function setVendorQuoteStatus(id: string, eventId: string, status: string, removeFromOrders: boolean) {
+  const quote = await quoteRfp(id, eventId);
+  const session = await requirePermission(quoteResource(quote.rfp), "WRITE", eventId);
+  const next = status === "DECLINED" ? "DECLINED" : "RECEIVED";
+  const { orders } = await setVendorQuoteStatusCore(id, eventId, next, removeFromOrders, session.user.id);
+  revalidatePath(quotePath(eventId, id));
+  revalidatePath(`/events/${eventId}/rfps`);
+  if (removeFromOrders) revalidatePath(`/events/${eventId}/vendors`);
+  if (quote.rfpId) revalidatePath(rfpPath(eventId, quote.rfpId));
+  const message = removeFromOrders
+    ? `Award withdrawn; vendor removed from ${orders} order${orders === 1 ? "" : "s"}`
+    : next === "DECLINED"
+      ? "Quote declined"
+      : "Quote reopened";
+  redirect(`${quotePath(eventId, id)}?success=${encodeURIComponent(message)}`);
+}
+
+// No vendor awarded: open quotes declined, RFP closed.
+export async function recordNoAward(rfpId: string, eventId: string) {
+  const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
+  if (!rfp) notFound();
+  const session = await requirePermission(resourceForKind(rfp.kind), "WRITE", eventId);
+  return withUserErrors(async () => {
+    const { declined } = await recordNoAwardCore(rfpId, eventId, session.user.id);
+    revalidatePath(`/events/${eventId}/rfps`);
+    revalidatePath(rfpPath(eventId, rfpId));
+    const message = declined ? `No award; ${declined} quote${declined === 1 ? "" : "s"} declined` : "No award recorded";
+    redirect(`${rfpPath(eventId, rfpId)}?success=${encodeURIComponent(message)}`);
+  });
 }

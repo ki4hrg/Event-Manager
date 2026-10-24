@@ -656,6 +656,7 @@ export function ProposalForm({
         <input type="hidden" name="meals" value={mealsJson} />
         {/* A saved proposal posts its link only where it can change ("" unlinks). */}
         {(isEdit ? !!rfpChoices : !!rfpBlockId) && <input type="hidden" name="rfpBlockId" value={rfpBlockId} />}
+        {isEdit && !!rfpChoices && <input type="hidden" name="rfpBlockWas" value={linkedBlockId ?? ""} />}
         {answers.length > 0 && (
           <input
             type="hidden"

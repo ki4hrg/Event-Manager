@@ -34,6 +34,8 @@ import { RfpHeader } from "../../../rfps/RfpHeader";
 import { RfpLineItemsEditor } from "../../../rfps/RfpLineItemsEditor";
 import { RfpTabs } from "../../../rfps/RfpTabs";
 import { VendorRfpRecipients } from "../../../rfps/VendorRfpRecipients";
+import { recordNoAward } from "../../../quotes/actions";
+import { NoAwardButton } from "../../../quotes/NoAwardButton";
 
 export const dynamic = "force-dynamic";
 
@@ -103,12 +105,21 @@ export default async function VendorRfpPage({
     "use server";
     await updateRfpRecipient(recipientId, rfpId, eventId, args);
   };
+  const noAwardAction = async () => {
+    "use server";
+    return recordNoAward(rfpId, eventId);
+  };
+  // "No award" while the RFP is open with quotes and none accepted.
+  const openQuotes = rfp.quotes.filter((q) => q.status === "RECEIVED").length;
+  const canNoAward = rfp.status !== "CLOSED" && rfp.quotes.length > 0 && !rfp.quotes.some((q) => q.status === "ACCEPTED");
   const removeRecipientAction = async (recipientId: string) => {
     "use server";
     await removeRfpRecipient(recipientId, rfpId, eventId);
   };
   const day = (d: Date | null) => (d ? dateKey(d) : null);
-  const lineRows = rfp.lineItems.map((l) => ({ ...l, day: day(l.day), endDay: day(l.endDay) }));
+  const lineRows = rfp.lineItems.map(({ _count, ...l }) => ({ ...l, day: day(l.day), endDay: day(l.endDay) }));
+  // Lines a quote prices: removing one turns those quote lines into extras.
+  const pricedLines = rfp.lineItems.filter((l) => l._count.quoteLines > 0).map((l) => l.id);
 
   return (
     <>
@@ -166,6 +177,7 @@ export default async function VendorRfpPage({
                 <RfpLineItemsEditor
                   resource={resource}
                   rows={lineRows}
+                  priced={pricedLines}
                   source={ORDER_SOURCE[kind]}
                   loadCandidates={candidatesAction}
                   save={saveLinesAction}
@@ -222,6 +234,7 @@ export default async function VendorRfpPage({
             update={updateRecipientAction}
             remove={removeRecipientAction}
           />
+          {canNoAward && <NoAwardButton action={noAwardAction} resource={resource} open={openQuotes} />}
           <FileUploadPanel entityType="rfp" entityId={rfpId} files={rfp.files} fileTypeOptions={fileTypeOptions} revalidateTarget={base} />
         </div>
       </div>

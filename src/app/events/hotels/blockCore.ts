@@ -10,6 +10,7 @@ import type { HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { dateFromKey, dateKey, nightKeys } from "@/lib/hotels";
+import { closeAwardedRfp } from "./core";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { blockPickup, pickupByNight } from "@/lib/hotelPickup";
 import { UserFacingError } from "@/lib/userErrors";
@@ -66,7 +67,7 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
   const hasHq = await prisma.hotelBlock.count({ where: inEvent(eventId) });
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { timezone: true } });
 
-  return prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     const block = await tx.hotelBlock.create({
       data: {
         proposalId,
@@ -98,6 +99,9 @@ export async function createHotelBlockCore(proposalId: string, eventId: string, 
     await writePickupSnapshot(tx, block.id);
     return block;
   });
+  // A proposal accepted before RFPs closed on acceptance still closes its RFP.
+  await closeAwardedRfp(proposal.rfpId, eventId, userId);
+  return created;
 }
 
 export type BlockNightArgs = {

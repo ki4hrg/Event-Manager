@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { requireActiveTenantId } from "@/lib/tenant";
+import { carryEquipmentRename } from "@/lib/equipment-utils";
 import { revalidatePath } from "next/cache";
 import { PermissionResource } from "@prisma/client";
 
@@ -81,12 +82,12 @@ export async function createEquipmentInline(
 
 export async function updateEquipment(id: string, formData: FormData) {
   const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
-  await prisma.equipment.update({
-    where: { id, tenantId },
-    data: {
-      name: formData.get("name") as string,
-      category: formData.get("category") as string,
-    },
+  const current = await prisma.equipment.findFirst({ where: { id, tenantId }, select: { name: true } });
+  if (!current) throw new Error("Equipment not found.");
+  const name = formData.get("name") as string;
+  await prisma.$transaction(async (tx) => {
+    await tx.equipment.update({ where: { id, tenantId }, data: { name, category: formData.get("category") as string } });
+    await carryEquipmentRename(tx, id, current.name, name);
   });
   revalidatePath("/equipment");
 }

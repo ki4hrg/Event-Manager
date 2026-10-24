@@ -269,9 +269,9 @@ function readSetupEquipmentItemArgs(args: Record<string, unknown>): SetupEquipme
 
 const setupTableProps = {
   quantity: { type: "number" },
-  tableType: { type: "string", description: "Optional (e.g. ROUND_60, RECT_6FT — free text or CustomOption value)." },
+  tableType: { type: "string", description: "Optional. An equipment name from list_equipment_catalog (Tables category), linked to that catalog row; other text is kept as typed." },
   chairCount: { type: "number" },
-  chairType: { type: "string" },
+  chairType: { type: "string", description: "Optional. An equipment name from list_equipment_catalog (Chairs category), linked like tableType." },
   providerVendorId: { type: "string", description: "Optional per-table provider vendor." },
   notes: { type: "string" },
 } as const;

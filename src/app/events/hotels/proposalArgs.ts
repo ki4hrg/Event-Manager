@@ -101,7 +101,10 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     fbTaxRate: optional("fbTaxRate", num),
     fbServiceCharge: optional("fbServiceCharge", num),
     meals: optional("meals", (k) => readJson<ProposalMealArgs>(formData, k)),
-    rfpBlockId: optional("rfpBlockId", str),
+    // The form also posts the link it shows as saved: an untouched picker
+    // leaves the link alone, so a form loaded before a link made elsewhere
+    // can't undo it.
+    rfpBlockId: formData.has("rfpBlockId") && formData.get("rfpBlockId") !== formData.get("rfpBlockWas") ? str("rfpBlockId") : undefined,
     concessions: formData.has("concessions") ? readJson<ProposalConcessionArgs>(formData, "concessions") : undefined,
     offeredConcessions: formData.has("offeredConcessions") ? readJson<ProposalOfferedConcessionArgs>(formData, "offeredConcessions") : undefined,
   };
