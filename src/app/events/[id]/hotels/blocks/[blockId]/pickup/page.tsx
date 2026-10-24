@@ -23,11 +23,11 @@ export default async function PickupPage({ params }: { params: Promise<{ id: str
     guests: Parameters<typeof importPickupGuests>[4],
   ) => {
     "use server";
-    await importPickupGuests(blockId, eventId, method, fileName, guests);
+    return importPickupGuests(blockId, eventId, method, fileName, guests);
   };
   const countsAction = async (counts: Parameters<typeof savePickupCounts>[2]) => {
     "use server";
-    await savePickupCounts(blockId, eventId, counts);
+    return savePickupCounts(blockId, eventId, counts);
   };
 
   const venue = block.proposal.venue;

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 const selectClass =
   "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
@@ -18,7 +19,7 @@ export type BeoReview = {
 
 // A BEO against the catering order it's for: each field it states, the
 // order's value beside it; ticked ones are written. Changed fields start ticked.
-export function InboxBeoReview({ review, apply, cancelHref }: { review: BeoReview; apply: (orderId: string, keys: string[]) => Promise<void>; cancelHref: string }) {
+export function InboxBeoReview({ review, apply, cancelHref }: { review: BeoReview; apply: (orderId: string, keys: string[]) => Promise<void | UserError>; cancelHref: string }) {
   const [orderId, setOrderId] = useState(review.orderId ?? "");
   const order = review.orders.find((o) => o.id === orderId);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(order?.rows.filter((r) => r.changed).map((r) => r.key) ?? []));
@@ -100,7 +101,8 @@ export function InboxBeoReview({ review, apply, cancelHref }: { review: BeoRevie
             startTransition(async () => {
               setError(null);
               try {
-                await apply(orderId, Array.from(picked));
+                const result = await apply(orderId, Array.from(picked));
+                if (isUserError(result)) setError(result.error);
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Couldn't apply");
               }

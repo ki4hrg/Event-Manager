@@ -14,6 +14,7 @@ import type { FileTarget, FormLinkTarget } from "@/lib/forms/types";
 import { FORM_TYPE_LABEL, formsHeading, httpsUrl } from "@/lib/forms/meta";
 import { BUNDLE_ORDER, removeSubmissionFiles } from "@/lib/forms/links";
 import { workflowCompletionCore } from "@/app/events/workflows/core";
+import { UserFacingError } from "@/lib/userErrors";
 
 const MAX_LINK_DAYS = 366;
 
@@ -56,9 +57,9 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
   const formTypes = Array.from(new Set([args.formType, ...(args.alsoFormTypes ?? [])]));
   const functionIds = args.functionIds?.length ? Array.from(new Set(args.functionIds)) : [args.functionId];
   if (functionIds.length > 1 && formTypes.some((t) => t !== "FUNCTION_REVIEW")) {
-    throw new Error("Only a Function Review can cover several functions");
+    throw new UserFacingError("Only a Function Review can cover several functions");
   }
-  if (formTypes.length * functionIds.length > MAX_BUNDLE_LINKS) throw new Error(`One link can cover at most ${MAX_BUNDLE_LINKS} forms`);
+  if (formTypes.length * functionIds.length > MAX_BUNDLE_LINKS) throw new UserFacingError(`One link can cover at most ${MAX_BUNDLE_LINKS} forms`);
 
   if (args.contactId) {
     const contact = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
@@ -86,17 +87,17 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
 
   let mediaUploadUrl: string | null = null;
   if (args.mediaUploadUrl) {
-    if (!formTypes.some((t) => formModule(t).externalUpload)) throw new Error("This form doesn't take an upload link");
+    if (!formTypes.some((t) => formModule(t).externalUpload)) throw new UserFacingError("This form doesn't take an upload link");
     mediaUploadUrl = httpsUrl(args.mediaUploadUrl);
-    if (!mediaUploadUrl) throw new Error("The upload link must be an https:// address");
+    if (!mediaUploadUrl) throw new UserFacingError("The upload link must be an https:// address");
   }
 
   const now = Date.now();
-  if (args.expiresAt.getTime() <= now) throw new Error("The close date must be in the future");
-  if (args.expiresAt.getTime() > now + MAX_LINK_DAYS * 86_400_000) throw new Error("Links can stay open for at most a year");
-  if (args.dueAt && args.dueAt > args.expiresAt) throw new Error("The respond-by date can't be after the close date");
+  if (args.expiresAt.getTime() <= now) throw new UserFacingError("The close date must be in the future");
+  if (args.expiresAt.getTime() > now + MAX_LINK_DAYS * 86_400_000) throw new UserFacingError("Links can stay open for at most a year");
+  if (args.dueAt && args.dueAt > args.expiresAt) throw new UserFacingError("The respond-by date can't be after the close date");
   if (args.maxSubmissions != null && (args.maxSubmissions < 1 || args.maxSubmissions > 1000)) {
-    throw new Error("Responses allowed must be between 1 and 1000");
+    throw new UserFacingError("Responses allowed must be between 1 and 1000");
   }
 
   const shared = {
@@ -116,7 +117,7 @@ export async function createFormLinkCore(args: CreateFormLinkArgs, userId: strin
     const mod = formModule(formType);
     // A form with one section has nothing to pick.
     const sections = mod.sectionKeys.size === 1 ? Array.from(mod.sectionKeys) : args.sections.filter((s) => mod.sectionKeys.has(s));
-    if (sections.length === 0) throw new Error(`Pick at least one ${FORM_TYPE_LABEL[formType]} section`);
+    if (sections.length === 0) throw new UserFacingError(`Pick at least one ${FORM_TYPE_LABEL[formType]} section`);
     for (const functionId of functionIds) {
       const target = { ...args, functionId };
       await mod.assertTarget(target, userId);
@@ -187,14 +188,14 @@ export async function deleteFormLinkCore(id: string, eventId: string, userId: st
   await requirePermissionForUser(userId, "FORMS", "WRITE", eventId);
   const link = await prisma.formLink.findFirst({ where: { id, eventId }, select: { revokedAt: true } });
   if (!link) throw new PermissionError("NOT_FOUND", "Form link not found");
-  if (!link.revokedAt) throw new Error("Revoke the link before deleting it");
+  if (!link.revokedAt) throw new UserFacingError("Revoke the link before deleting it");
   const submissions = await prisma.formSubmission.findMany({
     where: { eventId, OR: [{ formLinkId: id }, { formLink: { parentId: id } }] },
     select: { id: true, state: true },
   });
   const waiting = submissions.filter((s) => s.state === "SUBMITTED").length;
   if (waiting > 0) {
-    throw new Error(`This link has ${waiting} submission${waiting === 1 ? "" : "s"} to review. Apply or reject ${waiting === 1 ? "it" : "them"} first.`);
+    throw new UserFacingError(`This link has ${waiting} submission${waiting === 1 ? "" : "s"} to review. Apply or reject ${waiting === 1 ? "it" : "them"} first.`);
   }
   // Re-checked in the delete. A revoked link takes no new submissions, but a
   // bundle's child may still be open.
@@ -202,7 +203,7 @@ export async function deleteFormLinkCore(id: string, eventId: string, userId: st
   const r = await prisma.formLink.deleteMany({
     where: { id, eventId, revokedAt: { not: null }, NOT: [{ submissions: pending }, { children: { some: { submissions: pending } } }] },
   });
-  if (r.count === 0) throw new Error("This link changed. Reload and try again.");
+  if (r.count === 0) throw new UserFacingError("This link changed. Reload and try again.");
   for (const s of submissions) removeSubmissionFiles(s.id);
 }
 

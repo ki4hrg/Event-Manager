@@ -15,6 +15,7 @@ import { PackingProcurementWarning } from "@/components/PackingProcurementWarnin
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import type { PackableItem, PackingListPayload } from "../../packing/actions";
 import type { ReturnToLocationResult } from "../../packing/core";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 type ToggleSupply = (itemId: string, supplyOrderId: string, status: PackingStatus) => Promise<void>;
 type TogglePrint = (itemId: string, printOrderId: string, status: PackingStatus) => Promise<void>;
@@ -63,7 +64,7 @@ type Props = {
   returnItemsToLocation: (
     supplyItemIds: string[],
     targetLocationId: string,
-  ) => Promise<ReturnToLocationResult>;
+  ) => Promise<ReturnToLocationResult | UserError>;
 };
 
 /**
@@ -312,6 +313,10 @@ export function PackingListClient({
       setReturnError(null);
       try {
         const result = await returnItemsToLocation(Array.from(selected), returnTarget);
+        if (isUserError(result)) {
+          setReturnError(result.error);
+          return;
+        }
         setReturnResult(result);
         clearSelection();
         router.refresh();

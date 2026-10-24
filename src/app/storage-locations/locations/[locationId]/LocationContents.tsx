@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { LocationSelect, type LocationOption } from "@/components/ui/LocationSelect";
 import type { SupplyOrderTarget } from "../../actions";
 import type { AddInventoryResult } from "@/app/events/supply-orders/core";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 type ItemWithEquipment = InventoryItem & {
   equipment: { id: string; name: string; category: string };
@@ -52,11 +53,11 @@ type Props = {
     inventoryItemIds: string[],
     supplyOrderId: string,
   ) => Promise<AddInventoryResult>;
-  createItem: (formData: FormData) => Promise<void>;
-  updateItem: (id: string, formData: FormData) => Promise<void>;
+  createItem: (formData: FormData) => Promise<void | UserError>;
+  updateItem: (id: string, formData: FormData) => Promise<void | UserError>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
-  moveItems: (ids: string[], targetLocationId: string) => Promise<void>;
-  deleteItems: (ids: string[]) => Promise<void>;
+  moveItems: (ids: string[], targetLocationId: string) => Promise<void | UserError>;
+  deleteItems: (ids: string[]) => Promise<void | UserError>;
 };
 
 const inputClass =
@@ -300,7 +301,7 @@ function AddItemForm({
   createItem,
 }: {
   fieldProps: FieldProps;
-  createItem: (formData: FormData) => Promise<void>;
+  createItem: (formData: FormData) => Promise<void | UserError>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const detailRef = useRef<HTMLInputElement>(null);
@@ -314,7 +315,11 @@ function AddItemForm({
       action={async (formData) => {
         setError(null);
         try {
-          await createItem(formData);
+          const result = await createItem(formData);
+          if (isUserError(result)) {
+            setError(result.error);
+            return;
+          }
           formRef.current?.reset();
           detailRef.current?.focus();
           router.refresh();
@@ -344,7 +349,7 @@ function EditItemForm({
 }: {
   item: ItemWithEquipment;
   fieldProps: FieldProps;
-  onSubmit: (formData: FormData) => Promise<void>;
+  onSubmit: (formData: FormData) => Promise<void | UserError>;
   onCancel: () => void;
 }) {
   const [equipmentId, setEquipmentId] = useState(item.equipmentId);
@@ -355,7 +360,8 @@ function EditItemForm({
       action={async (formData) => {
         setError(null);
         try {
-          await onSubmit(formData);
+          const result = await onSubmit(formData);
+          if (isUserError(result)) setError(result.error);
         } catch (e) {
           setError(e instanceof Error ? e.message : "Couldn't save that item.");
         }
@@ -510,11 +516,15 @@ export function LocationContents({
     setConfirmingBulkDelete(false);
   };
 
-  const run = (fn: () => Promise<void>) => {
+  const run = (fn: () => Promise<void | UserError>) => {
     startTransition(async () => {
       setError(null);
       try {
-        await fn();
+        const result = await fn();
+        if (isUserError(result)) {
+          setError(result.error);
+          return;
+        }
         clearSelection();
         router.refresh();
       } catch (e) {
@@ -755,7 +765,8 @@ export function LocationContents({
                   item={item}
                   fieldProps={fieldProps}
                   onSubmit={async (formData) => {
-                    await updateItem(item.id, formData);
+                    const result = await updateItem(item.id, formData);
+                    if (isUserError(result)) return result;
                     setEditingId(null);
                     router.refresh();
                   }}

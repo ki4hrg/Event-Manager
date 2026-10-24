@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { withUserErrors } from "@/lib/userErrors";
 import { eventScopeWhere } from "../core";
 import {
   createEventSeriesCore,
@@ -41,18 +42,24 @@ function revalidateSeries() {
 
 export async function createEventSeries(formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
-  await createEventSeriesCore((formData.get("name") as string) || "", session.user.id, session.tenantId);
-  revalidateSeries();
+  return withUserErrors(async () => {
+    await createEventSeriesCore((formData.get("name") as string) || "", session.user.id, session.tenantId);
+    revalidateSeries();
+  });
 }
 
 export async function updateEventSeries(id: string, formData: FormData) {
   const session = await requirePermission("EVENTS", "WRITE");
-  await updateEventSeriesCore(id, (formData.get("name") as string) || "", session.user.id, session.tenantId);
-  revalidateSeries();
+  return withUserErrors(async () => {
+    await updateEventSeriesCore(id, (formData.get("name") as string) || "", session.user.id, session.tenantId);
+    revalidateSeries();
+  });
 }
 
 export async function deleteEventSeries(id: string) {
   const session = await requirePermission("EVENTS", "DELETE");
-  await deleteEventSeriesCore(id, session.user.id, session.tenantId);
-  revalidateSeries();
+  return withUserErrors(async () => {
+    await deleteEventSeriesCore(id, session.user.id, session.tenantId);
+    revalidateSeries();
+  });
 }

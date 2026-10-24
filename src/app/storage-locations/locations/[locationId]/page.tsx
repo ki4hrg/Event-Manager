@@ -103,12 +103,12 @@ export default async function LocationDetailPage({
 
   const createItemAction = async (formData: FormData) => {
     "use server";
-    await createInventoryItem(locationId, formData);
+    return createInventoryItem(locationId, formData);
   };
 
   const updateItemAction = async (id: string, formData: FormData) => {
     "use server";
-    await updateInventoryItem(id, locationId, formData);
+    return updateInventoryItem(id, locationId, formData);
   };
 
   const setArchivedAction = async (id: string, archived: boolean) => {
@@ -118,12 +118,12 @@ export default async function LocationDetailPage({
 
   const moveItemsAction = async (ids: string[], targetLocationId: string) => {
     "use server";
-    await moveInventoryItems(ids, targetLocationId);
+    return moveInventoryItems(ids, targetLocationId);
   };
 
   const deleteItemsAction = async (ids: string[]) => {
     "use server";
-    await deleteInventoryItems(ids);
+    return deleteInventoryItems(ids);
   };
 
   const createEquipmentAction = async (name: string, category: string) => {

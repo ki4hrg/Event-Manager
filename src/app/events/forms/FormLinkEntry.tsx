@@ -7,6 +7,7 @@ import { createFormLink, deleteFormLink, getFormLinks, getFunctionReviewPicker, 
 import { FormLinkButton } from "./FormLinkButton";
 import { ExhibitLinkFields } from "./ExhibitLinkFields";
 import { getEvent } from "@/app/events/event";
+import { isUserError } from "@/lib/userErrors";
 
 type ButtonProps = React.ComponentProps<typeof FormLinkButton>;
 
@@ -53,8 +54,8 @@ export async function FormLinkEntry({
 
   const create = async (formData: FormData) => {
     "use server";
-    const { token, emailed } = await createFormLink(eventId, formData);
-    return { token, emailed };
+    const result = await createFormLink(eventId, formData);
+    return isUserError(result) ? result : { token: result.token, emailed: result.emailed };
   };
   const revoke = async (linkId: string) => {
     "use server";
@@ -62,7 +63,7 @@ export async function FormLinkEntry({
   };
   const deleteLink = async (linkId: string) => {
     "use server";
-    await deleteFormLink(eventId, linkId);
+    return deleteFormLink(eventId, linkId);
   };
 
   return (

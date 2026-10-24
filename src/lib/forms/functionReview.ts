@@ -28,6 +28,7 @@ import {
   type FunctionReviewSection,
   type SectionResponse,
 } from "./meta";
+import { UserFacingError } from "@/lib/userErrors";
 
 const NOTE_MAX = 2000;
 const NAME_MAX = 120;
@@ -404,7 +405,7 @@ export const functionReviewModule: FormModule<FunctionReviewPayload, FunctionRev
   open: false,
   externalUpload: false,
   async assertTarget({ eventId, functionId }, userId) {
-    if (!functionId) throw new Error("Pick a function");
+    if (!functionId) throw new UserFacingError("Pick a function");
     await requirePermissionForUser(userId, "FUNCTIONS", "VIEW", eventId);
     const fn = await prisma.function.findFirst({ where: { id: functionId, eventId }, select: { id: true } });
     if (!fn) throw new PermissionError("NOT_FOUND", "Function not found");

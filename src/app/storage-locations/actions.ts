@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { requirePermission, hasPermissionForUser } from "@/lib/permissions";
 import { requireActiveTenantId } from "@/lib/tenant";
+import { withUserErrors, type UserError } from "@/lib/userErrors";
 import {
   addInventoryToSupplyOrderCore,
   type AddInventoryResult,
@@ -67,22 +68,24 @@ export async function createContainerInline(
   name: string,
   parentId: string | null,
   type: string | null,
-): Promise<string> {
+): Promise<string | UserError> {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  const created = await createStorageLocationCore(
-    {
-      name,
-      kind: LocationKind.CONTAINER,
-      type: type || null,
-      parentId,
-      notes: null,
-      archived: false,
-    },
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath("/storage-locations");
-  return created.id;
+  return withUserErrors(async () => {
+    const created = await createStorageLocationCore(
+      {
+        name,
+        kind: LocationKind.CONTAINER,
+        type: type || null,
+        parentId,
+        notes: null,
+        archived: false,
+      },
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath("/storage-locations");
+    return created.id;
+  });
 }
 
 export async function updateStorageLocation(id: string, formData: FormData) {
@@ -153,9 +156,11 @@ function parseInventoryData(formData: FormData): InventoryItemWriteArgs {
 
 export async function createInventoryItem(locationId: string, formData: FormData) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await createInventoryItemCore(locationId, parseInventoryData(formData), session.user.id, session.tenantId);
-  revalidatePath("/storage-locations");
-  revalidatePath(locationPath(locationId));
+  return withUserErrors(async () => {
+    await createInventoryItemCore(locationId, parseInventoryData(formData), session.user.id, session.tenantId);
+    revalidatePath("/storage-locations");
+    revalidatePath(locationPath(locationId));
+  });
 }
 
 export async function updateInventoryItem(
@@ -164,9 +169,11 @@ export async function updateInventoryItem(
   formData: FormData,
 ) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await updateInventoryItemCore(id, parseInventoryData(formData), session.user.id, session.tenantId);
-  revalidatePath("/storage-locations");
-  revalidatePath(locationPath(locationId));
+  return withUserErrors(async () => {
+    await updateInventoryItemCore(id, parseInventoryData(formData), session.user.id, session.tenantId);
+    revalidatePath("/storage-locations");
+    revalidatePath(locationPath(locationId));
+  });
 }
 
 export async function setInventoryItemArchived(
@@ -182,22 +189,26 @@ export async function setInventoryItemArchived(
 
 export async function moveInventoryItems(ids: string[], targetLocationId: string) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  const { sourceLocationIds } = await moveInventoryItemsCore(
-    ids,
-    targetLocationId,
-    session.user.id,
-    session.tenantId,
-  );
-  revalidatePath("/storage-locations");
-  revalidatePath(locationPath(targetLocationId));
-  for (const id of sourceLocationIds) revalidatePath(locationPath(id));
+  return withUserErrors(async () => {
+    const { sourceLocationIds } = await moveInventoryItemsCore(
+      ids,
+      targetLocationId,
+      session.user.id,
+      session.tenantId,
+    );
+    revalidatePath("/storage-locations");
+    revalidatePath(locationPath(targetLocationId));
+    for (const id of sourceLocationIds) revalidatePath(locationPath(id));
+  });
 }
 
 export async function deleteInventoryItems(ids: string[]) {
   const session = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
-  const { locationIds } = await deleteInventoryItemsCore(ids, session.user.id, session.tenantId);
-  revalidatePath("/storage-locations");
-  for (const id of locationIds) revalidatePath(locationPath(id));
+  return withUserErrors(async () => {
+    const { locationIds } = await deleteInventoryItemsCore(ids, session.user.id, session.tenantId);
+    revalidatePath("/storage-locations");
+    for (const id of locationIds) revalidatePath(locationPath(id));
+  });
 }
 
 export type SupplyOrderTarget = {

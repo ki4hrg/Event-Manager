@@ -10,6 +10,7 @@ import {
   resolvePlacements,
   subtreeIds,
 } from "@/lib/storageLocations";
+import { UserFacingError } from "@/lib/userErrors";
 
 export type ContainerCascadePreview = {
   containerName: string;
@@ -190,7 +191,7 @@ export async function returnItemsToLocationCore(
   });
   if (!location) throw new Error("Location not found.");
   if (location.archived) {
-    throw new Error(`"${location.name}" is archived — restore it before filing items there.`);
+    throw new UserFacingError(`"${location.name}" is archived — restore it before filing items there.`);
   }
 
   // The permission check says the caller may write supply items on this event;

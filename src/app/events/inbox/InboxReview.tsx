@@ -9,6 +9,7 @@ import { formatNight, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { hasUsableDates, type PickupGuestRow } from "@/lib/pickupMapping";
 import { CountEntry, GuestImport, type GuestImportSource } from "../hotels/PickupImport";
 import type { getInboxReview } from "./actions";
+import type { UserError } from "@/lib/userErrors";
 
 type Review = NonNullable<Awaited<ReturnType<typeof getInboxReview>>>;
 type ImportMethod = Exclude<HotelPickupMethod, "COUNTS">;
@@ -28,8 +29,8 @@ export function InboxReview({
 }: {
   review: Review;
   itemHref: string;
-  applyGuests: (blockId: string, method: ImportMethod, fileName: string | null, guests: PickupGuestRow[]) => Promise<void>;
-  applyCounts: (blockId: string, counts: CountArgs[]) => Promise<void>;
+  applyGuests: (blockId: string, method: ImportMethod, fileName: string | null, guests: PickupGuestRow[]) => Promise<void | UserError>;
+  applyCounts: (blockId: string, counts: CountArgs[]) => Promise<void | UserError>;
 }) {
   const router = useRouter();
   const canWrite = useCanWrite("HOTELS");

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { ContractTarget } from "@/lib/inboundParse";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 const inputClass =
   "mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm";
@@ -26,7 +27,7 @@ export function InboxContractReview({
   cancelHref,
 }: {
   review: ContractReview;
-  apply: (target: ContractTarget, targetId: string, note: string | null) => Promise<void>;
+  apply: (target: ContractTarget, targetId: string, note: string | null) => Promise<void | UserError>;
   cancelHref: string;
 }) {
   const [choice, setChoice] = useState(review.target && review.targetId ? `${review.target}:${review.targetId}` : "");
@@ -93,7 +94,8 @@ export function InboxContractReview({
             startTransition(async () => {
               setError(null);
               try {
-                await apply(target!, targetId, shownNote.trim() || null);
+                const result = await apply(target!, targetId, shownNote.trim() || null);
+                if (isUserError(result)) setError(result.error);
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Couldn't apply");
               }

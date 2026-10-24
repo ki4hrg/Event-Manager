@@ -24,6 +24,7 @@ import {
 import { PackingProcurementWarning } from "@/components/PackingProcurementWarning";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 type ItemWithExtras = SupplyOrderItem & {
   equipment: Equipment | null;
@@ -66,7 +67,7 @@ type SupplyOrderItemPanelProps = {
   deleteItem: (id: string) => Promise<void>;
   updateItemPackingStatus: (id: string, packingStatus: PackingStatus) => Promise<void>;
   updateItemAcquisitionState: (id: string, acquisitionState: AcquisitionState) => Promise<void>;
-  createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string>;
+  createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string | UserError>;
   previewContainerCascade: (containerLocationId: string) => Promise<ContainerCascadeCounts>;
   markContainerContents: (
     containerLocationId: string,
@@ -95,7 +96,7 @@ function InlineContainerCreate({
 }: {
   locationTypes: { id: string; label: string }[];
   parentOptions: LocationOption[];
-  createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string>;
+  createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string | UserError>;
   onCreated: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -155,6 +156,10 @@ function InlineContainerCreate({
               setError(null);
               try {
                 const id = await createContainer(name.trim(), parentId || null, type || null);
+                if (isUserError(id)) {
+                  setError(id.error);
+                  return;
+                }
                 onCreated(id);
                 setOpen(false);
                 setName("");
@@ -201,7 +206,7 @@ function ItemForm({
   containerOptions: LocationOption[];
   locationTypes: { id: string; label: string }[];
   canManageLocations: boolean;
-  createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string>;
+  createContainer: (name: string, parentId: string | null, type: string | null) => Promise<string | UserError>;
   pool: ResponsiblePartyPool;
   onSubmit: (formData: FormData) => Promise<void>;
   onCancel: () => void;

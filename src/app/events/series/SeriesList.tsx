@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { btnPrimary, btnOutlinedSm } from "@/lib/buttonStyles";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 type SeriesEvent = { id: string; name: string; year: string };
 type Series = { id: string; name: string; totalEvents: number; events: SeriesEvent[] };
@@ -14,9 +15,9 @@ type Props = {
   series: Series[];
   canWrite: boolean;
   canDelete: boolean;
-  createSeries: (formData: FormData) => Promise<void>;
-  updateSeries: (id: string, formData: FormData) => Promise<void>;
-  deleteSeries: (id: string) => Promise<void>;
+  createSeries: (formData: FormData) => Promise<void | UserError>;
+  updateSeries: (id: string, formData: FormData) => Promise<void | UserError>;
+  deleteSeries: (id: string) => Promise<void | UserError>;
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -48,7 +49,11 @@ export function SeriesList({
   async function handleCreate(formData: FormData) {
     setError(null);
     try {
-      await createSeries(formData);
+      const result = await createSeries(formData);
+      if (isUserError(result)) {
+        setError(result.error);
+        return;
+      }
       setAdding(false);
       startTransition(() => router.refresh());
     } catch (err) {
@@ -59,7 +64,11 @@ export function SeriesList({
   async function handleUpdate(id: string, formData: FormData) {
     setError(null);
     try {
-      await updateSeries(id, formData);
+      const result = await updateSeries(id, formData);
+      if (isUserError(result)) {
+        setError(result.error);
+        return;
+      }
       setEditingId(null);
       startTransition(() => router.refresh());
     } catch (err) {
@@ -70,7 +79,11 @@ export function SeriesList({
   async function handleDelete(id: string) {
     setError(null);
     try {
-      await deleteSeries(id);
+      const result = await deleteSeries(id);
+      if (isUserError(result)) {
+        setError(result.error);
+        return;
+      }
       startTransition(() => router.refresh());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete series");

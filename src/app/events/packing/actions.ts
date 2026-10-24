@@ -19,6 +19,7 @@ import {
   requirePermission,
   PermissionError,
 } from "@/lib/permissions";
+import { withUserErrors, type UserError } from "@/lib/userErrors";
 import {
   getUserSetting,
   setUserSetting,
@@ -106,18 +107,20 @@ export async function returnItemsToLocation(
   supplyItemIds: string[],
   targetLocationId: string,
   eventId: string,
-): Promise<ReturnToLocationResult> {
+): Promise<ReturnToLocationResult | UserError> {
   const session = await requirePermission("EVENTS", "VIEW", eventId);
-  const result = await returnItemsToLocationCore(
-    supplyItemIds,
-    targetLocationId,
-    eventId,
-    session.user.id,
-  );
-  revalidatePath(`/events/${eventId}/packing`);
-  revalidatePath("/storage-locations");
-  revalidatePath(`/storage-locations/locations/${targetLocationId}`);
-  return result;
+  return withUserErrors(async () => {
+    const result = await returnItemsToLocationCore(
+      supplyItemIds,
+      targetLocationId,
+      eventId,
+      session.user.id,
+    );
+    revalidatePath(`/events/${eventId}/packing`);
+    revalidatePath("/storage-locations");
+    revalidatePath(`/storage-locations/locations/${targetLocationId}`);
+    return result;
+  });
 }
 
 export async function getSavedProviderFilter(eventId: string): Promise<string | null> {
