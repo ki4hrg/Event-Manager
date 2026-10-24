@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { dateFromKey, dateKey } from "@/lib/hotels";
-import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { getEvent } from "@/app/events/event";
@@ -33,21 +32,22 @@ export default async function NewProposalPage({
           where: { id: rfpBlockId, rfp: { eventId } },
           include: {
             nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
-            rfp: { select: { concessions: { orderBy: { sortOrder: "asc" } }, spaceRequests: { orderBy: { sortOrder: "asc" } } } },
           },
         })
       : null,
   ]);
   if (!event) notFound();
 
-  // Recording a hotel's answer to an RFP block: start from what was requested.
-  const fromRfp: ProposalTemplate | undefined = rfpBlock
+  // Recording a hotel's answer to an RFP block (or a blockless RFP): start
+  // from what was requested.
+  const rfpChoice = rfpChoices.find((c) => c.id === rfpBlockId);
+  const fromRfp: ProposalTemplate | undefined = rfpChoice
     ? {
-        rfpBlockId: rfpBlock.id,
-        contractType: rfpBlock.contractType,
-        guestType: rfpBlock.guestType,
+        rfpBlockId: rfpChoice.id,
+        contractType: rfpChoice.contractType,
+        guestType: rfpChoice.guestType,
         status: choices.statuses.find((s) => s.group === "PENDING")?.label ?? null,
-        nights: rfpBlock.nights.map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rate: null, rooms: n.rooms })),
+        nights: (rfpBlock?.nights ?? []).map((n) => ({ roomType: n.roomType, night: dateKey(n.night), rate: null, rooms: n.rooms })),
       }
     : undefined;
   const nights = rfpBlock?.nights.map((n) => dateKey(n.night)) ?? [];
@@ -80,16 +80,9 @@ export default async function NewProposalPage({
           defaultCheckOut={checkOut}
           fromRfp={fromRfp}
           rfpChoices={rfpChoices.length ? rfpChoices : undefined}
-          concessions={(rfpBlock?.rfp.concessions ?? []).map((c) => ({
-            id: c.id,
-            label: c.label,
-            value: c.value,
-            required: c.required,
-            offered: null,
-            met: null,
-          }))}
-          spaceRequests={meetingRequests(rfpBlock?.rfp.spaceRequests ?? [])}
-          mealTypes={rfpMealTypes(rfpBlock?.rfp.spaceRequests ?? [])}
+          concessions={rfpChoice?.concessions ?? []}
+          spaceRequests={rfpChoice?.spaceRequests ?? []}
+          mealTypes={rfpChoice?.mealTypes ?? []}
           defaultVenueId={choices.venues.some((v) => v.id === venueId) ? venueId : undefined}
           canAddHotel={canAddHotel}
           action={createAction}

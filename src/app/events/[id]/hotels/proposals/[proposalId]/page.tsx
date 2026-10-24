@@ -22,10 +22,8 @@ import {
   getHotelProposal,
   getProposalFormChoices,
   getProposalRfpChoices,
-  linkHotelProposal,
   updateHotelProposal,
 } from "../../../../hotels/actions";
-import { LinkRfpControl } from "../../../../hotels/LinkRfpControl";
 import { toProposalValues } from "../../../../hotels/core";
 import { ProposalForm } from "../../../../hotels/ProposalForm";
 import { VersionHistory } from "../../../../hotels/VersionHistory";
@@ -46,10 +44,9 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   ]);
   if (!event || !proposal) notFound();
   const rfpChoices = await getProposalRfpChoices(eventId, { rfpId: proposal.rfpId, answers: proposal.concessions });
-  // Linked to an RFP but not one of its blocks: its first. One with no
-  // blocks to pick can't be shown, so the link isn't offered to change.
+  // Linked to an RFP but not one of its blocks: its first (or the RFP itself,
+  // when it has none).
   const rfpBlockId = proposal.rfpBlockId ?? rfpChoices.find((c) => c.rfpId === proposal.rfpId)?.id ?? null;
-  const canRelink = rfpChoices.length > 0 && (!proposal.rfpId || rfpBlockId != null);
 
   const updateAction = async (formData: FormData) => {
     "use server";
@@ -66,10 +63,6 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   const addAmenityAction = async (label: string) => {
     "use server";
     await addVenueAmenity(proposal.venueId, label);
-  };
-  const linkAction = async (rfpBlockId: string) => {
-    "use server";
-    await linkHotelProposal(proposalId, eventId, rfpBlockId);
   };
   const accepted = stageOf(proposal.status, choices.statuses) === "ACCEPTED";
 
@@ -102,12 +95,10 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
                 View hotel
               </Link>
             )}
-            {proposal.rfp ? (
+            {proposal.rfp && (
               <Link href={rfpHref(eventId, "HOTEL", proposal.rfp.id)} className={btnSecondary}>
                 View RFP
               </Link>
-            ) : (
-              <LinkRfpControl blocks={rfpChoices.map((c) => ({ id: c.id, label: c.label }))} action={linkAction} />
             )}
             {proposal.block ? (
               <Link href={`/events/${eventId}/hotels/blocks/${proposal.block.id}`} className={btnSecondary}>
@@ -123,11 +114,8 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 min-w-0">
-          {/* Autosaves: not keyed on updatedAt, or each save would remount it.
-              Keyed on its RFP link, so a link made from the header reloads
-              the RFP's concessions and requests. */}
+          {/* Autosaves: not keyed on updatedAt, or each save would remount it. */}
           <ProposalForm
-            key={proposal.rfpBlockId ?? "standalone"}
             proposal={toProposalValues(proposal)}
             concessions={(proposal.rfp?.concessions ?? []).map((c) => {
               const answer = proposal.concessions.find((a) => a.concessionId === c.id);
@@ -137,7 +125,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
             spaceRequests={meetingRequests(proposal.rfp?.spaceRequests ?? [])}
             mealTypes={rfpMealTypes(proposal.rfp?.spaceRequests ?? [])}
             choices={choices}
-            rfpChoices={canRelink ? rfpChoices : undefined}
+            rfpChoices={rfpChoices.length ? rfpChoices : undefined}
             rfpBlockId={rfpBlockId}
             addAmenityToHotel={canEditHotel ? addAmenityAction : undefined}
             action={updateAction}

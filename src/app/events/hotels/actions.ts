@@ -74,7 +74,8 @@ export async function getHotelProposal(id: string, eventId: string) {
   });
 }
 
-// The event's hotel RFP blocks a proposal can answer. answered: concession
+// The event's hotel RFP blocks a proposal can answer; an RFP with no blocks
+// (a CVB's citywide RFP) is one choice, its id the RFP's. answered: concession
 // answers already given, carried by the blocks of that RFP (rfpId) or that
 // one block (blockId).
 export async function getProposalRfpChoices(
@@ -83,7 +84,7 @@ export async function getProposalRfpChoices(
 ): Promise<RfpChoice[]> {
   await requirePermission("HOTELS", "VIEW", eventId);
   const rfps = await prisma.rfp.findMany({
-    where: { eventId, kind: "HOTEL", hotelBlocks: { some: {} } },
+    where: { eventId, kind: "HOTEL" },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
@@ -95,14 +96,15 @@ export async function getProposalRfpChoices(
   });
   const answers = new Map((answered?.answers ?? []).map((c) => [c.concessionId, c]));
   return rfps.flatMap((r) =>
-    r.hotelBlocks.map((b) => {
-      const mine = answered && (answered.blockId ? b.id === answered.blockId : r.id === answered.rfpId);
+    (r.hotelBlocks.length ? r.hotelBlocks : [null]).map((b) => {
+      const id = b?.id ?? r.id;
+      const mine = answered && (answered.blockId ? id === answered.blockId : r.id === answered.rfpId);
       return {
-        id: b.id,
+        id,
         rfpId: r.id,
-        label: `${r.title} · ${blockTypeLabel(b.contractType, b.guestType) ?? "Block"}`,
-        contractType: b.contractType,
-        guestType: b.guestType,
+        label: b ? `${r.title} · ${blockTypeLabel(b.contractType, b.guestType) ?? "Block"}` : r.title,
+        contractType: b?.contractType ?? null,
+        guestType: b?.guestType ?? null,
         concessions: r.concessions.map((c) => {
           const answer = mine ? answers.get(c.id) : undefined;
           return { id: c.id, label: c.label, value: c.value, required: c.required, offered: answer?.offered ?? null, met: answer?.met ?? null };

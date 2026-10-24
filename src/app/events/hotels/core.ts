@@ -550,11 +550,15 @@ async function listLabels(eventId: string, args: ProposalWriteArgs, proposalId?:
   return { amenities, offeredConcessions: offered?.map((c, i) => ({ ...c, label: offeredLabels![i] })) };
 }
 
-async function findRfpBlock(eventId: string, rfpBlockId: string | null | undefined) {
+// A block of one of the event's RFPs, or a hotel RFP with no blocks by its
+// own id (getProposalRfpChoices offers it so).
+async function findRfpBlock(eventId: string, rfpBlockId: string | null | undefined): Promise<{ id: string | null; rfpId: string } | null> {
   if (!rfpBlockId) return null;
   const block = await prisma.rfpHotelBlock.findFirst({ where: { id: rfpBlockId, rfp: { eventId } }, select: { id: true, rfpId: true } });
-  if (!block) throw new PermissionError("NOT_FOUND", "RFP block not found");
-  return block;
+  if (block) return block;
+  const rfp = await prisma.rfp.findFirst({ where: { id: rfpBlockId, eventId, kind: "HOTEL", hotelBlocks: { none: {} } }, select: { id: true } });
+  if (!rfp) throw new PermissionError("NOT_FOUND", "RFP block not found");
+  return { id: null, rfpId: rfp.id };
 }
 
 // A hotel answering an RFP is one of its recipients, listed or not.

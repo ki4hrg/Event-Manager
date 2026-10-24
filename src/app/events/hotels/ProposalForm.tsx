@@ -433,7 +433,7 @@ function metByProfile(answers: ConcessionAnswer[], profile: string[], auto: stri
 // A new proposal answering a requested RFP block starts as a copy of it.
 export type ProposalTemplate = {
   rfpBlockId: string;
-  contractType: HotelContractType;
+  contractType: HotelContractType | null;
   guestType: string | null;
   status: string | null;
   nights: StoredNight[];
@@ -445,7 +445,7 @@ export type RfpChoice = {
   id: string;
   rfpId: string;
   label: string;
-  contractType: HotelContractType;
+  contractType: HotelContractType | null;
   guestType: string | null;
   concessions: ConcessionAnswer[];
   spaceRequests: SpaceRequestDoc[];
@@ -582,7 +582,16 @@ export function ProposalForm({
       );
       setOffered((prev) => [...prev, ...toRows(kept.map((a) => ({ label: a.label, offered: a.offered })))]);
     }
-    reseed(venueId, rfpChoices?.find((c) => c.id === id)?.concessions ?? [], []);
+    // Joining one: what the hotel offered unasked that it asks for becomes the answer.
+    const carried = new Set<number>();
+    const requested = (next?.concessions ?? []).map((c) => {
+      const o = c.offered || c.met ? undefined : offered.find((r) => !carried.has(r.key) && labelKey(r.label) === labelKey(c.label));
+      if (!o) return c;
+      carried.add(o.key);
+      return { ...c, offered: o.offered, met: o.offered ? null : ("MET" as const) };
+    });
+    if (carried.size) setOffered((prev) => prev.filter((r) => !carried.has(r.key)));
+    reseed(venueId, requested, []);
   };
   const pickVenue = (id: string) => {
     setVenueId(id);

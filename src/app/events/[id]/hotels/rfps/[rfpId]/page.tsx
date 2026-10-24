@@ -281,7 +281,12 @@ export default async function RfpPage({
             )}
             responseDue={rfp.responseDue ? dateKey(rfp.responseDue) : null}
             today={dateKey(new Date())}
-            blocks={rfp.hotelBlocks.map((b) => ({ id: b.id, label: blockLabel(b.contractType, b.guestType) }))}
+            blocks={
+              // No blocks (a CVB's citywide RFP): proposals answer the RFP itself.
+              rfp.hotelBlocks.length
+                ? rfp.hotelBlocks.map((b) => ({ id: b.id, label: blockLabel(b.contractType, b.guestType) }))
+                : [{ id: rfp.id, label: "Proposal" }]
+            }
             hotels={choices.hotels}
             scope={effectiveScope(rfp, event)}
             requiredAmenities={rfp.amenities}
