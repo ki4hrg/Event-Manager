@@ -8,6 +8,8 @@ import { FunctionList } from "../../functions/FunctionList";
 import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
 import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
+import { getOptionsForEvent } from "@/lib/options";
+import { mainScheduleTypes } from "@/lib/scheduleTypes";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +24,13 @@ export default async function EventFunctionsPage({
 }) {
   const { id } = await params;
   const { status: initialStatus, schedule: initialSchedule, room: initialRoom } = (await searchParams) ?? {};
-  const [event, functions, functionTypes, substatuses, hiddenColumns] = await Promise.all([
+  const [event, functions, functionTypes, substatuses, hiddenColumns, scheduleTypes] = await Promise.all([
     getEvent(id),
     getFunctionsForTable(id),
     getOptions("function_type"),
     getSubstatusOptions(),
     getHiddenColumns("functions"),
+    getOptionsForEvent(id, "schedule_type"),
   ]);
 
   if (!event) {
@@ -94,6 +97,7 @@ export default async function EventFunctionsPage({
         timezone={event.timezone || "America/Chicago"}
         functionTypes={functionTypes}
         substatuses={substatuses}
+        mainScheduleTypes={mainScheduleTypes(scheduleTypes)}
         workflowSummaries={workflowSummaries}
         initialStatus={initialStatus}
         initialSchedule={initialSchedule}

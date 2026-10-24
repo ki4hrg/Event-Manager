@@ -1,14 +1,31 @@
 "use client";
 
-import { GroupedOptionItems } from "./GroupedOptionItems";
 import { startTransition, useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import type { CustomOption } from "@prisma/client";
+import type { CustomOption, PermissionResource } from "@prisma/client";
 import type { OptionCategory } from "@/lib/optionCategories";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
-import { useCanWrite } from "@/components/PermissionsProvider";
-import { duplicateLabelError } from "./optionLabels";
+import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GroupedOptionItems } from "./GroupedOptionItems";
+import { createOption, deleteOption, mergeOption, reorderOptions, updateOption } from "./actions";
+import { duplicateLabelError, inUseError } from "./optionLabels";
 
 const errorClass = "text-sm text-red-600 dark:text-red-400";
 
@@ -33,21 +50,6 @@ function ModelTypesCheckboxGroup({ defaultValues }: { defaultValues?: string[] }
     </div>
   );
 }
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 type GroupOption = { value: string; label: string };
 
@@ -82,22 +84,25 @@ function GroupSelect({
   );
 }
 
-type OptionListProps = {
+// What the shared editor (OptionCategoryEditor) resolves from the registry.
+export type OptionListProps = {
+  category: OptionCategory;
+  // The list's permission resource (SETTINGS, EQUIPMENT, STORAGE_LOCATIONS).
+  resource: PermissionResource;
   title: string;
   description: string;
-  category: OptionCategory;
   options: CustomOption[];
+  // Records holding each option's label.
+  uses: Record<string, number>;
   showColor?: boolean;
   showModels?: boolean;
   groupOptions?: GroupOption[];
   groupLabel?: string;
-  createOption: (formData: FormData) => Promise<void>;
-  updateOption: (id: string, formData: FormData) => Promise<void>;
-  deleteOption: (id: string) => Promise<void>;
-  reorderOptions: (orderedIds: string[]) => Promise<void>;
+  // Lists split by group (substatus per status): new options get this group.
+  fixedGroup?: string;
   // Lists with one spelling per thing (amenities, concessions): fold an option
   // into another, moving every use.
-  mergeOption?: (id: string, intoId: string) => Promise<void>;
+  mergeable?: boolean;
   // Where options with no group sit in grouped pickers (concessions: Other).
   fallbackGroup?: string;
 };
@@ -124,7 +129,7 @@ function MergeControl({
   const into = others.find((o) => o.id === intoId);
   if (others.length === 0 || option.isSystem) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 dark:border-gray-700 pt-3">
+    <div className="flex flex-wrap items-center gap-2">
       <select
         aria-label="Merge into"
         value={intoId}
@@ -240,39 +245,50 @@ const colorBgClasses: Record<string, string> = {
   pink: "bg-pink-500",
 };
 
+type RowProps = {
+  option: CustomOption;
+  uses: number;
+  reordering: boolean;
+  editing: boolean;
+  setEditingId: (id: string | null) => void;
+  others: CustomOption[];
+} & Pick<
+  OptionListProps,
+  "category" | "resource" | "showColor" | "showModels" | "groupOptions" | "groupLabel" | "mergeable" | "fallbackGroup" | "fixedGroup"
+>;
+
 function SortableOptionRow({
   option,
+  uses,
   reordering,
-  editingId,
+  editing,
+  setEditingId,
+  others,
+  category,
+  resource,
   showColor,
   showModels,
   groupOptions,
-  groupLabel,
-  setEditingId,
-  updateOption,
-  deleteOption,
-  mergeOption,
-  others,
+  groupLabel = "Group",
+  mergeable,
   fallbackGroup,
-}: {
-  option: CustomOption;
-  reordering: boolean;
-  editingId: string | null;
-  showColor: boolean;
-  showModels: boolean;
-  groupOptions?: GroupOption[];
-  groupLabel: string;
-  setEditingId: (id: string | null) => void;
-  updateOption: (id: string, formData: FormData) => Promise<void>;
-  deleteOption: (id: string) => Promise<void>;
-  mergeOption?: (id: string, intoId: string) => Promise<void>;
-  others: CustomOption[];
-  fallbackGroup?: string;
-}) {
+  fixedGroup,
+}: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: option.id, disabled: !reordering });
-  const canWrite = useCanWrite("SETTINGS");
+  const router = useRouter();
+  const canWrite = useCanWrite(resource);
+  const canDelete = useCanDelete(resource);
   const [error, setError] = useState<string | null>(null);
+  // Delete pressed on an option records still hold: say so, offer a merge.
+  const [blocked, setBlocked] = useState(false);
+  // A split list's own group is fixed; others pick one.
+  const pickGroup = groupOptions && !fixedGroup;
+  const merge = async (intoId: string) => {
+    await mergeOption(category, option.id, intoId);
+    setEditingId(null);
+    router.refresh();
+  };
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -286,14 +302,15 @@ function SortableOptionRow({
       style={style}
       className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
     >
-      {editingId === option.id ? (
+      {editing ? (
         <form
           action={async (formData) => {
-            const duplicate = duplicateLabelError(formData.get("label") as string, others, !!mergeOption);
+            const duplicate = duplicateLabelError(formData.get("label") as string, others, !!mergeable);
             setError(duplicate);
             if (duplicate) return;
-            await updateOption(option.id, formData);
+            await updateOption(category, option.id, formData);
             setEditingId(null);
+            router.refresh();
           }}
           className="space-y-3"
         >
@@ -305,7 +322,7 @@ function SortableOptionRow({
               required
               placeholder="Label"
               aria-label="Label"
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+              className="w-full sm:w-auto px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             />
           </div>
           {showColor && (
@@ -317,9 +334,7 @@ function SortableOptionRow({
             </div>
           )}
           {showModels && <ModelTypesCheckboxGroup defaultValues={option.models} />}
-          {groupOptions && (
-            <GroupSelect label={groupLabel} groupOptions={groupOptions} defaultValue={option.group} />
-          )}
+          {pickGroup && <GroupSelect label={groupLabel} groupOptions={groupOptions} defaultValue={option.group} />}
           {error && <p className={errorClass}>{error}</p>}
           <div className="flex gap-2">
             <SubmitButton label="Save" />
@@ -334,82 +349,105 @@ function SortableOptionRow({
               Cancel
             </button>
           </div>
-          {mergeOption && (
-            <MergeControl
-              option={option}
-              others={others}
-              groups={groupOptions}
-              fallbackGroup={fallbackGroup}
-              merge={async (intoId) => {
-                await mergeOption(option.id, intoId);
-                setEditingId(null);
-              }}
-            />
+          {mergeable && canDelete && (
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+              <MergeControl option={option} others={others} groups={groupOptions} fallbackGroup={fallbackGroup} merge={merge} />
+            </div>
           )}
         </form>
       ) : (
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-            {reordering && (
-              <button
-                {...attributes}
-                {...listeners}
-                className="p-1 -m-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing touch-none"
-                title="Drag to reorder"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
-                </svg>
-              </button>
-            )}
-            {showColor && (
-              <span
-                className={`w-4 h-4 shrink-0 rounded ${
-                  option.color
-                    ? colorBgClasses[option.color] || "bg-gray-500"
-                    : "bg-gray-200 dark:bg-gray-700"
-                }`}
-              />
-            )}
-            <span className="font-medium text-gray-900 dark:text-white break-words min-w-0">
-              {option.label}
-            </span>
-            {option.isSystem && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">System</span>
-            )}
-            {groupOptions && option.group && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {groupOptions.find((g) => g.value === option.group)?.label ?? option.group}
-              </span>
-            )}
-            {showModels && option.models.length > 0 && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                ({option.models.map((m) => MODEL_LABELS[m] ?? m).join(", ")})
-              </span>
-            )}
-          </div>
-          {!reordering && (
-            <div className="flex items-center gap-2 shrink-0">
-              {canWrite && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+              {reordering && (
                 <button
-                  type="button"
-                  onClick={() => setEditingId(option.id)}
-                  className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                  {...attributes}
+                  {...listeners}
+                  className="p-1 -m-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing touch-none"
+                  title="Drag to reorder"
                 >
-                  Edit
+                  <svg
+                    className="w-4 h-4"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+                  </svg>
                 </button>
               )}
-              {!option.isSystem && (
-                <InlineDeleteButton
-                  action={() => deleteOption(option.id)}
-                  hiddenInputs={{}}
-                  resource="SETTINGS"
+              {showColor && (
+                <span
+                  className={`w-4 h-4 shrink-0 rounded ${
+                    option.color
+                      ? colorBgClasses[option.color] || "bg-gray-500"
+                      : "bg-gray-200 dark:bg-gray-700"
+                  }`}
                 />
               )}
+              <span className="font-medium text-gray-900 dark:text-white break-words min-w-0">
+                {option.label}
+              </span>
+              {option.isSystem && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">System</span>
+              )}
+              {pickGroup && option.group && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {groupOptions.find((g) => g.value === option.group)?.label ?? option.group}
+                </span>
+              )}
+              {showModels && option.models.length > 0 && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  ({option.models.map((m) => MODEL_LABELS[m] ?? m).join(", ")})
+                </span>
+              )}
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {uses} {uses === 1 ? "use" : "uses"}
+              </span>
+            </div>
+            {!reordering && (
+              <div className="flex items-center gap-2 shrink-0">
+                {canWrite && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(option.id)}
+                    className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                  >
+                    Edit
+                  </button>
+                )}
+                {!option.isSystem && uses === 0 && (
+                  <InlineDeleteButton
+                    action={async () => {
+                      await deleteOption(category, option.id);
+                      router.refresh();
+                    }}
+                    hiddenInputs={{}}
+                    resource={resource}
+                  />
+                )}
+                {!option.isSystem && uses > 0 && canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => setBlocked(!blocked)}
+                    className="text-red-600 dark:text-red-400 hover:underline text-sm"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {blocked && !reordering && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {inUseError(option.label, uses)}{mergeable ? "." : ". Change those records first."}
+              </span>
+              {mergeable && (
+                <MergeControl option={option} others={others} groups={groupOptions} fallbackGroup={fallbackGroup} merge={merge} />
+              )}
+              <button type="button" onClick={() => setBlocked(false)} className="text-sm text-gray-500 dark:text-gray-400">
+                Cancel
+              </button>
             </div>
           )}
         </div>
@@ -419,22 +457,22 @@ function SortableOptionRow({
 }
 
 export function OptionList({
+  category,
+  resource,
   title,
   description,
-  category,
   options,
+  uses,
   showColor = false,
   showModels = false,
   groupOptions,
   groupLabel = "Group",
-  createOption,
-  updateOption,
-  deleteOption,
-  reorderOptions,
-  mergeOption,
+  fixedGroup,
+  mergeable = false,
   fallbackGroup,
 }: OptionListProps) {
-  const canWrite = useCanWrite("SETTINGS");
+  const router = useRouter();
+  const canWrite = useCanWrite(resource);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -447,20 +485,20 @@ export function OptionList({
 
   const sensors = useSensors(useSensor(PointerSensor));
 
-  const handleSortAlpha = async () => {
-    const sorted = [...localOptions].sort((a, b) => a.label.localeCompare(b.label));
-    setLocalOptions(sorted);
-    await reorderOptions(sorted.map((o) => o.id));
+  const saveOrder = async (ordered: CustomOption[]) => {
+    setLocalOptions(ordered);
+    await reorderOptions(category, ordered.map((o) => o.id));
+    router.refresh();
   };
+
+  const handleSortAlpha = () => saveOrder([...localOptions].sort((a, b) => a.label.localeCompare(b.label)));
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = localOptions.findIndex((o) => o.id === active.id);
     const newIndex = localOptions.findIndex((o) => o.id === over.id);
-    const newOrder = arrayMove(localOptions, oldIndex, newIndex);
-    setLocalOptions(newOrder);
-    await reorderOptions(newOrder.map((o) => o.id));
+    await saveOrder(arrayMove(localOptions, oldIndex, newIndex));
   };
 
   return (
@@ -512,14 +550,16 @@ export function OptionList({
       {showAddForm && canWrite && (
         <form
           action={async (formData) => {
-            const duplicate = duplicateLabelError(formData.get("label") as string, localOptions, !!mergeOption);
+            const duplicate = duplicateLabelError(formData.get("label") as string, localOptions, mergeable);
             setAddError(duplicate);
             if (duplicate) return;
-            await createOption(formData);
+            await createOption(category, formData);
             setShowAddForm(false);
+            router.refresh();
           }}
           className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"
         >
+          {fixedGroup && <input type="hidden" name="group" value={fixedGroup} />}
           <div className="space-y-3">
             <div>
               <input
@@ -528,7 +568,7 @@ export function OptionList({
                 placeholder="Label *"
                 aria-label="Label"
                 required
-                className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="w-full sm:w-auto px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
             </div>
             {showColor && (
@@ -540,7 +580,7 @@ export function OptionList({
               </div>
             )}
             {showModels && <ModelTypesCheckboxGroup />}
-            {groupOptions && <GroupSelect label={groupLabel} groupOptions={groupOptions} />}
+            {groupOptions && !fixedGroup && <GroupSelect label={groupLabel} groupOptions={groupOptions} />}
           </div>
           {addError && <p className={`${errorClass} mt-3`}>{addError}</p>}
           <div className="mt-4 flex gap-2">
@@ -578,18 +618,20 @@ export function OptionList({
                 <SortableOptionRow
                   key={option.id}
                   option={option}
+                  uses={uses[option.label] ?? 0}
                   reordering={reordering}
-                  editingId={editingId}
+                  editing={editingId === option.id}
+                  setEditingId={setEditingId}
+                  others={localOptions.filter((o) => o.id !== option.id)}
+                  category={category}
+                  resource={resource}
                   showColor={showColor}
                   showModels={showModels}
                   groupOptions={groupOptions}
                   groupLabel={groupLabel}
+                  mergeable={mergeable}
                   fallbackGroup={fallbackGroup}
-                  setEditingId={setEditingId}
-                  updateOption={updateOption}
-                  deleteOption={deleteOption}
-                  mergeOption={mergeOption}
-                  others={localOptions.filter((o) => o.id !== option.id)}
+                  fixedGroup={fixedGroup}
                 />
               ))}
             </div>

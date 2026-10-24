@@ -1,34 +1,22 @@
 import type { Metadata } from "next";
-import {
-  getLocationTypes,
-  createLocationType,
-  updateLocationType,
-  deleteLocationType,
-  reorderLocationTypes,
-} from "../actions";
-import { OptionList } from "@/app/settings/OptionList";
+import { PermissionResource } from "@prisma/client";
+import { permissionLevels } from "@/lib/permissions";
+import { PermissionsProvider } from "@/components/PermissionsProvider";
+import { OptionCategoryEditor } from "@/app/settings/OptionCategoryEditor";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Types" };
 
 export default async function LocationTypesPage() {
-  const types = await getLocationTypes();
+  // VIEW-only users get the list without Add / Edit / Delete controls.
+  const permissions = await permissionLevels([PermissionResource.STORAGE_LOCATIONS]);
 
   return (
     <div className="max-w-2xl">
-      <OptionList
-        title="Location Types"
-        description="What a location is (e.g., Shelf, Pallet, Tote, Trailer)."
-        category="location_type"
-        options={types}
-        showColor={true}
-        showModels={false}
-        createOption={createLocationType}
-        updateOption={updateLocationType}
-        deleteOption={deleteLocationType}
-        reorderOptions={reorderLocationTypes}
-      />
+      <PermissionsProvider permissions={permissions}>
+        <OptionCategoryEditor category="location_type" />
+      </PermissionsProvider>
     </div>
   );
 }

@@ -13,7 +13,7 @@ const inputClass =
 const cardClass = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6";
 
 // The rfp_concession options under their headings; one list for both the row
-// selects and "+ Concession". Labels come only from the list (Settings › Hotels).
+// selects and "+ Concession". Labels come only from the list (Settings › Hotels & RFPs).
 export function ConcessionOptions({
   options,
   available,

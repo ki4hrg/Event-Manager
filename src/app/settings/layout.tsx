@@ -3,9 +3,15 @@ import { PermissionResource } from "@prisma/client";
 import { permissionLevels, requirePermission } from "@/lib/permissions";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PermissionsProvider } from "@/components/PermissionsProvider";
+import { OPTION_SECTIONS, SETTINGS_SECTIONS } from "@/lib/optionCategories";
 import { SettingsTabs } from "./SettingsTabs";
 
 export const dynamic = "force-dynamic";
+
+const TABS = [
+  ...SETTINGS_SECTIONS.map((s) => ({ label: OPTION_SECTIONS[s].title, href: OPTION_SECTIONS[s].href })),
+  { label: "Organization", href: "/settings/organization" },
+];
 
 export const metadata: Metadata = {
   title: { default: "Settings", template: "%s · Settings · Event Manager" },
@@ -24,7 +30,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
           Organization details and the dropdown options used across the app.
         </p>
       </div>
-      <SettingsTabs />
+      <SettingsTabs tabs={TABS} />
       <PermissionsProvider permissions={permissions}>{children}</PermissionsProvider>
     </PageWrapper>
   );

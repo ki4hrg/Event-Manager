@@ -33,11 +33,12 @@ export const DEFAULT_OPTIONS = {
     { label: "Other", sortOrder: 4 },
   ],
   // group marks the ESG "Set Up By" (SETUP) and "Dismantle No Later Than"
-  // (TEARDOWN) schedules, so renaming a label doesn't break the derivation.
+  // (TEARDOWN) schedules, and MAIN the schedule a function is dated by and new
+  // schedules default to, so renaming a label doesn't break the derivation.
   schedule_type: [
     { label: "Setup", color: "yellow", group: "SETUP", sortOrder: 0 },
     { label: "Rehearsal", color: "blue", sortOrder: 1 },
-    { label: "Main Event", color: "green", sortOrder: 2 },
+    { label: "Main Event", color: "green", group: "MAIN", sortOrder: 2 },
     { label: "Breakdown", color: "orange", group: "TEARDOWN", sortOrder: 3 },
   ],
   presenter_role: [

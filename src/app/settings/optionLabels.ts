@@ -9,3 +9,9 @@ export function duplicateLabelError(label: string, options: { id: string; label:
   const same = options.find((o) => o.id !== exceptId && labelKey(o.label) === labelKey(label));
   return same ? `"${same.label}" is already in this list${mergeable ? "; merge into it instead" : ""}` : null;
 }
+
+// Refusal for deleting an option records still hold (shown before the
+// request, since a production Server Action's message is redacted).
+export function inUseError(label: string, uses: number): string {
+  return `"${label}" is used by ${uses} ${uses === 1 ? "record" : "records"}`;
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
@@ -211,9 +212,9 @@ export function SetupOrderForm({
             {setupTypes.length === 0 ? (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 No setup types defined.{" "}
-                <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
+                <Link href="/settings/event-planning#setup_type" className="text-blue-600 dark:text-blue-400 hover:underline">
                   Add setup types in Settings
-                </a>
+                </Link>
               </p>
             ) : (
               <select

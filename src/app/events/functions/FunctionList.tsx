@@ -25,6 +25,8 @@ type FunctionListProps = {
   timezone: string;
   functionTypes: CustomOption[];
   substatuses: CustomOption[];
+  // Schedule types grouped MAIN in Settings; they date each function.
+  mainScheduleTypes: string[];
   workflowSummaries?: Record<string, WorkflowBadgeSummary>;
   initialStatus?: string;
   initialSchedule?: string;
@@ -36,7 +38,7 @@ type FunctionListProps = {
   bulkUpdateFunctions: (ids: string[], updates: { status?: import("@prisma/client").EntityStatus; substatus?: string | null; type?: string }) => Promise<void>;
 };
 
-function groupByDate(functions: FunctionForTable[], timezone: string): {
+function groupByDate(functions: FunctionForTable[], timezone: string, mainTypes: readonly string[]): {
   dated: Map<string, FunctionForTable[]>;
   unscheduled: FunctionForTable[];
 } {
@@ -44,7 +46,7 @@ function groupByDate(functions: FunctionForTable[], timezone: string): {
   const unscheduled: FunctionForTable[] = [];
 
   functions.forEach((fn) => {
-    const anchor = getMainStart(fn);
+    const anchor = getMainStart(fn, mainTypes);
     if (!anchor) {
       unscheduled.push(fn);
     } else {
@@ -56,8 +58,8 @@ function groupByDate(functions: FunctionForTable[], timezone: string): {
 
   dated.forEach((fns) => {
     fns.sort((a, b) => {
-      const aTime = getMainStart(a)?.getTime() || 0;
-      const bTime = getMainStart(b)?.getTime() || 0;
+      const aTime = getMainStart(a, mainTypes)?.getTime() || 0;
+      const bTime = getMainStart(b, mainTypes)?.getTime() || 0;
       return aTime - bTime;
     });
   });
@@ -71,6 +73,7 @@ export function FunctionList({
   timezone,
   functionTypes,
   substatuses,
+  mainScheduleTypes,
   workflowSummaries = {},
   initialStatus,
   initialSchedule,
@@ -155,8 +158,8 @@ export function FunctionList({
   }, [functions, filterStatus, filterSchedule, filterRoom]);
 
   const { dated, unscheduled } = useMemo(
-    () => groupByDate(filteredFunctions, timezone),
-    [filteredFunctions, timezone]
+    () => groupByDate(filteredFunctions, timezone, mainScheduleTypes),
+    [filteredFunctions, timezone, mainScheduleTypes]
   );
   const sortedDates = useMemo(() => Array.from(dated.keys()).sort(), [dated]);
 

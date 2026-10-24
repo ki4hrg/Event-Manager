@@ -1,34 +1,22 @@
 import type { Metadata } from "next";
-import {
-  getEquipmentCategories,
-  createEquipmentCategory,
-  updateEquipmentCategory,
-  deleteEquipmentCategory,
-  reorderEquipmentCategories,
-} from "../actions";
-import { OptionList } from "@/app/settings/OptionList";
+import { PermissionResource } from "@prisma/client";
+import { permissionLevels } from "@/lib/permissions";
+import { PermissionsProvider } from "@/components/PermissionsProvider";
+import { OptionCategoryEditor } from "@/app/settings/OptionCategoryEditor";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Categories" };
 
 export default async function EquipmentCategoriesPage() {
-  const categories = await getEquipmentCategories();
+  // VIEW-only users get the list without Add / Edit / Delete controls.
+  const permissions = await permissionLevels([PermissionResource.EQUIPMENT]);
 
   return (
     <div className="max-w-2xl">
-      <OptionList
-        title="Equipment Categories"
-        description="Categories for organizing equipment (e.g., AV, Tables, Chairs)."
-        category="equipment_category"
-        options={categories}
-        showColor={false}
-        showModels={true}
-        createOption={createEquipmentCategory}
-        updateOption={updateEquipmentCategory}
-        deleteOption={deleteEquipmentCategory}
-        reorderOptions={reorderEquipmentCategories}
-      />
+      <PermissionsProvider permissions={permissions}>
+        <OptionCategoryEditor category="equipment_category" />
+      </PermissionsProvider>
     </div>
   );
 }
