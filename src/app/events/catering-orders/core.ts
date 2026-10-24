@@ -7,6 +7,7 @@ import { requirePermissionForUser, PermissionError, requireEventTenantId } from 
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { assertEventRefs, partyRefs } from "@/lib/eventRefs";
 import { parseDateTimeInTimezone } from "@/lib/timezones";
+import { rangeTouched } from "@/lib/dateRange";
 import { resolveCreateStatus } from "@/lib/statusDefaults";
 import { autoAssignDefaultWorkflowsCore } from "@/app/events/workflows/core";
 
@@ -264,11 +265,15 @@ export type TimelineItemWriteArgs = {
   notes: string | null;
 };
 
-// A timeline item may be a moment (no end); an end, when set, can't precede the start.
-function timelineTimes(args: TimelineItemWriteArgs, timezone: string) {
+// A timeline item may be a moment (no end); an end, when set, can't precede the
+// start. `stored` is the item being updated (null on create): times it already
+// holds aren't rechecked, so an item stored reversed still saves its other edits.
+function timelineTimes(args: TimelineItemWriteArgs, timezone: string, stored: { startTime: Date; endTime: Date | null } | null) {
   const startTime = parseDateTimeInTimezone(args.startTime, timezone);
   const endTime = args.endTime ? parseDateTimeInTimezone(args.endTime, timezone) : null;
-  if (endTime && endTime < startTime) throw new Error("End time can't be before the start time");
+  if (endTime && endTime < startTime && rangeTouched(stored && { start: stored.startTime, end: stored.endTime }, startTime, endTime)) {
+    throw new Error("End time can't be before the start time");
+  }
   return { startTime, endTime };
 }
 
@@ -289,7 +294,7 @@ export async function createTimelineItemCore(
     data: {
       cateringOrderId,
       label: args.label,
-      ...timelineTimes(args, timezone),
+      ...timelineTimes(args, timezone, null),
       notes: args.notes,
       sortOrder: (_max.sortOrder ?? -1) + 1,
     },
@@ -306,12 +311,16 @@ export async function updateTimelineItemCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "CATERING_ORDERS", "WRITE", eventId);
-  const timezone = await eventTimezone(eventId);
+  const [timezone, stored] = await Promise.all([
+    eventTimezone(eventId),
+    prisma.timelineItem.findFirst({ where: { id, cateringOrder: { eventId } }, select: { startTime: true, endTime: true } }),
+  ]);
+  if (!stored) throw new PermissionError("NOT_FOUND");
   const row = await prisma.timelineItem.update({
     where: { id, cateringOrder: { eventId } },
     data: {
       label: args.label,
-      ...timelineTimes(args, timezone),
+      ...timelineTimes(args, timezone, stored),
       notes: args.notes,
     },
   });

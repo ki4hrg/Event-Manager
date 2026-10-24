@@ -99,7 +99,8 @@ export const DEFAULT_OPTIONS = {
     { label: "Menu", sortOrder: 5 },
     { label: "Spec Sheet", sortOrder: 6 },
     { label: "Other", sortOrder: 7 },
-    { label: "RFP", sortOrder: 8 },
+    // group: the type issued RFPs are filed under (src/lib/fileTypes.ts).
+    { label: "RFP", group: "RFP", sortOrder: 8 },
   ],
   print_distribution: [
     { label: "Staged in Room", sortOrder: 0 },

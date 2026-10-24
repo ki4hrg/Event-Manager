@@ -98,16 +98,15 @@ export async function submitFormCore(link: ActiveFormLink, draftKey: string | un
   const draft = await findDraft(link.id, draftKey);
   if (!draft) await assertLinkHasCapacity(link.id);
 
-  const fresh = await resolveCreateStatus(link.eventId, "FORM_SUBMISSION");
+  // The link template's pending status is applied by
+  // autoAssignDefaultWorkflowsCore below, over this create-time default.
+  const status = await resolveCreateStatus(link.eventId, "FORM_SUBMISSION");
   const template = link.workflowTemplateId
     ? await prisma.workflowTemplate.findFirst({
         where: { id: link.workflowTemplateId, tenantId: link.tenantId },
-        select: { id: true, pendingStatusValue: true, pendingSubstatusValue: true },
+        select: { id: true },
       })
     : null;
-  const status = template?.pendingStatusValue
-    ? { status: template.pendingStatusValue, substatus: template.pendingSubstatusValue ?? null }
-    : fresh;
 
   const data = {
     ...submitter,
@@ -138,7 +137,8 @@ export async function submitFormCore(link: ActiveFormLink, draftKey: string | un
     });
   });
 
-  // Outside the transaction: the workflow helper uses the global client.
+  // Outside the transaction: the workflow helper uses the global client. The
+  // link's template goes on first so its pending status leads.
   if (template) {
     await prisma.workflowInstance.createMany({
       data: [{ templateId: template.id, entityType: "form_submission", entityId: submission.id }],

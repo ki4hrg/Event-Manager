@@ -100,7 +100,7 @@ from / subject / received / text body / Authentication-Results / sender match,
 `handledAt` (release, dismiss, move; drives the purge).
 
 Files are `FileUpload`s with `inboundEmailId`, stored under
-`inbound-emails/<id>/`: the raw message (`fileType` `EMAIL_SOURCE`) and every
+`inbound-emails/<id>/`: the raw message (`isEmailSource`) and every
 attachment, including those inside a forwarded message (signature images
 excluded). They can't be uploaded through `/api/upload`. *File on event*
 copies an attachment to the event's Files with the same `storedName`, which

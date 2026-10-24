@@ -5,6 +5,7 @@ import { Toast } from "@/components/Toast";
 import { btnPrimary } from "@/lib/buttonStyles";
 import { getRoles, duplicateRole } from "./actions";
 import { DuplicateRoleButton } from "./DuplicateRoleButton";
+import { unsetResources } from "./resources";
 import { isSuperAdmin } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export const metadata: Metadata = { title: "Roles" };
 
 export default async function SettingsRolesPage() {
   const [roles, superAdmin] = await Promise.all([getRoles(), isSuperAdmin()]);
+  const rows = roles.map((role) => ({ role, unset: role.isSystem ? [] : unsetResources(role.permissions) }));
 
   return (
     <div>
@@ -52,10 +54,10 @@ export default async function SettingsRolesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {roles.map((role) => (
+            {rows.map(({ role, unset }) => (
               <tr key={role.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/users/roles/${role.id}`}
                       className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
@@ -65,6 +67,11 @@ export default async function SettingsRolesPage() {
                     {role.isSystem && (
                       <span className="px-2 py-0.5 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                         System
+                      </span>
+                    )}
+                    {unset.length > 0 && (
+                      <span className="px-2 py-0.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+                        Not set: {unset.map((r) => r.label).join(", ")}
                       </span>
                     )}
                   </div>

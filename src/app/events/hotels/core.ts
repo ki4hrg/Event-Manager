@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { addDays, AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
+import { rangeTouched } from "@/lib/dateRange";
 import { offerOutcomes, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
 import { spaceSummary } from "@/lib/rfp/proposalSpace";
 import { createAndAddVenueContactCore, createVenueCore } from "@/app/venues/core";
@@ -156,7 +157,11 @@ async function assertProposalRefs(eventId: string, args: ProposalWriteArgs) {
   if (args.leadSourceDirect && args.leadSourceVendorId) throw new Error("A lead is direct or through a lead source, not both");
 }
 
-function validate(args: ProposalWriteArgs) {
+type StoredRanges = { submittedOn: Date | null; validUntil: Date | null; checkIn: Date | null; checkOut: Date | null };
+
+// `stored` is the proposal being updated (null on create): a range it already
+// holds isn't rechecked.
+function validate(args: ProposalWriteArgs, stored: StoredRanges | null) {
   if (!args.venueId) throw new Error("Hotel is required");
   if (!args.status) throw new Error("Status is required");
   if (!Number.isInteger(args.revision) || args.revision < 1) throw new Error("Revision must be a whole number of 1 or more");
@@ -165,8 +170,14 @@ function validate(args: ProposalWriteArgs) {
   }
   if (args.guaranteedRevenue != null && args.guaranteedRevenue < 0) throw new Error("Guaranteed revenue cannot be negative");
   if (args.validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(args.validUntil)) throw new Error(`Invalid date: ${args.validUntil}`);
-  if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn) throw new Error("Check-out must be after check-in");
-  if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn) throw new Error("Valid until can't be before the submitted date");
+  const stay = stored && { start: stored.checkIn, end: stored.checkOut };
+  if (args.checkIn && args.checkOut && args.checkOut <= args.checkIn && rangeTouched(stay, args.checkIn, args.checkOut)) {
+    throw new Error("Check-out must be after check-in");
+  }
+  const validity = stored && { start: stored.submittedOn, end: stored.validUntil };
+  if (args.submittedOn && args.validUntil && args.validUntil < args.submittedOn && rangeTouched(validity, args.submittedOn, args.validUntil)) {
+    throw new Error("Valid until can't be before the submitted date");
+  }
   if (args.fbMinimum != null && args.fbMinimum < 0) throw new Error("F&B minimum cannot be negative");
   for (const [v, label] of [[args.fbTaxRate, "F&B tax"], [args.fbServiceCharge, "Service charge"]] as const) {
     if (v != null && (v < 0 || v > 100)) throw new Error(`${label} must be between 0 and 100`);
@@ -553,7 +564,7 @@ async function addRecipient(tx: Prisma.TransactionClient, rfpId: string, venueId
 
 export async function createHotelProposalCore(eventId: string, args: ProposalWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
-  validate(args);
+  validate(args, null);
   await assertProposalRefs(eventId, args);
   const rfpBlock = await findRfpBlock(eventId, args.rfpBlockId);
   const { amenities, offeredConcessions } = await listLabels(eventId, args);
@@ -582,10 +593,13 @@ export async function createHotelProposalCore(eventId: string, args: ProposalWri
 
 export async function updateHotelProposalCore(id: string, eventId: string, args: ProposalWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
-  validate(args);
-  await assertProposalRefs(eventId, args);
-  const existing = await prisma.hotelProposal.findFirst({ where: { id, eventId }, select: { revision: true, rfpId: true } });
+  const existing = await prisma.hotelProposal.findFirst({
+    where: { id, eventId },
+    select: { revision: true, rfpId: true, submittedOn: true, validUntil: true, checkIn: true, checkOut: true },
+  });
   if (!existing) throw new PermissionError("NOT_FOUND");
+  validate(args, existing);
+  await assertProposalRefs(eventId, args);
   if (args.revision < existing.revision) throw new Error(`Revision cannot go back below ${existing.revision}`);
   // Linking to an RFP block (or another one, or none) after the fact.
   const relink = args.rfpBlockId !== undefined;

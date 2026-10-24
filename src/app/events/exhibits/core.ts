@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { resolveEquipmentName } from "@/lib/equipment-utils";
 import { BOOTH_SHARED_KEYS } from "@/lib/boothGroups";
+import { rangeTouched } from "@/lib/dateRange";
 
 // Settings a booth group shares with its booths (BOOTH_SHARED_KEYS).
 export type BoothSharedArgs = {
@@ -58,7 +59,6 @@ const GROUP_KEYS = ["name", ...BOOTH_SHARED_KEYS] as const satisfies readonly (k
 // A foreign function, group or contact id reads as not-found, never a
 // cross-event link.
 async function assertBoothRefs(eventId: string, args: Partial<BoothWriteArgs>) {
-  if (args.startAt && args.endAt && args.endAt < args.startAt) throw new Error("Booth end can't be before its start");
   if (args.groupId) await assertGroupInEvent(args.groupId, eventId);
   if (args.functionId) {
     const fn = await prisma.function.findFirst({ where: { id: args.functionId, eventId }, select: { id: true } });
@@ -69,6 +69,64 @@ async function assertBoothRefs(eventId: string, args: Partial<BoothWriteArgs>) {
     const c = await prisma.contact.findFirst({ where: { id: args.contactId, tenantId }, select: { id: true } });
     if (!c) throw new PermissionError("NOT_FOUND", "Contact not found");
   }
+}
+
+// Booth start/end. A booth's own time wins, else its group's (as in
+// withGroupDefaults), so the end-before-start check runs on what the booth
+// actually shows. A partial update keeps the stored value for an omitted key.
+// Only a save that changes the shown range is checked: a booth stored
+// reversed before the check existed still saves its other edits.
+type BoothTimes = { startAt: Date | null; endAt: Date | null };
+const timesSelect = { startAt: true, endAt: true } as const;
+
+const effectiveTimes = (own: BoothTimes, group: BoothTimes | null): BoothTimes => ({
+  startAt: own.startAt ?? group?.startAt ?? null,
+  endAt: own.endAt ?? group?.endAt ?? null,
+});
+
+const mergedTimes = (args: Partial<BoothTimes>, stored: BoothTimes | null): BoothTimes => ({
+  startAt: args.startAt !== undefined ? args.startAt : (stored?.startAt ?? null),
+  endAt: args.endAt !== undefined ? args.endAt : (stored?.endAt ?? null),
+});
+
+function assertTimes(next: BoothTimes, before: BoothTimes | null, label: string) {
+  if (!next.startAt || !next.endAt || next.endAt >= next.startAt) return;
+  if (!rangeTouched(before && { start: before.startAt, end: before.endAt }, next.startAt, next.endAt)) return;
+  throw new Error(`${label} end can't be before its start`);
+}
+
+const touchesTimes = (args: Partial<BoothWriteArgs>) => args.startAt !== undefined || args.endAt !== undefined || args.groupId !== undefined;
+
+// boothId null on create.
+async function assertBoothTimes(eventId: string, args: Partial<BoothWriteArgs>, boothId: string | null) {
+  if (!touchesTimes(args)) return;
+  const stored = boothId
+    ? await prisma.exhibitBooth.findFirst({ where: { id: boothId, eventId }, select: { ...timesSelect, groupId: true, group: { select: timesSelect } } })
+    : null;
+  if (boothId && !stored) throw new PermissionError("NOT_FOUND");
+  const groupId = args.groupId !== undefined ? args.groupId : (stored?.groupId ?? null);
+  const group = !groupId
+    ? null
+    : groupId === stored?.groupId
+      ? stored.group
+      : await prisma.exhibitBoothGroup.findFirst({ where: { id: groupId, eventId }, select: timesSelect });
+  const before = stored && effectiveTimes(stored, stored.group);
+  assertTimes(effectiveTimes(mergedTimes(args, stored), group), before, "Booth");
+}
+
+// groupId null on create. A changed group time is checked on the group and on
+// every booth that inherits it.
+async function assertGroupTimes(eventId: string, args: Partial<BoothGroupWriteArgs>, groupId: string | null) {
+  if (args.startAt === undefined && args.endAt === undefined) return;
+  if (!groupId) return assertTimes(mergedTimes(args, null), null, "Group");
+  const stored = await prisma.exhibitBoothGroup.findFirst({
+    where: { id: groupId, eventId },
+    select: { ...timesSelect, booths: { select: { name: true, ...timesSelect } } },
+  });
+  if (!stored) throw new PermissionError("NOT_FOUND", "Booth group not found");
+  const next = mergedTimes(args, stored);
+  assertTimes(next, stored, "Group");
+  for (const b of stored.booths) assertTimes(effectiveTimes(b, next), effectiveTimes(b, stored), `${b.name}:`);
 }
 
 function pick<A extends object>(args: Partial<A>, keys: readonly (keyof A)[]): Record<string, unknown> {
@@ -95,6 +153,7 @@ export async function createExhibitBoothCore(eventId: string, args: BoothWriteAr
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   if (!args.name?.trim()) throw new Error("Booth name is required");
   await assertBoothRefs(eventId, args);
+  await assertBoothTimes(eventId, args, null);
   const max = await prisma.exhibitBooth.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   return prisma.exhibitBooth.create({
     data: { ...boothData(args), name: args.name, eventId, sortOrder: (max._max.sortOrder ?? -1) + 1, updatedById: userId },
@@ -106,6 +165,7 @@ export async function updateExhibitBoothCore(id: string, eventId: string, args: 
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   if (args.name !== undefined && !args.name.trim()) throw new Error("Booth name is required");
   await assertBoothRefs(eventId, args);
+  await assertBoothTimes(eventId, args, id);
   return prisma.exhibitBooth.update({ where: { id, eventId }, data: { ...boothData(args), updatedById: userId } });
 }
 
@@ -121,6 +181,7 @@ export async function createBoothGroupCore(eventId: string, args: BoothGroupWrit
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   if (!args.name?.trim()) throw new Error("Group name is required");
   await assertBoothRefs(eventId, args);
+  await assertGroupTimes(eventId, args, null);
   const max = await prisma.exhibitBoothGroup.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   return prisma.exhibitBoothGroup.create({
     data: { ...pick(args, GROUP_KEYS), name: args.name, eventId, sortOrder: (max._max.sortOrder ?? -1) + 1, updatedById: userId },
@@ -132,6 +193,7 @@ export async function updateBoothGroupCore(id: string, eventId: string, args: Pa
   await requirePermissionForUser(userId, "FUNCTIONS", "WRITE", eventId);
   if (args.name !== undefined && !args.name.trim()) throw new Error("Group name is required");
   await assertBoothRefs(eventId, args);
+  await assertGroupTimes(eventId, args, id);
   return prisma.exhibitBoothGroup.update({ where: { id, eventId }, data: { ...pick(args, GROUP_KEYS), updatedById: userId } });
 }
 

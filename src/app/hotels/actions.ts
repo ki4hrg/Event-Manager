@@ -1,23 +1,15 @@
 "use server";
 
-import { PermissionResource, type HotelContractType, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { loadPermissionsForUser, requirePermission } from "@/lib/permissions";
+import { requirePermission } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
+import { blockPickupSelect, hotelEventWhere, pickupPatternCore, type BlockForTotals, type PatternFilters } from "./core";
 
-// Events whose hotels this user may see across the tenant: every event with
-// HOTELS on unassigned events, otherwise only events they staff (mirrors
-// eventScopeWhere for EVENTS).
+// Events whose hotels this user may see across the tenant (hotelEventWhere).
 async function hotelSession() {
   const session = await requirePermission("HOTELS", "VIEW");
-  const { permissions } = await loadPermissionsForUser(session.user.id, session.tenantId);
-  const unassigned = permissions.find((p) => p.resource === PermissionResource.HOTELS && p.scope === "UNASSIGNED");
-  const eventWhere: Prisma.EventWhereInput =
-    unassigned && unassigned.level !== "NONE"
-      ? { tenantId: session.tenantId }
-      : { tenantId: session.tenantId, staff: { some: { userId: session.user.id } } };
-  return { tenantId: session.tenantId, eventWhere };
+  return { tenantId: session.tenantId, eventWhere: await hotelEventWhere(session.user.id, session.tenantId) };
 }
 
 // The active tenant's lodging venues with their proposal history; with
@@ -61,19 +53,6 @@ export async function getVenueHotelHistory(venueId: string) {
     orderBy: { event: { startDate: "desc" } },
   });
 }
-
-const blockPickupSelect = {
-  id: true,
-  isHq: true,
-  cutoffDate: true,
-  allowedAttrition: true,
-  nights: { select: { night: true, roomType: true, rooms: true, contractedRooms: true, otherReservations: true } },
-  pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true } },
-  pickupCounts: { select: { night: true, roomType: true, rooms: true } },
-  proposal: { select: { contractType: true, guestType: true, venue: { select: { id: true, name: true } } } },
-} satisfies Prisma.HotelBlockSelect;
-
-type BlockForTotals = Prisma.HotelBlockGetPayload<{ select: typeof blockPickupSelect }>;
 
 function blockRow(b: BlockForTotals) {
   const rows = blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
@@ -159,78 +138,10 @@ export async function getBlockMonitoring() {
     .sort((a, b) => (a.cutoffDate ?? "9999").localeCompare(b.cutoffDate ?? "9999") || a.event.startDate.localeCompare(b.event.startDate));
 }
 
-export type PatternFilters = { seriesId?: string; city?: string; contractTypes: HotelContractType[]; guestTypes: string[]; from?: string; to?: string };
-
-// A block has pickup on file when the hotel's report or a count was loaded.
-// One with nothing loaded is unknown, not zero, so it stays out of the pattern.
-function hasPickup(b: BlockForTotals) {
-  return b.pickupGuests.length > 0 || b.pickupCounts.length > 0 || b.nights.some((n) => n.otherReservations > 0);
-}
-
-// Rooms picked up and blocked per night across ended events, with each event's dates so
-// the report can line nights up by role (src/lib/hotelPattern.ts).
+// Rooms picked up and blocked per night across ended events (pickupPatternCore).
 export async function getPickupPattern(filters: PatternFilters) {
-  const { eventWhere } = await hotelSession();
-  const proposalWhere: Prisma.HotelProposalWhereInput = {
-    block: { isNot: null },
-    ...(filters.contractTypes.length ? { contractType: { in: filters.contractTypes } } : {}),
-    ...(filters.guestTypes.length ? { guestType: { in: filters.guestTypes } } : {}),
-    ...(filters.city ? { venue: { city: filters.city } } : {}),
-  };
-  const events = await prisma.event.findMany({
-    where: {
-      AND: [
-        eventWhere,
-        { endDate: { lt: new Date() } },
-        { hotelProposals: { some: proposalWhere } },
-        filters.seriesId === "__blank__" ? { seriesId: null } : filters.seriesId ? { seriesId: filters.seriesId } : {},
-        filters.from ? { startDate: { gte: new Date(`${filters.from}T00:00:00Z`) } } : {},
-        filters.to ? { startDate: { lte: new Date(`${filters.to}T23:59:59Z`) } } : {},
-      ],
-    },
-    select: {
-      id: true,
-      name: true,
-      startDate: true,
-      endDate: true,
-      actualAttendance: true,
-      series: { select: { id: true, name: true } },
-      venues: { orderBy: { sortOrder: "asc" }, take: 1, select: { venue: { select: { city: true, state: true } } } },
-      hotelProposals: { where: proposalWhere, select: { block: { select: blockPickupSelect } } },
-    },
-    orderBy: { startDate: "desc" },
-  });
-  const withPickup = [];
-  const noPickup = [];
-  for (const e of events) {
-    const startDate = dateKey(e.startDate);
-    const blocks = e.hotelProposals.flatMap((p) => (p.block && hasPickup(p.block) ? [p.block] : []));
-    if (blocks.length === 0) {
-      noPickup.push({ id: e.id, name: e.name, startDate });
-      continue;
-    }
-    const pickedUp: Record<string, number> = {};
-    const blocked: Record<string, number> = {};
-    for (const b of blocks) {
-      for (const r of blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts })) {
-        pickedUp[r.night] = (pickedUp[r.night] ?? 0) + r.pickedUp;
-        blocked[r.night] = (blocked[r.night] ?? 0) + r.blocked;
-      }
-    }
-    withPickup.push({
-      id: e.id,
-      name: e.name,
-      startDate,
-      endDate: dateKey(e.endDate),
-      series: e.series,
-      city: [e.venues[0]?.venue.city, e.venues[0]?.venue.state].filter(Boolean).join(", ") || null,
-      actualAttendance: e.actualAttendance,
-      hotels: blocks.map((b) => b.proposal.venue.name),
-      pickedUp,
-      blocked,
-    });
-  }
-  return { events: withPickup, noPickup };
+  const session = await requirePermission("HOTELS", "VIEW");
+  return pickupPatternCore(filters, session.user.id, session.tenantId);
 }
 
 // The tenant's guest types, for the pattern filter.

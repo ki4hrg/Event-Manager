@@ -34,21 +34,49 @@ export const PICKUP_FIELD_KEYS = PICKUP_FIELDS.map((f) => f.key) as PickupFieldK
 export type PickupColumns = Record<PickupFieldKey, string>;
 export type SheetRow = Record<string, string>;
 
+// Which part of a slashed date (05/06/2026) is the month: MM/DD or DD/MM.
+export type DateOrder = "MDY" | "DMY";
+export const DATE_ORDERS: { value: DateOrder; label: string }[] = [
+  { value: "MDY", label: "MM/DD" },
+  { value: "DMY", label: "DD/MM" },
+];
+
+const SLASHED = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b/;
+const DATE_FIELDS = ["checkIn", "checkOut", "bookedOn", "cancelledOn"] as const satisfies readonly PickupFieldKey[];
+
 // MM/DD/YYYY, M/D/YY or YYYY-MM-DD (optionally with a time) → YYYY-MM-DD.
-// A first part over 12 can only be a day, so DD/MM/YYYY reads right then.
-export function parseCsvDate(raw: string | undefined): string | null {
+// `order` reads a slashed date as MM/DD or DD/MM; a date that doesn't fit it
+// is null. Without one, a first part over 12 can only be a day, so DD/MM/YYYY
+// reads right then and anything else reads as MM/DD.
+export function parseCsvDate(raw: string | undefined, order?: DateOrder): string | null {
   const v = (raw ?? "").trim();
   if (!v) return null;
   let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-  m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b/);
+  m = v.match(SLASHED);
   if (m) {
     const year = m[3].length === 2 ? `20${m[3]}` : m[3];
-    const [month, day] = parseInt(m[1]) > 12 ? [m[2], m[1]] : [m[1], m[2]];
-    if (parseInt(month) > 12) return null;
+    const dayFirst = order ? order === "DMY" : parseInt(m[1]) > 12;
+    const [month, day] = dayFirst ? [m[2], m[1]] : [m[1], m[2]];
+    if (parseInt(month) > 12 || parseInt(day) > 31) return null;
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
   return null;
+}
+
+function mappedDates(rows: SheetRow[], columns: PickupColumns): string[] {
+  return DATE_FIELDS.flatMap((k) => (columns[k] ? rows.map((r) => (r[columns[k]] ?? "").trim()) : []));
+}
+
+// DD/MM when any slashed value in a mapped date column starts above 12 (it
+// can only be a day), else MM/DD.
+export function guessDateOrder(rows: SheetRow[], columns: PickupColumns): DateOrder {
+  return mappedDates(rows, columns).some((v) => parseInt(v.match(SLASHED)?.[1] ?? "0") > 12) ? "DMY" : "MDY";
+}
+
+// Whether any mapped date column holds a slashed date, so the order matters.
+export function hasSlashedDates(rows: SheetRow[], columns: PickupColumns): boolean {
+  return mappedDates(rows, columns).some((v) => SLASHED.test(v));
 }
 
 export function guessColumns(headers: string[]): PickupColumns {
@@ -78,22 +106,24 @@ export function rowsToGuests(
   columns: PickupColumns,
   roomFor: (raw: string) => string | null,
   isCancelled: (raw: string) => boolean,
+  dateOrder?: DateOrder,
 ): PickupGuestRow[] {
+  const date = (v: string) => parseCsvDate(v, dateOrder);
   return rows.map((r) => {
     const get = (k: PickupFieldKey) => (columns[k] ? (r[columns[k]] ?? "").trim() : "");
     const name = get("fullName") || [get("firstName"), get("lastName")].filter(Boolean).join(" ");
     const status = get("status");
     const room = get("roomType");
-    const cancelledOn = parseCsvDate(get("cancelledOn"));
+    const cancelledOn = date(get("cancelledOn"));
     return {
       guestName: name || null,
       confirmationNumber: get("confirmation") || null,
-      checkIn: parseCsvDate(get("checkIn")),
-      checkOut: parseCsvDate(get("checkOut")),
+      checkIn: date(get("checkIn")),
+      checkOut: date(get("checkOut")),
       roomType: room ? roomFor(room) : null,
       cancelled: cancelledOn ? true : status ? isCancelled(status) : false,
       rawStatus: status || null,
-      bookedOn: parseCsvDate(get("bookedOn")),
+      bookedOn: date(get("bookedOn")),
       cancelledOn,
     };
   });
