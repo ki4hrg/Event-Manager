@@ -9,13 +9,15 @@ import { WORKFLOW_ENTITY_DELEGATES } from "./entity-delegates";
 export type { WorkflowEntityType } from "./entity-types";
 import type { WorkflowEntityType } from "./entity-types";
 
-// Best-effort: stamps default workflow instances onto a freshly created entity.
-// Permission and ownership are assumed to already be checked by the caller's
-// core (which just created the entity in the same flow, so re-checking would
-// be redundant).
+// Best-effort: stamps default workflow instances onto a freshly created entity,
+// then applies the status its workflows call for — including any assigned
+// before this call (a form link's template). Permission and ownership are
+// assumed to already be checked by the caller's core (which just created the
+// entity in the same flow, so re-checking would be redundant).
 //
 // `eventId` picks the tenant whose templates apply — every workflow-bearing
-// entity hangs off an event.
+// entity hangs off an event. Uses the global client: call it after the
+// creating transaction commits, never inside it.
 export async function autoAssignDefaultWorkflowsCore(
   entityType: WorkflowEntityType,
   entityId: string,
@@ -28,11 +30,13 @@ export async function autoAssignDefaultWorkflowsCore(
     },
     select: { id: true },
   });
-  if (templates.length === 0) return;
-  await prisma.workflowInstance.createMany({
-    data: templates.map((t) => ({ templateId: t.id, entityType, entityId })),
-    skipDuplicates: true,
-  });
+  if (templates.length > 0) {
+    await prisma.workflowInstance.createMany({
+      data: templates.map((t) => ({ templateId: t.id, entityType, entityId })),
+      skipDuplicates: true,
+    });
+  }
+  await applyAssignedWorkflowStatus(entityType, entityId, eventId);
 }
 
 // Whether every workflow on an entity is fully done (every step, and every
@@ -80,11 +84,16 @@ function isStepDone(
   return step.items.every((item) => completedItemIds.has(item.id));
 }
 
-// Re-derives an entity's status from its assigned workflows' progress.
-// Permission and ownership are the caller's job.
-export async function recomputeEntityStatusCore(entityType: WorkflowEntityType, entityId: string, eventId: string) {
+type ResolvedStatus = { status: EntityStatus | null; substatus: string | null };
+
+// The status an entity's assigned workflows call for, from their progress.
+// `status: null` means no workflow sets one.
+async function resolveWorkflowStatus(entityType: WorkflowEntityType, entityId: string): Promise<ResolvedStatus> {
   const instances = await prisma.workflowInstance.findMany({
     where: { entityType, entityId },
+    // Assignment order, so "first template with a pending status" is stable —
+    // a form link's own template is attached before the tenant defaults.
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     include: {
       template: {
         include: {
@@ -118,8 +127,7 @@ export async function recomputeEntityStatusCore(entityType: WorkflowEntityType, 
   if (!hasAnyCompletion) {
     for (const instance of instances) {
       if (instance.template.pendingStatusValue) {
-        await updateEntityStatusCore(entityType, entityId, eventId, instance.template.pendingStatusValue, instance.template.pendingSubstatusValue ?? null);
-        return;
+        return { status: instance.template.pendingStatusValue, substatus: instance.template.pendingSubstatusValue ?? null };
       }
     }
   }
@@ -148,8 +156,7 @@ export async function recomputeEntityStatusCore(entityType: WorkflowEntityType, 
   }
 
   if (highestPendingOrder !== null) {
-    await updateEntityStatusCore(entityType, entityId, eventId, pendingStatus, pendingSubstatus);
-    return;
+    return { status: pendingStatus, substatus: pendingSubstatus };
   }
 
   // Phase 2: all steps done (or no pendingStatusValue on uncompleted step).
@@ -169,6 +176,22 @@ export async function recomputeEntityStatusCore(entityType: WorkflowEntityType, 
     }
   }
 
-  await updateEntityStatusCore(entityType, entityId, eventId, completionStatus, completionSubstatus);
+  return { status: completionStatus, substatus: completionSubstatus };
+}
+
+// Re-derives an entity's status from its assigned workflows' progress, and
+// clears it when none sets one. Permission and ownership are the caller's job.
+export async function recomputeEntityStatusCore(entityType: WorkflowEntityType, entityId: string, eventId: string) {
+  const { status, substatus } = await resolveWorkflowStatus(entityType, entityId);
+  await updateEntityStatusCore(entityType, entityId, eventId, status, substatus);
+}
+
+// On create: the assigned workflows' status wins over the create-time status
+// (resolveCreateStatus / EventStatusDefault), which stays only when no
+// workflow sets one — so unlike recompute, never clears it.
+async function applyAssignedWorkflowStatus(entityType: WorkflowEntityType, entityId: string, eventId: string) {
+  const { status, substatus } = await resolveWorkflowStatus(entityType, entityId);
+  if (status === null) return;
+  await updateEntityStatusCore(entityType, entityId, eventId, status, substatus);
 }
 
