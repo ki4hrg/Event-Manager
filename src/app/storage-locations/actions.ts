@@ -268,7 +268,7 @@ export async function addInventoryToSupplyOrder(
 }
 
 // Location types are CustomOption rows with category="location_type", edited
-// through the shared option actions (src/app/settings/actions.ts), which gate
+// through the shared option actions (src/app/(admin)/settings/actions.ts), which gate
 // them on STORAGE_LOCATIONS per the registry. Read here for the pickers.
 export async function getLocationTypes() {
   await requireAuth();

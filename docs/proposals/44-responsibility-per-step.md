@@ -41,12 +41,12 @@ The title mixes two kinds of answer: *"sponsor"* and *"event team"* are **party 
 ### Party type — a `CustomOption`, not a Prisma enum
 
 Add the category `responsible_party_type` to `OptionCategory`
-(`src/app/settings/actions.ts:10`) and seed `Event Team`, `Sponsor`, `Vendor`, `Venue`, `Speaker`.
+(`src/app/(admin)/settings/actions.ts:10`) and seed `Event Team`, `Sponsor`, `Vendor`, `Venue`, `Speaker`.
 
 This follows the house pattern for open vocabularies: `function_type`, `setup_type`,
 `contact_role`, `service_style`, `media_type` and `print_distribution` are all `String` columns
 referencing a `CustomOption` label, admin-editable at `/settings`, with rename propagation already
-implemented (`propagateLabelRename` in `src/app/settings/actions.ts`). The issue's "etc." says this
+implemented (`propagateLabelRename` in `src/app/(admin)/settings/actions.ts`). The issue's "etc." says this
 list will grow; a Prisma enum makes each new value a migration plus every exhaustiveness switch.
 (The counter-argument is CLAUDE.md § Data layer's exhaustiveness rule — but that rule governs
 closed unions like `EntityStatus` and `PermissionResource`, not user-managed vocabularies. Flagged
@@ -109,7 +109,7 @@ to a third argument.
   name, or "Unassigned" in muted text). Clicking it opens an inline `<select>` gated by
   `useCanWrite(ENTITY_TYPE_RESOURCE[entityType])`, which the panel already computes. Mutation runs
   through `useTransition` + `router.refresh()`, matching the existing `toggleStep` handlers.
-- **`WorkflowEditor`** (`src/app/workflows/[id]/WorkflowEditor.tsx`, 648 lines) — each template
+- **`WorkflowEditor`** (`src/app/(admin)/workflows/[id]/WorkflowEditor.tsx`, 648 lines) — each template
   step and checklist item gains a default-party control.
 - **Checklist inheritance** — an item with no assignment displays its step's party, greyed, until
   someone overrides it. Cheap, and it keeps templates short.
@@ -124,14 +124,14 @@ to a third argument.
 |---|---|
 | `prisma/schema.prisma` | `WorkflowStepState`, `WorkflowChecklistState`; `default*` columns on `WorkflowStep` / `WorkflowChecklistItem`; `completedById` on both completion models; back-relations on `Vendor`, `Contact`, `User` |
 | `prisma/seed.mjs` | `responsible_party_type` options |
-| `src/app/settings/actions.ts` | `OptionCategory` union + `propagateLabelRename` switch arm |
+| `src/app/(admin)/settings/actions.ts` | `OptionCategory` union + `propagateLabelRename` switch arm |
 | `src/lib/partyLabel.ts` | accept a `User` as a third party kind |
 | `src/components/ResponsiblePartyField.tsx` | optional `contacts` / `users` optgroups |
 | `src/lib/responsibleParties.ts` | resolve a `WorkflowInstance` to a party scope |
 | `src/components/WorkflowPanel.tsx` | party chip + inline assign control |
 | `src/app/events/workflows/actions.ts` | `assignStepParty` / `assignChecklistParty` (+ existing `assertInstanceMatches` guards) |
 | `src/app/events/workflows/core.ts` | copy template defaults into state rows at instantiation |
-| `src/app/workflows/[id]/WorkflowEditor.tsx`, `src/app/workflows/actions.ts` | template default-party editing |
+| `src/app/(admin)/workflows/[id]/WorkflowEditor.tsx`, `src/app/(admin)/workflows/actions.ts` | template default-party editing |
 | `src/components/print/WorkflowSection.tsx` | render the party |
 
 Closest archetype: the **vendor/contact party pickers on order forms** (`ResponsiblePartyField` +

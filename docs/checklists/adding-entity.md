@@ -13,7 +13,7 @@ Mark a surface ✗ if it's relevant to the new entity but not yet wired. Some li
 - Tenant scoping — a new *top-level* entity needs `tenantId` + `tenant` relation + `@@index([tenantId])`, a back-relation on `Tenant`, and a backfill migration; event-scoped children inherit the tenant through the event. See `docs/multi-tenancy.md`
 
 ## Auth and permissions
-- `src/app/users/roles/resources.ts` — add a `PermissionResource` entry to `GLOBAL_ONLY_RESOURCES` or `EVENT_SCOPED_RESOURCES`; mirror it in `prisma/seed.mjs` (`NON_EVENT_RESOURCES` / `EVENT_RESOURCES`, plus `ADMIN_ONLY_RESOURCES` if the default User role shouldn't get it) — the seed runs outside the Next runtime and can't import the TS module
+- `src/app/(admin)/users/roles/resources.ts` — add a `PermissionResource` entry to `GLOBAL_ONLY_RESOURCES` or `EVENT_SCOPED_RESOURCES`; mirror it in `prisma/seed.mjs` (`NON_EVENT_RESOURCES` / `EVENT_RESOURCES`, plus `ADMIN_ONLY_RESOURCES` if the default User role shouldn't get it) — the seed runs outside the Next runtime and can't import the TS module
 - A new resource reaches the system roles on the next seed run, but user-created roles get no row (NONE) — note in the PR that admins must grant it by hand after deploy
 - Server Actions: every exported action starts with `await requirePermission(RESOURCE, ACTION, eventId?)`; global checks return `session.tenantId` for the `*Core` call, event-scoped checks derive the tenant from the event
 

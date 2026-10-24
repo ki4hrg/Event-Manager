@@ -2,7 +2,8 @@
 // what Settings needs to edit it and every column that stores its labels.
 // Option references are by label, not FK, so a rename rewrites each rename
 // target and a delete counts uses across them. A new category is one entry
-// here (tsc refuses an entry without rename targets), its seed in
+// here plus its place in an area of OPTION_SECTIONS (tsc refuses an entry
+// without rename targets or an area), its seed in
 // prisma/tenantDefaults.mjs, and its reads.
 //
 // Plain server module (it reaches Prisma through the targets). Client

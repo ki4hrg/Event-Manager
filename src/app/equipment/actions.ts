@@ -116,7 +116,7 @@ export async function deleteEquipment(id: string) {
 }
 
 // Equipment categories are CustomOption rows with category="equipment_category",
-// edited through the shared option actions (src/app/settings/actions.ts), which
+// edited through the shared option actions (src/app/(admin)/settings/actions.ts), which
 // gate them on EQUIPMENT per the registry. Read here for the item pickers.
 export async function getEquipmentCategories() {
   await requireAuth();
