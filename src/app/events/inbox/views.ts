@@ -17,9 +17,6 @@ export function arrivalLabel(origin: InboundOrigin, envelopeTo: string): string 
   }
 }
 
-// The raw .eml's FileUpload.fileType on an inbox item.
-export const EMAIL_SOURCE_FILE_TYPE = "EMAIL_SOURCE";
-
 // Inbox tabs, as the `?view=` param. Shared by the event and Unrouted pages.
 export const INBOX_VIEWS = ["inbox", "held", "done"] as const;
 export type InboxView = (typeof INBOX_VIEWS)[number];

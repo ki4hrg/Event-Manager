@@ -11,7 +11,7 @@ import { getInboundEmailDomain } from "@/lib/email";
 import { getUploadPath } from "@/lib/uploads";
 import { dateKey } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
-import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
+import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type DateOrder, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import {
   offerAmenities,
   offerAttachmentIndexes,
@@ -68,7 +68,7 @@ const listSelect = {
   kind: true,
   senderMatch: true,
   envelopeTo: true,
-  _count: { select: { files: { where: { fileType: null } } } },
+  _count: { select: { files: { where: { isEmailSource: false } } } },
 } as const;
 
 // ─── Event inbox ─────────────────────────────────────────────────────────────
@@ -492,6 +492,7 @@ export async function getInboxReview(id: string, eventId: string) {
     columns: PickupColumns;
     roomMap: Record<string, string>;
     statusMap: Record<string, boolean>;
+    dateOrder: DateOrder | null;
   } | null = null;
   // Only codes Claude placed; the rest start as the wizard guesses them.
   const roomMap = Object.fromEntries(
@@ -514,7 +515,7 @@ export async function getInboxReview(id: string, eventId: string) {
       const statusMap = Object.fromEntries(
         distinctValues(rows, columns.status).map((raw) => [raw, cancelled.has(raw) || DEFAULT_CANCELLED.test(raw)]),
       );
-      sheet = { fileName: file.fileName, headers, rows, columns, roomMap, statusMap };
+      sheet = { fileName: file.fileName, headers, rows, columns, roomMap, statusMap, dateOrder: proposal.sheet.dateOrder ?? null };
     }
   } else if (proposal.kind === "PICKUP_GUESTS" && proposal.guests) {
     // A list read from a PDF or the body goes through the same wizard, so its
@@ -548,7 +549,8 @@ export async function getInboxReview(id: string, eventId: string) {
     rows.forEach((r, i) => {
       if (r.Status) statusMap[r.Status] = (statusMap[r.Status] ?? false) || guests[i].cancelled;
     });
-    sheet = { fileName: pdf?.fileName ?? item.subject ?? "Email", headers, rows, columns, roomMap, statusMap };
+    // The reader wrote these dates as YYYY-MM-DD, so the order never applies.
+    sheet = { fileName: pdf?.fileName ?? item.subject ?? "Email", headers, rows, columns, roomMap, statusMap, dateOrder: null };
   }
 
   return {

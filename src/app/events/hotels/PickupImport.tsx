@@ -8,12 +8,16 @@ import type { HotelPickupMethod } from "@prisma/client";
 import { btnDanger, btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { formatNight, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import {
+  DATE_ORDERS,
   DEFAULT_CANCELLED,
   PICKUP_FIELDS,
   distinctValues,
   guessColumns,
+  guessDateOrder,
+  hasSlashedDates,
   hasUsableDates,
   rowsToGuests,
+  type DateOrder,
   type PickupColumns,
   type PickupGuestRow,
   type SheetRow,
@@ -43,6 +47,8 @@ export type GuestImportSource = {
   columns: PickupColumns;
   roomMap: Record<string, string>;
   statusMap: Record<string, boolean>;
+  // The order the inbox reader saw; null leaves it to the guess.
+  dateOrder: DateOrder | null;
 };
 
 export function GuestImport({
@@ -64,6 +70,8 @@ export function GuestImport({
   const [columns, setColumns] = useState<PickupColumns>(() => source?.columns ?? guessColumns([]));
   const [roomMap, setRoomMap] = useState<Record<string, string>>(source?.roomMap ?? {});
   const [statusMap, setStatusMap] = useState<Record<string, boolean>>(source?.statusMap ?? {});
+  // null follows the guess from the mapped date columns.
+  const [chosenDateOrder, setChosenDateOrder] = useState<DateOrder | null>(source?.dateOrder ?? null);
   const [method, setMethod] = useState<ImportMethod>(hasGuests ? "MERGE" : "APPEND");
   // Replacing an existing guest list asks once more on the button.
   const [confirmReplace, setConfirmReplace] = useState(false);
@@ -83,6 +91,7 @@ export function GuestImport({
         setColumns(guessColumns(hs));
         setRoomMap({});
         setStatusMap({});
+        setChosenDateOrder(null);
       },
       error: (err) => setError(err.message),
     });
@@ -97,7 +106,8 @@ export function GuestImport({
   };
   const isCancelled = (raw: string) => (raw in statusMap ? statusMap[raw] : DEFAULT_CANCELLED.test(raw));
 
-  const guests = rowsToGuests(rows, columns, mappedRoom, isCancelled);
+  const dateOrder = chosenDateOrder ?? guessDateOrder(rows, columns);
+  const guests = rowsToGuests(rows, columns, mappedRoom, isCancelled, dateOrder);
   const usable = guests.filter(hasUsableDates);
   const badDates = guests.length - usable.length;
 
@@ -144,6 +154,18 @@ export function GuestImport({
                   </select>
                 </label>
               ))}
+              {hasSlashedDates(rows, columns) && (
+                <label className="text-sm text-gray-700 dark:text-gray-300">
+                  Date order
+                  <select value={dateOrder} onChange={(e) => setChosenDateOrder(e.target.value as DateOrder)} className={selectClass}>
+                    {DATE_ORDERS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           </div>
 

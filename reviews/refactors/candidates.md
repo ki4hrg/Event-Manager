@@ -42,7 +42,6 @@ Format: `- [area] one-line description (file references, originating PR/commit i
 
 ### Filed as issues
 
-- [workflows] Per-type delegate map in place of the 9-way entityType switches in `src/app/events/workflows/actions.ts` → filed as #199
 - [vendor-handoff/reports] Vendor Handoff and Equipment Responsibility omit print orders and exhibit booth equipment → filed as #200
 - [report-filters] Shared `ReportFilters` primitive (chips, URL params, `paramPrefix`, mobile "Show filters" shell) for the 12 copies → filed as #201
 - [schedule-types] `getMainStart` anchors on a "main" substring of the schedule-type label → filed as #202

@@ -6,7 +6,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { reportTd, reportTh } from "@/lib/reportStyles";
 import { blockTypeLabel, formatDateKey, formatNight, parseContractTypes } from "@/lib/hotels";
 import { eventRoles, offsetLabel, patternStats, proposedRoles, proposeNights, roleLabel, type PatternBasis } from "@/lib/hotelPattern";
-import { getBlockMonitoring, getHotelCities, getHotelGuestTypes, getHotelPickupHistory, getPickupPattern, getProposalEventChoices, getSeriesChoices, type PatternFilters } from "../actions";
+import { getBlockMonitoring, getHotelCities, getHotelGuestTypes, getHotelPickupHistory, getPickupPattern, getProposalEventChoices, getSeriesChoices } from "../actions";
+import type { PatternFilters } from "../core";
 import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar, ProposalControls, ShowBlockToggle } from "./HotelReportFilters";
 
 export const dynamic = "force-dynamic";

@@ -58,3 +58,15 @@ export function rangeEndFor(start: string, end: string, gapDays = 0, fillEmpty =
   if (!min || (end ? end >= min : !fillEmpty)) return end;
   return min;
 }
+
+type Instant = Date | string | null | undefined;
+// Date-only strings (YYYY-MM-DD) read as UTC midnight, matching @db.Date columns.
+const instant = (v: Instant) => (v == null || v === "" ? null : v instanceof Date ? v.getTime() : Date.parse(v));
+
+// Whether a save checks its range: always on create (nothing stored), and on an
+// update only when it writes a start or end the row doesn't already hold. A row
+// stored reversed before the check existed still saves its other edits.
+export function rangeTouched(stored: { start: Instant; end: Instant } | null, start: Instant, end: Instant): boolean {
+  if (!stored) return true;
+  return instant(stored.start) !== instant(start) || instant(stored.end) !== instant(end);
+}
