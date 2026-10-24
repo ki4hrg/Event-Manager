@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { btnOutlinedXs } from "@/lib/buttonStyles";
+import { useMemo } from "react";
+import { FilterBucketChip, FilterChip, FilterGroup, ReportFilterShell } from "@/components/ReportFilterShell";
+import { useUrlChipFilter } from "@/lib/useUrlChipFilter";
 
 type DayOption = { value: string; label: string };
 type RoomOption = { value: string; label: string; groupId: string | null; groupName: string | null; groupSortOrder: number };
@@ -47,10 +47,6 @@ function groupRoomOptions(rooms: RoomOption[]): RoomGroupBucket[] {
   });
 }
 
-function toggleFilter(selected: string[], value: string): string[] {
-  return selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value];
-}
-
 export function ReportFilters({
   eventId,
   days,
@@ -63,205 +59,68 @@ export function ReportFilters({
   shareButton,
   hidePrint = false,
 }: ReportFiltersProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
-  const daysKey = `${paramPrefix}days`;
-  const roomsKey = `${paramPrefix}rooms`;
-  const usedOnlyKey = `${paramPrefix}usedOnly`;
-
-  function pushWith(key: string, next: string[]) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (next.length > 0) {
-      params.set(key, next.join(","));
-    } else {
-      params.delete(key);
-    }
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
-
-  function toggleDay(value: string) {
-    pushWith(daysKey, toggleFilter(selectedDays, value));
-  }
-
-  function toggleRoom(value: string) {
-    pushWith(roomsKey, toggleFilter(selectedRoomIds, value));
-  }
-
-  function toggleGroup(groupRoomIds: string[], allActive: boolean) {
-    const next = allActive
-      ? selectedRoomIds.filter((id) => !groupRoomIds.includes(id))
-      : Array.from(new Set([...selectedRoomIds, ...groupRoomIds]));
-    pushWith(roomsKey, next);
-  }
-
-  function toggleUsedOnly() {
-    const params = new URLSearchParams(searchParams.toString());
-    if (usedOnly) {
-      params.delete(usedOnlyKey);
-    } else {
-      params.set(usedOnlyKey, "true");
-    }
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
-
-  function clearFilters() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete(daysKey);
-    params.delete(roomsKey);
-    params.delete(usedOnlyKey);
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
+  const filter = useUrlChipFilter(paramPrefix, basePath);
 
   const roomBuckets = useMemo(() => groupRoomOptions(rooms), [rooms]);
   const hasMultipleGroups = roomBuckets.filter((b) => b.groupId !== null).length > 0;
 
-  const hasFilters = selectedDays.length > 0 || selectedRoomIds.length > 0 || usedOnly;
-  const filterCount = selectedDays.length + selectedRoomIds.length + (usedOnly ? 1 : 0);
-
-  const actions = (
-    <>
-      {hasFilters && (
-        <button
-          onClick={clearFilters}
-          className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          Clear filters
-        </button>
-      )}
-      {shareButton}
-      {!hidePrint && (
-        <a
-          href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-          className={btnOutlinedXs}
-        >
-          Print / Save PDF
-        </a>
-      )}
-    </>
-  );
-
-  const filterChips = (
-    <>
+  return (
+    <ReportFilterShell
+      activeCount={selectedDays.length + selectedRoomIds.length + (usedOnly ? 1 : 0)}
+      onClear={() => filter.clear(["days", "rooms", "usedOnly"])}
+      shareButton={shareButton}
+      printHref={hidePrint ? null : filter.printHref}
+    >
       {rooms.length > 1 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Rooms</p>
-          <div className="space-y-2">
-            {roomBuckets.map((bucket) => {
-              const bucketIds = bucket.rooms.map((r) => r.value);
-              const allActive = bucketIds.every((id) => selectedRoomIds.includes(id));
-              const someActive = bucketIds.some((id) => selectedRoomIds.includes(id));
-              return (
-                <div key={bucket.groupId ?? "__ungrouped__"} className="flex flex-wrap items-center gap-2">
-                  {hasMultipleGroups && (
-                    <button
-                      onClick={() => toggleGroup(bucketIds, allActive)}
-                      className={`px-2.5 py-1 text-xs font-medium uppercase tracking-wide rounded border transition-colors ${
-                        allActive
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : someActive
-                            ? "border-blue-400 dark:border-blue-500 text-blue-700 dark:text-blue-300"
-                            : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400"
-                      }`}
-                      title={allActive ? `Clear ${bucket.label}` : `Select all in ${bucket.label}`}
-                    >
-                      {bucket.label}
-                    </button>
-                  )}
-                  {bucket.rooms.map((r) => {
-                    const active = selectedRoomIds.includes(r.value);
-                    return (
-                      <button
-                        key={r.value}
-                        onClick={() => toggleRoom(r.value)}
-                        className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                          active
-                            ? "bg-blue-600 border-blue-600 text-white"
-                            : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-                        }`}
-                      >
-                        {r.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <FilterGroup label="Rooms" className="space-y-2">
+          {roomBuckets.map((bucket) => {
+            const bucketIds = bucket.rooms.map((r) => r.value);
+            const allActive = bucketIds.every((id) => selectedRoomIds.includes(id));
+            const someActive = bucketIds.some((id) => selectedRoomIds.includes(id));
+            return (
+              <div key={bucket.groupId ?? "__ungrouped__"} className="flex flex-wrap items-center gap-2">
+                {hasMultipleGroups && (
+                  <FilterBucketChip
+                    label={bucket.label}
+                    allActive={allActive}
+                    someActive={someActive}
+                    onClick={() => filter.toggleAll("rooms", selectedRoomIds, bucketIds, allActive)}
+                  />
+                )}
+                {bucket.rooms.map((r) => (
+                  <FilterChip
+                    key={r.value}
+                    active={selectedRoomIds.includes(r.value)}
+                    onClick={() => filter.toggle("rooms", selectedRoomIds, r.value)}
+                  >
+                    {r.label}
+                  </FilterChip>
+                ))}
+              </div>
+            );
+          })}
+        </FilterGroup>
       )}
 
-      <div>
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Show</p>
-        <button
-          onClick={toggleUsedOnly}
-          className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-            usedOnly
-              ? "bg-blue-600 border-blue-600 text-white"
-              : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-          }`}
-        >
+      <FilterGroup label="Show">
+        <FilterChip active={usedOnly} onClick={() => filter.setFlag("usedOnly", !usedOnly)}>
           Used rooms only
-        </button>
-      </div>
+        </FilterChip>
+      </FilterGroup>
 
       {days.length > 1 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Day</p>
-          <div className="flex flex-wrap gap-2">
-            {days.map((d) => {
-              const active = selectedDays.includes(d.value);
-              return (
-                <button
-                  key={d.value}
-                  onClick={() => toggleDay(d.value)}
-                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                    active
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-                  }`}
-                >
-                  {d.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <FilterGroup label="Day">
+          {days.map((d) => (
+            <FilterChip
+              key={d.value}
+              active={selectedDays.includes(d.value)}
+              onClick={() => filter.toggle("days", selectedDays, d.value)}
+            >
+              {d.label}
+            </FilterChip>
+          ))}
+        </FilterGroup>
       )}
-    </>
-  );
-
-  return (
-    <div className="print:hidden mb-6">
-      <div className="sm:hidden">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-          <button
-            onClick={() => setFiltersOpen((open) => !open)}
-            className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300"
-          >
-            <span aria-hidden>{filtersOpen ? "▾" : "▸"}</span>
-            <span>{filtersOpen ? "Hide filters" : "Show filters"}</span>
-            {filterCount > 0 && (
-              <span className="ml-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
-                {filterCount}
-              </span>
-            )}
-          </button>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">{actions}</div>
-        </div>
-        {filtersOpen && (
-          <div className="flex flex-wrap items-start gap-6">{filterChips}</div>
-        )}
-      </div>
-
-      <div className="hidden sm:flex flex-wrap items-start gap-6">
-        {filterChips}
-        <div className="flex items-end gap-3 ml-auto">{actions}</div>
-      </div>
-    </div>
+    </ReportFilterShell>
   );
 }
