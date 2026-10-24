@@ -24,11 +24,11 @@ import {
 } from "@/app/events/hotels/blockCore";
 import { getHotelInfoReportData } from "@/app/events/reports/data";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
+import { CHARGE_SCOPES, isChargeScope } from "@/lib/hotels";
 import type { McpToolDefinition } from "./types";
 import { requireString } from "./types";
 
-const CONTRACT_TYPES = new Set(["CONTRACT", "COURTESY"]);
-const SCOPES = new Set(["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY"]);
+const SCOPE_VALUES = CHARGE_SCOPES.map((s) => s.value);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Partial-update merge: a key present in args (null clears) replaces the
@@ -41,18 +41,17 @@ function merged<T extends object>(current: T, args: Record<string, unknown>, key
     if (typeof v === "string" && /date|checkIn|checkOut|cutoff|submittedOn|contractedOn/i.test(String(k)) && v && !DATE.test(v)) {
       throw new Error(`${String(k)} must be YYYY-MM-DD`);
     }
-    if (k === "contractType" && v != null && !CONTRACT_TYPES.has(String(v))) throw new Error("contractType must be CONTRACT or COURTESY");
     (out as Record<string, unknown>)[k as string] = k === "amenities" ? readProposalAmenities(v) : v === "" ? null : v;
   }
   return out;
 }
 
-const SCOPE_ERROR = "scope must be PER_NIGHT, PER_STAY, PER_PERSON, PER_PERSON_PER_NIGHT, PER_DAY or PER_PERSON_PER_DAY";
+const SCOPE_ERROR = `scope must be one of ${SCOPE_VALUES.join(", ")}`;
 
 function checkCharges(v: unknown) {
   if (!Array.isArray(v)) return;
   for (const c of v as { scope?: unknown }[]) {
-    if (c.scope != null && !SCOPES.has(String(c.scope))) throw new Error(`charge ${SCOPE_ERROR}`);
+    if (c.scope != null && !isChargeScope(c.scope)) throw new Error(`charge ${SCOPE_ERROR}`);
   }
 }
 
@@ -60,13 +59,13 @@ function checkCharges(v: unknown) {
 // proposal cores take them.
 export function checkProposalExtras(args: Record<string, unknown>) {
   checkCharges(args.meetingCharges);
-  if (args.fbMinimumScope != null && !SCOPES.has(String(args.fbMinimumScope))) throw new Error(`fbMinimumScope ${SCOPE_ERROR.slice(6)}`);
+  if (args.fbMinimumScope != null && !isChargeScope(args.fbMinimumScope)) throw new Error(`fbMinimumScope ${SCOPE_ERROR.slice(6)}`);
   if (args.spaces === undefined) return;
   if (!Array.isArray(args.spaces)) throw new Error("spaces must be a list");
   for (const r of args.spaces as Record<string, unknown>[]) {
     if (typeof r?.name !== "string" && typeof r?.spaceRequestId !== "string") throw new Error("Each space needs a name or a spaceRequestId");
-    if (r.rentalScope != null && !SCOPES.has(String(r.rentalScope))) throw new Error(`rentalScope ${SCOPE_ERROR.slice(6)}`);
-    if (r.waiverScope != null && !SCOPES.has(String(r.waiverScope))) throw new Error(`waiverScope ${SCOPE_ERROR.slice(6)}`);
+    if (r.rentalScope != null && !isChargeScope(r.rentalScope)) throw new Error(`rentalScope ${SCOPE_ERROR.slice(6)}`);
+    if (r.waiverScope != null && !isChargeScope(r.waiverScope)) throw new Error(`waiverScope ${SCOPE_ERROR.slice(6)}`);
     if (r.waiverType != null && !["FB_SPEND", "ROOM_NIGHTS", "OTHER"].includes(String(r.waiverType))) throw new Error("waiverType must be FB_SPEND, ROOM_NIGHTS or OTHER");
   }
 }
@@ -105,7 +104,12 @@ const nightSchema = {
   required: ["night"],
 } as const;
 
-const scopeSchema = { type: ["string", "null"], enum: ["PER_NIGHT", "PER_STAY", "PER_PERSON", "PER_PERSON_PER_NIGHT", "PER_DAY", "PER_PERSON_PER_DAY", null] } as const;
+// PER_NIGHT is per room per night, PER_ROOM once per room for the stay, ONE_TIME once for the group.
+const scopeSchema = { type: ["string", "null"], enum: [...SCOPE_VALUES, null] } as const;
+
+// A contract type is the tenant's list, keyed by kind.
+export const CONTRACT_TYPE_DESCRIPTION =
+  "hotel_contract_type option label (e.g. Contract, Courtesy). The option's group says whether it carries attrition: CONTRACT does, COURTESY is held without it.";
 
 export const chargeSchema = {
   type: "object",
@@ -163,7 +167,7 @@ const proposalProps = {
   leadSourceDirect: { type: "boolean", description: "The hotel generated the lead itself. Excludes leadSourceVendorId." },
   leadSourceVendorId: { type: ["string", "null"], description: "The organization that brought the lead: a vendor tagged LEAD_SOURCE (a CVB, a third-party planner; list_vendors)." },
   leadSourceContactId: { type: ["string", "null"], description: "That lead source's contact (get_vendor contacts)." },
-  contractType: { type: ["string", "null"], enum: ["CONTRACT", "COURTESY", null], description: "CONTRACT carries attrition; COURTESY is held without it." },
+  contractType: { type: ["string", "null"], description: CONTRACT_TYPE_DESCRIPTION },
   guestType: { type: ["string", "null"], description: "Who the rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
   submittedOn: { type: ["string", "null"], description: "YYYY-MM-DD." },
   checkIn: { type: ["string", "null"], description: "Earliest check-in, YYYY-MM-DD. Ignored when nights are given: the first night is the check-in." },

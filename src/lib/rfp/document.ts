@@ -6,7 +6,7 @@
 // rooms, function space, F&B, concessions), IV proposal specifications, V
 // the proposal content we ask back. A part that is switched off is null. Pure.
 
-import type { HotelContractType, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
+import type { RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { addDays, blockTypeLabel, dateKey, formatDateKey, formatMoney, formatNight, RUN_OF_HOUSE, roomTypeLabel } from "@/lib/hotels";
 import { CONCESSION_GROUPS, concessionGroupOf, FB_INCLUDES, type ConcessionGroup, type RfpSection } from "@/lib/rfp/sections";
 import { DAY_TBD, formatClockRange, sortSpaceRows, spaceRowDays } from "@/lib/rfp/space";
@@ -147,7 +147,7 @@ export type RfpDocumentInput = {
     contactTitle: string | null;
     concessions: RfpConcessionItem[];
     hotelBlocks: {
-      contractType: HotelContractType;
+      contractType: string;
       guestType: string | null;
       targetRate: Dec;
       targetRateRequired: boolean;
@@ -228,7 +228,7 @@ function dateSpan(start: string, end: string) {
   return start === end ? formatDateKey(start) : `${formatDateKey(start)} – ${formatDateKey(end)}`;
 }
 
-export const blockLabel = (contractType: HotelContractType, guestType: string | null) => `${blockTypeLabel(contractType, guestType)} block`;
+export const blockLabel = (contractType: string, guestType: string | null) => `${blockTypeLabel(contractType, guestType)} block`;
 
 function blockDoc(b: RfpDocumentInput["rfp"]["hotelBlocks"][number]): RfpBlockDoc {
   const nights = Array.from(new Set(b.nights.map((n) => dateKey(n.night)))).sort();

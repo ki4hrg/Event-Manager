@@ -7,7 +7,7 @@ import { Toast } from "@/components/Toast";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { hasPermission } from "@/lib/permissions";
-import { blockTypeLabel, dateKey, formatDateKey } from "@/lib/hotels";
+import { appliedAttrition, blockTypeLabel, contractKindOf, dateKey, formatDateKey } from "@/lib/hotels";
 import { getEvent } from "@/app/events/event";
 import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
 import { getHotelBlocks, getHotelProposals, getProposalFormChoices } from "../../hotels/actions";
@@ -135,7 +135,8 @@ export default async function HotelsPage({ params }: { params: Promise<{ id: str
           <div className={listCard}>
             {blocks.map((b) => {
               const t = pickupTotals(blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts }));
-              const floor = b.allowedAttrition != null ? 100 - Number(b.allowedAttrition) : null;
+              const attrition = appliedAttrition(b.allowedAttrition != null ? Number(b.allowedAttrition) : null, contractKindOf(b.proposal.contractType, choices.contractTypes));
+              const floor = attrition != null ? 100 - attrition : null;
               const low = floor != null && t.percent != null && t.percent < floor;
               return (
                 <Link key={b.id} href={`/events/${eventId}/hotels/blocks/${b.id}`} className={rowLink}>

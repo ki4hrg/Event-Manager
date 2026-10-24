@@ -2,8 +2,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { dateKey } from "@/lib/hotels";
-import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
+import { appliedAttrition, contractKindOf, dateKey, daysOutCheckpoints, toContractTypeOption, type ContractTypeOption } from "@/lib/hotels";
+import { blockPickup, daysOutPickup, pickupTotals } from "@/lib/hotelPickup";
+import { getOptionsForTenant } from "@/lib/options";
+import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { blockPickupSelect, hotelEventWhere, pickupPatternCore, type BlockForTotals, type PatternFilters } from "./core";
 
 // Events whose hotels this user may see across the tenant (hotelEventWhere).
@@ -54,10 +56,17 @@ export async function getVenueHotelHistory(venueId: string) {
   });
 }
 
-function blockRow(b: BlockForTotals) {
+async function contractTypeOptions(tenantId: string): Promise<ContractTypeOption[]> {
+  return (await getOptionsForTenant(tenantId, "hotel_contract_type")).map(toContractTypeOption);
+}
+
+// A block's totals; at risk below its attrition floor, which a contract type
+// held without attrition doesn't have.
+function blockRow(b: BlockForTotals, contractTypes: ContractTypeOption[]) {
   const rows = blockPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts });
   const totals = pickupTotals(rows);
-  const floor = b.allowedAttrition != null ? 100 - Number(b.allowedAttrition) : null;
+  const attrition = appliedAttrition(b.allowedAttrition != null ? Number(b.allowedAttrition) : null, contractKindOf(b.proposal.contractType, contractTypes));
+  const floor = attrition != null ? 100 - attrition : null;
   return {
     blockId: b.id,
     hotelId: b.proposal.venue.id,
@@ -77,7 +86,8 @@ export type HotelHistoryFilters = { seriesId?: string; from?: string; to?: strin
 
 // Pickup per event (and per hotel) across the tenant, newest first.
 export async function getHotelPickupHistory(filters: HotelHistoryFilters) {
-  const { eventWhere } = await hotelSession();
+  const { tenantId, eventWhere } = await hotelSession();
+  const contractTypes = await contractTypeOptions(tenantId);
   const events = await prisma.event.findMany({
     where: {
       AND: [
@@ -101,7 +111,7 @@ export async function getHotelPickupHistory(filters: HotelHistoryFilters) {
     orderBy: { startDate: "desc" },
   });
   return events.map((e) => {
-    const hotels = e.hotelProposals.flatMap((p) => (p.block ? [blockRow(p.block)] : []));
+    const hotels = e.hotelProposals.flatMap((p) => (p.block ? [blockRow(p.block, contractTypes)] : []));
     const byNight = new Map<string, number>();
     for (const h of hotels) for (const r of h.byNight) byNight.set(r.night, (byNight.get(r.night) ?? 0) + r.pickedUp);
     const blocked = hotels.reduce((s, h) => s + h.blocked, 0);
@@ -123,25 +133,48 @@ export async function getHotelPickupHistory(filters: HotelHistoryFilters) {
   });
 }
 
-// Blocks for events that haven't ended, soonest cut-off first.
+// Blocks for events that haven't ended, soonest cut-off first, with pickup at
+// each of the tenant's checkpoints (hotel_days_out).
 export async function getBlockMonitoring() {
-  const { eventWhere } = await hotelSession();
-  const blocks = await prisma.hotelBlock.findMany({
-    where: { proposal: { event: { AND: [eventWhere, { endDate: { gte: new Date() } }] } } },
-    select: { ...blockPickupSelect, proposal: { select: { ...blockPickupSelect.proposal.select, event: { select: { id: true, name: true, startDate: true } } } } },
-  });
-  return blocks
+  const { tenantId, eventWhere } = await hotelSession();
+  const [blocks, contractTypes, checkpointOptions] = await Promise.all([
+    prisma.hotelBlock.findMany({
+      where: { proposal: { event: { AND: [eventWhere, { endDate: { gte: new Date() } }] } } },
+      select: {
+        ...blockPickupSelect,
+        pickupGuests: { select: { checkIn: true, checkOut: true, roomType: true, cancelled: true, bookedOn: true, cancelledOn: true } },
+        pickupSnapshots: { select: { takenOn: true, nights: true } },
+        proposal: { select: { ...blockPickupSelect.proposal.select, event: { select: { id: true, name: true, startDate: true, timezone: true } } } },
+      },
+    }),
+    contractTypeOptions(tenantId),
+    getOptionsForTenant(tenantId, "hotel_days_out"),
+  ]);
+  const checkpoints = daysOutCheckpoints(checkpointOptions.map((o) => o.label));
+  const rows = blocks
     .map((b) => {
-      const { byNight: _byNight, ...row } = blockRow(b);
-      return { ...row, event: { id: b.proposal.event.id, name: b.proposal.event.name, startDate: dateKey(b.proposal.event.startDate) } };
+      const { byNight: _byNight, ...row } = blockRow(b, contractTypes);
+      const today = getDateKeyInTimezone(new Date(), b.proposal.event.timezone);
+      return {
+        ...row,
+        daysOut: daysOutPickup({ nights: b.nights, guests: b.pickupGuests, counts: b.pickupCounts, snapshots: b.pickupSnapshots }, checkpoints, today),
+        event: { id: b.proposal.event.id, name: b.proposal.event.name, startDate: dateKey(b.proposal.event.startDate) },
+      };
     })
     .sort((a, b) => (a.cutoffDate ?? "9999").localeCompare(b.cutoffDate ?? "9999") || a.event.startDate.localeCompare(b.event.startDate));
+  return { checkpoints, blocks: rows };
 }
 
 // Rooms picked up and blocked per night across ended events (pickupPatternCore).
 export async function getPickupPattern(filters: PatternFilters) {
   const session = await requirePermission("HOTELS", "VIEW");
   return pickupPatternCore(filters, session.user.id, session.tenantId);
+}
+
+// The tenant's contract types, for the pattern filter.
+export async function getHotelContractTypes() {
+  const { tenantId } = await hotelSession();
+  return (await getOptionsForTenant(tenantId, "hotel_contract_type")).map((o) => o.label);
 }
 
 // The tenant's guest types, for the pattern filter.

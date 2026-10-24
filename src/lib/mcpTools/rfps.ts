@@ -1,4 +1,4 @@
-import type { HotelContractType, RfpKind, RfpStatus } from "@prisma/client";
+import type { RfpKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
 import { coveredByProfile, dateKey, labelKey } from "@/lib/hotels";
@@ -31,12 +31,11 @@ import {
 } from "@/app/events/rfps/core";
 import { getQuoteComparisonCore } from "@/app/events/quotes/core";
 import { createHotelProposalCore, type ProposalConcessionArgs, type ProposalWriteArgs } from "@/app/events/hotels/core";
-import { chargeSchema, checkProposalExtras, nameRequestedSpaces, proposalSpaceProps, readProposalAmenities } from "./hotels";
+import { chargeSchema, checkProposalExtras, CONTRACT_TYPE_DESCRIPTION, nameRequestedSpaces, proposalSpaceProps, readProposalAmenities } from "./hotels";
 import type { McpToolDefinition } from "./types";
 import { partialBoolean, partialInt, partialString, requireString } from "./types";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const CONTRACT_TYPES = new Set(["CONTRACT", "COURTESY"]);
 const STATUSES = new Set(["DRAFT", "ISSUED", "CLOSED"]);
 const MET = new Set(["MET", "PARTIAL", "NOT_MET"]);
 
@@ -65,7 +64,7 @@ const blockSchema = {
   type: "object",
   properties: {
     id: { type: ["string", "null"], description: "An existing block's id (get_rfp) to keep it and the proposals linked to it; omit for a new block." },
-    contractType: { type: "string", enum: ["CONTRACT", "COURTESY"], description: "CONTRACT carries attrition; COURTESY is held without it." },
+    contractType: { type: "string", description: CONTRACT_TYPE_DESCRIPTION },
     guestType: { type: ["string", "null"], description: "Who the rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
     targetRate: { type: ["number", "null"] },
     targetRateRequired: { type: "boolean", description: "The target rate is a ceiling (\"must be no more than\") rather than a target. Default false." },
@@ -90,11 +89,11 @@ const blockSchema = {
 function readBlocks(v: unknown): RfpBlockArgs[] {
   if (!Array.isArray(v)) throw new Error("blocks must be a list");
   return v.map((b: Record<string, unknown>) => {
-    if (!CONTRACT_TYPES.has(String(b.contractType))) throw new Error("contractType must be CONTRACT or COURTESY");
+    if (typeof b.contractType !== "string" || !b.contractType) throw new Error("each block needs a contractType");
     if (!Array.isArray(b.nights)) throw new Error("each block needs nights");
     return {
       id: typeof b.id === "string" ? b.id : null,
-      contractType: b.contractType as HotelContractType,
+      contractType: b.contractType,
       guestType: typeof b.guestType === "string" ? b.guestType : null,
       targetRate: typeof b.targetRate === "number" ? b.targetRate : null,
       targetRateRequired: b.targetRateRequired === true,

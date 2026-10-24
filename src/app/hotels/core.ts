@@ -1,7 +1,7 @@
 // Pure cores for the cross-event Hotels pages. NOT a "use server" file — see
 // src/app/contacts/core.ts for the rationale.
 
-import { PermissionResource, type HotelContractType, type Prisma } from "@prisma/client";
+import { PermissionResource, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loadPermissionsForUser, requirePermissionForUser } from "@/lib/permissions";
 import { dateKey } from "@/lib/hotels";
@@ -29,7 +29,8 @@ export const blockPickupSelect = {
 
 export type BlockForTotals = Prisma.HotelBlockGetPayload<{ select: typeof blockPickupSelect }>;
 
-export type PatternFilters = { seriesId?: string; city?: string; contractTypes: HotelContractType[]; guestTypes: string[]; from?: string; to?: string };
+// contractTypes / guestTypes: hotel_contract_type / hotel_guest_type labels.
+export type PatternFilters = { seriesId?: string; city?: string; contractTypes: string[]; guestTypes: string[]; from?: string; to?: string };
 
 // A block has pickup on file when the hotel's report or a count was loaded.
 // One with nothing loaded is unknown, not zero, so it stays out of the pattern.

@@ -6,7 +6,7 @@ import type { ConcessionMet, HotelChargeScope, HotelPickupMethod, Prisma } from 
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { withUserErrors } from "@/lib/userErrors";
-import { blockTypeLabel, dateKey, toChargeTypeOption } from "@/lib/hotels";
+import { blockTypeLabel, dateKey, daysOutCheckpoints, toChargeTypeOption, toContractTypeOption } from "@/lib/hotels";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import type { RfpChoice } from "./ProposalForm";
 import {
@@ -135,7 +135,7 @@ export async function getProposalFormChoices(eventId: string) {
       orderBy: { name: "asc" },
     }),
     prisma.customOption.findMany({
-      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "rfp_concession", "meal_type", "hotel_charge"] } },
+      where: { tenantId, category: { in: ["proposal_status", "hotel_room_type", "hotel_contract_type", "hotel_guest_type", "hotel_amenity", "hotel_area", "rfp_concession", "meal_type", "hotel_charge"] } },
       select: { category: true, label: true, group: true, color: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -157,6 +157,7 @@ export async function getProposalFormChoices(eventId: string) {
     concessionOptions: of("rfp_concession").map((o) => ({ label: o.label, group: o.group })),
     statuses: of("proposal_status").map((o) => ({ label: o.label, group: o.group, color: o.color })),
     roomTypes: of("hotel_room_type").map((o) => o.label),
+    contractTypes: of("hotel_contract_type").map(toContractTypeOption),
     guestTypes: of("hotel_guest_type").map((o) => o.label),
     amenities: of("hotel_amenity").map((o) => o.label),
     mealTypes: of("meal_type").map((o) => o.label),
@@ -247,6 +248,7 @@ export async function getHotelBlock(blockId: string, eventId: string) {
       nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
       charges: { orderBy: { sortOrder: "asc" } },
       pickupCounts: { orderBy: [{ night: "asc" }, { roomType: "asc" }] },
+      pickupSnapshots: { select: { takenOn: true, nights: true } },
       pickupImports: {
         orderBy: { createdAt: "desc" },
         include: { importedBy: { select: { name: true, email: true } } },
@@ -267,7 +269,7 @@ export async function getHotelBlock(blockId: string, eventId: string) {
 export async function getBlockFormChoices(eventId: string) {
   const session = await requirePermission("HOTELS", "VIEW", eventId);
   const options = await prisma.customOption.findMany({
-    where: { tenantId: session.tenantId, category: { in: ["hotel_room_type", "reservation_method", "hotel_charge"] } },
+    where: { tenantId: session.tenantId, category: { in: ["hotel_room_type", "reservation_method", "hotel_charge", "hotel_contract_type", "hotel_days_out"] } },
     select: { category: true, label: true, group: true },
     orderBy: { sortOrder: "asc" },
   });
@@ -275,6 +277,9 @@ export async function getBlockFormChoices(eventId: string) {
     roomTypes: options.filter((o) => o.category === "hotel_room_type").map((o) => o.label),
     reservationMethods: options.filter((o) => o.category === "reservation_method").map((o) => o.label),
     chargeTypes: options.filter((o) => o.category === "hotel_charge").map(toChargeTypeOption),
+    contractTypes: options.filter((o) => o.category === "hotel_contract_type").map(toContractTypeOption),
+    // Pickup checkpoints, days out, furthest first.
+    checkpoints: daysOutCheckpoints(options.filter((o) => o.category === "hotel_days_out").map((o) => o.label)),
   };
 }
 

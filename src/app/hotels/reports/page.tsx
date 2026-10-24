@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { reportTd, reportTh } from "@/lib/reportStyles";
 import { blockTypeLabel, formatDateKey, formatNight, parseContractTypes } from "@/lib/hotels";
 import { eventRoles, offsetLabel, patternStats, proposedRoles, proposeNights, roleLabel, type PatternBasis } from "@/lib/hotelPattern";
-import { getBlockMonitoring, getHotelCities, getHotelGuestTypes, getHotelPickupHistory, getPickupPattern, getProposalEventChoices, getSeriesChoices } from "../actions";
+import { getBlockMonitoring, getHotelCities, getHotelContractTypes, getHotelGuestTypes, getHotelPickupHistory, getPickupPattern, getProposalEventChoices, getSeriesChoices } from "../actions";
 import type { PatternFilters } from "../core";
 import { CsvButton, HotelReportFilters, PatternFilters as PatternFilterBar, ProposalControls, ShowBlockToggle } from "./HotelReportFilters";
 
@@ -124,7 +124,7 @@ async function History({ seriesId, from, to, byHotel }: { seriesId?: string; fro
 }
 
 async function Monitoring() {
-  const blocks = await getBlockMonitoring();
+  const { checkpoints, blocks } = await getBlockMonitoring();
   const csv = blocks.map((b) => ({
     Event: b.event.name,
     Start: b.event.startDate,
@@ -135,8 +135,10 @@ async function Monitoring() {
     "Pickup %": b.percent,
     "Attrition floor %": b.floor,
     "At risk": b.atRisk ? "Yes" : "No",
+    ...Object.fromEntries(b.daysOut.map((p) => [`Pickup % ${p.daysOut} days out`, p.percent])),
   }));
-  const headers = ["Event", "Hotel", "Cut-off", "Blocked", "Picked up", "%", "Floor"];
+  // Pickup % at each checkpoint (days before the block's first night).
+  const headers = ["Event", "Hotel", "Cut-off", "Blocked", "Picked up", "%", "Floor", ...checkpoints.map((d) => `${d} days`)];
   return (
     <>
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
@@ -178,6 +180,11 @@ async function Monitoring() {
                   <td className={`${reportTd} text-right`}>{b.pickedUp}</td>
                   <td className={`${reportTd} text-right ${b.atRisk ? "text-red-600 dark:text-red-400 font-semibold" : ""}`}>{pct(b.percent)}</td>
                   <td className={`${reportTd} text-right`}>{pct(b.floor)}</td>
+                  {b.daysOut.map((p) => (
+                    <td key={p.daysOut} className={`${reportTd} text-right`} title={p.asOf ? formatDateKey(p.asOf) : undefined}>
+                      {pct(p.percent)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -206,8 +213,12 @@ async function Pattern({
   showBlock: boolean;
 }) {
   // An unknown guest type in the URL means no filter, not an empty pattern.
-  const guestTypes = await getHotelGuestTypes();
-  const valid = { ...filters, guestTypes: filters.guestTypes.filter((g) => guestTypes.includes(g)) };
+  const [guestTypes, contractTypes] = await Promise.all([getHotelGuestTypes(), getHotelContractTypes()]);
+  const valid = {
+    ...filters,
+    contractTypes: parseContractTypes(filters.contractTypes.join(","), contractTypes),
+    guestTypes: filters.guestTypes.filter((g) => guestTypes.includes(g)),
+  };
   const [{ events, noPickup }, series, cities, upcoming] = await Promise.all([
     getPickupPattern(valid),
     getSeriesChoices(),
@@ -306,7 +317,7 @@ async function Pattern({
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <PatternFilterBar series={series} cities={cities} guestTypes={guestTypes} />
+        <PatternFilterBar series={series} cities={cities} contractTypes={contractTypes} guestTypes={guestTypes} />
         <CsvButton fileName="hotel-rfp-pattern.csv" rows={csv} />
       </div>
       {noPickup.length > 0 && (
@@ -470,7 +481,7 @@ export default async function HotelReportsPage({
         <Monitoring />
       ) : view === "pattern" ? (
         <Pattern
-          filters={{ seriesId: sp.series || undefined, city: sp.city || undefined, contractTypes: parseContractTypes(sp.contract), guestTypes: sp.guest ? [sp.guest] : [], from, to }}
+          filters={{ seriesId: sp.series || undefined, city: sp.city || undefined, contractTypes: sp.contract ? sp.contract.split(",") : [], guestTypes: sp.guest ? [sp.guest] : [], from, to }}
           basis={sp.basis === "highest" || sp.basis === "latest" ? sp.basis : "average"}
           adjust={Number.isFinite(adjust) ? Math.min(200, Math.max(-90, adjust)) : 0}
           forEvent={sp.for || undefined}

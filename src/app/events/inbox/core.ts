@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
 import { ENTITY_FK_FIELD, getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "@/lib/uploads";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
-import { blockTypeLabel, dateFromKey, dateKey, formatDateKey, formatMoney, formatNight, roomTypeLabel } from "@/lib/hotels";
+import { blockTypeLabel, dateFromKey, dateKey, formatDateKey, formatMoney, formatNight, offerContractType, roomTypeLabel, toContractTypeOption } from "@/lib/hotels";
+import { getOptionsForTenant } from "@/lib/options";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, guessDateOrder, rowsToGuests, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import {
@@ -1188,13 +1189,14 @@ async function proposedGuests(id: string, proposal: InboundProposal): Promise<{ 
 // The proposal an emailed offer reads as, for applying it unreviewed.
 async function offerArgs(eventId: string, offer: ProposalOffer, venueId: string): Promise<ProposalWriteArgs> {
   const tenantId = await requireEventTenantId(eventId);
-  const [pending, block] = await Promise.all([
+  const [pending, block, contractTypes] = await Promise.all([
     prisma.customOption.findFirst({
       where: { tenantId, category: "proposal_status" },
       orderBy: [{ group: "asc" }, { sortOrder: "asc" }],
       select: { label: true, group: true },
     }),
     offer.rfpBlockId ? prisma.rfpHotelBlock.findFirst({ where: { id: offer.rfpBlockId, rfp: { eventId } }, select: { id: true, contractType: true, guestType: true } }) : null,
+    getOptionsForTenant(tenantId, "hotel_contract_type"),
   ]);
   const status =
     (await prisma.customOption.findFirst({ where: { tenantId, category: "proposal_status", group: "PENDING" }, orderBy: { sortOrder: "asc" }, select: { label: true } }))
@@ -1206,7 +1208,7 @@ async function offerArgs(eventId: string, offer: ProposalOffer, venueId: string)
     leadSourceDirect: false,
     leadSourceVendorId: offer.leadSourceVendorId ?? null,
     leadSourceContactId: null,
-    contractType: block?.contractType ?? null,
+    contractType: offerContractType(offer.contractType, block?.contractType ?? null, contractTypes.map(toContractTypeOption)),
     guestType: block?.guestType ?? null,
     submittedOn: offer.submittedOn,
     checkIn: offer.checkIn,

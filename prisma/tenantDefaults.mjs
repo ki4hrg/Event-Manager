@@ -301,8 +301,23 @@ export const DEFAULT_OPTIONS = {
     { label: "Double Queen", sortOrder: 1 },
     { label: "Suite", sortOrder: 2 },
   ],
-  // Who a block's rooms are for; its contract type (contract / courtesy) is
-  // fixed in the schema.
+  // A block's contract type; group is whether it carries attrition (CONTRACT)
+  // or is held without it (COURTESY).
+  hotel_contract_type: [
+    { label: "Contract", group: "CONTRACT", sortOrder: 0 },
+    { label: "Courtesy", group: "COURTESY", sortOrder: 1 },
+  ],
+  // Pickup checkpoints, in days before a block's first night: Hotel
+  // Monitoring and the block page show pickup as it stood on each.
+  hotel_days_out: [
+    { label: "90", sortOrder: 0 },
+    { label: "60", sortOrder: 1 },
+    { label: "30", sortOrder: 2 },
+    { label: "21", sortOrder: 3 },
+    { label: "14", sortOrder: 4 },
+    { label: "7", sortOrder: 5 },
+  ],
+  // Who a block's rooms are for; its contract type is hotel_contract_type.
   hotel_guest_type: [
     { label: "Attendees", sortOrder: 0 },
     { label: "Staff", sortOrder: 1 },

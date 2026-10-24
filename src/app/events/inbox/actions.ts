@@ -10,7 +10,7 @@ import { withUserErrors } from "@/lib/userErrors";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { getInboundEmailDomain } from "@/lib/email";
 import { getUploadPath } from "@/lib/uploads";
-import { dateKey } from "@/lib/hotels";
+import { dateKey, offerContractType } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type DateOrder, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import {
@@ -326,7 +326,7 @@ export async function getOfferReview(id: string, eventId: string, index: number)
     leadSourceDirect: false,
     leadSourceVendorId: offer.leadSourceVendorId ?? null,
     leadSourceContactId: null,
-    contractType: offer.contractType ?? null,
+    contractType: offerContractType(offer.contractType, rfpChoices.find((c) => c.id === offer.rfpBlockId)?.contractType ?? null, choices.contractTypes),
     guestType: null,
     submittedOn: offer.submittedOn,
     checkIn: offer.checkIn,

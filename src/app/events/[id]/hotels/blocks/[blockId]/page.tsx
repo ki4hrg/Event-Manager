@@ -7,14 +7,16 @@ import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
 import { LastUpdated } from "@/components/LastUpdated";
 import { btnSecondary } from "@/lib/buttonStyles";
-import { blockTypeLabel, dateKey } from "@/lib/hotels";
-import { blockPickup, pickupTotals } from "@/lib/hotelPickup";
+import { blockTypeLabel, contractKindOf, dateKey } from "@/lib/hotels";
+import { blockPickup, daysOutPickup, pickupTotals } from "@/lib/hotelPickup";
+import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { hasPermission } from "@/lib/permissions";
 import { getEvent } from "@/app/events/event";
 import { clearPickup, deleteHotelBlock, getBlockFormChoices, getHotelBlock, updateHotelBlock } from "../../../../hotels/actions";
 import { toBlockValues } from "../../../../hotels/blockCore";
 import { BlockForm } from "../../../../hotels/BlockForm";
 import { PickupPanel } from "../../../../hotels/PickupPanel";
+import { DaysOutCard } from "../../../../hotels/DaysOutCard";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,11 @@ export default async function BlockPage({
 
   const pickup = blockPickup({ nights: block.nights, guests: block.pickupGuests, counts: block.pickupCounts });
   const totals = pickupTotals(pickup);
+  const daysOut = daysOutPickup(
+    { nights: block.nights, guests: block.pickupGuests, counts: block.pickupCounts, snapshots: block.pickupSnapshots },
+    choices.checkpoints,
+    getDateKeyInTimezone(new Date(), event.timezone),
+  );
 
   const updateAction = async (formData: FormData) => {
     "use server";
@@ -98,7 +105,7 @@ export default async function BlockPage({
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 min-w-0">
+        <div className="lg:col-span-2 min-w-0 space-y-6">
           {/* Autosaves: not keyed on updatedAt, or each save would remount it. */}
           <BlockForm
             block={toBlockValues(block)}
@@ -106,8 +113,10 @@ export default async function BlockPage({
             roomTypes={choices.roomTypes}
             reservationMethods={choices.reservationMethods}
             chargeTypes={choices.chargeTypes}
+            contractKind={contractKindOf(block.proposal.contractType, choices.contractTypes)}
             action={updateAction}
           />
+          <DaysOutCard points={daysOut} blocked={totals.blocked} />
         </div>
         <div className="min-w-0">
           <PickupPanel

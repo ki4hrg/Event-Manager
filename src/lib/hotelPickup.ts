@@ -9,7 +9,7 @@
 // of House when the block has it, and otherwise still counts toward the
 // night's total outside the block.
 
-import { dateKey, nightKeys } from "./hotels";
+import { dateFromKey, dateKey, nightKeys } from "./hotels";
 
 export type PickupGuestInput = {
   checkIn: Date | null;
@@ -169,4 +169,22 @@ export function pickupDaysOut(
   const nights = snapshotAsOf(src.snapshots, asOf, today);
   if (!nights) return null;
   return typeof nights[night] === "number" ? nights[night] : 0;
+}
+
+export type DaysOutPoint = { daysOut: number; asOf: string; pickedUp: number | null; percent: number | null };
+
+// Pickup across a block as it stood at each checkpoint (days before its first
+// night), against the current block: rooms summed over its nights, null for a
+// day still to come or a night the guest list and snapshots can't say.
+export function daysOutPickup(src: DaysOutSource & { nights: PickupNightInput[] }, checkpoints: number[], today: string): DaysOutPoint[] {
+  const rows = blockPickup({ nights: src.nights, guests: src.guests, counts: src.counts });
+  const nights = Array.from(new Set(rows.map((r) => r.night))).sort();
+  const blocked = rows.reduce((s, r) => s + r.blocked, 0);
+  const firstNight = nights[0] ?? null;
+  return checkpoints.map((daysOut) => {
+    const asOf = firstNight ? dateKey(new Date(dateFromKey(firstNight).getTime() - daysOut * 86_400_000)) : "";
+    const perNight = nights.map((night) => pickupDaysOut(src, firstNight, daysOut, night, today));
+    const pickedUp = perNight.length && perNight.every((n) => n != null) ? perNight.reduce<number>((s, n) => s + (n ?? 0), 0) : null;
+    return { daysOut, asOf, pickedUp, percent: pickedUp != null && blocked > 0 ? Math.round((pickedUp / blocked) * 1000) / 10 : null };
+  });
 }
