@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { btnOutlinedXs } from "@/lib/buttonStyles";
+import { ReportFilterShell } from "@/components/ReportFilterShell";
+import { useUrlChipFilter } from "@/lib/useUrlChipFilter";
 
 type VendorOption = { id: string; name: string };
 
@@ -16,33 +16,20 @@ type ReportFiltersProps = {
 };
 
 export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `/events/${eventId}/reports/vendor-handoff`, paramPrefix = "", shareButton, hidePrint = false }: ReportFiltersProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const filter = useUrlChipFilter(paramPrefix, basePath);
 
-  const vendorKey = `${paramPrefix}vendorId`;
-
-  function handleVendorChange(vendorId: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (vendorId) {
-      params.set(vendorKey, vendorId);
-    } else {
-      params.delete(vendorKey);
-    }
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
-
-  const showPrint = !!selectedVendorId && !hidePrint;
+  // Print needs a vendor; it carries only that vendor, not the rest of the URL.
+  const printHref = selectedVendorId && !hidePrint ? `${basePath}/print?vendorId=${selectedVendorId}` : null;
 
   return (
-    <div className="print:hidden mb-6 flex flex-wrap items-end gap-4">
+    <ReportFilterShell activeCount={selectedVendorId ? 1 : 0} shareButton={shareButton} printHref={printHref}>
       <div className="min-w-0 max-w-full">
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
           Vendor
         </label>
         <select
           value={selectedVendorId ?? ""}
-          onChange={(e) => handleVendorChange(e.target.value)}
+          onChange={(e) => filter.update((p, key) => (e.target.value ? p.set(key("vendorId"), e.target.value) : p.delete(key("vendorId"))))}
           className="block max-w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Select a vendor...</option>
@@ -53,20 +40,6 @@ export function ReportFilters({ eventId, vendors, selectedVendorId, basePath = `
           ))}
         </select>
       </div>
-
-      {(shareButton || showPrint) && (
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-          {shareButton}
-          {showPrint && (
-            <a
-              href={`${basePath}/print?vendorId=${selectedVendorId}`}
-              className={btnOutlinedXs}
-            >
-              Print / Save PDF
-            </a>
-          )}
-        </div>
-      )}
-    </div>
+    </ReportFilterShell>
   );
 }
