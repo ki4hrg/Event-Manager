@@ -104,7 +104,6 @@ export async function markContainerContentsCore(
   userId: string,
 ): Promise<{ supplyUpdated: number; printUpdated: number }> {
   await requirePermissionForUser(userId, "EVENTS", "VIEW", eventId);
-
   const [canWriteSupply, canWritePrint] = await Promise.all([
     hasPermissionForUser(userId, "SUPPLY_ORDERS", "WRITE", eventId),
     hasPermissionForUser(userId, "PRINT_ORDERS", "WRITE", eventId),
@@ -117,28 +116,28 @@ export async function markContainerContentsCore(
 
   // Only the writes the caller is actually allowed to make; the UI states the
   // skipped count rather than applying a partial change silently.
+  // Rows that change status lose their sub-state (cleared first, so the
+  // status write's count is every row in the subtree).
+  const supplyWhere = { sourceLocationId: { in: ids }, supplyOrder: { eventId } };
+  const printWhere = { sourceLocationId: { in: ids }, printOrder: { eventId } };
+  const moved = { packingStatus: { not: packingStatus } };
   const writes = [];
   if (canWriteSupply) {
     writes.push(
-      prisma.supplyOrderItem.updateMany({
-        where: { sourceLocationId: { in: ids }, supplyOrder: { eventId } },
-        data: { packingStatus },
-      }),
+      prisma.supplyOrderItem.updateMany({ where: { ...supplyWhere, ...moved }, data: { packingSubstatus: null } }),
+      prisma.supplyOrderItem.updateMany({ where: supplyWhere, data: { packingStatus } }),
     );
   }
   if (canWritePrint) {
     writes.push(
-      prisma.printItem.updateMany({
-        where: { sourceLocationId: { in: ids }, printOrder: { eventId } },
-        data: { packingStatus },
-      }),
+      prisma.printItem.updateMany({ where: { ...printWhere, ...moved }, data: { packingSubstatus: null } }),
+      prisma.printItem.updateMany({ where: printWhere, data: { packingStatus } }),
     );
   }
 
   const results = await prisma.$transaction(writes);
-  let cursor = 0;
-  const supplyUpdated = canWriteSupply ? (results[cursor++]?.count ?? 0) : 0;
-  const printUpdated = canWritePrint ? (results[cursor]?.count ?? 0) : 0;
+  const supplyUpdated = canWriteSupply ? (results[1]?.count ?? 0) : 0;
+  const printUpdated = canWritePrint ? (results[canWriteSupply ? 3 : 1]?.count ?? 0) : 0;
 
   return { supplyUpdated, printUpdated };
 }

@@ -93,7 +93,7 @@ export default async function PrintOrderPage({
   const [
     printOrderVendors, fileTypeOptions, printOrderFiles, responsiblePartyVendors, substatuses,
     distributionOptions, availableFunctions, availablePresentations, partyOptions, availableEventVendors,
-    venueRooms, storageLocations,
+    venueRooms, storageLocations, packingSubstatuses,
   ] = await Promise.all([
     getPrintOrderVendors(printOrderId, eventId),
     getOptions("file_type"),
@@ -113,6 +113,7 @@ export default async function PrintOrderPage({
     searchAssignedEventVendors("", eventId, "PRINT_ORDER"),
     getEventRooms(eventId),
     getStorageLocations(),
+    getOptions("packing_substatus"),
   ]);
 
   // Flattened server-side so the prisma-importing tree helpers stay off the client.
@@ -134,10 +135,11 @@ export default async function PrintOrderPage({
     await deletePrintOrder(printOrderId, eventId);
   };
 
-  const updatePackingStatusAction = async (packingStatus: PackingStatus | null) => {
+  const updatePackingStatusAction = async (packingStatus: PackingStatus | null, packingSubstatus?: string | null) => {
     "use server";
-    await updatePrintOrderPackingStatus(printOrderId, eventId, packingStatus);
+    await updatePrintOrderPackingStatus(printOrderId, eventId, packingStatus, packingSubstatus);
   };
+  const packingSubstatusOptions = packingSubstatuses.map((o) => ({ label: o.label, group: o.group }));
 
   const addVendorToFormAction = async (vendorId: string) => {
     "use server";
@@ -314,6 +316,8 @@ export default async function PrintOrderPage({
               <div className="border-b border-gray-200 dark:border-gray-700 mb-4 pb-4">
                 <PackingStatusPanel
                   packingStatus={printOrder.packingStatus ?? null}
+                  packingSubstatus={printOrder.packingSubstatus}
+                  substatusOptions={packingSubstatusOptions}
                   itemCount={printOrder.items.length}
                   updatePackingStatus={updatePackingStatusAction}
                 />
@@ -374,6 +378,7 @@ export default async function PrintOrderPage({
               items={printOrder.items}
               locationOptions={locationOptions}
               distributionOptions={distributionOptions}
+              packingSubstatusOptions={packingSubstatusOptions}
               vendors={flatVendors}
               contacts={partyOptions.contacts}
               createItem={createItemAction}

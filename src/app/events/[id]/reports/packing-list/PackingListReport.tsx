@@ -12,6 +12,7 @@ import {
   ACQUISITION_LABEL,
   PACKING_STATUS_CLASS,
   PACKING_STATUS_LABEL,
+  packingStatusText,
   PACKING_STATUS_OPTIONS,
   ACQUISITION_OPTIONS,
 } from "@/lib/statusConstants";
@@ -21,7 +22,7 @@ function StatusPill({ item }: { item: PackableItem }) {
     <span
       className={`inline-block text-xs rounded px-2 py-0.5 font-medium ${PACKING_STATUS_CLASS[item.packingStatus]}`}
     >
-      {PACKING_STATUS_LABEL[item.packingStatus]}
+      {packingStatusText(item.packingStatus, item.packingSubstatus)}
     </span>
   );
 }

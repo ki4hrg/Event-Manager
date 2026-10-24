@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requirePermissionForUser } from "@/lib/permissions";
 import { rangeTouched } from "@/lib/dateRange";
+import { assertEventRefs } from "@/lib/eventRefs";
 
 export type SpeakerContactFields = {
   bio?: string | null;
@@ -45,6 +46,8 @@ export type SpeakerProfileArgs = {
   arrivalAt?: Date | null;
   departureAt?: Date | null;
   travelNotes?: string | null;
+  // One of the event's hotel blocks; hotel stays as free text alongside.
+  hotelBlockId?: string | null;
   hotel?: string | null;
   dietary?: string | null;
   // dietary_need labels.
@@ -56,7 +59,7 @@ export type SpeakerProfileArgs = {
 };
 
 const PROFILE_KEYS = [
-  "arrivalAt", "departureAt", "travelNotes", "hotel", "dietary", "dietaryNeeds", "avNeeds", "shirtSize", "notes", "internalNotes",
+  "arrivalAt", "departureAt", "travelNotes", "hotelBlockId", "hotel", "dietary", "dietaryNeeds", "avNeeds", "shirtSize", "notes", "internalNotes",
 ] as const satisfies readonly (keyof SpeakerProfileArgs)[];
 
 // Partial upsert: omitted keys are unchanged. The contact must speak at the
@@ -68,6 +71,7 @@ export async function upsertSpeakerProfileCore(eventId: string, contactId: strin
     select: { id: true },
   });
   if (!speaks) throw new PermissionError("NOT_FOUND", "Speaker not found");
+  await assertEventRefs(eventId, { hotelBlockIds: [args.hotelBlockId] });
   if (args.arrivalAt !== undefined || args.departureAt !== undefined) {
     // A partial update is checked against the stored other end; a pair the
     // save leaves as stored isn't rechecked (a profile stored reversed still

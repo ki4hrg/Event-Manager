@@ -3,22 +3,26 @@
 import { useState, useTransition } from "react";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import type { PackingSubstatusOption } from "@/components/ui/PackingSubstatusSelect";
 import {
   ACQUISITION_LABEL,
   ACQUISITION_OPTIONS,
-  PACKING_STATUS_LABEL,
   PACKING_STATUS_OPTIONS,
+  packingStatusText,
 } from "@/lib/statusConstants";
 
 type Props = {
   itemCount: number;
-  bulkSetPacking: (status: PackingStatus) => Promise<void>;
+  packingSubstatusOptions: PackingSubstatusOption[];
+  bulkSetPacking: (status: PackingStatus, substatus: string | null) => Promise<void>;
   bulkSetAcquisition: (state: AcquisitionState) => Promise<void>;
 };
 
-export function BulkItemStatusPanel({ itemCount, bulkSetPacking, bulkSetAcquisition }: Props) {
+type PackingChoice = { status: PackingStatus; substatus: string | null };
+
+export function BulkItemStatusPanel({ itemCount, packingSubstatusOptions, bulkSetPacking, bulkSetAcquisition }: Props) {
   const canWrite = useCanWrite("SUPPLY_ORDERS");
-  const [pendingPacking, setPendingPacking] = useState<PackingStatus | null>(null);
+  const [pendingPacking, setPendingPacking] = useState<PackingChoice | null>(null);
   const [pendingAcquisition, setPendingAcquisition] = useState<AcquisitionState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -26,10 +30,12 @@ export function BulkItemStatusPanel({ itemCount, bulkSetPacking, bulkSetAcquisit
   // The panel does nothing but write, so it has no read-only form.
   if (itemCount === 0 || !canWrite) return null;
 
+  // Each status, then its sub-states: "STATUS" or "STATUS|label".
   const onPackingSelect = (value: string) => {
     if (!value) return;
     setError(null);
-    setPendingPacking(value as PackingStatus);
+    const [status, ...rest] = value.split("|");
+    setPendingPacking({ status: status as PackingStatus, substatus: rest.join("|") || null });
   };
 
   const onAcquisitionSelect = (value: string) => {
@@ -43,7 +49,7 @@ export function BulkItemStatusPanel({ itemCount, bulkSetPacking, bulkSetAcquisit
     setError(null);
     startTransition(async () => {
       try {
-        await bulkSetPacking(pendingPacking);
+        await bulkSetPacking(pendingPacking.status, pendingPacking.substatus);
         setPendingPacking(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update packing status");
@@ -77,9 +83,16 @@ export function BulkItemStatusPanel({ itemCount, bulkSetPacking, bulkSetAcquisit
             className="w-full text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
           >
             <option value="">Set all to…</option>
-            {PACKING_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+            {PACKING_STATUS_OPTIONS.flatMap((o) => [
+              <option key={o.value} value={o.value}>{o.label}</option>,
+              ...packingSubstatusOptions
+                .filter((s) => s.group === o.value)
+                .map((s) => (
+                  <option key={`${o.value}|${s.label}`} value={`${o.value}|${s.label}`}>
+                    {packingStatusText(o.value, s.label)}
+                  </option>
+                )),
+            ])}
           </select>
         </div>
         <div>
@@ -108,7 +121,7 @@ export function BulkItemStatusPanel({ itemCount, bulkSetPacking, bulkSetAcquisit
         <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm">
           <p className="text-amber-800 dark:text-amber-200">
             Mark all {itemCount} item{itemCount === 1 ? "" : "s"} as packing{" "}
-            <span className="font-medium">{PACKING_STATUS_LABEL[pendingPacking]}</span>?
+            <span className="font-medium">{packingStatusText(pendingPacking.status, pendingPacking.substatus)}</span>?
             Individual items can still be changed afterward.
           </p>
           <div className="mt-2 flex gap-2">

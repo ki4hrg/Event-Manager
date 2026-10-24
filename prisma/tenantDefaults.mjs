@@ -98,6 +98,12 @@ export const DEFAULT_OPTIONS = {
     { label: "Denied", group: "CANCELLED", sortOrder: 0 },
     { label: "Cancelled", group: "CANCELLED", sortOrder: 1 },
   ],
+  // Grouped by PackingStatus (PACKING_SUBSTATUS_GROUPS).
+  packing_substatus: [
+    { label: "Packed", group: "NEEDED", sortOrder: 0 },
+    { label: "Shipped", group: "IN_TRANSIT", sortOrder: 0 },
+    { label: "Returned", group: "DELIVERED", sortOrder: 0 },
+  ],
   delivery_method: [
     { label: "Pre-loaded", sortOrder: 0 },
     { label: "Brought Day Of", sortOrder: 1 },

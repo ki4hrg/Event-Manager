@@ -21,6 +21,7 @@ export type SpeakerProfileView = {
     arrivalAt: string;
     departureAt: string;
     travelNotes: string | null;
+    hotelBlockId: string | null;
     hotel: string | null;
     dietary: string | null;
     dietaryNeeds: string[];
@@ -35,6 +36,8 @@ type Props = {
   speakers: SpeakerProfileView[];
   // The dietary_need list.
   dietaryNeeds: string[];
+  // The event's hotel blocks, labelled hotel · block type.
+  hotelBlocks: { id: string; label: string }[];
   saveContact: (contactId: string, formData: FormData) => Promise<void>;
   saveProfile: (contactId: string, formData: FormData) => Promise<void>;
   removeHeadshot: (contactId: string) => Promise<void>;
@@ -52,13 +55,14 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 
 const show = (local: string) => (local ? local.replace("T", " ") : null);
 
-function Speaker({ s, dietaryNeeds, saveContact, saveProfile, removeHeadshot }: { s: SpeakerProfileView } & Omit<Props, "speakers">) {
+function Speaker({ s, dietaryNeeds, hotelBlocks, saveContact, saveProfile, removeHeadshot }: { s: SpeakerProfileView } & Omit<Props, "speakers">) {
   const canWriteContact = useCanWrite("CONTACTS");
   const canWriteProfile = useCanWrite("PRESENTATIONS");
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const p = s.profile;
+  const block = p?.hotelBlockId ? hotelBlocks.find((b) => b.id === p.hotelBlockId)?.label : null;
 
   const submit = (action: (formData: FormData) => Promise<void>) => (formData: FormData) =>
     startTransition(async () => {
@@ -95,7 +99,7 @@ function Speaker({ s, dietaryNeeds, saveContact, saveProfile, removeHeadshot }: 
           <Field label="Website" value={s.contact.website} />
           <Field label="Arrives" value={p ? show(p.arrivalAt) : null} />
           <Field label="Departs" value={p ? show(p.departureAt) : null} />
-          <Field label="Hotel" value={p?.hotel} />
+          <Field label="Hotel" value={[block, p?.hotel].filter(Boolean).join(" · ") || null} />
           <Field label="Travel" value={p?.travelNotes} />
           <Field label="Dietary" value={[p?.dietaryNeeds.join(", "), p?.dietary].filter(Boolean).join(" · ") || null} />
           <Field label="AV needs" value={p?.avNeeds} />
@@ -136,7 +140,19 @@ function Speaker({ s, dietaryNeeds, saveContact, saveProfile, removeHeadshot }: 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className={labelCls}>Arrives</label><input type="datetime-local" name="arrivalAt" defaultValue={p?.arrivalAt ?? ""} onChange={(e) => syncRangeEnd(e.currentTarget, "departureAt", { fillEmpty: false })} className={inputCls} /></div>
                 <div><label className={labelCls}>Departs</label><input type="datetime-local" name="departureAt" min={p?.arrivalAt || undefined} defaultValue={p?.departureAt ?? ""} className={inputCls} /></div>
-                <div><label className={labelCls}>Hotel</label><input name="hotel" defaultValue={p?.hotel ?? ""} className={inputCls} /></div>
+                {hotelBlocks.length > 0 && (
+                  <div>
+                    <label className={labelCls}>Hotel block</label>
+                    <select name="hotelBlockId" defaultValue={p?.hotelBlockId ?? ""} className={inputCls}>
+                      <option value="">—</option>
+                      {hotelBlocks.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className={labelCls}>{hotelBlocks.length > 0 ? "Other hotel" : "Hotel"}</label>
+                  <input name="hotel" defaultValue={p?.hotel ?? ""} className={inputCls} />
+                </div>
                 <div><label className={labelCls}>Shirt size</label><input name="shirtSize" defaultValue={p?.shirtSize ?? ""} className={inputCls} /></div>
                 <div className="sm:col-span-2"><label className={labelCls}>Travel</label><textarea name="travelNotes" rows={2} defaultValue={p?.travelNotes ?? ""} className={inputCls} /></div>
                 <div className="sm:col-span-2">

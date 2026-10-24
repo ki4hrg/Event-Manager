@@ -159,6 +159,7 @@ export const inventoryTools: McpToolDefinition[] = [
               id: true,
               quantity: true,
               packingStatus: true,
+              packingSubstatus: true,
               supplyOrder: { select: { id: true, name: true, eventId: true } },
             },
           },

@@ -1676,6 +1676,7 @@ model PrintOrder {
   status           EntityStatus?
   substatus        String? // @option substatus
   packingStatus    PackingStatus?
+  packingSubstatus String? // @option packing_substatus
   eventId          String
   event            Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
   roomId           String?
@@ -1718,6 +1719,7 @@ model PrintItem {
   quantity           Int?
   acquisitionState   AcquisitionState @default(TO_PROCURE)
   packingStatus      PackingStatus    @default(NEEDED)
+  packingSubstatus   String? // @option packing_substatus
   distributionMethod String? // @option print_distribution
   distributionNotes  String?
   designerVendorId   String?
@@ -1809,6 +1811,7 @@ model SupplyOrderItem {
   providerContactId String?
   providerContact   Contact?         @relation("SupplyOrderItemProviderContact", fields: [providerContactId], references: [id], onDelete: SetNull)
   packingStatus     PackingStatus    @default(NEEDED)
+  packingSubstatus  String? // @option packing_substatus
   notes             String?
   sortOrder         Int              @default(0)
 
@@ -2740,6 +2743,7 @@ model HotelBlock {
   pickupGuests      HotelPickupGuest[]
   pickupCounts      HotelPickupCount[]
   pickupSnapshots   HotelPickupSnapshot[]
+  speakerProfiles   SpeakerProfile[]
   updatedById       String?
   updatedBy         User?                 @relation("HotelBlockUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt         DateTime              @default(now())
@@ -3371,27 +3375,32 @@ model FormSubmission {
 // A speaker's facts for one event (proposal #55, minimal slice): travel,
 // needs, notes. Durable facts (bio, headshot) live on Contact.
 model SpeakerProfile {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   eventId       String
-  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   contactId     String
-  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact       Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
   arrivalAt     DateTime?
   departureAt   DateTime?
   travelNotes   String?
+  // The event's block the speaker stays in; hotel is free text for anywhere
+  // else (or before a block is set up).
+  hotelBlockId  String?
+  hotelBlock    HotelBlock? @relation(fields: [hotelBlockId], references: [id], onDelete: SetNull)
   hotel         String?
   dietary       String?
-  dietaryNeeds  String[]  @default([]) // @option dietary_need
+  dietaryNeeds  String[]    @default([]) // @option dietary_need
   avNeeds       String?
   shirtSize     String?
   notes         String?
   internalNotes String?
   updatedById   String?
-  updatedBy     User?     @relation("SpeakerProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  updatedBy     User?       @relation("SpeakerProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@unique([eventId, contactId])
   @@index([contactId])
+  @@index([hotelBlockId])
   @@index([updatedById])
 }

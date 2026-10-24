@@ -31,6 +31,7 @@ export type PackableItem = {
   quantity: number | null;
   acquisitionState: AcquisitionState;
   packingStatus: PackingStatus;
+  packingSubstatus: string | null;
   equipmentCategory: string | null;
   /** Effective provider: the per-item override when set, else the order's. */
   provider: string | null;
@@ -302,6 +303,7 @@ export async function buildPackingItems(
         quantity: s.quantity ?? null,
         acquisitionState: s.acquisitionState,
         packingStatus: s.packingStatus,
+        packingSubstatus: s.packingSubstatus,
         equipmentCategory: s.equipment?.category ?? null,
         provider: itemProvider ?? orderProvider,
         itemProvider,
@@ -328,6 +330,7 @@ export async function buildPackingItems(
         quantity: p.quantity ?? null,
         acquisitionState: p.acquisitionState,
         packingStatus: p.packingStatus,
+        packingSubstatus: p.packingSubstatus,
         equipmentCategory: null,
         provider: orderProvider,
         itemProvider: null,

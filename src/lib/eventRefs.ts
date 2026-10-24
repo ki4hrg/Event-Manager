@@ -1,7 +1,7 @@
 // Every id a caller hands an event-scoped write, proven before it lands in a
 // foreign-key column or a junction row: functions, presentations, breakout
-// groups and tracks must be the event's own; vendors, contacts, equipment,
-// rooms and storage the event's tenant's. A foreign id is a not-found, never
+// groups, tracks and hotel blocks must be the event's own; vendors, contacts,
+// equipment, rooms and storage the event's tenant's. A foreign id is a not-found, never
 // a cross-event or cross-tenant link. Null / undefined / empty entries are
 // skipped, so optional fields pass straight through.
 
@@ -15,6 +15,7 @@ export type EventRefs = {
   presentationIds?: Ids;
   breakoutGroupIds?: Ids;
   trackIds?: Ids;
+  hotelBlockIds?: Ids;
   vendorIds?: Ids;
   contactIds?: Ids;
   equipmentIds?: Ids;
@@ -30,6 +31,7 @@ export async function assertEventRefs(eventId: string, refs: EventRefs): Promise
   const pres = distinct(refs.presentationIds);
   const groups = distinct(refs.breakoutGroupIds);
   const tracks = distinct(refs.trackIds);
+  const blocks = distinct(refs.hotelBlockIds);
   const vendors = distinct(refs.vendorIds);
   const contacts = distinct(refs.contactIds);
   const equipment = distinct(refs.equipmentIds);
@@ -44,6 +46,7 @@ export async function assertEventRefs(eventId: string, refs: EventRefs): Promise
     ["Presentation", pres, pres.length ? prisma.presentation.count({ where: { id: { in: pres }, eventId } }) : none],
     ["Breakout group", groups, groups.length ? prisma.breakoutGroup.count({ where: { id: { in: groups }, eventId } }) : none],
     ["Track", tracks, tracks.length ? prisma.presentationTrack.count({ where: { id: { in: tracks }, eventId } }) : none],
+    ["Hotel block", blocks, blocks.length ? prisma.hotelBlock.count({ where: { id: { in: blocks }, proposal: { eventId } } }) : none],
     ["Vendor", vendors, vendors.length ? prisma.vendor.count({ where: { id: { in: vendors }, tenantId: tenantId! } }) : none],
     ["Contact", contacts, contacts.length ? prisma.contact.count({ where: { id: { in: contacts }, tenantId: tenantId! } }) : none],
     ["Equipment", equipment, equipment.length ? prisma.equipment.count({ where: { id: { in: equipment }, tenantId: tenantId! } }) : none],
