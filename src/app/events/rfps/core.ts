@@ -27,6 +27,7 @@ import { getUploadDir, getUploadPath } from "@/lib/uploads";
 import type { OfferHotel } from "@/lib/inboundParse";
 import { createNewHotelCore } from "@/app/events/hotels/core";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
+import { settleAwards } from "@/app/events/quotes/core";
 
 export type RfpWriteArgs = {
   title: string;
@@ -452,6 +453,13 @@ export async function saveRfpLineItemsCore(id: string, eventId: string, rows: Rf
   const existing = new Set((await prisma.rfpLineItem.findMany({ where: { rfpId: id }, select: { id: true } })).map((r) => r.id));
   const kept = data.flatMap((r) => (r.id && existing.has(r.id) ? [r.id] : []));
   const saved = await prisma.$transaction(async (tx) => {
+    // Quotes that won a line being removed may be left with none.
+    const losers = (
+      await tx.rfpLineItem.findMany({
+        where: { rfpId: id, id: { notIn: kept }, awardedQuoteId: { not: null } },
+        select: { awardedQuoteId: true },
+      })
+    ).map((r) => r.awardedQuoteId!);
     // A removed line's quote answers keep their price and lose the link (SetNull).
     await tx.rfpLineItem.deleteMany({ where: { rfpId: id, id: { notIn: kept } } });
     const out: string[] = [];
@@ -462,6 +470,12 @@ export async function saveRfpLineItemsCore(id: string, eventId: string, rows: Rf
       } else out.push((await tx.rfpLineItem.create({ data: { ...row, rfpId: id }, select: { id: true } })).id);
     }
     await tx.rfp.update({ where: { id, eventId }, data: { updatedById: userId } });
+    // Once lines are awarded, a new open line reopens a closed RFP and the
+    // last open line removed closes it. An RFP with no award (open, or
+    // closed with "No award") keeps its status.
+    if (losers.length || (await tx.rfpLineItem.count({ where: { rfpId: id, awardedQuoteId: { not: null } } }))) {
+      await settleAwards(tx, id, eventId, userId, losers);
+    }
     return out;
   });
   return alignIds(rows, (r) => !!r.description.trim(), saved);

@@ -207,7 +207,7 @@ async function addVendorToOrders(tx: Tx, eventId: string, vendorId: string, line
 }
 
 // `losers`: quotes that just lost lines. Call only when awards changed.
-async function settleAwards(tx: Tx, rfpId: string, eventId: string, userId: string, losers: string[]) {
+export async function settleAwards(tx: Tx, rfpId: string, eventId: string, userId: string, losers: string[]) {
   if (losers.length) {
     await tx.vendorQuote.updateMany({
       where: { id: { in: losers }, rfpId, eventId, status: "ACCEPTED", awardedLines: { none: {} } },
