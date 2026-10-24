@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { OptionCategory } from "@/app/settings/actions";
+import type { OptionCategory } from "@/lib/optionCategories";
 
 // Dropdown options are per tenant. The Server Action `getOptions` in
 // src/app/settings/actions.ts reads the active tenant's; these helpers are for

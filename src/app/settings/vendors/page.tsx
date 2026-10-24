@@ -8,65 +8,63 @@ import {
   reorderOptions,
   mergeOption,
   mapOffListLabel,
-  type OptionCategory,
 } from "../actions";
 import { OptionList } from "../OptionList";
 import { OffListLabels } from "../hotels/OffListLabels";
+import { OPTION_CATEGORIES, categoriesInSection } from "@/lib/optionCategories";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Vendor options" };
 
-const LISTS: { category: OptionCategory; title: string; description: string; mergeable?: boolean }[] = [
-  { category: "vendor_contact_type", title: "Vendor Contact Types", description: "Roles for vendor contacts (e.g., Sales, Billing, Technical)" },
-  { category: "rfp_service", title: "RFP Services", description: "What an Other services RFP is for" },
-  { category: "rfp_term", title: "RFP Terms", description: "", mergeable: true },
-];
+const LISTS = categoriesInSection("vendors");
 
 export default async function SettingsVendorsPage() {
   const [options, offList] = await Promise.all([
-    Promise.all(LISTS.map((l) => getOptions(l.category))),
-    Promise.all(LISTS.map((l) => (l.mergeable ? getOffListLabels(l.category) : []))),
+    Promise.all(LISTS.map((c) => getOptions(c))),
+    Promise.all(LISTS.map((c) => getOffListLabels(c))),
   ]);
 
   return (
     <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
-      {LISTS.map((list, i) => {
+      {LISTS.map((category, i) => {
+        const def = OPTION_CATEGORIES[category];
+        const mergeable = "mergeable" in def;
         const create = async (formData: FormData) => {
           "use server";
-          await createOption(list.category, formData);
+          await createOption(category, formData);
         };
         const reorder = async (ids: string[]) => {
           "use server";
-          await reorderOptions(list.category, ids);
+          await reorderOptions(category, ids);
         };
         const map = async (label: string, intoId: string) => {
           "use server";
-          await mapOffListLabel(list.category, label, intoId);
+          await mapOffListLabel(category, label, intoId);
         };
         const add = async (label: string) => {
           "use server";
           const formData = new FormData();
           formData.set("label", label);
-          await createOption(list.category, formData);
+          await createOption(category, formData);
         };
         return (
-          <div key={list.category} className="space-y-4 min-w-0">
+          <div key={category} className="space-y-4 min-w-0">
             <OptionList
-              title={list.title}
-              description={list.description}
-              category={list.category}
+              title={def.title}
+              description={def.description}
+              category={category}
               options={options[i]}
               showColor={false}
               createOption={create}
               updateOption={updateOption}
               deleteOption={deleteOption}
               reorderOptions={reorder}
-              mergeOption={list.mergeable ? mergeOption : undefined}
+              mergeOption={mergeable ? mergeOption : undefined}
             />
-            {list.mergeable && (
+            {mergeable && (
               <OffListLabels
-                title={`${list.title} not in the list`}
+                title={`${def.title} not in the list`}
                 labels={offList[i]}
                 options={options[i].map((o) => ({ id: o.id, label: o.label, group: o.group }))}
                 map={map}

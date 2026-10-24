@@ -9,7 +9,7 @@
 // Derived entries are read from data the app already holds and are never
 // written from this page.
 
-import type { OptionCategory } from "@/app/settings/actions";
+import type { OptionCategory } from "@/lib/optionCategories";
 
 export type EsgFieldKind =
   | "text"

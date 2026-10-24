@@ -4,7 +4,7 @@ import { GroupedOptionItems } from "./GroupedOptionItems";
 import { startTransition, useState, useEffect, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import type { CustomOption } from "@prisma/client";
-import type { OptionCategory } from "./actions";
+import type { OptionCategory } from "@/lib/optionCategories";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { useCanWrite } from "@/components/PermissionsProvider";

@@ -146,7 +146,7 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 - When `onDelete: Restrict` is the right FK semantics, pair it with a pre-check whose only job is a readable error ("X still holds N items") — see `deleteStorageLocationCore`.
 - Domain types come from `@prisma/client`. For derived list/detail payloads, alias with `Awaited<ReturnType<typeof getX>>[number]`.
 - Persist per-user preferences via `setUserSetting` / `getUserSetting` from `@/lib/userSettings` (backed by the `UserSetting` table). Don't add cookies or localStorage for the same need.
-- When discriminating on a TypeScript union or Prisma enum, close the chain with an exhaustiveness check: `default: { const _exhaustive: never = value; throw new Error(\`Unhandled: ${value}\`); }` on a `switch`, or `const _exhaustive: never = link.reportType; throw new Error(...);` after the last `if` branch. Reference call sites: `OptionCategory` switch in `src/app/settings/actions.ts`, `ShareLink.reportType` if-chain in `src/app/share/[token]/page.tsx`.
+- When discriminating on a TypeScript union or Prisma enum, close the chain with an exhaustiveness check: `default: { const _exhaustive: never = value; throw new Error(\`Unhandled: ${value}\`); }` on a `switch`, or `const _exhaustive: never = link.reportType; throw new Error(...);` after the last `if` branch. Reference call sites: `HotelLabelCategory` switch in `mergeHotelLabel` (`src/lib/hotelLabels.ts`), `ShareLink.reportType` if-chain in `src/app/share/[token]/page.tsx`.
 
 ### Styling
 
