@@ -356,10 +356,17 @@ function readRfp(formData: FormData): RfpWriteArgs {
   const str = (k: string) => (formData.get(k) as string) || null;
   // Selects post BLANK for "none".
   const pick = (k: string) => (formData.get(k) === BLANK ? null : str(k));
-  const status = formData.get("status") as string;
+  const status = formData.get("status") as string | null;
   return {
     title: (formData.get("title") as string) ?? "",
-    status: status === "ISSUED" || status === "CLOSED" ? status : ("DRAFT" satisfies RfpStatus),
+    // The form also posts the status it shows as saved: an untouched select
+    // leaves the status alone, so an autosave can't undo an Issue.
+    status:
+      !status || status === formData.get("statusWas")
+        ? undefined
+        : status === "ISSUED" || status === "CLOSED"
+          ? status
+          : ("DRAFT" satisfies RfpStatus),
     responseDue: str("responseDue"),
     decisionBy: str("decisionBy"),
     sections: formData.getAll("sections") as string[],

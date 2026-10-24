@@ -44,6 +44,8 @@ export function RfpRecipients({
   addNew,
   update,
   remove,
+  unlinked = [],
+  linkProposal,
 }: {
   eventId: string;
   recipients: RecipientRow[];
@@ -61,6 +63,10 @@ export function RfpRecipients({
   addNew?: (hotel: OfferHotel) => Promise<void>;
   update: (recipientId: string, args: RfpRecipientArgs) => Promise<void>;
   remove: (recipientId: string) => Promise<void>;
+  // The event's proposals that answer no RFP, and linking one to a block: a
+  // citywide RFP sent out by a CVB brings offers from hotels never listed.
+  unlinked?: { id: string; label: string }[];
+  linkProposal?: (proposalId: string, blockId: string) => Promise<void>;
 }) {
   const router = useRouter();
   const canWrite = useCanWrite("HOTELS");
@@ -222,6 +228,27 @@ export function RfpRecipients({
             </button>
           </div>
         </form>
+      )}
+      {canWrite && linkProposal && unlinked.length > 0 && blocks.length > 0 && (
+        <select
+          aria-label="Link proposal"
+          value=""
+          disabled={pending}
+          onChange={(e) => {
+            const [proposalId, blockId] = e.target.value.split(" ");
+            if (proposalId && blockId) run(() => linkProposal(proposalId, blockId));
+          }}
+          className={`${smallInput} w-full`}
+        >
+          <option value="">+ Existing proposal</option>
+          {unlinked.flatMap((p) =>
+            blocks.map((b) => (
+              <option key={`${p.id} ${b.id}`} value={`${p.id} ${b.id}`}>
+                {blocks.length === 1 ? p.label : `${p.label} · ${b.label}`}
+              </option>
+            )),
+          )}
+        </select>
       )}
       {canWrite && (!isEmptyScope(scope) || requiredAmenities.length > 0) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">

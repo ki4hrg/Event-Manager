@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/email";
+import { labelKey } from "@/lib/hotels";
 import { PICKUP_FIELD_KEYS, type DateOrder, type PickupFieldKey, type PickupGuestRow } from "@/lib/pickupMapping";
 
 // Claude reads one inbox message and proposes what it is (docs/proposals/
@@ -101,6 +102,21 @@ const sameWords = (a: string, b: string) => {
   const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   return norm(a) === norm(b);
 };
+
+// The list's label for one the model wrote: the same words, else the one label
+// left once "free" / "complimentary" / "included" drop out ("Free Breakfast",
+// "Breakfast Included" → Complimentary Breakfast). Two such labels: neither.
+const LOOSE_WORDS = /\b(free|complimentary|comp|included|includes|including|inclusive)\b/g;
+const looseKey = (label: string) => labelKey(label).replace(LOOSE_WORDS, " ").replace(/\s+/g, " ").trim();
+function listLabels(labels: string[]) {
+  const exact = new Map(labels.map((l) => [labelKey(l), l]));
+  const loose = new Map<string, string | null>();
+  for (const l of labels) {
+    const key = looseKey(l);
+    if (key) loose.set(key, loose.has(key) ? null : l);
+  }
+  return (label: string | null | undefined) => (label?.trim() ? (exact.get(labelKey(label)) ?? loose.get(looseKey(label)) ?? null) : null);
+}
 
 export function offerAmenities(o: Pick<ProposalOffer, "amenities">): OfferAmenity[] {
   return o.amenities.map((a) => (typeof a === "string" ? { label: a, status: "CONFIRMED", note: null } : a));
@@ -604,7 +620,7 @@ For PICKUP_COUNTS, fill "counts": one entry per night and room type with rooms p
 
 For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer is one entry. A sales rep covering several properties (a dual-branded pair, a management group) may offer them in one email or one PDF: give each property its own entry, with its own rates, nights, amenities and hotel details, and only the terms that apply to it. Terms stated once for all of them (a deadline, attrition, cancellation) go on each entry. Meeting space or services offered once for the group go on the entry of the property that hosts them; when the message doesn't say which, on the first, and say so in notes. For each entry:
 - venueId: the property, from the candidate hotels; "" when it isn't one of them (say who it is in notes).
-- rfpBlockId: the requested block this offer answers, from the candidate RFPs' blocks, only when the offer is a response to that RFP: it names or quotes the RFP, answers its requested concessions, or comes from a hotel the RFP was sent to for the same dates. A hotel's own or unsolicited offer, or one that merely overlaps the event's dates, answers no RFP: "". "" too when it's unclear which block.
+- rfpBlockId: the requested block this offer answers, from the candidate RFPs' blocks, only when the offer is a response to that RFP: it names or quotes the RFP, answers its requested concessions, or comes from a hotel the RFP was sent to for the same dates. A CVB or third party may send the RFP out citywide, to hotels not on its recipients: an offer that comes through one (or credits one) for the RFP's dates answers it too. A hotel's own or unsolicited offer, or one that merely overlaps the event's dates, answers no RFP: "". "" too when it's unclear which block.
 - contractType: COURTESY when the hotel offers a courtesy block (rooms held without the group guaranteeing them: no attrition, released at cut-off), CONTRACT when it offers a contracted block (the group commits to the rooms, with attrition); "" when the offer doesn't say.
 - submittedOn: the date of the offer. checkIn / checkOut: the first night and the departure day (the day after the last night).
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types only when the offer puts those rooms on that type: a bed type (one bed / king, two beds / double / queen) or a suite. Rooms of any or unspecified type (Any Room, Run of House, ROH, Standard Room) are run of house: "". Never move rooms onto a bed type because a rate for that type is quoted elsewhere in the message; such a rate prices the rooms the offer does put on that type, and only those.
@@ -614,11 +630,11 @@ For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer i
 - validUntil: the offer's deadline, YYYY-MM-DD: the date the rates are good until or the contract must be signed by (the earlier when both are given), or "".
 - taxIncluded: INCLUDED when the offer says its rates include taxes and fees, EXCLUDED when it says they don't ("plus tax", "taxes not included"), "" when it doesn't say.
 - allowedAttrition: the attrition allowance as a percentage (20 for 20%). guaranteedRevenue: the total revenue or F&B the group commits to for the whole agreement, as an amount, if stated. A minimum spend tied to one room or day (an F&B minimum that waives or replaces the meeting room rental, "$500 spend per day for meeting space") is not a guarantee: it's read with the function space, and guaranteedRevenue stays empty.
-- amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"). note is "" unless it tells the reader something the label doesn't: dates, hours, limits, a fee, a condition ("closed Apr 3–10", "6–9:30 am, 2 per room", "$35/night"). Never restate the label ("Business Center" → ""). Leave out amenities the offer doesn't mention; never guess.
-- An inclusion such as breakfast, Wi-Fi or parking is an amenity only when the property gives it to every guest. When the offer ties it to this group's rate or package ("rate includes breakfast for two", "group rate includes parking"), it's a concession (offeredConcessions, or the RFP's matching concession), not an amenity. When you can't tell which, list it as an amenity with note "Rate includes it; unclear whether standard for all guests".
+- amenities: the hotel's amenities this offer speaks to, from the org's amenity list only (exact labels). Match on meaning, not wording: "free", "complimentary", "comp", "included", "included in (the) rate", "at no (additional) charge" all say the same thing, so "free breakfast", "complimentary hot breakfast", "breakfast included in rate" and "daily breakfast buffet at no charge" are the list's breakfast label (Complimentary Breakfast, say), written exactly as the list has it. Amenities are fixed parts of what the property has or provides to every guest (pool, on-site restaurant, airport shuttle, valet parking, complimentary breakfast for all guests). status is CONFIRMED when the offer commits to it ("complimentary airport shuttle", "breakfast included") and UNAVAILABLE when it says it won't be available for the event ("pool closed for renovation in April"). note is "" unless it tells the reader something the label doesn't: dates, hours, limits, a fee, a condition ("closed Apr 3–10", "6–9:30 am, 2 per room", "$35/night"). Never restate the label ("Business Center" → ""). Leave out amenities the offer doesn't mention; never guess.
+- An inclusion such as breakfast, Wi-Fi or parking is an amenity only when the property gives it to every guest. When the offer ties it to this group's rate or package ("rate includes breakfast for two", "group rate includes parking", "included in rate: breakfast"), it's a concession (offeredConcessions, or the RFP's matching concession, which it then meets), not an amenity. When you can't tell which, list it as an amenity with note "Rate includes it; unclear whether standard for all guests".
 - Concessions are what's given or negotiated for this group (comp rooms, a reduced valet rate, meal vouchers, waived fees, upgrades). One service can be both: valet parking is an amenity, a reduced valet rate a concession.
 - concessions: only when rfpBlockId is set (else empty): for each concession that RFP asked for, what the hotel offered (in its words) and whether that meets the request (MET, PARTIAL, NOT_MET), or "" when it doesn't say.
-- offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels; offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
+- offeredConcessions: every other concession the hotel offers (all of them when rfpBlockId is ""): label is exactly one of the org's concession labels, matched on meaning as amenities are ("breakfast included in rate" is a Complimentary breakfast concession); offered is the terms in the hotel's words ("1 per 40 paid", "$12/night", "included"), or "". A concession that fits none of the labels goes in hotelNotes instead.
 - hotelNotes: only terms the fields above can't hold that a planner would want on file (cut-off date, deposit schedule, cancellation terms), briefly; often "". Never restate what the fields already carry: dates, rooms and rates, taxes, the deadline, attrition, function space, F&B terms, amenities, concessions, whether it answers an RFP. Don't note what the offer leaves out, except space or services the RFP it answers asked for ("No meeting space offered" only when the RFP requested meeting space). Don't mention who forwarded it.
 - leadSourceVendorId: the lead source, from the candidate lead sources, when a CVB or third party sent, forwarded or is copied on the offer, or the offer credits one; "" otherwise (staff forwarding it isn't a lead source).
 - attachments: the numbers of the attachments that belong to this property alone (its own proposal PDF or sheet). Leave out files that cover every property in the message (one combined proposal, a shared catering menu); those go on each. Empty when there is one property.
@@ -889,10 +905,18 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
   const rfp = input.rfps.find((r) => r.blocks.some((b) => b.id === o.rfpBlockId));
   const concessionIds = new Set(rfp?.concessions.map((c) => c.id) ?? []);
   const roomTypes = new Set(input.roomTypes);
-  const amenities = new Set(input.amenities);
-  const concessionLabels = new Map(input.concessionLabels.map((l) => [l.toLowerCase(), l]));
+  const amenityLabel = listLabels(input.amenities);
+  const concessionLabel = listLabels(input.concessionLabels);
   const checkIn = dateOrNull(o.checkIn);
   const checkOut = dateOrNull(o.checkOut);
+  const answers = o.concessions.filter((c) => concessionIds.has(c.concessionId));
+  const requestOf = (label: string) => rfp?.concessions.find((r) => labelKey(r.label) === labelKey(label));
+  const offered = (o.offeredConcessions ?? [])
+    .flatMap((c) => {
+      const label = concessionLabel(c.label);
+      return label ? [{ label, offered: c.offered || null }] : [];
+    })
+    .filter((c, i, all) => all.findIndex((x) => x.label === c.label) === i);
   return {
     venueId: o.venueId && hotels.has(o.venueId) ? o.venueId : null,
     rfpBlockId: rfp ? o.rfpBlockId : null,
@@ -935,19 +959,23 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
     validUntil: o.validUntil ?? null,
     taxIncluded: o.taxIncluded ?? null,
     amenities: offerAmenities(o)
-      .filter((a, i, all) => amenities.has(a.label) && ["CONFIRMED", "UNAVAILABLE"].includes(a.status) && all.findIndex((x) => x.label === a.label) === i)
+      .flatMap((a) => {
+        const label = amenityLabel(a.label);
+        return label ? [{ ...a, label }] : [];
+      })
+      .filter((a, i, all) => ["CONFIRMED", "UNAVAILABLE"].includes(a.status) && all.findIndex((x) => x.label === a.label) === i)
       // A note that only restates the label adds nothing.
       .map((a) => ({ label: a.label, status: a.status, note: a.note && !sameWords(a.note, a.label) ? a.note : null })),
-    concessions: o.concessions.filter((c) => concessionIds.has(c.concessionId)),
+    concessions: [
+      ...answers,
+      // One the RFP asked for, read as offered unasked, answers it.
+      ...offered.flatMap(({ label, offered }) => {
+        const request = requestOf(label);
+        return request && !answers.some((a) => a.concessionId === request.id) ? [{ concessionId: request.id, offered, met: null }] : [];
+      }),
+    ],
     // On the concession list, not ones the RFP asked for (those are answers), one per label.
-    offeredConcessions: (o.offeredConcessions ?? [])
-      .flatMap((c) => {
-        const label = concessionLabels.get(c.label?.trim().toLowerCase() ?? "");
-        return label ? [{ label, offered: c.offered || null }] : [];
-      })
-      .filter(
-        (c, i, all) => !rfp?.concessions.some((r) => r.label.toLowerCase() === c.label.toLowerCase()) && all.findIndex((x) => x.label === c.label) === i,
-      ),
+    offeredConcessions: offered.filter((c) => !requestOf(c.label)),
     hotelNotes: o.hotelNotes,
     leadSourceVendorId: o.leadSourceVendorId && input.leadSources.some((l) => l.id === o.leadSourceVendorId) ? o.leadSourceVendorId : null,
     attachments: (o.attachments ?? []).filter((a, i, all) => Number.isInteger(a) && a >= 0 && a < input.attachments.length && all.indexOf(a) === i),

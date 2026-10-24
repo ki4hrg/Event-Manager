@@ -6,7 +6,7 @@ import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
 import { getEvent } from "@/app/events/event";
-import { createHotelProposal, getProposalFormChoices } from "../../../../hotels/actions";
+import { createHotelProposal, getProposalFormChoices, getProposalRfpChoices } from "../../../../hotels/actions";
 import { ProposalForm, type ProposalTemplate } from "../../../../hotels/ProposalForm";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +23,11 @@ export default async function NewProposalPage({
   const { id: eventId } = await params;
   await requirePermission("HOTELS", "WRITE", eventId);
   const { venueId, rfpBlockId } = await searchParams;
-  const [event, choices, canAddHotel, rfpBlock] = await Promise.all([
+  const [event, choices, canAddHotel, rfpChoices, rfpBlock] = await Promise.all([
     getEvent(eventId),
     getProposalFormChoices(eventId),
     hasPermission("VENUES", "WRITE"),
+    getProposalRfpChoices(eventId),
     rfpBlockId
       ? prisma.rfpHotelBlock.findFirst({
           where: { id: rfpBlockId, rfp: { eventId } },
@@ -78,6 +79,7 @@ export default async function NewProposalPage({
           defaultCheckIn={checkIn}
           defaultCheckOut={checkOut}
           fromRfp={fromRfp}
+          rfpChoices={rfpChoices.length ? rfpChoices : undefined}
           concessions={(rfpBlock?.rfp.concessions ?? []).map((c) => ({
             id: c.id,
             label: c.label,

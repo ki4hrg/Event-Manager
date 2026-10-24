@@ -180,6 +180,7 @@ export function RfpForm({
       {Object.entries(hiddenFields ?? {}).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
+      {isEdit && <input type="hidden" name="statusWas" value={current.status} />}
       <input type="hidden" name="alternateDates" value={JSON.stringify(alternates.filter((a) => a.startDate || a.endDate))} />
 
       <fieldset disabled={!canWrite} className="space-y-6">
@@ -194,7 +195,8 @@ export function RfpForm({
           )}
           {isEdit && (
             <Field label="Status" htmlFor="rfp-status">
-              <select id="rfp-status" name="status" defaultValue={values.status} className={inputClass}>
+              {/* Follows the saved status (Issue changes it outside the form). */}
+              <select key={current.status} id="rfp-status" name="status" defaultValue={current.status} className={inputClass}>
                 {(Object.keys(RFP_STATUS_LABELS) as RfpStatus[]).map((s) => (
                   <option key={s} value={s}>
                     {RFP_STATUS_LABELS[s]}

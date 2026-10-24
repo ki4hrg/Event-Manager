@@ -10,7 +10,7 @@
 import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope, HotelContractType, HotelWaiverType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
-import { addDays, AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
+import { addDays, AMENITY_STATUS_LABELS, blockTypeLabel, coveredByProfile, dateFromKey, dateKey, labelKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
 import { rangeTouched } from "@/lib/dateRange";
 import { offerOutcomes, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
@@ -633,6 +633,49 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
     await writeAmenities(tx, id, amenities);
     await recordVersion(tx, id, args.revisionSummary, userId);
     return proposal;
+  });
+}
+
+// Links a proposal recorded without an RFP to the block it answers, from the
+// RFP's side: a citywide RFP a CVB sent out brings offers from hotels never
+// listed. The hotel joins the recipients; a concession it offered unasked that
+// the RFP asked for becomes the answer, and other requested ones its profile
+// or the offer's amenities cover start Met (as on a new proposal).
+export async function linkHotelProposalCore(id: string, eventId: string, rfpBlockId: string, userId: string) {
+  await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
+  const proposal = await prisma.hotelProposal.findFirst({
+    where: { id, eventId },
+    select: {
+      rfpId: true,
+      venueId: true,
+      venue: { select: { amenities: true } },
+      amenities: { select: { label: true, status: true } },
+      concessions: { where: { concessionId: null }, select: { id: true, label: true } },
+    },
+  });
+  if (!proposal) throw new PermissionError("NOT_FOUND", "Proposal not found");
+  if (proposal.rfpId) throw new Error("This proposal already answers an RFP");
+  const block = await findRfpBlock(eventId, rfpBlockId);
+  if (!block) throw new PermissionError("NOT_FOUND", "RFP block not found");
+  const requested = await prisma.rfpConcession.findMany({ where: { rfpId: block.rfpId }, orderBy: { sortOrder: "asc" }, select: { id: true, label: true } });
+  const unavailable = new Set(proposal.amenities.filter((a) => a.status === "UNAVAILABLE").map((a) => labelKey(a.label)));
+  const covered = coveredByProfile(
+    [...proposal.venue.amenities, ...proposal.amenities.filter((a) => a.status === "CONFIRMED").map((a) => a.label)].filter(
+      (l) => !unavailable.has(labelKey(l)),
+    ),
+  );
+  await prisma.$transaction(async (tx) => {
+    await addRecipient(tx, block.rfpId, proposal.venueId);
+    await tx.hotelProposal.update({ where: { id, eventId }, data: { rfpId: block.rfpId, rfpBlockId: block.id, updatedById: userId } });
+    for (let i = 0; i < requested.length; i++) {
+      const request = requested[i];
+      const offered = proposal.concessions.find((c) => c.label && labelKey(c.label) === labelKey(request.label));
+      if (offered) {
+        await tx.hotelProposalConcession.update({ where: { id: offered.id }, data: { concessionId: request.id, label: null, sortOrder: i } });
+      } else if (covered(request.label)) {
+        await tx.hotelProposalConcession.create({ data: { proposalId: id, concessionId: request.id, met: "MET", sortOrder: i } });
+      }
+    }
   });
 }
 
