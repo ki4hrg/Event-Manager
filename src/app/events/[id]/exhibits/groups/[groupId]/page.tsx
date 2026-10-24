@@ -104,6 +104,7 @@ export default async function BoothGroupPage({ params }: { params: Promise<{ id:
             timezone={event.timezone}
             functions={choices.functions}
             boothTypes={choices.boothTypes}
+            costCenters={choices.costCenters}
             action={updateAction}
             cancelHref={`/events/${eventId}/exhibits`}
           />

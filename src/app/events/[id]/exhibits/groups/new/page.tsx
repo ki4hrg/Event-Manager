@@ -46,6 +46,7 @@ export default async function NewBoothGroupPage({
           timezone={event.timezone}
           functions={choices.functions}
           boothTypes={choices.boothTypes}
+          costCenters={choices.costCenters}
           defaultFunctionId={choices.functions.some((f) => f.id === functionId) ? functionId : undefined}
           action={createAction}
           cancelHref={`/events/${eventId}/exhibits`}

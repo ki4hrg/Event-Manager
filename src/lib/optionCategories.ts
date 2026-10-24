@@ -157,7 +157,7 @@ const fileInTenant = (tenantId: string): Prisma.FileUploadWhereInput => ({
 export const OPTION_SECTIONS = {
   events: {
     title: "Events",
-    lists: ["event_type", "event_scope", "event_frequency", "per_facility_type", "hotel_region", "hotel_area", "file_type"],
+    lists: ["event_type", "event_scope", "event_frequency", "per_facility_type", "hotel_region", "hotel_area", "file_type", "cost_center"],
   },
   program: { title: "Program", lists: ["function_type", "schedule_type", "presentation_type", "presenter_role", "booth_type"] },
   orders: {
@@ -447,6 +447,16 @@ export const OPTION_CATEGORIES = {
     mergeable: { noun: "RFP term" },
     resource: SETTINGS,
     renameTargets: [mergeTarget("rfp_term")],
+  },
+  cost_center: {
+    title: "Cost Centers",
+    description: "Cost centers for functions and exhibit booths.",
+    resource: SETTINGS,
+    renameTargets: [
+      col("function", "costCenter", inEvent),
+      col("exhibitBooth", "costCenter", inEvent),
+      col("exhibitBoothGroup", "costCenter", inEvent),
+    ],
   },
   event_type: {
     title: "Event Types",

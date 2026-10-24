@@ -216,10 +216,10 @@ export async function deleteBoothEquipmentItem(id: string, boothId: string, even
 }
 
 // Dropdown sources for BoothForm: the event's functions (exhibit-type first),
-// booth groups, the tenant's contacts and the booth_type options.
+// booth groups, the tenant's contacts and the booth_type and cost_center options.
 export async function getBoothFormChoices(eventId: string) {
   const session = await requirePermission("FUNCTIONS", "VIEW", eventId);
-  const [functions, groups, contacts, boothTypes] = await Promise.all([
+  const [functions, groups, contacts, boothTypes, costCenters] = await Promise.all([
     prisma.function.findMany({
       where: { eventId, type: { not: "BREAKOUT_BLOCK" } },
       select: { id: true, name: true, type: true, functionNumber: true, breakoutGroup: { select: { name: true } } },
@@ -232,6 +232,11 @@ export async function getBoothFormChoices(eventId: string) {
     }),
     prisma.customOption.findMany({
       where: { tenantId: session.tenantId, category: "booth_type" },
+      select: { label: true },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.customOption.findMany({
+      where: { tenantId: session.tenantId, category: "cost_center" },
       select: { label: true },
       orderBy: { sortOrder: "asc" },
     }),
@@ -252,6 +257,7 @@ export async function getBoothFormChoices(eventId: string) {
       label: [`${c.firstName} ${c.lastName}`.trim(), c.organization].filter(Boolean).join(" — "),
     })),
     boothTypes: boothTypes.map((o) => o.label),
+    costCenters: costCenters.map((o) => o.label),
   };
 }
 

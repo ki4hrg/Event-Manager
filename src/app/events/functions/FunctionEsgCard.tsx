@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 import { useAutosave } from "@/lib/useAutosave";
 
 // ESG Part II (Function Schedule) / Part IIIa (Function Set-up Order) fields
@@ -26,6 +27,7 @@ type FunctionEsgCardProps = {
   };
   numbersLocked: boolean;
   setupTypes: string[];
+  costCenters: string[];
   // Must not redirect: the card autosaves through it.
   action: (formData: FormData) => Promise<void>;
 };
@@ -41,7 +43,7 @@ function numberNote(fn: FunctionEsgCardProps["fn"], locked: boolean): string {
   return locked ? "Locked" : "Auto";
 }
 
-export function FunctionEsgCard({ fn: current, numbersLocked, setupTypes, action }: FunctionEsgCardProps) {
+export function FunctionEsgCard({ fn: current, numbersLocked, setupTypes, costCenters, action }: FunctionEsgCardProps) {
   const canWrite = useCanWrite("FUNCTIONS");
   // The form is uncontrolled and autosaves, so it keeps the values it mounted
   // with; the refreshed ones after each save would only reset it.
@@ -86,7 +88,7 @@ export function FunctionEsgCard({ fn: current, numbersLocked, setupTypes, action
               <label htmlFor="costCenter" className={labelClass}>
                 Cost center
               </label>
-              <input id="costCenter" name="costCenter" defaultValue={fn.costCenter ?? ""} className={inputClass} />
+              <OptionSelect id="costCenter" name="costCenter" defaultValue={fn.costCenter} options={costCenters} className={inputClass} />
             </div>
             <div>
               <label htmlFor="expectedAttendance" className={labelClass}>
@@ -171,17 +173,7 @@ export function FunctionEsgCard({ fn: current, numbersLocked, setupTypes, action
             <label htmlFor="defaultSetup" className={labelClass}>
               Default set-up
             </label>
-            <select id="defaultSetup" name="defaultSetup" defaultValue={fn.defaultSetup ?? ""} className={inputClass}>
-              <option value="">Not set</option>
-              {fn.defaultSetup && !setupTypes.includes(fn.defaultSetup) && (
-                <option value={fn.defaultSetup}>{fn.defaultSetup}</option>
-              )}
-              {setupTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+            <OptionSelect id="defaultSetup" name="defaultSetup" defaultValue={fn.defaultSetup} options={setupTypes} className={inputClass} />
           </div>
           {(
             [
