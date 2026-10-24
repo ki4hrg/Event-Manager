@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 type Props = {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<void | UserError>;
   defaultTo?: string;
   disabled?: boolean;
 };
@@ -16,7 +17,11 @@ export function SendTestEmailForm({ action, defaultTo, disabled }: Props) {
     setStatus(null);
     startTransition(async () => {
       try {
-        await action(formData);
+        const result = await action(formData);
+        if (isUserError(result)) {
+          setStatus({ kind: "error", message: result.error });
+          return;
+        }
         setStatus({ kind: "ok", message: "Test email sent." });
       } catch (e) {
         setStatus({

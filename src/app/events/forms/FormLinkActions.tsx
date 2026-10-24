@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCanWrite } from "@/components/PermissionsProvider";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 export function CopyFormLink({ token }: { token: string }) {
   const [copied, setCopied] = useState(false);
@@ -57,7 +58,7 @@ export function RevokeFormLink({ revoke }: { revoke: () => Promise<void> }) {
   );
 }
 
-export function DeleteFormLink({ deleteLink }: { deleteLink: () => Promise<void> }) {
+export function DeleteFormLink({ deleteLink }: { deleteLink: () => Promise<void | UserError> }) {
   const canWrite = useCanWrite("FORMS");
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -80,7 +81,11 @@ export function DeleteFormLink({ deleteLink }: { deleteLink: () => Promise<void>
           startTransition(async () => {
             setError(null);
             try {
-              await deleteLink();
+              const result = await deleteLink();
+              if (isUserError(result)) {
+                setError(result.error);
+                return;
+              }
               setConfirming(false);
               router.refresh();
             } catch (e) {

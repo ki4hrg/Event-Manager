@@ -2,6 +2,7 @@ import { LocationKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
 import { assertNoCycle, buildLocationIndex } from "@/lib/storageLocations";
+import { UserFacingError } from "@/lib/userErrors";
 
 export type StorageLocationWriteArgs = {
   name: string;
@@ -50,7 +51,7 @@ async function assertNameFree(
     select: { id: true },
   });
   if (clash) {
-    throw new Error(
+    throw new UserFacingError(
       parentId
         ? `A location named "${name}" already exists here.`
         : `A top-level location named "${name}" already exists.`,
@@ -66,7 +67,7 @@ export async function createStorageLocationCore(
   await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
   const name = args.name.trim();
-  if (!name) throw new Error("A location needs a name.");
+  if (!name) throw new UserFacingError("A location needs a name.");
   if (args.parentId) assertParentInIndex(await loadIndex(tenantId), args.parentId);
   await assertNameFree(tenantId, name, args.parentId);
 
@@ -98,7 +99,7 @@ export async function updateStorageLocationCore(
   await requirePermissionForUser(userId, "STORAGE_LOCATIONS", "WRITE", { tenantId });
 
   const name = args.name.trim();
-  if (!name) throw new Error("A location needs a name.");
+  if (!name) throw new UserFacingError("A location needs a name.");
 
   const index = await loadIndex(tenantId);
   if (!index.byId.has(id)) throw new Error("Location not found.");

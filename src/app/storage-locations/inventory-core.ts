@@ -3,6 +3,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
+import { UserFacingError } from "@/lib/userErrors";
 
 export type InventoryItemWriteArgs = {
   /** Optional qualifier only — "blue", "spare". The Equipment link is identity. */
@@ -15,7 +16,7 @@ export type InventoryItemWriteArgs = {
 
 function normalizeInventoryArgs(args: InventoryItemWriteArgs): InventoryItemWriteArgs {
   if (!args.equipmentId) {
-    throw new Error("An inventory item needs an equipment selection.");
+    throw new UserFacingError("An inventory item needs an equipment selection.");
   }
   return { ...args, name: args.name?.trim() || null };
 }
@@ -26,7 +27,7 @@ async function assertEquipmentExists(equipmentId: string, tenantId: string) {
     where: { id: equipmentId, tenantId },
     select: { id: true },
   });
-  if (!equipment) throw new Error("That equipment no longer exists — refresh and try again.");
+  if (!equipment) throw new UserFacingError("That equipment no longer exists — refresh and try again.");
 }
 
 async function assertLocationUsable(locationId: string, tenantId: string) {
@@ -36,7 +37,7 @@ async function assertLocationUsable(locationId: string, tenantId: string) {
   });
   if (!location) throw new Error("Location not found.");
   if (location.archived) {
-    throw new Error(`"${location.name}" is archived — restore it before filing items there.`);
+    throw new UserFacingError(`"${location.name}" is archived — restore it before filing items there.`);
   }
   return location;
 }
@@ -47,13 +48,13 @@ async function assertLocationUsable(locationId: string, tenantId: string) {
  * partial write into an error the caller can act on.
  */
 async function assertItemsExist(ids: string[], tenantId: string) {
-  if (ids.length === 0) throw new Error("No items selected.");
+  if (ids.length === 0) throw new UserFacingError("No items selected.");
   const found = await prisma.inventoryItem.findMany({
     where: { id: { in: ids }, tenantId },
     select: { id: true },
   });
   if (found.length !== ids.length) {
-    throw new Error("Some of those items no longer exist — refresh and try again.");
+    throw new UserFacingError("Some of those items no longer exist — refresh and try again.");
   }
 }
 

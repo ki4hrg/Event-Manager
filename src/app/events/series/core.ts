@@ -4,16 +4,17 @@
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
+import { UserFacingError } from "@/lib/userErrors";
 
 export async function createEventSeriesCore(name: string, userId: string, tenantId: string) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", { tenantId });
   const trimmed = name.trim();
-  if (!trimmed) throw new Error("Series name is required");
+  if (!trimmed) throw new UserFacingError("Series name is required");
 
   const existing = await prisma.eventSeries.findUnique({
     where: { tenantId_name: { tenantId, name: trimmed } },
   });
-  if (existing) throw new Error("A series with this name already exists");
+  if (existing) throw new UserFacingError("A series with this name already exists");
 
   return prisma.eventSeries.create({ data: { tenantId, name: trimmed } });
 }
@@ -26,13 +27,13 @@ export async function updateEventSeriesCore(
 ) {
   await requirePermissionForUser(userId, PermissionResource.EVENTS, "WRITE", { tenantId });
   const trimmed = name.trim();
-  if (!trimmed) throw new Error("Series name is required");
+  if (!trimmed) throw new UserFacingError("Series name is required");
 
   const existing = await prisma.eventSeries.findUnique({
     where: { tenantId_name: { tenantId, name: trimmed } },
   });
   if (existing && existing.id !== id) {
-    throw new Error("A series with this name already exists");
+    throw new UserFacingError("A series with this name already exists");
   }
 
   return prisma.eventSeries.update({ where: { id, tenantId }, data: { name: trimmed } });
@@ -45,7 +46,7 @@ export async function deleteEventSeriesCore(id: string, userId: string, tenantId
   // un-grouping them. Make the caller move them first.
   const count = await prisma.event.count({ where: { seriesId: id, tenantId } });
   if (count > 0) {
-    throw new Error(
+    throw new UserFacingError(
       `This series still has ${count} event${count === 1 ? "" : "s"}. Move them to another series first.`,
     );
   }

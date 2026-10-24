@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ConcessionMet, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { withUserErrors } from "@/lib/userErrors";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import type { RfpChoice } from "./ProposalForm";
@@ -325,14 +326,18 @@ export async function importPickupGuests(
   guests: PickupGuestArgs[],
 ) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  await importPickupGuestsCore(blockId, eventId, { method, fileName, guests }, session.user.id);
-  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  return withUserErrors(async () => {
+    await importPickupGuestsCore(blockId, eventId, { method, fileName, guests }, session.user.id);
+    revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  });
 }
 
 export async function savePickupCounts(blockId: string, eventId: string, counts: PickupCountArgs[]) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  await savePickupCountsCore(blockId, eventId, counts, session.user.id);
-  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  return withUserErrors(async () => {
+    await savePickupCountsCore(blockId, eventId, counts, session.user.id);
+    revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  });
 }
 
 export async function clearPickup(blockId: string, eventId: string) {

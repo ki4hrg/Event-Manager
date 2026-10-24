@@ -39,6 +39,7 @@ import { eventScopeWhere } from "@/app/events/core";
 import { MIME_BY_EXT, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
+import { UserFacingError } from "@/lib/userErrors";
 
 // Event inboxes (docs/proposals/email-ingest.md). No "use server": the ingest
 // is called by the signed /api/inbound-email route, and the person-facing
@@ -522,12 +523,12 @@ export type InboundApply =
 async function claimAndApply(id: string, eventId: string, userId: string, apply: () => Promise<Partial<InboundProposal>>) {
   const tenantId = await requireEventTenantId(eventId);
   const item = await inboxItem(id, tenantId, eventId);
-  if (item.status !== "PARSED") throw new Error("This message has nothing to apply");
+  if (item.status !== "PARSED") throw new UserFacingError("This message has nothing to apply");
   const claimed = await prisma.inboundEmail.updateMany({
     where: { id, tenantId, eventId, status: "PARSED" },
     data: { status: "APPLIED", handledById: userId, handledAt: new Date() },
   });
-  if (claimed.count === 0) throw new Error("This message was already applied");
+  if (claimed.count === 0) throw new UserFacingError("This message was already applied");
   let result: Partial<InboundProposal>;
   try {
     result = await apply();
@@ -1064,13 +1065,13 @@ export async function setEventInboxSlugCore(eventId: string, raw: string | null,
   await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
   const tenantId = await requireEventTenantId(eventId);
   const slug = raw ? slugifyInboxSlug(raw) : null;
-  if (raw && !slug) throw new Error("The inbox name needs at least one letter or number");
+  if (raw && !slug) throw new UserFacingError("The inbox name needs at least one letter or number");
   if (slug) {
     const clash = await prisma.event.findFirst({
       where: { tenantId, inboxSlug: slug, id: { not: eventId } },
       select: { name: true },
     });
-    if (clash) throw new Error(`"${slug}" is already the inbox of ${clash.name}`);
+    if (clash) throw new UserFacingError(`"${slug}" is already the inbox of ${clash.name}`);
   }
   await prisma.event.update({ where: { id: eventId, tenantId }, data: { inboxSlug: slug, updatedById: userId } });
 }

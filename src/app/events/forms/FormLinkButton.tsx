@@ -9,6 +9,7 @@ import type { FormType } from "@prisma/client";
 import { formatFunctionLabel, matchesFunctionQuery } from "@/lib/functionNumbers";
 import { CopyFormLink, DeleteFormLink, RevokeFormLink } from "./FormLinkActions";
 import { syncRangeEnd } from "@/lib/dateRange";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 const inputCls =
   "w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -82,9 +83,9 @@ type Props = {
   links: FormLinkSummary[];
   emailEnabled: boolean;
   defaultCloseDate: string;
-  create: (formData: FormData) => Promise<{ token: string; emailed: boolean }>;
+  create: (formData: FormData) => Promise<{ token: string; emailed: boolean } | UserError>;
   revoke: (linkId: string) => Promise<void>;
-  deleteLink: (linkId: string) => Promise<void>;
+  deleteLink: (linkId: string) => Promise<void | UserError>;
 };
 
 function uniqueRecipients(list: Recipient[]): Recipient[] {
@@ -201,7 +202,12 @@ export function FormLinkButton({
                     startTransition(async () => {
                       setError(null);
                       try {
-                        setCreated(await create(formData));
+                        const result = await create(formData);
+                        if (isUserError(result)) {
+                          setError(result.error);
+                          return;
+                        }
+                        setCreated(result);
                         router.refresh();
                       } catch (e) {
                         setError(e instanceof Error ? e.message : "Couldn't create the link");

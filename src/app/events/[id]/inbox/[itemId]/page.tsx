@@ -153,7 +153,7 @@ export default async function EventInboxItemPage({
     guests: Parameters<typeof applyInboundGuests>[5],
   ) => {
     "use server";
-    await applyInboundGuests(itemId, eventId, blockId, method, fileName, guests);
+    return applyInboundGuests(itemId, eventId, blockId, method, fileName, guests);
   };
   const applyOffer = async (formData: FormData) => {
     "use server";
@@ -169,7 +169,7 @@ export default async function EventInboxItemPage({
   };
   const applyDecline = async (rfpId: string, venueId: string, reason: string | null) => {
     "use server";
-    await applyInboundDecline(itemId, eventId, rfpId, venueId, reason);
+    return applyInboundDecline(itemId, eventId, rfpId, venueId, reason);
   };
   const applyQuote = async (formData: FormData) => {
     "use server";
@@ -177,16 +177,16 @@ export default async function EventInboxItemPage({
   };
   const applyBeo = async (orderId: string, keys: string[]) => {
     "use server";
-    await applyInboundBeo(itemId, eventId, orderId, keys);
+    return applyInboundBeo(itemId, eventId, orderId, keys);
   };
   const applyContract = async (target: ContractTarget, targetId: string, note: string | null) => {
     "use server";
-    await applyInboundContract(itemId, eventId, target, targetId, note);
+    return applyInboundContract(itemId, eventId, target, targetId, note);
   };
   const itemHref = `/events/${eventId}/inbox/${itemId}`;
   const applyCounts = async (blockId: string, counts: Parameters<typeof applyInboundCounts>[3]) => {
     "use server";
-    await applyInboundCounts(itemId, eventId, blockId, counts);
+    return applyInboundCounts(itemId, eventId, blockId, counts);
   };
 
   return (

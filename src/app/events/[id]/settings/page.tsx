@@ -52,7 +52,7 @@ export default async function EventSettingsPage({ params }: { params: Promise<{ 
 
   const saveInboxAction = async (slug: string | null) => {
     "use server";
-    await setEventInboxSlug(id, slug);
+    return setEventInboxSlug(id, slug);
   };
 
   const deleteEventAction = async () => {

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary } from "@/lib/buttonStyles";
+import { isUserError, type UserError } from "@/lib/userErrors";
 import type { getDeclineReview } from "./actions";
 
 type Review = NonNullable<Awaited<ReturnType<typeof getDeclineReview>>>;
@@ -20,7 +21,7 @@ export function InboxDeclineReview({
 }: {
   review: Review;
   itemHref: string;
-  apply: (rfpId: string, venueId: string, reason: string | null) => Promise<void>;
+  apply: (rfpId: string, venueId: string, reason: string | null) => Promise<void | UserError>;
 }) {
   const router = useRouter();
   const canWrite = useCanWrite("HOTELS");
@@ -41,7 +42,11 @@ export function InboxDeclineReview({
     startTransition(async () => {
       setError(null);
       try {
-        await apply(rfpId, venueId, reason.trim() || null);
+        const result = await apply(rfpId, venueId, reason.trim() || null);
+        if (isUserError(result)) {
+          setError(result.error);
+          return;
+        }
         router.push(`${itemHref}?success=${encodeURIComponent("Marked declined")}`);
         router.refresh();
       } catch (e) {

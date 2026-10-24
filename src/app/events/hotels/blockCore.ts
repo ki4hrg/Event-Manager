@@ -12,6 +12,7 @@ import { PermissionError, requireEventTenantId, requirePermissionForUser } from 
 import { dateFromKey, dateKey, nightKeys } from "@/lib/hotels";
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { blockPickup, pickupByNight } from "@/lib/hotelPickup";
+import { UserFacingError } from "@/lib/userErrors";
 
 const inEvent = (eventId: string) => ({ proposal: { eventId } });
 
@@ -225,8 +226,8 @@ export type PickupGuestArgs = {
 
 function checkGuestDates(g: Pick<PickupGuestArgs, "guestName" | "confirmationNumber" | "checkIn" | "checkOut" | "bookedOn" | "cancelledOn">) {
   const who = g.guestName ?? g.confirmationNumber ?? "A guest";
-  if (g.checkIn && g.checkOut && g.checkOut <= g.checkIn) throw new Error(`${who}: check-out must be after check-in`);
-  if (g.bookedOn && g.cancelledOn && g.cancelledOn < g.bookedOn) throw new Error(`${who}: cancelled before it was booked`);
+  if (g.checkIn && g.checkOut && g.checkOut <= g.checkIn) throw new UserFacingError(`${who}: check-out must be after check-in`);
+  if (g.bookedOn && g.cancelledOn && g.cancelledOn < g.bookedOn) throw new UserFacingError(`${who}: cancelled before it was booked`);
 }
 
 // The block's first night and today, both in the event's timezone. Dates are
@@ -261,7 +262,7 @@ export async function importPickupGuestsCore(
 ) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   await assertBlockInEvent(blockId, eventId);
-  if (args.guests.length === 0) throw new Error("No guest rows to import");
+  if (args.guests.length === 0) throw new UserFacingError("No guest rows to import");
   args.guests.forEach(checkGuestDates);
 
   return prisma.$transaction(async (tx) => {
@@ -370,7 +371,7 @@ export async function savePickupCountsCore(blockId: string, eventId: string, cou
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   await assertBlockInEvent(blockId, eventId);
   const rows = counts.filter((c) => c.rooms > 0);
-  if (rows.some((c) => !Number.isInteger(c.rooms))) throw new Error("Counts must be whole numbers");
+  if (rows.some((c) => !Number.isInteger(c.rooms))) throw new UserFacingError("Counts must be whole numbers");
   return prisma.$transaction(async (tx) => {
     await tx.hotelPickupCount.deleteMany({ where: { blockId } });
     await tx.hotelPickupCount.createMany({

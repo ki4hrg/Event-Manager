@@ -6,6 +6,7 @@ import { readFileSync } from "fs";
 import type { HotelPickupMethod, InboundStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
+import { withUserErrors } from "@/lib/userErrors";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { getInboundEmailDomain } from "@/lib/email";
 import { getUploadPath } from "@/lib/uploads";
@@ -170,16 +171,20 @@ export async function applyInboundGuests(
   guests: PickupGuestRow[],
 ) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  await applyInboundPickupCore(id, eventId, blockId, { type: "guests", method, fileName, guests }, session.user.id);
-  revalidatePath(`/events/${eventId}/inbox`);
-  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  return withUserErrors(async () => {
+    await applyInboundPickupCore(id, eventId, blockId, { type: "guests", method, fileName, guests }, session.user.id);
+    revalidatePath(`/events/${eventId}/inbox`);
+    revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  });
 }
 
 export async function applyInboundCounts(id: string, eventId: string, blockId: string, counts: PickupCountArgs[]) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  await applyInboundPickupCore(id, eventId, blockId, { type: "counts", counts }, session.user.id);
-  revalidatePath(`/events/${eventId}/inbox`);
-  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  return withUserErrors(async () => {
+    await applyInboundPickupCore(id, eventId, blockId, { type: "counts", counts }, session.user.id);
+    revalidatePath(`/events/${eventId}/inbox`);
+    revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  });
 }
 
 
@@ -238,9 +243,11 @@ export async function skipInboundOffer(id: string, eventId: string, index: numbe
 
 export async function applyInboundDecline(id: string, eventId: string, rfpId: string, venueId: string, reason: string | null) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  await applyInboundDeclineCore(id, eventId, rfpId, venueId, reason, session.user.id);
-  revalidatePath(`/events/${eventId}/inbox`);
-  revalidatePath(`/events/${eventId}/hotels/rfps/${rfpId}`);
+  return withUserErrors(async () => {
+    await applyInboundDeclineCore(id, eventId, rfpId, venueId, reason, session.user.id);
+    revalidatePath(`/events/${eventId}/inbox`);
+    revalidatePath(`/events/${eventId}/hotels/rfps/${rfpId}`);
+  });
 }
 
 // The offers a message holds, each with what became of it: a proposal saved
@@ -623,9 +630,11 @@ export async function getEventInboxAddress(eventId: string) {
 
 export async function setEventInboxSlug(eventId: string, slug: string | null) {
   const session = await requirePermission("EVENTS", "WRITE", eventId);
-  await setEventInboxSlugCore(eventId, slug, session.user.id);
-  revalidatePath(`/events/${eventId}/settings`);
-  revalidatePath(`/events/${eventId}/inbox`);
+  return withUserErrors(async () => {
+    await setEventInboxSlugCore(eventId, slug, session.user.id);
+    revalidatePath(`/events/${eventId}/settings`);
+    revalidatePath(`/events/${eventId}/inbox`);
+  });
 }
 
 // ─── Vendor quotes, BEOs, contracts ──────────────────────────────────────────
@@ -796,10 +805,12 @@ export async function applyInboundBeo(id: string, eventId: string, orderId: stri
   const all = beoArgsFromRead(read.beo);
   const keep = new Set(keys);
   const args = Object.fromEntries(Object.entries(all).filter(([k]) => keep.has(k)));
-  await applyInboundBeoCore(id, eventId, orderId, args, session.user.id);
-  revalidatePath(`/events/${eventId}/inbox`);
-  revalidatePath(`/events/${eventId}/catering-orders/${orderId}`);
-  redirect(`/events/${eventId}/catering-orders/${orderId}?success=BEO applied`);
+  return withUserErrors(async () => {
+    await applyInboundBeoCore(id, eventId, orderId, args, session.user.id);
+    revalidatePath(`/events/${eventId}/inbox`);
+    revalidatePath(`/events/${eventId}/catering-orders/${orderId}`);
+    redirect(`/events/${eventId}/catering-orders/${orderId}?success=BEO applied`);
+  });
 }
 
 const CONTRACT_TARGET_LABELS: Record<ContractTarget, string> = {
@@ -865,14 +876,17 @@ export async function applyInboundContract(id: string, eventId: string, target: 
   const session = await requirePermission(await contractTargetResource(target, targetId, eventId), "WRITE", eventId);
   const read = await readOf(id, eventId, session.tenantId);
   if (read?.kind !== "CONTRACT" || !read.contract) throw new Error("This message has no contract");
-  await applyInboundContractCore(id, eventId, target, targetId, { ...contractArgsFromRead(read.contract, target), note }, session.user.id);
-  revalidatePath(`/events/${eventId}/inbox`);
-  const href =
-    target === "HOTEL_PROPOSAL"
-      ? `/events/${eventId}/hotels/proposals/${targetId}`
-      : target === "VENDOR_QUOTE"
-        ? `/events/${eventId}/quotes/${targetId}`
-        : `/events/${eventId}/catering-orders/${targetId}`;
-  revalidatePath(href);
-  redirect(`${href}?success=Contract applied`);
+  const contract = read.contract;
+  return withUserErrors(async () => {
+    await applyInboundContractCore(id, eventId, target, targetId, { ...contractArgsFromRead(contract, target), note }, session.user.id);
+    revalidatePath(`/events/${eventId}/inbox`);
+    const href =
+      target === "HOTEL_PROPOSAL"
+        ? `/events/${eventId}/hotels/proposals/${targetId}`
+        : target === "VENDOR_QUOTE"
+          ? `/events/${eventId}/quotes/${targetId}`
+          : `/events/${eventId}/catering-orders/${targetId}`;
+    revalidatePath(href);
+    redirect(`${href}?success=Contract applied`);
+  });
 }

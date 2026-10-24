@@ -23,6 +23,7 @@ import {
   type SpeakerProfilePayload,
 } from "./meta";
 import type { FormApplyContext, FormModule, ReviewChoice, SubmissionFile } from "./types";
+import { UserFacingError } from "@/lib/userErrors";
 
 const NOTE_MAX = 2000;
 
@@ -242,7 +243,7 @@ export const speakerProfileModule: FormModule<SpeakerProfilePayload, SpeakerProf
   open: false,
   externalUpload: false,
   async assertTarget({ eventId, presentationId, contactId }, userId) {
-    if (!presentationId || !contactId) throw new Error("Pick the speaker");
+    if (!presentationId || !contactId) throw new UserFacingError("Pick the speaker");
     await requirePermissionForUser(userId, "PRESENTATIONS", "VIEW", eventId);
     const speaker = await prisma.presentationContact.findFirst({
       where: { presentationId, contactId, presentation: { eventId } },

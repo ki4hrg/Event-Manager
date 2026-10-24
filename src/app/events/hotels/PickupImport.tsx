@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import type { HotelPickupMethod } from "@prisma/client";
 import { btnDanger, btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { isUserError, type UserError } from "@/lib/userErrors";
 import { formatNight, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import {
   DATE_ORDERS,
@@ -60,7 +61,7 @@ export function GuestImport({
 }: {
   roomTypes: string[];
   hasGuests: boolean;
-  importGuests: (method: ImportMethod, fileName: string | null, guests: GuestArgs[]) => Promise<void>;
+  importGuests: (method: ImportMethod, fileName: string | null, guests: GuestArgs[]) => Promise<void | UserError>;
   done: (message: string) => void;
   source?: GuestImportSource;
 }) {
@@ -115,7 +116,11 @@ export function GuestImport({
     startTransition(async () => {
       setError(null);
       try {
-        await importGuests(method, fileName, usable);
+        const result = await importGuests(method, fileName, usable);
+        if (isUserError(result)) {
+          setError(result.error);
+          return;
+        }
         done(`Imported ${usable.length} guest${usable.length === 1 ? "" : "s"}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Import failed");
@@ -273,7 +278,7 @@ export function CountEntry({
   nights: string[];
   roomTypes: (string | null)[];
   initial: CountArgs[];
-  saveCounts: (counts: CountArgs[]) => Promise<void>;
+  saveCounts: (counts: CountArgs[]) => Promise<void | UserError>;
   done: (message: string) => void;
 }) {
   const cellKey = (t: string | null, n: string) => `${t ?? ""}|${n}`;
@@ -287,11 +292,15 @@ export function CountEntry({
     startTransition(async () => {
       setError(null);
       try {
-        await saveCounts(
+        const result = await saveCounts(
           roomTypes.flatMap((t) =>
             nights.map((n) => ({ night: n, roomType: t, rooms: parseInt(values[cellKey(t, n)] || "0") || 0 })),
           ),
         );
+        if (isUserError(result)) {
+          setError(result.error);
+          return;
+        }
         done("Counts saved");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Save failed");
@@ -367,8 +376,8 @@ export function PickupImport({
   tenantRoomTypes: string[];
   hasGuests: boolean;
   counts: CountArgs[];
-  importGuests: (method: ImportMethod, fileName: string | null, guests: GuestArgs[]) => Promise<void>;
-  saveCounts: (counts: CountArgs[]) => Promise<void>;
+  importGuests: (method: ImportMethod, fileName: string | null, guests: GuestArgs[]) => Promise<void | UserError>;
+  saveCounts: (counts: CountArgs[]) => Promise<void | UserError>;
 }) {
   const router = useRouter();
   const done = (message: string) => {

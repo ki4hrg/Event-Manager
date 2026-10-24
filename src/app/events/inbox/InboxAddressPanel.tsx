@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { btnOutlinedSm, btnPrimary, btnSecondary } from "@/lib/buttonStyles";
+import { isUserError, type UserError } from "@/lib/userErrors";
 
 // The event's inbox address, `<org>.<name>@<domain>`. Only the name part is
 // editable; the org part is the organization's slug.
@@ -17,7 +18,7 @@ export function InboxAddressPanel({
   tenantSlug: string;
   inboxSlug: string | null;
   suggestion: string | null;
-  save: (slug: string | null) => Promise<void>;
+  save: (slug: string | null) => Promise<void | UserError>;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -35,7 +36,11 @@ export function InboxAddressPanel({
     startTransition(async () => {
       setError(null);
       try {
-        await save(slug);
+        const result = await save(slug);
+        if (isUserError(result)) {
+          setError(result.error);
+          return;
+        }
         setEditing(false);
         router.refresh();
       } catch (e) {

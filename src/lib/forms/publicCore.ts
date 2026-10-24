@@ -65,11 +65,65 @@ export async function saveFormDraftCore(link: ActiveFormLink, draftKey: string |
   if (formLinkIsFull(link)) throw new PublicFormError("closed");
   const snapshot = await currentSnapshot(link, formData);
   const payload = await formModule(link.formType).parse(formData, snapshot, link);
+  return writeDraft(link, draftKey, formData, payload, snapshot.baseline);
+}
+
+// The size cap on the posted baseline: well above any real projection, well
+// under the Server Action body limit.
+const MAX_POSTED_BASELINE_CHARS = 200_000;
+
+// The baseline the form rendered against, as it posted it back. Null when the
+// page predates the field. The submitter controls it like the rest of their
+// payload; it only steers the rebase of their own draft.
+function postedBaseline(formData: FormData): Prisma.InputJsonValue | null {
+  const raw = formData.get("baseline");
+  if (raw == null || raw === "") return null;
+  if (typeof raw !== "string" || raw.length > MAX_POSTED_BASELINE_CHARS) throw new PublicFormError("invalid");
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new PublicFormError("invalid");
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new PublicFormError("invalid");
+  return value as Prisma.InputJsonValue;
+}
+
+// A submit or save that came back stale: keeps the answers as this browser's
+// draft over the baseline the submitter saw, so the page's rebase brings in
+// the staff changes and leaves theirs. Returns the draft key, or null when
+// the answers don't fit the current form (or the link can't take a draft).
+// Throws "invalid" for a malformed baseline.
+export async function keepStaleAnswersCore(
+  link: ActiveFormLink,
+  draftKey: string | undefined,
+  formData: FormData,
+): Promise<string | null> {
+  const baseline = postedBaseline(formData);
+  if (!baseline || formLinkIsFull(link)) return null;
+  const snapshot = await formModule(link.formType).snapshot(link);
+  if (!snapshot) return null;
+  try {
+    const payload = await formModule(link.formType).parse(formData, snapshot, link);
+    return await writeDraft(link, draftKey, formData, payload, baseline);
+  } catch (err) {
+    if (err instanceof PublicFormError) return null;
+    throw err;
+  }
+}
+
+async function writeDraft(
+  link: ActiveFormLink,
+  draftKey: string | undefined,
+  formData: FormData,
+  payload: unknown,
+  baseline: unknown,
+): Promise<string> {
   const submitter = submitterFields(formData, false);
   const data = {
     ...submitter,
     payload: payload as Prisma.InputJsonValue,
-    baseline: snapshot.baseline as Prisma.InputJsonValue,
+    baseline: baseline as Prisma.InputJsonValue,
   };
   const draft = await findDraft(link.id, draftKey);
   if (draft) {

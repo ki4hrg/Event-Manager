@@ -30,6 +30,9 @@ export type DraftView<P> = {
 export type CommonFormProps = {
   token: string;
   version: string;
+  // The baseline this page rendered against, posted back so a stale submit
+  // can keep the answers as a draft over it.
+  baselineJson: string;
   recipientName: string | null;
   errorMessage: string | null;
   saved: boolean;
@@ -190,6 +193,7 @@ function DiscardDraft({ token }: { token: string }) {
 export function FormFrame({
   token,
   version,
+  baselineJson,
   recipientName,
   errorMessage,
   saved,
@@ -207,6 +211,7 @@ export function FormFrame({
   return (
     <form action={submitForm.bind(null, token)} className="space-y-6">
       <input type="hidden" name="version" value={version} />
+      <input type="hidden" name="baseline" value={baselineJson} />
       {/* Honeypot: hidden from people, filled by bots. */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
         <label>

@@ -23,6 +23,7 @@ import {
   type FormDiffSection,
 } from "./meta";
 import type { FileTarget, FormApplyContext, FormModule } from "./types";
+import { UserFacingError } from "@/lib/userErrors";
 
 const NOTE_MAX = 2000;
 
@@ -272,7 +273,7 @@ export const presentationDeliverablesModule: FormModule<DeliverablesPayload, Del
   open: false,
   externalUpload: true,
   async assertTarget({ eventId, presentationId, contactId }, userId) {
-    if (!presentationId) throw new Error("Pick a presentation");
+    if (!presentationId) throw new UserFacingError("Pick a presentation");
     await requirePermissionForUser(userId, "PRESENTATIONS", "VIEW", eventId);
     const p = await prisma.presentation.findFirst({ where: { id: presentationId, eventId }, select: { id: true } });
     if (!p) throw new PermissionError("NOT_FOUND", "Presentation not found");

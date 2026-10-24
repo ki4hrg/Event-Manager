@@ -107,7 +107,7 @@ export default async function FormsPage({
                   };
                   const remove = async () => {
                     "use server";
-                    await deleteFormLink(eventId, l.id);
+                    return deleteFormLink(eventId, l.id);
                   };
                   // A bundle's targets are its links' targets.
                   const parts = l.bundle ? l.children : [l];

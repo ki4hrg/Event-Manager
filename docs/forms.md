@@ -11,7 +11,7 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 - `config.options` holds a form type's own link settings (`FormModule.linkOptionsFromForm` / `linkOptions`). Exhibit Request uses it for the booth types offered (`boothTypeIds`, booth_type option ids so renames carry through; one fixes it), whether to ask for a location, the electrical and AV choices (none hides the question, one fixes it), and whether to ask for equipment to provide, equipment they're bringing, or both. Links without settings ask everything.
 - `FormSubmission` moves through the states DRAFT → SUBMITTED → APPLIED / REJECTED (or DRAFT → WITHDRAWN). It holds:
   - `payload`: the typed answers.
-  - `baseline`: the public projection the submitter saw.
+  - `baseline`: the public projection the submitter saw. A draft kept from a stale post holds the one the form posted back, which only steers that draft's rebase; submit always stores the server's.
   - `status` / `substatus`: driven by the workflow, as on orders.
   - `requiredTemplateId`: the approval the link demanded at submit.
 - `FileUpload.formSubmissionId` holds files uploaded through the form. Apply copies them to the event's Files.
@@ -50,7 +50,7 @@ Tokenized links (`/f/<token>`) that people without an account fill in: a functio
 
 A Presentation Deliverables link can carry a **media upload link** (`config.mediaUploadUrl`, https only: any upload location the team hosts — a shared drive folder, a file request, an internal upload tool). With one set, the form sends presenters there with an "I've uploaded my files" box, shows no uploader, and the upload route refuses that link's files. The deliverable's notes record the folder. Modules opt in with `externalUpload`.
 
-Every module's `snapshot().version` changes when a column it can write changes. The public form posts it back (stale → `?error=stale`), and so does the review page, where `applyFormSubmissionCore` refuses on a mismatch. Create-only forms use a constant. Reviewer decisions per section arrive as `choice_<key>` (`ReviewChoice` in `types.ts`).
+Every module's `snapshot().version` changes when a column it can write changes. The public form posts it back, and so does the review page, where `applyFormSubmissionCore` refuses on a mismatch. A stale submit or save keeps the answers: the form also posts the baseline it rendered against (JSON, size-capped, malformed → `invalid`), `keepStaleAnswersCore` parses the answers against the current snapshot and saves them as the draft over that posted baseline, and the page's rebase brings in the staff changes (`?error=stale`). Answers that no longer parse are dropped as before (`?error=changed`). Create-only forms use a constant. Reviewer decisions per section arrive as `choice_<key>` (`ReviewChoice` in `types.ts`).
 
 ## Security rules
 
@@ -74,6 +74,7 @@ These are binding for every new form type.
 - **Uploads.** The upload route checks the Origin header and Content-Length before parsing. The file type comes from its magic bytes (`sniffPublicUpload`), not from the client.
 - **Email never carries submitter text.** Receipts go only to the link's `recipientEmail`.
 - **Headers.** `/f/*` sends `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`. `/api/files` sends `nosniff`.
+- **Dead links.** Unknown, revoked and expired tokens (and a link with nothing left to fill in) render one identical message, "This form isn't available. Contact the event team who sent it." (`FormUnavailable`), with no event context and a noindex title.
 
 To add a form type, see [checklists/adding-form-type.md](./checklists/adding-form-type.md).
 
