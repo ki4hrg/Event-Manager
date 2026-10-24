@@ -1822,12 +1822,14 @@ model SupplyOrderPresentation {
 }
 
 model FileUpload {
-  id         String  @id @default(cuid())
-  fileName   String
-  storedName String
-  mimeType   String
-  fileSize   Int
-  fileType   String?
+  id            String  @id @default(cuid())
+  fileName      String
+  storedName    String
+  mimeType      String
+  fileSize      Int
+  fileType      String? // a file_type CustomOption label
+  // The raw .eml of an inbound email (inboundEmailId), as opposed to its attachments.
+  isEmailSource Boolean @default(false)
 
   eventId            String?
   event              Event?            @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -3156,8 +3158,8 @@ enum InboundStatus {
 
 // One message. Tenant-owned: tenantId comes from the address; eventId is null
 // while the address named no event of that tenant ("Unrouted"). The raw .eml
-// and the attachments are FileUploads (inboundEmailId); the .eml's fileType is
-// "EMAIL_SOURCE".
+// and the attachments are FileUploads (inboundEmailId); the .eml has
+// isEmailSource set.
 model InboundEmail {
   id            String        @id @default(cuid())
   tenantId      String

@@ -16,6 +16,8 @@ import {
   type RfpLineItemArgs,
   deleteRfpCore,
   getRfpComparisonCore,
+  getRfpDocumentCore,
+  issueRfpCore,
   removeRfpRecipientCore,
   saveRfpBlocksCore,
   saveRfpConcessionsCore,
@@ -352,6 +354,7 @@ export const rfpTools: McpToolDefinition[] = [
       if (raw !== "HOTEL" && !(VENDOR_RFP_KINDS as readonly string[]).includes(raw)) throw new Error("kind must be HOTEL, AV, CATERING, PRINT or OTHER");
       const kind = raw as RfpKind;
       if (kind !== "HOTEL" && "blocks" in args) throw new Error("Only a hotel RFP has room blocks");
+      if (args.status === "ISSUED") throw new Error("Create the RFP as a draft, then issue it with issue_rfp");
       const blank: RfpWriteArgs = {
         title: "",
         status: "DRAFT",
@@ -385,7 +388,8 @@ export const rfpTools: McpToolDefinition[] = [
   },
   {
     name: "update_rfp",
-    description: "Update an RFP's details; omitted fields are unchanged, null clears. Blocks, concessions and recipients have their own tools.",
+    description:
+      "Update an RFP's details; omitted fields are unchanged, null clears. Blocks, concessions and recipients have their own tools. A draft is issued with issue_rfp, not by setting status ISSUED.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, eventId: { type: "string" }, ...rfpProps },
@@ -426,7 +430,40 @@ export const rfpTools: McpToolDefinition[] = [
         areas: r.areas,
         siteVisitBy: day(r.siteVisitBy),
       };
-      return updateRfpCore(id, eventId, mergeRfp(current, args), userId);
+      const next = mergeRfp(current, args);
+      // Issuing files the document and stamps the sent dates.
+      if (current.status === "DRAFT" && next.status === "ISSUED") throw new Error("Use issue_rfp to issue a draft RFP");
+      return updateRfpCore(id, eventId, next, userId);
+    },
+  },
+  {
+    name: "issue_rfp",
+    description:
+      "Issue an RFP, as the Issue button does: renders the RFP document (.docx), files it on the RFP, stamps today as the issue date, marks recipients not yet sent (and not declined) as sent today, and moves a DRAFT to ISSUED. Reissuing an issued RFP files a new copy and keeps each recipient's first sent date. Add recipients first (add_rfp_recipients). Needs FILES write on the event. Returns the RFP's status, issue date, the filed document and recipients' sent dates.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, eventId: { type: "string" } },
+      required: ["id", "eventId"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const id = requireString(args, "id");
+      const eventId = requireString(args, "eventId");
+      await rfpFor(id, eventId, userId, "WRITE");
+      await requirePermissionForUser(userId, "FILES", "WRITE", eventId);
+      const doc = await getRfpDocumentCore(id, eventId, userId);
+      const { renderRfpDocx, rfpFileName } = await import("@/lib/rfp/renderDocx");
+      await issueRfpCore(id, eventId, { fileName: rfpFileName(doc.meta.eventName, doc.meta.title), buffer: await renderRfpDocx(doc) }, userId);
+      return prisma.rfp.findFirstOrThrow({
+        where: { id, eventId },
+        select: {
+          id: true,
+          status: true,
+          issuedOn: true,
+          files: { select: { id: true, fileName: true, fileType: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+          recipients: { select: { id: true, venueId: true, vendorId: true, sentOn: true, declinedToBid: true }, orderBy: { createdAt: "asc" } },
+        },
+      });
     },
   },
   {

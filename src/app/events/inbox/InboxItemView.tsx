@@ -2,7 +2,7 @@ import type { FileUpload, InboundOrigin, InboundStatus } from "@prisma/client";
 import { formatFileSize } from "@/lib/uploads";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { senderBadgeClass } from "./InboxList";
-import { arrivalLabel, EMAIL_SOURCE_FILE_TYPE, SENDER_MATCH_LABELS, STATUS_LABELS } from "./views";
+import { arrivalLabel, SENDER_MATCH_LABELS, STATUS_LABELS } from "./views";
 
 type Item = {
   origin: InboundOrigin;
@@ -48,8 +48,8 @@ export function InboxItemView({
   diagnostics?: boolean;
   renderFileAction?: (file: FileUpload) => React.ReactNode;
 }) {
-  const source = item.files.find((f) => f.fileType === EMAIL_SOURCE_FILE_TYPE);
-  const attachments = item.files.filter((f) => f.fileType !== EMAIL_SOURCE_FILE_TYPE);
+  const source = item.files.find((f) => f.isEmailSource);
+  const attachments = item.files.filter((f) => !f.isEmailSource);
   const verdicts = diagnostics ? authVerdicts(item.authResults) : [];
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">

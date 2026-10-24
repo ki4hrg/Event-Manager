@@ -68,7 +68,7 @@ const listSelect = {
   kind: true,
   senderMatch: true,
   envelopeTo: true,
-  _count: { select: { files: { where: { fileType: null } } } },
+  _count: { select: { files: { where: { isEmailSource: false } } } },
 } as const;
 
 // ─── Event inbox ─────────────────────────────────────────────────────────────

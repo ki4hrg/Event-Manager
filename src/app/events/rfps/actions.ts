@@ -5,13 +5,11 @@ import { notFound, redirect } from "next/navigation";
 import type { RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, requirePermission } from "@/lib/permissions";
-import { blockTypeLabel, dateKey } from "@/lib/hotels";
+import { dateKey } from "@/lib/hotels";
 import { patternStats, proposedRoles, proposeNights } from "@/lib/hotelPattern";
 import { RFP_KINDS, resourceForKind, rfpHref, rfpListHref } from "@/lib/rfp/kinds";
 import type { LineItemRow } from "@/lib/rfp/lineItems";
-import { buildRfpDocument } from "@/lib/rfp/document";
-import { BLANK, parseSections } from "@/lib/rfp/sections";
-import { effectiveScope, scopeLabels } from "@/lib/areas";
+import { BLANK } from "@/lib/rfp/sections";
 import { cateringSpaceRows, functionSpaceRows, sortSpaceRows } from "@/lib/rfp/space";
 import { getPickupPattern } from "@/app/hotels/actions";
 import { eventScopeWhere } from "../core";
@@ -25,7 +23,9 @@ import {
   createRfpCore,
   deleteRfpCore,
   getRfpComparisonCore,
+  getRfpDocumentCore,
   issueRfpCore,
+  rfpDetailInclude,
   removeRfpRecipientCore,
   saveRfpBlocksCore,
   saveRfpConcessionsCore,
@@ -107,26 +107,7 @@ export async function getRfp(id: string, eventId: string) {
   const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
   if (!rfp) return null;
   await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
-  return prisma.rfp.findFirst({
-    where: { id, eventId },
-    include: {
-      contact: { select: { id: true, firstName: true, lastName: true, organization: true, email: true, phone: true } },
-      decisionMakerContact: { select: { id: true, firstName: true, lastName: true } },
-      concessions: { orderBy: { sortOrder: "asc" } },
-      hotelBlocks: { orderBy: { sortOrder: "asc" }, include: { nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] } } },
-      alternateDates: { orderBy: { sortOrder: "asc" } },
-      spaceRequests: { orderBy: { sortOrder: "asc" } },
-      files: { orderBy: { createdAt: "desc" } },
-      recipients: {
-        orderBy: { createdAt: "asc" },
-        include: { venue: { select: { id: true, name: true, city: true, state: true } }, vendor: { select: { id: true, name: true } } },
-      },
-      lineItems: { orderBy: { sortOrder: "asc" } },
-      quotes: { select: { id: true, vendorId: true, status: true, revision: true }, orderBy: { createdAt: "asc" } },
-      hotelProposals: { select: { id: true, venueId: true, rfpBlockId: true, status: true } },
-      updatedBy: { select: { name: true, email: true } },
-    },
-  });
+  return prisma.rfp.findFirst({ where: { id, eventId }, include: rfpDetailInclude });
 }
 
 // The RFPs a vendor or hotel was sent and what it answered with (quotes,
@@ -231,100 +212,12 @@ async function supportScheduleTypes(eventId: string) {
   return new Set(options.length ? options.map((o) => o.label) : ["Setup", "Breakdown"]);
 }
 
-const narrativeText = (n: Record<string, unknown>, key: string) => (typeof n[key] === "string" && (n[key] as string).trim() ? (n[key] as string) : null);
-
-// Everything the document needs. Function space and F&B are the RFP's own
-// rows; the event profile comes from the ESG; history is the event's
-// series, ended events with pickup.
+// Everything the document needs (getRfpDocumentCore); null for a foreign id.
 export async function getRfpDocument(id: string, eventId: string) {
-  const rfp = await getRfp(id, eventId);
+  const rfp = await prisma.rfp.findFirst({ where: { id, eventId }, select: { kind: true } });
   if (!rfp) return null;
-  const [event, keyStaff, concessionOptions] = await Promise.all([
-    prisma.event.findUniqueOrThrow({
-      where: { id: eventId },
-      select: {
-        name: true,
-        startDate: true,
-        endDate: true,
-        seriesId: true,
-        expectedAttendance: true,
-        tenant: { select: { name: true } },
-        regions: true,
-        areas: true,
-        venues: { orderBy: { sortOrder: "asc" }, take: 1, select: { venue: { select: { city: true, state: true } } } },
-        specification: { select: { eventType: true, eventScope: true, eventFrequency: true, narrative: true } },
-      },
-    }),
-    prisma.eventKeyStaff.findMany({
-      where: { eventId, contactId: { in: [rfp.contactId, rfp.decisionMakerId].filter((c): c is string => !!c) } },
-      select: { contactId: true, title: true },
-      orderBy: { sortOrder: "asc" },
-    }),
-    prisma.customOption.findMany({
-      where: { tenant: { events: { some: { id: eventId } } }, category: "rfp_concession" },
-      select: { label: true, group: true },
-    }),
-  ]);
-  const sections = new Set(rfp.sections);
-  const titleOf = (contactId: string | null) => keyStaff.find((k) => k.contactId === contactId)?.title ?? null;
-  // Pickup history reads across the tenant's events, so it needs HOTELS beyond this one event.
-  // History of every block, or only blocks like this RFP's (its contract and guest types).
-  const matching = rfp.historyMatching && rfp.hotelBlocks.length > 0;
-  const contractTypes = matching ? Array.from(new Set(rfp.hotelBlocks.map((b) => b.contractType))) : [];
-  const guestTypes = matching ? Array.from(new Set(rfp.hotelBlocks.flatMap((b) => (b.guestType ? [b.guestType] : [])))) : [];
-  const history =
-    sections.has("history") && event.seriesId && (await hasPermission("HOTELS", "VIEW"))
-      ? (await getPickupPattern({ seriesId: event.seriesId, contractTypes, guestTypes })).events
-      : [];
-  const venue = event.venues[0]?.venue;
-  const narrative = (event.specification?.narrative as Record<string, unknown> | null) ?? {};
-  const text = (key: string) => narrativeText(narrative, key);
-  const address = [
-    text("hostOrgAddress1"),
-    text("hostOrgAddress2"),
-    [text("hostOrgCity"), text("hostOrgState"), text("hostOrgPostalCode")].filter(Boolean).join(" "),
-    text("hostOrgCountry"),
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  return buildRfpDocument({
-    rfp: {
-      ...rfp,
-      sections: parseSections(rfp.kind, rfp.sections),
-      contactTitle: titleOf(rfp.contactId),
-      historyOf: matching ? Array.from(new Set(rfp.hotelBlocks.map((b) => blockTypeLabel(b.contractType, b.guestType)))).join(", ") : null,
-      locations: scopeLabels(effectiveScope(rfp, event)),
-      // "Name — Title" for a contact, else what was typed.
-      decisionMaker: rfp.decisionMakerContact
-        ? [`${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim(), titleOf(rfp.decisionMakerId)].filter(Boolean).join(" — ")
-        : rfp.decisionMaker,
-      // Files staff attached for the hotels; the RFP's own issued copies aren't attachments.
-      attachments: rfp.files.filter((f) => f.fileType !== "RFP").map((f) => f.fileName),
-    },
-    event: {
-      name: event.name,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      expectedAttendance: event.expectedAttendance,
-      location: venue ? [venue.city, venue.state].filter(Boolean).join(", ") || null : null,
-    },
-    spec: {
-      hostOrgName: text("hostOrgName") ?? event.tenant.name,
-      address: address || null,
-      phone: text("hostOrgPhone"),
-      website: text("hostOrgWebsite"),
-      eventType: event.specification?.eventType ?? null,
-      eventScope: event.specification?.eventScope ?? null,
-      eventFrequency: event.specification?.eventFrequency ?? null,
-      overview: text("hostOrgOverview"),
-      objectives: text("eventObjectives"),
-      demographics: text("attendeeDemographics"),
-      accessibility: text("attendeeAccessibility"),
-    },
-    concessionGroups: Object.fromEntries(concessionOptions.map((o) => [o.label, o.group])),
-    history,
-  });
+  const session = await requirePermission(resourceForKind(rfp.kind), "VIEW", eventId);
+  return getRfpDocumentCore(id, eventId, session.user.id);
 }
 
 // The event's functions and catering orders as function-space rows, for

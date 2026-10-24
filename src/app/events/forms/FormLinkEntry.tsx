@@ -74,7 +74,7 @@ export async function FormLinkEntry({
       sections={sections}
       companion={companion}
       recipients={recipients}
-      extraFields={boothTypes ? <ExhibitLinkFields boothTypes={boothTypes.map((o) => o.label)} /> : undefined}
+      extraFields={boothTypes ? <ExhibitLinkFields boothTypes={boothTypes.map((o) => ({ id: o.id, label: o.label }))} /> : undefined}
       // Targeted links go to one person; open links take any number.
       defaultMaxSubmissions={target || functions ? 1 : null}
       defaultAnyone={!target && !functions}
