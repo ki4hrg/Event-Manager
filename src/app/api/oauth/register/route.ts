@@ -1,8 +1,17 @@
 import { prisma } from "@/lib/prisma";
+import { OAUTH_REGISTER_PER_IP, clientIpFrom, rateLimit } from "@/lib/rateLimit";
 
 // RFC 7591 Dynamic Client Registration. claude.ai self-registers anonymously
 // before starting the authorization-code flow. PKCE-only (no client secret).
 export async function POST(request: Request) {
+  const limited = rateLimit(OAUTH_REGISTER_PER_IP, clientIpFrom(request.headers));
+  if (!limited.allowed) {
+    return Response.json(
+      { error: "temporarily_unavailable", error_description: "Too many registrations. Try again later." },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } },
+    );
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();

@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { generateShareToken } from "@/lib/shareLinks";
 import { getUploadDir } from "@/lib/uploads";
 import { SECURE_COOKIES } from "@/lib/auth";
+import { PUBLIC_FORM_PER_IP, PUBLIC_FORM_PER_TOKEN, rateLimit } from "@/lib/rateLimit";
 
 export const DRAFT_COOKIE = "form_draft";
 
@@ -120,6 +121,12 @@ export async function assertLinkHasCapacity(linkId: string) {
   if (recent >= FORM_ROWS_PER_HOUR || openDrafts >= FORM_OPEN_DRAFTS_PER_LINK) {
     throw new PublicFormError("busy");
   }
+}
+
+// In-memory throttle for the public save, submit and upload requests, per IP
+// and per link token. false means answer "busy".
+export function formRequestAllowed(token: string, ip: string): boolean {
+  return rateLimit(PUBLIC_FORM_PER_IP, ip).allowed && rateLimit(PUBLIC_FORM_PER_TOKEN, token).allowed;
 }
 
 // A public-side failure carrying one of the FORM_ERROR_COPY codes. The public
