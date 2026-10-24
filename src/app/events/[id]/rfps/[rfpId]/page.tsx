@@ -108,7 +108,9 @@ export default async function VendorRfpPage({
     await removeRfpRecipient(recipientId, rfpId, eventId);
   };
   const day = (d: Date | null) => (d ? dateKey(d) : null);
-  const lineRows = rfp.lineItems.map((l) => ({ ...l, day: day(l.day), endDay: day(l.endDay) }));
+  const lineRows = rfp.lineItems.map(({ _count, ...l }) => ({ ...l, day: day(l.day), endDay: day(l.endDay) }));
+  // Lines a quote prices: removing one turns those quote lines into extras.
+  const pricedLines = rfp.lineItems.filter((l) => l._count.quoteLines > 0).map((l) => l.id);
 
   return (
     <>
@@ -166,6 +168,7 @@ export default async function VendorRfpPage({
                 <RfpLineItemsEditor
                   resource={resource}
                   rows={lineRows}
+                  priced={pricedLines}
                   source={ORDER_SOURCE[kind]}
                   loadCandidates={candidatesAction}
                   save={saveLinesAction}
