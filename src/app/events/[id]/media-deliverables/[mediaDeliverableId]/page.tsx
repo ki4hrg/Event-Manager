@@ -28,9 +28,9 @@ import {
 } from "../../../media-deliverables/actions";
 import { ContactList } from "../../../functions/ContactList";
 import { getResponsibleParties } from "@/lib/responsibleParties";
-import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
-import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/(admin)/workflows/actions";
 import { MediaDeliverableTabs, MEDIA_DELIVERABLE_TABS } from "../../../media-deliverables/MediaDeliverableTabs";
 import { MediaDeliverableForm } from "../../../media-deliverables/MediaDeliverableForm";
 import { MediaDeliverableLinkPanel } from "../../../media-deliverables/MediaDeliverableLinkPanel";

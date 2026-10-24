@@ -4,7 +4,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import { hasPermission } from "@/lib/permissions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getHotels } from "./actions";
 import { AmenityFilter } from "./AmenityFilter";
 

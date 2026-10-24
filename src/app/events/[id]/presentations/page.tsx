@@ -16,7 +16,7 @@ import {
 } from "../../presentations/actions";
 import { PresentationList } from "../../presentations/PresentationList";
 import { TrackPanel } from "../../presentations/TrackPanel";
-import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getHiddenColumns } from "@/app/events/table-columns-actions";
 
 export const dynamic = "force-dynamic";

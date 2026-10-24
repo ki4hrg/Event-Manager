@@ -10,7 +10,7 @@ import {  updateEvent, deleteEvent, getEventSeriesOptions } from "../../actions"
 import { getEvent } from "@/app/events/event";
 import { EventForm } from "../../EventForm";
 import { getStatusDefaults, clearStatusDefault, saveAllStatusDefaults } from "@/app/events/status-defaults/actions";
-import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { updateEventAreas } from "../../actions";
 import { EventAreasPanel } from "../../EventAreasPanel";
 import { StatusDefaultsPanel } from "@/app/events/status-defaults/StatusDefaultsPanel";

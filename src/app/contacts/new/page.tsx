@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PageWrapper } from "@/components/PageWrapper";
 import { createContact } from "../actions";
 import { ContactForm } from "../ContactForm";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";

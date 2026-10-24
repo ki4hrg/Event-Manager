@@ -44,7 +44,7 @@ import {
   removeVendorFromAVOrder,
   searchAssignedEventVendors,
 } from "@/app/vendors/actions";
-import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getEquipment } from "@/app/equipment/actions";
 import { VendorPanel } from "../../../vendors/VendorPanel";
 import { AVOrderForm } from "../../../av-orders/AVOrderForm";
@@ -60,7 +60,7 @@ import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepComplet
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { EntityStatusBadge } from "@/components/EntityStatusBadge";
-import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/(admin)/workflows/actions";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";

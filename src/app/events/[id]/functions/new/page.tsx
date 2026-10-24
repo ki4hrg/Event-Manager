@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/event";
 import { createFunction } from "../../../functions/actions";
 import { FunctionForm } from "../../../functions/FunctionForm";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getEventRooms } from "@/lib/eventVenues";
 import { requirePermission } from "@/lib/permissions";
 

@@ -25,7 +25,7 @@ import {
   updateSetupOrderDetail,
   deleteSetupOrderDetail,
 } from "../../../setup-orders/actions";
-import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getEquipment } from "@/app/equipment/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
@@ -51,7 +51,7 @@ import { EntityStatusBadge } from "@/components/EntityStatusBadge";
 import { getEventRooms } from "@/lib/eventVenues";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
-import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/(admin)/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { formatFunctionLabel } from "@/lib/functionNumbers";

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getEvent } from "@/app/events/event";
 import { createPresentation, getTracks, searchContacts } from "../../../presentations/actions";
 import { PresentationForm } from "../../../presentations/PresentationForm";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { requirePermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";

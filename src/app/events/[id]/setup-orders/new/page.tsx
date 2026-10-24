@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getEvent } from "@/app/events/event";
 import { createSetupOrder } from "../../../setup-orders/actions";
 import { SetupOrderForm } from "../../../setup-orders/SetupOrderForm";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 import { getEventRooms } from "@/lib/eventVenues";

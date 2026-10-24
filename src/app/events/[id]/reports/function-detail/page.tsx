@@ -7,7 +7,7 @@ import {
   getFunctionPickerOptions,
 } from "@/app/events/reports/data";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { ReportFilters } from "./ReportFilters";
 import { FunctionDetailReport } from "./FunctionDetailReport";
 import { ShareReportButton } from "@/components/ShareReportButton";

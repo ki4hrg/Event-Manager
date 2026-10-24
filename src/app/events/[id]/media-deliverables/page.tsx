@@ -9,7 +9,7 @@ import {
   bulkUpdateMediaDeliverables,
 } from "../../media-deliverables/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
-import { getSubstatusOptions, getOptions } from "@/app/settings/actions";
+import { getSubstatusOptions, getOptions } from "@/app/(admin)/settings/actions";
 import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";

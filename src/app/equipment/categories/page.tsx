@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PermissionResource } from "@prisma/client";
 import { permissionLevels } from "@/lib/permissions";
 import { PermissionsProvider } from "@/components/PermissionsProvider";
-import { OptionCategoryEditor } from "@/app/settings/OptionCategoryEditor";
+import { OptionCategoryEditor } from "@/app/(admin)/settings/OptionCategoryEditor";
 
 export const dynamic = "force-dynamic";
 

@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/event";
 import { getEventProfileData } from "@/app/events/reports/data";
 import { listShareLinkGroupChoicesForEvent } from "@/app/events/share-link-groups/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { enumerateEventDays } from "./days";
 import { ReportFilters } from "./ReportFilters";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "./EventProfileReport";

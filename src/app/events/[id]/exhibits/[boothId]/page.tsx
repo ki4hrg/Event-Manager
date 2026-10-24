@@ -8,7 +8,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { LastUpdated } from "@/components/LastUpdated";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { getEquipment } from "@/app/equipment/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";
 import { getEvent } from "@/app/events/event";

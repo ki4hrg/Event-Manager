@@ -17,7 +17,7 @@ import {
   removeVendorContact,
   createAndAddVendorContact,
 } from "../actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { VendorForm } from "../VendorForm";
 import { MODEL_LABELS } from "../model-types";
 import { VendorContactList } from "../VendorContactList";

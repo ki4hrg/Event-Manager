@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getFunctionsWithPresentations } from "../../functions/actions";
 import { buildAgendaData, serializeAgendaData } from "@/lib/agendaUtils";
 import { getEventRooms } from "@/lib/eventVenues";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { requirePermission } from "@/lib/permissions";
 import { getAgendaViewSettings, getAgendaRoomPrefs } from "@/lib/userSettings";
 import dynamicImport from "next/dynamic";

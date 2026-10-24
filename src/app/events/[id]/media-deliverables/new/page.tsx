@@ -6,7 +6,7 @@ import { getEvent } from "@/app/events/event";
 import { createMediaDeliverable, getMediaDeliverableProviderPool } from "../../../media-deliverables/actions";
 import { MediaDeliverableForm } from "../../../media-deliverables/MediaDeliverableForm";
 import { getResponsibleParties } from "@/lib/responsibleParties";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getSourceCancelPath, getSourceBackLabel, extractSourceName } from "@/lib/source-context";
 import { requirePermission } from "@/lib/permissions";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
