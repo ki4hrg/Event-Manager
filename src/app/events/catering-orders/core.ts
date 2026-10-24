@@ -104,8 +104,8 @@ export async function createCateringOrderCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("catering_order", cateringOrder.id, cateringOrder.eventId);
-  return cateringOrder;
+  const applied = await autoAssignDefaultWorkflowsCore("catering_order", cateringOrder.id, cateringOrder.eventId);
+  return { ...cateringOrder, ...applied };
 }
 
 // Partial update: every field is optional. Pass `undefined` to leave a column

@@ -76,7 +76,7 @@ export async function createPrintOrderCore(
   ]);
 
   const vendorIdToAssign = args.vendorId ?? defaultVendor?.vendorId ?? null;
-  await Promise.all([
+  const [, applied] = await Promise.all([
     vendorIdToAssign
       ? prisma.printOrderVendor.create({
           data: { printOrderId: printOrder.id, vendorId: vendorIdToAssign },
@@ -84,7 +84,7 @@ export async function createPrintOrderCore(
       : Promise.resolve(null),
     autoAssignDefaultWorkflowsCore("print_order", printOrder.id, printOrder.eventId),
   ]);
-  return printOrder;
+  return { ...printOrder, ...applied };
 }
 
 export type UpdatePrintOrderArgs = {

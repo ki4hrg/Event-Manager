@@ -17,12 +17,13 @@ import type { WorkflowEntityType } from "./entity-types";
 //
 // `eventId` picks the tenant whose templates apply — every workflow-bearing
 // entity hangs off an event. Uses the global client: call it after the
-// creating transaction commits, never inside it.
+// creating transaction commits, never inside it. Returns the status it wrote
+// (null when none), so a core can return its row as stored.
 export async function autoAssignDefaultWorkflowsCore(
   entityType: WorkflowEntityType,
   entityId: string,
   eventId: string,
-) {
+): Promise<ResolvedStatus | null> {
   const templates = await prisma.workflowTemplate.findMany({
     where: {
       defaultForEntityTypes: { has: entityType },
@@ -36,7 +37,7 @@ export async function autoAssignDefaultWorkflowsCore(
       skipDuplicates: true,
     });
   }
-  await applyAssignedWorkflowStatus(entityType, entityId, eventId);
+  return applyAssignedWorkflowStatus(entityType, entityId, eventId);
 }
 
 // Whether every workflow on an entity is fully done (every step, and every
@@ -191,7 +192,8 @@ export async function recomputeEntityStatusCore(entityType: WorkflowEntityType, 
 // workflow sets one — so unlike recompute, never clears it.
 async function applyAssignedWorkflowStatus(entityType: WorkflowEntityType, entityId: string, eventId: string) {
   const { status, substatus } = await resolveWorkflowStatus(entityType, entityId);
-  if (status === null) return;
+  if (status === null) return null;
   await updateEntityStatusCore(entityType, entityId, eventId, status, substatus);
+  return { status, substatus };
 }
 

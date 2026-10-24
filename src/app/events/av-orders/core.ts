@@ -89,8 +89,8 @@ export async function createAVOrderCore(
     });
   }
 
-  await autoAssignDefaultWorkflowsCore("av_order", avOrder.id, avOrder.eventId);
-  return avOrder;
+  const applied = await autoAssignDefaultWorkflowsCore("av_order", avOrder.id, avOrder.eventId);
+  return { ...avOrder, ...applied };
 }
 
 export type UpdateAVOrderArgs = { name: string; notes: string | null };
