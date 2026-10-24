@@ -689,7 +689,7 @@ export function ProposalForm({
               </label>
             </div>
             {rfpBlockId && (
-              <Field label="RFP block" htmlFor="p-rfpBlockId">
+              <Field label="Requested block" htmlFor="p-rfpBlockId">
                 <select id="p-rfpBlockId" value={rfpBlockId} onChange={(e) => pickRfp(e.target.value)} className={inputClass}>
                   {rfpChoices.map((c) => (
                     <option key={c.id} value={c.id}>

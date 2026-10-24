@@ -268,7 +268,7 @@ export function RfpBlocksEditor({
   return (
     <div className={`${cardClass} space-y-4`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Room blocks</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Requested blocks</h2>
         <AutosaveStatus {...status} />
       </div>
       <fieldset disabled={!canWrite} className="space-y-6">

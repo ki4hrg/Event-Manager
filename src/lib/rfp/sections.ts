@@ -11,7 +11,7 @@ const VENDOR: RfpKind[] = ["AV", "CATERING", "PRINT", "OTHER"];
 
 // label: as the hotel RFP names the part; vendorLabel where a vendor RFP differs.
 export const RFP_SECTIONS: { key: RfpSection; label: string; vendorLabel?: string; kinds: RfpKind[] }[] = [
-  { key: "blocks", label: "Room blocks", kinds: ["HOTEL"] },
+  { key: "blocks", label: "Requested blocks", kinds: ["HOTEL"] },
   { key: "lineItems", label: "Line items", kinds: VENDOR },
   { key: "meetingSpace", label: "Function space", kinds: ["HOTEL"] },
   { key: "fb", label: "Food & beverage", kinds: ["HOTEL"] },
