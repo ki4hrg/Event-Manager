@@ -36,7 +36,7 @@ import { updateCateringOrderCore, type UpdateCateringOrderArgs } from "@/app/eve
 import { createVendorCore } from "@/app/vendors/core";
 import { updateRfpRecipientCore } from "@/app/events/rfps/core";
 import { eventScopeWhere } from "@/app/events/core";
-import { EMAIL_SOURCE_FILE_TYPE, MIME_BY_EXT, OPEN_STATUSES } from "./views";
+import { MIME_BY_EXT, OPEN_STATUSES } from "./views";
 import { buildDedupKey, formatSender, parseInboxAddress, readMessage, slugifyInboxSlug } from "@/lib/inboundMail";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 
@@ -199,7 +199,7 @@ export async function ingestInboundEmail(
       storedName: sourceName,
       mimeType: "message/rfc822",
       fileSize: raw.length,
-      fileType: EMAIL_SOURCE_FILE_TYPE,
+      isEmailSource: true,
       inboundEmailId: row.id,
     });
     for (const a of msg.attachments) {
@@ -423,7 +423,7 @@ async function parseVendorContext(eventId: string, tenantId: string, senderAddre
 
 export async function inboundAttachments(id: string) {
   return prisma.fileUpload.findMany({
-    where: { inboundEmailId: id, fileType: null },
+    where: { inboundEmailId: id, isEmailSource: false },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 }

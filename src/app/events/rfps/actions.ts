@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import type { RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hasPermission, requirePermission } from "@/lib/permissions";
+import { hasPermission, requireEventTenantId, requirePermission } from "@/lib/permissions";
+import { rfpFileTypeLabel } from "@/lib/fileTypes";
 import { blockTypeLabel, dateKey } from "@/lib/hotels";
 import { patternStats, proposedRoles, proposeNights } from "@/lib/hotelPattern";
 import { RFP_KINDS, resourceForKind, rfpHref, rfpListHref } from "@/lib/rfp/kinds";
@@ -239,7 +240,7 @@ const narrativeText = (n: Record<string, unknown>, key: string) => (typeof n[key
 export async function getRfpDocument(id: string, eventId: string) {
   const rfp = await getRfp(id, eventId);
   if (!rfp) return null;
-  const [event, keyStaff, concessionOptions] = await Promise.all([
+  const [event, keyStaff, concessionOptions, rfpFileType] = await Promise.all([
     prisma.event.findUniqueOrThrow({
       where: { id: eventId },
       select: {
@@ -264,6 +265,7 @@ export async function getRfpDocument(id: string, eventId: string) {
       where: { tenant: { events: { some: { id: eventId } } }, category: "rfp_concession" },
       select: { label: true, group: true },
     }),
+    rfpFileTypeLabel(await requireEventTenantId(eventId)),
   ]);
   const sections = new Set(rfp.sections);
   const titleOf = (contactId: string | null) => keyStaff.find((k) => k.contactId === contactId)?.title ?? null;
@@ -300,7 +302,7 @@ export async function getRfpDocument(id: string, eventId: string) {
         ? [`${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim(), titleOf(rfp.decisionMakerId)].filter(Boolean).join(" — ")
         : rfp.decisionMaker,
       // Files staff attached for the hotels; the RFP's own issued copies aren't attachments.
-      attachments: rfp.files.filter((f) => f.fileType !== "RFP").map((f) => f.fileName),
+      attachments: rfp.files.filter((f) => f.fileType !== rfpFileType).map((f) => f.fileName),
     },
     event: {
       name: event.name,

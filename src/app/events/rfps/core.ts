@@ -19,6 +19,7 @@ import { buildComparison } from "@/lib/rfp/compare";
 import { FB_INCLUDES, parseSections } from "@/lib/rfp/sections";
 import { avLineItems, cateringLineItems, printLineItems, type LineItemRow } from "@/lib/rfp/lineItems";
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
+import { resolveRfpFileType } from "@/lib/fileTypes";
 import type { OfferHotel } from "@/lib/inboundParse";
 import { createNewHotelCore } from "@/app/events/hotels/core";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
@@ -555,6 +556,7 @@ export async function rfpLineItemCandidatesCore(id: string, eventId: string, use
 export async function issueRfpCore(id: string, eventId: string, file: { fileName: string; buffer: Buffer }, userId: string) {
   const { status } = await authorizeRfp(id, eventId, "WRITE", userId);
   await requirePermissionForUser(userId, "FILES", "WRITE", eventId);
+  const fileType = await resolveRfpFileType(await requireEventTenantId(eventId));
   const storedName = `${randomUUID()}.docx`;
   mkdirSync(getUploadDir("rfp", id), { recursive: true });
   writeFileSync(getUploadPath("rfp", id, storedName), file.buffer);
@@ -566,7 +568,7 @@ export async function issueRfpCore(id: string, eventId: string, file: { fileName
         storedName,
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         fileSize: file.buffer.length,
-        fileType: "RFP",
+        fileType,
         rfpId: id,
       },
     }),

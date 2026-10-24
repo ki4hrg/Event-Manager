@@ -7,7 +7,7 @@ const boxCls = "rounded border-gray-300 dark:border-gray-600";
 // Exhibit Request link settings, posted as opt_* fields and read by the
 // module's linkOptionsFromForm. One booth type checked fixes it; no provider
 // checked leaves that question off the form.
-export function ExhibitLinkFields({ boothTypes }: { boothTypes: string[] }) {
+export function ExhibitLinkFields({ boothTypes }: { boothTypes: { id: string; label: string }[] }) {
   return (
     <div className="space-y-4">
       {boothTypes.length > 0 && (
@@ -15,9 +15,9 @@ export function ExhibitLinkFields({ boothTypes }: { boothTypes: string[] }) {
           <legend className={labelCls}>Booth types offered</legend>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
             {boothTypes.map((t) => (
-              <label key={t} className={checkCls}>
-                <input type="checkbox" name="opt_boothTypes" value={t} defaultChecked className={boxCls} />
-                {t}
+              <label key={t.id} className={checkCls}>
+                <input type="checkbox" name="opt_boothTypes" value={t.id} defaultChecked className={boxCls} />
+                {t.label}
               </label>
             ))}
           </div>

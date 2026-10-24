@@ -12,7 +12,7 @@ import {
   submitInboundItemCore,
   type SubmitAttachment,
 } from "@/app/events/inbox/core";
-import { EMAIL_SOURCE_FILE_TYPE, INBOX_VIEW_STATUSES, INBOX_VIEWS, type InboxView } from "@/app/events/inbox/views";
+import { INBOX_VIEW_STATUSES, INBOX_VIEWS, type InboxView } from "@/app/events/inbox/views";
 import type { McpToolDefinition } from "./types";
 import { partialString, requireString } from "./types";
 
@@ -27,7 +27,7 @@ async function itemFor(id: string, tenantId: string, userId: string, action: "VI
     where: { id, tenantId },
     include: {
       event: { select: { id: true, name: true } },
-      files: { select: { id: true, fileName: true, mimeType: true, fileSize: true, fileType: true } },
+      files: { select: { id: true, fileName: true, mimeType: true, fileSize: true, isEmailSource: true } },
     },
   });
   if (!item) throw new Error("Inbox item not found");
@@ -67,7 +67,7 @@ export const inboxTools: McpToolDefinition[] = [
           origin: true,
           envelopeTo: true,
           event: { select: { id: true, name: true } },
-          _count: { select: { files: { where: { fileType: null } } } },
+          _count: { select: { files: { where: { isEmailSource: false } } } },
         },
         orderBy: { receivedAt: "desc" },
         take: 100,
@@ -82,7 +82,7 @@ export const inboxTools: McpToolDefinition[] = [
     handler: async (args, { userId, tenantId }) => {
       const item = await itemFor(requireString(args, "id"), tenantId, userId, "VIEW");
       const { files, authResults: _auth, dedupKey: _key, ...rest } = item;
-      return { ...rest, attachments: files.filter((f) => f.fileType !== EMAIL_SOURCE_FILE_TYPE) };
+      return { ...rest, attachments: files.filter((f) => !f.isEmailSource).map(({ isEmailSource: _source, ...f }) => f) };
     },
   },
   {

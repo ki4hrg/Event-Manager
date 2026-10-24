@@ -16,6 +16,7 @@ import {
   EXHIBIT_EQUIPMENT_SOURCES,
   EXHIBIT_PROVIDERS,
   EXHIBIT_REQUEST_SECTION_KEYS,
+  matchesBoothType,
   optionLabel,
   readExhibitLinkOptions,
   readFormLinkConfig,
@@ -265,7 +266,7 @@ export const exhibitRequestModule: FormModule<ExhibitRequestPayload, ExhibitRequ
   linkOptionsFromForm(formData): ExhibitLinkOptions {
     const providers = (key: string) => formData.getAll(key).filter((v): v is ExhibitProvider => allProviders().includes(v as ExhibitProvider));
     return {
-      boothTypes: formData.getAll("opt_boothTypes").filter((v): v is string => typeof v === "string"),
+      boothTypeIds: formData.getAll("opt_boothTypes").filter((v): v is string => typeof v === "string"),
       askLocation: formData.get("opt_askLocation") === "true",
       electrical: providers("opt_electrical"),
       av: providers("opt_av"),
@@ -274,11 +275,13 @@ export const exhibitRequestModule: FormModule<ExhibitRequestPayload, ExhibitRequ
   },
   async linkOptions(raw, { eventId }) {
     const opts = readExhibitLinkOptions(raw);
-    if (opts.boothTypes) {
-      const onFile = new Set((await getOptionsForEvent(eventId, "booth_type")).map((o) => o.label));
-      if (opts.boothTypes.some((t) => !onFile.has(t))) throw new Error("Unknown booth type");
+    if (opts.boothTypeIds) {
+      // Stored as option ids; an entry may name the option by id or label.
+      const onFile = await getOptionsForEvent(eventId, "booth_type");
+      const ids = opts.boothTypeIds.map((t) => (onFile.find((o) => o.id === t) ?? onFile.find((o) => o.label === t))?.id);
+      if (ids.some((id) => !id)) throw new Error("Unknown booth type");
       // With none on file the dialog had nothing to tick: offer whatever is added later.
-      opts.boothTypes = onFile.size === 0 ? null : Array.from(new Set(opts.boothTypes));
+      opts.boothTypeIds = onFile.length === 0 ? null : Array.from(new Set(ids as string[]));
     }
     return opts;
   },
@@ -293,8 +296,8 @@ export const exhibitRequestModule: FormModule<ExhibitRequestPayload, ExhibitRequ
     return {
       baseline: {
         groupName: group?.name ?? null,
-        // A type renamed or removed since the link was made drops out.
-        boothTypes: boothTypes.map((o) => o.label).filter((t) => !opts.boothTypes || opts.boothTypes.includes(t)),
+        // Offered types by id, so a rename carries through; a removed one drops out.
+        boothTypes: boothTypes.filter((o) => !opts.boothTypeIds || matchesBoothType(opts.boothTypeIds, o)).map((o) => o.label),
         askLocation: opts.askLocation,
         electrical: opts.electrical,
         av: opts.av,

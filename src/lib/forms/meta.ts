@@ -269,11 +269,12 @@ export type ExhibitRequestPayload = {
   equipment: { item: string; quantity: number | null; source?: ExhibitEquipmentSource | null }[];
 };
 
-// What a link asks for. `boothTypes` null offers every booth type on file;
-// one entry fixes the booth type. An empty provider list leaves that question
-// off the form; one entry fixes the answer.
+// What a link asks for. `boothTypeIds` (booth_type CustomOption ids, so a
+// rename carries through) null offers every booth type on file; one entry
+// fixes the booth type. An empty provider list leaves that question off the
+// form; one entry fixes the answer.
 export type ExhibitLinkOptions = {
-  boothTypes: string[] | null;
+  boothTypeIds: string[] | null;
   askLocation: boolean;
   electrical: ExhibitProvider[];
   av: ExhibitProvider[];
@@ -289,11 +290,17 @@ function providerList(raw: unknown): ExhibitProvider[] {
   return ALL_EXHIBIT_PROVIDERS.filter((p) => raw.includes(p));
 }
 
-// Links made before these settings existed ask everything.
+function stringList(raw: unknown): string[] | null {
+  return Array.isArray(raw) ? raw.filter((t): t is string => typeof t === "string") : null;
+}
+
+// Links made before these settings existed ask everything. `boothTypes` is
+// the label list links stored before ids (and what MCP callers pass); its
+// entries are matched by label, so read it through matchesBoothType.
 export function readExhibitLinkOptions(raw: unknown): ExhibitLinkOptions {
   const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   return {
-    boothTypes: Array.isArray(obj.boothTypes) ? obj.boothTypes.filter((t): t is string => typeof t === "string") : null,
+    boothTypeIds: stringList(obj.boothTypeIds ?? obj.boothTypes),
     askLocation: typeof obj.askLocation === "boolean" ? obj.askLocation : true,
     electrical: providerList(obj.electrical),
     av: providerList(obj.av),
@@ -301,6 +308,12 @@ export function readExhibitLinkOptions(raw: unknown): ExhibitLinkOptions {
       ? ALL_EQUIPMENT_SOURCES.filter((v) => (obj.equipment as unknown[]).includes(v))
       : ALL_EQUIPMENT_SOURCES,
   };
+}
+
+// A booth_type option is offered when the link lists its id, or its label
+// (links saved before ids, MCP input).
+export function matchesBoothType(list: string[], option: { id: string; label: string }) {
+  return list.includes(option.id) || list.includes(option.label);
 }
 
 // Older submissions' baselines carry only groupName and boothTypes.
