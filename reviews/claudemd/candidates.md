@@ -167,3 +167,4 @@
 - [claude.md] The earlier entry about `/workflows` lacking a gate layout is resolved: `src/app/(admin)/workflows/layout.tsx` now calls `requirePermission(WORKFLOWS, "VIEW")`; its pages keep their own checks (claude/admin-area-lists).
 - [forms] An autosaving form with frozen mount-time values must not re-post a field another action changes (RFP status after Issue): post the shown value alongside (`statusWas`) and treat "unchanged" as no write (`readRfp` in src/app/events/rfps/actions.ts)
 - [inbox] Parsed amenity/concession labels resolve through `listLabels` (src/lib/inboundParse.ts): exact by `labelKey`, else a unique match ignoring free/complimentary/included — the model drifts from exact list labels
+- [nav] Option lists live only under /settings/lists; the per-feature host pages (/equipment/categories, /storage-locations/types) are redirects now, so editing them needs SETTINGS view plus the list's resource

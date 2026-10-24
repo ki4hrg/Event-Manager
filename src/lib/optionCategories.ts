@@ -244,9 +244,6 @@ export type OptionCategoryDef = {
   mergeable?: { noun: string };
   // Who edits the list (VIEW to see it, WRITE/DELETE to change it).
   resource: PermissionResource;
-  // A list edited under a resource other than SETTINGS also has a page in its
-  // own feature, for users who can't open /settings.
-  host?: string;
   // Every column storing this category's labels. Required: a list with no
   // stored uses still declares [] on purpose.
   renameTargets: readonly RenameTarget[];
@@ -510,7 +507,6 @@ export const OPTION_CATEGORIES = {
     description: "Categories for equipment.",
     models: true,
     resource: PermissionResource.EQUIPMENT,
-    host: "/equipment/categories",
     renameTargets: [col("equipment", "category", inTenant)],
   },
   location_type: {
@@ -518,7 +514,6 @@ export const OPTION_CATEGORIES = {
     description: "What a storage location is.",
     color: true,
     resource: PermissionResource.STORAGE_LOCATIONS,
-    host: "/storage-locations/types",
     renameTargets: [col("storageLocation", "type", inTenant)],
   },
 } as const satisfies Record<string, OptionCategoryDef>;

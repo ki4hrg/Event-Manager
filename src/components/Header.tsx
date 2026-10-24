@@ -3,12 +3,11 @@ import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
 import { hasGlobalView, loadPermissionsForUser, type PermissionGrant } from "@/lib/permissions";
 import { getTenantContext } from "@/lib/tenant";
-import { adminHeaderLinks } from "@/lib/adminNav";
+import { adminHomeHref, inventoryNavGroups } from "@/lib/adminNav";
 import { prisma } from "@/lib/prisma";
 import { getInboundEmailDomain } from "@/lib/email";
 import { orgInboxWhere } from "@/app/events/inbox/core";
 import { OPEN_STATUSES } from "@/app/events/inbox/views";
-import { AdminDropdown } from "./AdminDropdown";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { MobileNav, type HeaderLink } from "./MobileNav";
 
@@ -21,7 +20,7 @@ export async function Header() {
     ctx?.active ? (await loadPermissionsForUser(ctx.userId, ctx.active.id)).permissions : [];
   const isSuperAdmin = ctx?.isSuperAdmin ?? false;
 
-  // Main-nav links are gated the same way the Admin dropdown already was.
+  // Main-nav links are gated on the page's own resource.
   // An ungated link is worse than a missing one: clicking it bounces the user
   // to "/" with no explanation, which reads as the app being broken.
   const canViewEvents = hasGlobalView(permissions, PermissionResource.EVENTS);
@@ -29,12 +28,13 @@ export async function Header() {
   const canViewContacts = hasGlobalView(permissions, PermissionResource.CONTACTS);
   const canViewVendors = hasGlobalView(permissions, PermissionResource.VENDORS);
   const canViewHotels = hasGlobalView(permissions, PermissionResource.HOTELS);
-  // Main nav rather than the Admin dropdown: the default User role carries
+  const canView = (resource: PermissionResource) => hasGlobalView(permissions, resource);
+  // Main nav rather than Admin: the default User role carries
   // STORAGE_LOCATIONS WRITE for load-out, so this isn't an admin surface.
-  const canViewStorageLocations = hasGlobalView(
-    permissions,
-    PermissionResource.STORAGE_LOCATIONS,
-  );
+  // Inventory opens on the first page of its nav the user can see.
+  const inventoryHref = inventoryNavGroups({ canView })[0]?.links[0]?.href ?? null;
+  // The admin area's own nav lists its pages; the header carries the entry.
+  const adminHref = adminHomeHref({ canView, isSuperAdmin });
   // Open mail across the org's event inboxes and Unrouted: waiting to be read,
   // reviewed or released. The link shows while inbound mail is set up, or
   // while anything is still open. Gated like /inbox (EVENTS VIEW); the count
@@ -53,14 +53,10 @@ export async function Header() {
     canViewContacts && { href: "/contacts", label: "Contacts" },
     canViewVendors && { href: "/vendors", label: "Vendors" },
     canViewHotels && { href: "/hotels", label: "Hotels" },
-    canViewStorageLocations && { href: "/storage-locations", label: "Storage" },
+    inventoryHref && { href: inventoryHref, label: "Inventory" },
     showInbox && { href: "/inbox", label: inboxOpen > 0 ? `Inbox (${inboxOpen})` : "Inbox" },
+    adminHref && { href: adminHref, label: "Admin" },
   ].filter((l): l is HeaderLink => !!l);
-  // Same labels and gates as the settings nav (@/lib/adminNav).
-  const adminLinks: HeaderLink[] = adminHeaderLinks({
-    canView: (resource) => hasGlobalView(permissions, resource),
-    isSuperAdmin,
-  });
 
   const signOutAction = async () => {
     "use server";
@@ -89,7 +85,6 @@ export async function Header() {
                 {l.label}
               </Link>
             ))}
-            {adminLinks.length > 0 && <AdminDropdown links={adminLinks} />}
           </nav>
         </div>
         <div className="hidden lg:flex items-center gap-4 min-w-0">
@@ -118,7 +113,6 @@ export async function Header() {
         </div>
         <MobileNav
           mainLinks={mainLinks}
-          adminLinks={adminLinks}
           tenants={ctx?.tenants ?? []}
           activeTenant={ctx?.active ?? null}
           email={session?.user?.email ?? null}
