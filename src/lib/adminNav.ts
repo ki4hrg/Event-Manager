@@ -18,7 +18,9 @@ import {
 } from "@/lib/optionCategories";
 
 export type AdminNavLink = { label: string; href: string };
-export type AdminNavGroup = { label: string; links: AdminNavLink[] };
+// "page" groups are admin pages (Organization, Access, System); "list"
+// groups are functional areas of option lists. The nav renders them apart.
+export type AdminNavGroup = { label: string; kind: "page" | "list"; links: AdminNavLink[] };
 
 // Who can open what: a resource's GLOBAL view, or super admin for /tenants.
 export type AdminAccess = {
@@ -74,9 +76,9 @@ function listLink(category: OptionCategory, { canView }: AdminAccess): AdminNavL
   return def.host ? page(def.title, def.host) : null;
 }
 
-// The admin nav: Organization, one group per functional area holding its
-// lists (from the registry), then Access and System. Groups left with no
-// visible link drop out.
+// The admin nav: the admin pages (Organization, Workflows, Access, System),
+// then one group per functional area holding its lists (from the registry).
+// Groups left with no visible link drop out.
 export function adminNavGroups(access: AdminAccess): AdminNavGroup[] {
   const { canView, isSuperAdmin } = access;
   const settings = canView(PermissionResource.SETTINGS);
@@ -84,15 +86,14 @@ export function adminNavGroups(access: AdminAccess): AdminNavGroup[] {
     const lists = categoriesInSection(s)
       .map((c) => listLink(c, access))
       .filter((l): l is AdminNavLink => !!l);
-    // Workflows set the statuses the substatus lists refine.
-    const extra = s === "status" && canView(PermissionResource.WORKFLOWS) ? [ADMIN_PAGES.workflows] : [];
-    return { label: OPTION_SECTIONS[s].title, links: [...lists, ...extra] };
+    return { label: OPTION_SECTIONS[s].title, kind: "list" as const, links: lists };
   });
   const groups: AdminNavGroup[] = [
-    { label: "Organization", links: settings ? [ADMIN_PAGES.organization] : [] },
-    ...areaGroups,
+    { label: "Organization", kind: "page", links: settings ? [ADMIN_PAGES.organization] : [] },
+    { label: "Workflows", kind: "page", links: canView(PermissionResource.WORKFLOWS) ? [ADMIN_PAGES.workflows] : [] },
     {
       label: "Access",
+      kind: "page",
       links: [
         canView(PermissionResource.USERS) && ADMIN_PAGES.users,
         canView(PermissionResource.ROLES) && ADMIN_PAGES.roles,
@@ -101,11 +102,13 @@ export function adminNavGroups(access: AdminAccess): AdminNavGroup[] {
     },
     {
       label: "System",
+      kind: "page",
       links: [
         canView(PermissionResource.SYSTEM) && ADMIN_PAGES.system,
         isSuperAdmin && ADMIN_PAGES.tenants,
       ].filter((l): l is AdminNavLink => !!l),
     },
+    ...areaGroups,
   ];
   return groups.filter((g) => g.links.length > 0);
 }

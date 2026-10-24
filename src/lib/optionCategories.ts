@@ -178,7 +178,7 @@ export const OPTION_SECTIONS = {
   },
   rfps: { title: "RFPs", lists: ["rfp_service", "rfp_term", "rfp_concession"] },
   people: { title: "People & vendors", lists: ["contact_role", "vendor_contact_type"] },
-  status: { title: "Status & workflow", lists: ["substatus"] },
+  status: { title: "Statuses", lists: ["substatus"] },
   inventory: { title: "Inventory", lists: ["equipment_category", "location_type"] },
 } as const satisfies Record<string, { title: string; lists: readonly string[] }>;
 
