@@ -20,10 +20,12 @@ import { readJson, readNewHotel, readProposal } from "./proposalArgs";
 import {
   clearPickupCore,
   createHotelBlockCore,
+  createPickupGuestCore,
   deleteHotelBlockCore,
   importPickupGuestsCore,
   savePickupCountsCore,
   updateHotelBlockCore,
+  updatePickupGuestCore,
   type BlockNightArgs,
   type PickupCountArgs,
   type PickupGuestArgs,
@@ -342,6 +344,55 @@ export async function importPickupGuests(
   return withUserErrors(async () => {
     await importPickupGuestsCore(blockId, eventId, { method, fileName, guests }, session.user.id);
     revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  });
+}
+
+// One guest's fields as the pickup page's guest form posts them.
+function readPickupGuest(formData: FormData): PickupGuestArgs {
+  const str = (k: string) => ((formData.get(k) as string) || "").trim() || null;
+  const cancelled = formData.get("cancelled") === "true";
+  return {
+    guestName: str("guestName"),
+    confirmationNumber: str("confirmationNumber"),
+    checkIn: str("checkIn"),
+    checkOut: str("checkOut"),
+    roomType: str("roomType"),
+    cancelled,
+    rawStatus: null,
+    bookedOn: str("bookedOn"),
+    cancelledOn: cancelled ? str("cancelledOn") : null,
+  };
+}
+
+const revalidatePickup = (eventId: string, blockId: string) => {
+  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}`);
+  revalidatePath(`/events/${eventId}/hotels/blocks/${blockId}/pickup`);
+};
+
+export async function createPickupGuest(blockId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  return withUserErrors(async () => {
+    await createPickupGuestCore(blockId, eventId, readPickupGuest(formData), session.user.id);
+    revalidatePickup(eventId, blockId);
+  });
+}
+
+// The raw status stays as the hotel's report gave it.
+export async function updatePickupGuest(guestId: string, blockId: string, eventId: string, formData: FormData) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  return withUserErrors(async () => {
+    const args: Partial<PickupGuestArgs> = readPickupGuest(formData);
+    delete args.rawStatus;
+    await updatePickupGuestCore(guestId, eventId, args, session.user.id);
+    revalidatePickup(eventId, blockId);
+  });
+}
+
+export async function setPickupGuestCancelled(guestId: string, blockId: string, eventId: string, cancelled: boolean) {
+  const session = await requirePermission("HOTELS", "WRITE", eventId);
+  return withUserErrors(async () => {
+    await updatePickupGuestCore(guestId, eventId, { cancelled }, session.user.id);
+    revalidatePickup(eventId, blockId);
   });
 }
 

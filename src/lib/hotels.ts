@@ -118,18 +118,20 @@ export function parseDateKey(value: FormDataEntryValue | string | null | undefin
   return dateFromKey(value);
 }
 
-// Night keys from check-in up to (not including) check-out.
 // The date key n days after (or before, when negative) a key.
 export function addDays(key: string, n: number): string {
   return dateKey(new Date(dateFromKey(key).getTime() + n * 86_400_000));
 }
 
+export const MAX_STAY_NIGHTS = 60;
+
+// Night keys from check-in up to (not including) check-out.
 export function nightKeys(checkIn: string | null, checkOut: string | null): string[] {
   if (!checkIn || !checkOut || checkOut <= checkIn) return [];
   const keys: string[] = [];
   for (let d = dateFromKey(checkIn); dateKey(d) < checkOut; d = new Date(d.getTime() + 86_400_000)) {
     keys.push(dateKey(d));
-    if (keys.length > 60) throw new Error("Stay is longer than 60 nights");
+    if (keys.length > MAX_STAY_NIGHTS) throw new Error(`Stay is longer than ${MAX_STAY_NIGHTS} nights`);
   }
   return keys;
 }
