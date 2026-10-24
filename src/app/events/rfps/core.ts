@@ -8,10 +8,14 @@
 
 import { randomUUID } from "crypto";
 import { mkdirSync, writeFileSync } from "fs";
-import type { HotelContractType, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
+import type { HotelContractType, Prisma, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
-import { addDays, CONTRACT_TYPE_LABELS, dateFromKey, dateKey } from "@/lib/hotels";
+import { hasPermissionForUser, PermissionError, requireEventTenantId, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
+import { addDays, blockTypeLabel, CONTRACT_TYPE_LABELS, dateFromKey, dateKey } from "@/lib/hotels";
+import { buildRfpDocument } from "@/lib/rfp/document";
+import { effectiveScope, scopeLabels } from "@/lib/areas";
+import { resolveRfpFileType, rfpFileTypeLabel } from "@/lib/fileTypes";
+import { pickupPatternCore } from "@/app/hotels/core";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { requireListLabels } from "@/lib/hotelLabels";
 import type { PatternBasis } from "@/lib/hotelPattern";
@@ -19,7 +23,6 @@ import { buildComparison } from "@/lib/rfp/compare";
 import { FB_INCLUDES, parseSections } from "@/lib/rfp/sections";
 import { avLineItems, cateringLineItems, printLineItems, type LineItemRow } from "@/lib/rfp/lineItems";
 import { getUploadDir, getUploadPath } from "@/lib/uploads";
-import { resolveRfpFileType } from "@/lib/fileTypes";
 import type { OfferHotel } from "@/lib/inboundParse";
 import { createNewHotelCore } from "@/app/events/hotels/core";
 import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
@@ -549,6 +552,123 @@ export async function rfpLineItemCandidatesCore(id: string, eventId: string, use
       throw new Error(`Unhandled RFP kind: ${_exhaustive}`);
     }
   }
+}
+
+// The RFP page's and document's include.
+export const rfpDetailInclude = {
+  contact: { select: { id: true, firstName: true, lastName: true, organization: true, email: true, phone: true } },
+  decisionMakerContact: { select: { id: true, firstName: true, lastName: true } },
+  concessions: { orderBy: { sortOrder: "asc" } },
+  hotelBlocks: { orderBy: { sortOrder: "asc" }, include: { nights: { orderBy: [{ night: "asc" }, { roomType: "asc" }] } } },
+  alternateDates: { orderBy: { sortOrder: "asc" } },
+  spaceRequests: { orderBy: { sortOrder: "asc" } },
+  files: { orderBy: { createdAt: "desc" } },
+  recipients: {
+    orderBy: { createdAt: "asc" },
+    include: { venue: { select: { id: true, name: true, city: true, state: true } }, vendor: { select: { id: true, name: true } } },
+  },
+  lineItems: { orderBy: { sortOrder: "asc" } },
+  quotes: { select: { id: true, vendorId: true, status: true, revision: true }, orderBy: { createdAt: "asc" } },
+  hotelProposals: { select: { id: true, venueId: true, rfpBlockId: true, status: true } },
+  updatedBy: { select: { name: true, email: true } },
+} satisfies Prisma.RfpInclude;
+
+const narrativeText = (n: Record<string, unknown>, key: string) => (typeof n[key] === "string" && (n[key] as string).trim() ? (n[key] as string) : null);
+
+// Everything the document needs. Function space and F&B are the RFP's own
+// rows; the event profile comes from the ESG; history is the event's
+// series, ended events with pickup.
+export async function getRfpDocumentCore(id: string, eventId: string, userId: string) {
+  await authorizeRfp(id, eventId, "VIEW", userId);
+  const tenantId = await requireEventTenantId(eventId);
+  const rfp = await prisma.rfp.findFirstOrThrow({ where: { id, eventId }, include: rfpDetailInclude });
+  const [event, keyStaff, concessionOptions, rfpFileType] = await Promise.all([
+    prisma.event.findUniqueOrThrow({
+      where: { id: eventId },
+      select: {
+        name: true,
+        startDate: true,
+        endDate: true,
+        seriesId: true,
+        expectedAttendance: true,
+        tenant: { select: { name: true } },
+        regions: true,
+        areas: true,
+        venues: { orderBy: { sortOrder: "asc" }, take: 1, select: { venue: { select: { city: true, state: true } } } },
+        specification: { select: { eventType: true, eventScope: true, eventFrequency: true, narrative: true } },
+      },
+    }),
+    prisma.eventKeyStaff.findMany({
+      where: { eventId, contactId: { in: [rfp.contactId, rfp.decisionMakerId].filter((c): c is string => !!c) } },
+      select: { contactId: true, title: true },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.customOption.findMany({
+      where: { tenant: { events: { some: { id: eventId } } }, category: "rfp_concession" },
+      select: { label: true, group: true },
+    }),
+    rfpFileTypeLabel(tenantId),
+  ]);
+  const sections = new Set(rfp.sections);
+  const titleOf = (contactId: string | null) => keyStaff.find((k) => k.contactId === contactId)?.title ?? null;
+  // Pickup history reads across the tenant's events, so it needs HOTELS beyond this one event.
+  // History of every block, or only blocks like this RFP's (its contract and guest types).
+  const matching = rfp.historyMatching && rfp.hotelBlocks.length > 0;
+  const contractTypes = matching ? Array.from(new Set(rfp.hotelBlocks.map((b) => b.contractType))) : [];
+  const guestTypes = matching ? Array.from(new Set(rfp.hotelBlocks.flatMap((b) => (b.guestType ? [b.guestType] : [])))) : [];
+  const history =
+    sections.has("history") && event.seriesId && (await hasPermissionForUser(userId, "HOTELS", "VIEW", { tenantId }))
+      ? (await pickupPatternCore({ seriesId: event.seriesId, contractTypes, guestTypes }, userId, tenantId)).events
+      : [];
+  const venue = event.venues[0]?.venue;
+  const narrative = (event.specification?.narrative as Record<string, unknown> | null) ?? {};
+  const text = (key: string) => narrativeText(narrative, key);
+  const address = [
+    text("hostOrgAddress1"),
+    text("hostOrgAddress2"),
+    [text("hostOrgCity"), text("hostOrgState"), text("hostOrgPostalCode")].filter(Boolean).join(" "),
+    text("hostOrgCountry"),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return buildRfpDocument({
+    rfp: {
+      ...rfp,
+      sections: parseSections(rfp.kind, rfp.sections),
+      contactTitle: titleOf(rfp.contactId),
+      historyOf: matching ? Array.from(new Set(rfp.hotelBlocks.map((b) => blockTypeLabel(b.contractType, b.guestType)))).join(", ") : null,
+      locations: scopeLabels(effectiveScope(rfp, event)),
+      // "Name — Title" for a contact, else what was typed.
+      decisionMaker: rfp.decisionMakerContact
+        ? [`${rfp.decisionMakerContact.firstName} ${rfp.decisionMakerContact.lastName}`.trim(), titleOf(rfp.decisionMakerId)].filter(Boolean).join(" — ")
+        : rfp.decisionMaker,
+      // Files staff attached for the hotels; the RFP's own issued copies aren't attachments.
+      attachments: rfp.files.filter((f) => f.fileType !== rfpFileType).map((f) => f.fileName),
+    },
+    event: {
+      name: event.name,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      expectedAttendance: event.expectedAttendance,
+      location: venue ? [venue.city, venue.state].filter(Boolean).join(", ") || null : null,
+    },
+    spec: {
+      hostOrgName: text("hostOrgName") ?? event.tenant.name,
+      address: address || null,
+      phone: text("hostOrgPhone"),
+      website: text("hostOrgWebsite"),
+      eventType: event.specification?.eventType ?? null,
+      eventScope: event.specification?.eventScope ?? null,
+      eventFrequency: event.specification?.eventFrequency ?? null,
+      overview: text("hostOrgOverview"),
+      objectives: text("eventObjectives"),
+      demographics: text("attendeeDemographics"),
+      accessibility: text("attendeeAccessibility"),
+    },
+    concessionGroups: Object.fromEntries(concessionOptions.map((o) => [o.label, o.group])),
+    history,
+  });
 }
 
 // Files the rendered document on the RFP as a record of what went out,
