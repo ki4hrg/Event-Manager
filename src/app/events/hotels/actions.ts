@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
+import type { ConcessionMet, HotelChargeScope, HotelPickupMethod, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { dateKey } from "@/lib/hotels";
+import { blockTypeLabel, dateKey } from "@/lib/hotels";
+import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
+import type { RfpChoice } from "./ProposalForm";
 import {
   createHotelProposalCore,
   createNewHotelCore,
@@ -68,6 +70,46 @@ export async function getHotelProposal(id: string, eventId: string) {
       updatedBy: { select: { name: true, email: true } },
     },
   });
+}
+
+// The event's hotel RFP blocks a proposal can answer. answered: concession
+// answers already given, carried by the blocks of that RFP (rfpId) or that
+// one block (blockId).
+export async function getProposalRfpChoices(
+  eventId: string,
+  answered?: { rfpId?: string | null; blockId?: string | null; answers: { concessionId: string | null; offered: string | null; met: ConcessionMet | null }[] },
+): Promise<RfpChoice[]> {
+  await requirePermission("HOTELS", "VIEW", eventId);
+  const rfps = await prisma.rfp.findMany({
+    where: { eventId, kind: "HOTEL", hotelBlocks: { some: {} } },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      title: true,
+      concessions: { orderBy: { sortOrder: "asc" } },
+      spaceRequests: { orderBy: { sortOrder: "asc" } },
+      hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, contractType: true, guestType: true } },
+    },
+  });
+  const answers = new Map((answered?.answers ?? []).map((c) => [c.concessionId, c]));
+  return rfps.flatMap((r) =>
+    r.hotelBlocks.map((b) => {
+      const mine = answered && (answered.blockId ? b.id === answered.blockId : r.id === answered.rfpId);
+      return {
+        id: b.id,
+        rfpId: r.id,
+        label: `${r.title} · ${blockTypeLabel(b.contractType, b.guestType) ?? "Block"}`,
+        contractType: b.contractType,
+        guestType: b.guestType,
+        concessions: r.concessions.map((c) => {
+          const answer = mine ? answers.get(c.id) : undefined;
+          return { id: c.id, label: c.label, value: c.value, required: c.required, offered: answer?.offered ?? null, met: answer?.met ?? null };
+        }),
+        spaceRequests: meetingRequests(r.spaceRequests),
+        mealTypes: rfpMealTypes(r.spaceRequests),
+      };
+    }),
+  );
 }
 
 // Dropdown sources for ProposalForm. Lodging venues first; any venue may be

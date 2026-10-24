@@ -21,6 +21,7 @@ import {
   deleteHotelProposal,
   getHotelProposal,
   getProposalFormChoices,
+  getProposalRfpChoices,
   updateHotelProposal,
 } from "../../../../hotels/actions";
 import { toProposalValues } from "../../../../hotels/core";
@@ -42,6 +43,11 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
     hasPermission("VENUES", "VIEW"),
   ]);
   if (!event || !proposal) notFound();
+  const rfpChoices = await getProposalRfpChoices(eventId, { rfpId: proposal.rfpId, answers: proposal.concessions });
+  // Linked to an RFP but not one of its blocks: its first. One with no
+  // blocks to pick can't be shown, so the link isn't offered to change.
+  const rfpBlockId = proposal.rfpBlockId ?? rfpChoices.find((c) => c.rfpId === proposal.rfpId)?.id ?? null;
+  const canRelink = rfpChoices.length > 0 && (!proposal.rfpId || rfpBlockId != null);
 
   const updateAction = async (formData: FormData) => {
     "use server";
@@ -120,6 +126,8 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
             spaceRequests={meetingRequests(proposal.rfp?.spaceRequests ?? [])}
             mealTypes={rfpMealTypes(proposal.rfp?.spaceRequests ?? [])}
             choices={choices}
+            rfpChoices={canRelink ? rfpChoices : undefined}
+            rfpBlockId={rfpBlockId}
             addAmenityToHotel={canEditHotel ? addAmenityAction : undefined}
             action={updateAction}
             cancelHref={`/events/${eventId}/hotels`}

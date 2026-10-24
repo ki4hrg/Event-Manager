@@ -101,7 +101,7 @@ export function readProposal(formData: FormData): ProposalWriteArgs {
     fbTaxRate: optional("fbTaxRate", num),
     fbServiceCharge: optional("fbServiceCharge", num),
     meals: optional("meals", (k) => readJson<ProposalMealArgs>(formData, k)),
-    rfpBlockId: str("rfpBlockId"),
+    rfpBlockId: optional("rfpBlockId", str),
     concessions: formData.has("concessions") ? readJson<ProposalConcessionArgs>(formData, "concessions") : undefined,
     offeredConcessions: formData.has("offeredConcessions") ? readJson<ProposalOfferedConcessionArgs>(formData, "offeredConcessions") : undefined,
   };

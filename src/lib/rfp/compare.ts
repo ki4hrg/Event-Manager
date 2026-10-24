@@ -66,6 +66,8 @@ export type CompareOffer = {
   meetingCharges: string[];
   // Each meeting space request's answer, by request id; then rooms offered unasked.
   spaces: Record<string, string>;
+  // Each answered request's 24-hr hold: true, false (declined) or null (not stated).
+  holds: Record<string, boolean | null>;
   otherSpaces: string[];
   fbMinimum: string | null;
   fbRates: string | null; // tax and service charge
@@ -138,6 +140,7 @@ function offer(p: CompareInput["proposals"][number], requested: Record<string, n
     charges: p.charges.filter((c) => c.kind === "GUEST").map((c) => [c.chargeType, amountLine(c.amount, c.scope)].filter(Boolean).join(" ")),
     meetingCharges: p.charges.filter((c) => c.kind === "MEETING").map((c) => [c.chargeType, amountLine(c.amount, c.scope)].filter(Boolean).join(" ")),
     spaces: Object.fromEntries(p.spaces.flatMap((r) => (r.spaceRequestId ? [[r.spaceRequestId, spaceSummary(r)]] : []))),
+    holds: Object.fromEntries(p.spaces.flatMap((r) => (r.spaceRequestId ? [[r.spaceRequestId, r.hold24]] : []))),
     otherSpaces: p.spaces.filter((r) => !r.spaceRequestId).map((r) => `${r.name}: ${spaceSummary(r)}`),
     fbMinimum: p.fbMinimum != null ? [amountLine(p.fbMinimum, p.fbMinimumScope), p.fbMinimumNote].filter(Boolean).join(" · ") : null,
     fbRates:
@@ -234,7 +237,14 @@ export function comparisonRows(
     // Function space: each meeting space request's answer, rooms offered
     // unasked, and charges not tied to a room.
     ...asked.meetingSpace.map((r) =>
-      row(`${r.when} · ${r.name}`, r.asked ?? "", (o) => ({ text: o.spaces[r.id] ?? "—", short: !o.spaces[r.id] })),
+      // A hold the RFP asks for and the hotel declines or doesn't mention falls short.
+      row(`${r.when} · ${r.name}`, r.asked ?? "", (o) => {
+        const unstated = r.hold24 && o.spaces[r.id] != null && o.holds[r.id] == null;
+        return {
+          text: o.spaces[r.id] ? `${o.spaces[r.id]}${unstated ? " · 24-hr hold not stated" : ""}` : "—",
+          short: !o.spaces[r.id] || (r.hold24 && o.holds[r.id] !== true),
+        };
+      }),
     ),
     ...(g.offers.some((o) => o.otherSpaces.length) ? [row("Other rooms offered", "", (o) => ({ text: o.otherSpaces.join("\n") || "—" }))] : []),
     row("Meeting space charges", "", (o) => ({ text: o.meetingCharges.join("\n") || "—" })),

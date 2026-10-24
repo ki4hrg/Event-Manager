@@ -10,7 +10,7 @@
 import type { AmenityStatus, ConcessionMet, HotelChargeKind, HotelChargeScope, HotelContractType, HotelWaiverType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PermissionError, requireEventTenantId, requirePermissionForUser } from "@/lib/permissions";
-import { AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
+import { addDays, AMENITY_STATUS_LABELS, blockTypeLabel, dateFromKey, dateKey, MET_LABELS, nightKeys, roomTypeLabel } from "@/lib/hotels";
 import { requireListLabels } from "@/lib/hotelLabels";
 import { offerOutcomes, type InboundProposal, type OfferHotel } from "@/lib/inboundParse";
 import { spaceSummary } from "@/lib/rfp/proposalSpace";
@@ -78,7 +78,8 @@ export type ProposalWriteArgs = {
   fbTaxRate?: number | null; // percent
   fbServiceCharge?: number | null; // percent
   meals?: ProposalMealArgs[];
-  // Create only: the requested RFP block this offer answers.
+  // The requested RFP block this offer answers. On update, undefined leaves
+  // the link as it is and null unlinks.
   rfpBlockId?: string | null;
   // Answers to the RFP's concessions; undefined leaves them as they are.
   concessions?: ProposalConcessionArgs[];
@@ -175,10 +176,17 @@ function validate(args: ProposalWriteArgs) {
     if (r.rental != null && r.rental < 0) throw new Error("Rental cannot be negative");
     if (r.waiverAmount != null && r.waiverAmount < 0) throw new Error("A waiver amount cannot be negative");
   }
-  const keys = new Set(nightKeys(args.checkIn, args.checkOut));
-  for (const n of args.nights) {
-    if (!keys.has(n.night)) throw new Error(`Night ${n.night} is outside the stay`);
-  }
+  const { checkIn, checkOut } = stayOf(args);
+  nightKeys(checkIn, checkOut);
+}
+
+// Earliest check-in and latest check-out: the first night with rooms or a
+// rate, and the morning after the last; the given dates only when there are
+// none.
+function stayOf(args: ProposalWriteArgs) {
+  const nights = nightRows(args).map((n) => dateKey(n.night)).sort();
+  if (!nights.length) return { checkIn: args.checkIn, checkOut: args.checkOut };
+  return { checkIn: nights[0], checkOut: addDays(nights[nights.length - 1], 1) };
 }
 
 // Drops grid cells with nothing in them, so an untouched grid stores no rows.
@@ -200,6 +208,7 @@ function chargeRows(args: ProposalWriteArgs) {
 }
 
 function scalarData(args: ProposalWriteArgs) {
+  const { checkIn, checkOut } = stayOf(args);
   return {
     venueId: args.venueId,
     status: args.status,
@@ -209,8 +218,8 @@ function scalarData(args: ProposalWriteArgs) {
     contractType: args.contractType,
     guestType: args.guestType,
     submittedOn: args.submittedOn ? dateFromKey(args.submittedOn) : null,
-    checkIn: args.checkIn ? dateFromKey(args.checkIn) : null,
-    checkOut: args.checkOut ? dateFromKey(args.checkOut) : null,
+    checkIn: checkIn ? dateFromKey(checkIn) : null,
+    checkOut: checkOut ? dateFromKey(checkOut) : null,
     declinedReason: args.declinedReason,
     notes: args.notes,
     revision: args.revision,
@@ -530,24 +539,26 @@ async function listLabels(eventId: string, args: ProposalWriteArgs, proposalId?:
   return { amenities, offeredConcessions: offered?.map((c, i) => ({ ...c, label: offeredLabels![i] })) };
 }
 
+async function findRfpBlock(eventId: string, rfpBlockId: string | null | undefined) {
+  if (!rfpBlockId) return null;
+  const block = await prisma.rfpHotelBlock.findFirst({ where: { id: rfpBlockId, rfp: { eventId } }, select: { id: true, rfpId: true } });
+  if (!block) throw new PermissionError("NOT_FOUND", "RFP block not found");
+  return block;
+}
+
+// A hotel answering an RFP is one of its recipients, listed or not.
+async function addRecipient(tx: Prisma.TransactionClient, rfpId: string, venueId: string) {
+  await tx.rfpRecipient.upsert({ where: { rfpId_venueId: { rfpId, venueId } }, create: { rfpId, venueId }, update: {} });
+}
+
 export async function createHotelProposalCore(eventId: string, args: ProposalWriteArgs, userId: string) {
   await requirePermissionForUser(userId, "HOTELS", "WRITE", eventId);
   validate(args);
   await assertProposalRefs(eventId, args);
-  const rfpBlock = args.rfpBlockId
-    ? await prisma.rfpHotelBlock.findFirst({ where: { id: args.rfpBlockId, rfp: { eventId } }, select: { id: true, rfpId: true } })
-    : null;
-  if (args.rfpBlockId && !rfpBlock) throw new PermissionError("NOT_FOUND", "RFP block not found");
+  const rfpBlock = await findRfpBlock(eventId, args.rfpBlockId);
   const { amenities, offeredConcessions } = await listLabels(eventId, args);
   return prisma.$transaction(async (tx) => {
-    // A hotel answering an RFP is one of its recipients, listed or not.
-    if (rfpBlock) {
-      await tx.rfpRecipient.upsert({
-        where: { rfpId_venueId: { rfpId: rfpBlock.rfpId, venueId: args.venueId } },
-        create: { rfpId: rfpBlock.rfpId, venueId: args.venueId },
-        update: {},
-      });
-    }
+    if (rfpBlock) await addRecipient(tx, rfpBlock.rfpId, args.venueId);
     const proposal = await tx.hotelProposal.create({
       data: {
         ...scalarData(args),
@@ -576,21 +587,33 @@ export async function updateHotelProposalCore(id: string, eventId: string, args:
   const existing = await prisma.hotelProposal.findFirst({ where: { id, eventId }, select: { revision: true, rfpId: true } });
   if (!existing) throw new PermissionError("NOT_FOUND");
   if (args.revision < existing.revision) throw new Error(`Revision cannot go back below ${existing.revision}`);
+  // Linking to an RFP block (or another one, or none) after the fact.
+  const relink = args.rfpBlockId !== undefined;
+  const rfpBlock = relink ? await findRfpBlock(eventId, args.rfpBlockId) : null;
+  const rfpId = relink ? (rfpBlock?.rfpId ?? null) : existing.rfpId;
   const { amenities, offeredConcessions } = await listLabels(eventId, args, id);
   return prisma.$transaction(async (tx) => {
+    if (rfpBlock) await addRecipient(tx, rfpBlock.rfpId, args.venueId);
+    // Answers to another RFP's concessions and space requests don't carry
+    // over: the answers go, the rooms stay as offered unasked.
+    if (rfpId !== existing.rfpId) {
+      if (args.concessions === undefined) await tx.hotelProposalConcession.deleteMany({ where: { proposalId: id, concessionId: { not: null } } });
+      if (args.spaces === undefined) await tx.hotelProposalSpace.updateMany({ where: { proposalId: id }, data: { spaceRequestId: null } });
+    }
     await tx.hotelProposalNight.deleteMany({ where: { proposalId: id } });
     await tx.hotelCharge.deleteMany({ where: { proposalId: id, kind: args.meetingCharges === undefined ? "GUEST" : undefined } });
     const proposal = await tx.hotelProposal.update({
       where: { id, eventId },
       data: {
         ...scalarData(args),
+        ...(relink ? { rfpId, rfpBlockId: rfpBlock?.id ?? null } : {}),
         updatedById: userId,
         nights: { create: nightRows(args) },
         charges: { create: chargeRows(args) },
       },
     });
-    await writeConcessions(tx, id, existing.rfpId, args.concessions);
-    await writeSpaces(tx, id, existing.rfpId, args.spaces);
+    await writeConcessions(tx, id, rfpId, args.concessions);
+    await writeSpaces(tx, id, rfpId, args.spaces);
     await writeMeals(tx, id, args.meals);
     await writeOfferedConcessions(tx, id, offeredConcessions);
     await writeAmenities(tx, id, amenities);
