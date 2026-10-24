@@ -188,7 +188,7 @@ Before adding a report, check whether the view is a variant of an existing one (
 - `src/app/events/[id]/reports/[name]/params.ts` (when needed) — URL-param parsing, sentinels and valid-value sets shared by the page, `/print`, and the share surfaces; a plain module because `actions.ts` can only export async functions.
 - When a report mirrors an operational page, both read through one plain `src/lib/` builder (`buildPackingItems` in `src/lib/packingItems.ts` feeds the packing page and the Packing List report) rather than the report importing the page's `"use server"` reader.
 - `src/app/events/[id]/reports/[name]/page.tsx` — server component; fetches data and renders the filter bar + report.
-- `src/app/events/[id]/reports/[name]/ReportFilters.tsx` — `"use client"`; accepts `shareButton?`, `hidePrint?`, `basePath?` props for share-view reuse.
+- `src/app/events/[id]/reports/[name]/ReportFilters.tsx` — `"use client"`; accepts `shareButton?`, `hidePrint?`, `basePath?`, `paramPrefix?` props for share-view reuse. Built from `useUrlChipFilter(paramPrefix, basePath)` (`src/lib/useUrlChipFilter.ts`) and `<ReportFilterShell>` (`src/components/ReportFilterShell.tsx`) — see § Filter bar conventions.
 - `src/app/events/[id]/reports/[name]/[Name]Report.tsx` — report body; consumed by both the authenticated route and `/share/[token]/`.
 - `src/app/events/[id]/reports/[name]/print/page.tsx` — dedicated PDF route using `PrintHeader`.
 
@@ -212,8 +212,9 @@ A 2-column table may skip the mobile card only when both columns fit in 360 px �
 - A mobile card and its desktop row must not share an id — the hidden first match wins the jump. Give the card its own id and pass it as the link's `mobileId` to `ReportNav`.
 
 ### Filter bar conventions
+- Build every filter bar from `useUrlChipFilter(paramPrefix, basePath)` and `<ReportFilterShell>`; don't hand-roll `router.push`, prefixing, the collapse or the action buttons. The hook prefixes every key (`setList` / `toggle` / `toggleAll` / `setFlag` / `clear`, `update` for anything else) and returns `printHref`. The shell takes the controls as children — `FilterGroup` + `FilterChip` / `FilterBucketChip` for chips, plain selects/checkboxes otherwise — plus `activeCount`, `onClear?`, `shareButton`, `printHref` (`null` when `hidePrint`) and `collapsible?`.
 - `ReportFilters` accepts `hidePrint?: boolean` — pass it from `src/app/share/[token]/page.tsx` so only the `ShareShell` header Print button shows.
-- On mobile (`sm:hidden`), filter chips collapse behind a "Show filters / X active" toggle. Actions (Clear, Share, Print) remain always visible. Desktop unchanged (`hidden sm:flex`).
+- On mobile (`sm:hidden`), filter controls collapse behind a "Show filters / X active" toggle. Actions (Clear, Share, Print) remain always visible. Desktop unchanged (`hidden sm:flex`). The shell does both.
 
 ### Aggregation conventions
 - Never use `"Multiple"` rollups. Split rows along the dimension that produced the ambiguity (e.g. by `(item, role, provider)`) so each row is concrete.

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { btnOutlinedXs } from "@/lib/buttonStyles";
+import { FilterChip, FilterGroup, ReportFilterShell } from "@/components/ReportFilterShell";
+import { useUrlChipFilter } from "@/lib/useUrlChipFilter";
 
 type GroupOption = { value: string; label: string };
 
@@ -16,10 +15,6 @@ type ReportFiltersProps = {
   hidePrint?: boolean;
 };
 
-function toggleFilter(selected: string[], value: string): string[] {
-  return selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value];
-}
-
 export function ReportFilters({
   eventId,
   groups,
@@ -29,112 +24,29 @@ export function ReportFilters({
   shareButton,
   hidePrint = false,
 }: ReportFiltersProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
-  const groupsKey = `${paramPrefix}groups`;
-
-  function pushWith(key: string, next: string[]) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (next.length > 0) {
-      params.set(key, next.join(","));
-    } else {
-      params.delete(key);
-    }
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
-
-  function toggleGroup(value: string) {
-    pushWith(groupsKey, toggleFilter(selectedGroupIds, value));
-  }
-
-  function clearFilters() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete(groupsKey);
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
-
-  const hasFilters = selectedGroupIds.length > 0;
-  const filterCount = selectedGroupIds.length;
-
-  const actions = (
-    <>
-      {hasFilters && (
-        <button
-          onClick={clearFilters}
-          className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          Clear filters
-        </button>
-      )}
-      {shareButton}
-      {!hidePrint && (
-        <a
-          href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-          className={btnOutlinedXs}
-        >
-          Print / Save PDF
-        </a>
-      )}
-    </>
-  );
-
-  const filterChips = groups.length > 1 && (
-    <div>
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Groups</p>
-      <div className="flex flex-wrap gap-2">
-        {groups.map((g) => {
-          const active = selectedGroupIds.includes(g.value);
-          return (
-            <button
-              key={g.value}
-              onClick={() => toggleGroup(g.value)}
-              className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                active
-                  ? "bg-blue-600 border-blue-600 text-white"
-                  : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400"
-              }`}
-            >
-              {g.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+  const filter = useUrlChipFilter(paramPrefix, basePath);
 
   return (
-    <div className="print:hidden mb-6">
-      <div className="sm:hidden">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-          {groups.length > 1 && (
-            <button
-              onClick={() => setFiltersOpen((open) => !open)}
-              className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300"
+    <ReportFilterShell
+      activeCount={selectedGroupIds.length}
+      onClear={() => filter.clear(["groups"])}
+      shareButton={shareButton}
+      printHref={hidePrint ? null : filter.printHref}
+      collapsible={groups.length > 1}
+    >
+      {groups.length > 1 && (
+        <FilterGroup label="Groups">
+          {groups.map((g) => (
+            <FilterChip
+              key={g.value}
+              active={selectedGroupIds.includes(g.value)}
+              onClick={() => filter.toggle("groups", selectedGroupIds, g.value)}
             >
-              <span aria-hidden>{filtersOpen ? "▾" : "▸"}</span>
-              <span>{filtersOpen ? "Hide filters" : "Show filters"}</span>
-              {filterCount > 0 && (
-                <span className="ml-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
-                  {filterCount}
-                </span>
-              )}
-            </button>
-          )}
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">{actions}</div>
-        </div>
-        {filtersOpen && (
-          <div className="flex flex-wrap items-start gap-6">{filterChips}</div>
-        )}
-      </div>
-
-      <div className="hidden sm:flex flex-wrap items-start gap-6">
-        {filterChips}
-        <div className="flex items-end gap-3 ml-auto">{actions}</div>
-      </div>
-    </div>
+              {g.label}
+            </FilterChip>
+          ))}
+        </FilterGroup>
+      )}
+    </ReportFilterShell>
   );
 }

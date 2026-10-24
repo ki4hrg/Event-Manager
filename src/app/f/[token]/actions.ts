@@ -9,7 +9,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { HONEYPOT_FIELD } from "@/lib/forms/meta";
-import { DRAFT_COOKIE, PublicFormError, draftCookieOptions, getActiveFormLink } from "@/lib/forms/links";
+import { DRAFT_COOKIE, PublicFormError, draftCookieOptions, formRequestAllowed, getActiveFormLink } from "@/lib/forms/links";
+import { clientIp } from "@/lib/rateLimit";
 import {
   discardFormDraftCore,
   removeDraftFileCore,
@@ -47,6 +48,7 @@ async function run(token: string, work: () => Promise<void>): Promise<string | n
 
 export async function saveFormDraft(token: string, formData: FormData) {
   const link = await resolve(token);
+  if (!formRequestAllowed(link.token, await clientIp())) redirect(`/f/${link.token}?error=busy`);
   if (!(formData instanceof FormData)) redirect(`/f/${link.token}?error=invalid`);
   if (isBot(formData)) redirect(`/f/${link.token}?saved=1`);
   const failed = await run(link.token, async () => {
@@ -58,6 +60,7 @@ export async function saveFormDraft(token: string, formData: FormData) {
 
 export async function submitForm(token: string, formData: FormData) {
   const link = await resolve(token);
+  if (!formRequestAllowed(link.token, await clientIp())) redirect(`/f/${link.token}?error=busy`);
   if (!(formData instanceof FormData)) redirect(`/f/${link.token}?error=invalid`);
   if (isBot(formData)) redirect(`/f/${link.token}?submitted=1`);
   const failed = await run(link.token, async () => {

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { formatDateHeading } from "@/lib/agendaUtils";
 import type { EsgPart } from "@/lib/esg/types";
-import { btnOutlinedXs } from "@/lib/buttonStyles";
+import { FilterChip, FilterGroup, ReportFilterShell } from "@/components/ReportFilterShell";
+import { toggleValue, useUrlChipFilter } from "@/lib/useUrlChipFilter";
 
 const PART_LABELS: Record<EsgPart, string> = {
   I: "I · Narrative",
@@ -32,13 +31,6 @@ type ReportFiltersProps = {
   hidePrint?: boolean;
 };
 
-const chip = (active: boolean) =>
-  `px-3 py-1 text-sm rounded-full border transition-colors ${
-    active
-      ? "bg-blue-600 dark:bg-blue-500 border-blue-600 dark:border-blue-500 text-white dark:text-white"
-      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500"
-  }`;
-
 export function ReportFilters({
   eventId,
   timezone,
@@ -56,102 +48,58 @@ export function ReportFilters({
   shareButton,
   hidePrint = false,
 }: ReportFiltersProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const key = (k: string) => `${paramPrefix}${k}`;
-
-  function push(mutate: (p: URLSearchParams) => void) {
-    const params = new URLSearchParams(searchParams.toString());
-    mutate(params);
-    const qs = params.toString();
-    router.push(qs ? `${basePath}?${qs}` : basePath);
-  }
-
-  function setList(name: string, values: string[]) {
-    push((p) => (values.length ? p.set(key(name), values.join(",")) : p.delete(key(name))));
-  }
-
-  const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const filter = useUrlChipFilter(paramPrefix, basePath);
   const filterCount = selectedDays.length + selectedFunctionIds.length + (selectedParts.length < availableParts.length ? 1 : 0);
 
-  const actions = (
-    <>
-      {filterCount > 0 && (
-        <button
-          onClick={() =>
-            push((p) => ["parts", "days", "functions"].forEach((k) => p.delete(key(k))))
-          }
-          className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          Clear filters
-        </button>
-      )}
-      {shareButton}
-      {!hidePrint && (
-        <a
-          href={`${basePath}/print${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-          className={btnOutlinedXs}
-        >
-          Print / Save PDF
-        </a>
-      )}
-    </>
-  );
-
-  const chips = (
-    <>
-      <div>
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Parts</p>
-        <div className="flex flex-wrap gap-2">
-          {availableParts.map((part) => (
-            <button
-              key={part}
-              onClick={() => {
-                const next = toggle(selectedParts, part);
-                setList("parts", next.length === availableParts.length ? [] : next);
-              }}
-              className={chip(selectedParts.includes(part))}
-            >
-              {PART_LABELS[part]}
-            </button>
-          ))}
-        </div>
-      </div>
+  return (
+    <ReportFilterShell
+      activeCount={filterCount}
+      onClear={() => filter.clear(["parts", "days", "functions"])}
+      shareButton={shareButton}
+      printHref={hidePrint ? null : filter.printHref}
+    >
+      <FilterGroup label="Parts">
+        {availableParts.map((part) => (
+          <FilterChip
+            key={part}
+            active={selectedParts.includes(part)}
+            onClick={() => {
+              const next = toggleValue(selectedParts, part);
+              filter.setList("parts", next.length === availableParts.length ? [] : next);
+            }}
+          >
+            {PART_LABELS[part]}
+          </FilterChip>
+        ))}
+      </FilterGroup>
       {days.length > 1 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Days</p>
-          <div className="flex flex-wrap gap-2">
-            {days.map((d) => (
-              <button key={d} onClick={() => setList("days", toggle(selectedDays, d))} className={chip(selectedDays.includes(d))}>
-                {formatDateHeading(d, timezone)}
-              </button>
-            ))}
-          </div>
-        </div>
+        <FilterGroup label="Days">
+          {days.map((d) => (
+            <FilterChip key={d} active={selectedDays.includes(d)} onClick={() => filter.toggle("days", selectedDays, d)}>
+              {formatDateHeading(d, timezone)}
+            </FilterChip>
+          ))}
+        </FilterGroup>
       )}
       {selectedParts.includes("IIIa") && functions.length > 1 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Set-up orders for</p>
-          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-            {functions.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setList("functions", toggle(selectedFunctionIds, f.value))}
-                className={chip(selectedFunctionIds.includes(f.value))}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <FilterGroup label="Set-up orders for" className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+          {functions.map((f) => (
+            <FilterChip
+              key={f.value}
+              active={selectedFunctionIds.includes(f.value)}
+              onClick={() => filter.toggle("functions", selectedFunctionIds, f.value)}
+            >
+              {f.label}
+            </FilterChip>
+          ))}
+        </FilterGroup>
       )}
       <div className="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300">
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={showBlank}
-            onChange={(e) => push((p) => (e.target.checked ? p.set(key("blank"), "1") : p.delete(key("blank"))))}
+            onChange={(e) => filter.setFlag("blank", e.target.checked, "1")}
             className="rounded border-gray-300 dark:border-gray-600"
           />
           Show blank fields
@@ -161,40 +109,13 @@ export function ReportFilters({
             <input
               type="checkbox"
               checked={includeBilling}
-              onChange={(e) => push((p) => (e.target.checked ? p.delete(key("billing")) : p.set(key("billing"), "0")))}
+              onChange={(e) => filter.setFlag("billing", !e.target.checked, "0")}
               className="rounded border-gray-300 dark:border-gray-600"
             />
             Include billing &amp; signatories
           </label>
         )}
       </div>
-    </>
-  );
-
-  return (
-    <div className="print:hidden mb-6">
-      <div className="sm:hidden">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-          <button
-            onClick={() => setFiltersOpen((open) => !open)}
-            className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300"
-          >
-            <span aria-hidden>{filtersOpen ? "▾" : "▸"}</span>
-            <span>{filtersOpen ? "Hide filters" : "Show filters"}</span>
-            {filterCount > 0 && (
-              <span className="ml-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
-                {filterCount}
-              </span>
-            )}
-          </button>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">{actions}</div>
-        </div>
-        {filtersOpen && <div className="flex flex-wrap items-start gap-6">{chips}</div>}
-      </div>
-      <div className="hidden sm:flex flex-wrap items-start gap-6">
-        {chips}
-        <div className="flex flex-wrap items-end gap-3 ml-auto">{actions}</div>
-      </div>
-    </div>
+    </ReportFilterShell>
   );
 }
