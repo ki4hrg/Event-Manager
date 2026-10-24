@@ -324,7 +324,7 @@ export function FunctionForm({ fn, rooms, eventId, functionTypes, action, defaul
               {functionTypes.length === 0 ? (
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   No function types defined.{" "}
-                  <Link href="/settings/event-planning#function_type" className="text-blue-600 dark:text-blue-400 hover:underline">
+                  <Link href="/settings/lists/function_type" className="text-blue-600 dark:text-blue-400 hover:underline">
                     Add types in Settings
                   </Link>
                 </p>

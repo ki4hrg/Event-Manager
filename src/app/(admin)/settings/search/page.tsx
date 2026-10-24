@@ -4,13 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { permissionLevels } from "@/lib/permissions";
 import { canDo } from "@/lib/eventPermissions";
 import { requireActiveTenantId } from "@/lib/tenant";
+import { PageHeader } from "@/components/PageHeader";
 import {
   OPTION_CATEGORIES,
   OPTION_RESOURCES,
   OPTION_SECTIONS,
+  SECTION_KEYS,
   categoriesInSection,
+  optionListHref,
+  sectionOf,
   type OptionCategory,
-  type OptionSection,
 } from "@/lib/optionCategories";
 import { OptionCategoryEditor } from "../OptionCategoryEditor";
 
@@ -27,25 +30,30 @@ function parseQuery(raw: string | string[] | undefined): string | null {
   return q.length >= MIN_QUERY ? q : null;
 }
 
-const SECTIONS = Object.keys(OPTION_SECTIONS) as OptionSection[];
-
-// Option lists whose title or any option label holds `?q=`, across every
-// section the user can view, each with its editor.
+// Option lists whose area, title or any option label holds `?q=`, across
+// every list the user can view, each with its editor and a link to its page.
 export default async function SettingsSearchPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string | string[] }>;
 }) {
   const q = parseQuery((await searchParams).q);
-  if (!q) {
-    return <p className="text-sm text-gray-500 dark:text-gray-400">Enter at least {MIN_QUERY} characters.</p>;
-  }
 
-  const [tenantId, levels] = await Promise.all([
-    requireActiveTenantId(),
-    permissionLevels(OPTION_RESOURCES),
-  ]);
-  const visible = SECTIONS.flatMap(categoriesInSection).filter((c) => canDo(levels, OPTION_CATEGORIES[c].resource, "VIEW"));
+  return (
+    <>
+      <PageHeader title="Search" />
+      {q ? (
+        <SearchResults q={q} />
+      ) : (
+        <p className="text-sm text-gray-500 dark:text-gray-400">Enter at least {MIN_QUERY} characters.</p>
+      )}
+    </>
+  );
+}
+
+async function SearchResults({ q }: { q: string }) {
+  const [tenantId, levels] = await Promise.all([requireActiveTenantId(), permissionLevels(OPTION_RESOURCES)]);
+  const visible = SECTION_KEYS.flatMap(categoriesInSection).filter((c) => canDo(levels, OPTION_CATEGORIES[c].resource, "VIEW"));
   const labelHits = await prisma.customOption.findMany({
     where: { tenantId, category: { in: visible }, label: { contains: q, mode: "insensitive" } },
     select: { category: true },
@@ -53,10 +61,11 @@ export default async function SettingsSearchPage({
   });
   const hitCategories = new Set(labelHits.map((h) => h.category));
   const needle = q.toLowerCase();
-  const matches = new Set<OptionCategory>(
-    visible.filter((c) => hitCategories.has(c) || OPTION_CATEGORIES[c].title.toLowerCase().includes(needle)),
-  );
-  const sections = SECTIONS.map((s) => ({ section: s, categories: categoriesInSection(s).filter((c) => matches.has(c)) })).filter(
+  // A list's name is its area plus its title ("RFPs Terms"), so a search for
+  // the area finds lists whose title drops it.
+  const named = (c: OptionCategory) => `${OPTION_SECTIONS[sectionOf(c)].title} ${OPTION_CATEGORIES[c].title}`.toLowerCase();
+  const matches = new Set<OptionCategory>(visible.filter((c) => hitCategories.has(c) || named(c).includes(needle)));
+  const sections = SECTION_KEYS.map((s) => ({ section: s, categories: categoriesInSection(s).filter((c) => matches.has(c)) })).filter(
     (s) => s.categories.length > 0,
   );
 
@@ -68,14 +77,17 @@ export default async function SettingsSearchPage({
     <div className="space-y-8">
       {sections.map(({ section, categories }) => (
         <section key={section} className="space-y-4">
-          <h2 className="text-sm font-medium">
-            <Link href={OPTION_SECTIONS[section].href} className="text-blue-600 dark:text-blue-400 hover:underline">
-              {OPTION_SECTIONS[section].home}
-            </Link>
-          </h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">{OPTION_SECTIONS[section].title}</h2>
           <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
             {categories.map((category) => (
-              <OptionCategoryEditor key={category} category={category} query={q} />
+              <div key={category} className="min-w-0 space-y-2">
+                <Link href={optionListHref(category)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                  Open {OPTION_CATEGORIES[category].title}
+                </Link>
+                <div className="space-y-8">
+                  <OptionCategoryEditor category={category} query={q} />
+                </div>
+              </div>
             ))}
           </div>
         </section>

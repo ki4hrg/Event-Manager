@@ -13,7 +13,7 @@ import { OptionList } from "./OptionList";
 import { OffListLabels } from "./OffListLabels";
 
 // One option list, rendered from its registry entry: the shared editor behind
-// /settings/[section], /settings/search, /equipment/categories and
+// /settings/lists/[category], /settings/search, /equipment/categories and
 // /storage-locations/types. `query` (search) marks the matching options.
 // Gates on the list's own resource; the caller's layout supplies the
 // PermissionsProvider that hides controls from VIEW-only users.

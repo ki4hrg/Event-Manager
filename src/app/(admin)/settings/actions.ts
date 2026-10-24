@@ -10,12 +10,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import {
-  OPTION_SECTIONS,
   clearDeletedLabel,
   groupChoices,
   isMergeable,
   optionCategory,
   optionLabelUses,
+  optionListHref,
   propagateLabelRename,
   type OptionCategory,
 } from "@/lib/optionCategories";
@@ -62,7 +62,12 @@ export async function getSubstatusOptions(group?: string) {
 // (src/lib/optionCategories.ts) and gates on that list's resource, so the
 // equipment and storage screens share these under their own permission.
 
-const revalidateList = (category: OptionCategory) => revalidatePath(OPTION_SECTIONS[optionCategory(category).section].href);
+// The list's own page, and its host page outside Settings if it has one.
+function revalidateList(category: OptionCategory) {
+  revalidatePath(optionListHref(category));
+  const host = optionCategory(category).host;
+  if (host) revalidatePath(host);
+}
 
 // One spelling per list: a label matching another option but for case or
 // spacing is refused (labelKey).

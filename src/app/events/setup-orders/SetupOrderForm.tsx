@@ -212,7 +212,7 @@ export function SetupOrderForm({
             {setupTypes.length === 0 ? (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 No setup types defined.{" "}
-                <Link href="/settings/event-planning#setup_type" className="text-blue-600 dark:text-blue-400 hover:underline">
+                <Link href="/settings/lists/setup_type" className="text-blue-600 dark:text-blue-400 hover:underline">
                   Add setup types in Settings
                 </Link>
               </p>

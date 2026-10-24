@@ -10,9 +10,11 @@ import { PermissionResource } from "@prisma/client";
 import {
   OPTION_CATEGORIES,
   OPTION_SECTIONS,
-  SETTINGS_SECTIONS,
+  SECTION_KEYS,
   categoriesInSection,
-  type OptionSection,
+  optionListHref,
+  type OptionCategory,
+  type OptionCategoryDef,
 } from "@/lib/optionCategories";
 
 export type AdminNavLink = { label: string; href: string };
@@ -63,30 +65,32 @@ export function adminHeaderLinks({ canView, isSuperAdmin }: AdminAccess): AdminN
   ].filter((l): l is AdminNavLink => !!l);
 }
 
-// The settings nav, grouped as in the settings epic (#190). Option-list
-// sections come from the registry; groups left with no visible link drop out.
-export function adminNavGroups({ canView, isSuperAdmin }: AdminAccess): AdminNavGroup[] {
+// A list's nav link: its page under /settings, or, for a user who can't open
+// /settings, the page hosting it in its own feature (none for most lists).
+function listLink(category: OptionCategory, { canView }: AdminAccess): AdminNavLink | null {
+  const def: OptionCategoryDef = OPTION_CATEGORIES[category];
+  if (!canView(def.resource)) return null;
+  if (canView(PermissionResource.SETTINGS)) return page(def.title, optionListHref(category));
+  return def.host ? page(def.title, def.host) : null;
+}
+
+// The admin nav: Organization, one group per functional area holding its
+// lists (from the registry), then Access and System. Groups left with no
+// visible link drop out.
+export function adminNavGroups(access: AdminAccess): AdminNavGroup[] {
+  const { canView, isSuperAdmin } = access;
   const settings = canView(PermissionResource.SETTINGS);
-  const section = (s: OptionSection) => page(OPTION_SECTIONS[s].title, OPTION_SECTIONS[s].href);
-  // Lists edited outside Settings (equipment categories, location types),
-  // each gated on its own lists' resource like the page that hosts it.
-  const inventory = (Object.keys(OPTION_SECTIONS) as OptionSection[]).filter(
-    (s) => !OPTION_SECTIONS[s].settings && categoriesInSection(s).every((c) => canView(OPTION_CATEGORIES[c].resource)),
-  );
-  const sectionGroups: AdminNavGroup[] = SETTINGS_SECTIONS.map((s) => {
-    // Workflows set the statuses the status lists refine.
+  const areaGroups: AdminNavGroup[] = SECTION_KEYS.map((s) => {
+    const lists = categoriesInSection(s)
+      .map((c) => listLink(c, access))
+      .filter((l): l is AdminNavLink => !!l);
+    // Workflows set the statuses the substatus lists refine.
     const extra = s === "status" && canView(PermissionResource.WORKFLOWS) ? [ADMIN_PAGES.workflows] : [];
-    // A section alone is one link under its own name; beside other pages it's "Lists".
-    const lists = settings ? [extra.length ? page("Lists", OPTION_SECTIONS[s].href) : section(s)] : [];
     return { label: OPTION_SECTIONS[s].title, links: [...lists, ...extra] };
   });
   const groups: AdminNavGroup[] = [
     { label: "Organization", links: settings ? [ADMIN_PAGES.organization] : [] },
-    ...sectionGroups,
-    {
-      label: "Inventory",
-      links: inventory.map(section),
-    },
+    ...areaGroups,
     {
       label: "Access",
       links: [

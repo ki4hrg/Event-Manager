@@ -180,7 +180,7 @@ export function ScheduleList({
       {scheduleTypes.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           No schedule types defined.{" "}
-          <Link href="/settings/event-planning#schedule_type" className="text-blue-600 dark:text-blue-400 hover:underline">
+          <Link href="/settings/lists/schedule_type" className="text-blue-600 dark:text-blue-400 hover:underline">
             Add types in Settings
           </Link>
         </p>
