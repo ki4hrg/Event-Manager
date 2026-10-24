@@ -135,6 +135,7 @@ export default async function PublicFormPage({
   const common = {
     token: link.token,
     version: snapshot.version,
+    baselineJson: JSON.stringify(snapshot.baseline),
     recipientName: link.recipientName,
     errorMessage,
     saved: saved === "1" && !!draft,

@@ -122,7 +122,10 @@ export const FORM_ERROR_COPY: Record<string, string> = {
   closed: "This form is no longer accepting responses.",
   busy: "Too many responses were sent recently. Try again in an hour.",
   upload: "That file couldn't be uploaded. Use a PDF, image, or Word, Excel or PowerPoint file under 20 MB.",
-  stale: "The details on this page were updated while you had it open. Check them again and resubmit.",
+  // Stale form, answers kept as the draft and rebased onto the update.
+  stale: "This form was updated while you had it open. Your answers were kept — review them and submit.",
+  // Stale form whose answers no longer fit it.
+  changed: "The details on this page were updated while you had it open. Check them again and resubmit.",
 };
 
 // ─── Review diff ─────────────────────────────────────────────────────────────
