@@ -160,7 +160,7 @@ Feature-specific components colocate with their `actions.ts` under `src/app/<fea
 - **Reports** must render dual layouts: a mobile card view (`sm:hidden`) and a desktop/print table (`hidden sm:block print:block`). See § Reports.
 - Other tables may rely on horizontal scroll inside `overflow-x-auto`. A grid item containing such a table needs `min-w-0`, or the table widens the page instead of scrolling (`src/app/venues/[id]/page.tsx`).
 - Every new full-page layout (sidebars, filter bars, forms) must remain functional at 360 px width. The mechanisms: filter/toolbar groups get `flex-wrap`; tab strips get `overflow-x-auto whitespace-nowrap` on the `<nav>` (`src/app/events/[id]/agenda/DateTabs.tsx`); title + actions headers stack with `flex flex-col gap-3 sm:flex-row sm:justify-between` and `min-w-0` on the title block (`src/components/PageHeader.tsx`).
-- The header nav is inline only at `lg`; below that `MobileNav` renders the same arrays — add top-level links to `mainLinks` / `adminLinks` in `src/components/Header.tsx`, not as JSX.
+- The header nav is inline only at `lg`; below that `MobileNav` renders the same arrays — add top-level links to `mainLinks` in `src/components/Header.tsx`, not as JSX. Admin pages go in `src/lib/adminNav.ts` (`ADMIN_PAGES`, `adminHeaderLinks`, `adminNavGroups`), which feeds both the header's `adminLinks` and the grouped settings nav (`AdminShell` in `src/components/AdminShell.tsx`, rendered by the `/settings` and `/system` layouts).
 - On interactive report pages, the "Print / Save PDF" button is `<a href="${basePath}/print?...">` — never `window.print()`. On the dedicated `/print` route itself, `PrintButton` (`src/components/print/PrintButton.tsx`) calls `window.print()`.
 
 ### Environment and config

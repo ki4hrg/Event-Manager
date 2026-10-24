@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PermissionResource } from "@prisma/client";
 import { hasGlobalView, loadPermissionsForUser, type PermissionGrant } from "@/lib/permissions";
 import { getTenantContext } from "@/lib/tenant";
+import { adminHeaderLinks } from "@/lib/adminNav";
 import { prisma } from "@/lib/prisma";
 import { getInboundEmailDomain } from "@/lib/email";
 import { orgInboxWhere } from "@/app/events/inbox/core";
@@ -28,14 +29,6 @@ export async function Header() {
   const canViewContacts = hasGlobalView(permissions, PermissionResource.CONTACTS);
   const canViewVendors = hasGlobalView(permissions, PermissionResource.VENDORS);
   const canViewHotels = hasGlobalView(permissions, PermissionResource.HOTELS);
-  const canViewUsers =
-    hasGlobalView(permissions, PermissionResource.USERS) ||
-    hasGlobalView(permissions, PermissionResource.ROLES) ||
-    hasGlobalView(permissions, PermissionResource.API_KEYS);
-  const canViewEquipment = hasGlobalView(permissions, PermissionResource.EQUIPMENT);
-  const canViewSettings = hasGlobalView(permissions, PermissionResource.SETTINGS);
-  const canViewSystem = hasGlobalView(permissions, PermissionResource.SYSTEM);
-  const canViewWorkflows = hasGlobalView(permissions, PermissionResource.WORKFLOWS);
   // Main nav rather than the Admin dropdown: the default User role carries
   // STORAGE_LOCATIONS WRITE for load-out, so this isn't an admin surface.
   const canViewStorageLocations = hasGlobalView(
@@ -63,14 +56,11 @@ export async function Header() {
     canViewStorageLocations && { href: "/storage-locations", label: "Storage" },
     showInbox && { href: "/inbox", label: inboxOpen > 0 ? `Inbox (${inboxOpen})` : "Inbox" },
   ].filter((l): l is HeaderLink => !!l);
-  const adminLinks: HeaderLink[] = [
-    canViewUsers && { href: "/users", label: "Users" },
-    canViewEquipment && { href: "/equipment", label: "Equipment" },
-    canViewSettings && { href: "/settings", label: "Settings" },
-    canViewSystem && { href: "/system", label: "System" },
-    canViewWorkflows && { href: "/workflows", label: "Workflows" },
-    isSuperAdmin && { href: "/tenants", label: "Organizations" },
-  ].filter((l): l is HeaderLink => !!l);
+  // Same labels and gates as the settings nav (@/lib/adminNav).
+  const adminLinks: HeaderLink[] = adminHeaderLinks({
+    canView: (resource) => hasGlobalView(permissions, resource),
+    isSuperAdmin,
+  });
 
   const signOutAction = async () => {
     "use server";

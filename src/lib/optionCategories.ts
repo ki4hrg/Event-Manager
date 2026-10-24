@@ -8,12 +8,13 @@
 // Plain server module (it reaches Prisma through the targets). Client
 // components import its types only; pages hand them the resolved props.
 
-import { PermissionResource, Prisma } from "@prisma/client";
+import { EntityStatus, PermissionResource, Prisma } from "@prisma/client";
 import { FUNCTION_SPACES, MEAL_BUCKETS, SCHEDULE_ROLES } from "@/lib/esg/apex";
 import { PROPOSAL_STAGES } from "@/lib/hotels";
 import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
 import { hotelLabelUses, mergeHotelLabel, type HotelLabelCategory } from "@/lib/hotelLabels";
 import { MAIN_SCHEDULE_GROUP } from "@/lib/scheduleTypes";
+import { STATUS_LABEL } from "@/lib/statusConstants";
 
 type Db = Prisma.TransactionClient;
 
@@ -195,12 +196,12 @@ export type GroupSource =
   // here would make the registry's type circular).
   | { kind: "category"; label: string; category: string };
 
-export const SUBSTATUS_GROUPS = [
-  { value: "PENDING", label: "Pending Substatuses", description: "Specific states within the Pending top-level status (e.g., Expected, Requested)" },
-  { value: "IN_PROGRESS", label: "In Progress Substatuses", description: "Specific states within the In Progress top-level status (e.g., Approved)" },
-  { value: "COMPLETE", label: "Complete Substatuses", description: "Specific states within the Complete top-level status (e.g., Confirmed)" },
-  { value: "CANCELLED", label: "Cancelled Substatuses", description: "Specific states used when cancelling an entity (e.g., Denied, Cancelled)" },
-] as const;
+// One substatus list per top-level status, in the enum's order.
+export const SUBSTATUS_GROUPS: readonly GroupChoice[] = Object.values(EntityStatus).map((status) => ({
+  value: status,
+  label: `${STATUS_LABEL[status]} Substatuses`,
+  description: `Finer states within ${STATUS_LABEL[status]}.`,
+}));
 
 // A file type's group: the type a feature files its own documents under
 // (RFP: what a sent RFP's document is filed as), resolved by group so a
@@ -258,7 +259,7 @@ export const OPTION_CATEGORIES = {
   function_type: {
     title: "Function Types",
     section: "event-planning",
-    description: "Categories for scheduled functions.",
+    description: "Categories for functions.",
     color: true,
     groups: { kind: "fixed", label: "Function space", choices: FUNCTION_SPACES },
     resource: SETTINGS,
@@ -270,7 +271,7 @@ export const OPTION_CATEGORIES = {
   schedule_type: {
     title: "Schedule Types",
     section: "event-planning",
-    description: "Types of schedule items for functions (e.g., Setup, Rehearsal, Main Event).",
+    description: "Entries in a function's schedule.",
     color: true,
     // MAIN anchors a function's date and is the default for new schedules.
     groups: { kind: "fixed", label: "Role", choices: [{ value: MAIN_SCHEDULE_GROUP, label: "Main" }, ...SCHEDULE_ROLES] },
@@ -280,7 +281,7 @@ export const OPTION_CATEGORIES = {
   setup_type: {
     title: "Setup Types",
     section: "event-planning",
-    description: "Room setup configurations for Setup Orders.",
+    description: "Room setups for setup orders.",
     resource: SETTINGS,
     renameTargets: [
       col("setupOrder", "setupType", inEvent),
@@ -291,21 +292,21 @@ export const OPTION_CATEGORIES = {
   booth_type: {
     title: "Booth Types",
     section: "event-planning",
-    description: "Booth / stand types.",
+    description: "Exhibit booth and stand types.",
     resource: SETTINGS,
     renameTargets: [col("exhibitBooth", "boothType", inEvent), col("exhibitBoothGroup", "boothType", inEvent), formLinkBoothTypes],
   },
   presenter_role: {
     title: "Presenter Roles",
     section: "event-planning",
-    description: "Roles for speakers in presentations (e.g., Presenter, Co-Presenter, Moderator)",
+    description: "Speaker roles on presentations.",
     resource: SETTINGS,
     renameTargets: [col("presentationContact", "role", (t) => ({ presentation: inEvent(t) }))],
   },
   presentation_type: {
     title: "Presentation Types",
     section: "event-planning",
-    description: "Types of presentations (e.g., Breakout, Plenary)",
+    description: "Categories for presentations.",
     color: true,
     resource: SETTINGS,
     renameTargets: [col("presentation", "type", inEvent)],
@@ -313,21 +314,21 @@ export const OPTION_CATEGORIES = {
   contact_role: {
     title: "Contact Roles",
     section: "people",
-    description: "Roles that can be assigned to contacts (e.g., Speaker, Vendor, Staff)",
+    description: "Roles for contacts.",
     resource: SETTINGS,
     renameTargets: [arrayCol("Contact", "roles")],
   },
   service_style: {
     title: "Service Styles",
     section: "orders",
-    description: "Catering service styles for Catering Orders (e.g., Plated, Buffet, Stations)",
+    description: "Catering service styles.",
     resource: SETTINGS,
     renameTargets: [col("cateringOrder", "serviceStyle", inEvent)],
   },
   meal_type: {
     title: "Meal Types",
     section: "orders",
-    description: "Meal period for Catering Orders.",
+    description: "Meal periods for catering orders.",
     groups: { kind: "fixed", label: "Report bucket", choices: MEAL_BUCKETS },
     resource: SETTINGS,
     renameTargets: [
@@ -339,14 +340,14 @@ export const OPTION_CATEGORIES = {
   vendor_contact_type: {
     title: "Vendor Contact Types",
     section: "people",
-    description: "Roles for vendor contacts (e.g., Sales, Billing, Technical)",
+    description: "Roles for vendor contacts.",
     resource: SETTINGS,
     renameTargets: [col("vendorContact", "contactType", (tenantId) => ({ vendor: { tenantId } }))],
   },
   file_type: {
     title: "File Types",
     section: "event-planning",
-    description: "Categories for file attachments (e.g., Proposal, Invoice, Contract)",
+    description: "Categories for file attachments.",
     groups: { kind: "fixed", label: "Used for", choices: FILE_TYPE_GROUPS },
     resource: SETTINGS,
     renameTargets: [col("fileUpload", "fileType", fileInTenant)],
@@ -354,7 +355,7 @@ export const OPTION_CATEGORIES = {
   substatus: {
     title: "Substatuses",
     section: "status",
-    description: "",
+    description: "Finer states within each status.",
     groups: { kind: "fixed", label: "Status", choices: SUBSTATUS_GROUPS, split: true },
     resource: SETTINGS,
     renameTargets: SUBSTATUS_TARGETS,
@@ -362,7 +363,7 @@ export const OPTION_CATEGORIES = {
   proposal_status: {
     title: "Proposal Statuses",
     section: "hotels",
-    description: "Stage drives the workflow.",
+    description: "Hotel proposal statuses, each tied to a stage.",
     color: true,
     groups: { kind: "fixed", label: "Stage", choices: PROPOSAL_STAGES },
     resource: SETTINGS,
@@ -371,21 +372,21 @@ export const OPTION_CATEGORIES = {
   hotel_room_type: {
     title: "Room Types",
     section: "hotels",
-    description: "",
+    description: "Room types for hotel blocks.",
     resource: SETTINGS,
     renameTargets: HOTEL_ROOM_TYPE_TARGETS,
   },
   hotel_guest_type: {
     title: "Guest Types",
     section: "hotels",
-    description: "",
+    description: "Guest types for hotel proposals and RFPs.",
     resource: SETTINGS,
     renameTargets: [col("hotelProposal", "guestType", inEvent), col("rfpHotelBlock", "guestType", (t) => ({ rfp: inEvent(t) }))],
   },
   hotel_amenity: {
     title: "Amenities",
     section: "hotels",
-    description: "",
+    description: "Hotel amenities.",
     mergeable: { noun: "amenity" },
     resource: SETTINGS,
     renameTargets: [mergeTarget("hotel_amenity")],
@@ -393,7 +394,7 @@ export const OPTION_CATEGORIES = {
   hotel_brand: {
     title: "Brands",
     section: "hotels",
-    description: "",
+    description: "Hotel brands for venues.",
     resource: SETTINGS,
     renameTargets: [col("venue", "brand", inTenant)],
   },
@@ -402,14 +403,14 @@ export const OPTION_CATEGORIES = {
   hotel_region: {
     title: "Regions",
     section: "hotels",
-    description: "",
+    description: "Regions for events and RFPs.",
     resource: SETTINGS,
     renameTargets: [arrayCol("Event", "regions"), arrayCol("Rfp", "regions")],
   },
   hotel_area: {
     title: "Areas",
     section: "hotels",
-    description: "",
+    description: "Areas within a region.",
     groups: { kind: "category", label: "Region", category: "hotel_region" },
     resource: SETTINGS,
     renameTargets: [col("venue", "area", inTenant), arrayCol("Event", "areas"), arrayCol("Rfp", "areas")],
@@ -417,7 +418,7 @@ export const OPTION_CATEGORIES = {
   rfp_concession: {
     title: "Concessions",
     section: "hotels",
-    description: "",
+    description: "Concessions requested in RFPs.",
     groups: { kind: "fixed", label: "Heading", choices: CONCESSION_GROUPS, fallback: "OTHER" },
     mergeable: { noun: "concession" },
     resource: SETTINGS,
@@ -426,7 +427,7 @@ export const OPTION_CATEGORIES = {
   reservation_method: {
     title: "Reservation Methods",
     section: "hotels",
-    description: "",
+    description: "How attendees reserve rooms.",
     resource: SETTINGS,
     renameTargets: [
       col("rfp", "reservationMethod", inEvent),
@@ -437,14 +438,14 @@ export const OPTION_CATEGORIES = {
   rfp_service: {
     title: "RFP Services",
     section: "hotels",
-    description: "What an Other services RFP is for",
+    description: "What an Other services RFP is for.",
     resource: SETTINGS,
     renameTargets: [col("rfp", "service", inEvent)],
   },
   rfp_term: {
     title: "RFP Terms",
     section: "hotels",
-    description: "",
+    description: "Terms requested in RFPs.",
     mergeable: { noun: "RFP term" },
     resource: SETTINGS,
     renameTargets: [mergeTarget("rfp_term")],
@@ -452,21 +453,21 @@ export const OPTION_CATEGORIES = {
   event_type: {
     title: "Event Types",
     section: "event-planning",
-    description: "",
+    description: "Categories for events.",
     resource: SETTINGS,
     renameTargets: [col("eventSpecification", "eventType", inEvent)],
   },
   event_scope: {
     title: "Event Scope",
     section: "event-planning",
-    description: "Citywide, single venue, multiple venue, etc.",
+    description: "Citywide, single venue or multiple venues.",
     resource: SETTINGS,
     renameTargets: [col("eventSpecification", "eventScope", inEvent)],
   },
   event_frequency: {
     title: "Event Frequency",
     section: "event-planning",
-    description: "",
+    description: "How often an event recurs.",
     resource: SETTINGS,
     renameTargets: [col("eventSpecification", "eventFrequency", inEvent)],
   },
@@ -515,7 +516,7 @@ export const OPTION_CATEGORIES = {
   equipment_category: {
     title: "Equipment Categories",
     section: "equipment",
-    description: "Categories for organizing equipment (e.g., AV, Tables, Chairs).",
+    description: "Categories for equipment.",
     models: true,
     resource: PermissionResource.EQUIPMENT,
     renameTargets: [col("equipment", "category", inTenant)],
@@ -523,7 +524,7 @@ export const OPTION_CATEGORIES = {
   location_type: {
     title: "Location Types",
     section: "storage",
-    description: "What a location is (e.g., Shelf, Pallet, Tote, Trailer).",
+    description: "What a storage location is.",
     color: true,
     resource: PermissionResource.STORAGE_LOCATIONS,
     renameTargets: [col("storageLocation", "type", inTenant)],
@@ -539,6 +540,9 @@ const _groupRefsValid: [UnknownGroupRef] extends [never] ? true : UnknownGroupRe
 void _groupRefsValid;
 
 const CATEGORY_KEYS = Object.keys(OPTION_CATEGORIES) as OptionCategory[];
+
+// Every permission resource a list is edited under, for a page rendering any list.
+export const OPTION_RESOURCES: PermissionResource[] = Array.from(new Set(CATEGORY_KEYS.map((c) => OPTION_CATEGORIES[c].resource)));
 
 export function isOptionCategory(value: string): value is OptionCategory {
   return Object.hasOwn(OPTION_CATEGORIES, value);
