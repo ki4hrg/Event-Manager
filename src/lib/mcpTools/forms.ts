@@ -211,7 +211,7 @@ export const formTools: McpToolDefinition[] = [
   {
     name: "apply_form_submission",
     description:
-      "Apply a submitted form to the live records, as you. Requires explicit `sections` (keys from get_form_submission; nothing is applied by default) and the `version` it returned — a record changed since is refused, re-read and retry. `choices` maps a choice key to one of its values (e.g. contact: new | existing:<id> | skip); omitted keys use the default. Refused while the submission's approval workflow is incomplete. Your WRITE permission on each touched resource (functions, orders, presentations, contacts) is checked.",
+      "Apply a submitted form to the live records, as you. Requires explicit `sections` (keys from get_form_submission; nothing is applied by default) and the `version` it returned — a record changed since is refused, re-read and retry. `choices` maps a choice key to one of its values (e.g. contact: new | existing:<id> | skip; equip-<n> or item-<n>-equipment: a catalog equipment id, or __blank__ for not in the catalog); omitted keys use the default. Refused while the submission's approval workflow is incomplete. Your WRITE permission on each touched resource (functions, orders, presentations, contacts) is checked.",
     inputSchema: {
       type: "object",
       properties: {

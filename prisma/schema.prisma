@@ -316,6 +316,8 @@ model Equipment {
   equipmentItems   EquipmentItem[]
   supplyOrderItems SupplyOrderItem[]
   inventoryItems   InventoryItem[]
+  setupTables      SetupTable[]      @relation("SetupTableTableEquipment")
+  setupTableChairs SetupTable[]      @relation("SetupTableChairEquipment")
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -997,14 +999,21 @@ model SetupOrderPresentation {
   @@index([presentationId])
 }
 
+// tableType / chairType are the names shown; the equipment ids link the
+// catalog rows they name (a rename carries to the text), null for free text
+// the catalog doesn't hold.
 model SetupTable {
   id               String     @id @default(cuid())
   setupOrderId     String
   setupOrder       SetupOrder @relation(fields: [setupOrderId], references: [id], onDelete: Cascade)
   quantity         Int
   tableType        String?
+  tableEquipmentId String?
+  tableEquipment   Equipment? @relation("SetupTableTableEquipment", fields: [tableEquipmentId], references: [id], onDelete: SetNull)
   chairCount       Int?
   chairType        String?
+  chairEquipmentId String?
+  chairEquipment   Equipment? @relation("SetupTableChairEquipment", fields: [chairEquipmentId], references: [id], onDelete: SetNull)
   providerVendorId String?
   providerVendor   Vendor?    @relation("SetupTableProviderVendor", fields: [providerVendorId], references: [id], onDelete: SetNull)
   notes            String?
@@ -1014,6 +1023,8 @@ model SetupTable {
 
   @@index([setupOrderId])
   @@index([providerVendorId])
+  @@index([tableEquipmentId])
+  @@index([chairEquipmentId])
 }
 
 model SetupOrderDetail {

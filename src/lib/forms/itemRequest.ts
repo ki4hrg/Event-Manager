@@ -13,6 +13,7 @@ import { createPrintItemCore, createPrintOrderCore } from "@/app/events/print-or
 import { createSupplyOrderCore, createSupplyOrderItemCore } from "@/app/events/supply-orders/core";
 import type { AcquisitionState, PackingStatus } from "@prisma/client";
 import { PublicFormError } from "./links";
+import { catalogChoice, pickedEquipment, tenantCatalog } from "./catalog";
 import {
   ITEM_KINDS,
   ITEM_REQUEST_MAX_LINES,
@@ -155,8 +156,8 @@ async function eventOrders(eventId: string) {
   return { print, supply };
 }
 
-async function itemRequestChoices(payload: ItemRequestPayload, eventId: string): Promise<ReviewChoice[]> {
-  const orders = await eventOrders(eventId);
+async function itemRequestChoices(payload: ItemRequestPayload, eventId: string, tenantId: string): Promise<ReviewChoice[]> {
+  const [orders, catalog] = await Promise.all([eventOrders(eventId), payload.items.some((l) => l.kind === "supply") ? tenantCatalog(tenantId) : []]);
   const options = [
     { value: "new-print", label: "New print order" },
     { value: "new-supply", label: "New supply order" },
@@ -164,12 +165,11 @@ async function itemRequestChoices(payload: ItemRequestPayload, eventId: string):
     ...orders.supply.map((o) => ({ value: `supply:${o.id}`, label: `Add to supply order: ${o.name}` })),
     { value: "skip", label: "Skip" },
   ];
-  return payload.items.map((line, i) => ({
-    key: `item-${i}`,
-    label: "Add to",
-    options,
-    defaultValue: `new-${line.kind}`,
-  }));
+  // A supply line can be a catalog item (it then counts with packing and inventory).
+  return payload.items.flatMap((line, i) => [
+    { key: `item-${i}`, label: "Add to", options, defaultValue: `new-${line.kind}` },
+    ...(line.kind === "supply" && catalog.length ? [catalogChoice(catalog, `item-${i}-equipment`, `item-${i}`, line.description)] : []),
+  ]);
 }
 
 // ─── Apply ───────────────────────────────────────────────────────────────────
@@ -299,7 +299,7 @@ async function applyItemRequest(ctx: FormApplyContext<ItemRequestPayload, ItemRe
         eventId,
         {
           description: line.description,
-          equipmentId: null,
+          equipmentId: pickedEquipment(choices, `${key}-equipment`),
           quantity: line.quantity,
           ...states,
           providerVendorId: null,
@@ -335,6 +335,6 @@ export const itemRequestModule: FormModule<ItemRequestPayload, ItemRequestBaseli
   parse: (formData, snapshot) => parseItemRequest(formData, snapshot.baseline),
   rebase: (payload) => payload,
   diff: (baseline, payload) => diffItemRequest(baseline, payload),
-  reviewChoices: (payload, link) => itemRequestChoices(payload, link.eventId),
+  reviewChoices: (payload, link) => itemRequestChoices(payload, link.eventId, link.tenantId),
   apply: applyItemRequest,
 };

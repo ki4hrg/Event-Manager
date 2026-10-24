@@ -120,7 +120,7 @@ export function FormDiff({
               </table>
             </div>
           )}
-          {selectable && choices.filter((c) => c.key === s.key).map((c) => <Choice key={c.key} choice={c} />)}
+          {selectable && choices.filter((c) => (c.section ?? c.key) === s.key).map((c) => <Choice key={c.key} choice={c} />)}
           {!s.applicable && s.rows.length === 0 && !s.note && s.verdict !== "changes" && (
             <p className="text-xs text-gray-500 dark:text-gray-400">Nothing to apply.</p>
           )}

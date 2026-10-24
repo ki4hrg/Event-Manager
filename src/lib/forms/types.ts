@@ -41,6 +41,8 @@ export type FormSnapshot<B> = {
 // Posted as choice_<key>.
 export type ReviewChoice = {
   key: string;
+  // The section it renders under, when not the one its key names.
+  section?: string;
   label: string;
   options: { value: string; label: string }[];
   defaultValue: string;
