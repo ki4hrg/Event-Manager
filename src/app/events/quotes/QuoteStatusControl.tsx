@@ -5,8 +5,9 @@ import type { PermissionResource, QuoteStatus } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 
-// Decline or reopen a quote; on an accepted one, withdraw the award, with an
-// inline choice to take the vendor off the RFP's orders too (VENDORS write).
+// Decline or reopen a quote; on an accepted one, withdraw the award (its RFP
+// lines open up), with an inline choice to take the vendor off those lines'
+// orders too (VENDORS write).
 export function QuoteStatusControl({
   status,
   answersRfp,
@@ -49,7 +50,7 @@ export function QuoteStatusControl({
   const offerRemove = answersRfp && canAssign;
   return (
     <span className="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-      {offerRemove ? "Also remove the vendor from the RFP's orders?" : "Withdraw the award?"}
+      {offerRemove ? "Also remove the vendor from the orders of the lines it won?" : "Withdraw the award?"}
       {offerRemove && (
         <button type="button" disabled={pending} onClick={() => run("RECEIVED", true)} className={`${btnPrimary} disabled:opacity-50`}>
           Withdraw and remove
