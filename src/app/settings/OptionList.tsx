@@ -8,9 +8,11 @@ import type { OptionCategory } from "@/lib/optionCategories";
 import { MODEL_TYPES, MODEL_LABELS } from "@/app/vendors/model-types";
 import { InlineDeleteButton } from "@/components/InlineDeleteButton";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
+import { btnDangerSm, btnOutlinedXs, btnPrimarySm } from "@/lib/buttonStyles";
 import {
   DndContext,
   closestCenter,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -21,6 +23,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
   arrayMove,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GroupedOptionItems } from "./GroupedOptionItems";
@@ -71,7 +74,7 @@ function GroupSelect({
       <select
         name="group"
         defaultValue={defaultValue ?? ""}
-        className="px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+        className={`w-full sm:w-auto ${smallSelectClass}`}
       >
         <option value="">None</option>
         {groupOptions.map((g) => (
@@ -105,6 +108,8 @@ export type OptionListProps = {
   mergeable?: boolean;
   // Where options with no group sit in grouped pickers (concessions: Other).
   fallbackGroup?: string;
+  // Settings search: options whose label holds it are marked.
+  query?: string;
 };
 
 const smallSelectClass =
@@ -137,7 +142,7 @@ function MergeControl({
           setIntoId(e.target.value);
           setConfirming(false);
         }}
-        className={smallSelectClass}
+        className={`w-full sm:w-auto ${smallSelectClass}`}
       >
         <option value="">Merge into…</option>
         <GroupedOptionItems entries={others} groups={groups} fallback={fallbackGroup} />
@@ -156,7 +161,7 @@ function MergeControl({
             type="button"
             disabled={pending}
             onClick={() => start(() => merge(into.id))}
-            className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
+            className={btnDangerSm}
           >
             {pending ? "Merging..." : "Confirm merge"}
           </button>
@@ -183,11 +188,7 @@ const colorOptions = [
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-    >
+    <button type="submit" disabled={pending} className={btnPrimarySm}>
       {pending ? "Saving..." : label}
     </button>
   );
@@ -255,7 +256,7 @@ type RowProps = {
 } & Pick<
   OptionListProps,
   "category" | "resource" | "showColor" | "showModels" | "groupOptions" | "groupLabel" | "mergeable" | "fallbackGroup" | "fixedGroup"
->;
+> & { match: boolean };
 
 function SortableOptionRow({
   option,
@@ -273,6 +274,7 @@ function SortableOptionRow({
   mergeable,
   fallbackGroup,
   fixedGroup,
+  match,
 }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: option.id, disabled: !reordering });
@@ -300,7 +302,7 @@ function SortableOptionRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
+      className={`p-3 bg-gray-50 dark:bg-gray-900 rounded-lg ${match ? "ring-2 ring-blue-500 dark:ring-blue-400" : ""}`}
     >
       {editing ? (
         <form
@@ -344,7 +346,7 @@ function SortableOptionRow({
                 setEditingId(null);
                 setError(null);
               }}
-              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+              className={btnOutlinedXs}
             >
               Cancel
             </button>
@@ -361,6 +363,8 @@ function SortableOptionRow({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
               {reordering && (
                 <button
+                  type="button"
+                  aria-label={`Move ${option.label}`}
                   {...attributes}
                   {...listeners}
                   className="p-1 -m-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab active:cursor-grabbing touch-none"
@@ -470,6 +474,7 @@ export function OptionList({
   fixedGroup,
   mergeable = false,
   fallbackGroup,
+  query,
 }: OptionListProps) {
   const router = useRouter();
   const canWrite = useCanWrite(resource);
@@ -483,7 +488,11 @@ export function OptionList({
     startTransition(() => setLocalOptions(options));
   }, [options]);
 
-  const sensors = useSensors(useSensor(PointerSensor));
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const needle = query?.toLowerCase();
 
   const saveOrder = async (ordered: CustomOption[]) => {
     setLocalOptions(ordered);
@@ -516,11 +525,7 @@ export function OptionList({
               <button
                 type="button"
                 onClick={() => setReordering(!reordering)}
-                className={`px-3 py-1.5 text-sm rounded border ${
-                  reordering
-                    ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950"
-                    : "border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
-                }`}
+                className={reordering ? btnPrimarySm : btnOutlinedXs}
               >
                 {reordering ? "Done" : "Reorder"}
               </button>
@@ -528,7 +533,7 @@ export function OptionList({
                 <button
                   type="button"
                   onClick={handleSortAlpha}
-                  className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className={btnOutlinedXs}
                 >
                   Sort A–Z
                 </button>
@@ -539,7 +544,7 @@ export function OptionList({
             <button
               type="button"
               onClick={() => setShowAddForm(true)}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className={btnPrimarySm}
             >
               Add
             </button>
@@ -591,7 +596,7 @@ export function OptionList({
                 setShowAddForm(false);
                 setAddError(null);
               }}
-              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-sm"
+              className={btnOutlinedXs}
             >
               Cancel
             </button>
@@ -632,6 +637,7 @@ export function OptionList({
                   mergeable={mergeable}
                   fallbackGroup={fallbackGroup}
                   fixedGroup={fixedGroup}
+                  match={!!needle && option.label.toLowerCase().includes(needle)}
                 />
               ))}
             </div>

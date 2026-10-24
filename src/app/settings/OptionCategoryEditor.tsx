@@ -13,10 +13,11 @@ import { OptionList } from "./OptionList";
 import { OffListLabels } from "./OffListLabels";
 
 // One option list, rendered from its registry entry: the shared editor behind
-// /settings/[section], /equipment/categories and /storage-locations/types.
+// /settings/[section], /settings/search, /equipment/categories and
+// /storage-locations/types. `query` (search) marks the matching options.
 // Gates on the list's own resource; the caller's layout supplies the
 // PermissionsProvider that hides controls from VIEW-only users.
-export async function OptionCategoryEditor({ category }: { category: OptionCategory }) {
+export async function OptionCategoryEditor({ category, query }: { category: OptionCategory; query?: string }) {
   const def: OptionCategoryDef = OPTION_CATEGORIES[category];
   const { tenantId } = await requirePermission(def.resource, "VIEW");
   const [options, uses, groups] = await Promise.all([
@@ -35,6 +36,7 @@ export async function OptionCategoryEditor({ category }: { category: OptionCateg
     showModels: !!def.models,
     mergeable,
     fallbackGroup,
+    query,
   };
 
   if (source?.kind === "fixed" && source.split) {
