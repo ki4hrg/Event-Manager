@@ -5,7 +5,7 @@ import { getEvent } from "@/app/events/event";
 import { getFunctionsForTable, duplicateFunction, deleteFunction, deleteFunctions, bulkUpdateFunctions, renumberFunctions } from "../../functions/actions";
 import { FunctionNumberingControl } from "../../functions/FunctionNumberingControl";
 import { FunctionList } from "../../functions/FunctionList";
-import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
 import { getOptionsForEvent } from "@/lib/options";

@@ -125,7 +125,7 @@ holds `resolveDueAt()` and `dueTier()`; nothing is denormalised, so nothing can 
 | `src/app/events/workflows/actions.ts` | `setStepDueDate` / `clearStepDueDate` (reuse `assertInstanceMatches`) |
 | `src/components/WorkflowPanel.tsx` | due chip + inline date/offset editor |
 | `src/components/{WorkflowBadge,WorkflowStatusBadge}.tsx` | overdue marker |
-| `src/app/workflows/[id]/WorkflowEditor.tsx`, `src/app/workflows/actions.ts` | per-step "due N days before <anchor>" control |
+| `src/app/(admin)/workflows/[id]/WorkflowEditor.tsx`, `src/app/(admin)/workflows/actions.ts` | per-step "due N days before <anchor>" control |
 | `src/app/events/[id]/actions.ts` | overdue counts in `attention` |
 | `src/app/events/[id]/deadlines/{page.tsx,actions.ts,DeadlineFilters.tsx}` | new — rollup page |
 | `src/components/EventSidebar.tsx` | `NAV` entry |

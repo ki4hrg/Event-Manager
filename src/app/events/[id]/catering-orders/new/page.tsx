@@ -4,7 +4,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getEvent } from "@/app/events/event";
 import { createCateringOrder } from "../../../catering-orders/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { CateringOrderForm } from "../../../catering-orders/CateringOrderForm";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { requirePermission } from "@/lib/permissions";

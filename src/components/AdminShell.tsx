@@ -6,26 +6,16 @@ import { ADMIN_RESOURCES, adminNavGroups, type AdminAccess } from "@/lib/adminNa
 import { PageWrapper } from "./PageWrapper";
 import { AdminNav } from "./AdminNav";
 
-// The admin area's frame (/settings, /system): page title plus the grouped
-// nav. Layout only; each segment's own layout gates entry before rendering it.
-export async function AdminShell({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
+// The admin area's frame: the grouped nav beside the content column. Rendered
+// once by src/app/(admin)/layout.tsx, so it stays mounted across admin pages.
+// It only decides which links to show; each segment's own layout gates entry,
+// and each page renders its own heading.
+export async function AdminShell({ children }: { children: React.ReactNode }) {
   const [levels, superAdmin] = await Promise.all([permissionLevels(ADMIN_RESOURCES), isSuperAdmin()]);
   const access: AdminAccess = { canView: (r) => canDo(levels, r, "VIEW"), isSuperAdmin: superAdmin };
 
   return (
     <PageWrapper>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{title}</h1>
-        {description && <p className="text-gray-600 dark:text-gray-400 mt-1">{description}</p>}
-      </div>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <AdminNav groups={adminNavGroups(access)} search={access.canView(PermissionResource.SETTINGS)} />
         <div className="min-w-0 flex-1">{children}</div>

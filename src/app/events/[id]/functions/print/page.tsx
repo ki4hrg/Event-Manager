@@ -5,7 +5,7 @@ import { FunctionDetails } from "@/app/events/functions/FunctionDetails";
 import { getFunction, getFunctions } from "@/app/events/functions/actions";
 import { getEvent } from "@/app/events/event";
 import { getWorkflowInstances } from "@/app/events/workflows/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 
 export const dynamic = "force-dynamic";

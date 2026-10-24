@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { OptionCategory } from "@/lib/optionCategories";
 
 // Dropdown options are per tenant. The Server Action `getOptions` in
-// src/app/settings/actions.ts reads the active tenant's; these helpers are for
+// src/app/(admin)/settings/actions.ts reads the active tenant's; these helpers are for
 // callers that have no session — the unauthenticated share routes and the
 // auth-free report actions — which know the tenant only through an event.
 // Deliberately NOT a "use server" module: a tenant-explicit action would let a

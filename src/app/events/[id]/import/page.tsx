@@ -7,7 +7,7 @@ import { formatBreakoutSessionName } from "@/lib/breakoutLabels";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import type { CustomOption } from "@prisma/client";
 import { getEvent } from "@/app/events/event";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import {
   getImportSourceOptions,
   getDefaultSource,

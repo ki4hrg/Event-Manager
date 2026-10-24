@@ -7,7 +7,7 @@ wins.
 
 ## As built
 
-- Terms come from their own `rfp_term` list (Settings › Vendors, mergeable
+- Terms come from their own `rfp_term` list (Settings › RFPs › Terms, mergeable
   like concessions), not the hotel `rfp_concession` list; they're stored as
   `RfpConcession` rows on the vendor RFP and print as "Terms". Quotes record
   deposit, validity and cancellation as fields rather than per-term answers.

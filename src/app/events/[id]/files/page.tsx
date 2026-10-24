@@ -6,7 +6,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Toast } from "@/components/Toast";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { getEvent } from "@/app/events/event";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { prisma } from "@/lib/prisma";
 import { formatFileSize } from "@/lib/uploads";
 import { getSetupOrderDisplayName } from "../../setup-orders/utils";

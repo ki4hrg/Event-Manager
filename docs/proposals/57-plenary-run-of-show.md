@@ -84,7 +84,7 @@ already assembles. Keep `role` free text for the things that are not a person
 
 **Permissions.** No new `PermissionResource`. A cue has the same lifetime, owner
 and audience as its function — gate on `FUNCTIONS`. That also keeps it out of
-`src/app/users/roles/resources.ts` and `prisma/seed.mjs`.
+`src/app/(admin)/users/roles/resources.ts` and `prisma/seed.mjs`.
 
 **No status/workflow.** Do not give a cue `EntityStatus` / `StatusModelType` /
 workflow templates — that pulls in the status-defaults panel, the workflow switch

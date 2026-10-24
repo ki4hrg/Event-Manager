@@ -2,7 +2,8 @@
 // what Settings needs to edit it and every column that stores its labels.
 // Option references are by label, not FK, so a rename rewrites each rename
 // target and a delete counts uses across them. A new category is one entry
-// here (tsc refuses an entry without rename targets), its seed in
+// here plus its place in an area of OPTION_SECTIONS (tsc refuses an entry
+// without rename targets or an area), its seed in
 // prisma/tenantDefaults.mjs, and its reads.
 //
 // Plain server module (it reaches Prisma through the targets). Client
@@ -149,39 +150,60 @@ const fileInTenant = (tenantId: string): Prisma.FileUploadWhereInput => ({
 
 // ── Sections ────────────────────────────────────────────────────────────────
 
-// Where a list is edited. `href` is the page; `home` names it in messages
-// ("isn't in the amenity list (Settings › Hotels & RFPs)"). `settings` marks
-// the sections /settings/[section] renders; the others have their own page
-// under another permission.
+// The functional areas of the admin nav, in nav order, each with its lists in
+// order. Every list has its own page (optionListHref); /settings/<area>
+// redirects to the area's first list. A category sits in exactly one area
+// (checked below the registry).
 export const OPTION_SECTIONS = {
-  "event-planning": { title: "Event planning", href: "/settings/event-planning", home: "Settings › Event planning", settings: true },
-  orders: { title: "Orders & services", href: "/settings/orders", home: "Settings › Orders & services", settings: true },
-  status: { title: "Status & workflow", href: "/settings/status", home: "Settings › Status & workflow", settings: true },
-  people: { title: "People & vendors", href: "/settings/people", home: "Settings › People & vendors", settings: true },
-  hotels: { title: "Hotels & RFPs", href: "/settings/hotels", home: "Settings › Hotels & RFPs", settings: true },
-  "post-event": { title: "Post-event", href: "/settings/post-event", home: "Settings › Post-event", settings: true },
-  equipment: { title: "Equipment categories", href: "/equipment/categories", home: "Equipment › Categories", settings: false },
-  storage: { title: "Location types", href: "/storage-locations/types", home: "Storage › Types", settings: false },
-} as const satisfies Record<string, { title: string; href: string; home: string; settings: boolean }>;
+  events: {
+    title: "Events",
+    lists: ["event_type", "event_scope", "event_frequency", "per_facility_type", "hotel_region", "hotel_area", "file_type"],
+  },
+  program: { title: "Program", lists: ["function_type", "schedule_type", "presentation_type", "presenter_role", "booth_type"] },
+  orders: {
+    title: "Orders",
+    lists: ["service_style", "meal_type", "setup_type", "per_av_setup", "delivery_method", "media_type", "print_distribution"],
+  },
+  hotels: {
+    title: "Hotels",
+    lists: [
+      "hotel_room_type",
+      "hotel_guest_type",
+      "hotel_amenity",
+      "hotel_brand",
+      "reservation_method",
+      "proposal_status",
+      "per_housing_provider",
+    ],
+  },
+  rfps: { title: "RFPs", lists: ["rfp_service", "rfp_term", "rfp_concession"] },
+  people: { title: "People & vendors", lists: ["contact_role", "vendor_contact_type"] },
+  status: { title: "Status & workflow", lists: ["substatus"] },
+  inventory: { title: "Inventory", lists: ["equipment_category", "location_type"] },
+} as const satisfies Record<string, { title: string; lists: readonly string[] }>;
 
 export type OptionSection = keyof typeof OPTION_SECTIONS;
 
-export const SETTINGS_SECTIONS = (Object.keys(OPTION_SECTIONS) as OptionSection[]).filter((s) => OPTION_SECTIONS[s].settings);
+export const SECTION_KEYS = Object.keys(OPTION_SECTIONS) as OptionSection[];
 
-export function isSettingsSection(value: string): value is OptionSection {
-  return Object.hasOwn(OPTION_SECTIONS, value) && OPTION_SECTIONS[value as OptionSection].settings;
+export function isOptionSection(value: string): value is OptionSection {
+  return Object.hasOwn(OPTION_SECTIONS, value);
 }
 
-// The settings tabs before the lists were grouped, for redirects.
-export const LEGACY_SETTINGS_TABS: Record<string, OptionSection> = {
-  functions: "event-planning",
-  presentations: "event-planning",
-  files: "event-planning",
-  specifications: "event-planning",
-  catering: "orders",
-  contacts: "people",
-  vendors: "people",
-};
+// Settings URLs from before lists had their own pages: the per-topic tabs
+// (/settings/functions, …) and the area slugs since renamed or split. Each
+// lands on one list (checked below the registry).
+export const LEGACY_SETTINGS_TABS = {
+  functions: "function_type",
+  presentations: "presentation_type",
+  files: "file_type",
+  specifications: "event_type",
+  catering: "service_style",
+  contacts: "contact_role",
+  vendors: "vendor_contact_type",
+  "event-planning": "event_type",
+  "post-event": "per_facility_type",
+} as const satisfies Record<string, string>;
 
 // ── Groups ──────────────────────────────────────────────────────────────────
 
@@ -212,7 +234,6 @@ export const FILE_TYPE_GROUPS = [{ value: "RFP", label: "RFP documents" }] as co
 
 export type OptionCategoryDef = {
   title: string;
-  section: OptionSection;
   description: string;
   color?: boolean;
   // Option carries Vendor model types (which order forms list it).
@@ -223,6 +244,9 @@ export type OptionCategoryDef = {
   mergeable?: { noun: string };
   // Who edits the list (VIEW to see it, WRITE/DELETE to change it).
   resource: PermissionResource;
+  // A list edited under a resource other than SETTINGS also has a page in its
+  // own feature, for users who can't open /settings.
+  host?: string;
   // Every column storing this category's labels. Required: a list with no
   // stored uses still declares [] on purpose.
   renameTargets: readonly RenameTarget[];
@@ -258,7 +282,6 @@ const HOTEL_ROOM_TYPE_TARGETS: readonly RenameTarget[] = [
 export const OPTION_CATEGORIES = {
   function_type: {
     title: "Function Types",
-    section: "event-planning",
     description: "Categories for functions.",
     color: true,
     groups: { kind: "fixed", label: "Function space", choices: FUNCTION_SPACES },
@@ -270,7 +293,6 @@ export const OPTION_CATEGORIES = {
   },
   schedule_type: {
     title: "Schedule Types",
-    section: "event-planning",
     description: "Entries in a function's schedule.",
     color: true,
     // MAIN anchors a function's date and is the default for new schedules.
@@ -280,7 +302,6 @@ export const OPTION_CATEGORIES = {
   },
   setup_type: {
     title: "Setup Types",
-    section: "event-planning",
     description: "Room setups for setup orders.",
     resource: SETTINGS,
     renameTargets: [
@@ -291,21 +312,18 @@ export const OPTION_CATEGORIES = {
   },
   booth_type: {
     title: "Booth Types",
-    section: "event-planning",
     description: "Exhibit booth and stand types.",
     resource: SETTINGS,
     renameTargets: [col("exhibitBooth", "boothType", inEvent), col("exhibitBoothGroup", "boothType", inEvent), formLinkBoothTypes],
   },
   presenter_role: {
     title: "Presenter Roles",
-    section: "event-planning",
     description: "Speaker roles on presentations.",
     resource: SETTINGS,
     renameTargets: [col("presentationContact", "role", (t) => ({ presentation: inEvent(t) }))],
   },
   presentation_type: {
     title: "Presentation Types",
-    section: "event-planning",
     description: "Categories for presentations.",
     color: true,
     resource: SETTINGS,
@@ -313,21 +331,18 @@ export const OPTION_CATEGORIES = {
   },
   contact_role: {
     title: "Contact Roles",
-    section: "people",
     description: "Roles for contacts.",
     resource: SETTINGS,
     renameTargets: [arrayCol("Contact", "roles")],
   },
   service_style: {
     title: "Service Styles",
-    section: "orders",
     description: "Catering service styles.",
     resource: SETTINGS,
     renameTargets: [col("cateringOrder", "serviceStyle", inEvent)],
   },
   meal_type: {
     title: "Meal Types",
-    section: "orders",
     description: "Meal periods for catering orders.",
     groups: { kind: "fixed", label: "Report bucket", choices: MEAL_BUCKETS },
     resource: SETTINGS,
@@ -339,14 +354,12 @@ export const OPTION_CATEGORIES = {
   },
   vendor_contact_type: {
     title: "Vendor Contact Types",
-    section: "people",
     description: "Roles for vendor contacts.",
     resource: SETTINGS,
     renameTargets: [col("vendorContact", "contactType", (tenantId) => ({ vendor: { tenantId } }))],
   },
   file_type: {
     title: "File Types",
-    section: "event-planning",
     description: "Categories for file attachments.",
     groups: { kind: "fixed", label: "Used for", choices: FILE_TYPE_GROUPS },
     resource: SETTINGS,
@@ -354,7 +367,6 @@ export const OPTION_CATEGORIES = {
   },
   substatus: {
     title: "Substatuses",
-    section: "status",
     description: "Finer states within each status.",
     groups: { kind: "fixed", label: "Status", choices: SUBSTATUS_GROUPS, split: true },
     resource: SETTINGS,
@@ -362,7 +374,6 @@ export const OPTION_CATEGORIES = {
   },
   proposal_status: {
     title: "Proposal Statuses",
-    section: "hotels",
     description: "Hotel proposal statuses, each tied to a stage.",
     color: true,
     groups: { kind: "fixed", label: "Stage", choices: PROPOSAL_STAGES },
@@ -371,21 +382,18 @@ export const OPTION_CATEGORIES = {
   },
   hotel_room_type: {
     title: "Room Types",
-    section: "hotels",
     description: "Room types for hotel blocks.",
     resource: SETTINGS,
     renameTargets: HOTEL_ROOM_TYPE_TARGETS,
   },
   hotel_guest_type: {
     title: "Guest Types",
-    section: "hotels",
     description: "Guest types for hotel proposals and RFPs.",
     resource: SETTINGS,
     renameTargets: [col("hotelProposal", "guestType", inEvent), col("rfpHotelBlock", "guestType", (t) => ({ rfp: inEvent(t) }))],
   },
   hotel_amenity: {
     title: "Amenities",
-    section: "hotels",
     description: "Hotel amenities.",
     mergeable: { noun: "amenity" },
     resource: SETTINGS,
@@ -393,7 +401,6 @@ export const OPTION_CATEGORIES = {
   },
   hotel_brand: {
     title: "Brands",
-    section: "hotels",
     description: "Hotel brands for venues.",
     resource: SETTINGS,
     renameTargets: [col("venue", "brand", inTenant)],
@@ -402,14 +409,12 @@ export const OPTION_CATEGORIES = {
   // region rename also rewrites those groups — derived, not listed here.
   hotel_region: {
     title: "Regions",
-    section: "hotels",
     description: "Regions for events and RFPs.",
     resource: SETTINGS,
     renameTargets: [arrayCol("Event", "regions"), arrayCol("Rfp", "regions")],
   },
   hotel_area: {
     title: "Areas",
-    section: "hotels",
     description: "Areas within a region.",
     groups: { kind: "category", label: "Region", category: "hotel_region" },
     resource: SETTINGS,
@@ -417,7 +422,6 @@ export const OPTION_CATEGORIES = {
   },
   rfp_concession: {
     title: "Concessions",
-    section: "hotels",
     description: "Concessions requested in RFPs.",
     groups: { kind: "fixed", label: "Heading", choices: CONCESSION_GROUPS, fallback: "OTHER" },
     mergeable: { noun: "concession" },
@@ -426,7 +430,6 @@ export const OPTION_CATEGORIES = {
   },
   reservation_method: {
     title: "Reservation Methods",
-    section: "hotels",
     description: "How attendees reserve rooms.",
     resource: SETTINGS,
     renameTargets: [
@@ -436,15 +439,13 @@ export const OPTION_CATEGORIES = {
     ],
   },
   rfp_service: {
-    title: "RFP Services",
-    section: "hotels",
+    title: "Services",
     description: "What an Other services RFP is for.",
     resource: SETTINGS,
     renameTargets: [col("rfp", "service", inEvent)],
   },
   rfp_term: {
-    title: "RFP Terms",
-    section: "hotels",
+    title: "Terms",
     description: "Terms requested in RFPs.",
     mergeable: { noun: "RFP term" },
     resource: SETTINGS,
@@ -452,81 +453,72 @@ export const OPTION_CATEGORIES = {
   },
   event_type: {
     title: "Event Types",
-    section: "event-planning",
     description: "Categories for events.",
     resource: SETTINGS,
     renameTargets: [col("eventSpecification", "eventType", inEvent)],
   },
   event_scope: {
     title: "Event Scope",
-    section: "event-planning",
     description: "Citywide, single venue or multiple venues.",
     resource: SETTINGS,
     renameTargets: [col("eventSpecification", "eventScope", inEvent)],
   },
   event_frequency: {
     title: "Event Frequency",
-    section: "event-planning",
     description: "How often an event recurs.",
     resource: SETTINGS,
     renameTargets: [col("eventSpecification", "eventFrequency", inEvent)],
   },
   per_facility_type: {
     title: "Facility Types",
-    section: "post-event",
     description: "Primary event facility type.",
     resource: SETTINGS,
     renameTargets: [col("eventPostEvent", "primaryFacilityType", inEvent)],
   },
   per_housing_provider: {
     title: "Housing Providers",
-    section: "post-event",
     description: "Who performed housing services.",
     resource: SETTINGS,
     renameTargets: [col("eventPostEvent", "housingPerformedBy", inEvent)],
   },
   per_av_setup: {
     title: "A/V Set-ups",
-    section: "post-event",
     description: "A/V set-up for the largest function.",
     resource: SETTINGS,
     renameTargets: [col("eventPostEvent", "largestFunctionAvSetup", inEvent)],
   },
   delivery_method: {
     title: "Delivery Methods",
-    section: "orders",
     description: "How a media deliverable reaches the room.",
     resource: SETTINGS,
     renameTargets: [col("mediaDeliverable", "delivery", inEvent)],
   },
   media_type: {
     title: "Media Types",
-    section: "orders",
     description: "Kinds of media deliverables.",
     resource: SETTINGS,
     renameTargets: [col("mediaDeliverable", "mediaType", inEvent)],
   },
   print_distribution: {
     title: "Print Distribution",
-    section: "orders",
     description: "How printed items are distributed.",
     resource: SETTINGS,
     renameTargets: [col("printItem", "distributionMethod", (t) => ({ printOrder: inEvent(t) }))],
   },
   equipment_category: {
     title: "Equipment Categories",
-    section: "equipment",
     description: "Categories for equipment.",
     models: true,
     resource: PermissionResource.EQUIPMENT,
+    host: "/equipment/categories",
     renameTargets: [col("equipment", "category", inTenant)],
   },
   location_type: {
     title: "Location Types",
-    section: "storage",
     description: "What a storage location is.",
     color: true,
     resource: PermissionResource.STORAGE_LOCATIONS,
+    host: "/storage-locations/types",
     renameTargets: [col("storageLocation", "type", inTenant)],
   },
 } as const satisfies Record<string, OptionCategoryDef>;
@@ -555,8 +547,31 @@ export function optionCategory(category: string): OptionCategoryDef {
   return OPTION_CATEGORIES[category];
 }
 
-export const categoriesInSection = (section: OptionSection): OptionCategory[] =>
-  CATEGORY_KEYS.filter((c) => OPTION_CATEGORIES[c].section === section);
+// Every area's lists name real categories, and every category has an area;
+// so do the legacy redirects.
+type ListedCategory = (typeof OPTION_SECTIONS)[OptionSection]["lists"][number];
+type SectionRefErrors =
+  | Exclude<ListedCategory, OptionCategory>
+  | Exclude<OptionCategory, ListedCategory>
+  | Exclude<(typeof LEGACY_SETTINGS_TABS)[keyof typeof LEGACY_SETTINGS_TABS], OptionCategory>;
+const _sectionRefsValid: [SectionRefErrors] extends [never] ? true : SectionRefErrors = true;
+void _sectionRefsValid;
+
+export const categoriesInSection = (section: OptionSection): readonly OptionCategory[] => OPTION_SECTIONS[section].lists;
+
+const SECTION_OF = Object.fromEntries(
+  SECTION_KEYS.flatMap((s) => categoriesInSection(s).map((c) => [c, s])),
+) as Record<OptionCategory, OptionSection>;
+
+export const sectionOf = (category: OptionCategory): OptionSection => SECTION_OF[category];
+
+// A list's own page in the admin area.
+export const optionListHref = (category: OptionCategory) => `/settings/lists/${category}`;
+
+// The legacy settings slug's list, if it had one.
+export function legacySettingsTab(slug: string): OptionCategory | null {
+  return Object.hasOwn(LEGACY_SETTINGS_TABS, slug) ? LEGACY_SETTINGS_TABS[slug as keyof typeof LEGACY_SETTINGS_TABS] : null;
+}
 
 // Lists whose options merge into one another (every use moves over).
 export const MERGEABLE: readonly OptionCategory[] = CATEGORY_KEYS.filter((c) => "mergeable" in OPTION_CATEGORIES[c]);
@@ -565,9 +580,10 @@ export function isMergeable(category: OptionCategory): category is HotelLabelCat
   return MERGEABLE.includes(category);
 }
 
-// Where each list is edited, for messages naming it.
+// Where each list is edited, for messages naming it
+// ("isn't in the amenity list (Settings › Hotels › Amenities)").
 export const LIST_HOMES = Object.fromEntries(
-  CATEGORY_KEYS.map((c) => [c, OPTION_SECTIONS[OPTION_CATEGORIES[c].section].home]),
+  CATEGORY_KEYS.map((c) => [c, `Settings › ${OPTION_SECTIONS[sectionOf(c)].title} › ${OPTION_CATEGORIES[c].title}`]),
 ) as Record<OptionCategory, string>;
 
 // ── Derived operations ──────────────────────────────────────────────────────

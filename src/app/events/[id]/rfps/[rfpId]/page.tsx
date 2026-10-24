@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { Toast } from "@/components/Toast";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getInboundEmailDomain } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { dateKey } from "@/lib/hotels";

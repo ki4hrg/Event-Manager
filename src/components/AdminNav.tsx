@@ -78,7 +78,7 @@ export function AdminNav({ groups, search }: { groups: AdminNavGroup[]; search: 
         </Suspense>
       )}
       <select
-        aria-label="Settings page"
+        aria-label="Admin page"
         value={active ?? ""}
         onChange={(e) => router.push(e.target.value)}
         className={`${selectClass} sm:hidden`}
@@ -104,25 +104,34 @@ export function AdminNav({ groups, search }: { groups: AdminNavGroup[]; search: 
           ),
         )}
       </select>
-      <nav aria-label="Settings" className="hidden sm:block space-y-3">
+      <nav aria-label="Admin" className="hidden sm:block space-y-1">
         {groups.map((g) =>
           isSingle(g) ? (
             <Link key={g.label} href={g.links[0].href} className={linkClass(g.links[0].href)}>
               {g.label}
             </Link>
           ) : (
-            <div key={g.label}>
-              <p className={`${labelMicroCaps} px-3 mb-1`}>{g.label}</p>
-              <ul className="space-y-0.5">
+            // The group holding the current page opens; the rest close as the
+            // path moves on. A group opened by hand stays open meanwhile.
+            <details key={g.label} open={g.links.some((l) => l.href === active)} className="group">
+              <summary
+                className={`${labelMicroCaps} flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 [&::-webkit-details-marker]:hidden`}
+              >
+                {g.label}
+                <span aria-hidden className="transition-transform group-open:rotate-90">
+                  ›
+                </span>
+              </summary>
+              <ul className="mt-1 space-y-0.5">
                 {g.links.map((l) => (
                   <li key={l.href}>
-                    <Link href={l.href} className={linkClass(l.href)}>
+                    <Link href={l.href} aria-current={l.href === active ? "page" : undefined} className={linkClass(l.href)}>
                       {l.label}
                     </Link>
                   </li>
                 ))}
               </ul>
-            </div>
+            </details>
           ),
         )}
       </nav>

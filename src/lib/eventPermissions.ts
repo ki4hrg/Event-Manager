@@ -20,7 +20,7 @@ const LEVEL_ORDER: Record<PermissionLevel, number> = {
 
 // Resources whose grants carry ASSIGNED / UNASSIGNED rows, so they must be
 // resolved WITH the event id. Mirrors the EVENT_RESOURCES list in
-// prisma/seed.mjs and EVENT_SCOPED_RESOURCES in src/app/users/roles/resources.ts
+// prisma/seed.mjs and EVENT_SCOPED_RESOURCES in src/app/(admin)/users/roles/resources.ts
 // — when a PermissionResource becomes event-scoped, add it to all three.
 export const EVENT_SCOPED_PERMISSION_RESOURCES: PermissionResource[] = [
   "EVENTS",

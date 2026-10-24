@@ -10,7 +10,7 @@ import type { FunctionForTable } from "@/app/events/functions/actions";
 import { getSetupOrderDisplayName } from "@/app/events/setup-orders/utils";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { resolveOptionLabel } from "@/lib/optionUtils";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { parseHiddenColumns } from "@/lib/tableColumns";
 import { FUNCTION_TABLE_COLUMNS, type FunctionTableColumn } from "@/app/events/functions/tableColumns";

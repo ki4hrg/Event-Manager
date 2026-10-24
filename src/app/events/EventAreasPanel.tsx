@@ -22,7 +22,7 @@ export function EventAreasPanel({
   const [dirty, setDirty] = useState(false);
   const [pending, startTransition] = useTransition();
   if (areas.length === 0 && regions.length === 0) {
-    return <p className="text-sm text-gray-500 dark:text-gray-400">No hotel regions or areas yet — add them in Settings › Hotels &amp; RFPs.</p>;
+    return <p className="text-sm text-gray-500 dark:text-gray-400">No hotel regions or areas yet — add them in Settings › Events.</p>;
   }
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6 space-y-4">

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getActiveTenantId, requireActiveTenantId } from "@/lib/tenant";
 import { hasPermission } from "@/lib/permissions";
 import { getEquipment, createEquipmentInline } from "@/app/equipment/actions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import {
   ancestorIds,
   buildLocationIndex,

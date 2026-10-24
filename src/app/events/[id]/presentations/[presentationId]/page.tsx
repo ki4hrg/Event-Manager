@@ -30,7 +30,7 @@ import {
   unlinkMediaDeliverableFromPresentationPage,
 } from "../../../media-deliverables/actions";
 import { getWorkflowInstances, assignWorkflow, removeWorkflow, toggleStepCompletion, toggleItemCompletion, setEntityStatus, cancelEntity, restoreEntity } from "../../../workflows/actions";
-import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/(admin)/workflows/actions";
 import { EntityStatusPanel } from "@/components/EntityStatusPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { DELIVERABLES_SECTIONS, SPEAKER_PROFILE_SECTIONS } from "@/lib/forms/meta";
@@ -72,7 +72,7 @@ import { BreakoutSlotPanel } from "../../../presentations/BreakoutSlotPanel";
 import { SpeakerList } from "../../../presentations/SpeakerList";
 import { AVOrderPanel } from "../../../av-orders/AVOrderPanel";
 import { MediaDeliverablePanel } from "../../../media-deliverables/MediaDeliverablePanel";
-import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 
 export const dynamic = "force-dynamic";
 

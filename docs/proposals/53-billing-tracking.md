@@ -88,7 +88,7 @@ that makes a mistake visible. See open question 1.
 
 Add `BILLING` to `PermissionResource` — event-scoped, seeded admin-only, the way `API_KEYS` is.
 Per `docs/checklists/adding-entity.md` § Auth and permissions this means
-`src/app/users/roles/resources.ts` (`EVENT_SCOPED_RESOURCES`) **and** `prisma/seed.mjs`
+`src/app/(admin)/users/roles/resources.ts` (`EVENT_SCOPED_RESOURCES`) **and** `prisma/seed.mjs`
 (`EVENT_RESOURCES` + `ADMIN_ONLY_RESOURCES`), because the seed runs outside the Next runtime and
 cannot import the TS module. Missing the seed half is the classic way this surface half-lands.
 
@@ -134,8 +134,8 @@ That also gives the cost page a genuinely useful third column: estimated / invoi
 |---|---|
 | `prisma/schema.prisma` | `Invoice`, `InvoiceLineItem`, `Payment`, `InvoiceStatus`; `invoiceId` on `FileUpload`; relations on `Event`, `Vendor`, the five order models, `User` |
 | `prisma/seed.mjs` | `BILLING` in `EVENT_RESOURCES` + `ADMIN_ONLY_RESOURCES`; `payment_method` options |
-| `src/app/users/roles/resources.ts` | `BILLING` in `EVENT_SCOPED_RESOURCES` |
-| `src/app/settings/actions.ts` | `payment_method` in `OptionCategory` + rename-propagation switch |
+| `src/app/(admin)/users/roles/resources.ts` | `BILLING` in `EVENT_SCOPED_RESOURCES` |
+| `src/app/(admin)/settings/actions.ts` | `payment_method` in `OptionCategory` + rename-propagation switch |
 | `src/lib/uploads.ts` | `ENTITY_DIRS` / `ENTITY_FK_FIELD` / `getEntityTypeFromRecord` / `resolveEntityEventId` arms for invoices |
 | `src/app/events/billing/{actions.ts,core.ts,InvoiceList.tsx,InvoiceForm.tsx,LineItemsPanel.tsx,PaymentsPanel.tsx}` | new — colocated feature dir, `*Core(args, userId)` per § Writes |
 | `src/app/events/[id]/billing/{page.tsx,new/page.tsx,[invoiceId]/page.tsx}` | new — Archetypes A / B / C |

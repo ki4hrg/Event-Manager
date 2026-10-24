@@ -155,4 +155,4 @@ This is an authorization server for one thing: the MCP connector. It is not a
 general-purpose OAuth provider. Tokens are not scope-restricted — they carry the
 full permission set of their owner, and the `"mcp"` scope string exists only to
 populate the discovery documents. There is no UI for auditing or revoking
-refresh tokens; `/settings/api-keys` covers API keys only.
+refresh tokens; `/users/api-keys` (and `/account/api-keys`) covers API keys only.

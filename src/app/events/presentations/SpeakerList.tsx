@@ -39,7 +39,7 @@ function RoleSelect({ roles, defaultValue, className }: { roles: CustomOption[];
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">
         No roles defined.{" "}
-        <Link href="/settings/event-planning#presenter_role" className="text-blue-600 dark:text-blue-400 hover:underline">
+        <Link href="/settings/lists/presenter_role" className="text-blue-600 dark:text-blue-400 hover:underline">
           Add roles in Settings
         </Link>
       </p>

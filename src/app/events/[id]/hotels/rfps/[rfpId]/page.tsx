@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import type { RfpSpaceKind } from "@prisma/client";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { Toast } from "@/components/Toast";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getInboundEmailDomain } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";

@@ -21,7 +21,7 @@ import {
   toggleItemCompletion,
   toggleStepCompletion,
 } from "../../../workflows/actions";
-import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/(admin)/workflows/actions";
 
 export const dynamic = "force-dynamic";
 

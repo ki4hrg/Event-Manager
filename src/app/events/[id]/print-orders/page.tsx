@@ -5,7 +5,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { getEvent } from "@/app/events/event";
 import { getPrintOrders, deletePrintOrder, deletePrintOrders, bulkUpdatePrintOrders } from "../../print-orders/actions";
 import { getWorkflowBadgeSummaries } from "../../workflows/actions";
-import { getSubstatusOptions } from "@/app/settings/actions";
+import { getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getHiddenColumns } from "@/app/events/table-columns-actions";
 import { getResponsiblePartyVendors } from "@/app/vendors/actions";
 import { flattenResponsiblePartyOptions } from "@/app/vendors/vendor-utils";

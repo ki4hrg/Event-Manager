@@ -1,7 +1,7 @@
 // Per-tenant seed data. Every Tenant gets its own copy of the dropdown options,
 // the equipment catalog, and the "Event Team" system vendor, so this runs both
 // from prisma/seed.mjs (for every existing tenant) and from the app when a super
-// admin creates a tenant (src/app/tenants/core.ts). Plain ESM with no imports so
+// admin creates a tenant (src/app/(admin)/tenants/core.ts). Plain ESM with no imports so
 // both runtimes can load it; `db` is a PrismaClient or a transaction client.
 
 export const DEFAULT_OPTIONS = {

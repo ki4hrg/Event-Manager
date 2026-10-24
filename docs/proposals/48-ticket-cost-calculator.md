@@ -90,7 +90,7 @@ Recommendation: build the reader so each cost source is a function returning
 |---|---|
 | `prisma/schema.prisma` | `EventCostLine` + `CostBasis`; `Event.expectedAttendees`; `estimatedCost` on 5 order models; `COSTS` in `PermissionResource` |
 | `prisma/seed.mjs` | `COSTS` in `EVENT_RESOURCES` + `ADMIN_ONLY_RESOURCES`; `cost_category` options |
-| `src/app/users/roles/resources.ts` | `COSTS` in `EVENT_SCOPED_RESOURCES` |
+| `src/app/(admin)/users/roles/resources.ts` | `COSTS` in `EVENT_SCOPED_RESOURCES` |
 | `src/app/events/EventForm.tsx`, `src/app/events/actions.ts`, `src/app/events/core.ts` | `expectedAttendees` field + parse (`formData.get("x") ? parseInt(...) : null` — not blanket `\|\| null`) |
 | `src/app/events/[id]/costs/{page.tsx,actions.ts,CostSummary.tsx,CostFilters.tsx,print/page.tsx}` | new — Archetype D shape, authenticated action |
 | `src/app/events/[id]/costs/CostLinesPanel.tsx` | CRUD for `EventCostLine`; props-in server actions like `LinkedItemsPanel` |

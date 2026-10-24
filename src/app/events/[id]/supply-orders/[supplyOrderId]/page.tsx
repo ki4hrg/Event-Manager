@@ -29,7 +29,7 @@ import {
   updateSupplyOrderItemPackingStatus,
   updateSupplyOrderItemAcquisitionState,
 } from "../../../supply-orders/actions";
-import { getOptions, getSubstatusOptions } from "@/app/settings/actions";
+import { getOptions, getSubstatusOptions } from "@/app/(admin)/settings/actions";
 import { getEquipment } from "@/app/equipment/actions";
 import {
   getStorageLocations,
@@ -58,7 +58,7 @@ import {
   cancelEntity,
   restoreEntity,
 } from "../../../workflows/actions";
-import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/(admin)/workflows/actions";
 import { getEventRooms } from "@/lib/eventVenues";
 import { SupplyOrderTabs, SUPPLY_ORDER_TABS } from "../../../supply-orders/SupplyOrderTabs";
 import { SupplyOrderForm } from "../../../supply-orders/SupplyOrderForm";

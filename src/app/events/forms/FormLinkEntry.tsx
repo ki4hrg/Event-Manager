@@ -1,7 +1,7 @@
 import type { FormType } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { isEmailConfigured } from "@/lib/email";
-import { getWorkflowTemplateOptions } from "@/app/workflows/actions";
+import { getWorkflowTemplateOptions } from "@/app/(admin)/workflows/actions";
 import { getOptionsForEvent } from "@/lib/options";
 import { createFormLink, deleteFormLink, getFormLinks, getFunctionReviewPicker, revokeFormLink } from "./actions";
 import { FormLinkButton } from "./FormLinkButton";

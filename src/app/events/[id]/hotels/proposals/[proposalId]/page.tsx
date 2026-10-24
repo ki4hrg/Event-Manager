@@ -7,7 +7,7 @@ import { Toast } from "@/components/Toast";
 import { DeleteButton } from "@/components/DeleteButton";
 import { LastUpdated } from "@/components/LastUpdated";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { getEvent } from "@/app/events/event";
 import Link from "next/link";
 import { btnSecondary } from "@/lib/buttonStyles";

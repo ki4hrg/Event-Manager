@@ -4,7 +4,7 @@ import { seedTenantDefaults } from "./tenantDefaults.mjs";
 
 const prisma = new PrismaClient();
 
-// Mirrored by src/app/users/roles/resources.ts PERMISSION_GROUPS. The seed
+// Mirrored by src/app/(admin)/users/roles/resources.ts PERMISSION_GROUPS. The seed
 // runs outside the Next runtime so it can't import the TS module — when a new
 // PermissionResource lands in schema.prisma, update both files.
 const NON_EVENT_RESOURCES = [

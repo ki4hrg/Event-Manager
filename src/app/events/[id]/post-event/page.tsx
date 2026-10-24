@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { PER_SECTIONS } from "@/lib/esg/perFields";
 import { perDerivedBlocks } from "@/lib/esg/per";
 import { getPostEventData } from "../../specifications/actions";

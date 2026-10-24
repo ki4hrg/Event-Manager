@@ -7,7 +7,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { LastUpdated } from "@/components/LastUpdated";
 import { Toast } from "@/components/Toast";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { btnSecondary } from "@/lib/buttonStyles";
 import { colorClasses } from "@/lib/colors";
 import { dateKey } from "@/lib/hotels";

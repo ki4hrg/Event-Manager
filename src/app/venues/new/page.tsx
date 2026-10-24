@@ -3,7 +3,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { createVenue } from "../actions";
 import { VenueForm } from "../VenueForm";
 import { requirePermission } from "@/lib/permissions";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 
 export const dynamic = "force-dynamic";
 

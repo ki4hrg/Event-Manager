@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getEvent } from "@/app/events/event";
 import { getEventProfileData } from "@/app/events/reports/data";
-import { getOptions } from "@/app/settings/actions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { PrintHeader } from "@/components/print/PrintHeader";
 import { EventProfileReport, PROFILE_SECTIONS, type ProfileSection } from "../EventProfileReport";
 
