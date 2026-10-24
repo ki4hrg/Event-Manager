@@ -10,6 +10,7 @@ import {
   PERMISSION_LEVELS,
   EVENT_SCOPES,
   permissionFieldName,
+  unsetResources,
 } from "./resources";
 
 function buildPermissionMap(perms: RolePermission[] | undefined): Map<string, PermissionLevel> {
@@ -50,6 +51,8 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
   const readOnly = !!role && (role.isSystem || !canEdit);
   const [error, setError] = useState<string | null>(null);
   const permMap = buildPermissionMap(role?.permissions);
+  const unset = role && !role.isSystem ? unsetResources(role.permissions) : [];
+  const unsetKeys = new Set<PermissionResource>(unset.map((r) => r.value));
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -70,6 +73,11 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
       {readOnly && (
         <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-300 text-sm">
           {role?.isSystem ? "System role (read-only)" : "Read-only (super admin only)"}
+        </div>
+      )}
+      {unset.length > 0 && (
+        <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-300 text-sm">
+          Not set (read as None): {unset.map((r) => r.label).join(", ")}
         </div>
       )}
       <form action={handleSubmit} className="space-y-6">
@@ -109,7 +117,7 @@ export function RoleForm({ role, saveAction, deleteAction, canEdit = true }: Rol
           </div>
         </div>
 
-        <PermissionMatrix permMap={permMap} readOnly={readOnly} />
+        <PermissionMatrix permMap={permMap} readOnly={readOnly} unsetKeys={unsetKeys} />
 
         {!readOnly && (
           <div className="flex flex-wrap gap-3">
@@ -130,9 +138,12 @@ function DeleteRoleControls({ deleteAction }: { deleteAction?: () => Promise<voi
 function PermissionMatrix({
   permMap,
   readOnly,
+  unsetKeys,
 }: {
   permMap: Map<string, PermissionLevel>;
   readOnly: boolean;
+  // Resources the role has never stored a level for.
+  unsetKeys: Set<PermissionResource>;
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
@@ -164,7 +175,14 @@ function PermissionMatrix({
                 </tr>
                 {group.resources.map(({ value: resource, label }) => (
                   <tr key={resource}>
-                    <td className="sticky left-0 z-10 bg-white dark:bg-gray-800 py-2 pr-4 text-gray-900 dark:text-white">{label}</td>
+                    <td className="sticky left-0 z-10 bg-white dark:bg-gray-800 py-2 pr-4 text-gray-900 dark:text-white">
+                      {label}
+                      {unsetKeys.has(resource) && (
+                        <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+                          Not set
+                        </span>
+                      )}
+                    </td>
                     {EVENT_SCOPES.map(({ value: scope }) =>
                       group.scopes.includes(scope) ? (
                         <td key={scope} className="py-2 px-2">

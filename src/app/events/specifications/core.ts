@@ -15,6 +15,7 @@ import {
   type SpecGrid,
 } from "@/lib/esg/fields";
 import { setFunctionNumbersLocked } from "@/lib/functionNumbering";
+import { rangeTouched } from "@/lib/dateRange";
 import { PER_SECTION_LETTERS, PER_WRITABLE_FIELDS } from "@/lib/esg/perFields";
 
 const FIELD_BY_KEY = new Map(ESG_WRITABLE_FIELDS.map((f) => [f.key, f]));
@@ -86,16 +87,30 @@ export async function checkValue(
 // Partial update of the event's specification. Keys must be ESG fields
 // (src/lib/esg/fields.ts); narrative keys merge into the existing JSON. Date
 // Revised is set only when the caller passes it or by issueEsgCore.
-// A start/end pair (`endKey`) written together can't run backwards. Values
-// are Dates once parsed; MCP may pass strings.
-function checkRanges(fields: { key: string; label: string; endKey?: string }[], values: Record<string, unknown>) {
-  const at = (v: unknown) => (v instanceof Date ? v.getTime() : typeof v === "string" && v ? Date.parse(v) : NaN);
+type RangeField = { key: string; label: string; endKey?: string };
+
+// Whether the write touches either end of a start/end pair (`endKey`).
+const touchesRange = (fields: RangeField[], values: Record<string, unknown>) =>
+  fields.some((f) => f.endKey && (values[f.key] !== undefined || values[f.endKey] !== undefined));
+
+// A start/end pair (`endKey`) can't run backwards. A partial write is checked
+// against the stored other end. `stored` is the row being updated (null on
+// create): a pair the write leaves as stored isn't rechecked, so a row saved
+// reversed before the check existed still saves its other edits. Values are
+// Dates once checkValue has passed them.
+function checkRanges(fields: RangeField[], values: Record<string, unknown>, stored: Record<string, unknown> | null) {
+  const at = (v: unknown) => (v instanceof Date ? v.getTime() : NaN);
+  const asDate = (v: unknown) => (v instanceof Date ? v : null);
   for (const f of fields) {
     if (!f.endKey) continue;
-    if (at(values[f.endKey]) < at(values[f.key])) {
-      const endLabel = fields.find((e) => e.key === f.endKey)?.label ?? f.endKey;
-      throw new Error(`${endLabel} can't be before ${f.label.toLowerCase()}`);
-    }
+    if (values[f.key] === undefined && values[f.endKey] === undefined) continue;
+    const pick = (k: string) => (values[k] !== undefined ? values[k] : stored?.[k]);
+    const start = pick(f.key);
+    const end = pick(f.endKey);
+    if (!(at(end) < at(start))) continue;
+    if (stored && !rangeTouched({ start: asDate(stored[f.key]), end: asDate(stored[f.endKey]) }, asDate(start), asDate(end))) continue;
+    const endLabel = fields.find((e) => e.key === f.endKey)?.label ?? f.endKey;
+    throw new Error(`${endLabel} can't be before ${f.label.toLowerCase()}`);
   }
 }
 
@@ -116,12 +131,9 @@ export async function upsertEventSpecificationCore(
     if (field.storage === "column") columns[key] = value;
     else narrativePatch[key] = value;
   }
-  checkRanges(ESG_WRITABLE_FIELDS, values);
-
-  const existing = await prisma.eventSpecification.findUnique({
-    where: { eventId },
-    select: { narrative: true },
-  });
+  // Every endKey pair is a column (src/lib/esg/fields.ts), so the stored row covers it.
+  const existing = await prisma.eventSpecification.findUnique({ where: { eventId } });
+  checkRanges(ESG_WRITABLE_FIELDS, values, existing as Record<string, unknown> | null);
   const narrative = {
     ...((existing?.narrative as Record<string, unknown> | null) ?? {}),
     ...narrativePatch,
@@ -172,6 +184,7 @@ export async function issueEsgCore(eventId: string, userId: string) {
 type GridDelegate = {
   create(args: { data: Record<string, unknown> }): Promise<{ id: string }>;
   update(args: { where: { id: string; eventId: string }; data: Record<string, unknown> }): Promise<{ id: string }>;
+  findFirst(args: { where: { id: string; eventId: string } }): Promise<Record<string, unknown> | null>;
   delete(args: { where: { id: string; eventId: string } }): Promise<unknown>;
   aggregate(args: { where: { eventId: string }; _max: { sortOrder: true } }): Promise<{ _max: { sortOrder: number | null } }>;
 };
@@ -203,7 +216,9 @@ function gridDelegate(grid: SpecGrid): GridDelegate {
   }
 }
 
-async function checkGridValues(eventId: string, grid: SpecGrid, values: Record<string, unknown>, creating: boolean) {
+// rowId null on create.
+async function checkGridValues(eventId: string, grid: SpecGrid, values: Record<string, unknown>, rowId: string | null) {
+  const creating = rowId === null;
   const tenantId = await requireEventTenantId(eventId);
   const columns = SPEC_GRID_COLUMNS[grid];
   const byKey = new Map(columns.map((c) => [c.key, c]));
@@ -224,7 +239,11 @@ async function checkGridValues(eventId: string, grid: SpecGrid, values: Record<s
     }
     await checkValue(eventId, tenantId, key, column.kind, value);
   }
-  checkRanges(columns, values);
+  if (touchesRange(columns, values)) {
+    const stored = rowId ? await gridDelegate(grid).findFirst({ where: { id: rowId, eventId } }) : null;
+    if (rowId && !stored) throw new PermissionError("NOT_FOUND");
+    checkRanges(columns, values, stored);
+  }
   for (const column of columns) {
     if (!column.required) continue;
     const v = values[column.key];
@@ -239,7 +258,7 @@ export async function createSpecRowCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
-  await checkGridValues(eventId, grid, values, true);
+  await checkGridValues(eventId, grid, values, null);
   const delegate = gridDelegate(grid);
   const max = await delegate.aggregate({ where: { eventId }, _max: { sortOrder: true } });
   return delegate.create({ data: { ...values, eventId, sortOrder: (max._max.sortOrder ?? -1) + 1 } });
@@ -253,7 +272,7 @@ export async function updateSpecRowCore(
   userId: string,
 ) {
   await requirePermissionForUser(userId, "EVENTS", "WRITE", eventId);
-  await checkGridValues(eventId, grid, values, false);
+  await checkGridValues(eventId, grid, values, rowId);
   return gridDelegate(grid).update({ where: { id: rowId, eventId }, data: values });
 }
 
