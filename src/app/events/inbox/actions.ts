@@ -9,7 +9,7 @@ import { hasPermission, requirePermission } from "@/lib/permissions";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { getInboundEmailDomain } from "@/lib/email";
 import { getUploadPath } from "@/lib/uploads";
-import { blockTypeLabel, dateKey } from "@/lib/hotels";
+import { dateKey } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
 import { DEFAULT_CANCELLED, distinctValues, PICKUP_FIELD_KEYS, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import {
@@ -25,8 +25,8 @@ import { meetingRequests, rfpMealTypes } from "@/lib/rfp/proposalSpace";
 import { eventScopeWhere } from "@/app/events/core";
 import type { PickupCountArgs } from "@/app/events/hotels/blockCore";
 import { readNewHotel, readProposal } from "@/app/events/hotels/proposalArgs";
-import { getProposalFormChoices } from "@/app/events/hotels/actions";
-import type { ConcessionAnswer, OfferedConcession, ProposalValues, RfpChoice } from "@/app/events/hotels/ProposalForm";
+import { getProposalFormChoices, getProposalRfpChoices } from "@/app/events/hotels/actions";
+import type { ConcessionAnswer, OfferedConcession, ProposalValues } from "@/app/events/hotels/ProposalForm";
 import { toProposalValues } from "@/app/events/hotels/core";
 import {
   applyInboundDeclineCore,
@@ -183,12 +183,22 @@ export async function applyInboundCounts(id: string, eventId: string, blockId: s
 }
 
 
-// After saving one of a message's offers: the proposal just saved, or the
-// event's proposals once the message has made more than one (the rest stay
-// open in the Inbox).
-function savedOfferRedirect(eventId: string, proposalId: string, saved: number, done: string): never {
+// After saving one of a message's offers: the proposal just saved, or, when
+// the message holds several, back to the message on the next offer still
+// open (else the one just saved, which previews its proposal).
+function savedOfferRedirect(
+  id: string,
+  eventId: string,
+  index: number,
+  { proposalId, next, total }: { proposalId: string; next: number | null; total: number },
+  done: string,
+): never {
   const success = `success=${encodeURIComponent(done)}`;
-  redirect(saved > 1 ? `/events/${eventId}/hotels?${success}#proposals` : `/events/${eventId}/hotels/proposals/${proposalId}?${success}`);
+  redirect(
+    total > 1
+      ? `/events/${eventId}/inbox/${id}?offer=${(next ?? index) + 1}&${success}`
+      : `/events/${eventId}/hotels/proposals/${proposalId}?${success}`,
+  );
 }
 
 // The attachments the review picked to file on the proposal; null when the
@@ -202,20 +212,20 @@ export async function applyInboundOffer(id: string, eventId: string, index: numb
   const session = await requirePermission("HOTELS", "WRITE", eventId);
   const args = readProposal(formData);
   const newHotel = readNewHotel(formData);
-  const { proposalId, saved } = await applyInboundOfferCore(id, eventId, index, args, newHotel, readAttachmentPick(formData), session.user.id);
+  const result = await applyInboundOfferCore(id, eventId, index, args, newHotel, readAttachmentPick(formData), session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);
   if (newHotel) revalidatePath("/venues");
-  savedOfferRedirect(eventId, proposalId, saved, saved > 1 ? `${saved} proposals created` : "Proposal created");
+  savedOfferRedirect(id, eventId, index, result, "Proposal created");
 }
 
 // A revised offer applied to the hotel's proposal it revises.
 export async function applyInboundRevision(id: string, eventId: string, index: number, proposalId: string, formData: FormData) {
   const session = await requirePermission("HOTELS", "WRITE", eventId);
-  const { saved } = await applyInboundRevisionCore(id, eventId, index, proposalId, readProposal(formData), readAttachmentPick(formData), session.user.id);
+  const result = await applyInboundRevisionCore(id, eventId, index, proposalId, readProposal(formData), readAttachmentPick(formData), session.user.id);
   revalidatePath(`/events/${eventId}/inbox`);
   revalidatePath(`/events/${eventId}/hotels`);
-  savedOfferRedirect(eventId, proposalId, saved, "Revision saved");
+  savedOfferRedirect(id, eventId, index, result, "Revision saved");
 }
 
 export async function skipInboundOffer(id: string, eventId: string, index: number) {
@@ -280,19 +290,11 @@ export async function getOfferReview(id: string, eventId: string, index: number)
       ? await prisma.venue.findFirst({ where: { tenantId, name: { equals: offer.hotel.name.trim(), mode: "insensitive" } }, select: { id: true } })
       : null;
   const venueId = offer.venueId ?? byName?.id ?? null;
-  const [choices, files, rfps, existing] = await Promise.all([
+  const [choices, files, rfpChoices, existing] = await Promise.all([
     getProposalFormChoices(eventId),
     inboundAttachments(id),
-    prisma.rfp.findMany({
-      where: { eventId, kind: "HOTEL", hotelBlocks: { some: {} } },
-      orderBy: { createdAt: "asc" },
-      select: {
-        title: true,
-        concessions: { orderBy: { sortOrder: "asc" } },
-        spaceRequests: { orderBy: { sortOrder: "asc" } },
-        hotelBlocks: { orderBy: { sortOrder: "asc" }, select: { id: true, contractType: true, guestType: true } },
-      },
-    }),
+    // The offer's concession answers are for the block it was read as.
+    getProposalRfpChoices(eventId, { blockId: offer.rfpBlockId, answers: offer.concessions }),
     venueId
       ? prisma.hotelProposal.findMany({
           where: { eventId, venueId },
@@ -317,7 +319,7 @@ export async function getOfferReview(id: string, eventId: string, index: number)
     leadSourceDirect: false,
     leadSourceVendorId: offer.leadSourceVendorId ?? null,
     leadSourceContactId: null,
-    contractType: null,
+    contractType: offer.contractType ?? null,
     guestType: null,
     submittedOn: offer.submittedOn,
     checkIn: offer.checkIn,
@@ -341,22 +343,6 @@ export async function getOfferReview(id: string, eventId: string, index: number)
     fbServiceCharge: text(offer.fbServiceCharge),
     meals: (offer.meals ?? []).map((m) => ({ mealType: m.mealType, price: text(m.price) })),
   };
-  // The offer's concession answers are for the block it was read as.
-  const answers = new Map(offer.concessions.map((c) => [c.concessionId, c]));
-  const rfpChoices: RfpChoice[] = rfps.flatMap((r) =>
-    r.hotelBlocks.map((b) => ({
-      id: b.id,
-      label: `${r.title} · ${blockTypeLabel(b.contractType, b.guestType) ?? "Block"}`,
-      contractType: b.contractType,
-      guestType: b.guestType,
-      concessions: r.concessions.map((c) => {
-        const answer = b.id === offer.rfpBlockId ? answers.get(c.id) : undefined;
-        return { id: c.id, label: c.label, value: c.value, required: c.required, offered: answer?.offered ?? null, met: answer?.met ?? null };
-      }),
-      spaceRequests: meetingRequests(r.spaceRequests),
-      mealTypes: rfpMealTypes(r.spaceRequests),
-    })),
-  );
   const rfpChoice = rfpChoices.find((c) => c.id === offer.rfpBlockId) ?? null;
   // Each of the hotel's proposals, revised by the offer: what the offer
   // states replaces what the proposal had, the rest carries over.

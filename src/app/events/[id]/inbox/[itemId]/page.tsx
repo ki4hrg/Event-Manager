@@ -39,6 +39,8 @@ import { InboxReview } from "../../../inbox/InboxReview";
 import { InboxDeclineReview } from "../../../inbox/InboxDeclineReview";
 import { InboxOfferForm } from "../../../inbox/InboxOfferForm";
 import { InboxOfferTabs } from "../../../inbox/InboxOfferTabs";
+import { InboxSavedOffer } from "../../../inbox/InboxSavedOffer";
+import { getHotelProposal } from "../../../hotels/actions";
 import { InboxQuoteReview } from "../../../inbox/InboxQuoteReview";
 import { InboxBeoReview } from "../../../inbox/InboxBeoReview";
 import { InboxContractReview } from "../../../inbox/InboxContractReview";
@@ -92,6 +94,9 @@ export default async function EventInboxItemPage({
     o.proposalId ? [{ name: o.name, href: `/events/${eventId}/hotels/proposals/${o.proposalId}` }] : [],
   );
   const shownOffer = offers[offerIndex];
+  // A saved offer's tab previews the proposal it became.
+  const savedProposal =
+    canHotels && offers.length > 1 && shownOffer?.proposalId ? await getHotelProposal(shownOffer.proposalId, eventId) : null;
   const appliedBlock =
     item.status === "APPLIED" && proposal?.blockId
       ? await prisma.hotelBlock.findFirst({
@@ -222,7 +227,8 @@ export default async function EventInboxItemPage({
           appliedLink={appliedLink}
         />
         {kind === "RFP_PROPOSAL" && <InboxOfferTabs offers={offers} active={offerIndex} itemHref={itemHref} />}
-        {kind === "RFP_PROPOSAL" && offers.length > 1 && shownOffer && shownOffer.state !== "OPEN" && (
+        {savedProposal && <InboxSavedOffer proposal={savedProposal} href={`/events/${eventId}/hotels/proposals/${savedProposal.id}`} />}
+        {kind === "RFP_PROPOSAL" && offers.length > 1 && shownOffer && shownOffer.state !== "OPEN" && !savedProposal && (
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {shownOffer.state === "SKIPPED" ? (
               "Skipped"

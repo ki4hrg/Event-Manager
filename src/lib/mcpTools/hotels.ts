@@ -166,8 +166,8 @@ const proposalProps = {
   contractType: { type: ["string", "null"], enum: ["CONTRACT", "COURTESY", null], description: "CONTRACT carries attrition; COURTESY is held without it." },
   guestType: { type: ["string", "null"], description: "Who the rooms are for: a hotel_guest_type option label (Attendees, Staff, …)." },
   submittedOn: { type: ["string", "null"], description: "YYYY-MM-DD." },
-  checkIn: { type: ["string", "null"], description: "Earliest check-in, YYYY-MM-DD." },
-  checkOut: { type: ["string", "null"], description: "Latest check-out, YYYY-MM-DD. Nights run check-in up to, not including, check-out." },
+  checkIn: { type: ["string", "null"], description: "Earliest check-in, YYYY-MM-DD. Ignored when nights are given: the first night is the check-in." },
+  checkOut: { type: ["string", "null"], description: "Latest check-out, YYYY-MM-DD. Ignored when nights are given: the morning after the last night is the check-out." },
   declinedReason: { type: ["string", "null"] },
   notes: { type: ["string", "null"] },
   revision: { type: "integer", description: "Raise when the hotel sends a revised offer; freezes the previous revision in the history. Cannot go down." },
@@ -394,10 +394,15 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "update_hotel_proposal",
     description:
-      "Update a hotel proposal; omitted fields are unchanged, but `nights`, `charges` (guest), `meetingCharges`, `spaces` and `meals` replace the whole list when given. Raise `revision` (with `revisionSummary`) when the hotel sends a revised offer.",
+      "Update a hotel proposal; omitted fields are unchanged, but `nights`, `charges` (guest), `meetingCharges`, `spaces` and `meals` replace the whole list when given. Raise `revision` (with `revisionSummary`) when the hotel sends a revised offer. `rfpBlockId` links it to the RFP block it answers (null unlinks); moving to another RFP drops its answers to the old RFP's concessions and space requests.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" }, eventId: { type: "string" }, ...proposalProps },
+      properties: {
+        id: { type: "string" },
+        eventId: { type: "string" },
+        ...proposalProps,
+        rfpBlockId: { type: ["string", "null"], description: "The RFP hotel block this proposal answers (from get_rfp), or null for none." },
+      },
       required: ["id", "eventId"],
       additionalProperties: false,
     },
@@ -410,7 +415,11 @@ export const hotelTools: McpToolDefinition[] = [
       await nameRequestedSpaces(args);
       checkConcessions(args.concessions);
       checkOfferedConcessions(args.offeredConcessions);
-      return updateHotelProposalCore(id, eventId, merged(await currentProposal(id, eventId), args, PROPOSAL_KEYS), userId);
+      const next = merged(await currentProposal(id, eventId), args, PROPOSAL_KEYS);
+      const link = args.rfpBlockId;
+      if (link === null || typeof link === "string") next.rfpBlockId = link;
+      else if (link !== undefined) throw new Error("rfpBlockId must be a string or null");
+      return updateHotelProposalCore(id, eventId, next, userId);
     },
   },
   {

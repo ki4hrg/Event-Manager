@@ -22,7 +22,7 @@ type SpaceRequestInput = {
 };
 
 // A meeting space request as a proposal row shows it: when, and what was asked.
-export type SpaceRequestDoc = { id: string; when: string; name: string; asked: string | null };
+export type SpaceRequestDoc = { id: string; when: string; name: string; asked: string | null; hold24: boolean };
 
 export function spaceRequestDoc(r: SpaceRequestInput): SpaceRequestDoc {
   const day = r.day ? dateKey(r.day) : null;
@@ -34,6 +34,7 @@ export function spaceRequestDoc(r: SpaceRequestInput): SpaceRequestDoc {
     when: time === "—" ? days : `${days} · ${time}`,
     name: r.name,
     asked: [r.attendance != null ? `${r.attendance} people` : null, r.setup, r.hold24 ? "24-hr hold" : null].filter(Boolean).join(" · ") || null,
+    hold24: r.hold24,
   };
 }
 

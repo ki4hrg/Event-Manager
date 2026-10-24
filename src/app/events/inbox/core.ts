@@ -611,8 +611,8 @@ const firstOpen = (outcomes: OfferOutcome[]) => {
 
 // Claims an offer (so a second click can't save it twice), saves it, and
 // records the proposal; frees the claim if saving fails. Returns the
-// proposal, the next offer still to handle, and how many of the message's
-// offers are now proposals.
+// proposal, the next offer still to handle, how many of the message's
+// offers are now proposals, and how many offers it holds.
 async function claimAndApplyOffer(id: string, eventId: string, index: number, userId: string, apply: () => Promise<string>) {
   await setOfferOutcome(id, eventId, index, userId, (current, status) => {
     if (status !== "PARSED") throw new Error("This message has nothing to apply");
@@ -627,7 +627,7 @@ async function claimAndApplyOffer(id: string, eventId: string, index: number, us
     throw err;
   }
   const outcomes = await setOfferOutcome(id, eventId, index, userId, () => ({ proposalId }));
-  return { proposalId, next: firstOpen(outcomes), saved: outcomes.filter((o) => o && "proposalId" in o).length };
+  return { proposalId, next: firstOpen(outcomes), saved: outcomes.filter((o) => o && "proposalId" in o).length, total: outcomes.length };
 }
 
 // The message's attachments filed on offer index's proposal: those picked in

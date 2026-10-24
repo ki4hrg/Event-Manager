@@ -62,8 +62,9 @@ export function AmenityEditor({
       {shown.map((label) => {
         const a = value.find((x) => x.label === label);
         return (
-          <div key={label} className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-900 dark:text-white min-w-[10rem] flex-1">
+          // Fixed columns, so each row's status and note line up whether or not it has a note.
+          <div key={label} className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,2fr)] items-center gap-2">
+            <span className="text-sm text-gray-900 dark:text-white">
               {label}
               {!profile.includes(label) && <span className={offProfileClass}> · not on hotel profile</span>}
               {!list.includes(label) && <span className={offProfileClass}> · not in list</span>}
@@ -83,20 +84,24 @@ export function AmenityEditor({
                 </button>
               )}
             </span>
-            <StatusCycle
-              label={`${label} in this proposal`}
-              value={a?.status ?? ""}
-              options={AMENITY_STATUS_OPTIONS}
-              onChange={(status) => set(label, { status })}
-            />
-            {a && (
+            <div className="justify-self-end sm:justify-self-start">
+              <StatusCycle
+                label={`${label} in this proposal`}
+                value={a?.status ?? ""}
+                options={AMENITY_STATUS_OPTIONS}
+                onChange={(status) => set(label, { status })}
+              />
+            </div>
+            {a ? (
               <input
                 aria-label={`${label} note`}
                 placeholder={a.status === "UNAVAILABLE" ? "Closed Apr 10–20…" : "Hours, limits, fees…"}
                 value={a.note ?? ""}
                 onChange={(e) => set(label, { note: e.target.value || null })}
-                className={`${inlineInputClass} flex-1 min-w-[8rem]`}
+                className={`${inlineInputClass} col-span-2 sm:col-span-1 w-full`}
               />
+            ) : (
+              <span className="hidden sm:block" />
             )}
           </div>
         );

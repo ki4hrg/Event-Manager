@@ -32,6 +32,8 @@ export type ProposalOffer = {
   venueId: string | null;
   rfpBlockId: string | null;
   submittedOn: string | null;
+  // The kind of block offered; older reads have none.
+  contractType?: "CONTRACT" | "COURTESY" | null;
   checkIn: string | null;
   checkOut: string | null;
   nights: { night: string; roomType: string | null; rooms: number | null; rate: number | null }[];
@@ -325,6 +327,7 @@ const offerSchema = object({
   venueId: str,
   rfpBlockId: str,
   submittedOn: str,
+  contractType: { type: "string", enum: ["", "CONTRACT", "COURTESY"] },
   checkIn: str,
   checkOut: str,
   nights: { type: "array", items: object({ night: str, roomType: str, rooms: int, rate: num }) },
@@ -598,6 +601,7 @@ For PICKUP_COUNTS, fill "counts": one entry per night and room type with rooms p
 For RFP_PROPOSAL, fill "offers" with one offer per property. One hotel's offer is one entry. A sales rep covering several properties (a dual-branded pair, a management group) may offer them in one email or one PDF: give each property its own entry, with its own rates, nights, amenities and hotel details, and only the terms that apply to it. Terms stated once for all of them (a deadline, attrition, cancellation) go on each entry. Meeting space or services offered once for the group go on the entry of the property that hosts them; when the message doesn't say which, on the first, and say so in notes. For each entry:
 - venueId: the property, from the candidate hotels; "" when it isn't one of them (say who it is in notes).
 - rfpBlockId: the requested block this offer answers, from the candidate RFPs' blocks, only when the offer is a response to that RFP: it names or quotes the RFP, answers its requested concessions, or comes from a hotel the RFP was sent to for the same dates. A hotel's own or unsolicited offer, or one that merely overlaps the event's dates, answers no RFP: "". "" too when it's unclear which block.
+- contractType: COURTESY when the hotel offers a courtesy block (rooms held without the group guaranteeing them: no attrition, released at cut-off), CONTRACT when it offers a contracted block (the group commits to the rooms, with attrition); "" when the offer doesn't say.
 - submittedOn: the date of the offer. checkIn / checkOut: the first night and the departure day (the day after the last night).
 - nights: one entry per night and room type offered, with rooms and the nightly group rate (a number, no currency). roomType is one of the org's room types only when the offer puts those rooms on that type: a bed type (one bed / king, two beds / double / queen) or a suite. Rooms of any or unspecified type (Any Room, Run of House, ROH, Standard Room) are run of house: "". Never move rooms onto a bed type because a rate for that type is quoted elsewhere in the message; such a rate prices the rooms the offer does put on that type, and only those.
 - Booking-portal grids (Cvent and the like) give each night a row of counts under columns such as Any Room, One Bed, Two Beds, Suite, Staff and Total. Each non-zero cell is one entry: Any Room is run of house (""), One Bed and Two Beds the org's king and double-queen types, Suite its suite type, Staff run of house unless a type is named. Skip zero cells and the Total column; a night's entries add up to its Total. Read the grid from the PDF's text when a row is cut at a page break.
@@ -889,6 +893,7 @@ function checkOffer(o: ProposalOffer, input: ParseInput): ProposalOffer {
     venueId: o.venueId && hotels.has(o.venueId) ? o.venueId : null,
     rfpBlockId: rfp ? o.rfpBlockId : null,
     submittedOn: dateOrNull(o.submittedOn),
+    contractType: o.contractType === "CONTRACT" || o.contractType === "COURTESY" ? o.contractType : null,
     checkIn,
     checkOut: checkIn && checkOut && checkOut > checkIn ? checkOut : null,
     // Inside the stay, on a known room type (else run of house).

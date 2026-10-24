@@ -1,7 +1,7 @@
 "use client";
 
 import { DateInput } from "@/components/ui/DateInput";
-import { rangeEndFor, rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
+import { rangeEndMin, syncRangeEnd } from "@/lib/dateRange";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
@@ -16,6 +16,7 @@ import {
   CHARGE_SCOPES,
   CONTRACT_TYPES,
   coveredByProfile,
+  formatDateKey,
   labelKey,
   MET_LABELS,
   nightKeys,
@@ -202,6 +203,13 @@ function ChargeList({ label, placeholder, rows, onChange }: { label: string; pla
   );
 }
 
+// A 24-hr hold the RFP asked for: confirmed, declined, or not stated.
+const HOLD_OPTIONS: StatusCycleOption<"" | "YES" | "NO">[] = [
+  { value: "", label: "24-hr hold not stated", color: "gray" },
+  { value: "YES", label: "24-hr hold", color: "green" },
+  { value: "NO", label: "No 24-hr hold", color: "red" },
+];
+
 // The function space offered: a row per RFP meeting space request (room,
 // capacity, 24-hr hold, rental), then rooms offered unasked.
 function SpaceEditor({ rows, onChange }: { rows: SpaceAnswer[]; onChange: (rows: SpaceAnswer[]) => void }) {
@@ -242,16 +250,24 @@ function SpaceEditor({ rows, onChange }: { rows: SpaceAnswer[]; onChange: (rows:
               onChange={(e) => set(i, { capacity: e.target.value })}
               className={`${inlineInputClass} w-28`}
             />
-            <select
-              aria-label="24-hr hold"
-              value={r.hold24 == null ? "" : String(r.hold24)}
-              onChange={(e) => set(i, { hold24: e.target.value === "" ? null : e.target.value === "true" })}
-              className={inlineInputClass}
-            >
-              <option value="">24-hr hold —</option>
-              <option value="true">24-hr hold</option>
-              <option value="false">No 24-hr hold</option>
-            </select>
+            {r.request?.hold24 ? (
+              <StatusCycle
+                label="24-hr hold"
+                value={r.hold24 == null ? "" : r.hold24 ? "YES" : "NO"}
+                options={HOLD_OPTIONS}
+                onChange={(v) => set(i, { hold24: v === "" ? null : v === "YES" })}
+              />
+            ) : (
+              <label className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={r.hold24 === true}
+                  onChange={(e) => set(i, { hold24: e.target.checked })}
+                  className="rounded border-gray-300 dark:border-gray-600"
+                />
+                24-hr hold
+              </label>
+            )}
             <input
               aria-label="Rental"
               type="number"
@@ -382,6 +398,16 @@ function Fieldset({ title, children, aside }: { title: string; children: ReactNo
   );
 }
 
+// A Fieldset that folds away when the offer has nothing for it.
+function CollapsibleFieldset({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: (open: boolean) => void; children: ReactNode }) {
+  return (
+    <details open={open} onToggle={(e) => onToggle(e.currentTarget.open)} className="min-w-0">
+      <summary className="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">{title}</summary>
+      <div className="mt-4 space-y-4 min-w-0">{children}</div>
+    </details>
+  );
+}
+
 // The RFP's requested concessions with this proposal's answers.
 export type ConcessionAnswer = { id: string; label: string; value: string | null; required: boolean; offered: string | null; met: ConcessionMet | null };
 
@@ -417,6 +443,7 @@ export type ProposalTemplate = {
 // (prefilled with the offer's answers for the block it was read as).
 export type RfpChoice = {
   id: string;
+  rfpId: string;
   label: string;
   contractType: HotelContractType;
   guestType: string | null;
@@ -445,6 +472,7 @@ export function ProposalForm({
   fromRfp,
   draft,
   rfpChoices,
+  rfpBlockId: linkedBlockId,
   newHotel,
   canAddHotel = false,
   concessions = [],
@@ -461,8 +489,11 @@ export function ProposalForm({
   // proposal, a revision of it, opened for editing.
   draft?: ProposalValues;
   fromRfp?: ProposalTemplate;
-  // An emailed offer: pick the RFP block it answers, or none (standalone).
+  // The RFP blocks it can answer, to pick one or none (standalone): an
+  // emailed offer, or a saved proposal linked to an RFP after the fact.
   rfpChoices?: RfpChoice[];
+  // A saved proposal's RFP block.
+  rfpBlockId?: string | null;
   // An emailed offer from a hotel not in Venues: "New hotel", prefilled and picked.
   newHotel?: OfferHotel | null;
   // VENUES WRITE: "New hotel" is offered, creating a lodging venue on save.
@@ -503,8 +534,17 @@ export function ProposalForm({
   const [meetingCharges, setMeetingCharges] = useState(() => chargeRowsOf(initial?.meetingCharges));
   const [spaces, setSpaces] = useState(() => spaceAnswers(spaceRequests, initial?.spaces ?? []));
   const [meals, setMeals] = useState<MealRow[]>(() => mealRows(mealTypes, initial?.meals ?? []));
+  // Open when the RFP asks for them or the offer gives some.
+  const [spaceOpen, setSpaceOpen] = useState(
+    spaceRequests.length > 0 || (initial?.spaces?.length ?? 0) > 0 || (initial?.meetingCharges?.length ?? 0) > 0,
+  );
+  const [fbOpen, setFbOpen] = useState(
+    mealTypes.length > 0 ||
+      [initial?.fbMinimum, initial?.fbMinimumNote, initial?.fbTaxRate, initial?.fbServiceCharge].some((v) => v != null && v !== "") ||
+      (initial?.meals ?? []).some((m) => m.price != null),
+  );
 
-  const [rfpBlockId, setRfpBlockId] = useState(fromRfp?.rfpBlockId ?? "");
+  const [rfpBlockId, setRfpBlockId] = useState(fromRfp?.rfpBlockId ?? linkedBlockId ?? "");
   const [leadSource, setLeadSource] = useState(initial?.leadSourceDirect ? LEAD_SOURCE_DIRECT : (initial?.leadSourceVendorId ?? ""));
   const leadContacts = choices.leadSources.find((l) => l.id === leadSource)?.contacts ?? [];
   const [venueId, setVenueId] = useState(initial?.venueId || defaultVenueId || (newHotel && canAddHotel ? NEW_HOTEL : ""));
@@ -531,6 +571,8 @@ export function ProposalForm({
     // meal prices carry over too.
     const next = rfpChoices?.find((c) => c.id === id);
     setSpaces((prev) => spaceAnswers(next?.spaceRequests ?? [], spaceArgs(prev)));
+    if (next?.spaceRequests.length) setSpaceOpen(true);
+    if (next?.mealTypes.length) setFbOpen(true);
     setMeals((prev) => mealRows(next?.mealTypes ?? [], prev.map((m) => ({ mealType: m.mealType, price: m.price || null }))));
     // Leaving the RFP keeps what the hotel offered against its requests (not
     // what the profile answered).
@@ -548,9 +590,12 @@ export function ProposalForm({
   };
   const addOffered = (label: string) => setOffered((prev) => [...prev, { key: offeredKey++, label, offered: null, custom: false }]);
   const setOfferedRow = (key: number, patch: Partial<OfferedRow>) => setOffered((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  // A draft's block type follows the RFP block it answers.
-  const defaultContractType = rfpChoices ? (rfpChoice?.contractType ?? null) : (initial?.contractType ?? fromRfp?.contractType ?? null);
-  const defaultGuestType = rfpChoices ? (rfpChoice?.guestType ?? null) : initial ? initial.guestType : (fromRfp?.guestType ?? null);
+  // A draft's block type is the one the offer gives, else the RFP block's it answers.
+  const defaultContractType = rfpChoices
+    ? (initial?.contractType ?? rfpChoice?.contractType ?? null)
+    : (initial?.contractType ?? fromRfp?.contractType ?? null);
+  const defaultGuestType =
+    rfpChoices && !isEdit ? (rfpChoice?.guestType ?? null) : initial ? initial.guestType : (fromRfp?.guestType ?? null);
 
   const keys = nightKeys(checkIn || null, checkOut || null);
   const stage = stageOf(status, choices.statuses);
@@ -558,7 +603,12 @@ export function ProposalForm({
   const addDay = (edge: GridEdge) => (edge === "before" ? setCheckIn(addDays(checkIn, -1)) : setCheckOut(addDays(checkOut, 1)));
   const removeDay = (edge: GridEdge) => (edge === "before" ? setCheckIn(addDays(checkIn, 1)) : setCheckOut(addDays(checkOut, -1)));
 
-  const nightsJson = JSON.stringify(gridNights(keys, grid));
+  const nights = gridNights(keys, grid);
+  const nightsJson = JSON.stringify(nights);
+  // What the server saves as the stay: the nights filled in, else the grid's days.
+  const stay = nights.length
+    ? { checkIn: nights[0].night, checkOut: addDays(nights[nights.length - 1].night, 1) }
+    : { checkIn: checkIn || null, checkOut: checkOut || null };
   const gridOver = overNights(keys, grid).length > 0;
   const mealsJson = JSON.stringify(meals.map((m) => ({ mealType: m.mealType, price: m.price !== "" ? Number(m.price) : null })));
 
@@ -572,7 +622,7 @@ export function ProposalForm({
   useEffect(() => {
     if (formRef.current) payload.current = new FormData(formRef.current);
   });
-  const sig = JSON.stringify([status, revision, checkIn, checkOut, grid, charges, meetingCharges, spaces, meals, leadSource, amenities, answers, offered]);
+  const sig = JSON.stringify([rfpBlockId, status, revision, checkIn, checkOut, grid, charges, meetingCharges, spaces, meals, leadSource, amenities, answers, offered]);
   const autosave = useAutosave(
     autosaving && canWrite ? `${formVersion}|${sig}` : "",
     async () => {
@@ -604,7 +654,8 @@ export function ProposalForm({
         <input type="hidden" name="meetingCharges" value={chargesJsonOf(meetingCharges)} />
         <input type="hidden" name="spaces" value={JSON.stringify(spaceArgs(spaces))} />
         <input type="hidden" name="meals" value={mealsJson} />
-        {!isEdit && rfpBlockId && <input type="hidden" name="rfpBlockId" value={rfpBlockId} />}
+        {/* A saved proposal posts its link only where it can change ("" unlinks). */}
+        {(isEdit ? !!rfpChoices : !!rfpBlockId) && <input type="hidden" name="rfpBlockId" value={rfpBlockId} />}
         {answers.length > 0 && (
           <input
             type="hidden"
@@ -615,7 +666,7 @@ export function ProposalForm({
         <input type="hidden" name="offeredConcessions" value={JSON.stringify(offered.map((r) => ({ label: r.label, offered: r.offered })))} />
         <input type="hidden" name="amenities" value={JSON.stringify(amenities)} />
 
-        {!isEdit && rfpChoices && rfpChoices.length > 0 && (
+        {rfpChoices && rfpChoices.length > 0 && (
           <Fieldset title="Source">
             <div className="flex flex-wrap gap-x-6 gap-y-2">
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -751,40 +802,44 @@ export function ProposalForm({
           </div>
         </Fieldset>
 
-        <Fieldset title="Stay">
+        <Fieldset title="Rooms">
+          {/* The grid's days; the stay saved is the nights filled in. */}
+          <input type="hidden" name="checkIn" value={checkIn} />
+          <input type="hidden" name="checkOut" value={checkOut} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Earliest check-in" htmlFor="p-checkIn">
+            <div>
+              <p className={labelClass}>Earliest check-in</p>
+              <p className="mt-1 text-sm text-gray-900 dark:text-white">{formatDateKey(stay.checkIn)}</p>
+            </div>
+            <div>
+              <p className={labelClass}>Latest check-out</p>
+              <p className="mt-1 text-sm text-gray-900 dark:text-white">{formatDateKey(stay.checkOut)}</p>
+            </div>
+          </div>
+          {keys.length === 0 ? (
+            <Field label="First night" htmlFor="p-firstNight">
               <DateInput
-                id="p-checkIn"
-                name="checkIn"
-                value={checkIn}
+                id="p-firstNight"
+                value=""
                 onChange={(v) => {
+                  if (!v) return;
                   setCheckIn(v);
-                  setCheckOut(rangeEndFor(v, checkOut, 1));
+                  setCheckOut(addDays(v, 1));
                 }}
                 className={inputClass}
               />
             </Field>
-            <Field label="Latest check-out" htmlFor="p-checkOut">
-              <DateInput id="p-checkOut" name="checkOut" min={rangeEndMin(checkIn, 1)} value={checkOut} onChange={setCheckOut} className={inputClass} />
-            </Field>
-          </div>
-        </Fieldset>
-
-        <Fieldset title="Rooms">
-          {keys.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Set check-in and check-out to enter rooms.</p>
           ) : (
             <RoomGridEditor keys={keys} state={grid} roomTypes={choices.roomTypes} withRate onChange={setGrid} onAddDay={addDay} onRemoveDay={removeDay} />
           )}
         </Fieldset>
 
-        <Fieldset title="Function space">
+        <CollapsibleFieldset title="Function space" open={spaceOpen} onToggle={setSpaceOpen}>
           <SpaceEditor rows={spaces} onChange={setSpaces} />
           <ChargeList label="Meeting space charges" placeholder="AV, room rental…" rows={meetingCharges} onChange={setMeetingCharges} />
-        </Fieldset>
+        </CollapsibleFieldset>
 
-        <Fieldset title="Food & beverage">
+        <CollapsibleFieldset title="Food & beverage" open={fbOpen} onToggle={setFbOpen}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="p-fbMinimum" className={labelClass}>
@@ -830,7 +885,7 @@ export function ProposalForm({
             </Field>
           </div>
           <MealEditor rows={meals} options={choices.mealTypes} onChange={setMeals} />
-        </Fieldset>
+        </CollapsibleFieldset>
 
         <Fieldset title="Amenities">
           <AmenityEditor
