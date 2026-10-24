@@ -28,10 +28,14 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
   const { id: eventId, quoteId } = await params;
   const [event, quote, fileTypeOptions] = await Promise.all([getEvent(eventId), getVendorQuote(quoteId, eventId), getOptions("file_type")]);
   if (!event || !quote) notFound();
-  const [choices, otherOpen] = await Promise.all([
+  const [choices, otherOpen, awards] = await Promise.all([
     getQuoteFormChoices(eventId, quote.rfpId),
     quote.rfpId ? prisma.vendorQuote.count({ where: { rfpId: quote.rfpId, eventId, id: { not: quoteId }, status: "RECEIVED" } }) : 0,
+    quote.rfpId ? prisma.rfpLineItem.findMany({ where: { rfpId: quote.rfpId }, select: { awardedQuoteId: true } }) : [],
   ]);
+  // RFP lines: still open, and won by this quote. null without lines.
+  const openLines = awards.length ? awards.filter((l) => !l.awardedQuoteId).length : null;
+  const wonLines = awards.filter((l) => l.awardedQuoteId === quoteId).length;
   const resource = quoteResource(quote.rfp);
   const base = `/events/${eventId}/quotes/${quoteId}`;
 
@@ -45,7 +49,7 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
   };
   const awardAction = async (declineOthers: boolean) => {
     "use server";
-    await awardVendorQuote(quoteId, eventId, declineOthers);
+    return awardVendorQuote(quoteId, eventId, declineOthers);
   };
   const statusAction = async (status: "RECEIVED" | "DECLINED", removeFromOrders: boolean) => {
     "use server";
@@ -71,6 +75,11 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
         meta={
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses[QUOTE_STATUS_COLORS[quote.status]]}`}>{QUOTE_STATUS_LABELS[quote.status]}</span>
+            {quote.status === "ACCEPTED" && awards.length > 0 && (
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Won {wonLines} of {awards.length} line{awards.length === 1 ? "" : "s"}
+              </span>
+            )}
             <LastUpdated updatedAt={quote.updatedAt} updatedBy={quote.updatedBy} timezone={event.timezone} />
           </div>
         }
@@ -81,7 +90,7 @@ export default async function VendorQuotePage({ params }: { params: Promise<{ id
                 Compare quotes
               </Link>
             )}
-            {quote.status !== "ACCEPTED" && <AwardQuoteButton action={awardAction} resource={resource} otherOpen={otherOpen} />}
+            {quote.status !== "ACCEPTED" && <AwardQuoteButton action={awardAction} resource={resource} otherOpen={otherOpen} openLines={openLines} />}
             <QuoteStatusControl status={quote.status} answersRfp={!!quote.rfpId} action={statusAction} resource={resource} />
             <DeleteButton action={deleteAction} resource={resource} label="Delete quote" />
           </>

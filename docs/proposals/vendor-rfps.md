@@ -65,11 +65,16 @@ into a request, and a quote can't be compared against one.
   lines matched to the RFP's line items) plays the role `HotelProposal` plays
   for hotels. A quote may also stand alone, with no RFP.
 - **Award assigns the vendor.** Accepting a quote marks it ACCEPTED. Work can
-  be split, so several quotes on one RFP may be accepted; the confirm step
-  offers to decline the RFP's other open quotes and close the RFP. It also adds the vendor to
-  the event (`EventVendor`) and to every source order the line items came
-  from (`AVOrderVendor` / `CateringOrderVendor` / `PrintOrderVendor`, skip
-  existing). It's all one transaction, and undoing it is a manual edit.
+  be split per line (#164): each line item records the accepted quote that won
+  it (`RfpLineItem.awardedQuoteId`), awarded from a checkbox per cell on the
+  comparison or by accepting a whole quote, which wins the lines still open;
+  the confirm step offers to decline the RFP's other open quotes and close
+  the RFP. An award adds the vendor to the event (`EventVendor`) and to the
+  source orders of the lines it won (`AVOrderVendor` / `CateringOrderVendor`
+  / `PrintOrderVendor`, skip existing). The RFP closes once every line is
+  awarded; a quote that loses its last line goes back to Received.
+  Withdrawing an award opens its lines and can take the vendor off their
+  orders.
 - **No share surfaces**, as for hotel RFPs: prices and terms don't go on share
   links.
 
