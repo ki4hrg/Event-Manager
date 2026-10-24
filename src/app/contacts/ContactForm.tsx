@@ -126,9 +126,9 @@ export function ContactForm({ contact, contactRoles, action }: ContactFormProps)
           {contactRoles.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               No roles defined.{" "}
-              <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
+              <Link href="/settings/people#contact_role" className="text-blue-600 dark:text-blue-400 hover:underline">
                 Add roles in Settings
-              </a>
+              </Link>
             </p>
           ) : (
             <div className="flex flex-wrap gap-4">

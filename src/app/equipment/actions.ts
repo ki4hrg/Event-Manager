@@ -115,9 +115,9 @@ export async function deleteEquipment(id: string) {
   revalidatePath("/equipment");
 }
 
-// Equipment categories are CustomOption rows with category="equipment_category".
-// They're managed here (not via the generic settings CustomOption actions) so the
-// equipment screen requires only EQUIPMENT permission, not SETTINGS.
+// Equipment categories are CustomOption rows with category="equipment_category",
+// edited through the shared option actions (src/app/settings/actions.ts), which
+// gate them on EQUIPMENT per the registry. Read here for the item pickers.
 export async function getEquipmentCategories() {
   await requireAuth();
   const tenantId = await requireActiveTenantId();
@@ -125,93 +125,4 @@ export async function getEquipmentCategories() {
     where: { tenantId, category: "equipment_category" },
     orderBy: { sortOrder: "asc" },
   });
-}
-
-export async function createEquipmentCategory(formData: FormData) {
-  const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
-  const label = formData.get("label") as string;
-  const color = formData.get("color") as string;
-  const models = formData.getAll("models") as string[];
-
-  const maxOrder = await prisma.customOption.findFirst({
-    where: { tenantId, category: "equipment_category" },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-
-  await prisma.customOption.create({
-    data: {
-      tenantId,
-      category: "equipment_category",
-      label,
-      color: color || null,
-      models,
-      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-    },
-  });
-
-  revalidatePath("/equipment");
-}
-
-export async function updateEquipmentCategory(id: string, formData: FormData) {
-  const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
-  const label = formData.get("label") as string;
-  const color = formData.get("color") as string;
-  const models = formData.getAll("models") as string[];
-
-  const existing = await prisma.customOption.findFirst({
-    where: { id, tenantId },
-    select: { label: true, category: true },
-  });
-  if (!existing) throw new Error("Equipment category not found");
-  if (existing.category !== "equipment_category") {
-    throw new Error("Not an equipment category");
-  }
-
-  const labelChanged = existing.label !== label;
-
-  await prisma.$transaction(async (tx) => {
-    await tx.customOption.update({
-      where: { id, tenantId },
-      data: { label, color: color || null, models },
-    });
-
-    if (labelChanged) {
-      // Equipment.category is stored by label, not FK — rewrite to keep rows in sync.
-      await tx.equipment.updateMany({
-        where: { tenantId, category: existing.label },
-        data: { category: label },
-      });
-    }
-  });
-
-  revalidatePath("/equipment");
-}
-
-export async function deleteEquipmentCategory(id: string) {
-  const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "DELETE");
-  const option = await prisma.customOption.findFirst({
-    where: { id, tenantId },
-    select: { isSystem: true, category: true },
-  });
-  if (option?.isSystem) throw new Error("Cannot delete a system option.");
-  if (option?.category !== "equipment_category") throw new Error("Not an equipment category");
-
-  await prisma.customOption.delete({ where: { id, tenantId } });
-
-  revalidatePath("/equipment");
-}
-
-export async function reorderEquipmentCategories(orderedIds: string[]) {
-  const { tenantId } = await requirePermission(PermissionResource.EQUIPMENT, "WRITE");
-  await Promise.all(
-    orderedIds.map((id, index) =>
-      prisma.customOption.update({
-        where: { id, tenantId },
-        data: { sortOrder: index },
-      })
-    )
-  );
-
-  revalidatePath("/equipment");
 }

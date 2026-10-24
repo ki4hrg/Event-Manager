@@ -2,9 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import type { PermissionResource } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { labelKey } from "@/lib/hotels";
-import { GroupedOptionItems, type GroupedEntry } from "../GroupedOptionItems";
+import type { OptionCategory } from "@/lib/optionCategories";
+import { GroupedOptionItems, type GroupedEntry } from "./GroupedOptionItems";
+import { createOption, mapOffListLabel } from "./actions";
 
 type Groups = { groups?: { value: string; label: string }[]; fallbackGroup?: string };
 
@@ -12,22 +15,22 @@ const selectClass =
   "px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm";
 
 function Row({
+  category,
+  resource,
   label,
   uses,
   options,
   groups,
   fallbackGroup,
-  map,
-  add,
 }: {
+  category: OptionCategory;
+  resource: PermissionResource;
   label: string;
   uses: number;
   options: GroupedEntry[];
-  map: (intoId: string) => Promise<void>;
-  add: () => Promise<void>;
 } & Groups) {
   const router = useRouter();
-  const canWrite = useCanWrite("SETTINGS");
+  const canWrite = useCanWrite(resource);
   // A spelling of an option ("breakfast included") maps to it; it can't be
   // added as a second one.
   const same = options.find((o) => labelKey(o.label) === labelKey(label));
@@ -38,6 +41,11 @@ function Row({
       await fn();
       router.refresh();
     });
+  const add = () => {
+    const formData = new FormData();
+    formData.set("label", label);
+    return createOption(category, formData);
+  };
   return (
     <div className="flex flex-wrap items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">
       <span className="font-medium text-gray-900 dark:text-white break-words min-w-0">{label}</span>
@@ -53,7 +61,7 @@ function Row({
           <button
             type="button"
             disabled={pending || !intoId}
-            onClick={() => run(() => map(intoId))}
+            onClick={() => run(() => mapOffListLabel(category, label, intoId))}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
           >
             Map
@@ -71,26 +79,35 @@ function Row({
 
 // Labels in use that aren't on the list, to map onto an option or add as one.
 export function OffListLabels({
+  category,
+  resource,
   title,
   labels,
   options,
   groups,
   fallbackGroup,
-  map,
-  add,
 }: {
+  category: OptionCategory;
+  resource: PermissionResource;
   title: string;
   labels: { label: string; uses: number }[];
   options: GroupedEntry[];
-  map: (label: string, intoId: string) => Promise<void>;
-  add: (label: string) => Promise<void>;
 } & Groups) {
   if (labels.length === 0) return null;
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 space-y-2">
       <h2 className="text-lg font-medium text-gray-900 dark:text-white">{title}</h2>
       {labels.map((l) => (
-        <Row key={l.label} label={l.label} uses={l.uses} options={options} groups={groups} fallbackGroup={fallbackGroup} map={(intoId) => map(l.label, intoId)} add={() => add(l.label)} />
+        <Row
+          key={l.label}
+          category={category}
+          resource={resource}
+          label={l.label}
+          uses={l.uses}
+          options={options}
+          groups={groups}
+          fallbackGroup={fallbackGroup}
+        />
       ))}
     </div>
   );

@@ -13,6 +13,7 @@ import { FUNCTION_SPACES, MEAL_BUCKETS, SCHEDULE_ROLES } from "@/lib/esg/apex";
 import { PROPOSAL_STAGES } from "@/lib/hotels";
 import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
 import { hotelLabelUses, mergeHotelLabel, type HotelLabelCategory } from "@/lib/hotelLabels";
+import { MAIN_SCHEDULE_GROUP } from "@/lib/scheduleTypes";
 
 type Db = Prisma.TransactionClient;
 
@@ -128,27 +129,42 @@ const fileInTenant = (tenantId: string): Prisma.FileUploadWhereInput => ({
 // ── Sections ────────────────────────────────────────────────────────────────
 
 // Where a list is edited. `href` is the page; `home` names it in messages
-// ("isn't in the amenity list (Settings › Hotels)").
+// ("isn't in the amenity list (Settings › Hotels & RFPs)"). `settings` marks
+// the sections /settings/[section] renders; the others have their own page
+// under another permission.
 export const OPTION_SECTIONS = {
-  functions: { title: "Functions", href: "/settings/functions", home: "Settings › Functions" },
-  presentations: { title: "Presentations", href: "/settings/presentations", home: "Settings › Presentations" },
-  contacts: { title: "Contacts", href: "/settings/contacts", home: "Settings › Contacts" },
-  catering: { title: "Catering", href: "/settings/catering", home: "Settings › Catering" },
-  vendors: { title: "Vendors", href: "/settings/vendors", home: "Settings › Vendors" },
-  files: { title: "Files", href: "/settings/files", home: "Settings › Files" },
-  status: { title: "Status", href: "/settings/status", home: "Settings › Status" },
-  hotels: { title: "Hotels", href: "/settings/hotels", home: "Settings › Hotels" },
-  specifications: { title: "Specifications", href: "/settings/specifications", home: "Settings › Specifications" },
-  orders: { title: "Orders", href: "/settings/orders", home: "Settings › Orders" },
-  equipment: { title: "Equipment categories", href: "/equipment/categories", home: "Equipment › Categories" },
-  storage: { title: "Location types", href: "/storage-locations/types", home: "Storage › Types" },
-} as const satisfies Record<string, { title: string; href: string; home: string }>;
+  "event-planning": { title: "Event planning", href: "/settings/event-planning", home: "Settings › Event planning", settings: true },
+  orders: { title: "Orders & services", href: "/settings/orders", home: "Settings › Orders & services", settings: true },
+  status: { title: "Status & workflow", href: "/settings/status", home: "Settings › Status & workflow", settings: true },
+  people: { title: "People & vendors", href: "/settings/people", home: "Settings › People & vendors", settings: true },
+  hotels: { title: "Hotels & RFPs", href: "/settings/hotels", home: "Settings › Hotels & RFPs", settings: true },
+  "post-event": { title: "Post-event", href: "/settings/post-event", home: "Settings › Post-event", settings: true },
+  equipment: { title: "Equipment categories", href: "/equipment/categories", home: "Equipment › Categories", settings: false },
+  storage: { title: "Location types", href: "/storage-locations/types", home: "Storage › Types", settings: false },
+} as const satisfies Record<string, { title: string; href: string; home: string; settings: boolean }>;
 
 export type OptionSection = keyof typeof OPTION_SECTIONS;
 
+export const SETTINGS_SECTIONS = (Object.keys(OPTION_SECTIONS) as OptionSection[]).filter((s) => OPTION_SECTIONS[s].settings);
+
+export function isSettingsSection(value: string): value is OptionSection {
+  return Object.hasOwn(OPTION_SECTIONS, value) && OPTION_SECTIONS[value as OptionSection].settings;
+}
+
+// The settings tabs before the lists were grouped, for redirects.
+export const LEGACY_SETTINGS_TABS: Record<string, OptionSection> = {
+  functions: "event-planning",
+  presentations: "event-planning",
+  files: "event-planning",
+  specifications: "event-planning",
+  catering: "orders",
+  contacts: "people",
+  vendors: "people",
+};
+
 // ── Groups ──────────────────────────────────────────────────────────────────
 
-export type GroupChoice = { value: string; label: string };
+export type GroupChoice = { value: string; label: string; description?: string };
 
 // An option's `group`: a fixed key from a code list (meal bucket, proposal
 // stage), or another category's label (an area's region). `split` renders one
@@ -165,6 +181,11 @@ export const SUBSTATUS_GROUPS = [
   { value: "COMPLETE", label: "Complete Substatuses", description: "Specific states within the Complete top-level status (e.g., Confirmed)" },
   { value: "CANCELLED", label: "Cancelled Substatuses", description: "Specific states used when cancelling an entity (e.g., Denied, Cancelled)" },
 ] as const;
+
+// A file type's group: the type a feature files its own documents under
+// (RFP: what a sent RFP's document is filed as), resolved by group so a
+// renamed label still matches.
+export const FILE_TYPE_GROUPS = [{ value: "RFP", label: "RFP documents" }] as const;
 
 // ── The registry ────────────────────────────────────────────────────────────
 
@@ -216,7 +237,7 @@ const HOTEL_ROOM_TYPE_TARGETS: readonly RenameTarget[] = [
 export const OPTION_CATEGORIES = {
   function_type: {
     title: "Function Types",
-    section: "functions",
+    section: "event-planning",
     description: "Categories for scheduled functions.",
     color: true,
     groups: { kind: "fixed", label: "Function space", choices: FUNCTION_SPACES },
@@ -228,16 +249,17 @@ export const OPTION_CATEGORIES = {
   },
   schedule_type: {
     title: "Schedule Types",
-    section: "functions",
+    section: "event-planning",
     description: "Types of schedule items for functions (e.g., Setup, Rehearsal, Main Event).",
     color: true,
-    groups: { kind: "fixed", label: "Role", choices: SCHEDULE_ROLES },
+    // MAIN anchors a function's date and is the default for new schedules.
+    groups: { kind: "fixed", label: "Role", choices: [{ value: MAIN_SCHEDULE_GROUP, label: "Main" }, ...SCHEDULE_ROLES] },
     resource: SETTINGS,
     renameTargets: [col("functionSchedule", "type", (t) => ({ function: inEvent(t) }))],
   },
   setup_type: {
     title: "Setup Types",
-    section: "functions",
+    section: "event-planning",
     description: "Room setup configurations for Setup Orders.",
     resource: SETTINGS,
     renameTargets: [
@@ -248,21 +270,21 @@ export const OPTION_CATEGORIES = {
   },
   booth_type: {
     title: "Booth Types",
-    section: "functions",
+    section: "event-planning",
     description: "Booth / stand types.",
     resource: SETTINGS,
     renameTargets: [col("exhibitBooth", "boothType", inEvent), col("exhibitBoothGroup", "boothType", inEvent)],
   },
   presenter_role: {
     title: "Presenter Roles",
-    section: "presentations",
+    section: "event-planning",
     description: "Roles for speakers in presentations (e.g., Presenter, Co-Presenter, Moderator)",
     resource: SETTINGS,
     renameTargets: [col("presentationContact", "role", (t) => ({ presentation: inEvent(t) }))],
   },
   presentation_type: {
     title: "Presentation Types",
-    section: "presentations",
+    section: "event-planning",
     description: "Types of presentations (e.g., Breakout, Plenary)",
     color: true,
     resource: SETTINGS,
@@ -270,21 +292,21 @@ export const OPTION_CATEGORIES = {
   },
   contact_role: {
     title: "Contact Roles",
-    section: "contacts",
+    section: "people",
     description: "Roles that can be assigned to contacts (e.g., Speaker, Vendor, Staff)",
     resource: SETTINGS,
     renameTargets: [arrayCol("Contact", "roles")],
   },
   service_style: {
     title: "Service Styles",
-    section: "catering",
+    section: "orders",
     description: "Catering service styles for Catering Orders (e.g., Plated, Buffet, Stations)",
     resource: SETTINGS,
     renameTargets: [col("cateringOrder", "serviceStyle", inEvent)],
   },
   meal_type: {
     title: "Meal Types",
-    section: "catering",
+    section: "orders",
     description: "Meal period for Catering Orders.",
     groups: { kind: "fixed", label: "Report bucket", choices: MEAL_BUCKETS },
     resource: SETTINGS,
@@ -296,30 +318,16 @@ export const OPTION_CATEGORIES = {
   },
   vendor_contact_type: {
     title: "Vendor Contact Types",
-    section: "vendors",
+    section: "people",
     description: "Roles for vendor contacts (e.g., Sales, Billing, Technical)",
     resource: SETTINGS,
     renameTargets: [col("vendorContact", "contactType", (tenantId) => ({ vendor: { tenantId } }))],
   },
-  rfp_service: {
-    title: "RFP Services",
-    section: "vendors",
-    description: "What an Other services RFP is for",
-    resource: SETTINGS,
-    renameTargets: [col("rfp", "service", inEvent)],
-  },
-  rfp_term: {
-    title: "RFP Terms",
-    section: "vendors",
-    description: "",
-    mergeable: { noun: "RFP term" },
-    resource: SETTINGS,
-    renameTargets: [mergeTarget("rfp_term")],
-  },
   file_type: {
     title: "File Types",
-    section: "files",
+    section: "event-planning",
     description: "Categories for file attachments (e.g., Proposal, Invoice, Contract)",
+    groups: { kind: "fixed", label: "Used for", choices: FILE_TYPE_GROUPS },
     resource: SETTINGS,
     renameTargets: [col("fileUpload", "fileType", fileInTenant)],
   },
@@ -395,30 +403,9 @@ export const OPTION_CATEGORIES = {
     resource: SETTINGS,
     renameTargets: [mergeTarget("rfp_concession")],
   },
-  event_type: {
-    title: "Event Types",
-    section: "specifications",
-    description: "",
-    resource: SETTINGS,
-    renameTargets: [col("eventSpecification", "eventType", inEvent)],
-  },
-  event_scope: {
-    title: "Event Scope",
-    section: "specifications",
-    description: "Citywide, single venue, multiple venue, etc.",
-    resource: SETTINGS,
-    renameTargets: [col("eventSpecification", "eventScope", inEvent)],
-  },
-  event_frequency: {
-    title: "Event Frequency",
-    section: "specifications",
-    description: "",
-    resource: SETTINGS,
-    renameTargets: [col("eventSpecification", "eventFrequency", inEvent)],
-  },
   reservation_method: {
     title: "Reservation Methods",
-    section: "specifications",
+    section: "hotels",
     description: "",
     resource: SETTINGS,
     renameTargets: [
@@ -427,23 +414,59 @@ export const OPTION_CATEGORIES = {
       col("hotelBlock", "reservationMethod", (t) => ({ proposal: inEvent(t) })),
     ],
   },
+  rfp_service: {
+    title: "RFP Services",
+    section: "hotels",
+    description: "What an Other services RFP is for",
+    resource: SETTINGS,
+    renameTargets: [col("rfp", "service", inEvent)],
+  },
+  rfp_term: {
+    title: "RFP Terms",
+    section: "hotels",
+    description: "",
+    mergeable: { noun: "RFP term" },
+    resource: SETTINGS,
+    renameTargets: [mergeTarget("rfp_term")],
+  },
+  event_type: {
+    title: "Event Types",
+    section: "event-planning",
+    description: "",
+    resource: SETTINGS,
+    renameTargets: [col("eventSpecification", "eventType", inEvent)],
+  },
+  event_scope: {
+    title: "Event Scope",
+    section: "event-planning",
+    description: "Citywide, single venue, multiple venue, etc.",
+    resource: SETTINGS,
+    renameTargets: [col("eventSpecification", "eventScope", inEvent)],
+  },
+  event_frequency: {
+    title: "Event Frequency",
+    section: "event-planning",
+    description: "",
+    resource: SETTINGS,
+    renameTargets: [col("eventSpecification", "eventFrequency", inEvent)],
+  },
   per_facility_type: {
     title: "Facility Types",
-    section: "specifications",
+    section: "post-event",
     description: "Primary event facility type.",
     resource: SETTINGS,
     renameTargets: [col("eventPostEvent", "primaryFacilityType", inEvent)],
   },
   per_housing_provider: {
     title: "Housing Providers",
-    section: "specifications",
+    section: "post-event",
     description: "Who performed housing services.",
     resource: SETTINGS,
     renameTargets: [col("eventPostEvent", "housingPerformedBy", inEvent)],
   },
   per_av_setup: {
     title: "A/V Set-ups",
-    section: "specifications",
+    section: "post-event",
     description: "A/V set-up for the largest function.",
     resource: SETTINGS,
     renameTargets: [col("eventPostEvent", "largestFunctionAvSetup", inEvent)],
@@ -606,11 +629,7 @@ export async function optionLabelUses(db: Db, tenantId: string, category: Option
 }
 
 // Labels in use that aren't on the list, with how many records hold each.
-export async function offListLabels(db: Db, tenantId: string, category: OptionCategory): Promise<{ label: string; uses: number }[]> {
-  const [options, uses] = await Promise.all([
-    db.customOption.findMany({ where: { tenantId, category }, select: { label: true } }),
-    optionLabelUses(db, tenantId, category),
-  ]);
+export function offListLabels(uses: Map<string, number>, options: { label: string }[]): { label: string; uses: number }[] {
   const listed = new Set(options.map((o) => o.label));
   return Array.from(uses, ([label, n]) => ({ label, uses: n }))
     .filter((l) => !listed.has(l.label))

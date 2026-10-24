@@ -3,31 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const tabs = [
-  { label: "Functions", segment: "functions" },
-  { label: "Presentations", segment: "presentations" },
-  { label: "Contacts", segment: "contacts" },
-  { label: "Catering", segment: "catering" },
-  { label: "Vendors", segment: "vendors" },
-  { label: "Files", segment: "files" },
-  { label: "Status", segment: "status" },
-  { label: "Hotels", segment: "hotels" },
-  { label: "Specifications", segment: "specifications" },
-  { label: "Organization", segment: "organization" },
-];
-
-export function SettingsTabs() {
+// Tabs come from the layout, which reads the option sections from the
+// registry (a server module).
+export function SettingsTabs({ tabs }: { tabs: { label: string; href: string }[] }) {
   const pathname = usePathname();
 
   return (
     <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-      <nav className="-mb-px flex gap-6 overflow-x-auto">
-        {tabs.map(({ label, segment }) => {
-          const href = `/settings/${segment}`;
+      <nav className="-mb-px flex gap-6 overflow-x-auto whitespace-nowrap">
+        {tabs.map(({ label, href }) => {
           const isActive = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
-              key={segment}
+              key={href}
               href={href}
               className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 isActive

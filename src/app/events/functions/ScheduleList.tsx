@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { FunctionSchedule, CustomOption } from "@prisma/client";
@@ -179,9 +180,9 @@ export function ScheduleList({
       {scheduleTypes.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           No schedule types defined.{" "}
-          <a href="/settings" className="text-blue-600 dark:text-blue-400 hover:underline">
+          <Link href="/settings/event-planning#schedule_type" className="text-blue-600 dark:text-blue-400 hover:underline">
             Add types in Settings
-          </a>
+          </Link>
         </p>
       )}
 

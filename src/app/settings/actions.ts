@@ -10,13 +10,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PermissionResource } from "@prisma/client";
 import {
+  OPTION_SECTIONS,
   clearDeletedLabel,
+  groupChoices,
   isMergeable,
-  offListLabels,
+  optionCategory,
+  optionLabelUses,
   propagateLabelRename,
   type OptionCategory,
 } from "@/lib/optionCategories";
-import { duplicateLabelError } from "./optionLabels";
+import { duplicateLabelError, inUseError } from "./optionLabels";
 
 // The active tenant's options. Auth-free by design (any signed-in user may read
 // dropdown labels); with no session there is no tenant, so it returns nothing.
@@ -45,6 +48,22 @@ export async function updateOrganizationProfile(formData: FormData) {
   redirect("/settings/organization?success=Organization+updated");
 }
 
+export async function getSubstatusOptions(group?: string) {
+  await requireAuth();
+  const tenantId = await requireActiveTenantId();
+  return prisma.customOption.findMany({
+    where: { tenantId, category: "substatus", ...(group ? { group } : {}) },
+    orderBy: { sortOrder: "asc" },
+  });
+}
+
+// ── Option lists ─────────────────────────────────────────────────────────────
+// Every action takes the category, checks it against the registry
+// (src/lib/optionCategories.ts) and gates on that list's resource, so the
+// equipment and storage screens share these under their own permission.
+
+const revalidateList = (category: OptionCategory) => revalidatePath(OPTION_SECTIONS[optionCategory(category).section].href);
+
 // One spelling per list: a label matching another option but for case or
 // spacing is refused (labelKey).
 async function assertUniqueLabel(tenantId: string, category: OptionCategory, label: string, exceptId?: string) {
@@ -53,13 +72,25 @@ async function assertUniqueLabel(tenantId: string, category: OptionCategory, lab
   if (error) throw new Error(error);
 }
 
+// The posted group, checked against the list's group source; undefined when
+// the list has no groups or the form rendered no group control.
+async function readGroup(tenantId: string, category: OptionCategory, formData: FormData): Promise<string | null | undefined> {
+  if (!formData.has("group")) return undefined;
+  const choices = await groupChoices(prisma, tenantId, category);
+  if (!choices) return undefined;
+  const group = (formData.get("group") as string) || null;
+  if (group && !choices.some((c) => c.value === group)) throw new Error("Unknown group");
+  return group;
+}
+
 export async function createOption(category: OptionCategory, formData: FormData) {
-  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "WRITE");
-  const label = (formData.get("label") as string).trim();
+  const def = optionCategory(category);
+  const { tenantId } = await requirePermission(def.resource, "WRITE");
+  const label = ((formData.get("label") as string) ?? "").trim();
+  if (!label) throw new Error("Label is required");
   await assertUniqueLabel(tenantId, category, label);
-  const color = formData.get("color") as string;
-  const group = formData.get("group") as string | null;
-  const models = formData.getAll("models") as string[];
+  const group = await readGroup(tenantId, category, formData);
+  if (def.groups?.kind === "fixed" && def.groups.split && !group) throw new Error("Pick a group");
 
   const maxOrder = await prisma.customOption.findFirst({
     where: { tenantId, category },
@@ -72,126 +103,111 @@ export async function createOption(category: OptionCategory, formData: FormData)
       tenantId,
       category,
       label,
-      color: color || null,
-      group: group || null,
-      models,
+      color: def.color ? (formData.get("color") as string) || null : null,
+      group: group ?? null,
+      models: def.models ? (formData.getAll("models") as string[]) : [],
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
     },
   });
 
-  revalidatePath("/settings");
+  revalidateList(category);
 }
 
-export async function updateOption(id: string, formData: FormData) {
-  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "WRITE");
-  const label = (formData.get("label") as string).trim();
-  const color = formData.get("color") as string;
-  const group = formData.get("group") as string | null;
-  const models = formData.getAll("models") as string[];
+export async function updateOption(category: OptionCategory, id: string, formData: FormData) {
+  const def = optionCategory(category);
+  const { tenantId } = await requirePermission(def.resource, "WRITE");
+  const label = ((formData.get("label") as string) ?? "").trim();
+  if (!label) throw new Error("Label is required");
 
   const existing = await prisma.customOption.findFirst({
-    where: { id, tenantId },
-    select: { label: true, category: true },
+    where: { id, tenantId, category },
+    select: { label: true },
   });
   if (!existing) throw new Error("Option not found");
-  await assertUniqueLabel(tenantId, existing.category as OptionCategory, label, id);
-
-  const labelChanged = existing.label !== label;
+  await assertUniqueLabel(tenantId, category, label, id);
+  // Only forms that render a group control post it; an edit from a list
+  // without one keeps the stored group (substatus status, APEX keys).
+  const group = await readGroup(tenantId, category, formData);
 
   await prisma.$transaction(async (tx) => {
     await tx.customOption.update({
       where: { id, tenantId },
       data: {
         label,
-        color: color || null,
-        // Only forms that render a group control post it; an edit from a list
-        // without one must keep the stored group (substatus status, APEX keys).
-        ...(formData.has("group") ? { group: group || null } : {}),
-        models,
+        ...(def.color ? { color: (formData.get("color") as string) || null } : {}),
+        ...(group !== undefined ? { group } : {}),
+        ...(def.models ? { models: formData.getAll("models") as string[] } : {}),
       },
     });
-
-    if (labelChanged) {
-      await propagateLabelRename(tx, tenantId, existing.category as OptionCategory, existing.label, label);
-    }
+    await propagateLabelRename(tx, tenantId, category, existing.label, label);
   });
 
-  revalidatePath("/settings");
+  revalidateList(category);
 }
 
-export async function getSubstatusOptions(group?: string) {
-  await requireAuth();
-  const tenantId = await requireActiveTenantId();
-  return prisma.customOption.findMany({
-    where: { tenantId, category: "substatus", ...(group ? { group } : {}) },
-    orderBy: { sortOrder: "asc" },
-  });
-}
-
-export async function deleteOption(id: string) {
-  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "DELETE");
+// An option still in use can't be deleted: its records would drop out of
+// every filtered view. Mergeable lists merge it away instead.
+export async function deleteOption(category: OptionCategory, id: string) {
+  const def = optionCategory(category);
+  const { tenantId } = await requirePermission(def.resource, "DELETE");
   const option = await prisma.customOption.findFirst({
-    where: { id, tenantId },
-    select: { isSystem: true, category: true, label: true },
+    where: { id, tenantId, category },
+    select: { isSystem: true, label: true },
   });
   if (!option) throw new Error("Option not found");
   if (option.isSystem) throw new Error("Cannot delete a system option.");
+  const uses = (await optionLabelUses(prisma, tenantId, category)).get(option.label) ?? 0;
+  if (uses > 0) throw new Error(inUseError(option.label, uses));
 
   await prisma.$transaction(async (tx) => {
-    await clearDeletedLabel(tx, tenantId, option.category as OptionCategory, option.label);
+    await clearDeletedLabel(tx, tenantId, category, option.label);
     await tx.customOption.delete({ where: { id, tenantId } });
   });
 
-  revalidatePath("/settings");
+  revalidateList(category);
 }
 
 // Folds one option into another: every use of its label moves to the other's,
 // then it's deleted.
-export async function mergeOption(id: string, intoId: string) {
-  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "DELETE");
+export async function mergeOption(category: OptionCategory, id: string, intoId: string) {
+  const def = optionCategory(category);
+  const { tenantId } = await requirePermission(def.resource, "DELETE");
+  if (!isMergeable(category)) throw new Error("These options can't be merged");
   const [from, into] = await Promise.all([
-    prisma.customOption.findFirst({ where: { id, tenantId }, select: { category: true, label: true, isSystem: true } }),
-    prisma.customOption.findFirst({ where: { id: intoId, tenantId }, select: { category: true, label: true } }),
+    prisma.customOption.findFirst({ where: { id, tenantId, category }, select: { label: true, isSystem: true } }),
+    prisma.customOption.findFirst({ where: { id: intoId, tenantId, category }, select: { label: true } }),
   ]);
   if (!from || !into || id === intoId) throw new Error("Option not found");
-  const category = from.category as OptionCategory;
-  if (into.category !== category || !isMergeable(category)) throw new Error("These options can't be merged");
   if (from.isSystem) throw new Error("Cannot merge away a system option.");
   await prisma.$transaction(async (tx) => {
     await propagateLabelRename(tx, tenantId, category, from.label, into.label);
     await tx.customOption.delete({ where: { id, tenantId } });
   });
-  revalidatePath("/settings");
-}
-
-// Labels in use that aren't on a mergeable list, for mapping onto it.
-export async function getOffListLabels(category: OptionCategory) {
-  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "VIEW");
-  if (!isMergeable(category)) return [];
-  return offListLabels(prisma, tenantId, category);
+  revalidateList(category);
 }
 
 // Moves every use of an off-list label onto a listed option.
 export async function mapOffListLabel(category: OptionCategory, label: string, intoId: string) {
-  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "WRITE");
+  const def = optionCategory(category);
+  const { tenantId } = await requirePermission(def.resource, "WRITE");
   if (!isMergeable(category)) throw new Error("This list has no off-list labels");
   const into = await prisma.customOption.findFirst({ where: { id: intoId, tenantId, category }, select: { label: true } });
   if (!into) throw new Error("Option not found");
   await prisma.$transaction((tx) => propagateLabelRename(tx, tenantId, category, label, into.label));
-  revalidatePath("/settings");
+  revalidateList(category);
 }
 
+// Reorders one list. Ids from another list or tenant are ignored.
 export async function reorderOptions(category: OptionCategory, orderedIds: string[]) {
-  const { tenantId } = await requirePermission(PermissionResource.SETTINGS, "WRITE");
-  // Update sortOrder for each option
-  await Promise.all(
+  const def = optionCategory(category);
+  const { tenantId } = await requirePermission(def.resource, "WRITE");
+  await prisma.$transaction(
     orderedIds.map((id, index) =>
-      prisma.customOption.update({
-        where: { id, tenantId },
+      prisma.customOption.updateMany({
+        where: { id, tenantId, category },
         data: { sortOrder: index },
-      })
-    )
+      }),
+    ),
   );
-
-  revalidatePath("/settings");
+  revalidateList(category);
 }

@@ -256,9 +256,9 @@ export async function addInventoryToSupplyOrder(
   return result;
 }
 
-// Location types are CustomOption rows with category="location_type". Managed
-// here rather than through the generic settings actions so this screen needs
-// only STORAGE_LOCATIONS, not SETTINGS — same split as equipment categories.
+// Location types are CustomOption rows with category="location_type", edited
+// through the shared option actions (src/app/settings/actions.ts), which gate
+// them on STORAGE_LOCATIONS per the registry. Read here for the pickers.
 export async function getLocationTypes() {
   await requireAuth();
   const tenantId = await requireActiveTenantId();
@@ -266,79 +266,4 @@ export async function getLocationTypes() {
     where: { tenantId, category: LOCATION_TYPE_CATEGORY },
     orderBy: { sortOrder: "asc" },
   });
-}
-
-export async function createLocationType(formData: FormData) {
-  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  const label = formData.get("label") as string;
-  const color = formData.get("color") as string;
-
-  const maxOrder = await prisma.customOption.findFirst({
-    where: { tenantId, category: LOCATION_TYPE_CATEGORY },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-
-  await prisma.customOption.create({
-    data: {
-      tenantId,
-      category: LOCATION_TYPE_CATEGORY,
-      label,
-      color: color || null,
-      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-    },
-  });
-
-  revalidatePath("/storage-locations");
-}
-
-export async function updateLocationType(id: string, formData: FormData) {
-  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  const label = formData.get("label") as string;
-  const color = formData.get("color") as string;
-
-  const existing = await prisma.customOption.findFirst({
-    where: { id, tenantId },
-    select: { label: true, category: true },
-  });
-  if (!existing) throw new Error("Location type not found");
-  if (existing.category !== LOCATION_TYPE_CATEGORY) throw new Error("Not a location type");
-
-  const labelChanged = existing.label !== label;
-
-  await prisma.$transaction(async (tx) => {
-    await tx.customOption.update({ where: { id, tenantId }, data: { label, color: color || null } });
-    if (labelChanged) {
-      // StorageLocation.type is stored by label, not FK — rewrite to keep rows in sync.
-      await tx.storageLocation.updateMany({
-        where: { tenantId, type: existing.label },
-        data: { type: label },
-      });
-    }
-  });
-
-  revalidatePath("/storage-locations");
-}
-
-export async function deleteLocationType(id: string) {
-  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "DELETE");
-  const option = await prisma.customOption.findFirst({
-    where: { id, tenantId },
-    select: { isSystem: true, category: true },
-  });
-  if (option?.isSystem) throw new Error("Cannot delete a system option.");
-  if (option?.category !== LOCATION_TYPE_CATEGORY) throw new Error("Not a location type");
-
-  await prisma.customOption.delete({ where: { id, tenantId } });
-  revalidatePath("/storage-locations");
-}
-
-export async function reorderLocationTypes(orderedIds: string[]) {
-  const { tenantId } = await requirePermission(PermissionResource.STORAGE_LOCATIONS, "WRITE");
-  await Promise.all(
-    orderedIds.map((id, index) =>
-      prisma.customOption.update({ where: { id, tenantId }, data: { sortOrder: index } }),
-    ),
-  );
-  revalidatePath("/storage-locations");
 }
