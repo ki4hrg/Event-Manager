@@ -9,7 +9,7 @@ import { ENTITY_FK_FIELD, getUploadDir, getUploadPath, MAX_UPLOAD_BYTES } from "
 import { getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { blockTypeLabel, dateFromKey, dateKey, formatDateKey, formatMoney, formatNight, roomTypeLabel } from "@/lib/hotels";
 import { gridToRows, readGrid, sheetKind } from "@/lib/spreadsheetRows";
-import { DEFAULT_CANCELLED, rowsToGuests, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
+import { DEFAULT_CANCELLED, guessDateOrder, rowsToGuests, type PickupColumns, type PickupGuestRow } from "@/lib/pickupMapping";
 import {
   isParsingConfigured,
   parseInboundMessage,
@@ -1174,7 +1174,11 @@ async function proposedGuests(id: string, proposal: InboundProposal): Promise<{ 
       Object.entries(proposal.sheet.columns).map(([k, h]) => [k, h && headers.includes(h) ? h : ""]),
     ) as PickupColumns;
     const cancelled = new Set(proposal.sheet.cancelledStatuses);
-    return { fileName: file.fileName, guests: rowsToGuests(rows, columns, roomFor, (raw) => cancelled.has(raw) || DEFAULT_CANCELLED.test(raw)) };
+    const dateOrder = proposal.sheet.dateOrder ?? guessDateOrder(rows, columns);
+    return {
+      fileName: file.fileName,
+      guests: rowsToGuests(rows, columns, roomFor, (raw) => cancelled.has(raw) || DEFAULT_CANCELLED.test(raw), dateOrder),
+    };
   }
   if (proposal.guests) return { fileName: null, guests: proposal.guests.map((g) => ({ ...g, roomType: g.roomType ? roomFor(g.roomType) : null })) };
   throw new Error("This read has no guests to import");
