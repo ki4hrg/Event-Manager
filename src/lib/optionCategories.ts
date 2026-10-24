@@ -11,7 +11,7 @@
 
 import { EntityStatus, PermissionResource, Prisma } from "@prisma/client";
 import { FUNCTION_SPACES, MEAL_BUCKETS, SCHEDULE_ROLES } from "@/lib/esg/apex";
-import { PROPOSAL_STAGES } from "@/lib/hotels";
+import { CHARGE_SCOPES, PROPOSAL_STAGES } from "@/lib/hotels";
 import { CONCESSION_GROUPS } from "@/lib/rfp/sections";
 import { hotelLabelUses, mergeHotelLabel, type HotelLabelCategory } from "@/lib/hotelLabels";
 import { MAIN_SCHEDULE_GROUP } from "@/lib/scheduleTypes";
@@ -162,7 +162,7 @@ export const OPTION_SECTIONS = {
   program: { title: "Program", lists: ["function_type", "schedule_type", "presentation_type", "presenter_role", "booth_type"] },
   orders: {
     title: "Orders",
-    lists: ["service_style", "meal_type", "setup_type", "per_av_setup", "delivery_method", "media_type", "print_distribution"],
+    lists: ["service_style", "meal_type", "unit", "setup_type", "per_av_setup", "delivery_method", "media_type", "print_distribution"],
   },
   hotels: {
     title: "Hotels",
@@ -170,6 +170,7 @@ export const OPTION_SECTIONS = {
       "hotel_room_type",
       "hotel_guest_type",
       "hotel_amenity",
+      "hotel_charge",
       "hotel_brand",
       "reservation_method",
       "proposal_status",
@@ -349,6 +350,15 @@ export const OPTION_CATEGORIES = {
       col("hotelProposalMeal", "mealType", (t) => ({ proposal: inEvent(t) })),
     ],
   },
+  unit: {
+    title: "Units",
+    description: "Units for catering and RFP line items.",
+    resource: SETTINGS,
+    renameTargets: [
+      col("cateringOrderLineItem", "unitType", (t) => ({ cateringOrder: inEvent(t) })),
+      col("rfpLineItem", "unit", (t) => ({ rfp: inEvent(t) })),
+    ],
+  },
   vendor_contact_type: {
     title: "Vendor Contact Types",
     description: "Roles for vendor contacts.",
@@ -395,6 +405,18 @@ export const OPTION_CATEGORIES = {
     mergeable: { noun: "amenity" },
     resource: SETTINGS,
     renameTargets: [mergeTarget("hotel_amenity")],
+  },
+  hotel_charge: {
+    title: "Guest Charges",
+    description: "Charges hotels add to a guest's stay.",
+    groups: { kind: "fixed", label: "Default scope", choices: CHARGE_SCOPES },
+    resource: SETTINGS,
+    renameTargets: [
+      col("hotelCharge", "chargeType", (t) => ({
+        kind: "GUEST",
+        OR: [{ proposal: inEvent(t) }, { block: { proposal: inEvent(t) } }],
+      })),
+    ],
   },
   hotel_brand: {
     title: "Brands",

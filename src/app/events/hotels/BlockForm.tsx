@@ -5,7 +5,8 @@ import { rangeEndFor, rangeEndMin } from "@/lib/dateRange";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { HotelChargeScope } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
-import { CHARGE_SCOPES, formatNight, nightKeys, roomTypeLabel, RUN_OF_HOUSE } from "@/lib/hotels";
+import { CHARGE_SCOPES, chargeTypePatch, formatNight, nightKeys, roomTypeLabel, RUN_OF_HOUSE, type ChargeTypeOption } from "@/lib/hotels";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 import { useAutosave } from "@/lib/useAutosave";
 import { AutosaveStatus } from "@/components/AutosaveStatus";
 import type { NightPickup } from "@/lib/hotelPickup";
@@ -148,12 +149,14 @@ export function BlockForm({
   pickup,
   roomTypes,
   reservationMethods,
+  chargeTypes,
   action,
 }: {
   block: BlockValues;
   pickup: NightPickup[];
   roomTypes: string[];
   reservationMethods: string[];
+  chargeTypes: ChargeTypeOption[];
   action: (formData: FormData) => Promise<{ id: string; night: string; roomType: string | null }[]>;
 }) {
   const canWrite = useCanWrite("HOTELS");
@@ -174,7 +177,9 @@ export function BlockForm({
       otherReservations: n.otherReservations.toString(),
     })),
   );
-  const [charges, setCharges] = useState(block.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: c.scope ?? "" })));
+  const [charges, setCharges] = useState(
+    block.charges.map((c) => ({ chargeType: c.chargeType, amount: c.amount ?? "", scope: (c.scope ?? "") as HotelChargeScope | "" })),
+  );
   const [addType, setAddType] = useState("");
 
   // The saved block's attrition (props refresh after each save).
@@ -411,11 +416,12 @@ export function BlockForm({
             <div className="mt-1 space-y-2">
               {charges.map((c, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-2">
-                  <input
+                  <OptionSelect
                     aria-label="Charge"
-                    placeholder="Resort fee, parking…"
                     value={c.chargeType}
-                    onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, chargeType: e.target.value } : x)))}
+                    options={chargeTypes.map((t) => t.label)}
+                    blank="Charge…"
+                    onChange={(e) => setCharges((prev) => prev.map((x, j) => (j === i ? { ...x, ...chargeTypePatch(e.target.value, x, chargeTypes) } : x)))}
                     className={`${inputClass} mt-0 flex-1 min-w-[10rem]`}
                   />
                   <input

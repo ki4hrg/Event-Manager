@@ -200,6 +200,24 @@ export const DEFAULT_OPTIONS = {
     { label: "Buffet", sortOrder: 1 },
     { label: "Plated", sortOrder: 2 },
   ],
+  // Catering and RFP line items. "guests" is what an RFP line copied from a
+  // catering order counts (src/lib/rfp/lineItems.ts).
+  unit: [
+    { label: "each", sortOrder: 0 },
+    { label: "per person", sortOrder: 1 },
+    { label: "guests", sortOrder: 2 },
+    { label: "flat", sortOrder: 3 },
+    { label: "per hour", sortOrder: 4 },
+    { label: "per day", sortOrder: 5 },
+  ],
+  // Guest charges; group is the scope a new charge of the type starts with.
+  hotel_charge: [
+    { label: "Resort fee", group: "PER_NIGHT", sortOrder: 0 },
+    { label: "Destination fee", group: "PER_NIGHT", sortOrder: 1 },
+    { label: "Parking", group: "PER_NIGHT", sortOrder: 2 },
+    { label: "Valet parking", group: "PER_NIGHT", sortOrder: 3 },
+    { label: "Early departure fee", group: "PER_STAY", sortOrder: 4 },
+  ],
   booth_type: [
     { label: "8'x10'", sortOrder: 0 },
     { label: "10'x10'", sortOrder: 1 },

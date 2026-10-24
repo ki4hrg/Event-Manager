@@ -5,9 +5,12 @@ import { useFormStatus } from "react-dom";
 import type { CateringOrderLineItem } from "@prisma/client";
 import { useCanDelete, useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 
 type LineItemTableProps = {
   items: CateringOrderLineItem[];
+  // The tenant's unit list.
+  units: string[];
   createItem: (formData: FormData) => Promise<void>;
   updateItem: (id: string, formData: FormData) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -31,7 +34,7 @@ function formatCurrency(value: unknown): string {
   return `$${Number(value).toFixed(2)}`;
 }
 
-export function LineItemTable({ items, createItem, updateItem, deleteItem }: LineItemTableProps) {
+export function LineItemTable({ items, units, createItem, updateItem, deleteItem }: LineItemTableProps) {
   const canWrite = useCanWrite("CATERING_ORDERS");
   const canDelete = useCanDelete("CATERING_ORDERS");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -100,10 +103,9 @@ export function LineItemTable({ items, createItem, updateItem, deleteItem }: Lin
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Unit Type</label>
-              <input
-                type="text"
+              <OptionSelect
                 name="unitType"
-                placeholder="e.g., per person, flat, per hour"
+                options={units}
                 className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
@@ -170,10 +172,10 @@ export function LineItemTable({ items, createItem, updateItem, deleteItem }: Lin
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Unit Type</label>
-                        <input
-                          type="text"
+                        <OptionSelect
                           name="unitType"
-                          defaultValue={item.unitType || ""}
+                          defaultValue={item.unitType}
+                          options={units}
                           className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                         />
                       </div>

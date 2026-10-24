@@ -714,7 +714,7 @@ model Function {
   securityNotes             String?
   signageNotes              String?
   billingNotes              String?
-  costCenter                String?
+  costCenter                String? // @option cost_center
   roomNumbers               FunctionRoomNumber[]
   exhibitBooths             ExhibitBooth[]
   exhibitBoothGroups        ExhibitBoothGroup[]
@@ -1048,7 +1048,7 @@ model CateringOrderLineItem {
   cateringOrderId String        @map("beoId")
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   description     String
-  unitType        String?
+  unitType        String? // @option unit
   unitPrice       Decimal?
   quantity        Int?
   notes           String?
@@ -2322,7 +2322,7 @@ model ExhibitBoothGroup {
   utilitiesNotes        String?
   taxExempt             Boolean?
   taxExemptId           String?
-  costCenter            String?
+  costCenter            String? // @option cost_center
   billingNotes          String?
   sortOrder             Int             @default(0)
   booths                ExhibitBooth[]
@@ -2376,7 +2376,7 @@ model ExhibitBooth {
   utilitiesNotes        String?
   taxExempt             Boolean?
   taxExemptId           String?
-  costCenter            String?
+  costCenter            String? // @option cost_center
   billingNotes          String?
   sortOrder             Int                @default(0)
   equipmentItems        EquipmentItem[]
@@ -2653,7 +2653,7 @@ model HotelCharge {
   proposal   HotelProposal?    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   blockId    String?
   block      HotelBlock?       @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  chargeType String
+  chargeType String // @option hotel_charge (GUEST charges)
   amount     Decimal?          @db.Decimal(10, 2)
   scope      HotelChargeScope?
   kind       HotelChargeKind   @default(GUEST)
@@ -3061,7 +3061,7 @@ model RfpLineItem {
   group              String?
   description        String
   quantity           Int?
-  unit               String?
+  unit               String? // @option unit
   day                DateTime?              @db.Date
   endDay             DateTime?              @db.Date
   startTime          String?

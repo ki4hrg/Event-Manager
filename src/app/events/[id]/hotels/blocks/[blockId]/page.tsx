@@ -105,6 +105,7 @@ export default async function BlockPage({
             pickup={pickup}
             roomTypes={choices.roomTypes}
             reservationMethods={choices.reservationMethods}
+            chargeTypes={choices.chargeTypes}
             action={updateAction}
           />
         </div>

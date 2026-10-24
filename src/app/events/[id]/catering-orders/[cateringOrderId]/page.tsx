@@ -139,7 +139,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions, unitOptions] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -166,6 +166,7 @@ export default async function CateringOrderPage({
       searchAssignedEventVendors("", eventId, "CATERING_ORDER"),
       getSubstatusOptions(),
       getOptions("meal_type"),
+      getOptions("unit"),
     ]);
   if (!event || !cateringOrder) {
     notFound();
@@ -562,6 +563,7 @@ export default async function CateringOrderPage({
           <div className="lg:col-span-2">
             <LineItemTable
               items={cateringOrder.lineItems}
+              units={unitOptions.map((o) => o.label)}
               createItem={createLineItemAction}
               updateItem={updateLineItemAction}
               deleteItem={deleteLineItemAction}

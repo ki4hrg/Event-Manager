@@ -15,6 +15,8 @@ import { btnPrimary, btnSecondary } from "@/lib/buttonStyles";
 import {
   addDays,
   CHARGE_SCOPES,
+  chargeTypePatch,
+  type ChargeTypeOption,
   CONTRACT_TYPES,
   coveredByProfile,
   formatDateKey,
@@ -86,6 +88,8 @@ export type ProposalChoices = {
   guestTypes: string[];
   amenities: string[];
   mealTypes: string[];
+  // The hotel_charge list, for guest charges.
+  chargeTypes: ChargeTypeOption[];
   // Vendors tagged LEAD_SOURCE (CVBs, third-party planners), with their contacts.
   leadSources: { id: string; name: string; contacts: { id: string; name: string }[] }[];
 };
@@ -147,7 +151,21 @@ function ScopeSelect({ label, value, onChange, name }: { label: string; value?: 
   );
 }
 
-function ChargeList({ label, placeholder, rows, onChange }: { label: string; placeholder: string; rows: ChargeRow[]; onChange: (rows: ChargeRow[]) => void }) {
+// `types` (guest charges) picks the charge from the hotel_charge list, its
+// scope defaulting to the type's; without it the charge is typed.
+function ChargeList({
+  label,
+  placeholder,
+  types,
+  rows,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  types?: ChargeTypeOption[];
+  rows: ChargeRow[];
+  onChange: (rows: ChargeRow[]) => void;
+}) {
   const set = (i: number, patch: Partial<ChargeRow>) => onChange(rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   return (
     <div>
@@ -155,13 +173,24 @@ function ChargeList({ label, placeholder, rows, onChange }: { label: string; pla
       <div className="mt-1 space-y-2">
         {rows.map((c, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2">
-            <input
-              aria-label="Charge"
-              placeholder={placeholder}
-              value={c.chargeType}
-              onChange={(e) => set(i, { chargeType: e.target.value })}
-              className={`${inlineInputClass} flex-1 min-w-[10rem]`}
-            />
+            {types ? (
+              <OptionSelect
+                aria-label="Charge"
+                value={c.chargeType}
+                options={types.map((t) => t.label)}
+                blank="Charge…"
+                onChange={(e) => set(i, chargeTypePatch(e.target.value, c, types))}
+                className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+              />
+            ) : (
+              <input
+                aria-label="Charge"
+                placeholder={placeholder}
+                value={c.chargeType}
+                onChange={(e) => set(i, { chargeType: e.target.value })}
+                className={`${inlineInputClass} flex-1 min-w-[10rem]`}
+              />
+            )}
             <input
               aria-label="Amount"
               type="number"
@@ -1012,7 +1041,7 @@ export function ProposalForm({
               </select>
             </Field>
           </div>
-          <ChargeList label="Guest charges" placeholder="Resort fee, parking…" rows={charges} onChange={setCharges} />
+          <ChargeList label="Guest charges" placeholder="Resort fee, parking…" types={choices.chargeTypes} rows={charges} onChange={setCharges} />
           <Field label="Notes" htmlFor="p-notes">
             <textarea id="p-notes" name="notes" rows={3} defaultValue={initial?.notes ?? ""} className={inputClass} />
           </Field>
