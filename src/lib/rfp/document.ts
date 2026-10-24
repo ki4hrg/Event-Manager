@@ -7,7 +7,7 @@
 // the proposal content we ask back. A part that is switched off is null. Pure.
 
 import type { HotelContractType, RfpKind, RfpSpaceKind, RfpStatus } from "@prisma/client";
-import { blockTypeLabel, dateKey, formatDateKey, formatMoney, formatNight, RUN_OF_HOUSE, roomTypeLabel } from "@/lib/hotels";
+import { addDays, blockTypeLabel, dateKey, formatDateKey, formatMoney, formatNight, RUN_OF_HOUSE, roomTypeLabel } from "@/lib/hotels";
 import { CONCESSION_GROUPS, concessionGroupOf, FB_INCLUDES, type ConcessionGroup, type RfpSection } from "@/lib/rfp/sections";
 import { DAY_TBD, formatClockRange, sortSpaceRows, spaceRowDays } from "@/lib/rfp/space";
 import { groupLineItems } from "@/lib/rfp/lineItems";
@@ -287,7 +287,18 @@ function spaceDays(rows: RfpDocumentInput["rfp"]["spaceRequests"]): RfpSpaceDay[
 // Most meeting rows running at once on any day (APEX "breakout rooms
 // required simultaneously"); rows without both times don't count.
 export function mostAtOnce(rows: { day: string | null; startTime: string | null; endTime: string | null }[]): number {
-  const timed = rows.filter((r): r is { day: string; startTime: string; endTime: string } => !!r.day && !!r.startTime && !!r.endTime);
+  // An end at or before the start runs overnight: until midnight, then from
+  // midnight on the next day.
+  const timed = rows
+    .filter((r): r is { day: string; startTime: string; endTime: string } => !!r.day && !!r.startTime && !!r.endTime)
+    .flatMap((r) =>
+      r.endTime > r.startTime
+        ? [r]
+        : [
+            { day: r.day, startTime: r.startTime, endTime: "24:00" },
+            ...(r.endTime > "00:00" ? [{ day: addDays(r.day, 1), startTime: "00:00", endTime: r.endTime }] : []),
+          ],
+    );
   let most = 0;
   for (const r of timed) {
     const at = timed.filter((o) => o.day === r.day && o.startTime <= r.startTime && r.startTime < o.endTime).length;

@@ -14,7 +14,6 @@ import {
   setSessionRoomOverride,
   removeSessionRoomOverride,
   createSessionInGroup,
-  updateSession,
   deleteSession,
   assignPresentationToSession,
   movePresentationSlot,
@@ -128,10 +127,6 @@ export default async function BreakoutSchedulePage({
         createSession={async (groupId: string, formData: FormData) => {
           "use server";
           await createSessionInGroup(groupId, eventId, formData);
-        }}
-        updateSession={async (functionId: string, formData: FormData) => {
-          "use server";
-          await updateSession(functionId, eventId, formData);
         }}
         deleteSession={async (functionId: string) => {
           "use server";

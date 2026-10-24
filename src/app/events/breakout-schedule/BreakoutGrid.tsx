@@ -111,7 +111,6 @@ type BreakoutGridProps = {
   setSessionRoomOverride: (functionId: string, roomId: string, type: "exclude" | "include") => Promise<void>;
   removeSessionRoomOverride: (functionId: string, roomId: string) => Promise<void>;
   createSession: (groupId: string, formData: FormData) => Promise<void>;
-  updateSession: (functionId: string, formData: FormData) => Promise<void>;
   deleteSession: (functionId: string) => Promise<void>;
   assignPresentation: (presentationId: string, functionId: string, roomId: string | null) => Promise<{ success: boolean; error?: string }>;
   moveSlot: (slotId: string, newFunctionId: string, newRoomId: string | null) => Promise<{ success: boolean; error?: string }>;
@@ -1308,7 +1307,6 @@ export function BreakoutGrid({
   setSessionRoomOverride,
   removeSessionRoomOverride,
   createSession,
-  updateSession,
   deleteSession,
   assignPresentation,
   moveSlot,

@@ -290,50 +290,6 @@ export async function createSessionInGroup(
   revalidatePath(`/events/${eventId}/breakout-schedule`);
 }
 
-export async function updateSession(
-  functionId: string,
-  eventId: string,
-  formData: FormData
-) {
-  await requirePermission("FUNCTIONS", "WRITE", eventId);
-  const name = formData.get("name") as string;
-  const startTime = formData.get("startTime") as string;
-  const endTime = formData.get("endTime") as string;
-
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: { timezone: true },
-  });
-  const timezone = event?.timezone || "America/Chicago";
-  const start = parseDateTimeInTimezone(startTime, timezone);
-  const end = parseDateTimeInTimezone(endTime, timezone);
-  if (end <= start) throw new Error("End time must be after start time");
-
-  await prisma.function.update({
-    where: { id: functionId, eventId },
-    data: { name },
-  });
-
-  // Update the first schedule (the main session time)
-  const schedule = await prisma.functionSchedule.findFirst({
-    where: { functionId, function: { eventId } },
-    orderBy: { sortOrder: "asc" },
-  });
-
-  if (schedule) {
-    await prisma.functionSchedule.update({
-      where: { id: schedule.id },
-      data: {
-        startTime: start,
-        endTime: end,
-      },
-    });
-  }
-
-  await syncFunctionNumbers(eventId);
-  revalidatePath(`/events/${eventId}/breakout-schedule`);
-}
-
 export async function deleteSession(functionId: string, eventId: string) {
   await requirePermission("FUNCTIONS", "DELETE", eventId);
   await retireFunctionNumbers(eventId, [functionId]);
