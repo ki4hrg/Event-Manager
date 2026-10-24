@@ -12,6 +12,7 @@ import {
 import {
   clearPickupCore,
   createHotelBlockCore,
+  createPickupGuestCore,
   deleteHotelBlockCore,
   importPickupGuestsCore,
   savePickupCountsCore,
@@ -581,6 +582,49 @@ export const hotelTools: McpToolDefinition[] = [
     },
   },
   {
+    name: "add_hotel_pickup_guest",
+    description:
+      "Add one guest to a block's pickup (a reservation the hotel's last report missed). Writes no import history. roomType matches the block's or the hotel_room_type list's spelling. Before the block starts, a guest added without bookedOn is dated today. Use update_hotel_pickup_guest to change or cancel one.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        blockId: { type: "string" },
+        guestName: { type: ["string", "null"] },
+        confirmationNumber: { type: ["string", "null"] },
+        checkIn: { type: "string", description: "YYYY-MM-DD." },
+        checkOut: { type: "string", description: "YYYY-MM-DD, after checkIn." },
+        roomType: { type: ["string", "null"], description: "hotel_room_type option label." },
+        cancelled: { type: "boolean" },
+        rawStatus: { type: ["string", "null"] },
+        bookedOn: { type: ["string", "null"], description: "Date the reservation was made, YYYY-MM-DD." },
+        cancelledOn: { type: ["string", "null"], description: "Date it was cancelled, YYYY-MM-DD (implies cancelled)." },
+      },
+      required: ["blockId", "checkIn", "checkOut"],
+      additionalProperties: false,
+    },
+    handler: async (args, { userId }) => {
+      const blockId = requireString(args, "blockId");
+      for (const k of ["checkIn", "checkOut"]) if (typeof args[k] !== "string" || !DATE.test(args[k] as string)) throw new Error(`${k} must be YYYY-MM-DD`);
+      for (const k of ["bookedOn", "cancelledOn"]) if (args[k] != null && (typeof args[k] !== "string" || !DATE.test(args[k] as string))) throw new Error(`${k} must be YYYY-MM-DD`);
+      return createPickupGuestCore(
+        blockId,
+        await blockEvent(blockId),
+        {
+          guestName: (args.guestName as string) || null,
+          confirmationNumber: (args.confirmationNumber as string) || null,
+          checkIn: args.checkIn as string,
+          checkOut: args.checkOut as string,
+          roomType: (args.roomType as string) || null,
+          cancelled: args.cancelled === true,
+          rawStatus: (args.rawStatus as string) || null,
+          bookedOn: (args.bookedOn as string) || null,
+          cancelledOn: (args.cancelledOn as string) || null,
+        },
+        userId,
+      );
+    },
+  },
+  {
     name: "list_hotel_pickup_guests",
     description:
       "List a block's pickup guests (guest name, confirmation #, stay, room type, cancelled, booked / cancelled dates). Filter by confirmation number or to guests missing a booking date.",
@@ -614,7 +658,7 @@ export const hotelTools: McpToolDefinition[] = [
   {
     name: "update_hotel_pickup_guest",
     description:
-      "Update one pickup guest; omitted fields are unchanged, null clears. Use it to fill in booking / cancel dates. Setting cancelled false clears the cancel date; a cancel date implies cancelled.",
+      "Update one pickup guest; omitted fields are unchanged, null clears. Use it to fill in booking / cancel dates or cancel a reservation. Setting cancelled false clears the cancel date; a cancel date implies cancelled; cancelling without a cancel date before the block starts dates it today. roomType matches the block's or the hotel_room_type list's spelling.",
     inputSchema: {
       type: "object",
       properties: {
