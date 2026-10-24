@@ -6,6 +6,9 @@ import { useUrlChipFilter } from "@/lib/useUrlChipFilter";
 
 type VendorOption = { id: string; name: string };
 
+// Booth inventory hangs off no order, so it gets its own source chip.
+const SOURCE_OPTIONS = [...MODEL_TYPES, { value: "EXHIBIT_BOOTH", label: "Exhibit Booth" }] as const;
+
 type ReportFiltersProps = {
   eventId: string;
   vendors: VendorOption[];
@@ -42,7 +45,7 @@ export function ReportFilters({ eventId, vendors, selectedVendorIds, selectedMod
       )}
 
       <FilterGroup label="Order Type">
-        {MODEL_TYPES.map(({ value, label }) => (
+        {SOURCE_OPTIONS.map(({ value, label }) => (
           <FilterChip
             key={value}
             active={selectedModelTypes.includes(value)}

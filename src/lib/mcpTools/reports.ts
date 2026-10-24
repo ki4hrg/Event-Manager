@@ -38,7 +38,7 @@ export const reportTools: McpToolDefinition[] = [
   {
     name: "get_equipment_responsibility_report",
     description:
-      "Aggregated equipment list across all order types, grouped by responsible vendor/contact (provider/operator). Mirrors the Equipment Responsibility report.",
+      "Aggregated equipment list across all order types and exhibit booths (booth-group inventory counted once per booth), grouped by responsible vendor/contact (provider/operator). Mirrors the Equipment Responsibility report.",
     inputSchema: eventOnlySchema,
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
@@ -60,7 +60,7 @@ export const reportTools: McpToolDefinition[] = [
   {
     name: "get_order_assigned_vendors",
     description:
-      "List of vendors that are assigned to at least one order on the event. Useful as a picker for vendor-scoped reports.",
+      "List of vendors that are assigned to at least one order on the event (including print orders and print item designer/printer) or provide/operate exhibit booth equipment. Useful as a picker for vendor-scoped reports.",
     inputSchema: eventOnlySchema,
     handler: async (args, { userId }) => {
       const eventId = requireString(args, "eventId");
@@ -71,7 +71,7 @@ export const reportTools: McpToolDefinition[] = [
   {
     name: "get_vendor_handoff_report",
     description:
-      "Vendor-facing report: every order on the event that vendor is on, plus per-item responsibility. Mirrors the Vendor Handoff report.",
+      "Vendor-facing report: every order on the event that vendor is on (catering, AV, setup, supply, print), the exhibit booths and booth groups whose equipment it provides or operates, plus per-item responsibility. Mirrors the Vendor Handoff report.",
     inputSchema: {
       type: "object",
       properties: { eventId: { type: "string" }, vendorId: { type: "string" } },

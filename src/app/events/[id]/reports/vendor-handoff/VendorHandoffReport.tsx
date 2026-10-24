@@ -1,6 +1,6 @@
 import type { getVendorHandoffData } from "@/app/events/reports/data";
 import type { getEvent } from "@/app/events/event";
-import { formatTime, formatDateHeading, formatEventDate } from "@/lib/agendaUtils";
+import { formatTime, formatDateHeading, formatEventDate, formatDateTime, getDateKeyInTimezone } from "@/lib/agendaUtils";
 import { resolveOptionLabel } from "@/lib/optionUtils";
 import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { cateringRelationshipLabel, computeServiceLocationCounts, type CateringRelationship } from "@/lib/cateringServiceLocations";
@@ -42,6 +42,9 @@ type CateringOrder = HandoffData["cateringOrders"][number];
 type AVOrder = HandoffData["avOrders"][number];
 type SetupOrder = HandoffData["setupOrders"][number];
 type SupplyOrder = HandoffData["supplyOrders"][number];
+type PrintOrder = HandoffData["printOrders"][number];
+type Booth = HandoffData["booths"][number];
+type BoothGroup = HandoffData["boothGroups"][number];
 type AnyFn = NonNullable<CateringOrder["function"]> | AVOrder["functions"][number];
 
 type CateringEntry = {
@@ -55,6 +58,7 @@ type FunctionGroup = {
   avOrders: AVOrder[];
   setupOrders: SetupOrder[];
   supplyOrders: SupplyOrder[];
+  printOrders: PrintOrder[];
   earliestStart: number;
 };
 
@@ -71,6 +75,7 @@ type PresentationGroup = {
   avOrders: AVOrder[];
   setupOrders: SetupOrder[];
   supplyOrders: SupplyOrder[];
+  printOrders: PrintOrder[];
   earliestStart: number;
 };
 
@@ -79,6 +84,7 @@ type UnscheduledGroup = {
   avOrders: AVOrder[];
   setupOrders: SetupOrder[];
   supplyOrders: SupplyOrder[];
+  printOrders: PrintOrder[];
 };
 
 function vendorRole(
@@ -207,7 +213,7 @@ function EquipmentTable({ items, vendorId, filterByVendor = true }: { items: Equ
 function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; presentationGroups: PresentationGroup[]; unscheduled: UnscheduledGroup } {
   const groupMap = new Map<string, FunctionGroup>();
   const presentationGroupMap = new Map<string, PresentationGroup>();
-  const unscheduled: UnscheduledGroup = { cateringOrders: [], avOrders: [], setupOrders: [], supplyOrders: [] };
+  const unscheduled: UnscheduledGroup = { cateringOrders: [], avOrders: [], setupOrders: [], supplyOrders: [], printOrders: [] };
 
   function getOrCreateGroup(fn: AnyFn): FunctionGroup {
     let group = groupMap.get(fn.id);
@@ -215,7 +221,7 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
       const earliest = fn.schedules.length > 0
         ? Math.min(...fn.schedules.map((s) => s.startTime.getTime()))
         : Infinity;
-      group = { fn, cateringOrders: [], avOrders: [], setupOrders: [], supplyOrders: [], earliestStart: earliest };
+      group = { fn, cateringOrders: [], avOrders: [], setupOrders: [], supplyOrders: [], printOrders: [], earliestStart: earliest };
       groupMap.set(fn.id, group);
     }
     return group;
@@ -229,7 +235,7 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
             slot.function.schedules.map((s) => s.startTime.getTime())
           ))
         : Infinity;
-      pg = { presentation, avOrders: [], setupOrders: [], supplyOrders: [], earliestStart: earliest };
+      pg = { presentation, avOrders: [], setupOrders: [], supplyOrders: [], printOrders: [], earliestStart: earliest };
       presentationGroupMap.set(presentation.id, pg);
     }
     return pg;
@@ -278,6 +284,15 @@ function buildFunctionGroups(data: HandoffData): { groups: FunctionGroup[]; pres
       for (const p of order.presentations) getOrCreatePresentationGroup(p).supplyOrders.push(order);
     } else {
       unscheduled.supplyOrders.push(order);
+    }
+  }
+  for (const order of data.printOrders) {
+    if (order.functions.length > 0) {
+      for (const fn of order.functions) getOrCreateGroup(fn).printOrders.push(order);
+    } else if (order.presentations.length > 0) {
+      for (const p of order.presentations) getOrCreatePresentationGroup(p).printOrders.push(order);
+    } else {
+      unscheduled.printOrders.push(order);
     }
   }
 
@@ -375,6 +390,15 @@ function buildEquipmentSummary(data: HandoffData, vendorId: string): EquipmentSu
     }
   }
 
+  for (const booth of data.booths) addItems(booth.equipmentItems);
+  // Group inventory is per booth, so the summary counts it once per booth.
+  for (const group of data.boothGroups) {
+    const perBooth = Math.max(group.booths.length, 1);
+    for (const item of group.equipmentItems) {
+      addRow(item.equipment?.name ?? item.item, item.equipment?.category ?? null, (item.quantity ?? 1) * perBooth, item.providerVendor, item.providerContact, item.operatorVendor);
+    }
+  }
+
   const SORT_LAST = "￿";
   const ROLE_ORDER: Record<string, number> = { "Provider & Operator": 0, "Provider": 1, "Operator": 2 };
   return Array.from(map.values()).sort((a, b) => {
@@ -412,6 +436,7 @@ function FunctionScheduleSection({
   for (const order of data.avOrders) for (const fn of order.functions) addFn(fn);
   for (const order of data.setupOrders) for (const fn of order.functions) addFn(fn);
   for (const order of data.supplyOrders) for (const fn of order.functions) addFn(fn);
+  for (const order of data.printOrders) for (const fn of order.functions) addFn(fn);
 
   if (allFunctions.length === 0) return null;
 
@@ -1223,6 +1248,199 @@ function SupplyOrderSection({ order, vendorId }: { order: SupplyOrder; vendorId:
   );
 }
 
+function PrintOrderSection({ order, vendorId }: { order: PrintOrder; vendorId: string }) {
+  const onOrder = order.vendors.some((v) => v.vendor.id === vendorId);
+  // A vendor on the order sees every item; otherwise only the items it
+  // designs or prints.
+  const visibleItems = onOrder
+    ? order.items
+    : order.items.filter((item) => item.designerVendor?.id === vendorId || item.printerVendor?.id === vendorId);
+  if (visibleItems.length === 0 && !onOrder) return null;
+  const vendorNames = order.vendors.map((v) => v.vendor.name).join(", ");
+
+  return (
+    <div className={orderCard}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 print:text-black">
+          {order.name}
+        </h3>
+        <div className="flex flex-wrap gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+          <span>Print Order</span>
+          <span>
+            Location: {order.room?.name ?? "—"}
+            {order.specificLocation ? ` — ${order.specificLocation}` : ""}
+          </span>
+          <PackingStatusRollup items={order.items} />
+          {vendorNames && <span>Vendors: {vendorNames}</span>}
+        </div>
+        <LastUpdated
+          updatedAt={order.updatedAt}
+          updatedBy={order.updatedBy}
+          className="mt-1 print:hidden"
+        />
+      </div>
+
+      {order.notes && (
+        <>
+          <SectionHeading>Notes</SectionHeading>
+          <p className="text-xs text-gray-700 dark:text-gray-300 print:text-gray-900 mb-3">{order.notes}</p>
+        </>
+      )}
+
+      {visibleItems.length > 0 && (
+        <>
+          <SectionHeading>Items</SectionHeading>
+          <div className="sm:hidden print:hidden border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-200 dark:divide-gray-700 text-xs mb-2">
+            {visibleItems.map((item) => {
+              const designer = partyLabel(item.designerVendor, item.designerContact);
+              const printer = partyLabel(item.printerVendor, item.printerContact);
+              return (
+                <div key={item.id} className="p-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="min-w-0 break-words font-medium text-gray-900 dark:text-gray-100">{item.description}</span>
+                    {item.quantity != null && (
+                      <span className="shrink-0 text-gray-500 dark:text-gray-400">Qty {item.quantity}</span>
+                    )}
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 mt-0.5">
+                    {PACKING_STATUS_LABEL[item.packingStatus]} · {ACQUISITION_LABEL[item.acquisitionState]}
+                  </p>
+                  {designer && <p className="text-gray-500 dark:text-gray-400 mt-0.5">Designer: {designer}</p>}
+                  {printer && <p className="text-gray-500 dark:text-gray-400 mt-0.5">Printer: {printer}</p>}
+                  {item.distributionMethod && (
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5 break-words">
+                      Distribution: {item.distributionMethod}
+                      {item.distributionNotes ? ` — ${item.distributionNotes}` : ""}
+                    </p>
+                  )}
+                  {item.sourceLocation && (
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5">Storage: {item.sourceLocation.name}</p>
+                  )}
+                  {item.notes && (
+                    <p className="italic text-gray-500 dark:text-gray-400 mt-0.5">{item.notes}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden sm:block print:block overflow-x-auto mb-2">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Item</th>
+                  <th className={th}>Qty</th>
+                  <th className={th}>Designer</th>
+                  <th className={th}>Printer</th>
+                  <th className={th}>Distribution</th>
+                  <th className={th}>Packing</th>
+                  {/* Acquisition state, as on the supply order table. */}
+                  <th className={th}>Source</th>
+                  <th className={th}>Storage</th>
+                  <th className={th}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleItems.map((item) => (
+                  <tr key={item.id}>
+                    <td className={td}>{item.description}</td>
+                    <td className={td}>{item.quantity ?? "—"}</td>
+                    <td className={td}>{partyLabel(item.designerVendor, item.designerContact) ?? "—"}</td>
+                    <td className={td}>{partyLabel(item.printerVendor, item.printerContact) ?? "—"}</td>
+                    <td className={td}>
+                      {item.distributionMethod ?? "—"}
+                      {item.distributionNotes ? ` — ${item.distributionNotes}` : ""}
+                    </td>
+                    <td className={td}>{PACKING_STATUS_LABEL[item.packingStatus]}</td>
+                    <td className={td}>{ACQUISITION_LABEL[item.acquisitionState]}</td>
+                    <td className={td}>{item.sourceLocation?.name ?? "—"}</td>
+                    <td className={td}>{item.notes ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function BoothTimes({
+  times,
+  timezone,
+}: {
+  times: { startAt: Date | null; endAt: Date | null; setupBy: Date | null; teardownBy: Date | null };
+  timezone: string;
+}) {
+  const { startAt, endAt, setupBy, teardownBy } = times;
+  if (!startAt && !endAt && !setupBy && !teardownBy) return null;
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+      {startAt && endAt ? (
+        <span>
+          Open: {formatDateTime(startAt, timezone)} –{" "}
+          {getDateKeyInTimezone(startAt, timezone) === getDateKeyInTimezone(endAt, timezone)
+            ? formatTime(endAt, timezone)
+            : formatDateTime(endAt, timezone)}
+        </span>
+      ) : (
+        <>
+          {startAt && <span>Opens: {formatDateTime(startAt, timezone)}</span>}
+          {endAt && <span>Closes: {formatDateTime(endAt, timezone)}</span>}
+        </>
+      )}
+      {setupBy && <span>Set up by: {formatDateTime(setupBy, timezone)}</span>}
+      {teardownBy && <span>Tear down by: {formatDateTime(teardownBy, timezone)}</span>}
+    </div>
+  );
+}
+
+function BoothSection({ booth, vendorId, timezone }: { booth: Booth; vendorId: string; timezone: string }) {
+  return (
+    <div id={`booth-${booth.id}`} className={`${sectionCard} print:break-inside-avoid scroll-mt-24`}>
+      <div className="mb-3">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
+          {booth.label}
+        </h2>
+        <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+          <span>Exhibit Booth</span>
+          {booth.companyName && <span>{booth.companyName}</span>}
+          {booth.group && <span>Group: {booth.group.name}</span>}
+          {booth.location && <span>{booth.location}</span>}
+        </div>
+        <BoothTimes times={booth} timezone={timezone} />
+      </div>
+      <SectionHeading>Equipment</SectionHeading>
+      <EquipmentTable items={booth.equipmentItems} vendorId={vendorId} />
+    </div>
+  );
+}
+
+function BoothGroupSection({ group, vendorId, timezone }: { group: BoothGroup; vendorId: string; timezone: string }) {
+  return (
+    <div id={`booth-group-${group.id}`} className={`${sectionCard} print:break-inside-avoid scroll-mt-24`}>
+      <div className="mb-3">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white print:text-black break-after-avoid">
+          {group.name}
+        </h2>
+        <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600">
+          <span>Booth Group</span>
+          <span>{group.booths.length} {group.booths.length === 1 ? "booth" : "booths"}</span>
+          {group.location && <span>{group.location}</span>}
+        </div>
+        <BoothTimes times={group} timezone={timezone} />
+        {group.booths.length > 0 && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 print:text-gray-600 break-words">
+            {group.booths.map((b) => b.label).join(", ")}
+          </p>
+        )}
+      </div>
+      <SectionHeading>Equipment (per booth)</SectionHeading>
+      <EquipmentTable items={group.equipmentItems} vendorId={vendorId} />
+    </div>
+  );
+}
+
 function FunctionSection({
   group,
   functionTypes,
@@ -1236,12 +1454,12 @@ function FunctionSection({
   vendorId: string;
   anchorId?: string;
 }) {
-  const { fn, cateringOrders, avOrders, setupOrders, supplyOrders } = group;
+  const { fn, cateringOrders, avOrders, setupOrders, supplyOrders, printOrders } = group;
   const typeLabel = fn.type ? resolveOptionLabel(fn.type, functionTypes) : null;
   const rooms = fn.rooms.map((r) => r.room.name).join(", ") || "—";
   const sortedSchedules = [...fn.schedules].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
-  const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0, supplyOrders.length > 0].filter(Boolean).length;
+  const typeCount = [cateringOrders.length > 0, avOrders.length > 0, setupOrders.length > 0, supplyOrders.length > 0, printOrders.length > 0].filter(Boolean).length;
 
   return (
     <div id={anchorId} className={`${sectionCard} print:break-inside-avoid scroll-mt-24`}>
@@ -1346,6 +1564,15 @@ function FunctionSection({
           ))}
         </>
       )}
+
+      {printOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Print</SubHeading>}
+          {printOrders.map((order) => (
+            <PrintOrderSection key={order.id} order={order} vendorId={vendorId} />
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -1361,9 +1588,9 @@ function PresentationSection({
   vendorId: string;
   anchorId?: string;
 }) {
-  const { presentation, avOrders, setupOrders, supplyOrders } = group;
+  const { presentation, avOrders, setupOrders, supplyOrders, printOrders } = group;
   const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
-  const typeCount = [avOrders.length > 0, setupOrders.length > 0, supplyOrders.length > 0].filter(Boolean).length;
+  const typeCount = [avOrders.length > 0, setupOrders.length > 0, supplyOrders.length > 0, printOrders.length > 0].filter(Boolean).length;
 
   const slotsByDate = new Map<string, { slot: PresentationGroup["presentation"]["slots"][number]; schedule: AnyFn["schedules"][number] }[]>();
   for (const slot of presentation.slots) {
@@ -1464,6 +1691,15 @@ function PresentationSection({
           ))}
         </>
       )}
+
+      {printOrders.length > 0 && (
+        <>
+          {typeCount > 1 && <SubHeading>Print</SubHeading>}
+          {printOrders.map((order) => (
+            <PrintOrderSection key={order.id} order={order} vendorId={vendorId} />
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -1503,13 +1739,15 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
     unscheduled.cateringOrders.length > 0 ||
     unscheduled.avOrders.length > 0 ||
     unscheduled.setupOrders.length > 0 ||
-    unscheduled.supplyOrders.length > 0;
+    unscheduled.supplyOrders.length > 0 ||
+    unscheduled.printOrders.length > 0;
 
   const unscheduledTypeCount = [
     unscheduled.cateringOrders.length > 0,
     unscheduled.avOrders.length > 0,
     unscheduled.setupOrders.length > 0,
     unscheduled.supplyOrders.length > 0,
+    unscheduled.printOrders.length > 0,
   ].filter(Boolean).length;
 
   const dateOpts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" };
@@ -1531,10 +1769,16 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
   if (keyStaff.length > 0) sectionLinks.push({ id: "key-contacts", label: "Key Contacts" });
   if (allGroups.length > 0) sectionLinks.push({ id: "function-schedule", label: "Schedule" });
   if (equipmentByCategory.length > 0) sectionLinks.push({ id: "equipment-summary", label: "Equipment" });
+  const hasBooths = data.booths.length > 0 || data.boothGroups.length > 0;
+  if (hasBooths) sectionLinks.push({ id: "exhibit-booths", label: "Exhibit Booths" });
   if (hasUnscheduled) sectionLinks.push({ id: "unscheduled", label: "Unscheduled" });
 
   const functionLinks = groups.map((g) => ({ id: `function-${g.fn.id}`, label: formatFunctionLabel(g.fn) }));
   const presentationLinks = presentationGroups.map((g) => ({ id: `presentation-${g.presentation.id}`, label: g.presentation.title }));
+  const boothLinks = [
+    ...data.boothGroups.map((g) => ({ id: `booth-group-${g.id}`, label: g.name })),
+    ...data.booths.map((b) => ({ id: `booth-${b.id}`, label: b.label })),
+  ];
 
   return (
     <div className="space-y-6 print:space-y-0">
@@ -1543,6 +1787,7 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         itemGroups={[
           { label: "Functions", links: functionLinks },
           { label: "Presentations", links: presentationLinks },
+          { label: "Booths", links: boothLinks },
         ]}
       />
 
@@ -1741,6 +1986,16 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
         )
       )}
 
+      {hasBooths && (
+        <SectionDivider id="exhibit-booths" title="Exhibit Booths" />
+      )}
+      {data.boothGroups.map((group) => (
+        <BoothGroupSection key={group.id} group={group} vendorId={vendorId} timezone={timezone} />
+      ))}
+      {data.booths.map((booth) => (
+        <BoothSection key={booth.id} booth={booth} vendorId={vendorId} timezone={timezone} />
+      ))}
+
       {hasUnscheduled && (
         <>
           <SectionDivider id="unscheduled" title="Unscheduled Orders" />
@@ -1780,6 +2035,14 @@ export function VendorHandoffReport({ data, event, functionTypes }: VendorHandof
                 {unscheduledTypeCount > 1 && <SubHeading>Supplies</SubHeading>}
                 {unscheduled.supplyOrders.map((order) => (
                   <SupplyOrderSection key={order.id} order={order} vendorId={vendorId} />
+                ))}
+              </>
+            )}
+            {unscheduled.printOrders.length > 0 && (
+              <>
+                {unscheduledTypeCount > 1 && <SubHeading>Print</SubHeading>}
+                {unscheduled.printOrders.map((order) => (
+                  <PrintOrderSection key={order.id} order={order} vendorId={vendorId} />
                 ))}
               </>
             )}
