@@ -4,6 +4,7 @@
 // gate access themselves: report pages via the event layout, share views via
 // the token, MCP tools via requirePermissionForUser.
 
+import { roomCapacitiesInclude } from "@/lib/roomCapacity";
 import { prisma } from "@/lib/prisma";
 import { optionsWhereForEvent } from "@/lib/options";
 import { roomTypeLabel } from "@/lib/hotels";
@@ -1360,6 +1361,7 @@ export async function getRoomScheduleData(eventId: string, opts: RoomScheduleFil
       include: {
         venue: { select: { id: true, name: true } },
         group: { select: { id: true, name: true, sortOrder: true } },
+        ...roomCapacitiesInclude,
       },
       orderBy: { name: "asc" },
     }),

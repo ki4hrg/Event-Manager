@@ -585,10 +585,23 @@ model Room {
   supplyOrders         SupplyOrder[]
   printOrders          PrintOrder[]
   functionRoomNumbers  FunctionRoomNumber[]
+  capacities           RoomCapacity[]
   createdAt            DateTime                      @default(now())
   updatedAt            DateTime                      @updatedAt
 
   @@index([groupId])
+}
+
+// How many a room holds in one set-up (theater, classroom, banquet). Room.capacity
+// stays the room's single headline number.
+model RoomCapacity {
+  id        String @id @default(cuid())
+  roomId    String
+  room      Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  setupType String // @option setup_type
+  capacity  Int
+
+  @@unique([roomId, setupType])
 }
 
 // Flexible contact model with roles

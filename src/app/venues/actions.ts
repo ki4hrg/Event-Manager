@@ -1,5 +1,6 @@
 "use server";
 
+import { roomCapacitiesInclude } from "@/lib/roomCapacity";
 import { PermissionResource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
@@ -39,7 +40,7 @@ export async function getVenue(id: string) {
   return prisma.venue.findFirst({
     where: { id, tenantId: session.tenantId },
     include: {
-      rooms: { orderBy: { name: "asc" } },
+      rooms: { include: roomCapacitiesInclude, orderBy: { name: "asc" } },
       roomGroups: { orderBy: { sortOrder: "asc" } },
       contacts: { include: { contact: true }, orderBy: { id: "asc" } },
       vendor: true,
@@ -93,13 +94,19 @@ export async function deleteVenue(id: string) {
   redirect("/venues");
 }
 
+// Set-up capacities post as parallel capacitySetup / capacityCount inputs.
 function readRoomArgs(formData: FormData): RoomWriteArgs {
   const capacity = formData.get("capacity") as string;
+  const counts = formData.getAll("capacityCount") as string[];
   return {
     name: formData.get("name") as string,
     capacity: capacity ? parseInt(capacity) : null,
     notes: (formData.get("notes") as string) || null,
     groupId: (formData.get("groupId") as string) || null,
+    capacities: (formData.getAll("capacitySetup") as string[]).map((setupType, i) => ({
+      setupType,
+      capacity: counts[i] ? parseInt(counts[i]) : 0,
+    })),
   };
 }
 

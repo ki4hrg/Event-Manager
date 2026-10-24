@@ -13,6 +13,7 @@ import { formatFunctionLabel } from "@/lib/functionNumbers";
 import { ReportNav } from "@/components/ReportNav";
 import { SectionDivider } from "@/components/SectionDivider";
 import { EmptyState } from "@/components/EmptyState";
+import { formatRoomCapacities } from "@/lib/roomCapacity";
 import {
   reportTh as th,
   reportTd as td,
@@ -351,6 +352,7 @@ function RoomSection({
   const dayGroups = groupByDay(items, (i) => i.dayKey, (i) => i.start);
   const venueName = bucket.room.venue?.name;
   const capacity = bucket.room.capacity;
+  const setupCapacities = formatRoomCapacities(bucket.room.capacities ?? []);
 
   return (
     <section className="print:break-after-page last:print:break-after-auto">
@@ -364,7 +366,7 @@ function RoomSection({
               {bucket.room.name}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 print:text-gray-700 mt-0.5">
-              {[venueName, capacity ? `Capacity ${capacity}` : null]
+              {[venueName, capacity ? `Capacity ${capacity}` : null, setupCapacities]
                 .filter(Boolean)
                 .join(" · ") || "—"}
             </p>

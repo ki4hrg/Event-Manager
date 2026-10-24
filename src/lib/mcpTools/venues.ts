@@ -1,4 +1,5 @@
 import { PermissionResource } from "@prisma/client";
+import { roomCapacitiesInclude } from "@/lib/roomCapacity";
 import { prisma } from "@/lib/prisma";
 import { requirePermissionForUser } from "@/lib/permissions";
 import {
@@ -65,7 +66,16 @@ function readRoomArgs(args: Record<string, unknown>): RoomWriteArgs {
     capacity: typeof cap === "number" && Number.isFinite(cap) ? Math.trunc(cap) : null,
     notes: optionalString(args, "notes") ?? null,
     groupId: optionalString(args, "groupId") ?? null,
+    ...("capacities" in args ? { capacities: readCapacities(args.capacities) } : {}),
   };
+}
+
+function readCapacities(value: unknown): NonNullable<RoomWriteArgs["capacities"]> {
+  if (!Array.isArray(value)) throw new Error("capacities must be an array");
+  return value.map((c: { setupType?: unknown; capacity?: unknown }) => {
+    if (typeof c?.setupType !== "string" || typeof c.capacity !== "number") throw new Error("Each capacity needs a setupType and a capacity");
+    return { setupType: c.setupType, capacity: Math.trunc(c.capacity) };
+  });
 }
 
 const roomWriteProps = {
@@ -73,6 +83,16 @@ const roomWriteProps = {
   capacity: { type: "number", description: "Optional integer capacity." },
   notes: { type: "string", description: "Optional." },
   groupId: { type: "string", description: "Optional RoomGroup id this room belongs to." },
+  capacities: {
+    type: "array",
+    description: "Capacity per set-up (theater, classroom, banquet…) as setup_type option labels; replaces the room's. Omit to leave unchanged.",
+    items: {
+      type: "object",
+      properties: { setupType: { type: "string" }, capacity: { type: "integer" } },
+      required: ["setupType", "capacity"],
+      additionalProperties: false,
+    },
+  },
 } as const;
 
 export const venueTools: McpToolDefinition[] = [
@@ -110,7 +130,7 @@ export const venueTools: McpToolDefinition[] = [
       return prisma.venue.findFirst({
         where: { id, tenantId },
         include: {
-          rooms: { orderBy: { name: "asc" } },
+          rooms: { include: roomCapacitiesInclude, orderBy: { name: "asc" } },
           roomGroups: { orderBy: { sortOrder: "asc" } },
           contacts: { include: { contact: true }, orderBy: { id: "asc" } },
           vendor: true,
@@ -120,7 +140,7 @@ export const venueTools: McpToolDefinition[] = [
   },
   {
     name: "list_rooms",
-    description: "List all rooms for a venue, ordered by name.",
+    description: "List all rooms for a venue, ordered by name, with their capacity per set-up.",
     inputSchema: {
       type: "object",
       properties: { venueId: { type: "string" } },
@@ -132,7 +152,7 @@ export const venueTools: McpToolDefinition[] = [
       await requirePermissionForUser(userId, PermissionResource.VENUES, "VIEW", { tenantId });
       return prisma.room.findMany({
         where: { venueId, venue: { tenantId } },
-        include: { group: true },
+        include: { group: true, ...roomCapacitiesInclude },
         orderBy: { name: "asc" },
       });
     },

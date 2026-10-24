@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { roomCapacitiesInclude } from "@/lib/roomCapacity";
 import { prisma } from "@/lib/prisma";
 import { sortRoomsByGroupThenName } from "@/lib/roomGroups";
 
@@ -31,7 +32,7 @@ export async function getEventRooms(eventId: string) {
           id: true,
           name: true,
           rooms: {
-            include: { group: { select: { id: true, name: true, sortOrder: true } } },
+            include: { group: { select: { id: true, name: true, sortOrder: true } }, ...roomCapacitiesInclude },
             orderBy: { name: "asc" },
           },
         },

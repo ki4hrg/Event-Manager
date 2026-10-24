@@ -152,6 +152,25 @@ const dietaryCounts: CustomTarget = {
   },
 };
 
+// A room holds one capacity per set-up, so a rename onto a set-up the room
+// already lists keeps that one.
+const roomCapacities: CustomTarget = {
+  kind: "custom",
+  name: "RoomCapacity.setupType",
+  rename: async (tx, tenantId, from, to) => {
+    await tx.$executeRaw`
+      DELETE FROM "RoomCapacity" f
+      USING "Room" r, "Venue" v
+      WHERE r."id" = f."roomId" AND v."id" = r."venueId" AND v."tenantId" = ${tenantId} AND f."setupType" = ${from}
+        AND EXISTS (SELECT 1 FROM "RoomCapacity" t WHERE t."roomId" = f."roomId" AND t."setupType" = ${to})`;
+    await tx.roomCapacity.updateMany({ where: { room: { venue: { tenantId } }, setupType: from }, data: { setupType: to } });
+  },
+  uses: async (db, tenantId) => {
+    const rows = await db.roomCapacity.groupBy({ by: ["setupType"], where: { room: { venue: { tenantId } } }, _count: { _all: true } });
+    return new Map(rows.map((r) => [r.setupType, r._count._all]));
+  },
+};
+
 // Key staff are unique per (event, contact, title), so a rename onto a title
 // the same person already holds on that event folds the duplicate away.
 const keyStaffTitles: CustomTarget = {
@@ -346,12 +365,13 @@ export const OPTION_CATEGORIES = {
   },
   setup_type: {
     title: "Setup Types",
-    description: "Room setups for setup orders.",
+    description: "Room setups for setup orders and room capacities.",
     resource: SETTINGS,
     renameTargets: [
       col("setupOrder", "setupType", inEvent),
       col("rfpSpaceRequest", "setup", (t) => ({ rfp: inEvent(t) })),
       col("function", "defaultSetup", inEvent),
+      roomCapacities,
     ],
   },
   booth_type: {

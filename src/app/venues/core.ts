@@ -127,7 +127,19 @@ export type RoomWriteArgs = {
   capacity: number | null;
   notes: string | null;
   groupId: string | null;
+  // Capacity per setup_type label; replaces the room's. Omitted = unchanged.
+  capacities?: { setupType: string; capacity: number }[];
 };
+
+// One row per set-up with a positive whole capacity.
+function capacityRows(capacities: NonNullable<RoomWriteArgs["capacities"]>) {
+  const rows = new Map<string, number>();
+  for (const c of capacities) {
+    const setupType = c.setupType.trim();
+    if (setupType && Number.isInteger(c.capacity) && c.capacity > 0) rows.set(setupType, c.capacity);
+  }
+  return Array.from(rows, ([setupType, capacity]) => ({ setupType, capacity }));
+}
 
 // A room's group is one of its own venue's groups.
 async function assertRoomGroupInVenue(groupId: string | null, venueId: string) {
@@ -147,6 +159,7 @@ export async function createRoomCore(venueId: string, args: RoomWriteArgs, userI
       notes: args.notes,
       venueId,
       groupId: args.groupId,
+      ...(args.capacities ? { capacities: { create: capacityRows(args.capacities) } } : {}),
     },
   });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
@@ -170,6 +183,7 @@ export async function updateRoomCore(
       capacity: args.capacity,
       notes: args.notes,
       groupId: args.groupId,
+      ...(args.capacities ? { capacities: { deleteMany: {}, create: capacityRows(args.capacities) } } : {}),
     },
   });
   await prisma.venue.update({ where: { id: venueId }, data: { updatedById: userId } });
