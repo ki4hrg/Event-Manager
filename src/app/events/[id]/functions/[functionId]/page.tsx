@@ -96,7 +96,7 @@ export default async function FunctionPage({
   params: Promise<{ id: string; functionId: string }>;
 }) {
   const { id: eventId, functionId } = await params;
-  const [event, fn, functionTypes, scheduleTypes, breakoutGroups, setupTypeOptions, costCenterOptions] = await Promise.all([
+  const [event, fn, functionTypes, scheduleTypes, breakoutGroups, setupTypeOptions, costCenterOptions, assignmentRoles] = await Promise.all([
     getEvent(eventId),
     getFunction(functionId),
     getOptions("function_type"),
@@ -107,6 +107,7 @@ export default async function FunctionPage({
     }),
     getOptions("setup_type"),
     getOptions("cost_center"),
+    getOptions("assignment_role"),
   ]);
 
   if (!event || !fn) {
@@ -398,6 +399,7 @@ export default async function FunctionPage({
           />
           <ContactList
             contacts={fn.contacts}
+            roles={assignmentRoles.map((o) => o.label)}
             addContact={addContactAction}
             updateContact={updateContactAction}
             removeContact={removeContactAction}

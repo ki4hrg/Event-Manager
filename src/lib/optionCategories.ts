@@ -128,6 +128,25 @@ const formLinkBoothTypes: CustomTarget = {
   },
 };
 
+// Key staff are unique per (event, contact, title), so a rename onto a title
+// the same person already holds on that event folds the duplicate away.
+const keyStaffTitles: CustomTarget = {
+  kind: "custom",
+  name: "EventKeyStaff.title",
+  rename: async (tx, tenantId, from, to) => {
+    await tx.$executeRaw`
+      DELETE FROM "EventKeyStaff" k
+      USING "Event" e
+      WHERE e."id" = k."eventId" AND e."tenantId" = ${tenantId} AND k."title" = ${from}
+        AND EXISTS (SELECT 1 FROM "EventKeyStaff" o WHERE o."eventId" = k."eventId" AND o."contactId" = k."contactId" AND o."title" = ${to})`;
+    await tx.eventKeyStaff.updateMany({ where: { event: { tenantId }, title: from }, data: { title: to } });
+  },
+  uses: async (db, tenantId) => {
+    const rows = await db.eventKeyStaff.groupBy({ by: ["title"], where: { event: { tenantId } }, _count: { _all: true } });
+    return new Map(rows.filter((r) => r.title).map((r) => [r.title as string, r._count._all]));
+  },
+};
+
 // A file hangs off exactly one parent; any of them places it in a tenant.
 const fileInTenant = (tenantId: string): Prisma.FileUploadWhereInput => ({
   OR: [
@@ -178,7 +197,10 @@ export const OPTION_SECTIONS = {
     ],
   },
   rfps: { title: "RFPs", lists: ["rfp_service", "rfp_term", "rfp_concession"] },
-  people: { title: "People & vendors", lists: ["contact_role", "vendor_contact_type"] },
+  people: {
+    title: "People & vendors",
+    lists: ["contact_role", "assignment_role", "staff_title", "venue_contact_type", "vendor_contact_type"],
+  },
   status: { title: "Statuses", lists: ["substatus"] },
   inventory: { title: "Inventory", lists: ["equipment_category", "location_type"] },
 } as const satisfies Record<string, { title: string; lists: readonly string[] }>;
@@ -358,6 +380,28 @@ export const OPTION_CATEGORIES = {
       col("cateringOrderLineItem", "unitType", (t) => ({ cateringOrder: inEvent(t) })),
       col("rfpLineItem", "unit", (t) => ({ rfp: inEvent(t) })),
     ],
+  },
+  assignment_role: {
+    title: "Assignment Roles",
+    description: "Roles for contacts on functions, catering orders and media deliverables.",
+    resource: SETTINGS,
+    renameTargets: [
+      col("functionContact", "role", (t) => ({ function: inEvent(t) })),
+      col("cateringOrderContact", "role", (t) => ({ cateringOrder: inEvent(t) })),
+      col("mediaDeliverableContact", "role", (t) => ({ mediaDeliverable: inEvent(t) })),
+    ],
+  },
+  staff_title: {
+    title: "Staff Titles",
+    description: "Titles for an event's key staff.",
+    resource: SETTINGS,
+    renameTargets: [keyStaffTitles],
+  },
+  venue_contact_type: {
+    title: "Venue Contact Types",
+    description: "Roles for venue contacts.",
+    resource: SETTINGS,
+    renameTargets: [col("venueContact", "role", (tenantId) => ({ venue: { tenantId } }))],
   },
   vendor_contact_type: {
     title: "Vendor Contact Types",

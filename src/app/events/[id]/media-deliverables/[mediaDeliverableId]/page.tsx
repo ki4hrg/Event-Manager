@@ -76,7 +76,7 @@ export default async function MediaDeliverablePage({
 
   const [
     fileTypeOptions, deliverableFiles, substatuses,
-    mediaTypeOptions, deliveryOptions, allFunctions, allPresentations, pool,
+    mediaTypeOptions, deliveryOptions, allFunctions, allPresentations, pool, assignmentRoles,
   ] = await Promise.all([
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { mediaDeliverableId }, orderBy: { createdAt: "asc" } }),
@@ -92,6 +92,7 @@ export default async function MediaDeliverablePage({
       functionIds: mediaDeliverable.functions.map((f) => f.id),
       presentationIds: mediaDeliverable.presentations.map((p) => p.id),
     }),
+    getOptions("assignment_role"),
   ]);
 
   const unlinkableFunctions = allFunctions.filter((f) => !linkedFunctionIds.has(f.id));
@@ -279,6 +280,7 @@ export default async function MediaDeliverablePage({
 
           <ContactList
             contacts={mediaDeliverable.contacts}
+            roles={assignmentRoles.map((o) => o.label)}
             addContact={addContactAction}
             updateContact={updateContactAction}
             removeContact={removeContactAction}

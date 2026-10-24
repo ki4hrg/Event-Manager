@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import type { VenueContact, Contact } from "@prisma/client";
 import { useCanWrite } from "@/components/PermissionsProvider";
 import { InlineConfirmButton } from "@/components/InlineConfirmButton";
+import { OptionSelect } from "@/components/ui/OptionSelect";
 
 type VenueContactWithContact = VenueContact & { contact: Contact };
 
@@ -17,6 +18,8 @@ type ContactListProps = {
   removeContact: (contactId: string) => Promise<void>;
   searchContacts: (query: string) => Promise<Contact[]>;
   createContact?: (formData: FormData) => Promise<void>;
+  // The venue_contact_type list.
+  roles: string[];
 };
 
 function SubmitButton({ label }: { label: string }) {
@@ -40,6 +43,7 @@ export function ContactList({
   removeContact,
   searchContacts,
   createContact,
+  roles,
 }: ContactListProps) {
   const canWrite = useCanWrite("VENUES");
   const [formView, setFormView] = useState<"hidden" | "search" | "create">("hidden");
@@ -212,10 +216,9 @@ export function ContactList({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Role
               </label>
-              <input
-                type="text"
+              <OptionSelect
                 name="role"
-                placeholder="e.g. Sales Manager, Event Coordinator..."
+                options={roles}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
@@ -285,10 +288,9 @@ export function ContactList({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Role
               </label>
-              <input
-                type="text"
+              <OptionSelect
                 name="role"
-                placeholder="e.g. Sales Manager, Event Coordinator..."
+                options={roles}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
@@ -339,11 +341,10 @@ export function ContactList({
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Role
                     </label>
-                    <input
-                      type="text"
+                    <OptionSelect
                       name="role"
-                      defaultValue={item.role || ""}
-                      placeholder="e.g. Sales Manager, Event Coordinator..."
+                      defaultValue={item.role}
+                      options={roles}
                       className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                     />
                   </div>

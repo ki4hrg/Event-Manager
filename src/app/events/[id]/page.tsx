@@ -19,6 +19,7 @@ import { setUserSetting, SETTING_KEYS } from "@/lib/userSettings";
 import { getEventOverviewStats } from "./actions";
 import { getDefaultSource } from "@/app/events/import/actions";
 import { hasPermission } from "@/lib/permissions";
+import { getOptions } from "@/app/(admin)/settings/actions";
 import { EntityOverviewCard } from "./EntityOverviewCard";
 import { LastUpdated } from "@/components/LastUpdated";
 import { formatEventDate } from "@/lib/agendaUtils";
@@ -54,7 +55,7 @@ function getCountdown(start: Date, end: Date) {
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [event, stats, keyStaff, importSource, canWriteEvent] = await Promise.all([
+  const [event, stats, keyStaff, importSource, canWriteEvent, staffTitles] = await Promise.all([
     getEvent(id),
     getEventOverviewStats(id),
     prisma.eventKeyStaff.findMany({
@@ -64,6 +65,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     }),
     getDefaultSource(id),
     hasPermission("EVENTS", "WRITE", id),
+    getOptions("staff_title"),
   ]);
 
   if (!event) {
@@ -156,6 +158,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             removeKeyStaff={removeKeyStaffAction}
             searchContacts={searchContactsAction}
             createContact={createContactAction}
+            titles={staffTitles.map((o) => o.label)}
           />
         </div>
 

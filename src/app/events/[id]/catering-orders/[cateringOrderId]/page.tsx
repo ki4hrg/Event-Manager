@@ -139,7 +139,7 @@ export default async function CateringOrderPage({
   const { tab = "overview" } = await searchParams;
   const activeTab = CATERING_ORDER_TABS.some((t) => t.value === tab) ? tab : "overview";
 
-  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions, unitOptions] =
+  const [event, cateringOrder, serviceStyleOptions, responsiblePartyVendors, equipmentOptions, equipmentCategories, allEventFunctions, workflowInstances, allTemplates, cateringOrderVendors, fileTypeOptions, cateringOrderFiles, availableEventVendors, substatuses, mealTypeOptions, unitOptions, assignmentRoles] =
     await Promise.all([
       getEvent(eventId),
       getCateringOrder(cateringOrderId),
@@ -167,6 +167,7 @@ export default async function CateringOrderPage({
       getSubstatusOptions(),
       getOptions("meal_type"),
       getOptions("unit"),
+      getOptions("assignment_role"),
     ]);
   if (!event || !cateringOrder) {
     notFound();
@@ -480,6 +481,7 @@ export default async function CateringOrderPage({
 
             <ContactList
               contacts={cateringOrder.contacts}
+              roles={assignmentRoles.map((o) => o.label)}
               addContact={addContactAction}
               updateContact={updateContactAction}
               removeContact={removeContactAction}

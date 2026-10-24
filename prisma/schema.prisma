@@ -658,7 +658,7 @@ model VenueContact {
   id        String  @id @default(cuid())
   venueId   String
   contactId String
-  role      String? // e.g., "Sales Manager", "Event Coordinator"
+  role      String? // @option venue_contact_type
   venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -670,7 +670,7 @@ model EventKeyStaff {
   id                 String   @id @default(cuid())
   eventId            String
   contactId          String
-  title              String?
+  title              String? // @option staff_title
   models             String[]
   sortOrder          Int      @default(0)
   // ESG Part I §C / §L / §X
@@ -782,7 +782,7 @@ model FunctionContact {
   id         String   @id @default(cuid())
   functionId String
   contactId  String
-  role       String? // e.g., "Presenter", "Moderator", "Panelist"
+  role       String? // @option assignment_role
   function   Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
   contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -1099,7 +1099,7 @@ model CateringOrderContact {
   id              String        @id @default(cuid())
   cateringOrderId String        @map("beoId")
   contactId       String
-  role            String?
+  role            String? // @option assignment_role
   cateringOrder   CateringOrder @relation(fields: [cateringOrderId], references: [id], onDelete: Cascade)
   contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -1635,7 +1635,7 @@ model MediaDeliverableContact {
   id                 String           @id @default(cuid())
   mediaDeliverableId String
   contactId          String
-  role               String?
+  role               String? // @option assignment_role
   mediaDeliverable   MediaDeliverable @relation(fields: [mediaDeliverableId], references: [id], onDelete: Cascade)
   contact            Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
 

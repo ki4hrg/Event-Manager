@@ -53,7 +53,7 @@ export async function generateMetadata({
 
 export default async function VenuePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [venue, fileTypeOptions, venueFiles, brands, areas, amenityOptions, canViewHotels, rfpHistory] = await Promise.all([
+  const [venue, fileTypeOptions, venueFiles, brands, areas, amenityOptions, canViewHotels, rfpHistory, contactTypes] = await Promise.all([
     getVenue(id),
     getOptions("file_type"),
     prisma.fileUpload.findMany({ where: { venueId: id }, orderBy: { createdAt: "asc" } }),
@@ -62,6 +62,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
     getOptions("hotel_amenity"),
     hasPermission("HOTELS", "VIEW"),
     getRfpHistory({ venueId: id }),
+    getOptions("venue_contact_type"),
   ]);
 
   if (!venue) {
@@ -194,6 +195,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
           <ContactList
             contacts={venue.contacts}
             venueId={id}
+            roles={contactTypes.map((o) => o.label)}
             addContact={addContactAction}
             updateContact={updateContactAction}
             removeContact={removeContactAction}

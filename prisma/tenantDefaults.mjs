@@ -41,6 +41,35 @@ export const DEFAULT_OPTIONS = {
     { label: "Main Event", color: "green", group: "MAIN", sortOrder: 2 },
     { label: "Breakdown", color: "orange", group: "TEARDOWN", sortOrder: 3 },
   ],
+  // Contacts on functions, catering orders and media deliverables.
+  assignment_role: [
+    { label: "Point of contact", sortOrder: 0 },
+    { label: "Host", sortOrder: 1 },
+    { label: "Presenter", sortOrder: 2 },
+    { label: "Moderator", sortOrder: 3 },
+    { label: "Panelist", sortOrder: 4 },
+  ],
+  staff_title: [
+    { label: "Event Lead", sortOrder: 0 },
+    { label: "Logistics Lead", sortOrder: 1 },
+    { label: "Registration Lead", sortOrder: 2 },
+    { label: "Communications Lead", sortOrder: 3 },
+    { label: "Sponsorship Lead", sortOrder: 4 },
+  ],
+  venue_contact_type: [
+    { label: "Sales", sortOrder: 0 },
+    { label: "Event Services", sortOrder: 1 },
+    { label: "Catering", sortOrder: 2 },
+    { label: "AV", sortOrder: 3 },
+    { label: "Billing", sortOrder: 4 },
+    { label: "On-site", sortOrder: 5 },
+  ],
+  vendor_contact_type: [
+    { label: "Sales", sortOrder: 0 },
+    { label: "Billing", sortOrder: 1 },
+    { label: "Technical", sortOrder: 2 },
+    { label: "On-site", sortOrder: 3 },
+  ],
   presenter_role: [
     { label: "Presenter", sortOrder: 0 },
     { label: "Co-Presenter", sortOrder: 1 },
