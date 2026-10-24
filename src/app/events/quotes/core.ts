@@ -14,6 +14,7 @@ import { dateFromKey } from "@/lib/hotels";
 import { rangeTouched } from "@/lib/dateRange";
 import { resourceForKind } from "@/lib/rfp/kinds";
 import { buildQuoteComparison } from "@/lib/rfp/compareQuotes";
+import { UserFacingError } from "@/lib/userErrors";
 
 export type QuoteLineArgs = {
   id?: string | null;
@@ -176,14 +177,19 @@ export async function deleteVendorQuoteCore(id: string, eventId: string, userId:
 // quotes may be accepted too; with declineOthers, the RFP's still-open quotes
 // are DECLINED and the RFP CLOSED. VENDORS WRITE is needed to put a vendor on
 // an event.
+// The orders an RFP's line items were copied from: where an award puts its vendor.
+async function rfpSourceOrders(rfpId: string | null) {
+  const sources = rfpId
+    ? await prisma.rfpLineItem.findMany({ where: { rfpId }, select: { avOrderId: true, cateringOrderId: true, printOrderId: true } })
+    : [];
+  return (key: "avOrderId" | "cateringOrderId" | "printOrderId") => Array.from(new Set(sources.flatMap((s) => (s[key] ? [s[key] as string] : []))));
+}
+
 export async function awardVendorQuoteCore(id: string, eventId: string, userId: string, declineOthers: boolean) {
   const quote = await authorizeQuote(id, eventId, "WRITE", userId);
   const tenantId = await requireEventTenantId(eventId);
   await requirePermissionForUser(userId, "VENDORS", "WRITE", { tenantId });
-  const sources = quote.rfpId
-    ? await prisma.rfpLineItem.findMany({ where: { rfpId: quote.rfpId }, select: { avOrderId: true, cateringOrderId: true, printOrderId: true } })
-    : [];
-  const ids = (key: "avOrderId" | "cateringOrderId" | "printOrderId") => Array.from(new Set(sources.flatMap((s) => (s[key] ? [s[key] as string] : []))));
+  const ids = await rfpSourceOrders(quote.rfpId);
   const vendorId = quote.vendorId;
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.vendorQuote.update({ where: { id, eventId }, data: { status: "ACCEPTED", updatedById: userId } });
@@ -202,6 +208,58 @@ export async function awardVendorQuoteCore(id: string, eventId: string, userId: 
     await tx.cateringOrderVendor.createMany({ data: catering.map((o) => ({ cateringOrderId: o.id, vendorId })), skipDuplicates: true });
     await tx.printOrderVendor.createMany({ data: print.map((o) => ({ printOrderId: o.id, vendorId })), skipDuplicates: true });
     return { orders: av.length + catering.length + print.length };
+  });
+}
+
+// Sets a quote to Received or Declined by hand. Leaving Accepted withdraws the
+// award: with removeFromOrders (VENDORS WRITE) the vendor comes off the
+// orders an award puts it on (the RFP's line item sources); it stays on the
+// event. An RFP left with no accepted quote reopens if it was closed.
+export async function setVendorQuoteStatusCore(
+  id: string,
+  eventId: string,
+  status: "RECEIVED" | "DECLINED",
+  removeFromOrders: boolean,
+  userId: string,
+) {
+  const quote = await authorizeQuote(id, eventId, "WRITE", userId);
+  const withdraw = quote.status === "ACCEPTED";
+  if (removeFromOrders && !withdraw) throw new Error("Only an accepted quote's vendor was added to orders");
+  if (removeFromOrders) await requirePermissionForUser(userId, "VENDORS", "WRITE", { tenantId: await requireEventTenantId(eventId) });
+  const ids = await rfpSourceOrders(removeFromOrders ? quote.rfpId : null);
+  const vendorId = quote.vendorId;
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.vendorQuote.update({ where: { id, eventId }, data: { status, updatedById: userId } });
+    let orders = 0;
+    if (removeFromOrders) {
+      const removed = await Promise.all([
+        tx.aVOrderVendor.deleteMany({ where: { vendorId, avOrderId: { in: ids("avOrderId") }, avOrder: { eventId } } }),
+        tx.cateringOrderVendor.deleteMany({ where: { vendorId, cateringOrderId: { in: ids("cateringOrderId") }, cateringOrder: { eventId } } }),
+        tx.printOrderVendor.deleteMany({ where: { vendorId, printOrderId: { in: ids("printOrderId") }, printOrder: { eventId } } }),
+      ]);
+      orders = removed.reduce((n, r) => n + r.count, 0);
+    }
+    if (withdraw && quote.rfpId && (await tx.vendorQuote.count({ where: { rfpId: quote.rfpId, eventId, status: "ACCEPTED" } })) === 0) {
+      await tx.rfp.updateMany({ where: { id: quote.rfpId, eventId, status: "CLOSED" }, data: { status: "ISSUED", updatedById: userId } });
+    }
+    return { status, orders };
+  });
+}
+
+// "No award": the RFP's open quotes are declined and the RFP closed. Refused
+// while a quote is accepted (withdraw it first).
+export async function recordNoAwardCore(rfpId: string, eventId: string, userId: string) {
+  const rfp = await prisma.rfp.findFirst({ where: { id: rfpId, eventId }, select: { kind: true } });
+  if (!rfp) throw new PermissionError("NOT_FOUND", "RFP not found");
+  if (rfp.kind === "HOTEL") throw new Error("Hotels answer with proposals, not quotes");
+  await requirePermissionForUser(userId, resourceForKind(rfp.kind), "WRITE", eventId);
+  if (await prisma.vendorQuote.count({ where: { rfpId, eventId, status: "ACCEPTED" } })) {
+    throw new UserFacingError("A quote is accepted; withdraw its award first");
+  }
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const { count } = await tx.vendorQuote.updateMany({ where: { rfpId, eventId, status: "RECEIVED" }, data: { status: "DECLINED", updatedById: userId } });
+    await tx.rfp.update({ where: { id: rfpId, eventId }, data: { status: "CLOSED", updatedById: userId } });
+    return { declined: count };
   });
 }
 

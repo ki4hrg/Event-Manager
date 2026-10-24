@@ -4,6 +4,8 @@ import { dateKey } from "@/lib/hotels";
 import { quoteTotals } from "@/lib/rfp/quotes";
 import {
   awardVendorQuoteCore,
+  recordNoAwardCore,
+  setVendorQuoteStatusCore,
   createVendorQuoteCore,
   deleteVendorQuoteCore,
   quoteResource,
@@ -243,6 +245,39 @@ export const quoteTools: McpToolDefinition[] = [
     },
     handler: (args, { userId }) =>
       awardVendorQuoteCore(requireString(args, "id"), requireString(args, "eventId"), userId, args.declineOthers === true),
+  },
+  {
+    name: "set_vendor_quote_status",
+    description:
+      "Set a vendor quote to RECEIVED or DECLINED. On an ACCEPTED quote this withdraws the award: with removeFromOrders (needs VENDORS write) the vendor is also taken off the orders the RFP's line items came from (it stays on the event); a CLOSED RFP left with no accepted quote reopens to ISSUED. Returns the status and how many order links were removed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        eventId: { type: "string" },
+        status: { type: "string", enum: ["RECEIVED", "DECLINED"] },
+        removeFromOrders: { type: "boolean", description: "Withdrawing an award: also remove the vendor from the RFP's orders. Default false." },
+      },
+      required: ["id", "eventId", "status"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => {
+      const status = requireString(args, "status");
+      if (status !== "RECEIVED" && status !== "DECLINED") throw new Error("status must be RECEIVED or DECLINED");
+      return setVendorQuoteStatusCore(requireString(args, "id"), requireString(args, "eventId"), status, args.removeFromOrders === true, userId);
+    },
+  },
+  {
+    name: "record_rfp_no_award",
+    description:
+      "Record that a vendor RFP was not awarded: its RECEIVED quotes become DECLINED and the RFP CLOSED. Refused while a quote is ACCEPTED (withdraw it with set_vendor_quote_status first). Returns how many quotes were declined.",
+    inputSchema: {
+      type: "object",
+      properties: { rfpId: { type: "string" }, eventId: { type: "string" } },
+      required: ["rfpId", "eventId"],
+      additionalProperties: false,
+    },
+    handler: (args, { userId }) => recordNoAwardCore(requireString(args, "rfpId"), requireString(args, "eventId"), userId),
   },
   {
     name: "delete_vendor_quote",
